@@ -58,14 +58,7 @@
   }
   .hud-pill svg { width: 16px; height: 16px; }
   .timer-icon { color: #69817b; font-size: 15px; }
-  .hop {
-    position: absolute; right: 13px; bottom: 18px; border: 1px solid #f7f4df99;
-    border-radius: 13px; padding: 11px 14px; background: #203b36e8; color: #fff7df;
-    font-size: 11px; font-weight: 800; letter-spacing: 1px; touch-action: none;
-    box-shadow: 0 3px 0 #102821; transition: opacity .15s;
-  }
-  .hop:not(.ready) { opacity: .5; }
-  .hop.held { transform: translateY(2px); box-shadow: none; }
+
   .scene-label {
     position: absolute; bottom: 20px; left: 14px; font-size: 8px; font-weight: 800;
     letter-spacing: 2px; color: #374e43; pointer-events: none;
@@ -177,7 +170,7 @@
     </div>
     <div class="toast" id="toast" role="status"></div>
     <div class="scene-label" id="scene-label">THE ORCHARD / 01</div>
-    <button class="hop ready" id="hop" data-action="hop" aria-label="Hop, or press Space">HOP ↗</button>
+
     <div class="overlay" id="overlay">
       <div class="modal">
         <div class="modal-badge" id="overlay-badge">A MINI MOTOCROSS ESCAPE</div>
@@ -186,7 +179,7 @@ Big physics.</h2>
         <p id="overlay-description">Roll over the hills, collect every apple, and reach the flag. Keep your helmet off the ground!</p>
         <div class="mini-tips" id="mini-tips" aria-hidden="true">
           <span><b>↔</b>LEAN TO LAND</span>
-          <span><b>↗</b>HOP THE HILLS</span>
+          <span><b>Space</b>FLIP DIRECTION</span>
           <span><b>⚑</b>FIND THE FLAG</span>
         </div>
         <button class="primary" id="primary">Let's ride →</button>
@@ -198,12 +191,12 @@ Big physics.</h2>
   <section class="control-area" aria-label="Bike controls">
     <div class="control-heading"><span>HOLD TO RIDE · TAP TO BALANCE</span><span>ALL THUMBS WELCOME</span></div>
     <div class="controls">
-      <button class="control" data-action="back" aria-label="Lean back, left arrow"><span class="symbol">↶</span><span class="caption">LEAN BACK</span></button>
-      <button class="control" data-action="forward" aria-label="Lean forward, right arrow"><span class="symbol">↷</span><span class="caption">LEAN FWD</span></button>
-      <button class="control" data-action="reverse" aria-label="Brake and reverse, down arrow"><span class="symbol">↓</span><span class="caption">REVERSE</span></button>
-      <button class="control gas" data-action="gas" aria-label="Accelerate, up arrow"><span class="symbol">↑</span><span class="caption">GAS</span></button>
+      <button class="control" id="left-control" data-action="back" aria-label="Lean back, left arrow"><span class="symbol">↶</span><span class="caption">LEAN BACK</span></button>
+      <button class="control" id="right-control" data-action="forward" aria-label="Lean forward, right arrow"><span class="symbol">↷</span><span class="caption">LEAN FWD</span></button>
+      <button class="control" id="down-control" data-action="down" aria-label="Brake, down arrow"><span class="symbol">↓</span><span class="caption">BRAKE</span></button>
+      <button class="control gas" id="up-control" data-action="up" aria-label="Accelerate, up arrow"><span class="symbol">↑</span><span class="caption">GAS</span></button>
     </div>
-    <p class="keyboard" id="keyboard-help"><b>↑ ↓</b> ride &nbsp; <b>← →</b> lean &nbsp; <b>Space</b> hop &nbsp; <b>R</b> retry &nbsp; <b>Esc</b> pause</p>
+    <p class="keyboard" id="keyboard-help"><b>↑</b> gas &nbsp; <b>↓</b> brake &nbsp; <b>← →</b> lean &nbsp; <b>Space</b> flip &nbsp; <b>R</b> retry &nbsp; <b>Esc</b> pause</p>
   </section>
   <div class="sr-only" id="announcer" aria-live="polite"></div>
 </main>
@@ -244,16 +237,16 @@ Big physics.</h2>
 
   let levelIndex = 0, level = levels[0], state = 'ready';
   let rear, front, apples = [], particles = [];
-  let elapsed = 0, collected = 0, hopCooldown = 0, hopQueued = false;
-  let cameraX = 0, cameraY = 0, leanVisual = 0;
+  let elapsed = 0, collected = 0, facing = 1;
+  let cameraX = 0, cameraY = 0, leanControl = 0, leanVisual = 0, flipVisual = 1;
   let lastTime = 0, accumulator = 0, lastGateNotice = -10, toastUntil = 0;
   let lastProgress = -1, lastTimer = '';
   const keys = new Set();
   const pointers = new Map();
   const actionButtons = [...document.querySelectorAll('[data-action]')];
   const keyActions = {
-    ArrowUp:'gas', KeyW:'gas', ArrowDown:'reverse', KeyS:'reverse',
-    ArrowLeft:'back', KeyA:'back', ArrowRight:'forward', KeyD:'forward', Space:'hop'
+    ArrowUp:'up', KeyW:'up', ArrowDown:'down', KeyS:'down',
+    ArrowLeft:'back', KeyA:'back', ArrowRight:'forward', KeyD:'forward'
   };
 
   function timeText(seconds) {
@@ -293,7 +286,6 @@ Big physics.</h2>
   function clearInput() {
     keys.clear();
     pointers.clear();
-    hopQueued = false;
     actionButtons.forEach(b => b.classList.remove('held'));
   }
   function down(action) {
@@ -305,15 +297,23 @@ Big physics.</h2>
     actionButtons.forEach(b => b.classList.toggle('held', down(b.dataset.action)));
   }
   function focusGame() { game.focus({ preventScroll: true }); }
+  function updateDirectionControls() {
+    const left = $('left-control'), right = $('right-control');
+    const facingRight = facing > 0;
+    left.querySelector('.caption').textContent = facingRight ? 'LEAN BACK' : 'LEAN FWD';
+    right.querySelector('.caption').textContent = facingRight ? 'LEAN FWD' : 'LEAN BACK';
+    left.setAttribute('aria-label', (facingRight ? 'Lean back' : 'Lean forward') + ', left arrow');
+    right.setAttribute('aria-label', (facingRight ? 'Lean forward' : 'Lean back') + ', right arrow');
+  }
 
   function loadLevel(index) {
     levelIndex = index; level = levels[index];
     rear = wheel(65); front = wheel(115);
     apples = level.apples.map(x => ({ x, y: terrain(x).y - 60, taken: false }));
-    particles = []; elapsed = 0; collected = 0; hopCooldown = 0;
-    cameraX = 0; cameraY = 0; leanVisual = 0;
+    particles = []; elapsed = 0; collected = 0; facing = 1;
+    cameraX = 0; cameraY = 0; leanControl = 0; leanVisual = 0; flipVisual = 1;
     accumulator = 0; lastGateNotice = -10; lastProgress = -1; lastTimer = '';
-    clearInput();
+    clearInput(); updateDirectionControls();
     $('level-select').value = String(index);
     $('scene-label').textContent = level.label;
     $('apple-count').textContent = '0 / ' + apples.length;
@@ -329,12 +329,11 @@ Big physics.</h2>
     $('pause').setAttribute('aria-label', next === 'paused' ? 'Resume game' : 'Pause game');
     $('mini-tips').hidden = next !== 'ready';
     $('secondary').hidden = next === 'ready';
-    $('hop').style.visibility = visible ? 'hidden' : 'visible';
 
     if (next === 'ready') {
       $('overlay-badge').textContent = 'TRAIL ' + String(levelIndex + 1).padStart(2,'0') + ' / ' + level.name.toUpperCase();
       $('overlay-title').textContent = 'Small bike.\nBig physics.';
-      $('overlay-description').textContent = 'Collect all five apples, then ride to the flag. Tap lean to balance. Use hop when you need a lift!';
+      $('overlay-description').textContent = 'Build speed into the hills and anticipate your lean. Lean controls swap with the biker when you flip using Space.';
       $('primary').textContent = "Let's ride →";
     } else if (next === 'paused') {
       $('overlay-badge').textContent = 'TAKE A BREATHER';
@@ -377,38 +376,45 @@ Big physics.</h2>
     const angle = Math.atan2(front.y - rear.y, front.x - rear.x);
     const c = Math.cos(angle), s = Math.sin(angle);
     return {
-      x: (rear.x + front.x) / 2 + c * 3 + s * 43,
-      y: (rear.y + front.y) / 2 + s * 3 - c * 43
+      x: (rear.x + front.x) / 2 + c * 3 * facing + s * 43,
+      y: (rear.y + front.y) / 2 + s * 3 * facing - c * 43
     };
   }
 
   // Verlet integration: two tires joined by an elastic distance constraint.
-  function integrate(p, drive, lean, isFront) {
-    let vx = (p.x - p.ox) * (p.grounded ? .997 : .9993);
-    let vy = (p.y - p.oy) * .9993;
+  function integrate(p, drive, speedLimit, lean, driveGrip, braking) {
+    let vx = (p.x - p.ox) * (p.grounded ? .9994 : .9996);
+    let vy = (p.y - p.oy) * .9996;
     let ax = 0, ay = 630;
 
-    if (p.grounded && drive) {
+    if (p.grounded) {
       const slope = terrain(p.x).slope;
       const length = Math.hypot(1, slope);
       const tx = 1 / length, ty = slope / length;
-      const tangentialSpeed = (vx * tx + vy * ty) / STEP;
-      const limit = drive > 0 ? 235 : 115;
-      if (tangentialSpeed * Math.sign(drive) < limit) {
-        const power = drive * (isFront ? .8 : 1);
-        ax += tx * power;
-        ay += ty * power;
+      const tangentialVelocity = vx * tx + vy * ty;
+
+      if (braking) {
+        const brakeAmount = 1 - Math.exp(-3.8 * driveGrip * STEP);
+        vx -= tx * tangentialVelocity * brakeAmount;
+        vy -= ty * tangentialVelocity * brakeAmount;
+      } else if (drive) {
+        const tangentialSpeed = tangentialVelocity / STEP;
+        if (tangentialSpeed * Math.sign(drive) < speedLimit) {
+          const power = drive * driveGrip;
+          ax += tx * power;
+          ay += ty * power;
+        }
       }
     }
 
     const dx = front.x - rear.x, dy = front.y - rear.y;
     const length = Math.hypot(dx, dy) || WHEELBASE;
-    const sign = isFront ? 1 : -1;
-    ax += (-dy / length) * lean * 470 * sign;
-    ay += ( dx / length) * lean * 470 * sign;
+    const sign = p === front ? 1 : -1;
+    ax += (-dy / length) * lean * 300 * sign;
+    ay += ( dx / length) * lean * 300 * sign;
 
     const speed = Math.hypot(vx, vy);
-    if (speed > 650 * STEP) { vx *= 650 * STEP / speed; vy *= 650 * STEP / speed; }
+    if (speed > 760 * STEP) { vx *= 760 * STEP / speed; vy *= 760 * STEP / speed; }
     p.ox = p.x; p.oy = p.y;
     p.x += vx + ax * STEP * STEP;
     p.y += vy + ay * STEP * STEP;
@@ -423,8 +429,10 @@ Big physics.</h2>
       let vx = p.x - p.ox, vy = p.y - p.oy;
       const intoGround = vx * nx + vy * ny;
       if (intoGround < 0) {
-        vx -= nx * intoGround;
-        vy -= ny * intoGround;
+        const impactSpeed = -intoGround / STEP;
+        const restitution = impactSpeed > 45 ? .24 : 0;
+        vx -= nx * intoGround * (1 + restitution);
+        vy -= ny * intoGround * (1 + restitution);
       }
       p.x += nx * penetration;
       p.y += ny * penetration;
@@ -450,19 +458,12 @@ Big physics.</h2>
   function physics() {
     if (state !== 'running') return;
     elapsed += STEP;
-    hopCooldown = Math.max(0, hopCooldown - STEP);
-    const lean = Number(down('forward')) - Number(down('back'));
-    const drive = down('reverse') ? -470 : down('gas') ? 780 : 0;
-
-    if (hopQueued) {
-      if (hopCooldown === 0 && (rear.grounded || front.grounded)) {
-        rear.oy += 235 * STEP; front.oy += 235 * STEP;
-        rear.grounded = front.grounded = false;
-        hopCooldown = .8;
-        burst((rear.x + front.x) / 2, Math.max(rear.y, front.y) + RADIUS, '#f4e5c4', 7);
-      }
-      hopQueued = false;
-    }
+    const leanInput = Number(down('forward')) - Number(down('back'));
+    const leanTarget = leanInput;
+    leanControl = lerp(leanControl, leanTarget, 1 - Math.exp(-4 * STEP));
+    const accelerating = down('up'), braking = down('down');
+    const drive = accelerating && !braking ? facing * 1000 : 0;
+    const speedLimit = 340;
 
     // Mild angular damping makes small corrective taps more controllable.
     const dx = front.x - rear.x, dy = front.y - rear.y;
@@ -470,12 +471,12 @@ Big physics.</h2>
     const px = -dy / length, py = dx / length;
     const relative = ((front.x - front.ox) - (rear.x - rear.ox)) * px
       + ((front.y - front.oy) - (rear.y - rear.oy)) * py;
-    const damping = relative * (lean ? .002 : .012);
+    const damping = relative * (Math.abs(leanControl) > .02 ? .001 : .005);
     front.ox += px * damping; front.oy += py * damping;
     rear.ox -= px * damping; rear.oy -= py * damping;
 
-    integrate(rear, drive, lean, false);
-    integrate(front, drive, lean, true);
+    integrate(rear, drive, speedLimit, leanControl, facing > 0 ? 1 : .8, braking);
+    integrate(front, drive, speedLimit, leanControl, facing > 0 ? .8 : 1, braking);
 
     for (let i = 0; i < 7; i++) {
       const x = front.x - rear.x, y = front.y - rear.y;
@@ -520,11 +521,11 @@ Big physics.</h2>
       } else if (elapsed - lastGateNotice > 5) {
         lastGateNotice = elapsed;
         const missing = apples.length - collected;
-        notify(missing + (missing === 1 ? ' apple left. ' : ' apples left. ') + 'Reverse to pick them up!');
+        notify(missing + (missing === 1 ? ' apple left. ' : ' apples left. ') + 'Flip around to pick them up!');
       }
     }
 
-    leanVisual = lerp(leanVisual, lean, .04);
+    leanVisual = lerp(leanVisual, leanControl * facing, .025);
   }
 
   function updateHud() {
@@ -537,7 +538,6 @@ Big physics.</h2>
       $('progress').setAttribute('aria-valuenow', String(progress));
       lastProgress = progress;
     }
-    $('hop').classList.toggle('ready', hopCooldown <= 0 && (rear.grounded || front.grounded));
   }
 
   function line(points, color, width) {
@@ -697,7 +697,7 @@ Big physics.</h2>
     ctx.beginPath(); ctx.ellipse(mx,ground-1,34,4,0,0,TAU); ctx.fill();
 
     drawWheel(rear); drawWheel(front);
-    ctx.save(); ctx.translate(mx,my); ctx.rotate(angle);
+    ctx.save(); ctx.translate(mx,my); ctx.rotate(angle); ctx.scale(flipVisual, 1);
     const half = length/2;
     line([[-half,0],[-7,-18],[13,-17],[half,0],[-3,-1],[-half,0]],'#ef7a43',3.5);
     line([[-7,-18],[-3,-1],[13,-17]],'#f5a369',2.6);
@@ -729,9 +729,12 @@ Big physics.</h2>
 
   function render(now, dt) {
     const midX = (rear.x + front.x)/2, midY = (rear.y + front.y)/2;
-    const targetX = Math.max(0, midX - 115);
+    const targetX = Math.max(0, midX - (facing > 0 ? 115 : 265));
     const targetY = clamp(midY - 276, -170, 100);
     const smoothing = 1 - Math.exp(-8 * dt);
+    const flipSmoothing = reducedMotion ? 1 : 1 - Math.exp(-18 * dt);
+    flipVisual = lerp(flipVisual, facing, flipSmoothing);
+    if (Math.abs(flipVisual - facing) < .002) flipVisual = facing;
     cameraX = lerp(cameraX,targetX,smoothing);
     cameraY = lerp(cameraY,targetY,smoothing);
     drawBackground();
@@ -771,7 +774,6 @@ Big physics.</h2>
       button.setPointerCapture(e.pointerId);
       const action = button.dataset.action;
       pointers.set(e.pointerId, action);
-      if (action === 'hop') hopQueued = true;
       paintInput();
     });
     const release = e => { pointers.delete(e.pointerId); paintInput(); };
@@ -779,11 +781,6 @@ Big physics.</h2>
     button.addEventListener('pointercancel', release);
     button.addEventListener('lostpointercapture', release);
     button.addEventListener('contextmenu', e => e.preventDefault());
-    // Supports activation by keyboard or assistive technology.
-    button.addEventListener('click', e => {
-      if (e.detail !== 0 || state !== 'running') return;
-      if (button.dataset.action === 'hop') hopQueued = true;
-    });
   });
 
   game.addEventListener('keydown', e => {
@@ -797,9 +794,14 @@ Big physics.</h2>
     if (e.code === 'KeyR') {
       e.preventDefault(); if (!e.repeat) startFresh(); return;
     }
-    if (state !== 'running' || !keyActions[e.code]) return;
+    if (state !== 'running') return;
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (!e.repeat) { facing *= -1; updateDirectionControls(); }
+      return;
+    }
+    if (!keyActions[e.code]) return;
     e.preventDefault();
-    if (e.code === 'Space' && !keys.has(e.code) && !e.repeat) hopQueued = true;
     keys.add(e.code); paintInput();
   });
   window.addEventListener('keyup', e => {
