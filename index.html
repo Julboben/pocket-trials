@@ -375,14 +375,15 @@ Big physics.</h2>
   function headPosition() {
     const angle = Math.atan2(front.y - rear.y, front.x - rear.x);
     const c = Math.cos(angle), s = Math.sin(angle);
+    const riderShift = leanControl * 9;
     return {
-      x: (rear.x + front.x) / 2 + c * 3 * facing + s * 43,
-      y: (rear.y + front.y) / 2 + s * 3 * facing - c * 43
+      x: (rear.x + front.x) / 2 + c * (3 * facing + riderShift) + s * 43,
+      y: (rear.y + front.y) / 2 + s * (3 * facing + riderShift) - c * 43
     };
   }
 
   // Verlet integration: two tires joined by an elastic distance constraint.
-  function integrate(p, drive, speedLimit, lean, driveGrip, braking) {
+  function integrate(p, drive, speedLimit, lean, leanTorque, driveGrip, braking) {
     let vx = (p.x - p.ox) * (p.grounded ? .9994 : .9996);
     let vy = (p.y - p.oy) * .9996;
     let ax = 0, ay = 630;
@@ -410,8 +411,8 @@ Big physics.</h2>
     const dx = front.x - rear.x, dy = front.y - rear.y;
     const length = Math.hypot(dx, dy) || WHEELBASE;
     const sign = p === front ? 1 : -1;
-    ax += (-dy / length) * lean * 300 * sign;
-    ay += ( dx / length) * lean * 300 * sign;
+    ax += (-dy / length) * lean * leanTorque * sign;
+    ay += ( dx / length) * lean * leanTorque * sign;
 
     const speed = Math.hypot(vx, vy);
     if (speed > 760 * STEP) { vx *= 760 * STEP / speed; vy *= 760 * STEP / speed; }
@@ -464,6 +465,9 @@ Big physics.</h2>
     const accelerating = down('up'), braking = down('down');
     const drive = accelerating && !braking ? facing * 1000 : 0;
     const speedLimit = 340;
+    // On the ground the rider's shifted weight can unload either wheel;
+    // in the air, lower torque keeps rotation deliberate and momentum-led.
+    const leanTorque = rear.grounded || front.grounded ? 820 : 300;
 
     // Mild angular damping makes small corrective taps more controllable.
     const dx = front.x - rear.x, dy = front.y - rear.y;
@@ -475,8 +479,8 @@ Big physics.</h2>
     front.ox += px * damping; front.oy += py * damping;
     rear.ox -= px * damping; rear.oy -= py * damping;
 
-    integrate(rear, drive, speedLimit, leanControl, facing > 0 ? 1 : .8, braking);
-    integrate(front, drive, speedLimit, leanControl, facing > 0 ? .8 : 1, braking);
+    integrate(rear, drive, speedLimit, leanControl, leanTorque, facing > 0 ? 1 : .8, braking);
+    integrate(front, drive, speedLimit, leanControl, leanTorque, facing > 0 ? .8 : 1, braking);
 
     for (let i = 0; i < 7; i++) {
       const x = front.x - rear.x, y = front.y - rear.y;
@@ -711,19 +715,19 @@ Big physics.</h2>
     circle(-3,-1,4,'#334d40');
     line([[-3,-1],[4,2]],'#c8d1b6',2);
 
-    const shift = leanVisual * 3;
-    // Boots, bent legs, jacket, arms and helmet.
-    line([[-8+shift,-24],[4+shift,-14],[-2,-3]],'#2c4850',5);
+    const shift = leanVisual * 9;
+    // The planted boots and hands make the rider visibly shift their weight.
+    line([[-8+shift,-24],[4+shift*.45,-14],[-2,-3]],'#2c4850',5);
     line([[-3,-3],[3,-3]],'#263b36',3);
     line([[-8+shift,-25],[1+shift,-37]],'#f3eee0',8);
-    line([[1+shift,-36],[11+shift,-30],[19,-25]],'#c5764c',3.6);
-    line([[1+shift,-36],[10+shift,-31]],'#f5ecda',4.5);
-    line([[1+shift,-35],[3,-42]],'#bf8057',3);
-    circle(3,-43,8,'#f5ac50');
+    line([[1+shift,-36],[11+shift*.45,-30],[19,-25]],'#c5764c',3.6);
+    line([[1+shift,-36],[10+shift*.45,-31]],'#f5ecda',4.5);
+    line([[1+shift,-35],[3+shift,-42]],'#bf8057',3);
+    circle(3+shift,-43,8,'#f5ac50');
     ctx.fillStyle = '#284945';
-    ctx.beginPath(); ctx.ellipse(7,-43,5.5,3,0,0,TAU); ctx.fill();
-    line([[-2,-47],[4,-49]],'#ffe0a0',1.8);
-    line([[7,-38],[11,-39]],'#f2bc73',2.3);
+    ctx.beginPath(); ctx.ellipse(7+shift,-43,5.5,3,0,0,TAU); ctx.fill();
+    line([[-2+shift,-47],[4+shift,-49]],'#ffe0a0',1.8);
+    line([[7+shift,-38],[11+shift,-39]],'#f2bc73',2.3);
     ctx.restore();
   }
 
