@@ -140,6 +140,12 @@ When changing physics values, validate at least these cases:
 6. Reversing direction and riding back through a level
 7. Crossing the gap in Skybound
 
+## Upcoming features
+
+- [ ] Sound Effects
+- [ ] Different terrain types (grass, mud, snow, etc.)
+- [ ] Splatter behind the bike when you drive on different terrain
+
 ## Possible Godot migration
 
 If Pocket Trials grows into a larger game, migrating to **Godot 4** is recommended. The browser version should remain available as the handling reference during that rewrite.

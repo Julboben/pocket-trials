@@ -109,6 +109,7 @@
   .secondary { border: 0; background: none; color: #60746a; padding: 13px 8px 0; font-size: 11px; }
   .secondary[hidden], .mini-tips[hidden] { display: none; }
   .control-area { width: min(100%, 760px); margin: 0 auto; padding: 14px 13px 12px; }
+  .control-buttons[hidden] { display: none; }
   .control-heading {
     display: flex; justify-content: space-between; font-size: 8px;
     letter-spacing: 1.5px; color: #91a7a8; margin: 0 2px 9px;
@@ -250,12 +251,14 @@ Big physics.</h2>
   </div>
   <div class="progress" role="progressbar" id="progress" aria-label="Distance along trail" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-fill" id="progress-fill"></div></div>
   <section class="control-area" aria-label="Bike controls">
-    <div class="control-heading"><span>HOLD TO RIDE · TAP TO BALANCE</span><span>ALL THUMBS WELCOME</span></div>
-    <div class="controls">
-      <button class="control" id="left-control" data-action="back" aria-label="Lean back, left arrow"><span class="symbol">↶</span><span class="caption">LEAN BACK</span></button>
-      <button class="control" id="right-control" data-action="forward" aria-label="Lean forward, right arrow"><span class="symbol">↷</span><span class="caption">LEAN FWD</span></button>
-      <button class="control" id="down-control" data-action="down" aria-label="Brake, down arrow"><span class="symbol">↓</span><span class="caption">BRAKE</span></button>
-      <button class="control gas" id="up-control" data-action="up" aria-label="Accelerate, up arrow"><span class="symbol">↑</span><span class="caption">GAS</span></button>
+    <div class="control-buttons" id="control-buttons">
+      <div class="control-heading"><span>HOLD TO RIDE · TAP TO BALANCE</span><span>ALL THUMBS WELCOME</span></div>
+      <div class="controls">
+        <button class="control" id="left-control" data-action="back" aria-label="Lean back, left arrow"><span class="symbol">↶</span><span class="caption">LEAN BACK</span></button>
+        <button class="control" id="right-control" data-action="forward" aria-label="Lean forward, right arrow"><span class="symbol">↷</span><span class="caption">LEAN FWD</span></button>
+        <button class="control" id="down-control" data-action="down" aria-label="Brake, down arrow"><span class="symbol">↓</span><span class="caption">BRAKE</span></button>
+        <button class="control gas" id="up-control" data-action="up" aria-label="Accelerate, up arrow"><span class="symbol">↑</span><span class="caption">GAS</span></button>
+      </div>
     </div>
     <p class="keyboard" id="keyboard-help"><b>↑</b> gas &nbsp; <b>↓</b> brake &nbsp; <b>← →</b> lean &nbsp; <b>Space</b> flip &nbsp; <b>R</b> retry &nbsp; <b>Esc</b> pause</p>
   </section>
@@ -281,14 +284,6 @@ Big physics.</h2>
       </fieldset>
 
       <fieldset class="setting-group">
-        <legend>CAMERA POSITION</legend>
-        <div class="setting-options" style="--options:3">
-          <button type="button" class="setting-option" data-setting="camera" data-value="centered">Centered</button>
-          <button type="button" class="setting-option" data-setting="camera" data-value="balanced">Balanced</button>
-          <button type="button" class="setting-option" data-setting="camera" data-value="ahead">Look ahead</button>
-        </div>
-      </fieldset>
-      <fieldset class="setting-group">
         <legend>MAP SCENERY</legend>
         <div class="setting-options" style="--options:2">
           <button type="button" class="setting-option" data-setting="scenery" data-value="full">Full</button>
@@ -296,10 +291,10 @@ Big physics.</h2>
         </div>
       </fieldset>
       <fieldset class="setting-group">
-        <legend>CONTROL HINTS</legend>
+        <legend>ON-SCREEN CONTROLS</legend>
         <div class="setting-options" style="--options:2">
-          <button type="button" class="setting-option" data-setting="hints" data-value="show">Show</button>
-          <button type="button" class="setting-option" data-setting="hints" data-value="hide">Hide</button>
+          <button type="button" class="setting-option" data-setting="controls" data-value="show">Show</button>
+          <button type="button" class="setting-option" data-setting="controls" data-value="hide">Hide</button>
         </div>
       </fieldset>
       <button class="primary settings-done" value="done">Done</button>
@@ -355,8 +350,8 @@ Big physics.</h2>
 
   let levelIndex = 0, level = levels[0], state = 'ready', rider = 'max';
   let unlockedLevel = 0, savedLevel = 0, resumeAfterSettings = false;
-  let preferences = { rider: 'max', camera: 'balanced', scenery: 'full', hints: 'show' };
-  let rear, front, apples = [], particles = [], ragdoll = null;
+  let preferences = { rider: 'max', scenery: 'full', controls: 'show' };
+  let rear, front, apples = [], particles = [], ragdoll = null, hair = null;
   let elapsed = 0, collected = 0, facing = 1, throttle = 0, brakePressure = 0;
   let cameraX = 0, cameraY = 0, leanControl = 0, leanVisual = 0, flipVisual = 1;
   let lastTime = 0, accumulator = 0, lastGateNotice = -10, toastUntil = 0;
@@ -398,7 +393,7 @@ Big physics.</h2>
   function applyPreferences() {
     rider = preferences.rider;
     ctx.imageSmoothingEnabled = false;
-    $('keyboard-help').hidden = preferences.hints === 'hide';
+    $('control-buttons').hidden = preferences.controls === 'hide';
     document.querySelectorAll('[data-setting]').forEach(button => {
       button.setAttribute('aria-pressed', String(preferences[button.dataset.setting] === button.dataset.value));
     });
@@ -408,9 +403,8 @@ Big physics.</h2>
       const storedSettings = JSON.parse(localStorage.getItem('pocket-trials-settings-v1') || 'null');
       if (storedSettings) preferences = {
         rider: storedSettings.rider ?? preferences.rider,
-        camera: storedSettings.camera ?? preferences.camera,
         scenery: storedSettings.scenery ?? preferences.scenery,
-        hints: storedSettings.hints ?? preferences.hints
+        controls: storedSettings.controls ?? storedSettings.hints ?? preferences.controls
       };
       else preferences.rider = localStorage.getItem('pocket-trials-rider') || preferences.rider;
       const progress = JSON.parse(localStorage.getItem('pocket-trials-progress-v1') || 'null');
@@ -426,9 +420,8 @@ Big physics.</h2>
     } catch (_) {}
     if (!['max','Maxine'].includes(preferences.rider)) preferences.rider = 'max';
 
-    if (!['centered','balanced','ahead'].includes(preferences.camera)) preferences.camera = 'balanced';
     if (!['full','reduced'].includes(preferences.scenery)) preferences.scenery = 'full';
-    if (!['show','hide'].includes(preferences.hints)) preferences.hints = 'show';
+    if (!['show','hide'].includes(preferences.controls)) preferences.controls = 'show';
   }
 
   // Smooth heightfield with an analytic derivative for tire contact normals.
@@ -482,7 +475,7 @@ Big physics.</h2>
     levelIndex = index; level = levels[index];
     rear = wheel(65); front = wheel(115);
     apples = level.apples.map(x => ({ x, y: terrain(x).y - 60, taken: false }));
-    particles = []; ragdoll = null; elapsed = 0; collected = 0; facing = 1; throttle = 0; brakePressure = 0;
+    particles = []; ragdoll = null; hair = null; elapsed = 0; collected = 0; facing = 1; throttle = 0; brakePressure = 0;
     cameraX = 0; cameraY = 0; leanControl = 0; leanVisual = 0; flipVisual = 1;
     accumulator = 0; lastGateNotice = -10; lastProgress = -1; lastTimer = '';
     clearInput(); updateDirectionControls();
@@ -961,8 +954,10 @@ Big physics.</h2>
       pixelRect(30,6,42,6,'#f8f7e9',6);
       ctx.restore();
     }
-    drawMountainLayers();
-    drawHillTrees();
+    if (preferences.scenery === 'full') {
+      drawMountainLayers();
+      drawHillTrees();
+    }
   }
 
 
@@ -1034,7 +1029,7 @@ Big physics.</h2>
     for (let i = Math.floor(cameraX / 45); i < Math.ceil((cameraX + W) / 45); i++) {
       const x = i * 45 + Math.sin(i * 9) * 8, t = terrain(x);
       if (!t.solid) continue;
-      line([[x - 3, t.y - 3],[x - 5, t.y - 8],[x, t.y - 4],[x + 2, t.y - 10]], '#628455', 1.3);
+      pixelPath([[x - 4, t.y - 2],[x - 4, t.y - 8],[x, t.y - 4],[x + 2, t.y - 10]], '#628455', 1, 2);
     }
 
     if (cameraX < 230) {
@@ -1047,6 +1042,7 @@ Big physics.</h2>
   }
 
   function drawProp(prop,layer){
+    if(preferences.scenery === 'reduced' && prop.type === 'tree')return;
     if(prop.x<cameraX-70||prop.x>cameraX+W+70)return;
     const ground=terrain(prop.x);if(!ground.solid)return;
     const y=ground.y;
@@ -1073,7 +1069,6 @@ Big physics.</h2>
 
 
   function drawProps(layer) {
-    if (preferences.scenery === 'reduced' && layer === 'front') return;
     for (const prop of level.props || []) if (prop.layer === layer) drawProp(prop, layer);
   }
 
@@ -1172,10 +1167,7 @@ Big physics.</h2>
     pixelRect(-4+shift,-38,10,4,jacketLight);
     pixelPath([[3+shift,-35],[11+shift*.45,-30],[20,-25]],skin,2);
     pixelPath([[2+shift,-36],[10+shift*.45,-31]],jacketLight,2);
-    if (isMaxine) {
-      pixelRect(-8+shift,-48,8,14,'#54362d');
-      pixelRect(-12+shift,-39,6,8,'#54362d');
-    }
+
     pixelRect(0+shift,-46,8,8,skin);
     pixelRect(-4+shift,-52,14,12,'#263b36');
     pixelRect(-2+shift,-52,12,10,helmet);
@@ -1185,6 +1177,129 @@ Big physics.</h2>
     }
     ctx.restore();
     ctx.restore();
+  }
+
+  function hairAnchors() {
+    if (ragdoll) {
+      const head = ragdoll.points.head;
+      return [-4, 0, 4].map(offset => ({ x: head.x - facing * 6, y: head.y + offset }));
+    }
+    const mx = Math.round((rear.x + front.x) / 2);
+    const my = Math.round((rear.y + front.y) / 2);
+    const angle = Math.atan2(front.y - rear.y, front.x - rear.x);
+    const pixelAngle = Math.round(angle / (TAU / 32)) * (TAU / 32);
+    const backCompression = facing > 0 ? rear.compression : front.compression;
+    const frontCompression = facing > 0 ? front.compression : rear.compression;
+    const bodyDrop = Math.round((backCompression + frontCompression) * .2) * 2;
+    const bodyPitch = (frontCompression - backCompression) * .0096;
+    const shift = Math.round(leanVisual * 4.5) * 2;
+    return [-48, -44, -40].map((localY, index) => {
+      const localX = -5 - index + shift;
+      const pitchedX = localX * Math.cos(bodyPitch) - localY * Math.sin(bodyPitch);
+      const pitchedY = localX * Math.sin(bodyPitch) + localY * Math.cos(bodyPitch) + bodyDrop;
+      const flippedX = pitchedX * flipVisual;
+      return {
+        x: mx + Math.cos(pixelAngle) * flippedX - Math.sin(pixelAngle) * pitchedY,
+        y: my + Math.sin(pixelAngle) * flippedX + Math.cos(pixelAngle) * pitchedY
+      };
+    });
+  }
+
+  function hairBackSupport() {
+    if (ragdoll) return null;
+    const mx = Math.round((rear.x + front.x) / 2);
+    const my = Math.round((rear.y + front.y) / 2);
+    const angle = Math.atan2(front.y - rear.y, front.x - rear.x);
+    const pixelAngle = Math.round(angle / (TAU / 32)) * (TAU / 32);
+    const backCompression = facing > 0 ? rear.compression : front.compression;
+    const frontCompression = facing > 0 ? front.compression : rear.compression;
+    const bodyDrop = Math.round((backCompression + frontCompression) * .2) * 2;
+    const bodyPitch = (frontCompression - backCompression) * .0096;
+    const shift = Math.round(leanVisual * 4.5) * 2;
+    const transform = (localX, localY) => {
+      const pitchedX = localX * Math.cos(bodyPitch) - localY * Math.sin(bodyPitch);
+      const pitchedY = localX * Math.sin(bodyPitch) + localY * Math.cos(bodyPitch) + bodyDrop;
+      const flippedX = pitchedX * flipVisual;
+      return {
+        x: mx + Math.cos(pixelAngle) * flippedX - Math.sin(pixelAngle) * pitchedY,
+        y: my + Math.sin(pixelAngle) * flippedX + Math.cos(pixelAngle) * pitchedY
+      };
+    };
+    const top = transform(-7 + shift, -39);
+    const bottom = transform(-8 + shift, -27);
+    const outside = transform(-9 + shift, -33);
+    const inside = transform(-7 + shift, -33);
+    const dx = outside.x - inside.x, dy = outside.y - inside.y;
+    const length = Math.hypot(dx, dy) || 1;
+    return { top, bottom, nx: dx / length, ny: dy / length };
+  }
+
+  function updateHair(dt) {
+    if (rider !== 'Maxine') { hair = null; return; }
+    const anchors = hairAnchors();
+    const strandLengths = [[5, 5], [5, 5, 6], [5, 6, 6]];
+    if (!hair) {
+      const backward = ragdoll ? -facing : -Math.sign(flipVisual || facing);
+      hair = strandLengths.map((lengths, strandIndex) => {
+        let x = anchors[strandIndex].x, y = anchors[strandIndex].y;
+        return lengths.map(length => {
+          x += backward * length * .45;
+          y += length * .89;
+          return { x, y, vx: 0, vy: 0 };
+        });
+      });
+    }
+    if (dt <= 0) return;
+    const step = Math.min(dt, 1 / 30);
+    const damping = Math.exp(-13 * step);
+    const back = hairBackSupport();
+    for (const strand of hair) for (const point of strand) {
+      point.startX = point.x; point.startY = point.y;
+      point.vx *= damping;
+      point.vy = point.vy * damping + 620 * step;
+      point.x += point.vx * step;
+      point.y += point.vy * step;
+    }
+    for (let iteration = 0; iteration < 7; iteration++) {
+      hair.forEach((strand, strandIndex) => {
+        let parent = anchors[strandIndex];
+        strand.forEach((point, pointIndex) => {
+          const dx = point.x - parent.x, dy = point.y - parent.y;
+          const distance = Math.hypot(dx, dy) || 1;
+          const length = strandLengths[strandIndex][pointIndex];
+          point.x = parent.x + dx / distance * length;
+          point.y = parent.y + dy / distance * length;
+          if (back) {
+            const bx = back.bottom.x - back.top.x, by = back.bottom.y - back.top.y;
+            const backLengthSquared = bx * bx + by * by || 1;
+            const t = clamp(((point.x - back.top.x) * bx + (point.y - back.top.y) * by) / backLengthSquared, 0, 1);
+            const nearestX = back.top.x + bx * t, nearestY = back.top.y + by * t;
+            const clearance = (point.x - nearestX) * back.nx + (point.y - nearestY) * back.ny;
+            if (clearance < 2) {
+              point.x += back.nx * (2 - clearance);
+              point.y += back.ny * (2 - clearance);
+            }
+          }
+          const ground = terrain(point.x);
+          if (ground.solid) point.y = Math.min(point.y, ground.y - 2);
+          parent = point;
+        });
+      });
+    }
+    for (const strand of hair) for (const point of strand) {
+      point.vx = clamp((point.x - point.startX) / step, -100, 100);
+      point.vy = clamp((point.y - point.startY) / step, -100, 100);
+    }
+  }
+
+  function drawHair() {
+    if (!hair) return;
+    const anchors = hairAnchors();
+    hair.forEach((strand, strandIndex) => {
+      const points = [[anchors[strandIndex].x, anchors[strandIndex].y], ...strand.map(point => [point.x, point.y])];
+      pixelPath(points, strandIndex === 1 ? '#684438' : '#54362d', 2, 2);
+      for (let i = 1; i < points.length; i++) pixelRect(points[i][0] - 2, points[i][1] - 2, 4, 4, '#54362d', 2);
+    });
   }
 
   function drawBike() {
@@ -1216,7 +1331,7 @@ Big physics.</h2>
     pixelPath([[p.shoulder.x,p.shoulder.y],[p.elbow.x,p.elbow.y]],sleeve,2);
     pixelPath([[p.elbow.x,p.elbow.y],[p.hand.x,p.hand.y]],'#bd7954',2);
     pixelPath([[p.shoulder.x,p.shoulder.y],[p.head.x,p.head.y]],'#bd7954',2);
-    if(isMaxine) pixelRect(p.head.x-8,p.head.y-4,6,10,'#54362d',2);
+
     pixelRect(p.head.x-7,p.head.y-7,14,14,'#263b36',2);
     pixelRect(p.head.x-5,p.head.y-7,12,10,helmet,2);
     pixelRect(p.head.x+3,p.head.y-3,8,4,'#234844',2);
@@ -1230,8 +1345,7 @@ Big physics.</h2>
       focusX=points.reduce((sum,p)=>sum+p.x,0)/points.length;
       focusY=points.reduce((sum,p)=>sum+p.y,0)/points.length;
     }
-    const cameraRatio = preferences.camera === 'centered' ? .5 : preferences.camera === 'ahead' ? .22 : .3;
-    const lead = clamp(W * cameraRatio, 95, W / 2);
+    const lead = clamp(W * .3, 95, W / 2);
     const targetX = Math.max(0, ragdoll ? focusX-W/2 : focusX-(facing > 0 ? lead : W-lead));
     const targetY = clamp(focusY-H*.67,-H*.42,ragdoll?500:100);
     const smoothing = 1 - Math.exp(-8 * dt);
@@ -1244,6 +1358,8 @@ Big physics.</h2>
     ctx.save(); ctx.translate(-cameraX,-cameraY);
     drawTerrain(); drawProps('back'); drawFlag();
     apples.forEach(a => drawApple(a,now));
+    updateHair(state === 'paused' ? 0 : dt);
+    drawHair();
     drawBike();
     drawRagdoll();
     drawProps('front');
