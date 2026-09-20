@@ -24,7 +24,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Procedural engine, braking, wheel-landing, aerial trick, collectible, crash, flip, and finish sound effects
 - Collectibles, finish gates, timers, and best times
 - Persisted settings and level progression
-- Four trails, including a floating-island jump
+- Seven progressively longer trails, including floating-island jumps
 
 ## Play
 
@@ -54,12 +54,15 @@ Lean labels adjust to the direction the rider is facing.
 
 ## Trails
 
-1. **The Orchard** — an introductory rolling trail.
-2. **Rolling Country** — longer hills requiring better momentum management.
-3. **High Hopes** — taller climbs and more demanding landings.
-4. **Skybound** — a launch across a real terrain gap onto a floating island.
+1. **The Orchard** — gentle rollers that teach throttle rhythm and basic balance.
+2. **Rolling Country** — longer hills that teach momentum management and crest control.
+3. **High Hopes** — steep climbs and bigger landings that reward early weight shifts.
+4. **Skybound** — two committed jumps, including a floating-island crossing.
+5. **Brake Point** — sharp drops and deep bowls that teach controlled braking and recovery.
+6. **Long Way Up** — a sustained technical climb combining momentum and wheelie control.
+7. **Elastic Summit** — a long final exam combining climbs, braking, landings, and gaps.
 
-Each trail requires collecting all five apples before the finish gate will open. Completing a trail unlocks the next one.
+Each trail requires collecting all five apples before the finish gate will open. Completing a trail unlocks the next one. The pre-trail briefing explains the main mechanic each route is designed to teach.
 
 ## Settings and saved data
 
@@ -76,7 +79,9 @@ Current storage keys:
 
 - `pocket-trials-settings-v1`
 - `pocket-trials-progress-v1`
-- `pocket-trials-v1-<level>` for per-level best times
+- `pocket-trials-v2-<level>` for per-level best times
+
+Best-time storage was versioned when the trails were substantially lengthened. Legacy `pocket-trials-v1-<level>` records are still recognized when reconstructing unlocked-trail progress, but are not shown as records for the redesigned routes.
 
 Clearing site data resets settings, progression, and recorded times.
 

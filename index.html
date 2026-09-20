@@ -14,10 +14,13 @@
     <div class="level-strip">
       <label for="level-select">TRAIL</label>
       <select id="level-select">
-        <option value="0">01 / The orchard</option>
-        <option value="1">02 / Rolling country</option>
-        <option value="2">03 / High hopes</option>
+        <option value="0">01 / The Orchard</option>
+        <option value="1">02 / Rolling Country</option>
+        <option value="2">03 / High Hopes</option>
         <option value="3">04 / Skybound</option>
+        <option value="4">05 / Brake Point</option>
+        <option value="5">06 / Long Way Up</option>
+        <option value="6">07 / Elastic Summit</option>
       </select>
       <div class="best">BEST <b id="best-time">—</b></div>
     </div>
@@ -29,8 +32,8 @@
     </button>
   </header>
   <div class="viewport">
-    <canvas id="canvas" width="760" height="820" aria-label="Side-scrolling motorcycle trail. Collect all five apples and reach the checkered flag.">
-      This game needs a browser with HTML Canvas support.
+    <canvas id="canvas" width="760" height="820" aria-label="Side-scrolling motorcycle trail. Collect all apples and reach the checkered flag.">
+      This game requires HTML Canvas support.
     </canvas>
     <div class="hud">
       <div class="hud-pill timer-pill"><span class="timer-icon" aria-hidden="true">◷</span><span id="timer">0:00.0</span></div>
@@ -48,38 +51,37 @@
 
     <div class="overlay" id="overlay">
       <div class="modal">
-        <div class="modal-badge" id="overlay-badge">A MINI MOTOCROSS ESCAPE</div>
-        <h2 id="overlay-title">Small bike.
-Big physics.</h2>
-        <p id="overlay-description">Roll over the hills, collect every apple, and reach the flag. Keep your helmet off the ground!</p>
+        <div class="modal-badge" id="overlay-badge">TRAIL 01 / THE ORCHARD</div>
+        <h2 id="overlay-title">Pocket Trials</h2>
+        <p id="overlay-description">Collect all apples to unlock the finish gate. Lean to balance your bike and avoid landing on your head.</p>
         <div class="mini-tips" id="mini-tips" aria-hidden="true">
-          <span><b>↔</b>LEAN TO LAND</span>
+          <span><b>↔</b>LEAN TO BALANCE</span>
           <span><b>Space</b>FLIP DIRECTION</span>
-          <span><b>⚑</b>FIND THE FLAG</span>
+          <span><b>⚑</b>REACH THE FLAG</span>
         </div>
-        <button class="primary" id="primary">Let's ride →</button>
-        <button class="secondary" id="secondary" hidden="">Back to menu</button>
+        <button class="primary" id="primary">Start Trail →</button>
+        <button class="secondary" id="secondary" hidden="">Back to Menu</button>
       </div>
     </div>
   </div>
   <section class="control-area" aria-label="Bike controls">
     <div class="control-buttons" id="control-buttons">
-      <div class="control-heading"><span>HOLD TO RIDE · TAP TO BALANCE</span><span>ALL THUMBS WELCOME</span></div>
+      <div class="control-heading"><span>HOLD TO ACCELERATE · LEAN TO BALANCE</span></div>
       <div class="controls">
         <button class="control" id="left-control" data-action="back" aria-label="Lean back, left arrow"><span class="symbol">↶</span><span class="caption">LEAN BACK</span></button>
         <button class="control" id="right-control" data-action="forward" aria-label="Lean forward, right arrow"><span class="symbol">↷</span><span class="caption">LEAN FWD</span></button>
-        <button class="control" id="flip-control" data-action="flip" aria-label="Flip riding direction"><span class="symbol">⇄</span><span class="caption">FLIP</span></button>
+        <button class="control" id="flip-control" data-action="flip" aria-label="Flip direction, Space"><span class="symbol">⇄</span><span class="caption">FLIP</span></button>
         <button class="control" id="down-control" data-action="down" aria-label="Brake, down arrow"><span class="symbol">↓</span><span class="caption">BRAKE</span></button>
         <button class="control gas" id="up-control" data-action="up" aria-label="Accelerate, up arrow"><span class="symbol">↑</span><span class="caption">GAS</span></button>
       </div>
     </div>
-    <p class="keyboard" id="keyboard-help"><b>↑</b> gas &nbsp; <b>↓</b> brake &nbsp; <b>← →</b> lean &nbsp; <b>Space</b> flip &nbsp; <b>R</b> retry &nbsp; <b>Esc</b> pause</p>
+    <p class="keyboard" id="keyboard-help"><b>↑</b> Gas &nbsp; <b>↓</b> Brake &nbsp; <b>← →</b> Lean &nbsp; <b>Space</b> Flip &nbsp; <b>R</b> Restart &nbsp; <b>Esc</b> Pause</p>
   </section>
   <div class="sr-only" id="announcer" aria-live="polite"></div>
   <dialog class="settings-dialog" id="settings-dialog" aria-labelledby="settings-title">
     <form method="dialog" class="settings-form">
       <div class="settings-head">
-        <div><div class="modal-badge">RIDE YOUR WAY</div><h2 id="settings-title">Settings</h2></div>
+        <div><div class="modal-badge">PREFERENCES</div><h2 id="settings-title">Settings</h2></div>
         <button class="settings-close" value="close" aria-label="Close settings">✕</button>
       </div>
       <fieldset class="setting-group">
@@ -97,7 +99,7 @@ Big physics.</h2>
       </fieldset>
 
       <fieldset class="setting-group">
-        <legend>MAP SCENERY</legend>
+        <legend>SCENERY</legend>
         <div class="setting-options" style="--options:2">
           <button type="button" class="setting-option" data-setting="scenery" data-value="full">Full</button>
           <button type="button" class="setting-option" data-setting="scenery" data-value="reduced">Reduced</button>

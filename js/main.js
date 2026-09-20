@@ -51,6 +51,15 @@ import {
   }
   function savePreferences() { persistPreferences(preferences); }
   function saveProgress() { persistProgress(levelIndex, unlockedLevel); }
+  function buildLevelOptions() {
+    const select = $('level-select');
+    select.replaceChildren(...levels.map((trail, index) => {
+      const option = document.createElement('option');
+      option.value = String(index);
+      option.textContent = String(index + 1).padStart(2, '0') + ' / ' + trail.name;
+      return option;
+    }));
+  }
   function updateLevelOptions() {
     [...$('level-select').options].forEach((option, index) => {
       option.disabled = index > unlockedLevel;
@@ -146,35 +155,36 @@ import {
 
     if (next === 'ready') {
       $('overlay-badge').textContent = 'TRAIL ' + String(levelIndex + 1).padStart(2,'0') + ' / ' + level.name.toUpperCase();
-      $('overlay-title').textContent = 'Small bike.\nBig physics.';
-      $('overlay-description').textContent = 'Build speed into the hills and anticipate your lean. Lean controls swap with the biker when you flip using Space.';
-      $('primary').textContent = "Let's ride →";
+      $('overlay-title').textContent = level.name;
+      const objective = ' Collect all ' + level.apples.length + ' apples to unlock the finish gate.';
+      $('overlay-description').textContent = (level.description || 'Lean to balance your bike and avoid landing on your head.') + objective;
+      $('primary').textContent = 'Start Trail →';
     } else if (next === 'paused') {
-      $('overlay-badge').textContent = 'TAKE A BREATHER';
-      $('overlay-title').textContent = 'Parked up.';
-      $('overlay-description').textContent = 'Your bike is right where you left it. Ready for the next hill?';
-      $('primary').textContent = 'Keep riding →';
-      $('secondary').textContent = 'Restart this trail';
+      $('overlay-badge').textContent = 'PAUSED';
+      $('overlay-title').textContent = 'Game Paused';
+      $('overlay-description').textContent = 'Resume when you are ready, or restart the current trail.';
+      $('primary').textContent = 'Resume →';
+      $('secondary').textContent = 'Restart Trail';
     } else if (next === 'crashed') {
-      $('overlay-badge').textContent = 'DUST YOURSELF OFF';
-      $('overlay-title').textContent = 'A little too\nhead over heels.';
-      $('overlay-description').textContent = 'Your helmet met the hillside. Try short taps of lean, and line up both wheels before landing.';
-      $('primary').textContent = 'One more go ↗';
-      $('secondary').textContent = 'Back to trail menu';
-      $('announcer').textContent = 'Crashed. Press R or choose One more go to retry.';
+      $('overlay-badge').textContent = 'CRASHED';
+      $('overlay-title').textContent = 'Wiped Out';
+      $('overlay-description').textContent = 'Your helmet hit the ground. Adjust your lean in mid-air to land evenly on your wheels.';
+      $('primary').textContent = 'Try Again ↗';
+      $('secondary').textContent = 'Change Trail';
+      $('announcer').textContent = 'Crashed. Press R or select Try Again to retry.';
     } else if (next === 'won') {
       unlockedLevel = Math.max(unlockedLevel, Math.min(levelIndex + 1, levels.length - 1));
       updateLevelOptions(); saveProgress();
-      $('overlay-badge').textContent = 'FIVE APPLES. ONE HAPPY RIDER.';
-      $('overlay-title').textContent = 'Trail nailed.';
+      $('overlay-badge').textContent = 'TRAIL COMPLETED';
+      $('overlay-title').textContent = 'Goal Reached!';
       const previous = readBest(levelIndex);
       const record = previous === null || elapsed < previous;
       if (record) saveBest(levelIndex, elapsed);
       updateBest();
-      $('overlay-description').textContent = 'Finished in ' + timeText(elapsed) + '. ' + (record ? 'Your best run on this trail!' : 'Smooth riding. Can you beat your best?');
-      $('primary').textContent = levelIndex === levels.length - 1 ? 'Back to the orchard →' : 'Next trail →';
-      $('secondary').textContent = 'Ride this one again';
-      $('announcer').textContent = 'Trail complete in ' + timeText(elapsed) + '. All five apples collected.';
+      $('overlay-description').textContent = 'Finished in ' + timeText(elapsed) + '. ' + (record ? 'New best time on this trail!' : 'Best: ' + timeText(previous) + '.');
+      $('primary').textContent = levelIndex === levels.length - 1 ? 'Play Again →' : 'Next Trail →';
+      $('secondary').textContent = 'Replay Trail';
+      $('announcer').textContent = 'Trail complete in ' + timeText(elapsed) + '. All ' + apples.length + ' apples collected.';
     }
   }
 
@@ -316,8 +326,8 @@ import {
     ragdoll={points,links};
     state='ragdoll'; clearInput();
     $('pause').disabled=true;
-    $('announcer').textContent='Rider down. Press R or use the restart button to try again.';
-    notify('Rider down · Press R or ↻ to retry', Infinity);
+    $('announcer').textContent='Rider down. Press R or select the restart button to try again.';
+    notify('Rider down · Press R to retry', Infinity);
   }
   function collideRagdollPoint(p) {
     const t=terrain(p.x);
@@ -534,7 +544,7 @@ import {
         burst(apple.x, apple.y, '#ef8150'); sounds.apple();
         $('apple-count').textContent = collected + ' / ' + apples.length;
         $('announcer').textContent = collected + ' of ' + apples.length + ' apples collected.';
-        if (collected === apples.length) notify('All apples collected. Head for the flag! ⚑');
+        if (collected === apples.length) notify('All apples collected! Finish gate unlocked ⚑');
       }
     }
 
@@ -545,7 +555,7 @@ import {
       } else if (elapsed - lastGateNotice > 5) {
         lastGateNotice = elapsed;
         const missing = apples.length - collected;
-        notify(missing + (missing === 1 ? ' apple left. ' : ' apples left. ') + 'Flip around to pick them up!');
+        notify(missing + (missing === 1 ? ' apple remaining! Turn back to collect it.' : ' apples remaining! Turn back to collect them.'));
       }
     }
 
@@ -1209,7 +1219,7 @@ import {
   window.addEventListener('pointerdown', unlockAudio, { once: true, capture: true });
   window.addEventListener('keydown', unlockAudio, { once: true, capture: true });
 
-  loadStoredState(); applyPreferences(); savePreferences(); updateLevelOptions();
+  buildLevelOptions(); loadStoredState(); applyPreferences(); savePreferences(); updateLevelOptions();
   loadLevel(savedLevel); setOverlay('ready'); resizeCanvas();
   requestAnimationFrame(frame);
 })();

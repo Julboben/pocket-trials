@@ -2,7 +2,8 @@ import { clamp } from './config.js';
 
 const SETTINGS_KEY = 'pocket-trials-settings-v1';
 const PROGRESS_KEY = 'pocket-trials-progress-v1';
-const BEST_KEY_PREFIX = 'pocket-trials-v1-';
+const BEST_KEY_PREFIX = 'pocket-trials-v2-';
+const LEGACY_BEST_KEY_PREFIX = 'pocket-trials-v1-';
 
 export function readBest(levelIndex) {
   try {
@@ -49,7 +50,8 @@ export function loadProgress(levelCount) {
     }
     let unlocked = 0;
     for (let index = 0; index < levelCount - 1; index++) {
-      if (Number(localStorage.getItem(BEST_KEY_PREFIX + index)) > 0) unlocked = index + 1;
+      if (Number(localStorage.getItem(BEST_KEY_PREFIX + index)) > 0
+        || Number(localStorage.getItem(LEGACY_BEST_KEY_PREFIX + index)) > 0) unlocked = index + 1;
       else break;
     }
     return { unlocked, level: 0 };
