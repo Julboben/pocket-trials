@@ -1,11 +1,15 @@
 import { STEP, RADIUS, WHEELBASE, TAU, clamp, lerp } from './config.js';
 import { levels } from './levels.js';
 import { createAudio } from './audio.js';
-import { createDrawingTools } from './drawing.js';
+import { createDrawingTools, createGameArt } from './drawing.js';
 import { terrainAt } from './terrain.js';
 import {
   loadPreferences,
-  loadProgress,
+  loadSaveSlots,
+  loadActiveSlot,
+  saveActiveSlot,
+  createSave,
+  deleteSave,
   readBest,
   saveBest,
   savePreferences as persistPreferences,
@@ -19,13 +23,16 @@ import {
   const game = $('game');
   const canvas = $('canvas');
   const ctx = canvas.getContext('2d');
-  const { line, circle, pixelRect, pixelPath, drawPixelDisc, drawPixelSpring } = createDrawingTools(ctx);
+  const { line, circle, pixelRect, pixelPath, drawPixelDisc } = createDrawingTools(ctx);
+  const gameArt = createGameArt(ctx);
   let W = 380, H = 410;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  let levelIndex = 0, level = levels[0], state = 'ready', rider = 'max';
-  let unlockedLevel = 0, savedLevel = 0, resumeAfterSettings = false;
-  let preferences = { rider: 'max', scenery: 'full', controls: 'show', sound: 'on' };
+  let levelIndex = 0, level = levels[0], state = 'menu', stateBeforeMenu = 'ready', rider = 'max';
+  let unlockedLevel = 0, savedLevel = 0, saveGame = null;
+  let saveSlots = [null, null, null], activeSaveSlot = 0, pendingSaveSlot = 0, selectedNewRider = 'max', gameLoopStarted = false;
+  let deleteArmedSlot = -1, deleteArmTimer = 0;
+  let preferences = { scenery: 'full', controls: 'show', sound: 'on' };
   let rear, front, apples = [], particles = [], skidMarks = [], ragdoll = null, hair = null;
   let elapsed = 0, collected = 0, facing = 1, throttle = 0, brakePressure = 0;
   let cameraX = 0, cameraY = 0, leanControl = 0, leanVisual = 0, flipVisual = 1;
@@ -45,32 +52,21 @@ import {
     const tenths = Math.floor(seconds * 10 + 0.00001);
     return Math.floor(tenths / 600) + ':' + String(Math.floor(tenths / 10) % 60).padStart(2, '0') + '.' + (tenths % 10);
   }
-  function updateBest() {
-    const best = readBest(levelIndex);
-    $('best-time').textContent = best === null ? '—' : timeText(best);
-  }
   function savePreferences() { persistPreferences(preferences); }
-  function saveProgress() { persistProgress(levelIndex, unlockedLevel); }
-  function buildLevelOptions() {
-    const select = $('level-select');
-    select.replaceChildren(...levels.map((trail, index) => {
-      const option = document.createElement('option');
-      option.value = String(index);
-      option.textContent = String(index + 1).padStart(2, '0') + ' / ' + trail.name;
-      return option;
-    }));
-  }
-  function updateLevelOptions() {
-    [...$('level-select').options].forEach((option, index) => {
-      option.disabled = index > unlockedLevel;
-      option.textContent = option.textContent.replace(/^🔒 /, '');
-      if (option.disabled) option.textContent = '🔒 ' + option.textContent;
-    });
+  function saveProgress() {
+    if (!saveGame) return;
+    savedLevel = levelIndex;
+    saveGame.level = levelIndex;
+    saveGame.unlocked = unlockedLevel;
+    saveSlots[activeSaveSlot] = saveGame;
+    persistProgress(activeSaveSlot, levelIndex, unlockedLevel, levels.length);
   }
   function applyPreferences() {
-    rider = preferences.rider;
+    rider = saveGame?.rider || 'max';
     ctx.imageSmoothingEnabled = false;
-    $('control-buttons').hidden = preferences.controls === 'hide';
+    const controlsHidden = preferences.controls === 'hide';
+    $('control-area').hidden = controlsHidden;
+    game.classList.toggle('controls-hidden', controlsHidden);
     sounds.setEnabled(preferences.sound === 'on');
     document.querySelectorAll('[data-setting]').forEach(button => {
       button.setAttribute('aria-pressed', String(preferences[button.dataset.setting] === button.dataset.value));
@@ -78,13 +74,261 @@ import {
   }
   function loadStoredState() {
     preferences = loadPreferences(preferences);
-    const progress = loadProgress(levels.length);
-    unlockedLevel = progress.unlocked;
-    savedLevel = progress.level;
-    if (!['max','Maxine'].includes(preferences.rider)) preferences.rider = 'max';
+    saveSlots = loadSaveSlots(levels.length);
+    activeSaveSlot = loadActiveSlot();
+    saveGame = saveSlots[activeSaveSlot];
+    if (!saveGame) {
+      const firstOccupied = saveSlots.findIndex(Boolean);
+      if (firstOccupied >= 0) {
+        activeSaveSlot = firstOccupied;
+        saveGame = saveSlots[firstOccupied];
+        saveActiveSlot(firstOccupied);
+      }
+    }
+    unlockedLevel = saveGame?.unlocked || 0;
+    savedLevel = saveGame?.level || 0;
     if (!['full','reduced'].includes(preferences.scenery)) preferences.scenery = 'full';
     if (!['show','hide'].includes(preferences.controls)) preferences.controls = 'show';
     if (!['on','off'].includes(preferences.sound)) preferences.sound = 'on';
+  }
+
+  function selectSaveSlot(index) {
+    activeSaveSlot = clamp(index, 0, saveSlots.length - 1);
+    saveActiveSlot(activeSaveSlot);
+    saveGame = saveSlots[activeSaveSlot];
+    unlockedLevel = saveGame?.unlocked || 0;
+    savedLevel = saveGame?.level || 0;
+    rider = saveGame?.rider || 'max';
+    updateMenuDashboard();
+  }
+
+  function riderSymbolMarkup(selectedRider) {
+    return selectedRider === 'Maxine'
+      ? '<svg class="rider-symbol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="5"></circle><path d="M12 13v8M8.5 18h7"></path></svg>'
+      : '<svg class="rider-symbol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="15" r="5"></circle><path d="M13 11 20 4M15 4h5v5"></path></svg>';
+  }
+
+  function drawActiveSaveIllustration() {
+    const canvasElement = $('active-save-bike');
+    const artCtx = canvasElement.getContext('2d');
+    artCtx.setTransform(2, 0, 0, 2, 0, 0);
+    artCtx.clearRect(0, 0, 120, 84);
+    if (!saveGame) {
+      artCtx.fillStyle = '#17262b'; artCtx.fillRect(0, 0, 120, 84);
+      artCtx.fillStyle = '#91a7a8'; artCtx.font = 'bold 24px ui-monospace, monospace'; artCtx.textAlign = 'center';
+      artCtx.fillText('+', 60, 50);
+      return;
+    }
+    const art = createGameArt(artCtx);
+    artCtx.fillStyle = '#eae9d9'; artCtx.fillRect(0, 0, 120, 84);
+    artCtx.fillStyle = '#c5b496';
+    artCtx.beginPath(); artCtx.moveTo(0,72); artCtx.quadraticCurveTo(30,58,60,69); artCtx.quadraticCurveTo(90,78,120,58); artCtx.lineTo(120,84); artCtx.lineTo(0,84); artCtx.fill();
+    artCtx.strokeStyle = '#375d4d'; artCtx.lineWidth = 5; artCtx.beginPath(); artCtx.moveTo(0,72); artCtx.quadraticCurveTo(30,58,60,69); artCtx.quadraticCurveTo(90,78,120,58); artCtx.stroke();
+    art.drawBike({
+      rear: { x: 35, y: 61, spin: 0, compression: 0 },
+      front: { x: 85, y: 65, spin: 0, compression: 0 },
+      mx: 60, my: 63, angle: Math.atan2(4, 50), length: 50, rider
+    });
+  }
+
+  function deleteSlot(index, button) {
+    if (deleteArmedSlot !== index) {
+      deleteArmedSlot = index;
+      button.textContent = 'SURE?';
+      button.classList.add('armed');
+      clearTimeout(deleteArmTimer);
+      deleteArmTimer = setTimeout(() => {
+        if (deleteArmedSlot !== index) return;
+        deleteArmedSlot = -1;
+        button.textContent = '×';
+        button.classList.remove('armed');
+      }, 2500);
+      return;
+    }
+    clearTimeout(deleteArmTimer);
+    deleteArmedSlot = -1;
+    deleteSave(index, levels.length);
+    saveSlots[index] = null;
+    if (index === activeSaveSlot) {
+      saveGame = null; unlockedLevel = 0; savedLevel = 0; rider = 'max';
+    }
+    updateMenuDashboard();
+  }
+
+  function buildSaveSlots() {
+    const rows = saveSlots.map((save, index) => {
+      const occupied = Boolean(save);
+      const row = document.createElement('div');
+      row.className = 'save-slot-row';
+      const button = document.createElement('button');
+      button.className = 'save-slot';
+      button.setAttribute('aria-pressed', String(index === activeSaveSlot && occupied));
+      button.innerHTML = '<span class="save-avatar ' + (!occupied ? 'empty' : save.rider === 'Maxine' ? 'female' : 'male') + '">' + (!occupied ? '+' : riderSymbolMarkup(save.rider)) + '</span>'
+        + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + '</span><strong>' + (!occupied ? 'EMPTY SLOT' : save.rider === 'Maxine' ? 'MAXINE' : 'MAX') + '</strong><small>'
+        + (!occupied ? 'Start a new game' : (save.unlocked + 1) + ' / ' + levels.length + ' trails · ' + levels[save.level].name) + '</small></span>';
+      button.addEventListener('click', () => {
+        if (occupied) {
+          selectSaveSlot(index);
+          showMenuView('home');
+        } else showSaveCreator(index);
+      });
+      row.append(button);
+      if (occupied) {
+        const remove = document.createElement('button');
+        remove.className = 'delete-save';
+        remove.type = 'button';
+        remove.textContent = '×';
+        remove.setAttribute('aria-label', 'Delete save slot ' + (index + 1));
+        remove.addEventListener('click', () => deleteSlot(index, remove));
+        row.append(remove);
+      }
+      return row;
+    });
+    $('save-slots').replaceChildren(...rows);
+  }
+
+  function drawHowToPlayIllustrations() {
+    document.querySelectorAll('[data-how-art]').forEach(canvasElement => {
+      const artCtx = canvasElement.getContext('2d');
+      const art = createGameArt(artCtx);
+      const kind = canvasElement.dataset.howArt;
+      artCtx.setTransform(2, 0, 0, 2, 0, 0);
+      artCtx.imageSmoothingEnabled = false;
+      artCtx.clearRect(0, 0, 240, 100);
+      artCtx.fillStyle = '#eae9d9'; artCtx.fillRect(0, 0, 240, 100);
+      artCtx.fillStyle = '#b7c8b1';
+      artCtx.beginPath(); artCtx.moveTo(0, 74); artCtx.lineTo(42, 43); artCtx.lineTo(78, 70); artCtx.lineTo(124, 35); artCtx.lineTo(174, 69); artCtx.lineTo(215, 41); artCtx.lineTo(240, 61); artCtx.lineTo(240, 100); artCtx.lineTo(0, 100); artCtx.fill();
+
+      const ground = points => {
+        artCtx.fillStyle = '#c5b496'; artCtx.beginPath();
+        points.forEach((point, index) => index ? artCtx.lineTo(point[0], point[1]) : artCtx.moveTo(point[0], point[1]));
+        artCtx.lineTo(240, 100); artCtx.lineTo(0, 100); artCtx.closePath(); artCtx.fill();
+        artCtx.strokeStyle = '#375d4d'; artCtx.lineWidth = 6; artCtx.lineJoin = 'round';
+        artCtx.beginPath(); points.forEach((point, index) => index ? artCtx.lineTo(point[0], point[1]) : artCtx.moveTo(point[0], point[1])); artCtx.stroke();
+        artCtx.strokeStyle = '#6f8b59'; artCtx.lineWidth = 2; artCtx.stroke();
+      };
+      const bike = (rear, front, lean = 0) => art.drawBike({
+        rear: { x: rear[0], y: rear[1], spin: 0, compression: 0 },
+        front: { x: front[0], y: front[1], spin: 0, compression: 0 },
+        mx: (rear[0] + front[0]) / 2,
+        my: (rear[1] + front[1]) / 2,
+        angle: Math.atan2(front[1] - rear[1], front[0] - rear[0]),
+        length: Math.hypot(front[0] - rear[0], front[1] - rear[1]),
+        leanVisual: lean,
+        rider
+      });
+
+      if (kind === 'drive') {
+        ground([[0,84],[55,70],[95,80],[145,70],[190,78],[240,68]]);
+        bike([92,68],[141,71]);
+      } else if (kind === 'lean') {
+        ground([[0,92],[65,82],[105,68],[155,43],[200,30],[240,30]]);
+        bike([111,63],[155,41], .8);
+      } else if (kind === 'air') {
+        ground([[0,88],[58,58],[80,58],[80,100],[176,100],[176,77],[240,69]]);
+        bike([104,56],[153,62], -.2);
+        artCtx.strokeStyle = '#d96842'; artCtx.lineWidth = 2; artCtx.setLineDash([5,4]);
+        artCtx.beginPath(); artCtx.arc(130,68,47,Math.PI*1.1,Math.PI*1.82); artCtx.stroke(); artCtx.setLineDash([]);
+      } else {
+        ground([[0,82],[55,74],[110,84],[170,73],[240,72]]);
+        art.drawApple(59, 55);
+        artCtx.save(); artCtx.translate(60, 5); artCtx.scale(.65, .65);
+        art.drawFlag(185, 130, true);
+        artCtx.restore();
+      }
+    });
+  }
+
+  function updateMenuDashboard() {
+    const hasSave = Boolean(saveGame);
+    drawActiveSaveIllustration();
+    $('active-save-slot').textContent = 'SLOT ' + (activeSaveSlot + 1);
+    $('active-save-rider').textContent = hasSave ? (rider === 'Maxine' ? 'MAXINE' : 'MAX') : '';
+    $('active-save-progress').textContent = hasSave ? (unlockedLevel + 1) + ' / ' + levels.length + ' trails · ' + levels[savedLevel].name : '';
+    $('menu-start').hidden = !hasSave;
+    $('menu-new-game').classList.toggle('menu-action-primary', !hasSave);
+    $('menu-levels').disabled = !hasSave;
+    buildSaveSlots();
+    drawHowToPlayIllustrations();
+    buildMenuLevelCards();
+  }
+
+  function showMenuView(view) {
+    $('menu-home').hidden = view !== 'home';
+    $('menu-load-view').hidden = view !== 'load';
+    $('menu-level-view').hidden = view !== 'levels';
+    $('menu-save-view').hidden = view !== 'save';
+    $('menu-how-view').hidden = view !== 'how';
+    $('menu-settings-view').hidden = view !== 'settings';
+  }
+
+  function fullscreenElement() {
+    return document.fullscreenElement || document.webkitFullscreenElement;
+  }
+
+  function updateFullscreenControls() {
+    const label = fullscreenElement() ? 'Exit fullscreen' : 'Enter fullscreen';
+    $('fullscreen').setAttribute('aria-label', label);
+    $('menu-fullscreen').setAttribute('aria-label', label);
+  }
+
+  function toggleFullscreen() {
+    if ($('menu-screen').hidden) sounds.menuSelect();
+    const action = fullscreenElement()
+      ? (document.exitFullscreen?.bind(document) || document.webkitExitFullscreen?.bind(document))
+      : (game.requestFullscreen?.bind(game) || game.webkitRequestFullscreen?.bind(game));
+    if (!action) return;
+    const result = action();
+    if (result?.catch) result.catch(() => {});
+  }
+
+  function showMainMenu() {
+    if (state !== 'menu') stateBeforeMenu = state;
+    state = 'menu'; clearInput();
+    $('overlay').hidden = true;
+    $('pause').disabled = true;
+    game.classList.add('menu-open');
+    updateMenuDashboard(); showMenuView('home');
+    $('menu-screen').hidden = false;
+    requestAnimationFrame(() => $(saveGame ? 'menu-start' : 'menu-new-game').focus({ preventScroll: true }));
+  }
+
+  function closeMainMenu() {
+    if (!gameLoopStarted || !saveGame) return;
+    $('menu-screen').hidden = true;
+    game.classList.remove('menu-open');
+    setOverlay(stateBeforeMenu === 'paused' ? 'paused' : 'running');
+    focusGame();
+  }
+
+  function closeMenuForLevel(index) {
+    if (!saveGame) return;
+    $('menu-screen').hidden = true;
+    game.classList.remove('menu-open');
+    loadLevel(index);
+    setOverlay('running');
+    focusGame();
+    if (!gameLoopStarted) {
+      gameLoopStarted = true;
+      lastTime = 0;
+      requestAnimationFrame(frame);
+    }
+  }
+
+  function buildMenuLevelCards() {
+    const cards = levels.map((trail, index) => {
+      const button = document.createElement('button');
+      const locked = !saveGame || index > unlockedLevel;
+      const best = readBest(activeSaveSlot, index, levels.length);
+      button.className = 'level-card';
+      button.disabled = locked;
+      button.innerHTML = '<span class="level-number">' + String(index + 1).padStart(2, '0') + '</span>'
+        + '<span class="level-copy"><strong>' + trail.name.toUpperCase() + '</strong><small>' + (locked ? 'LOCKED' : (index === savedLevel ? 'CURRENT TRAIL' : 'UNLOCKED')) + '</small></span>'
+        + '<span class="level-best">' + (best === null ? '—' : timeText(best)) + '</span>';
+      if (!locked) button.addEventListener('click', () => closeMenuForLevel(index));
+      return button;
+    });
+    $('menu-level-grid').replaceChildren(...cards);
   }
 
   // Keep the active level binding local while terrain math remains reusable.
@@ -135,12 +379,11 @@ import {
     airRotation = 0; airTurnMilestone = 0; previousAirAngle = 0;
     lastGateNotice = -10; lastProgress = -1; lastTimer = '';
     clearInput(); updateDirectionControls();
-    updateLevelOptions();
-    $('level-select').value = String(index);
-    $('scene-label').textContent = level.label;
+    $('scene-label').textContent = level.name.toUpperCase();
+    $('scene-label').dataset.trailNumber = String(index + 1).padStart(2, '0');
     $('apple-count').textContent = '0 / ' + apples.length;
     $('toast').classList.remove('visible'); toastUntil = 0;
-    updateBest(); updateHud(); saveProgress();
+    updateHud(); saveProgress();
   }
 
   function setOverlay(next) {
@@ -149,17 +392,10 @@ import {
     $('overlay').hidden = !visible;
     $('pause').disabled = !['running','paused'].includes(next);
     $('pause').setAttribute('aria-label', next === 'paused' ? 'Resume game' : 'Pause game');
-    $('mini-tips').hidden = next !== 'ready';
-    $('secondary').hidden = next === 'ready';
+    $('secondary').hidden = next === 'running';
     if (visible) requestAnimationFrame(() => $('primary').focus({ preventScroll: true }));
 
-    if (next === 'ready') {
-      $('overlay-badge').textContent = 'TRAIL ' + String(levelIndex + 1).padStart(2,'0') + ' / ' + level.name.toUpperCase();
-      $('overlay-title').textContent = level.name;
-      const objective = ' Collect all ' + level.apples.length + ' apples to unlock the finish gate.';
-      $('overlay-description').textContent = (level.description || 'Lean to balance your bike and avoid landing on your head.') + objective;
-      $('primary').textContent = 'Start Trail →';
-    } else if (next === 'paused') {
+    if (next === 'paused') {
       $('overlay-badge').textContent = 'PAUSED';
       $('overlay-title').textContent = 'Game Paused';
       $('overlay-description').textContent = 'Resume when you are ready, or restart the current trail.';
@@ -168,19 +404,21 @@ import {
     } else if (next === 'crashed') {
       $('overlay-badge').textContent = 'CRASHED';
       $('overlay-title').textContent = 'Wiped Out';
-      $('overlay-description').textContent = 'Your helmet hit the ground. Adjust your lean in mid-air to land evenly on your wheels.';
+      $('overlay-description').textContent = 'Your helmet hit the ground. Reset and give the trail another run.';
       $('primary').textContent = 'Try Again ↗';
       $('secondary').textContent = 'Change Trail';
       $('announcer').textContent = 'Crashed. Press R or select Try Again to retry.';
     } else if (next === 'won') {
       unlockedLevel = Math.max(unlockedLevel, Math.min(levelIndex + 1, levels.length - 1));
-      updateLevelOptions(); saveProgress();
+      saveProgress();
       $('overlay-badge').textContent = 'TRAIL COMPLETED';
       $('overlay-title').textContent = 'Goal Reached!';
-      const previous = readBest(levelIndex);
+      const previous = readBest(activeSaveSlot, levelIndex, levels.length);
       const record = previous === null || elapsed < previous;
-      if (record) saveBest(levelIndex, elapsed);
-      updateBest();
+      if (record) {
+        saveBest(activeSaveSlot, levelIndex, elapsed, levels.length);
+        saveGame.bestTimes[levelIndex] = elapsed;
+      }
       $('overlay-description').textContent = 'Finished in ' + timeText(elapsed) + '. ' + (record ? 'New best time on this trail!' : 'Best: ' + timeText(previous) + '.');
       $('primary').textContent = levelIndex === levels.length - 1 ? 'Play Again →' : 'Next Trail →';
       $('secondary').textContent = 'Replay Trail';
@@ -756,110 +994,17 @@ import {
   function drawApple(apple, now) {
     if (apple.taken || apple.x < cameraX - 30 || apple.x > cameraX + W + 30) return;
     const y = apple.y + (reducedMotion ? 0 : Math.sin(now * .0025 + apple.x) * 2);
-
-    circle(apple.x, y, 15, '#fbf0ce50');
-    ctx.save(); ctx.translate(apple.x, y);
-    ctx.fillStyle = '#ed774e';
-    ctx.beginPath();
-    ctx.moveTo(0,-5);
-    ctx.bezierCurveTo(-12,-12,-14,6,-4,9);
-    ctx.quadraticCurveTo(0,7,4,9);
-    ctx.bezierCurveTo(14,6,12,-12,0,-5);
-    ctx.fill();
-    line([[0,-5],[1,-11]], '#617144', 1.5);
-    ctx.fillStyle = '#567a4e';
-    ctx.beginPath(); ctx.ellipse(4,-10,4,2,-.5,0,TAU); ctx.fill();
-    line([[-6,-2],[-7,1]], '#ffc295', 2);
-    ctx.restore();
+    gameArt.drawApple(apple.x, y);
   }
 
   function drawFlag() {
     const x=level.goal,y=terrain(x).y;
     if(x<cameraX-65||x>cameraX+W+65)return;
-    const unlocked=collected===apples.length;
-    pixelRect(x-2,y-108,4,108,'#304a42',2);pixelRect(x-4,y-112,8,6,'#ed9150',2);
-    const size=8;
-    for(let row=0;row<3;row++)for(let col=0;col<4;col++)pixelRect(x+2+col*size,y-104+row*size,size,size,(row+col)%2?(unlocked?'#28483a':'#758477'):'#f2e9cf',2);
-    pixelRect(x-24,y-62,48,16,'#f4e9d1',2);
-    ctx.fillStyle='#365345';ctx.font='bold 7px ui-monospace, monospace';ctx.textAlign='center';ctx.fillText(unlocked?'FINISH':'5 APPLES',x,y-51);
+    gameArt.drawFlag(x, y, collected===apples.length);
   }
-
-  function drawPixelWheel(p) {
-    ctx.save(); ctx.translate(Math.round(p.x),Math.round(p.y));
-    for (let y = -6; y <= 6; y++) for (let x = -6; x <= 6; x++) {
-      const distance = Math.hypot(x,y);
-      if (distance <= 6.5 && distance >= 4.7) pixelRect(x*2,y*2,2,2,'#203332');
-      else if (distance < 4.7 && distance >= 3.5) pixelRect(x*2,y*2,2,2,'#b9c4af');
-    }
-    const phase = Math.round(p.spin / (Math.PI / 4)) * Math.PI / 4;
-    for (let i = 0; i < 4; i++) {
-      const spoke = phase + i * Math.PI / 2;
-      pixelPath([[0,0],[Math.cos(spoke)*8,Math.sin(spoke)*8]],'#657a70',1);
-    }
-    pixelRect(-2,-2,4,4,'#f1cb91');
-    ctx.restore();
-  }
-
 
   function drawPixelBike(mx, my, angle, length) {
-    drawPixelWheel(rear); drawPixelWheel(front);
-    const pixelAngle = Math.round(angle / (TAU / 32)) * (TAU / 32);
-    ctx.save(); ctx.translate(Math.round(mx),Math.round(my)); ctx.rotate(pixelAngle); ctx.scale(flipVisual,1);
-    const half = length / 2;
-    const backCompression = facing > 0 ? rear.compression : front.compression;
-    const frontCompression = facing > 0 ? front.compression : rear.compression;
-    const bodyDrop = (backCompression + frontCompression) * .4;
-    const bodyPitch = (frontCompression - backCompression) * .0096;
-    const pc = Math.cos(bodyPitch), ps = Math.sin(bodyPitch);
-    const bodyPoint = (x,y) => [x*pc-y*ps,x*ps+y*pc+bodyDrop];
-    const backMount = bodyPoint(-9,-15), frontMount = bodyPoint(12,-23);
-    const crank = bodyPoint(-3,-1);
-
-    pixelPath([[-half,0],bodyPoint(-7,-18),bodyPoint(13,-17),[half,0]],'#d95832',2);
-    pixelPath([[-half,0],crank,[half,0]],'#ed7842',2);
-    pixelPath([[-half,0],backMount],'#819084',1);
-    pixelPath([[half,0],frontMount],'#b9c4af',2);
-    drawPixelSpring(-half,0,backMount[0],backMount[1],'#f0b45f');
-    drawPixelSpring(half,0,frontMount[0],frontMount[1],'#f0b45f');
-
-    ctx.save(); ctx.translate(0,Math.round(bodyDrop/2)*2); ctx.rotate(bodyPitch);
-    pixelRect(-9,-20,24,4,'#ee6f3f');
-    pixelRect(-17,-24,14,4,'#263a35');
-    pixelRect(-20,-27,5,5,brakePressure > .08 ? '#ff6045' : '#713c35',2);
-    if (brakePressure > .6) pixelRect(-19,-26,3,3,'#ffd0a2',1);
-    pixelPath([[10,-23],[18,-26],[24,-26]],'#263a35',2);
-    pixelRect(-9,-8,12,10,'#435a52');
-    pixelRect(-5,-4,10,6,'#2f463d');
-    pixelRect(-3,-2,6,6,'#edb466');
-
-    if(state!=='ragdoll'){
-    const shift = Math.round(leanVisual * 4.5) * 2;
-    const isMaxine = rider === 'Maxine';
-    const jacket = isMaxine ? '#d86f82' : '#e8e5d9';
-    const jacketLight = isMaxine ? '#ef9aa8' : '#fff8e7';
-    const trousers = isMaxine ? '#39435d' : '#29464e';
-    const helmet = isMaxine ? '#63aa98' : '#f4a442';
-    const helmetLight = isMaxine ? '#a8dfcf' : '#ffd078';
-    const skin = '#bd7954';
-
-    pixelPath([[-8+shift,-24],[4+shift*.45,-14],[-2,-3]],trousers,3);
-    pixelRect(-5,-6,10,4,'#233630');
-    pixelPath([[-8+shift,-25],[1+shift,-37]],'#263b36',5);
-    pixelPath([[-7+shift,-25],[2+shift,-37]],jacket,3);
-    pixelRect(-6+shift,-38,14,12,jacket);
-    pixelRect(-4+shift,-38,10,4,jacketLight);
-    pixelPath([[3+shift,-35],[11+shift*.45,-30],[20,-25]],skin,2);
-    pixelPath([[2+shift,-36],[10+shift*.45,-31]],jacketLight,2);
-
-    pixelRect(0+shift,-46,8,8,skin);
-    pixelRect(-4+shift,-52,14,12,'#263b36');
-    pixelRect(-2+shift,-52,12,10,helmet);
-    pixelRect(0+shift,-52,8,4,helmetLight);
-    pixelRect(6+shift,-48,8,4,'#234844');
-    pixelRect(8+shift,-42,6,2,'#efb36b');
-    }
-    ctx.restore();
-    ctx.restore();
+    gameArt.drawBike({ rear, front, mx, my, angle, length, flipVisual, facing, brakePressure, state, leanVisual, rider });
   }
 
   function hairAnchors() {
@@ -1129,13 +1274,13 @@ import {
   });
 
   game.addEventListener('keydown', e => {
-    if ($('settings-dialog').open || e.target.tagName === 'SELECT') return;
     if (e.code === 'Escape') {
       e.preventDefault();
-      if (state === 'running') pauseGame();
-      else if (state === 'paused') { setOverlay('running'); focusGame(); }
+      if (!$('menu-screen').hidden) closeMainMenu();
+      else showMainMenu();
       return;
     }
+    if (!$('menu-screen').hidden) return;
     if (e.code === 'KeyR') {
       e.preventDefault(); if (!e.repeat) startFresh(); return;
     }
@@ -1169,14 +1314,69 @@ import {
     } else startFresh();
   });
   $('secondary').addEventListener('click', () => {
-    if (state === 'crashed') { loadLevel(levelIndex); setOverlay('ready'); }
-    else startFresh();
+    if (state === 'crashed') {
+      showMainMenu();
+      buildMenuLevelCards();
+      showMenuView('levels');
+    } else startFresh();
   });
-  $('settings').addEventListener('click', () => {
-    resumeAfterSettings = state === 'running';
-    if (resumeAfterSettings) setOverlay('paused');
+  $('menu-how-to').addEventListener('click', () => showMenuView('how'));
+  $('menu-settings').addEventListener('click', () => {
     applyPreferences();
-    $('settings-dialog').showModal();
+    showMenuView('settings');
+  });
+  $('menu-fullscreen').addEventListener('click', toggleFullscreen);
+  $('fullscreen').addEventListener('click', toggleFullscreen);
+  $('menu').addEventListener('click', () => { sounds.menuBack(); showMainMenu(); });
+  $('menu-screen').addEventListener('pointerover', event => {
+    if (event.pointerType === 'mouse' && event.target.closest('button') && !event.target.closest('button').contains(event.relatedTarget)) sounds.menuMove();
+  });
+  $('menu-screen').addEventListener('click', event => {
+    const button = event.target.closest('button');
+    if (!button) return;
+    if (button.matches('[data-menu-back]')) sounds.menuBack();
+    else if (button.id === 'create-save' || button.id === 'menu-start') sounds.menuConfirm();
+    else sounds.menuSelect();
+  });
+  function showSaveCreator(slotIndex = activeSaveSlot) {
+    pendingSaveSlot = slotIndex;
+    $('new-save-slot-label').textContent = 'SAVE SLOT ' + (pendingSaveSlot + 1);
+    $('create-save').textContent = 'Create Save & Ride →';
+    showMenuView('save');
+  }
+  $('menu-start').addEventListener('click', () => closeMenuForLevel(savedLevel));
+  $('menu-new-game').addEventListener('click', () => {
+    const emptySlot = saveSlots.findIndex(save => !save);
+    if (emptySlot < 0) {
+      $('load-game-help').textContent = 'All three slots are occupied. Delete a savegame before starting a new one.';
+      showMenuView('load');
+      return;
+    }
+    showSaveCreator(emptySlot);
+  });
+  $('menu-load-game').addEventListener('click', () => {
+    $('load-game-help').textContent = 'Select a savegame to make it active. Empty slots can be used for a new game.';
+    buildSaveSlots();
+    showMenuView('load');
+  });
+  $('menu-levels').addEventListener('click', () => { buildMenuLevelCards(); showMenuView('levels'); });
+  document.querySelectorAll('[data-menu-back]').forEach(button => button.addEventListener('click', () => {
+    updateMenuDashboard();
+    showMenuView('home');
+  }));
+  document.querySelectorAll('[data-rider]').forEach(button => button.addEventListener('click', () => {
+    selectedNewRider = button.dataset.rider;
+    document.querySelectorAll('[data-rider]').forEach(choice => choice.setAttribute('aria-pressed', String(choice === button)));
+  }));
+  $('create-save').addEventListener('click', () => {
+    saveGame = createSave(pendingSaveSlot, selectedNewRider, levels.length);
+    if (!saveGame) { showMenuView('load'); return; }
+    activeSaveSlot = pendingSaveSlot;
+    saveActiveSlot(activeSaveSlot);
+    saveSlots[activeSaveSlot] = saveGame;
+    rider = saveGame.rider;
+    unlockedLevel = 0; savedLevel = 0;
+    closeMenuForLevel(0);
   });
   document.querySelectorAll('[data-setting]').forEach(button => {
     button.addEventListener('click', () => {
@@ -1184,21 +1384,19 @@ import {
       applyPreferences(); savePreferences();
     });
   });
-  $('settings-dialog').addEventListener('close', () => {
-    if (resumeAfterSettings && state === 'paused') setOverlay('running');
-    else if (state !== 'running') requestAnimationFrame(() => $('primary').focus({ preventScroll: true }));
-    resumeAfterSettings = false;
-    focusGame();
-  });
   $('restart').addEventListener('click', startFresh);
   $('pause').addEventListener('click', () => {
     if (state === 'running') pauseGame();
     else if (state === 'paused') { setOverlay('running'); focusGame(); }
   });
-  $('level-select').addEventListener('change', e => {
-    loadLevel(Number(e.target.value)); setOverlay('ready');
-  });
   window.addEventListener('resize', resizeCanvas);
+  const fullscreenSupported = Boolean(document.fullscreenEnabled || document.webkitFullscreenEnabled || game.webkitRequestFullscreen);
+  $('fullscreen').hidden = !fullscreenSupported;
+  $('menu-fullscreen').hidden = !fullscreenSupported;
+  const handleFullscreenChange = () => { updateFullscreenControls(); requestAnimationFrame(resizeCanvas); };
+  document.addEventListener('fullscreenchange', handleFullscreenChange);
+  document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+  updateFullscreenControls();
   if ('ResizeObserver' in window) new ResizeObserver(resizeCanvas).observe(canvas);
 
   function frame(now) {
@@ -1219,7 +1417,6 @@ import {
   window.addEventListener('pointerdown', unlockAudio, { once: true, capture: true });
   window.addEventListener('keydown', unlockAudio, { once: true, capture: true });
 
-  buildLevelOptions(); loadStoredState(); applyPreferences(); savePreferences(); updateLevelOptions();
-  loadLevel(savedLevel); setOverlay('ready'); resizeCanvas();
-  requestAnimationFrame(frame);
+  loadStoredState(); applyPreferences(); savePreferences();
+  resizeCanvas(); showMainMenu();
 })();

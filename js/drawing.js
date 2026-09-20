@@ -71,3 +71,118 @@ export function createDrawingTools(ctx) {
 
   return { line, circle, pixelRect, pixelPath, drawPixelDisc, drawPixelSpring };
 }
+
+export function createGameArt(ctx) {
+  const { line, pixelRect, pixelPath, drawPixelSpring } = createDrawingTools(ctx);
+  const TAU = Math.PI * 2;
+
+  function drawApple(x, y, { glow = true } = {}) {
+    if (glow) {
+      ctx.fillStyle = '#fbf0ce50';
+      ctx.beginPath(); ctx.arc(x, y, 15, 0, TAU); ctx.fill();
+    }
+    ctx.save(); ctx.translate(x, y);
+    ctx.fillStyle = '#ed774e';
+    ctx.beginPath();
+    ctx.moveTo(0,-5);
+    ctx.bezierCurveTo(-12,-12,-14,6,-4,9);
+    ctx.quadraticCurveTo(0,7,4,9);
+    ctx.bezierCurveTo(14,6,12,-12,0,-5);
+    ctx.fill();
+    line([[0,-5],[1,-11]], '#617144', 1.5);
+    ctx.fillStyle = '#567a4e';
+    ctx.beginPath(); ctx.ellipse(4,-10,4,2,-.5,0,TAU); ctx.fill();
+    line([[-6,-2],[-7,1]], '#ffc295', 2);
+    ctx.restore();
+  }
+
+  function drawFlag(x, y, unlocked) {
+    pixelRect(x-2,y-108,4,108,'#304a42',2); pixelRect(x-4,y-112,8,6,'#ed9150',2);
+    const size=8;
+    for(let row=0;row<3;row++) for(let col=0;col<4;col++) {
+      pixelRect(x+2+col*size,y-104+row*size,size,size,(row+col)%2?(unlocked?'#28483a':'#758477'):'#f2e9cf',2);
+    }
+    pixelRect(x-24,y-62,48,16,'#f4e9d1',2);
+    ctx.fillStyle='#365345'; ctx.font='bold 7px ui-monospace, monospace'; ctx.textAlign='center';
+    ctx.fillText(unlocked?'FINISH':'5 APPLES',x,y-51);
+  }
+
+  function drawWheel(point) {
+    ctx.save(); ctx.translate(Math.round(point.x),Math.round(point.y));
+    for (let y = -6; y <= 6; y++) for (let x = -6; x <= 6; x++) {
+      const distance = Math.hypot(x,y);
+      if (distance <= 6.5 && distance >= 4.7) pixelRect(x*2,y*2,2,2,'#203332');
+      else if (distance < 4.7 && distance >= 3.5) pixelRect(x*2,y*2,2,2,'#b9c4af');
+    }
+    const phase = Math.round((point.spin || 0) / (Math.PI / 4)) * Math.PI / 4;
+    for (let i = 0; i < 4; i++) {
+      const spoke = phase + i * Math.PI / 2;
+      pixelPath([[0,0],[Math.cos(spoke)*8,Math.sin(spoke)*8]],'#657a70',1);
+    }
+    pixelRect(-2,-2,4,4,'#f1cb91');
+    ctx.restore();
+  }
+
+  function drawBike({ rear, front, mx, my, angle, length, flipVisual = 1, facing = 1, brakePressure = 0, state = 'ready', leanVisual = 0, rider = 'max' }) {
+    drawWheel(rear); drawWheel(front);
+    const pixelAngle = Math.round(angle / (TAU / 32)) * (TAU / 32);
+    ctx.save(); ctx.translate(Math.round(mx),Math.round(my)); ctx.rotate(pixelAngle); ctx.scale(flipVisual,1);
+    const half = length / 2;
+    const backCompression = facing > 0 ? rear.compression || 0 : front.compression || 0;
+    const frontCompression = facing > 0 ? front.compression || 0 : rear.compression || 0;
+    const bodyDrop = (backCompression + frontCompression) * .4;
+    const bodyPitch = (frontCompression - backCompression) * .0096;
+    const pc = Math.cos(bodyPitch), ps = Math.sin(bodyPitch);
+    const bodyPoint = (x,y) => [x*pc-y*ps,x*ps+y*pc+bodyDrop];
+    const backMount = bodyPoint(-9,-15), frontMount = bodyPoint(12,-23);
+    const crank = bodyPoint(-3,-1);
+
+    pixelPath([[-half,0],bodyPoint(-7,-18),bodyPoint(13,-17),[half,0]],'#d95832',2);
+    pixelPath([[-half,0],crank,[half,0]],'#ed7842',2);
+    pixelPath([[-half,0],backMount],'#819084',1);
+    pixelPath([[half,0],frontMount],'#b9c4af',2);
+    drawPixelSpring(-half,0,backMount[0],backMount[1],'#f0b45f');
+    drawPixelSpring(half,0,frontMount[0],frontMount[1],'#f0b45f');
+
+    ctx.save(); ctx.translate(0,Math.round(bodyDrop/2)*2); ctx.rotate(bodyPitch);
+    pixelRect(-9,-20,24,4,'#ee6f3f');
+    pixelRect(-17,-24,14,4,'#263a35');
+    pixelRect(-20,-27,5,5,brakePressure > .08 ? '#ff6045' : '#713c35',2);
+    if (brakePressure > .6) pixelRect(-19,-26,3,3,'#ffd0a2',1);
+    pixelPath([[10,-23],[18,-26],[24,-26]],'#263a35',2);
+    pixelRect(-9,-8,12,10,'#435a52');
+    pixelRect(-5,-4,10,6,'#2f463d');
+    pixelRect(-3,-2,6,6,'#edb466');
+
+    if(state!=='ragdoll'){
+      const shift = Math.round(leanVisual * 4.5) * 2;
+      const isMaxine = rider === 'Maxine';
+      const jacket = isMaxine ? '#d86f82' : '#e8e5d9';
+      const jacketLight = isMaxine ? '#ef9aa8' : '#fff8e7';
+      const trousers = isMaxine ? '#39435d' : '#29464e';
+      const helmet = isMaxine ? '#63aa98' : '#f4a442';
+      const helmetLight = isMaxine ? '#a8dfcf' : '#ffd078';
+      const skin = '#bd7954';
+
+      pixelPath([[-8+shift,-24],[4+shift*.45,-14],[-2,-3]],trousers,3);
+      pixelRect(-5,-6,10,4,'#233630');
+      pixelPath([[-8+shift,-25],[1+shift,-37]],'#263b36',5);
+      pixelPath([[-7+shift,-25],[2+shift,-37]],jacket,3);
+      pixelRect(-6+shift,-38,14,12,jacket);
+      pixelRect(-4+shift,-38,10,4,jacketLight);
+      pixelPath([[3+shift,-35],[11+shift*.45,-30],[20,-25]],skin,2);
+      pixelPath([[2+shift,-36],[10+shift*.45,-31]],jacketLight,2);
+
+      pixelRect(0+shift,-46,8,8,skin);
+      pixelRect(-4+shift,-52,14,12,'#263b36');
+      pixelRect(-2+shift,-52,12,10,helmet);
+      pixelRect(0+shift,-52,8,4,helmetLight);
+      pixelRect(6+shift,-48,8,4,'#234844');
+      pixelRect(8+shift,-42,6,2,'#efb36b');
+    }
+    ctx.restore();
+    ctx.restore();
+  }
+
+  return { drawApple, drawFlag, drawBike };
+}

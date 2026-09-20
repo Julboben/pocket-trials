@@ -93,6 +93,13 @@ export function createAudio(getSnapshot) {
     init,
     setEnabled,
     update,
+    menuMove: () => playTone(420, .035, 'square', .018, 0, 470),
+    menuSelect: () => playTone(520, .07, 'square', .035, 0, 680),
+    menuBack: () => playTone(360, .08, 'triangle', .035, 0, 240),
+    menuConfirm() {
+      playTone(440, .08, 'square', .045, 0, 660);
+      playTone(660, .1, 'square', .035, .055, 880);
+    },
     flip: () => playTone(180, .12, 'square', .035, 0, 260),
     airTurn(fullRotation) {
       if (fullRotation) {

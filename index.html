@@ -6,31 +6,6 @@
 </head>
 <body>
 <main class="game pixel-ui" id="game" tabindex="0" aria-label="Pocket Trials motorcycle game">
-  <header class="header">
-    <div class="logo" aria-hidden="true">↗</div>
-    <div class="branding">
-      <h1 id="game-title">POCKET TRIALS</h1>
-    </div>
-    <div class="level-strip">
-      <label for="level-select">TRAIL</label>
-      <select id="level-select">
-        <option value="0">01 / The Orchard</option>
-        <option value="1">02 / Rolling Country</option>
-        <option value="2">03 / High Hopes</option>
-        <option value="3">04 / Skybound</option>
-        <option value="4">05 / Brake Point</option>
-        <option value="5">06 / Long Way Up</option>
-        <option value="6">07 / Elastic Summit</option>
-      </select>
-      <div class="best">BEST <b id="best-time">—</b></div>
-    </div>
-    <button class="icon-button" id="settings" title="Settings" aria-label="Open settings">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"></path></svg>
-    </button>
-    <button class="icon-button" id="pause" title="Pause (Esc)" aria-label="Pause game" disabled="">
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>
-    </button>
-  </header>
   <div class="viewport">
     <canvas id="canvas" width="760" height="820" aria-label="Side-scrolling motorcycle trail. Collect all apples and reach the checkered flag.">
       This game requires HTML Canvas support.
@@ -43,30 +18,35 @@
       </div>
     </div>
     <div class="toast" id="toast" role="status"></div>
-    <div class="scene-label" id="scene-label">THE ORCHARD / 01</div>
+    <div class="scene-label" id="scene-label" data-trail-number="01">THE ORCHARD</div>
     <div class="progress" role="progressbar" id="progress" aria-label="Distance along trail" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-fill" id="progress-fill"></div></div>
-    <button class="icon-button restart-fab" id="restart" title="Restart (R)" aria-label="Restart trail">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6"></path></svg>
-    </button>
+    <div class="game-actions">
+      <button class="icon-button" id="menu" aria-label="Open main menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
+      </button>
+      <button class="icon-button" id="fullscreen" aria-label="Enter fullscreen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path></svg>
+      </button>
+      <button class="icon-button" id="pause" aria-label="Pause game" disabled="">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>
+      </button>
+      <button class="icon-button" id="restart" aria-label="Restart trail">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6"></path></svg>
+      </button>
+    </div>
 
-    <div class="overlay" id="overlay">
+    <div class="overlay" id="overlay" hidden>
       <div class="modal">
-        <div class="modal-badge" id="overlay-badge">TRAIL 01 / THE ORCHARD</div>
-        <h2 id="overlay-title">Pocket Trials</h2>
-        <p id="overlay-description">Collect all apples to unlock the finish gate. Lean to balance your bike and avoid landing on your head.</p>
-        <div class="mini-tips" id="mini-tips" aria-hidden="true">
-          <span><b>↔</b>LEAN TO BALANCE</span>
-          <span><b>Space</b>FLIP DIRECTION</span>
-          <span><b>⚑</b>REACH THE FLAG</span>
-        </div>
-        <button class="primary" id="primary">Start Trail →</button>
+        <div class="modal-badge" id="overlay-badge">PAUSED</div>
+        <h2 id="overlay-title">Game Paused</h2>
+        <p id="overlay-description">Resume when you are ready, or restart the current trail.</p>
+        <button class="primary" id="primary">Resume →</button>
         <button class="secondary" id="secondary" hidden="">Back to Menu</button>
       </div>
     </div>
   </div>
-  <section class="control-area" aria-label="Bike controls">
+  <section class="control-area" id="control-area" aria-label="Bike controls">
     <div class="control-buttons" id="control-buttons">
-      <div class="control-heading"><span>HOLD TO ACCELERATE · LEAN TO BALANCE</span></div>
       <div class="controls">
         <button class="control" id="left-control" data-action="back" aria-label="Lean back, left arrow"><span class="symbol">↶</span><span class="caption">LEAN BACK</span></button>
         <button class="control" id="right-control" data-action="forward" aria-label="Lean forward, right arrow"><span class="symbol">↷</span><span class="caption">LEAN FWD</span></button>
@@ -75,53 +55,109 @@
         <button class="control gas" id="up-control" data-action="up" aria-label="Accelerate, up arrow"><span class="symbol">↑</span><span class="caption">GAS</span></button>
       </div>
     </div>
-    <p class="keyboard" id="keyboard-help"><b>↑</b> Gas &nbsp; <b>↓</b> Brake &nbsp; <b>← →</b> Lean &nbsp; <b>Space</b> Flip &nbsp; <b>R</b> Restart &nbsp; <b>Esc</b> Pause</p>
+
   </section>
   <div class="sr-only" id="announcer" aria-live="polite"></div>
-  <dialog class="settings-dialog" id="settings-dialog" aria-labelledby="settings-title">
-    <form method="dialog" class="settings-form">
-      <div class="settings-head">
-        <div><div class="modal-badge">PREFERENCES</div><h2 id="settings-title">Settings</h2></div>
-        <button class="settings-close" value="close" aria-label="Close settings">✕</button>
-      </div>
-      <fieldset class="setting-group">
-        <legend>RIDER</legend>
-        <div class="setting-options" style="--options:2">
-          <button type="button" class="setting-option rider-choice" data-setting="rider" data-value="max">
-            <svg class="rider-symbol male" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="15" r="5"></circle><path d="M13 11 20 4M15 4h5v5"></path></svg>
-            <span>Max</span>
-          </button>
-          <button type="button" class="setting-option rider-choice" data-setting="rider" data-value="Maxine">
-            <svg class="rider-symbol female" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="5"></circle><path d="M12 13v8M8.5 18h7"></path></svg>
-            <span>Maxine</span>
-          </button>
-        </div>
-      </fieldset>
 
-      <fieldset class="setting-group">
-        <legend>SCENERY</legend>
-        <div class="setting-options" style="--options:2">
-          <button type="button" class="setting-option" data-setting="scenery" data-value="full">Full</button>
-          <button type="button" class="setting-option" data-setting="scenery" data-value="reduced">Reduced</button>
+  <section class="menu-screen" id="menu-screen" aria-labelledby="menu-title">
+    <button class="icon-button dashboard-fullscreen" id="menu-fullscreen" aria-label="Enter fullscreen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path></svg>
+    </button>
+    <div class="menu-dashboard">
+      <div class="menu-hero">
+        <div class="menu-logo" aria-hidden="true">↗</div>
+        <div>
+          <div class="modal-badge">MOMENTUM · BALANCE · CONTROL</div>
+          <h2 id="menu-title">Pocket Trials</h2>
         </div>
-      </fieldset>
-      <fieldset class="setting-group">
-        <legend>ON-SCREEN CONTROLS</legend>
-        <div class="setting-options" style="--options:2">
-          <button type="button" class="setting-option" data-setting="controls" data-value="show">Show</button>
-          <button type="button" class="setting-option" data-setting="controls" data-value="hide">Hide</button>
+      </div>
+
+      <div class="menu-view" id="menu-home">
+        <div class="menu-actions">
+          <button class="menu-action continue-save" id="menu-start">
+            <span class="active-rider-art" aria-hidden="true"><canvas id="active-save-bike" width="240" height="168"></canvas></span>
+            <span class="continue-save-copy"><span class="save-label">CONTINUE · <b id="active-save-slot">SLOT 1</b></span><strong id="active-save-rider">MAX</strong><small id="active-save-progress">1 / 7 trails · The Orchard</small></span>
+            <span class="continue-arrow" aria-hidden="true">→</span>
+          </button>
+          <button class="menu-action" id="menu-new-game"><span>NEW GAME</span><small>Create a rider in an empty slot</small></button>
+          <button class="menu-action" id="menu-load-game"><span>LOAD GAME</span><small>Choose or delete a savegame</small></button>
+          <button class="menu-action" id="menu-levels"><span>LEVELS</span><small>Browse unlocked trails</small></button>
+          <button class="menu-action" id="menu-how-to"><span>HOW TO PLAY</span><small>Controls, balance, and objectives</small></button>
+          <button class="menu-action" id="menu-settings"><span>SETTINGS</span><small>Audio, controls, and scenery</small></button>
         </div>
-      </fieldset>
-      <fieldset class="setting-group">
-        <legend>SOUND EFFECTS</legend>
-        <div class="setting-options" style="--options:2">
-          <button type="button" class="setting-option" data-setting="sound" data-value="on">On</button>
-          <button type="button" class="setting-option" data-setting="sound" data-value="off">Off</button>
+      </div>
+
+      <div class="menu-view" id="menu-load-view" hidden>
+        <div class="menu-view-head"><div><span class="save-label">SAVEGAMES</span><h3>Load game</h3></div><button class="menu-back" data-menu-back>← BACK</button></div>
+        <p class="load-game-help" id="load-game-help">Select a savegame to make it active. Empty slots can be used for a new game.</p>
+        <div class="save-slots" id="save-slots" aria-label="Savegame slots"></div>
+      </div>
+
+      <div class="menu-view" id="menu-level-view" hidden>
+        <div class="menu-view-head"><div><span class="save-label">TRAIL SELECT</span><h3>Choose a level</h3></div><button class="menu-back" data-menu-back>← BACK</button></div>
+        <div class="level-grid" id="menu-level-grid"></div>
+      </div>
+
+      <div class="menu-view" id="menu-save-view" hidden>
+        <div class="menu-view-head"><div><span class="save-label" id="new-save-slot-label">SAVE SLOT 1</span><h3>Choose your rider</h3></div><button class="menu-back" data-menu-back>← BACK</button></div>
+        <p class="save-warning" id="save-warning">Your rider is permanently tied to this savegame. Each slot keeps its own progression and best times.</p>
+        <div class="rider-grid">
+          <button class="rider-card" data-rider="max" aria-pressed="true"><span class="rider-portrait male"><svg class="rider-symbol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="15" r="5"></circle><path d="M13 11 20 4M15 4h5v5"></path></svg></span><strong>MAX</strong><small>Classic orange helmet</small></button>
+          <button class="rider-card" data-rider="Maxine" aria-pressed="false"><span class="rider-portrait female"><svg class="rider-symbol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="5"></circle><path d="M12 13v8M8.5 18h7"></path></svg></span><strong>MAXINE</strong><small>Teal helmet and pink jacket</small></button>
         </div>
-      </fieldset>
-      <button class="primary settings-done" value="done">Done</button>
-    </form>
-  </dialog>
+        <button class="primary create-save-button" id="create-save">Create Save &amp; Ride →</button>
+      </div>
+
+      <div class="menu-view" id="menu-how-view" hidden>
+        <div class="menu-view-head"><div><span class="save-label">RIDER HANDBOOK</span><h3>How to play</h3></div><button class="menu-back" data-menu-back>← BACK</button></div>
+        <div class="how-grid">
+          <article class="how-card">
+            <canvas class="how-art" data-how-art="drive" width="480" height="200" aria-hidden="true"></canvas>
+            <div><span class="how-number">01</span><h4>Gas and brake</h4><p>Hold <kbd>↑</kbd> or <kbd>W</kbd> to accelerate. Use <kbd>↓</kbd> or <kbd>S</kbd> to brake. On touchscreens, use the matching buttons below the game.</p></div>
+          </article>
+          <article class="how-card">
+            <canvas class="how-art" data-how-art="lean" width="480" height="200" aria-hidden="true"></canvas>
+            <div><span class="how-number">02</span><h4>Shift your weight</h4><p>Use <kbd>←</kbd>/<kbd>A</kbd> and <kbd>→</kbd>/<kbd>D</kbd> to lean. Move forward on climbs and back under hard braking.</p></div>
+          </article>
+          <article class="how-card">
+            <canvas class="how-art" data-how-art="air" width="480" height="200" aria-hidden="true"></canvas>
+            <div><span class="how-number">03</span><h4>Control the air</h4><p>Carry momentum into jumps and use small lean inputs to match the landing. Press <kbd>Space</kbd> to turn the bike around.</p></div>
+          </article>
+          <article class="how-card">
+            <canvas class="how-art" data-how-art="goal" width="480" height="200" aria-hidden="true"></canvas>
+            <div><span class="how-number">04</span><h4>Finish the trail</h4><p>Collect all five apples to unlock the checkered finish. Missing one? Turn around, find it, then return to the flag.</p></div>
+          </article>
+        </div>
+      </div>
+
+      <div class="menu-view" id="menu-settings-view" hidden>
+        <div class="menu-view-head"><div><span class="save-label">PREFERENCES</span><h3>Settings</h3></div><button class="menu-back" data-menu-back>← BACK</button></div>
+        <div class="dashboard-settings">
+          <fieldset class="setting-group">
+            <legend>SCENERY</legend>
+            <div class="setting-options" style="--options:2">
+              <button type="button" class="setting-option" data-setting="scenery" data-value="full">Full</button>
+              <button type="button" class="setting-option" data-setting="scenery" data-value="reduced">Reduced</button>
+            </div>
+          </fieldset>
+          <fieldset class="setting-group">
+            <legend>ON-SCREEN CONTROLS</legend>
+            <div class="setting-options" style="--options:2">
+              <button type="button" class="setting-option" data-setting="controls" data-value="show">Show</button>
+              <button type="button" class="setting-option" data-setting="controls" data-value="hide">Hide</button>
+            </div>
+          </fieldset>
+          <fieldset class="setting-group">
+            <legend>SOUND EFFECTS</legend>
+            <div class="setting-options" style="--options:2">
+              <button type="button" class="setting-option" data-setting="sound" data-value="on">On</button>
+              <button type="button" class="setting-option" data-setting="sound" data-value="off">Off</button>
+            </div>
+          </fieldset>
+        </div>
+      </div>
+    </div>
+  </section>
 </main>
 <script type="module" src="./js/main.js"></script>
 

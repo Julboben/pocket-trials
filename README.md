@@ -16,12 +16,12 @@ The current version is a dependency-free browser prototype built with native Jav
 - Live post-crash rider ragdoll simulation with a detached, coasting bike
 - Direction flipping with an animated rider and bike transition
 - Code-drawn pixel presentation with smooth terrain, mountains, and apples for readability
-- Responsive mobile and desktop layouts
+- Responsive mobile and expanded desktop layouts with optional fullscreen play
 - Keyboard and touch controls
 - Two selectable riders: Max and Maxine
 - Layered foreground and background scenery
 - Terrain-colored wheel spray, brake lights, and fading ground skid marks
-- Procedural engine, braking, wheel-landing, aerial trick, collectible, crash, flip, and finish sound effects
+- Procedural engine, braking, wheel-landing, aerial trick, collectible, crash, flip, finish, and dashboard interaction sound effects
 - Collectibles, finish gates, timers, and best times
 - Persisted settings and level progression
 - Seven progressively longer trails, including floating-island jumps
@@ -47,7 +47,9 @@ No install or build step is required for the game itself.
 | Lean backward / forward | `Left Arrow` / `Right Arrow` or `A` / `D` | Lean buttons |
 | Flip riding direction | `Space` | — |
 | Restart trail | `R` | Compact restart button in the game viewport |
-| Pause / resume | `Escape` | Pause button |
+| Pause / resume | — | Pause button |
+| Open / close the main menu | `Escape` | In-game menu button |
+| Toggle fullscreen | Fullscreen button | Fullscreen button |
 | Activate the primary menu action | `Enter` | Menu button |
 
 Lean labels adjust to the direction the rider is facing.
@@ -62,26 +64,27 @@ Lean labels adjust to the direction the rider is facing.
 6. **Long Way Up** — a sustained technical climb combining momentum and wheelie control.
 7. **Elastic Summit** — a long final exam combining climbs, braking, landings, and gaps.
 
-Each trail requires collecting all five apples before the finish gate will open. Completing a trail unlocks the next one. The pre-trail briefing explains the main mechanic each route is designed to teach.
+Each trail requires collecting all five apples before the finish gate will open. Completing a trail unlocks the next one. Selecting a trail starts it immediately, and its number and name remain visible as a lower-left course marker.
 
 ## Settings and saved data
 
-The settings menu includes:
+The dashboard's Settings view includes:
 
-- Rider selection
 - Full or reduced scenery
 - Visible or hidden on-screen controls
 - Sound effects on or off
 
-Preferences, the current trail, unlocked trails, and best times are stored in browser `localStorage`.
+The game opens on a dedicated dashboard before any level is loaded or rendered. Settings, level selection, and an illustrated How to Play guide are full dashboard views rather than separate modals. Control instructions are centralized in the guide instead of being repeated around the gameplay interface. It provides three independent savegame slots. The main dashboard shows only the active career, while the Load Game view contains slot selection and deletion. New Game always uses an empty slot; when all slots are occupied, one must be explicitly deleted first. A rider is chosen when a slot is created and is permanently tied to that save.
+
+Preferences and all three rider profiles—including each slot's current trail, unlocks, and best times—are stored in browser `localStorage`.
 
 Current storage keys:
 
 - `pocket-trials-settings-v1`
-- `pocket-trials-progress-v1`
-- `pocket-trials-v2-<level>` for per-level best times
+- `pocket-trials-saves-v2`
+- `pocket-trials-active-slot-v1`
 
-Best-time storage was versioned when the trails were substantially lengthened. Legacy `pocket-trials-v1-<level>` records are still recognized when reconstructing unlocked-trail progress, but are not shown as records for the redesigned routes.
+The former single-save keys are read once to migrate an existing career into slot 1.
 
 Clearing site data resets settings, progression, and recorded times.
 
@@ -96,7 +99,7 @@ Clearing site data resets settings, progression, and recorded times.
 │   ├── main.js         # Game loop, simulation, rendering, input, and UI orchestration
 │   ├── audio.js        # Procedural Web Audio effects
 │   ├── config.js       # Shared constants and math helpers
-│   ├── drawing.js      # Reusable canvas and pixel-art primitives
+│   ├── drawing.js      # Shared canvas primitives and reusable game-art renderers
 │   ├── levels.js       # Trail definitions and visual palettes
 │   ├── storage.js      # Preferences, progression, and best times
 │   └── terrain.js      # Heightfield and collision sampling
@@ -134,7 +137,7 @@ Trails are smooth analytic heightfields defined by control points. Terrain deriv
 
 ### Rendering
 
-Everything is rendered with the Canvas 2D API, including:
+Everything is rendered with the Canvas 2D API. The gameplay and illustrated How to Play guide share the same rider, bike, apple, and finish-flag renderers, so visual updates remain synchronized. Rendered elements include:
 
 - Terrain and floating islands
 - Modular pixel bike, rider, wheels, and suspension
@@ -165,6 +168,7 @@ When changing physics values, validate at least these cases:
 - [x] Sound Effects
 - [ ] Different terrain types (grass, mud, snow, etc.)
 - [x] Splatter behind the bike when you drive on different terrain
+- [ ] Add import / export of savegames
 
 ## Possible Godot migration
 
