@@ -4,10 +4,10 @@ import {
   COAST_RESISTANCE_LOW_SPEED, COAST_RESISTANCE_HIGH_SPEED,
   COAST_SPEED_REFERENCE, UPHILL_TORQUE_BOOST, clamp, lerp
 } from './config.js';
-import { levels } from './levels.js';
+import { levels, terrainMaterials } from './levels.js';
 import { createAudio } from './audio.js';
 import { createDrawingTools, createGameArt } from './drawing.js';
-import { terrainAt } from './terrain.js';
+import { terrainAt, platformCollisionAt, gapCollisionAt, platformPolygon } from './terrain.js';
 import {
   loadPreferences,
   loadSaveSlots,
@@ -376,11 +376,11 @@ import {
   }
 
   // Keep the active level binding local while terrain math remains reusable.
-  const terrain = x => terrainAt(level, x);
+  const terrain = (x, referenceY = null) => terrainAt(level, x, referenceY);
 
   function wheel(x) {
     const y = terrain(x).y - RADIUS;
-    return { x, y, ox: x, oy: y, grounded: true, spin: 0, compression: 0, springVelocity: 0, impactSpeed: 0 };
+    return { x, y, ox: x, oy: y, grounded: true, material: level.terrain || 'grass', spin: 0, compression: 0, springVelocity: 0, impactSpeed: 0 };
   }
 
   function clearInput() {
@@ -505,7 +505,7 @@ import {
     let ax = 0, ay = GRAVITY;
 
     if (p.grounded) {
-      const slope = terrain(p.x).slope;
+      const slope = terrain(p.x, p.y - RADIUS).slope;
       const length = Math.hypot(1, slope);
       const tx = 1 / length, ty = slope / length;
       const tangentialVelocity = vx * tx + vy * ty;
@@ -555,31 +555,42 @@ import {
     p.grounded = false;
   }
 
-  function collide(p) {
-    const t = terrain(p.x);
-    if (!t.solid) return;
-    const length = Math.hypot(t.slope, 1);
-    const nx = t.slope / length, ny = -1 / length;
-    const penetration = RADIUS + (p.y - t.y) / length;
-    if (penetration > 0) {
-      let vx = p.x - p.ox, vy = p.y - p.oy;
-      const intoGround = vx * nx + vy * ny;
-      if (intoGround < 0) {
-        const impactSpeed = -intoGround / STEP;
-        p.impactSpeed = Math.max(p.impactSpeed, impactSpeed);
-        const restitution = impactSpeed > 35 ? clamp(.08 + impactSpeed / 1200, .08, .22) : 0;
-        vx -= nx * intoGround * (1 + restitution);
-        vy -= ny * intoGround * (1 + restitution);
-        if (impactSpeed > 12) {
-          p.compression = clamp(p.compression + (impactSpeed - 12) * .065, 0, 16);
-          p.springVelocity += impactSpeed * .018;
-        }
+  function resolveWheelContact(p, contact) {
+    if (!contact || contact.penetration <= 0) return;
+    const { nx, ny, penetration } = contact;
+    let vx = p.x - p.ox, vy = p.y - p.oy;
+    const intoSurface = vx * nx + vy * ny;
+    if (intoSurface < 0) {
+      const impactSpeed = -intoSurface / STEP;
+      p.impactSpeed = Math.max(p.impactSpeed, impactSpeed);
+      const restitution = impactSpeed > 35 ? clamp(.08 + impactSpeed / 1200, .08, .22) : 0;
+      vx -= nx * intoSurface * (1 + restitution);
+      vy -= ny * intoSurface * (1 + restitution);
+      if (ny < -.35 && impactSpeed > 12) {
+        p.compression = clamp(p.compression + (impactSpeed - 12) * .065, 0, 16);
+        p.springVelocity += impactSpeed * .018;
       }
-      p.x += nx * penetration;
-      p.y += ny * penetration;
-      p.ox = p.x - vx;
-      p.oy = p.y - vy;
+    }
+    p.x += nx * penetration;
+    p.y += ny * penetration;
+    p.ox = p.x - vx;
+    p.oy = p.y - vy;
+    if (ny < -.35) {
       p.grounded = true;
+      p.material = contact.material;
+    }
+  }
+
+  function collide(p) {
+    resolveWheelContact(p, platformCollisionAt(level, p.x, p.y, RADIUS));
+    resolveWheelContact(p, gapCollisionAt(level, p.x, p.y, RADIUS));
+
+    const ground = terrain(p.x);
+    if (ground.solid) {
+      const length = Math.hypot(ground.slope, 1);
+      const nx = ground.slope / length, ny = -1 / length;
+      const penetration = RADIUS + (p.y - ground.y) / length;
+      resolveWheelContact(p, { ...ground, nx, ny, penetration });
     }
     if (p.x < RADIUS) {
       const vx = Math.max(0, p.x - p.ox);
@@ -613,18 +624,23 @@ import {
     $('announcer').textContent='Rider down. Press R or select the restart button to try again.';
     notify('Rider down · Press R to retry', Infinity);
   }
-  function collideRagdollPoint(p) {
-    const t=terrain(p.x);
-    if(!t.solid)return;
-    const length=Math.hypot(t.slope,1),nx=t.slope/length,ny=-1/length;
-    const penetration=p.radius+(p.y-t.y)/length;
-    if(penetration<=0)return;
+  function resolveRagdollContact(p, contact) {
+    if (!contact || contact.penetration <= 0) return;
+    const { nx, ny, penetration } = contact;
     let vx=p.x-p.ox,vy=p.y-p.oy;
     const normal=vx*nx+vy*ny;
     if(normal<0){vx-=nx*normal*1.12;vy-=ny*normal*1.12;}
     const tangentX=-ny,tangentY=nx,tangent=vx*tangentX+vy*tangentY;
     vx-=tangentX*tangent*.16;vy-=tangentY*tangent*.16;
     p.x+=nx*penetration;p.y+=ny*penetration;p.ox=p.x-vx;p.oy=p.y-vy;
+  }
+  function collideRagdollPoint(p) {
+    resolveRagdollContact(p, platformCollisionAt(level,p.x,p.y,p.radius));
+    resolveRagdollContact(p, gapCollisionAt(level,p.x,p.y,p.radius));
+    const ground=terrain(p.x);
+    if(!ground.solid)return;
+    const length=Math.hypot(ground.slope,1),nx=ground.slope/length,ny=-1/length;
+    resolveRagdollContact(p,{...ground,nx,ny,penetration:p.radius+(p.y-ground.y)/length});
   }
   function updateRagdoll() {
     if(!ragdoll)return;
@@ -663,7 +679,7 @@ import {
     const direction = Math.sign(bikeSpeed || facing);
     for (const wheelPoint of [rear, front]) {
       if (!wheelPoint.grounded) continue;
-      const ground = terrain(wheelPoint.x);
+      const ground = terrain(wheelPoint.x, wheelPoint.y - RADIUS);
       const length = clamp(speed * .035 * brakePressure, 3, 10);
       skidMarks.push({
         x: wheelPoint.x, y: ground.y - 1, slope: ground.slope,
@@ -685,7 +701,8 @@ import {
     while (sprayAccumulator >= 1) {
       sprayAccumulator--;
       const direction = Math.sign(bikeSpeed || facing);
-      const color = level.spray[Math.floor(Math.random() * level.spray.length)];
+      const spray = terrainMaterials[contactWheel.material]?.spray || level.spray;
+      const color = spray[Math.floor(Math.random() * spray.length)];
       const life = .28 + Math.random() * .32;
       particles.push({
         x: contactWheel.x - direction * (RADIUS - 2),
@@ -739,7 +756,8 @@ import {
     const grounded = rear.grounded || front.grounded;
     const bikeSpeed = ((rear.x - rear.ox) + (front.x - front.ox)) / (2 * STEP);
     const speedFactor = clamp(Math.abs(bikeSpeed) / 300, 0, 1);
-    const midSlope = terrain((rear.x + front.x) / 2).slope;
+    const midY = Math.min(rear.y, front.y) - RADIUS;
+    const midSlope = terrain((rear.x + front.x) / 2, midY).slope;
     const uphill = clamp(-midSlope * facing, 0, 1);
     const downhill = clamp(midSlope * facing, 0, 1);
     const forwardLean = clamp(leanControl * facing, 0, 1);
@@ -784,7 +802,7 @@ import {
     }
 
     for (const p of [rear, front]) {
-      const slope = terrain(p.x).slope;
+      const slope = terrain(p.x, p.y - RADIUS).slope;
       if (!(braking && p.grounded)) {
         p.spin += ((p.x - p.ox) + slope * (p.y - p.oy)) / Math.hypot(1, slope) / RADIUS;
       }
@@ -827,7 +845,10 @@ import {
 
     if(state==='ragdoll'){updateRagdoll();return;}
     const headGround = terrain(head.x);
-    if ((headGround.solid && head.y + 6 > headGround.y && elapsed > .2)
+    const headObstacle = platformCollisionAt(level, head.x, head.y, 6)
+      || gapCollisionAt(level, head.x, head.y, 6);
+    if ((headObstacle && elapsed > .2)
+      || (headGround.solid && head.y + 6 > headGround.y && elapsed > .2)
       || my > (level.fallY || 620)) {
       burst(head.x, head.y, '#ed8b54', 15);
       startRagdoll();
@@ -924,21 +945,76 @@ import {
   }
 
 
-  function drawTerrain() {
-    groundPath(); ctx.fillStyle = '#c5b496'; ctx.fill();
-    ctx.save(); groundPath(); ctx.clip();
-    for (let i = 0; i < 4; i++) {
-      ctx.beginPath();
-      for (let x = cameraX - 20; x < cameraX + W + 25; x += 8) {
-        const y = terrain(x).y + 27 + i * 30 + Math.sin(x * .022 + i) * 5;
-        if (x === cameraX - 20) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  function materialFor(name) {
+    return terrainMaterials[name] || terrainMaterials.grass;
+  }
+
+  function drawBrickPattern(start, end, top, bottom) {
+    ctx.fillStyle = '#4e2e2a99';
+    for (let y = Math.floor(top / 14) * 14; y < bottom; y += 14) {
+      ctx.fillRect(start, y, end - start, 2);
+      const offset = (Math.floor(y / 14) % 2) * 15;
+      for (let x = Math.floor(start / 30) * 30 + offset; x < end; x += 30) ctx.fillRect(x, y, 2, 14);
+    }
+  }
+
+  function platformPath(platform, offset = 0) {
+    const polygon = platformPolygon(platform);
+    ctx.beginPath();
+    polygon.forEach((point, index) => index
+      ? ctx.lineTo(point[0], point[1] + offset)
+      : ctx.moveTo(point[0], point[1] + offset));
+    ctx.closePath();
+  }
+
+  function drawPlatform(platform) {
+    const start = platform.points[0][0], end = platform.points[platform.points.length - 1][0];
+    if (end < cameraX - 30 || start > cameraX + W + 30) return;
+    const material = materialFor(platform.material);
+    platformPath(platform); ctx.fillStyle = material.fill; ctx.fill();
+    ctx.save(); platformPath(platform); ctx.clip();
+    if (material.pattern === 'brick') {
+      const top = Math.min(...platform.points.map(point => point[1]));
+      const bottom = Math.max(...platform.points.map(point => point[1])) + (platform.thickness || 48) + 8;
+      drawBrickPattern(start, end, top, bottom);
+    } else {
+      for (let offset = 16, index = 0; offset < (platform.thickness || 48); offset += 16, index++) {
+        ctx.beginPath();
+        for (let x = start; x <= end; x += 6) {
+          const y = terrainAt({ points: platform.points }, x).y + offset;
+          if (x === start) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = material.layers[index % material.layers.length]; ctx.lineWidth = 2; ctx.stroke();
       }
-      ctx.strokeStyle = i % 2 ? '#d3c2a2' : '#b7a687'; ctx.lineWidth = 2; ctx.stroke();
+    }
+    ctx.restore();
+    ctx.beginPath(); ctx.moveTo(start, terrainAt({ points: platform.points }, start).y);
+    for (let x = start + 3; x < end; x += 3) ctx.lineTo(x, terrainAt({ points: platform.points }, x).y);
+    ctx.lineTo(end, terrainAt({ points: platform.points }, end).y);
+    ctx.strokeStyle = material.edge; ctx.lineWidth = 7; ctx.lineJoin = 'round'; ctx.stroke();
+    ctx.strokeStyle = material.surface; ctx.lineWidth = 2; ctx.stroke();
+  }
+
+  function drawTerrain() {
+    const material = materialFor(level.terrain);
+    groundPath(); ctx.fillStyle = material.fill; ctx.fill();
+    ctx.save(); groundPath(); ctx.clip();
+    if (material.pattern === 'brick') {
+      drawBrickPattern(cameraX - 20, cameraX + W + 20, cameraY - 20, cameraY + H + 100);
+    } else {
+      for (let i = 0; i < 4; i++) {
+        ctx.beginPath();
+        for (let x = cameraX - 20; x < cameraX + W + 25; x += 8) {
+          const y = terrain(x).y + 27 + i * 30 + Math.sin(x * .022 + i) * 5;
+          if (x === cameraX - 20) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = material.layers[i % material.layers.length]; ctx.lineWidth = 2; ctx.stroke();
+      }
     }
     for (let i = Math.floor(cameraX / 31); i < Math.ceil((cameraX + W) / 31); i++) {
       const x = i * 31 + Math.sin(i * 18) * 9;
       const y = terrain(x).y + 16 + (Math.sin(i * 23) + 1) * 34;
-      ctx.fillStyle = '#ac9c806e';
+      ctx.fillStyle = material.detail;
       ctx.beginPath(); ctx.ellipse(x, y, 2 + (i % 3 + 3) % 3, 1.5, .3, 0, TAU); ctx.fill();
     }
     ctx.restore();
@@ -949,14 +1025,16 @@ import {
       for (let x = start + 3; x < end; x += 3) ctx.lineTo(x,terrain(x).y);
       ctx.lineTo(end,terrain(end).y);
     }
-    ctx.strokeStyle = '#375d4d'; ctx.lineWidth = 7; ctx.lineJoin = 'round'; ctx.stroke();
-    ctx.strokeStyle = '#6f8b59'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.strokeStyle = material.edge; ctx.lineWidth = 7; ctx.lineJoin = 'round'; ctx.stroke();
+    ctx.strokeStyle = material.surface; ctx.lineWidth = 2; ctx.stroke();
 
-    for (let i = Math.floor(cameraX / 45); i < Math.ceil((cameraX + W) / 45); i++) {
+    if (material.vegetation) for (let i = Math.floor(cameraX / 45); i < Math.ceil((cameraX + W) / 45); i++) {
       const x = i * 45 + Math.sin(i * 9) * 8, t = terrain(x);
       if (!t.solid) continue;
-      pixelPath([[x - 4, t.y - 2],[x - 4, t.y - 8],[x, t.y - 4],[x + 2, t.y - 10]], '#628455', 1, 2);
+      pixelPath([[x - 4, t.y - 2],[x - 4, t.y - 8],[x, t.y - 4],[x + 2, t.y - 10]], material.vegetation, 1, 2);
     }
+
+    for (const platform of level.platforms || []) drawPlatform(platform);
 
     if (cameraX < 230) {
       const y = terrain(28).y;

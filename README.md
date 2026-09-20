@@ -24,7 +24,8 @@ The current version is a dependency-free browser prototype built with native Jav
 - Procedural engine, braking, wheel-landing, aerial trick, collectible, crash, flip, finish, dashboard, and rain sound effects
 - Collectibles, finish gates, timers, and best times
 - Persisted settings and level progression
-- Seven progressively longer trails, including floating-island jumps
+- Seven progressively longer trails with gaps and multiple elevated rideable platforms
+- Grass, dirt, rock, snow, and brick terrain materials
 - Per-trail rain and lightning configuration with procedural ambience and distance-aware thunder
 
 ## Play
@@ -64,7 +65,7 @@ Lean labels adjust to the direction the rider is facing.
 4. **Skybound** — two committed jumps, including a floating-island crossing.
 5. **Brake Point** — sharp drops and deep bowls that teach controlled braking and recovery.
 6. **Long Way Up** — a sustained technical climb combining momentum and wheelie control.
-7. **Elastic Summit** — a long final exam combining climbs, braking, landings, and gaps.
+7. **Elastic Summit** — a long final exam combining climbs, braking, landings, gaps, and stacked platforms.
 
 Each trail requires collecting all five apples before the finish gate will open. Completing a trail unlocks the next one. Selecting a trail starts it immediately, and its number and name remain visible as a lower-left course marker.
 
@@ -135,7 +136,9 @@ The physics are deliberately game-oriented rather than a complete real-world mot
 
 ### Terrain and levels
 
-Trails are smooth analytic heightfields defined by control points. Terrain derivatives provide wheel contact normals and slope information. Levels can also define collision-free gaps, floating islands, collectibles, props, visual colors, a finish position, and weather. Configure rain and lightning independently with `weather: { rain: 0–1, lightning: 0–1 }`. Either property can be omitted, so a trail may have rain, lightning, both, or clear weather.
+Trails use smooth analytic heightfields defined by control points. In addition to the base ground, a level can define any number of elevated solid platforms, each with independent curved points, thickness, and terrain material. Their curved tops, undersides, side walls, and corner points all participate in wheel and rider collision. Gap cliff faces and lip corners are solid as well. Levels can also define gaps, collectibles, props, visual colors, a finish position, and weather.
+
+See [`LEVEL_FORMAT.md`](./LEVEL_FORMAT.md) for the complete schema, coordinate system, examples, design guidelines, and suggested future improvements. Configure rain and lightning independently with `weather: { rain: 0–1, lightning: 0–1 }`. Either property can be omitted, so a trail may have rain, lightning, both, or clear weather.
 
 ### Rendering
 
@@ -168,7 +171,7 @@ When changing physics values, validate at least these cases:
 ## Upcoming features
 
 - [x] Sound Effects
-- [ ] Different terrain types (grass, mud, snow, etc.)
+- [x] Different terrain types (grass, dirt, rock, snow, and brick)
 - [x] Splatter behind the bike when you drive on different terrain
 - [x] Add weather effects (rain, lightning, and procedural ambience)
 - [ ] Add import / export of savegames
