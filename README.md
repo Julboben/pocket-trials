@@ -127,6 +127,8 @@ Clearing site data resets settings, progression, and recorded times.
 ├── scripts/            # Catalog generator and development watcher
 ├── js/
 │   ├── main.js         # Game loop, simulation, rendering, input, and UI orchestration
+│   ├── physics.js      # Reusable bike-constraint physics helpers
+│   ├── physics-debug.js # Opt-in physics tracing and console export
 │   ├── editor.js       # Visual editor tools, canvas interaction, and import/export
 │   ├── level-schema.js # Level defaults, normalization, and validation
 │   ├── audio.js        # Procedural Web Audio effects
@@ -137,6 +139,7 @@ Clearing site data resets settings, progression, and recorded times.
 │   └── terrain.js      # Heightfield and collision sampling
 ├── editor.html         # Standalone visual level editor
 ├── LEVEL_FORMAT.md     # Level schema and authoring guide
+├── PHYSICS_NEXT_STEPS.md # Physics stabilization and upgrade plan
 └── README.md           # Project documentation
 ```
 
@@ -167,9 +170,9 @@ The physics are deliberately game-oriented rather than a complete real-world mot
 
 ### Terrain and levels
 
-Trails use smooth analytic heightfields defined by control points. In addition to the base ground, a level can define any number of elevated solid platforms, each with independent curved points, thickness, and terrain material. Their curved tops, undersides, side walls, and corner points all participate in wheel and rider collision. Gap cliff faces and lip corners are solid as well. Levels can also define gaps, collectibles, props, visual colors, a finish position, and weather.
+Trails use smooth curves defined by control points. Wheel collision tessellates those curves into closed terrain polygons and resolves against the nearest edge or corner, including steep faces. A level can also define any number of elevated solid platforms with independent curved points, thickness, and terrain material. Platform tops, undersides, side walls, and corners participate in collision, and gaps are represented by real breaks with solid cliff walls. Levels can also define collectibles, props, visual colors, a finish position, and weather.
 
-See [`LEVEL_FORMAT.md`](./LEVEL_FORMAT.md) for the complete schema, coordinate system, examples, design guidelines, and suggested future improvements. Configure rain and lightning independently with `weather: { rain: 0–1, lightning: 0–1 }`. Either property can be omitted, so a trail may have rain, lightning, both, or clear weather.
+See [`LEVEL_FORMAT.md`](./LEVEL_FORMAT.md) for the complete schema, coordinate system, examples, and design guidelines. The staged collision, suspension, traction, and loop roadmap is documented in [`PHYSICS_NEXT_STEPS.md`](./PHYSICS_NEXT_STEPS.md). Configure rain and lightning independently with `weather: { rain: 0–1, lightning: 0–1 }`. Either property can be omitted, so a trail may have rain, lightning, both, or clear weather.
 
 ### Rendering
 
@@ -189,6 +192,8 @@ The logical viewport and camera framing adapt to mobile and desktop dimensions.
 
 The game is currently a **design and physics prototype**. Its most important asset is the accumulated handling behavior: throttle response, braking, rider lean, suspension, momentum, and camera feel.
 
+To investigate a sudden physics launch, open the game with `?physicsDebug=1` and reproduce it. The console automatically prints the detected spike as expanded JSON. Run `pocketTrialsPhysicsDebug.dumpSpike()` to print it again or `pocketTrialsPhysicsDebug.copySpike()` to copy it. The rolling trace keeps the latest 360 simulation frames; `dump()` and `copy()` expose the latest 120. Traces include wheel velocities, steep-segment probes, every wheelbase correction, and collision responses.
+
 When changing physics values, validate at least these cases:
 
 1. Starting from rest on a moderate hill
@@ -206,6 +211,7 @@ When changing physics values, validate at least these cases:
 - [x] Splatter behind the bike when you drive on different terrain
 - [x] Add weather effects (rain, lightning, and procedural ambience)
 - [ ] Add import / export of savegames
+- [ ] New physics engine with support for overhangs, loops, caves, and fully polygonal ground
 
 ## Possible Godot migration
 

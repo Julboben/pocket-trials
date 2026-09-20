@@ -2,12 +2,16 @@ import {
   STEP, RADIUS, WHEELBASE, TAU, GRAVITY, MAX_DRIVE_SPEED, MAX_POINT_SPEED,
   ENGINE_FORCE, BRAKE_FORCE, GROUND_LEAN_TORQUE, AIR_LEAN_TORQUE,
   COAST_RESISTANCE_LOW_SPEED, COAST_RESISTANCE_HIGH_SPEED,
-  COAST_SPEED_REFERENCE, UPHILL_TORQUE_BOOST, clamp, lerp
+  COAST_SPEED_REFERENCE, UPHILL_TORQUE_BOOST, BIKE_SOLVER_ITERATIONS,
+  BIKE_CONSTRAINT_STIFFNESS, CONTACT_GROUNDED_NORMAL, CONTACT_RESTITUTION_SPEED,
+  clamp, lerp
 } from './config.js';
 import { levels, customLevelEntries, terrainMaterials } from './levels.js';
 import { createAudio } from './audio.js';
+import { solveDistanceConstraint, constrainDistanceVelocity } from './physics.js';
+import { createPhysicsDebugger } from './physics-debug.js';
 import { createDrawingTools, createGameArt } from './drawing.js';
-import { terrainAt, platformCollisionAt, gapCollisionAt, platformPolygon } from './terrain.js';
+import { terrainAt, terrainSegmentSlopeAt, terrainCollisionsAt, platformPolygon } from './terrain.js';
 import {
   loadPreferences,
   loadSaveSlots,
@@ -52,7 +56,18 @@ import {
     ArrowUp:'up', KeyW:'up', ArrowDown:'down', KeyS:'down',
     ArrowLeft:'back', KeyA:'back', ArrowRight:'forward', KeyD:'forward'
   };
-
+  const physicsDebug = createPhysicsDebugger({
+    enabled: new URLSearchParams(window.location.search).get('physicsDebug') === '1',
+    step: STEP,
+    inspectPoint(point, round) {
+      const ground = terrain(point.x);
+      return {
+        groundY: round(ground.y),
+        curveSlope: round(ground.slope),
+        segmentSlope: round(terrainSegmentSlopeAt(level.points, point.x))
+      };
+    }
+  });
 
   function timeText(seconds) {
     const tenths = Math.floor(seconds * 10 + 0.00001);
@@ -638,15 +653,17 @@ import {
   function resolveWheelContact(p, contact) {
     if (!contact || contact.penetration <= 0) return;
     const { nx, ny, penetration } = contact;
+    const beforeX = p.x, beforeY = p.y;
     let vx = p.x - p.ox, vy = p.y - p.oy;
+    const beforeVx = vx, beforeVy = vy;
     const intoSurface = vx * nx + vy * ny;
     if (intoSurface < 0) {
       const impactSpeed = -intoSurface / STEP;
       p.impactSpeed = Math.max(p.impactSpeed, impactSpeed);
-      const restitution = impactSpeed > 35 ? clamp(.08 + impactSpeed / 1200, .08, .22) : 0;
+      const restitution = impactSpeed > CONTACT_RESTITUTION_SPEED ? clamp(.08 + impactSpeed / 1200, .08, .22) : 0;
       vx -= nx * intoSurface * (1 + restitution);
       vy -= ny * intoSurface * (1 + restitution);
-      if (ny < -.35 && impactSpeed > 12) {
+      if (ny < CONTACT_GROUNDED_NORMAL && impactSpeed > 12) {
         p.compression = clamp(p.compression + (impactSpeed - 12) * .065, 0, 16);
         p.springVelocity += impactSpeed * .018;
       }
@@ -655,23 +672,26 @@ import {
     p.y += ny * penetration;
     p.ox = p.x - vx;
     p.oy = p.y - vy;
-    if (ny < -.35) {
+    physicsDebug.recordContact({
+      wheel: p === rear ? 'rear' : 'front',
+      contact,
+      beforeX,
+      beforeY,
+      beforeVx,
+      beforeVy,
+      point: p,
+      afterVx: vx,
+      afterVy: vy
+    });
+    if (ny < CONTACT_GROUNDED_NORMAL) {
       p.grounded = true;
       p.material = contact.material;
     }
   }
 
   function collide(p) {
-    resolveWheelContact(p, platformCollisionAt(level, p.x, p.y, RADIUS));
-    resolveWheelContact(p, gapCollisionAt(level, p.x, p.y, RADIUS));
-
-    const ground = terrain(p.x);
-    if (ground.solid) {
-      const length = Math.hypot(ground.slope, 1);
-      const nx = ground.slope / length, ny = -1 / length;
-      const penetration = RADIUS + (p.y - ground.y) / length;
-      resolveWheelContact(p, { ...ground, nx, ny, penetration });
-    }
+    const contacts = terrainCollisionsAt(level, p.x, p.y, RADIUS);
+    for (const contact of contacts) resolveWheelContact(p, contact);
     if (p.x < RADIUS) {
       const vx = Math.max(0, p.x - p.ox);
       p.x = RADIUS;
@@ -715,12 +735,7 @@ import {
     p.x+=nx*penetration;p.y+=ny*penetration;p.ox=p.x-vx;p.oy=p.y-vy;
   }
   function collideRagdollPoint(p) {
-    resolveRagdollContact(p, platformCollisionAt(level,p.x,p.y,p.radius));
-    resolveRagdollContact(p, gapCollisionAt(level,p.x,p.y,p.radius));
-    const ground=terrain(p.x);
-    if(!ground.solid)return;
-    const length=Math.hypot(ground.slope,1),nx=ground.slope/length,ny=-1/length;
-    resolveRagdollContact(p,{...ground,nx,ny,penetration:p.radius+(p.y-ground.y)/length});
+    for (const contact of terrainCollisionsAt(level, p.x, p.y, p.radius)) resolveRagdollContact(p, contact);
   }
   function updateRagdoll() {
     if(!ragdoll)return;
@@ -815,6 +830,7 @@ import {
     landingSoundCooldown = Math.max(0, landingSoundCooldown - STEP);
     const wasRearGrounded = rear.grounded, wasFrontGrounded = front.grounded;
     rear.impactSpeed = 0; front.impactSpeed = 0;
+    physicsDebug.begin({ state, time: elapsed, level: level.name, source: levelSource, facing, throttle }, rear, front);
     for (const p of [rear, front]) {
       p.springVelocity += -42 * p.compression * STEP;
       p.springVelocity *= Math.exp(-6.4 * STEP);
@@ -871,15 +887,18 @@ import {
 
     integrate(rear, drive, speedLimit, effectiveLean, leanTorque, facing > 0 ? 1 : 0, facing > 0 ? rearBrakeGrip : frontBrakeGrip, braking, coasting);
     integrate(front, drive, speedLimit, effectiveLean, leanTorque, facing > 0 ? 0 : 1, facing > 0 ? frontBrakeGrip : rearBrakeGrip, braking, coasting);
-
-    for (let i = 0; i < 7; i++) {
-      const x = front.x - rear.x, y = front.y - rear.y;
-      const d = Math.hypot(x, y) || .001;
-      const correction = ((d - WHEELBASE) / d) * .43;
-      rear.x += x * correction; rear.y += y * correction;
-      front.x -= x * correction; front.y -= y * correction;
+    physicsDebug.capture('afterIntegration', rear, front);
+    for (let i = 0; i < BIKE_SOLVER_ITERATIONS; i++) {
+      physicsDebug.setIteration(i);
+      const correction = solveDistanceConstraint(rear, front, WHEELBASE, BIKE_CONSTRAINT_STIFFNESS);
+      physicsDebug.recordConstraint(correction, rear, front);
       collide(rear); collide(front);
+      physicsDebug.recordContactsResolved(rear, front);
     }
+    constrainDistanceVelocity(rear, front);
+    physicsDebug.capture('afterVelocityConstraint', rear, front);
+    physicsDebug.setIteration(-1);
+    physicsDebug.finish(rear, front);
 
     for (const p of [rear, front]) {
       const slope = terrain(p.x, p.y - RADIUS).slope;
@@ -924,11 +943,8 @@ import {
     const mx = (rear.x + front.x) / 2, my = (rear.y + front.y) / 2;
 
     if(state==='ragdoll'){updateRagdoll();return;}
-    const headGround = terrain(head.x);
-    const headObstacle = platformCollisionAt(level, head.x, head.y, 6)
-      || gapCollisionAt(level, head.x, head.y, 6);
+    const headObstacle = terrainCollisionsAt(level, head.x, head.y, 6)[0];
     if ((headObstacle && elapsed > .2)
-      || (headGround.solid && head.y + 6 > headGround.y && elapsed > .2)
       || my > (level.fallY || 620)) {
       burst(head.x, head.y, '#ed8b54', 15);
       startRagdoll();

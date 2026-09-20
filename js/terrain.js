@@ -1,4 +1,4 @@
-import { lerp } from './config.js';
+import { lerp, TERRAIN_SAMPLE_SPACING } from './config.js';
 
 export function curveAt(points, x) {
   let y = points[0][1];
@@ -34,6 +34,7 @@ export function terrainSurfacesAt(level, x) {
 }
 
 const platformPolygons = new WeakMap();
+const terrainGeometryCache = new WeakMap();
 
 export function invalidatePlatform(platform) {
   platformPolygons.delete(platform);
@@ -67,66 +68,110 @@ export function pointInPlatform(platform, x, y) {
   return pointInsidePolygon(platformPolygon(platform), x, y);
 }
 
-export function platformCollisionAt(level, x, y, radius) {
-  let best = null;
-  for (const platform of level.platforms || []) {
-    const points = platformPolygon(platform);
-    const start = platform.points[0][0] - radius;
-    const end = platform.points[platform.points.length - 1][0] + radius;
-    if (x < start || x > end) continue;
-    const inside = pointInsidePolygon(points, x, y);
-    let nearest = null;
-    for (let index = 0; index < points.length; index++) {
-      const a = points[index], b = points[(index + 1) % points.length];
-      const dx = b[0] - a[0], dy = b[1] - a[1];
-      const lengthSquared = dx * dx + dy * dy || 1;
-      const amount = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / lengthSquared));
-      const nearestX = a[0] + dx * amount, nearestY = a[1] + dy * amount;
-      const distance = Math.hypot(x - nearestX, y - nearestY);
-      if (!nearest || distance < nearest.distance) nearest = { distance, nearestX, nearestY, dx, dy };
-    }
-    if (!nearest || (!inside && nearest.distance >= radius)) continue;
-    let nx, ny;
-    if (nearest.distance > .001) {
-      nx = (x - nearest.nearestX) / nearest.distance;
-      ny = (y - nearest.nearestY) / nearest.distance;
-      if (inside) { nx *= -1; ny *= -1; }
-    } else {
-      const length = Math.hypot(nearest.dx, nearest.dy) || 1;
-      nx = nearest.dy / length; ny = -nearest.dx / length;
-    }
-    const penetration = inside ? radius + nearest.distance : radius - nearest.distance;
-    if (!best || penetration > best.penetration) {
-      best = { y: nearest.nearestY, slope: nearest.dx ? nearest.dy / nearest.dx : 0, solid: true, material: platform.material || level.terrain || 'grass', platform, nx, ny, penetration };
-    }
-  }
-  return best;
+
+export function terrainSegmentAt(points, x) {
+  if (x <= points[0][0] || x > points.at(-1)[0]) return null;
+  const index = points.findIndex((point, pointIndex) => pointIndex > 0 && x <= point[0]);
+  if (index < 1) return null;
+  const start = points[index - 1], end = points[index];
+  return { index, start, end, slope: (end[1] - start[1]) / (end[0] - start[0]) };
 }
 
-export function gapCollisionAt(level, x, y, radius) {
-  let best = null;
-  const bottom = level.fallY || 620;
-  for (const gap of level.gaps || []) {
-    const walls = [
-      { x: gap[0], normalX: 1, active: x >= gap[0] },
-      { x: gap[1], normalX: -1, active: x <= gap[1] }
-    ];
-    for (const wall of walls) {
-      if (!wall.active || Math.abs(x - wall.x) >= radius) continue;
-      const top = curveAt(level.points, wall.x).y;
-      const nearestY = Math.max(top, Math.min(bottom, y));
-      const dx = x - wall.x, dy = y - nearestY;
-      const distance = Math.hypot(dx, dy);
-      if (distance >= radius) continue;
-      const nx = distance > .001 ? dx / distance : wall.normalX;
-      const ny = distance > .001 ? dy / distance : 0;
-      const penetration = radius - distance;
-      if (!best || penetration > best.penetration) {
-        best = { y: nearestY, slope: 0, solid: true, material: level.terrain || 'grass', gap, nx, ny, penetration };
-      }
-    }
+export function terrainSegmentSlopeAt(points, x) {
+  return terrainSegmentAt(points, x)?.slope || 0;
+}
+
+
+function sampleSurface(points, start, end, spacing = TERRAIN_SAMPLE_SPACING) {
+  const samples = [[start, curveAt(points, start).y]];
+  for (let x = start + spacing; x < end; x += spacing) samples.push([x, curveAt(points, x).y]);
+  samples.push([end, curveAt(points, end).y]);
+  return samples;
+}
+
+function collisionGeometry(level) {
+  if (terrainGeometryCache.has(level)) return terrainGeometryCache.get(level);
+  const bottom = Math.max(level.fallY || 620, ...level.points.map(point => point[1])) + 200;
+  const firstX = level.points[0][0];
+  const lastX = level.points.at(-1)[0];
+  const gaps = (level.gaps || [])
+    .map(([start, end]) => [Math.max(firstX, start), Math.min(lastX, end)])
+    .filter(([start, end]) => end > start)
+    .sort((a, b) => a[0] - b[0]);
+  const ranges = [];
+  let cursor = firstX;
+  for (const [gapStart, gapEnd] of gaps) {
+    if (gapStart > cursor) ranges.push([cursor, gapStart]);
+    cursor = Math.max(cursor, gapEnd);
   }
-  return best;
+  if (cursor < lastX) ranges.push([cursor, lastX]);
+
+  const bodies = ranges.map(([start, end]) => ({
+    kind: 'ground',
+    material: level.terrain || 'grass',
+    polygon: [...sampleSurface(level.points, start, end), [end, bottom], [start, bottom]]
+  }));
+  for (const platform of level.platforms || []) {
+    bodies.push({
+      kind: 'platform',
+      material: platform.material || level.terrain || 'grass',
+      platform,
+      polygon: platformPolygon(platform)
+    });
+  }
+  for (const body of bodies) {
+    const xs = body.polygon.map(point => point[0]);
+    const ys = body.polygon.map(point => point[1]);
+    body.bounds = { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) };
+  }
+  terrainGeometryCache.set(level, bodies);
+  return bodies;
+}
+
+function circlePolygonContact(body, x, y, radius) {
+  const { bounds, polygon } = body;
+  if (x < bounds.left - radius || x > bounds.right + radius || y < bounds.top - radius || y > bounds.bottom + radius) return null;
+  const inside = pointInsidePolygon(polygon, x, y);
+  let nearest = null;
+  for (let index = 0; index < polygon.length; index++) {
+    const a = polygon[index], b = polygon[(index + 1) % polygon.length];
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    const lengthSquared = dx * dx + dy * dy || 1;
+    const amount = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / lengthSquared));
+    const nearestX = a[0] + dx * amount, nearestY = a[1] + dy * amount;
+    const distance = Math.hypot(x - nearestX, y - nearestY);
+    if (!nearest || distance < nearest.distance) nearest = { distance, nearestX, nearestY, dx, dy };
+  }
+  if (!nearest || (!inside && nearest.distance >= radius)) return null;
+
+  let nx, ny;
+  if (nearest.distance > .0001) {
+    nx = (x - nearest.nearestX) / nearest.distance;
+    ny = (y - nearest.nearestY) / nearest.distance;
+    if (inside) { nx *= -1; ny *= -1; }
+  } else {
+    const length = Math.hypot(nearest.dx, nearest.dy) || 1;
+    nx = nearest.dy / length;
+    ny = -nearest.dx / length;
+  }
+  return {
+    kind: body.kind,
+    y: nearest.nearestY,
+    slope: Math.abs(nearest.dx) > .0001 ? nearest.dy / nearest.dx : 0,
+    solid: true,
+    material: body.material,
+    platform: body.platform || null,
+    nx,
+    ny,
+    penetration: inside ? radius + nearest.distance : radius - nearest.distance
+  };
+}
+
+export function terrainCollisionsAt(level, x, y, radius) {
+  return collisionGeometry(level)
+    .map(body => circlePolygonContact(body, x, y, radius))
+    .filter(Boolean)
+    .sort((a, b) => b.penetration - a.penetration);
 }
 
 export function terrainAt(level, x, referenceY = null) {

@@ -1,8 +1,10 @@
 {
   "name": "pocket-trials",
   "private": true,
+  "type": "module",
   "scripts": {
     "levels": "node scripts/generate-level-catalog.mjs",
-    "dev": "node scripts/dev.mjs"
+    "dev": "node scripts/dev.mjs",
+    "test": "node scripts/test-terrain.mjs && node scripts/test-physics.mjs"
   }
 }
