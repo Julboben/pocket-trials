@@ -15,10 +15,10 @@ The current version is a dependency-free browser prototype implemented in a sing
 - Impact-sensitive suspension compression and landing rebound
 - Live post-crash rider ragdoll simulation with a detached, coasting bike
 - Direction flipping with an animated rider and bike transition
-- Hybrid code-drawn pixel presentation, with smooth terrain, mountains, and apples
+- Code-drawn pixel presentation with smooth terrain, mountains, and apples for readability
 - Responsive mobile and desktop layouts
 - Keyboard and touch controls
-- Two selectable riders: Max and Maya
+- Two selectable riders: Max and Maxine
 - Layered foreground and background scenery
 - Collectibles, finish gates, timers, and best times
 - Persisted settings and level progression
@@ -64,7 +64,7 @@ Each trail requires collecting all five apples before the finish gate will open.
 The settings menu includes:
 
 - Rider selection
-- Pixel or illustrated bike art
+
 - Camera framing
 - Full or reduced scenery
 - Visible or hidden control hints
@@ -117,12 +117,12 @@ Trails are smooth analytic heightfields defined by control points. Terrain deriv
 Everything is rendered with the Canvas 2D API, including:
 
 - Terrain and floating islands
-- Modular pixel or illustrated bike, rider, wheels, and suspension
-- Illustrated apples with pixel or illustrated finish gates
-- Layered pixel or illustrated props and particles
-- Smooth terrain, floating islands, and mountain silhouettes in both styles
-- Pixel or illustrated foreground and atmospheric scenery
-- Ground-following shadows in both styles
+- Modular pixel bike, rider, wheels, and suspension
+- Smooth vector apples and pixel finish gates
+- Layered pixel props and particles
+- Smooth terrain and floating islands with anchored pixel mountain silhouettes
+- Pixel foreground and atmospheric scenery
+- Pixel ground-following shadows
 
 The logical viewport and camera framing adapt to mobile and desktop dimensions.
 
