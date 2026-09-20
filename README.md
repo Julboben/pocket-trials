@@ -14,6 +14,7 @@ The current version is a dependency-free browser prototype implemented in a sing
 - Independent front and rear suspension animation
 - Impact-sensitive suspension compression and landing rebound
 - Direction flipping with an animated rider and bike transition
+- Code-drawn modular pixel bike and riders, with the illustrated style retained as an option
 - Responsive mobile and desktop layouts
 - Keyboard and touch controls
 - Two selectable riders: Max and Maya
@@ -62,6 +63,7 @@ Each trail requires collecting all five apples before the finish gate will open.
 The settings menu includes:
 
 - Rider selection
+- Pixel or illustrated bike art
 - Camera framing
 - Full or reduced scenery
 - Visible or hidden control hints
@@ -114,7 +116,7 @@ Trails are smooth analytic heightfields defined by control points. Terrain deriv
 Everything is rendered with the Canvas 2D API, including:
 
 - Terrain and floating islands
-- Bike, rider, wheels, and suspension
+- Modular pixel or illustrated bike, rider, wheels, and suspension
 - Apples and finish gates
 - Layered props and particles
 - Parallax scenery

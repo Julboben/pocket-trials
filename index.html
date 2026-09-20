@@ -260,6 +260,13 @@ Big physics.</h2>
         </div>
       </fieldset>
       <fieldset class="setting-group">
+        <legend>ART STYLE</legend>
+        <div class="setting-options" style="--options:2">
+          <button type="button" class="setting-option" data-setting="art" data-value="pixel">Pixel</button>
+          <button type="button" class="setting-option" data-setting="art" data-value="illustrated">Illustrated</button>
+        </div>
+      </fieldset>
+      <fieldset class="setting-group">
         <legend>CAMERA POSITION</legend>
         <div class="setting-options" style="--options:3">
           <button type="button" class="setting-option" data-setting="camera" data-value="centered">Centered</button>
@@ -334,7 +341,7 @@ Big physics.</h2>
 
   let levelIndex = 0, level = levels[0], state = 'ready', rider = 'max';
   let unlockedLevel = 0, savedLevel = 0, resumeAfterSettings = false;
-  let preferences = { rider: 'max', camera: 'balanced', scenery: 'full', hints: 'show' };
+  let preferences = { rider: 'max', art: 'pixel', camera: 'balanced', scenery: 'full', hints: 'show' };
   let rear, front, apples = [], particles = [];
   let elapsed = 0, collected = 0, facing = 1, throttle = 0, brakePressure = 0;
   let cameraX = 0, cameraY = 0, leanControl = 0, leanVisual = 0, flipVisual = 1;
@@ -398,6 +405,7 @@ Big physics.</h2>
       }
     } catch (_) {}
     if (!['max','maya'].includes(preferences.rider)) preferences.rider = 'max';
+    if (!['pixel','illustrated'].includes(preferences.art)) preferences.art = 'pixel';
     if (!['centered','balanced','ahead'].includes(preferences.camera)) preferences.camera = 'balanced';
     if (!['full','reduced'].includes(preferences.scenery)) preferences.scenery = 'full';
     if (!['show','hide'].includes(preferences.hints)) preferences.hints = 'show';
@@ -539,7 +547,7 @@ Big physics.</h2>
   }
 
   // Verlet integration: two tires joined by an elastic distance constraint.
-  function integrate(p, drive, speedLimit, lean, leanTorque, driveGrip, brakeGrip, braking) {
+  function integrate(p, drive, speedLimit, lean, leanTorque, driveGrip, brakeGrip, braking, coasting) {
     let vx = (p.x - p.ox) * (p.grounded ? .9997 : .9998);
     let vy = (p.y - p.oy) * .9998;
     let ax = 0, ay = 630;
@@ -555,6 +563,16 @@ Big physics.</h2>
         // low-speed velocity makes the brake hold instead of merely adding drag.
         const brakeStep = 1150 * brakeGrip * STEP * STEP;
         const reduction = clamp(tangentialVelocity, -brakeStep, brakeStep);
+        vx -= tx * reduction;
+        vy -= ty * reduction;
+      } else if (coasting) {
+        // Rolling resistance is strongest near rest, so shallow valleys settle,
+        // while high-speed momentum still carries over long hills and jumps.
+        const coastSpeed = Math.abs(tangentialVelocity) / STEP;
+        const climbing = tangentialVelocity * slope < 0;
+        const baseResistance = lerp(105, 18, clamp(coastSpeed / 140, 0, 1));
+        const resistance = baseResistance * (climbing ? .18 : 1);
+        const reduction = clamp(tangentialVelocity, -resistance * STEP * STEP, resistance * STEP * STEP);
         vx -= tx * reduction;
         vy -= ty * reduction;
       } else if (drive) {
@@ -639,6 +657,7 @@ Big physics.</h2>
     const leanTarget = leanInput;
     leanControl = lerp(leanControl, leanTarget, 1 - Math.exp(-5.8 * STEP));
     const accelerating = down('up'), braking = down('down');
+    const coasting = !accelerating && !braking;
     const throttleTarget = accelerating && !braking ? 1 : 0;
     const throttleRate = throttleTarget > throttle ? 1.1 : 4;
     throttle = lerp(throttle, throttleTarget, 1 - Math.exp(-throttleRate * STEP));
@@ -674,12 +693,13 @@ Big physics.</h2>
     const px = -dy / length, py = dx / length;
     const relative = ((front.x - front.ox) - (rear.x - rear.ox)) * px
       + ((front.y - front.oy) - (rear.y - rear.oy)) * py;
-    const damping = relative * (Math.abs(effectiveLean) > .02 ? .001 : .005);
+    const dampingRate = Math.abs(effectiveLean) > .02 ? .001 : coasting && Math.abs(bikeSpeed) < 60 ? .01 : .005;
+    const damping = relative * dampingRate;
     front.ox += px * damping; front.oy += py * damping;
     rear.ox -= px * damping; rear.oy -= py * damping;
 
-    integrate(rear, drive, speedLimit, effectiveLean, leanTorque, facing > 0 ? 1 : 0, facing > 0 ? rearBrakeGrip : frontBrakeGrip, braking);
-    integrate(front, drive, speedLimit, effectiveLean, leanTorque, facing > 0 ? 0 : 1, facing > 0 ? frontBrakeGrip : rearBrakeGrip, braking);
+    integrate(rear, drive, speedLimit, effectiveLean, leanTorque, facing > 0 ? 1 : 0, facing > 0 ? rearBrakeGrip : frontBrakeGrip, braking, coasting);
+    integrate(front, drive, speedLimit, effectiveLean, leanTorque, facing > 0 ? 0 : 1, facing > 0 ? frontBrakeGrip : rearBrakeGrip, braking, coasting);
 
     for (let i = 0; i < 7; i++) {
       const x = front.x - rear.x, y = front.y - rear.y;
@@ -753,6 +773,47 @@ Big physics.</h2>
   }
   function circle(x, y, radius, color) {
     ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, radius, 0, TAU); ctx.fill();
+  }
+  function pixelRect(x, y, width, height, color, pixel = 2) {
+    ctx.fillStyle = color;
+    ctx.fillRect(
+      Math.round(x / pixel) * pixel,
+      Math.round(y / pixel) * pixel,
+      Math.max(pixel, Math.round(width / pixel) * pixel),
+      Math.max(pixel, Math.round(height / pixel) * pixel)
+    );
+  }
+  function pixelPath(points, color, thickness = 1, pixel = 2) {
+    ctx.fillStyle = color;
+    const radius = Math.floor(thickness / 2);
+    for (let segment = 1; segment < points.length; segment++) {
+      let x0 = Math.round(points[segment - 1][0] / pixel);
+      let y0 = Math.round(points[segment - 1][1] / pixel);
+      const x1 = Math.round(points[segment][0] / pixel);
+      const y1 = Math.round(points[segment][1] / pixel);
+      const dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+      const dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+      let error = dx + dy;
+      while (true) {
+        ctx.fillRect((x0 - radius) * pixel, (y0 - radius) * pixel, thickness * pixel, thickness * pixel);
+        if (x0 === x1 && y0 === y1) break;
+        const twice = 2 * error;
+        if (twice >= dy) { error += dy; x0 += sx; }
+        if (twice <= dx) { error += dx; y0 += sy; }
+      }
+    }
+  }
+  function drawPixelSpring(x1, y1, x2, y2, color) {
+    const dx = x2 - x1, dy = y2 - y1;
+    const length = Math.hypot(dx, dy) || 1;
+    const nx = -dy / length, ny = dx / length;
+    const points = [[x1,y1]];
+    for (let i = 1; i < 6; i++) {
+      const t = i / 6, offset = (i % 2 ? 1 : -1) * 2.5;
+      points.push([x1 + dx * t + nx * offset, y1 + dy * t + ny * offset]);
+    }
+    points.push([x2,y2]);
+    pixelPath(points,color,1);
   }
   function drawSpring(x1, y1, x2, y2, color) {
     const dx = x2 - x1, dy = y2 - y1;
@@ -969,7 +1030,24 @@ Big physics.</h2>
     ctx.fillText(unlocked ? 'FINISH' : '5 APPLES',x,y-50);
   }
 
+  function drawPixelWheel(p) {
+    ctx.save(); ctx.translate(Math.round(p.x),Math.round(p.y));
+    for (let y = -6; y <= 6; y++) for (let x = -6; x <= 6; x++) {
+      const distance = Math.hypot(x,y);
+      if (distance <= 6.5 && distance >= 4.7) pixelRect(x*2,y*2,2,2,'#203332');
+      else if (distance < 4.7 && distance >= 3.5) pixelRect(x*2,y*2,2,2,'#b9c4af');
+    }
+    const phase = Math.round(p.spin / (Math.PI / 4)) * Math.PI / 4;
+    for (let i = 0; i < 4; i++) {
+      const spoke = phase + i * Math.PI / 2;
+      pixelPath([[0,0],[Math.cos(spoke)*8,Math.sin(spoke)*8]],'#657a70',1);
+    }
+    pixelRect(-2,-2,4,4,'#f1cb91');
+    ctx.restore();
+  }
+
   function drawWheel(p) {
+    if (preferences.art === 'pixel') { drawPixelWheel(p); return; }
     ctx.save(); ctx.translate(p.x,p.y);
     circle(0,0,RADIUS + 1,'#243937');
     circle(0,0,RADIUS - 3,'#ced3bd');
@@ -980,6 +1058,66 @@ Big physics.</h2>
       line([[0,0],[Math.cos(a)*8,Math.sin(a)*8]],'#c3cbb6',1);
     }
     circle(0,0,2.6,'#f2d6a9');
+    ctx.restore();
+  }
+
+  function drawPixelBike(mx, my, angle, length) {
+    drawPixelWheel(rear); drawPixelWheel(front);
+    const pixelAngle = Math.round(angle / (TAU / 32)) * (TAU / 32);
+    ctx.save(); ctx.translate(Math.round(mx),Math.round(my)); ctx.rotate(pixelAngle); ctx.scale(flipVisual,1);
+    const half = length / 2;
+    const backCompression = facing > 0 ? rear.compression : front.compression;
+    const frontCompression = facing > 0 ? front.compression : rear.compression;
+    const bodyDrop = (backCompression + frontCompression) * .4;
+    const bodyPitch = (frontCompression - backCompression) * .0096;
+    const pc = Math.cos(bodyPitch), ps = Math.sin(bodyPitch);
+    const bodyPoint = (x,y) => [x*pc-y*ps,x*ps+y*pc+bodyDrop];
+    const backMount = bodyPoint(-9,-15), frontMount = bodyPoint(12,-23);
+    const crank = bodyPoint(-3,-1);
+
+    pixelPath([[-half,0],bodyPoint(-7,-18),bodyPoint(13,-17),[half,0]],'#d95832',2);
+    pixelPath([[-half,0],crank,[half,0]],'#ed7842',2);
+    pixelPath([[-half,0],backMount],'#819084',1);
+    pixelPath([[half,0],frontMount],'#b9c4af',2);
+    drawPixelSpring(-half,0,backMount[0],backMount[1],'#f0b45f');
+    drawPixelSpring(half,0,frontMount[0],frontMount[1],'#f0b45f');
+
+    ctx.save(); ctx.translate(0,Math.round(bodyDrop/2)*2); ctx.rotate(bodyPitch);
+    pixelRect(-9,-20,24,4,'#ee6f3f');
+    pixelRect(-17,-24,14,4,'#263a35');
+    pixelPath([[10,-23],[18,-26],[24,-26]],'#263a35',2);
+    pixelRect(-9,-8,12,10,'#435a52');
+    pixelRect(-5,-4,10,6,'#2f463d');
+    pixelRect(-3,-2,6,6,'#edb466');
+
+    const shift = Math.round(leanVisual * 4.5) * 2;
+    const isMaya = rider === 'maya';
+    const jacket = isMaya ? '#d86f82' : '#e8e5d9';
+    const jacketLight = isMaya ? '#ef9aa8' : '#fff8e7';
+    const trousers = isMaya ? '#39435d' : '#29464e';
+    const helmet = isMaya ? '#63aa98' : '#f4a442';
+    const helmetLight = isMaya ? '#a8dfcf' : '#ffd078';
+    const skin = '#bd7954';
+
+    pixelPath([[-8+shift,-24],[4+shift*.45,-14],[-2,-3]],trousers,3);
+    pixelRect(-5,-6,10,4,'#233630');
+    pixelPath([[-8+shift,-25],[1+shift,-37]],'#263b36',5);
+    pixelPath([[-7+shift,-25],[2+shift,-37]],jacket,3);
+    pixelRect(-6+shift,-38,14,12,jacket);
+    pixelRect(-4+shift,-38,10,4,jacketLight);
+    pixelPath([[3+shift,-35],[11+shift*.45,-30],[20,-25]],skin,2);
+    pixelPath([[2+shift,-36],[10+shift*.45,-31]],jacketLight,2);
+    if (isMaya) {
+      pixelRect(-8+shift,-48,8,14,'#54362d');
+      pixelRect(-12+shift,-39,6,8,'#54362d');
+    }
+    pixelRect(0+shift,-46,8,8,skin);
+    pixelRect(-4+shift,-52,14,12,'#263b36');
+    pixelRect(-2+shift,-52,12,10,helmet);
+    pixelRect(0+shift,-52,8,4,helmetLight);
+    pixelRect(6+shift,-48,8,4,'#234844');
+    pixelRect(8+shift,-42,6,2,'#efb36b');
+    ctx.restore();
     ctx.restore();
   }
 
@@ -1000,6 +1138,7 @@ Big physics.</h2>
       ctx.restore();
     }
 
+    if (preferences.art === 'pixel') { drawPixelBike(mx,my,angle,length); return; }
     drawWheel(rear); drawWheel(front);
     ctx.save(); ctx.translate(mx,my); ctx.rotate(angle); ctx.scale(flipVisual, 1);
     const half = length/2;
