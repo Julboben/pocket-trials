@@ -289,7 +289,7 @@ Big physics.</h2>
 
   function wheel(x) {
     const y = terrain(x).y - RADIUS;
-    return { x, y, ox: x, oy: y, grounded: true, spin: 0 };
+    return { x, y, ox: x, oy: y, grounded: true, spin: 0, compression: 0, springVelocity: 0 };
   }
 
   function clearInput() {
@@ -386,9 +386,10 @@ Big physics.</h2>
     const angle = Math.atan2(front.y - rear.y, front.x - rear.x);
     const c = Math.cos(angle), s = Math.sin(angle);
     const riderShift = leanVisual * 9;
+    const bodyDrop = (rear.compression + front.compression) * .4;
     return {
-      x: (rear.x + front.x) / 2 + c * (3 * facing + riderShift) + s * 43,
-      y: (rear.y + front.y) / 2 + s * (3 * facing + riderShift) - c * 43
+      x: (rear.x + front.x) / 2 + c * (3 * facing + riderShift) + s * (43 - bodyDrop),
+      y: (rear.y + front.y) / 2 + s * (3 * facing + riderShift) - c * (43 - bodyDrop)
     };
   }
 
@@ -448,9 +449,13 @@ Big physics.</h2>
       const intoGround = vx * nx + vy * ny;
       if (intoGround < 0) {
         const impactSpeed = -intoGround / STEP;
-        const restitution = impactSpeed > 28 ? clamp(.22 + impactSpeed / 700, .22, .42) : 0;
+        const restitution = impactSpeed > 35 ? clamp(.08 + impactSpeed / 1200, .08, .22) : 0;
         vx -= nx * intoGround * (1 + restitution);
         vy -= ny * intoGround * (1 + restitution);
+        if (impactSpeed > 12) {
+          p.compression = clamp(p.compression + (impactSpeed - 12) * .065, 0, 16);
+          p.springVelocity += impactSpeed * .018;
+        }
       }
       p.x += nx * penetration;
       p.y += ny * penetration;
@@ -476,6 +481,13 @@ Big physics.</h2>
   function physics() {
     if (state !== 'running') return;
     elapsed += STEP;
+    for (const p of [rear, front]) {
+      p.springVelocity += -42 * p.compression * STEP;
+      p.springVelocity *= Math.exp(-6.4 * STEP);
+      p.compression += p.springVelocity * STEP;
+      if (p.compression <= 0) { p.compression = 0; p.springVelocity = 0; }
+    }
+
     const leanInput = Number(down('forward')) - Number(down('back'));
     const leanTarget = leanInput;
     leanControl = lerp(leanControl, leanTarget, 1 - Math.exp(-5.8 * STEP));
@@ -752,12 +764,15 @@ Big physics.</h2>
     drawWheel(rear); drawWheel(front);
     ctx.save(); ctx.translate(mx,my); ctx.rotate(angle); ctx.scale(flipVisual, 1);
     const half = length/2;
-    line([[-half,0],[-7,-18],[13,-17],[half,0],[-3,-1],[-half,0]],'#ef7a43',3.5);
+    const bodyDrop = (rear.compression + front.compression) * .4;
+    ctx.translate(0, bodyDrop);
+    const wheelY = -bodyDrop;
+    line([[-half,wheelY],[-7,-18],[13,-17],[half,wheelY],[-3,-1],[-half,wheelY]],'#ef7a43',3.5);
     line([[-7,-18],[-3,-1],[13,-17]],'#f5a369',2.6);
-    line([[12,-23],[half,0]],'#d8dfc5',3);
+    line([[12,-23],[half,wheelY]],'#d8dfc5',3);
     line([[10,-23],[18,-26],[23,-26]],'#233d37',2.6);
     line([[-15,-22],[-3,-22]],'#233c34',4.3);
-    line([[-17,-2],[-9,-15]],'#dedac3',2);
+    line([[-half,wheelY],[-9,-15]],'#dedac3',2);
     for (let i=0;i<4;i++) {
       line([[-16+i*1.7,-4-i*2.5],[-11+i*1.7,-3-i*2.5]],'#61766d',1);
     }
