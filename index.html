@@ -39,9 +39,10 @@
     padding: 0 16px 13px; gap: 8px;
   }
   select {
-    max-width: 205px; min-width: 0; color: #d5e2ce; background: #17262b;
+    min-width: 0; color: #d5e2ce; background: #17262b;
     font-size: 11px; border: 0; padding: 3px 0; cursor: pointer; font-weight: 650;
   }
+  #level-select { flex: 1; max-width: 240px; }
   .best { color: #99aaad; font-size: 10px; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .best b { color: #e5e7d9; font-weight: 500; }
   .viewport {
@@ -122,6 +123,33 @@
   .keyboard { margin: 13px 0 0; text-align: center; color: #8ea4a6; font-size: 9px; line-height: 1.6; }
   .keyboard b { font-weight: 600; color: #c1cdca; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+  .settings-dialog {
+    width: min(390px, calc(100% - 28px)); max-height: calc(100vh - 28px); overflow: auto;
+    padding: 0; border: 1px solid #ffffffa0; border-radius: 20px;
+    color: #233e38; background: #f7f3e7; box-shadow: 0 18px 60px #071b1866;
+  }
+  .settings-dialog::backdrop { background: #10282299; backdrop-filter: blur(4px); }
+  .settings-form { padding: 22px; }
+  .settings-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+  .settings-head h2 { font-size: 27px; }
+  .settings-close { border: 0; background: #e7e3d7; color: #39554b; border-radius: 9px; width: 32px; height: 32px; }
+  .setting-group { border: 0; padding: 0; margin: 0 0 16px; }
+  .setting-group legend { width: 100%; margin-bottom: 8px; color: #62736b; font-size: 9px; font-weight: 850; letter-spacing: 1.5px; }
+  .setting-options { display: grid; grid-template-columns: repeat(var(--options), minmax(0,1fr)); gap: 7px; }
+  .setting-option {
+    min-height: 42px; border: 1px solid #c6cec1; border-radius: 10px; background: #ebe8dd;
+    color: #53655c; font-size: 11px; font-weight: 750;
+  }
+  .rider-choice { display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .rider-symbol {
+    width: 22px; height: 22px; padding: 4px; border-radius: 50%;
+    background: #dce4d8; color: #4f695d;
+  }
+  .rider-symbol.female { background: #ead7dd; color: #9b5269; }
+  .rider-symbol circle, .rider-symbol path { vector-effect: non-scaling-stroke; }
+  .setting-option[aria-pressed="true"] { background: #c6dfa9; border-color: #9fbd86; color: #294537; box-shadow: inset 0 0 0 1px #f4ffe8; }
+  .setting-option[aria-pressed="true"] .rider-symbol { background: #f2ffe7; }
+  .settings-done { margin-top: 3px; }
   @media (max-width: 600px) {
     body { padding: 0; align-items: flex-start; }
     .game { max-width: 600px; border-radius: 0; border-left: 0; border-right: 0; }
@@ -149,6 +177,9 @@
       <div class="eyebrow">LITTLE BIKE. BIG ADVENTURE.</div>
       <h1 id="game-title">POCKET TRIALS</h1>
     </div>
+    <button class="icon-button" id="settings" title="Settings" aria-label="Open settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"></path></svg>
+    </button>
     <button class="icon-button" id="restart" title="Restart (R)" aria-label="Restart trail">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6"></path></svg>
     </button>
@@ -162,7 +193,9 @@
       <option value="0">01 / The orchard</option>
       <option value="1">02 / Rolling country</option>
       <option value="2">03 / High hopes</option>
+      <option value="3">04 / Skybound</option>
     </select>
+
     <div class="best">BEST <b id="best-time">—</b></div>
   </div>
   <div class="viewport">
@@ -207,6 +240,50 @@ Big physics.</h2>
     <p class="keyboard" id="keyboard-help"><b>↑</b> gas &nbsp; <b>↓</b> brake &nbsp; <b>← →</b> lean &nbsp; <b>Space</b> flip &nbsp; <b>R</b> retry &nbsp; <b>Esc</b> pause</p>
   </section>
   <div class="sr-only" id="announcer" aria-live="polite"></div>
+  <dialog class="settings-dialog" id="settings-dialog" aria-labelledby="settings-title">
+    <form method="dialog" class="settings-form">
+      <div class="settings-head">
+        <div><div class="modal-badge">RIDE YOUR WAY</div><h2 id="settings-title">Settings</h2></div>
+        <button class="settings-close" value="close" aria-label="Close settings">✕</button>
+      </div>
+      <fieldset class="setting-group">
+        <legend>RIDER</legend>
+        <div class="setting-options" style="--options:2">
+          <button type="button" class="setting-option rider-choice" data-setting="rider" data-value="max">
+            <svg class="rider-symbol male" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="15" r="5"></circle><path d="M13 11 20 4M15 4h5v5"></path></svg>
+            <span>Max</span>
+          </button>
+          <button type="button" class="setting-option rider-choice" data-setting="rider" data-value="maya">
+            <svg class="rider-symbol female" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="5"></circle><path d="M12 13v8M8.5 18h7"></path></svg>
+            <span>Maya</span>
+          </button>
+        </div>
+      </fieldset>
+      <fieldset class="setting-group">
+        <legend>CAMERA POSITION</legend>
+        <div class="setting-options" style="--options:3">
+          <button type="button" class="setting-option" data-setting="camera" data-value="centered">Centered</button>
+          <button type="button" class="setting-option" data-setting="camera" data-value="balanced">Balanced</button>
+          <button type="button" class="setting-option" data-setting="camera" data-value="ahead">Look ahead</button>
+        </div>
+      </fieldset>
+      <fieldset class="setting-group">
+        <legend>MAP SCENERY</legend>
+        <div class="setting-options" style="--options:2">
+          <button type="button" class="setting-option" data-setting="scenery" data-value="full">Full</button>
+          <button type="button" class="setting-option" data-setting="scenery" data-value="reduced">Reduced</button>
+        </div>
+      </fieldset>
+      <fieldset class="setting-group">
+        <legend>CONTROL HINTS</legend>
+        <div class="setting-options" style="--options:2">
+          <button type="button" class="setting-option" data-setting="hints" data-value="show">Show</button>
+          <button type="button" class="setting-option" data-setting="hints" data-value="hide">Hide</button>
+        </div>
+      </fieldset>
+      <button class="primary settings-done" value="done">Done</button>
+    </form>
+  </dialog>
 </main>
 <script>
 (() => {
@@ -228,23 +305,36 @@ Big physics.</h2>
       name: 'The orchard', label: 'THE ORCHARD / 01', goal: 1280,
       points: [[0,320],[175,320],[300,288],[430,320],[590,267],[720,319],[850,296],[985,250],[1130,318],[1420,318]],
       apples: [245,535,790,970,1170],
+      props: [{x:195,type:'fence',layer:'back'},{x:390,type:'tree',layer:'back'},{x:680,type:'flowers',layer:'front'},{x:895,type:'stump',layer:'front'},{x:1090,type:'fence',layer:'back'}],
       sky: '#eae9d9', sun: '#f2c082', mountain: '#b7c8b1'
     },
     {
       name: 'Rolling country', label: 'ROLLING COUNTRY / 02', goal: 1610,
       points: [[0,320],[160,320],[290,266],[415,334],[565,244],[710,323],[855,270],[995,334],[1150,229],[1300,322],[1450,270],[1600,320],[1770,320]],
       apples: [265,555,850,1140,1470],
+      props: [{x:210,type:'rock',layer:'front'},{x:465,type:'fence',layer:'back'},{x:760,type:'tree',layer:'back'},{x:1055,type:'flowers',layer:'front'},{x:1370,type:'stump',layer:'front'}],
       sky: '#e5e8db', sun: '#efd69b', mountain: '#a9c0ad'
     },
     {
       name: 'High hopes', label: 'HIGH HOPES / 03', goal: 1950,
       points: [[0,320],[155,320],[310,251],[440,337],[610,216],[765,330],[915,256],[1040,325],[1220,195],[1400,326],[1540,247],[1695,320],[1810,276],[1920,319],[2130,319]],
       apples: [300,595,910,1210,1785],
+      props: [{x:235,type:'fence',layer:'back'},{x:510,type:'rock',layer:'front'},{x:810,type:'tree',layer:'back'},{x:1325,type:'flowers',layer:'front'},{x:1660,type:'stump',layer:'front'}],
       sky: '#e4e2de', sun: '#f1bb92', mountain: '#b2bcc0'
+    },
+    {
+      name: 'Skybound', label: 'SKYBOUND / 04', goal: 1260,
+      points: [[0,320],[170,320],[330,285],[470,325],[640,275],[760,315],[820,245],[945,315],[1080,255],[1210,280],[1340,280],[1450,330]],
+      gaps: [[820,945],[1340,2400]], island: [945,1340], fallY: 560,
+      apples: [280,520,735,1035,1190],
+      props: [{x:205,type:'fence',layer:'back'},{x:580,type:'flowers',layer:'front'},{x:770,type:'rock',layer:'front'},{x:1010,type:'crystal',layer:'back'},{x:1240,type:'tree',layer:'back'}],
+      sky: '#dce9ed', sun: '#f6d48d', mountain: '#a8bdc4'
     }
   ];
 
-  let levelIndex = 0, level = levels[0], state = 'ready';
+  let levelIndex = 0, level = levels[0], state = 'ready', rider = 'max';
+  let unlockedLevel = 0, savedLevel = 0, resumeAfterSettings = false;
+  let preferences = { rider: 'max', camera: 'balanced', scenery: 'full', hints: 'show' };
   let rear, front, apples = [], particles = [];
   let elapsed = 0, collected = 0, facing = 1, throttle = 0, brakePressure = 0;
   let cameraX = 0, cameraY = 0, leanControl = 0, leanVisual = 0, flipVisual = 1;
@@ -269,22 +359,66 @@ Big physics.</h2>
     } catch (_) { return null; }
   }
   function updateBest() { $('best-time').textContent = readBest() === null ? '—' : timeText(readBest()); }
+  function savePreferences() {
+    try { localStorage.setItem('pocket-trials-settings-v1', JSON.stringify(preferences)); } catch (_) {}
+  }
+  function saveProgress() {
+    try {
+      localStorage.setItem('pocket-trials-progress-v1', JSON.stringify({ level: levelIndex, unlocked: unlockedLevel }));
+    } catch (_) {}
+  }
+  function updateLevelOptions() {
+    [...$('level-select').options].forEach((option, index) => {
+      option.disabled = index > unlockedLevel;
+      option.textContent = option.textContent.replace(/^🔒 /, '');
+      if (option.disabled) option.textContent = '🔒 ' + option.textContent;
+    });
+  }
+  function applyPreferences() {
+    rider = preferences.rider;
+    $('keyboard-help').hidden = preferences.hints === 'hide';
+    document.querySelectorAll('[data-setting]').forEach(button => {
+      button.setAttribute('aria-pressed', String(preferences[button.dataset.setting] === button.dataset.value));
+    });
+  }
+  function loadStoredState() {
+    try {
+      const storedSettings = JSON.parse(localStorage.getItem('pocket-trials-settings-v1') || 'null');
+      if (storedSettings) preferences = { ...preferences, ...storedSettings };
+      else preferences.rider = localStorage.getItem('pocket-trials-rider') || preferences.rider;
+      const progress = JSON.parse(localStorage.getItem('pocket-trials-progress-v1') || 'null');
+      if (progress) {
+        unlockedLevel = clamp(Number(progress.unlocked) || 0, 0, levels.length - 1);
+        savedLevel = clamp(Number(progress.level) || 0, 0, unlockedLevel);
+      } else {
+        for (let i = 0; i < levels.length - 1; i++) {
+          if (Number(localStorage.getItem('pocket-trials-v1-' + i)) > 0) unlockedLevel = i + 1;
+          else break;
+        }
+      }
+    } catch (_) {}
+    if (!['max','maya'].includes(preferences.rider)) preferences.rider = 'max';
+    if (!['centered','balanced','ahead'].includes(preferences.camera)) preferences.camera = 'balanced';
+    if (!['full','reduced'].includes(preferences.scenery)) preferences.scenery = 'full';
+    if (!['show','hide'].includes(preferences.hints)) preferences.hints = 'show';
+  }
 
   // Smooth heightfield with an analytic derivative for tire contact normals.
   function terrain(x) {
     const points = level.points;
-    if (x <= points[0][0]) return { y: points[0][1], slope: 0 };
-    for (let i = 1; i < points.length; i++) {
-      const a = points[i - 1], b = points[i];
-      if (x <= b[0]) {
+    let y = points[0][1], slope = 0;
+    if (x > points[0][0]) {
+      const segment = points.findIndex((point, i) => i > 0 && x <= point[0]);
+      if (segment < 0) y = points[points.length - 1][1];
+      else {
+        const a = points[segment - 1], b = points[segment];
         const t = (x - a[0]) / (b[0] - a[0]);
-        return {
-          y: lerp(a[1], b[1], (1 - Math.cos(t * Math.PI)) / 2),
-          slope: (b[1] - a[1]) * Math.PI * Math.sin(t * Math.PI) / (2 * (b[0] - a[0]))
-        };
+        y = lerp(a[1], b[1], (1 - Math.cos(t * Math.PI)) / 2);
+        slope = (b[1] - a[1]) * Math.PI * Math.sin(t * Math.PI) / (2 * (b[0] - a[0]));
       }
     }
-    return { y: points[points.length - 1][1], slope: 0 };
+    const solid = !(level.gaps || []).some(gap => x > gap[0] && x < gap[1]);
+    return { y, slope, solid };
   }
 
   function wheel(x) {
@@ -316,6 +450,7 @@ Big physics.</h2>
   }
 
   function loadLevel(index) {
+    index = clamp(index, 0, unlockedLevel);
     levelIndex = index; level = levels[index];
     rear = wheel(65); front = wheel(115);
     apples = level.apples.map(x => ({ x, y: terrain(x).y - 60, taken: false }));
@@ -323,11 +458,12 @@ Big physics.</h2>
     cameraX = 0; cameraY = 0; leanControl = 0; leanVisual = 0; flipVisual = 1;
     accumulator = 0; lastGateNotice = -10; lastProgress = -1; lastTimer = '';
     clearInput(); updateDirectionControls();
+    updateLevelOptions();
     $('level-select').value = String(index);
     $('scene-label').textContent = level.label;
     $('apple-count').textContent = '0 / ' + apples.length;
     $('toast').classList.remove('visible'); toastUntil = 0;
-    updateBest(); updateHud();
+    updateBest(); updateHud(); saveProgress();
   }
 
   function setOverlay(next) {
@@ -359,6 +495,8 @@ Big physics.</h2>
       $('secondary').textContent = 'Back to trail menu';
       $('announcer').textContent = 'Crashed. Press R or choose One more go to retry.';
     } else if (next === 'won') {
+      unlockedLevel = Math.max(unlockedLevel, Math.min(levelIndex + 1, levels.length - 1));
+      updateLevelOptions(); saveProgress();
       $('overlay-badge').textContent = 'FIVE APPLES. ONE HAPPY RIDER.';
       $('overlay-title').textContent = 'Trail nailed.';
       const previous = readBest();
@@ -448,7 +586,9 @@ Big physics.</h2>
   }
 
   function collide(p) {
-    const t = terrain(p.x), length = Math.hypot(t.slope, 1);
+    const t = terrain(p.x);
+    if (!t.solid) return;
+    const length = Math.hypot(t.slope, 1);
     const nx = t.slope / length, ny = -1 / length;
     const penetration = RADIUS + (p.y - t.y) / length;
     if (penetration > 0) {
@@ -560,7 +700,9 @@ Big physics.</h2>
     const head = headPosition();
     const mx = (rear.x + front.x) / 2, my = (rear.y + front.y) / 2;
 
-    if (head.y + 6 > terrain(head.x).y && elapsed > .2) {
+    const headGround = terrain(head.x);
+    if ((headGround.solid && head.y + 6 > headGround.y && elapsed > .2)
+      || my > (level.fallY || 620)) {
       burst(head.x, head.y, '#ed8b54', 15);
       setOverlay('crashed');
       return;
@@ -663,14 +805,40 @@ Big physics.</h2>
     }
   }
 
+  function solidRanges() {
+    const start = cameraX - 15, end = cameraX + W + 15;
+    const ranges = [];
+    let cursor = start;
+    for (const gap of level.gaps || []) {
+      if (gap[1] <= cursor || gap[0] >= end) continue;
+      if (gap[0] > cursor) ranges.push([cursor, Math.min(gap[0], end)]);
+      cursor = Math.max(cursor, gap[1]);
+      if (cursor >= end) break;
+    }
+    if (cursor < end) ranges.push([cursor, end]);
+    return ranges;
+  }
+
   function groundPath(offset = 0) {
     ctx.beginPath();
-    ctx.moveTo(cameraX - 15, cameraY + H + 100);
-    for (let x = cameraX - 15; x <= cameraX + W + 15; x += 5) {
-      ctx.lineTo(x, terrain(x).y + offset);
+    const bottom = cameraY + H + 100;
+    for (const [start, end] of solidRanges()) {
+      if (end <= start) continue;
+      const floating = level.island && start >= level.island[0] - 1 && end <= level.island[1] + 1;
+      const pathStart = floating ? level.island[0] : start;
+      const pathEnd = floating ? level.island[1] : end;
+      ctx.moveTo(pathStart, floating ? terrain(pathStart).y + 58 + offset : bottom);
+      ctx.lineTo(pathStart, terrain(pathStart).y + offset);
+      for (let x = pathStart + 5; x < pathEnd; x += 5) ctx.lineTo(x, terrain(x).y + offset);
+      ctx.lineTo(pathEnd, terrain(pathEnd).y + offset);
+      if (floating) {
+        const islandBottom = Math.max(terrain(pathStart).y, terrain(pathEnd).y) + 145 + offset;
+        ctx.lineTo(pathEnd - 28, terrain(pathEnd).y + 62 + offset);
+        ctx.lineTo((pathStart + pathEnd) / 2, islandBottom);
+        ctx.lineTo(pathStart + 28, terrain(pathStart).y + 62 + offset);
+      } else ctx.lineTo(pathEnd, bottom);
+      ctx.closePath();
     }
-    ctx.lineTo(cameraX + W + 15, cameraY + H + 100);
-    ctx.closePath();
   }
 
   function drawTerrain() {
@@ -693,16 +861,18 @@ Big physics.</h2>
     ctx.restore();
 
     ctx.beginPath();
-    for (let x = cameraX - 15; x <= cameraX + W + 15; x += 3) {
-      const y = terrain(x).y;
-      if (x === cameraX - 15) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    for (const [start, end] of solidRanges()) {
+      ctx.moveTo(start, terrain(start).y);
+      for (let x = start + 3; x < end; x += 3) ctx.lineTo(x,terrain(x).y);
+      ctx.lineTo(end,terrain(end).y);
     }
     ctx.strokeStyle = '#375d4d'; ctx.lineWidth = 7; ctx.lineJoin = 'round'; ctx.stroke();
     ctx.strokeStyle = '#6f8b59'; ctx.lineWidth = 2; ctx.stroke();
 
     for (let i = Math.floor(cameraX / 45); i < Math.ceil((cameraX + W) / 45); i++) {
-      const x = i * 45 + Math.sin(i * 9) * 8, y = terrain(x).y;
-      line([[x - 3, y - 3],[x - 5, y - 8],[x, y - 4],[x + 2, y - 10]], '#628455', 1.3);
+      const x = i * 45 + Math.sin(i * 9) * 8, t = terrain(x);
+      if (!t.solid) continue;
+      line([[x - 3, t.y - 3],[x - 5, t.y - 8],[x, t.y - 4],[x + 2, t.y - 10]], '#628455', 1.3);
     }
 
     if (cameraX < 230) {
@@ -712,6 +882,53 @@ Big physics.</h2>
       ctx.fillStyle = '#3c5e4b'; ctx.font = 'bold 8px system-ui'; ctx.textAlign = 'center';
       ctx.fillText('GO →',28,y-39);
     }
+  }
+
+  function drawProp(prop, layer) {
+    if (prop.x < cameraX - 70 || prop.x > cameraX + W + 70) return;
+    const ground = terrain(prop.x);
+    if (!ground.solid) return;
+    const y = ground.y;
+    ctx.save();
+    ctx.globalAlpha = layer === 'front' ? .96 : .78;
+    ctx.translate(prop.x, y);
+    if (prop.type === 'tree') {
+      line([[0,2],[-1,-42]], layer === 'front' ? '#526553' : '#708675', 6);
+      circle(-8,-48,15,layer === 'front' ? '#52775d' : '#78947a');
+      circle(8,-52,18,layer === 'front' ? '#5d8465' : '#83a083');
+      circle(1,-65,13,layer === 'front' ? '#668d67' : '#8ba68a');
+    } else if (prop.type === 'fence') {
+      line([[-22,0],[-20,-25]],'#826f55',4);
+      line([[20,0],[19,-25]],'#826f55',4);
+      line([[-23,-19],[21,-17]],'#a28a66',4);
+      line([[-22,-8],[20,-7]],'#a28a66',4);
+    } else if (prop.type === 'rock') {
+      ctx.fillStyle = layer === 'front' ? '#77827b' : '#929d92';
+      ctx.beginPath(); ctx.moveTo(-16,0); ctx.lineTo(-11,-12); ctx.lineTo(3,-17);
+      ctx.lineTo(16,-8); ctx.lineTo(19,0); ctx.closePath(); ctx.fill();
+      line([[-9,-10],[3,-13],[10,-7]],'#b6b9aa',1.5);
+    } else if (prop.type === 'flowers') {
+      for (let i = -2; i <= 2; i++) {
+        const x = i * 7, h = 8 + (i * i % 3) * 3;
+        line([[x,0],[x-1,-h]],'#668452',1.3);
+        circle(x-1,-h-2,2.8,i % 2 ? '#f5c16e' : '#ef8662');
+      }
+    } else if (prop.type === 'stump') {
+      ctx.fillStyle = '#866c4e'; ctx.fillRect(-10,-14,20,14);
+      ctx.fillStyle = '#c39b6e'; ctx.beginPath(); ctx.ellipse(0,-14,10,3,0,0,TAU); ctx.fill();
+      line([[-5,-14],[4,-14]],'#7a6046',1);
+    } else if (prop.type === 'crystal') {
+      ctx.fillStyle = '#9ad9d5aa';
+      ctx.beginPath(); ctx.moveTo(-13,0); ctx.lineTo(-7,-29); ctx.lineTo(0,-38);
+      ctx.lineTo(7,-23); ctx.lineTo(14,0); ctx.closePath(); ctx.fill();
+      line([[0,-36],[1,-3]],'#e4ffff',1.5);
+    }
+    ctx.restore();
+  }
+
+  function drawProps(layer) {
+    if (preferences.scenery === 'reduced' && layer === 'front') return;
+    for (const prop of level.props || []) if (prop.layer === layer) drawProp(prop, layer);
   }
 
   function drawApple(apple, now) {
@@ -771,15 +988,17 @@ Big physics.</h2>
     const angle = Math.atan2(front.y-rear.y,front.x-rear.x);
     const length = Math.hypot(front.x-rear.x,front.y-rear.y);
     const ground = terrain(mx);
-    const heightAboveGround = Math.max(0, ground.y - my - RADIUS);
-    const shadowAlpha = clamp(.22 - heightAboveGround / 700, .035, .22);
-    const shadowWidth = clamp(35 - heightAboveGround * .07, 13, 35);
-    ctx.save();
-    ctx.translate(mx, ground.y - 1);
-    ctx.rotate(Math.atan(ground.slope));
-    ctx.fillStyle = 'rgba(31,53,39,' + shadowAlpha + ')';
-    ctx.beginPath(); ctx.ellipse(0,0,shadowWidth,3.5,0,0,TAU); ctx.fill();
-    ctx.restore();
+    if (ground.solid) {
+      const heightAboveGround = Math.max(0, ground.y - my - RADIUS);
+      const shadowAlpha = clamp(.22 - heightAboveGround / 700, .035, .22);
+      const shadowWidth = clamp(35 - heightAboveGround * .07, 13, 35);
+      ctx.save();
+      ctx.translate(mx, ground.y - 1);
+      ctx.rotate(Math.atan(ground.slope));
+      ctx.fillStyle = 'rgba(31,53,39,' + shadowAlpha + ')';
+      ctx.beginPath(); ctx.ellipse(0,0,shadowWidth,3.5,0,0,TAU); ctx.fill();
+      ctx.restore();
+    }
 
     drawWheel(rear); drawWheel(front);
     ctx.save(); ctx.translate(mx,my); ctx.rotate(angle); ctx.scale(flipVisual, 1);
@@ -815,17 +1034,26 @@ Big physics.</h2>
     line([[-3,-1],[4,2]],'#c8d1b6',2);
 
     const shift = leanVisual * 9;
+    const isMaya = rider === 'maya';
+    const jacket = isMaya ? '#d98291' : '#f3eee0';
+    const sleeve = isMaya ? '#e59aa5' : '#f5ecda';
+    const helmet = isMaya ? '#75b4a5' : '#f5ac50';
     // The planted boots and hands make the rider visibly shift their weight.
-    line([[-8+shift,-24],[4+shift*.45,-14],[-2,-3]],'#2c4850',5);
+    line([[-8+shift,-24],[4+shift*.45,-14],[-2,-3]],isMaya ? '#38435c' : '#2c4850',5);
     line([[-3,-3],[3,-3]],'#263b36',3);
-    line([[-8+shift,-25],[1+shift,-37]],'#f3eee0',8);
+    line([[-8+shift,-25],[1+shift,-37]],jacket,8);
     line([[1+shift,-36],[11+shift*.45,-30],[19,-25]],'#c5764c',3.6);
-    line([[1+shift,-36],[10+shift*.45,-31]],'#f5ecda',4.5);
+    line([[1+shift,-36],[10+shift*.45,-31]],sleeve,4.5);
+    if (isMaya) {
+      ctx.fillStyle = '#5a3d31';
+      ctx.beginPath(); ctx.ellipse(-5+shift,-42,5,8,-.45,0,TAU); ctx.fill();
+      circle(-9+shift,-37,3.5,'#5a3d31');
+    }
     line([[1+shift,-35],[3+shift,-42]],'#bf8057',3);
-    circle(3+shift,-43,8,'#f5ac50');
+    circle(3+shift,-43,8,helmet);
     ctx.fillStyle = '#284945';
     ctx.beginPath(); ctx.ellipse(7+shift,-43,5.5,3,0,0,TAU); ctx.fill();
-    line([[-2+shift,-47],[4+shift,-49]],'#ffe0a0',1.8);
+    line([[-2+shift,-47],[4+shift,-49]],isMaya ? '#c8eee1' : '#ffe0a0',1.8);
     line([[7+shift,-38],[11+shift,-39]],'#f2bc73',2.3);
     ctx.restore();
     ctx.restore();
@@ -833,7 +1061,8 @@ Big physics.</h2>
 
   function render(now, dt) {
     const midX = (rear.x + front.x)/2, midY = (rear.y + front.y)/2;
-    const lead = clamp(W * .3, 115, 260);
+    const cameraRatio = preferences.camera === 'centered' ? .5 : preferences.camera === 'ahead' ? .22 : .3;
+    const lead = clamp(W * cameraRatio, 95, W / 2);
     const targetX = Math.max(0, midX - (facing > 0 ? lead : W - lead));
     const targetY = clamp(midY - H * .67, -H * .42, 100);
     const smoothing = 1 - Math.exp(-8 * dt);
@@ -844,9 +1073,10 @@ Big physics.</h2>
     cameraY = lerp(cameraY,targetY,smoothing);
     drawBackground();
     ctx.save(); ctx.translate(-cameraX,-cameraY);
-    drawTerrain(); drawFlag();
+    drawTerrain(); drawProps('back'); drawFlag();
     apples.forEach(a => drawApple(a,now));
     drawBike();
+    drawProps('front');
 
     for (const p of particles) {
       if (state !== 'paused') {
@@ -892,7 +1122,7 @@ Big physics.</h2>
   });
 
   game.addEventListener('keydown', e => {
-    if (e.target.tagName === 'SELECT') return;
+    if ($('settings-dialog').open || e.target.tagName === 'SELECT') return;
     if (e.code === 'Escape') {
       e.preventDefault();
       if (state === 'running') pauseGame();
@@ -935,6 +1165,24 @@ Big physics.</h2>
     if (state === 'crashed') { loadLevel(levelIndex); setOverlay('ready'); }
     else startFresh();
   });
+  $('settings').addEventListener('click', () => {
+    resumeAfterSettings = state === 'running';
+    if (resumeAfterSettings) setOverlay('paused');
+    applyPreferences();
+    $('settings-dialog').showModal();
+  });
+  document.querySelectorAll('[data-setting]').forEach(button => {
+    button.addEventListener('click', () => {
+      preferences[button.dataset.setting] = button.dataset.value;
+      applyPreferences(); savePreferences();
+    });
+  });
+  $('settings-dialog').addEventListener('close', () => {
+    if (resumeAfterSettings && state === 'paused') setOverlay('running');
+    else if (state !== 'running') requestAnimationFrame(() => $('primary').focus({ preventScroll: true }));
+    resumeAfterSettings = false;
+    focusGame();
+  });
   $('restart').addEventListener('click', startFresh);
   $('pause').addEventListener('click', () => {
     if (state === 'running') pauseGame();
@@ -960,7 +1208,8 @@ Big physics.</h2>
     requestAnimationFrame(frame);
   }
 
-  loadLevel(0); setOverlay('ready'); resizeCanvas();
+  loadStoredState(); applyPreferences(); savePreferences(); updateLevelOptions();
+  loadLevel(savedLevel); setOverlay('ready'); resizeCanvas();
   requestAnimationFrame(frame);
 })();
 </script>
