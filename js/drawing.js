@@ -200,6 +200,28 @@ export function createGameArt(ctx) {
     }
   }
 
+  function drawProp(type, x, y, alpha = 1) {
+    ctx.save(); ctx.translate(Math.round(x/2)*2,Math.round(y/2)*2);
+    ctx.globalAlpha=alpha;
+    if(type==='tree'){
+      pixelRect(-4,-44,8,44,'#66543f',2);
+      drawPixelDisc(-8,-52,14,'#477158',4); drawPixelDisc(8,-56,16,'#568061',4); drawPixelDisc(0,-70,12,'#618b66',4);
+    } else if(type==='fence'){
+      pixelRect(-22,-26,4,26,'#856d4f',2); pixelRect(18,-26,4,26,'#856d4f',2);
+      pixelRect(-24,-20,46,4,'#aa8a60',2); pixelRect(-24,-10,46,4,'#aa8a60',2);
+    } else if(type==='rock'){
+      pixelRect(-16,-8,34,8,'#697872',2); pixelRect(-10,-14,22,6,'#7f8d83',2); pixelRect(-4,-18,10,4,'#aeb5a7',2);
+    } else if(type==='flowers'){
+      for(let index=-2;index<=2;index++){const offset=index*6,height=8+(Math.abs(index)%2)*4;pixelRect(offset,-height,2,height,'#58784d',2);pixelRect(offset-2,-height-4,6,4,index%2?'#f1b95d':'#e8755b',2);}
+    } else if(type==='stump'){
+      pixelRect(-10,-14,20,14,'#806244',2); pixelRect(-10,-16,20,4,'#c39664',2); pixelRect(-4,-16,8,2,'#76573d',2);
+    } else if(type==='crystal'){
+      pixelPath([[-14,0],[-8,-28],[0,-40],[8,-24],[14,0]],'#83d1ce',3);
+      pixelPath([[0,-36],[0,-4]],'#d9ffff',1);
+    }
+    ctx.restore();
+  }
+
   function drawBike({ rear, front, mx, my, angle, length, flipVisual = 1, facing = 1, brakePressure = 0, state = 'ready', leanVisual = 0, rider = 'max' }) {
     drawWheel(rear); drawWheel(front);
     const pixelAngle = Math.round(angle / (TAU / 32)) * (TAU / 32);
@@ -261,5 +283,5 @@ export function createGameArt(ctx) {
     ctx.restore();
   }
 
-  return { drawApple, drawFlag, drawBike, drawBackground };
+  return { drawApple, drawFlag, drawBike, drawProp, drawBackground };
 }

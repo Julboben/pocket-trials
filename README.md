@@ -33,12 +33,12 @@ The current version is a dependency-free browser prototype built with native Jav
 Run a local static server from the project directory:
 
 ```sh
-npx live-server
+npm run dev
 ```
 
-Then open the URL printed by `live-server`. A local server is required because the game uses native JavaScript modules.
+This generates `levels/catalog.json`, watches the level folders for changes, and starts `live-server`. Add or edit a JSON file while the command is running and the catalog is regenerated automatically; the development server then reloads the page.
 
-No install or build step is required for the game itself.
+A local server is required because the game uses native JavaScript modules. No dependency installation or application build is required.
 
 ## Controls
 
@@ -69,6 +69,27 @@ Lean labels adjust to the direction the rider is facing.
 
 Each trail requires collecting all five apples before the finish gate will open. Completing a trail unlocks the next one. Selecting a trail starts it immediately, and its number and name remain visible as a lower-left course marker.
 
+## Level editor
+
+Open the visual editor from **Level Editor** on the main dashboard or navigate directly to `editor.html`. The initial editor supports:
+
+- Loading every official and custom trail, with its source clearly labeled
+- Dragging ground and platform control points
+- Adding ground points, elevated platforms, gaps, freely positioned apples, start points, props, and finish positions
+- Moving complete platforms by dragging their filled bodies
+- Moving or removing props and changing their type and foreground/background layer
+- Choosing the start position and left/right facing direction
+- Selecting base and platform materials
+- Editing sun, cloud, rain, and lightning values
+- Trackpad navigation: two-finger scrolling pans and pinch gestures zoom around the pointer
+- Mouse navigation: wheel panning, `Ctrl`/`Cmd` + wheel zooming, and middle-button or `Space`-drag panning
+- Undo and redo
+- Continuous level validation
+- Browser-local drafts
+- JSON and JavaScript module export
+
+Editor drafts do not overwrite level files. Official trails live in `levels/official/`; locally authored trails belong in `levels/custom/`. Both use the exact JSON format produced by **Export JSON**. Source classification comes from the generated catalog and folder—not from a user-editable property inside the level. See [`LEVEL_FORMAT.md`](./LEVEL_FORMAT.md) for the full schema and design guidelines.
+
 ## Settings and saved data
 
 The dashboard's Settings view includes:
@@ -97,15 +118,25 @@ Clearing site data resets settings, progression, and recorded times.
 .
 ├── index.html          # Game markup and module entry point
 ├── css/
-│   └── game.css        # Interface and responsive presentation
+│   ├── game.css        # Game and dashboard presentation
+│   └── editor.css      # Visual level editor presentation
+├── levels/
+│   ├── official/       # Shipped career trails
+│   ├── custom/         # Locally authored standalone trails
+│   └── catalog.json    # Generated level index
+├── scripts/            # Catalog generator and development watcher
 ├── js/
 │   ├── main.js         # Game loop, simulation, rendering, input, and UI orchestration
+│   ├── editor.js       # Visual editor tools, canvas interaction, and import/export
+│   ├── level-schema.js # Level defaults, normalization, and validation
 │   ├── audio.js        # Procedural Web Audio effects
 │   ├── config.js       # Shared constants and math helpers
 │   ├── drawing.js      # Shared canvas primitives and reusable game-art renderers
-│   ├── levels.js       # Trail definitions and visual palettes
+│   ├── levels.js       # Terrain materials and generated-catalog loader
 │   ├── storage.js      # Preferences, progression, and best times
 │   └── terrain.js      # Heightfield and collision sampling
+├── editor.html         # Standalone visual level editor
+├── LEVEL_FORMAT.md     # Level schema and authoring guide
 └── README.md           # Project documentation
 ```
 
@@ -113,7 +144,7 @@ The prototype intentionally has no runtime dependencies.
 
 ## Design tokens
 
-Shared interface colors, spacing, corner radii, typography, and pixel-shadow values are defined as CSS custom properties in `css/game.css`. Trail-specific canvas colors remain alongside each trail definition in `js/levels.js`, while shared simulation constants live in `js/config.js`.
+Shared interface colors, spacing, corner radii, typography, and pixel-shadow values are defined as CSS custom properties in `css/game.css`. Trail-specific canvas colors live under `levels/official/` and `levels/custom/`, shared terrain materials and catalog loading live in `js/levels.js`, and simulation constants live in `js/config.js`.
 
 ## Technical overview
 

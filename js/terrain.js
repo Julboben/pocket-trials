@@ -35,6 +35,10 @@ export function terrainSurfacesAt(level, x) {
 
 const platformPolygons = new WeakMap();
 
+export function invalidatePlatform(platform) {
+  platformPolygons.delete(platform);
+}
+
 export function platformPolygon(platform) {
   if (platformPolygons.has(platform)) return platformPolygons.get(platform);
   const start = platform.points[0][0];
@@ -57,6 +61,10 @@ function pointInsidePolygon(polygon, x, y) {
     if ((y1 > y) !== (y2 > y) && x < (x2 - x1) * (y - y1) / (y2 - y1) + x1) inside = !inside;
   }
   return inside;
+}
+
+export function pointInPlatform(platform, x, y) {
+  return pointInsidePolygon(platformPolygon(platform), x, y);
 }
 
 export function platformCollisionAt(level, x, y, radius) {

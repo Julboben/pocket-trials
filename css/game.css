@@ -564,6 +564,19 @@ h2 { margin: 0; font-size: 28px; line-height: 1.08; letter-spacing: -1px; white-
   font-weight: 850;
 }
 .level-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.level-section-title {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+  padding: 9px 2px 4px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+.level-section-title:first-child { margin-top: 0; }
+.level-section-title strong { color: var(--color-green); font-size: 10px; letter-spacing: 1.4px; }
+.level-section-title small { color: var(--color-text-muted); font-size: 7px; text-align: right; }
 .level-card {
   min-height: 70px;
   padding: 13px;
@@ -577,6 +590,8 @@ h2 { margin: 0; font-size: 28px; line-height: 1.08; letter-spacing: -1px; white-
   text-align: left;
 }
 .level-card:disabled { cursor: not-allowed; opacity: .42; }
+.custom-level-card { border-color: #718f7f; background: #29433c; }
+.custom-level-card .level-number, .custom-level-card .level-best { color: var(--color-green); }
 .level-number { color: var(--color-accent); font-size: 17px; font-weight: 950; }
 .level-copy { display: flex; flex-direction: column; gap: 4px; }
 .level-copy strong { font-size: 10px; }
@@ -631,20 +646,49 @@ kbd { padding: 1px 4px; border: 1px solid #607074; background: #17262b; color: v
 .pixel-ui .modal { box-shadow: 8px 8px 0 #0d1b2070; }
 
 @media (max-width: 760px) {
+  html, body { width: 100%; max-width: 100vw; overflow-x: hidden; }
   body { padding: 10px; align-items: flex-start; }
-  .game { padding: 0; border-radius: 20px; }
-  .viewport { height: auto; aspect-ratio: 380 / 410; border-radius: var(--radius-pixel); }
+  .game { width: 100%; min-width: 0; max-width: 100vw; padding: 0; border-radius: 20px; }
+  .viewport { width: 100%; min-width: 0; height: auto; aspect-ratio: 380 / 410; border-radius: var(--radius-pixel); }
+  #fullscreen, .dashboard-fullscreen { display: none !important; }
+  .game-actions {
+    z-index: 8;
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    right: calc(10px + env(safe-area-inset-right, 0px));
+  }
+  .game-actions .icon-button {
+    border-color: #ffffff52;
+    background: #101b1aee;
+  }
+  .hud {
+    z-index: 8;
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    left: calc(10px + env(safe-area-inset-left, 0px));
+  }
+  .toast {
+    z-index: 9;
+    top: calc(52px + env(safe-area-inset-top, 0px));
+    right: 10px;
+    left: 10px;
+    width: auto;
+    max-width: none;
+    transform: none;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
+  }
+  .menu-screen {
+    position: fixed;
+    padding: calc(24px + env(safe-area-inset-top, 0px)) calc(14px + env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) calc(14px + env(safe-area-inset-left, 0px));
+    place-items: start center;
+  }
   .control-area { padding: 14px 10px 12px; }
   .controls { grid-template-columns: repeat(4, minmax(0, 1fr)) 1.2fr; gap: 6px; }
-
 }
 
 @media (max-width: 520px) {
   body { padding: 0; }
   .game { min-height: 100vh; padding: 0; border: 0; border-radius: 0; }
-  #pause { display: none; }
-  .game-actions { top: 50px; right: 10px; }
-  .hud { top: 10px; left: 10px; }
+  #pause { display: none !important; }
   .scene-label { left: 11px; bottom: 17px; font-size: 9px; gap: 7px; }
   .scene-label::before { font-size: 20px; }
   .scene-label::after { left: 29px; }
@@ -654,8 +698,6 @@ kbd { padding: 1px 4px; border: 1px solid #607074; background: #17262b; color: v
   .controls { grid-template-columns: repeat(4, minmax(0, 1fr)) 1.2fr; gap: 5px; }
   #down-control, #up-control { width: 100%; height: 60px; }
   .how-grid { grid-template-columns: 1fr; }
-  .menu-screen { position: fixed; padding: 24px 14px; place-items: start center; }
-  .dashboard-fullscreen { top: 10px; right: 10px; }
   .menu-hero { grid-template-columns: 52px 1fr; gap: 13px; }
   .menu-logo { width: 48px; height: 48px; font-size: 29px; box-shadow: 4px 4px 0 var(--color-shadow); }
   .menu-hero h2 { font-size: 29px; letter-spacing: -2px; }

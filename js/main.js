@@ -4,7 +4,7 @@ import {
   COAST_RESISTANCE_LOW_SPEED, COAST_RESISTANCE_HIGH_SPEED,
   COAST_SPEED_REFERENCE, UPHILL_TORQUE_BOOST, clamp, lerp
 } from './config.js';
-import { levels, terrainMaterials } from './levels.js';
+import { levels, customLevelEntries, terrainMaterials } from './levels.js';
 import { createAudio } from './audio.js';
 import { createDrawingTools, createGameArt } from './drawing.js';
 import { terrainAt, platformCollisionAt, gapCollisionAt, platformPolygon } from './terrain.js';
@@ -33,7 +33,7 @@ import {
   let W = 380, H = 410;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  let levelIndex = 0, level = levels[0], state = 'menu', stateBeforeMenu = 'ready', rider = 'max';
+  let levelIndex = 0, level = levels[0], levelSource = 'official', customLevelIndex = -1, state = 'menu', stateBeforeMenu = 'ready', rider = 'max';
   let unlockedLevel = 0, savedLevel = 0, saveGame = null;
   let saveSlots = [null, null, null], activeSaveSlot = 0, pendingSaveSlot = 0, selectedNewRider = 'max', gameLoopStarted = false;
   let deleteArmedSlot = -1, deleteArmTimer = 0;
@@ -60,7 +60,7 @@ import {
   }
   function savePreferences() { persistPreferences(preferences); }
   function saveProgress() {
-    if (!saveGame) return;
+    if (!saveGame || levelSource !== 'official') return;
     savedLevel = levelIndex;
     saveGame.level = levelIndex;
     saveGame.unlocked = unlockedLevel;
@@ -274,7 +274,7 @@ import {
     $('active-save-progress').textContent = hasSave ? (unlockedLevel + 1) + ' / ' + levels.length + ' trails · ' + levels[savedLevel].name : '';
     $('menu-start').hidden = !hasSave;
     $('menu-new-game').classList.toggle('menu-action-primary', !hasSave);
-    $('menu-levels').disabled = !hasSave;
+    $('menu-levels').disabled = !hasSave && customLevelEntries.length === 0;
     buildSaveSlots();
     drawMenuBackground();
     drawHowToPlayIllustrations();
@@ -338,18 +338,18 @@ import {
   }
 
   function closeMainMenu() {
-    if (!gameLoopStarted || !saveGame) return;
+    if (!gameLoopStarted || (!saveGame && levelSource === 'official')) return;
     $('menu-screen').hidden = true;
     game.classList.remove('menu-open');
     setOverlay(stateBeforeMenu === 'paused' ? 'paused' : 'running');
     focusGame();
   }
 
-  function closeMenuForLevel(index) {
-    if (!saveGame) return;
+  function startSelectedLevel(load, requiresSave = true) {
+    if (requiresSave && !saveGame) return;
     $('menu-screen').hidden = true;
     game.classList.remove('menu-open');
-    loadLevel(index);
+    load();
     setOverlay('running');
     focusGame();
     if (!gameLoopStarted) {
@@ -359,27 +359,80 @@ import {
     }
   }
 
+  function closeMenuForLevel(index) {
+    startSelectedLevel(() => loadLevel(index));
+  }
+
+  function closeMenuForCustomLevel(index) {
+    startSelectedLevel(() => loadCustomLevel(index), false);
+  }
+
+  function levelSection(title, description) {
+    const heading = document.createElement('div');
+    heading.className = 'level-section-title';
+    const strong = document.createElement('strong');
+    strong.textContent = title;
+    const small = document.createElement('small');
+    small.textContent = description;
+    heading.append(strong, small);
+    return heading;
+  }
+
+  function levelCard({ trail, number, status, best = '—', locked = false, custom = false, onSelect }) {
+    const button = document.createElement('button');
+    button.className = `level-card${custom ? ' custom-level-card' : ''}`;
+    button.disabled = locked;
+    const numberLabel = document.createElement('span');
+    numberLabel.className = 'level-number';
+    numberLabel.textContent = number;
+    const copy = document.createElement('span');
+    copy.className = 'level-copy';
+    const name = document.createElement('strong');
+    name.textContent = trail.name.toUpperCase();
+    const detail = document.createElement('small');
+    detail.textContent = status;
+    copy.append(name, detail);
+    const bestLabel = document.createElement('span');
+    bestLabel.className = 'level-best';
+    bestLabel.textContent = best;
+    button.append(numberLabel, copy, bestLabel);
+    if (!locked) button.addEventListener('click', onSelect);
+    return button;
+  }
+
   function buildMenuLevelCards() {
-    const cards = levels.map((trail, index) => {
-      const button = document.createElement('button');
+    const cards = [levelSection('OFFICIAL TRAILS', 'Career progression and official best times')];
+    levels.forEach((trail, index) => {
       const locked = !saveGame || index > unlockedLevel;
       const best = readBest(activeSaveSlot, index, levels.length);
-      button.className = 'level-card';
-      button.disabled = locked;
-      button.innerHTML = '<span class="level-number">' + String(index + 1).padStart(2, '0') + '</span>'
-        + '<span class="level-copy"><strong>' + trail.name.toUpperCase() + '</strong><small>' + (locked ? 'LOCKED' : (index === savedLevel ? 'CURRENT TRAIL' : 'UNLOCKED')) + '</small></span>'
-        + '<span class="level-best">' + (best === null ? '—' : timeText(best)) + '</span>';
-      if (!locked) button.addEventListener('click', () => closeMenuForLevel(index));
-      return button;
+      cards.push(levelCard({
+        trail,
+        number: String(index + 1).padStart(2, '0'),
+        status: locked ? 'LOCKED' : (index === savedLevel ? 'CURRENT TRAIL' : 'UNLOCKED'),
+        best: best === null ? '—' : timeText(best),
+        locked,
+        onSelect: () => closeMenuForLevel(index)
+      }));
     });
+    if (customLevelEntries.length) {
+      cards.push(levelSection('CUSTOM TRAILS', 'Local trails outside career progression'));
+      customLevelEntries.forEach((entry, index) => cards.push(levelCard({
+        trail: entry.level,
+        number: `C${String(index + 1).padStart(2, '0')}`,
+        status: 'CUSTOM TRAIL',
+        best: 'CUSTOM',
+        custom: true,
+        onSelect: () => closeMenuForCustomLevel(index)
+      })));
+    }
     $('menu-level-grid').replaceChildren(...cards);
   }
 
   // Keep the active level binding local while terrain math remains reusable.
   const terrain = (x, referenceY = null) => terrainAt(level, x, referenceY);
 
-  function wheel(x) {
-    const y = terrain(x).y - RADIUS;
+  function wheel(x, startY = null) {
+    const y = startY ?? terrain(x).y - RADIUS;
     return { x, y, ox: x, oy: y, grounded: true, material: level.terrain || 'grass', spin: 0, compression: 0, springVelocity: 0, impactSpeed: 0 };
   }
 
@@ -412,12 +465,16 @@ import {
     sounds.flip(airborne);
   }
 
-  function loadLevel(index) {
-    index = clamp(index, 0, unlockedLevel);
-    levelIndex = index; level = levels[index];
-    rear = wheel(65); front = wheel(115);
-    apples = level.apples.map(x => ({ x, y: terrain(x).y - 60, taken: false }));
-    particles = []; skidMarks = []; ragdoll = null; hair = null; elapsed = 0; collected = 0; facing = 1; throttle = 0; brakePressure = 0;
+  function initializeLevel(trail, marker) {
+    level = trail;
+    const { x: startX, y: startY, facing: startFacing } = level.start;
+    rear = wheel(startX - WHEELBASE / 2, startY); front = wheel(startX + WHEELBASE / 2, startY);
+    apples = level.apples.map(apple => ({
+      x: apple.x,
+      y: Number.isFinite(apple.y) ? apple.y : terrain(apple.x).y - 60,
+      taken: false
+    }));
+    particles = []; skidMarks = []; ragdoll = null; hair = null; elapsed = 0; collected = 0; facing = startFacing; throttle = 0; brakePressure = 0;
     weatherTime = 0; lightningFlash = 0; lightningX = .5; lightningDistance = .5;
     nextLightning = level.weather?.lightning ? 2.5 + Math.random() * 4 : Infinity;
     cameraX = 0; cameraY = 0; leanControl = 0; leanVisual = 0; flipVisual = 1;
@@ -426,10 +483,24 @@ import {
     lastGateNotice = -10; lastProgress = -1; lastTimer = '';
     clearInput(); updateDirectionControls();
     $('scene-label').textContent = level.name.toUpperCase();
-    $('scene-label').dataset.trailNumber = String(index + 1).padStart(2, '0');
+    $('scene-label').dataset.trailNumber = marker;
     $('apple-count').textContent = '0 / ' + apples.length;
     $('toast').classList.remove('visible'); toastUntil = 0;
-    updateHud(); saveProgress();
+    updateHud();
+  }
+
+  function loadLevel(index) {
+    index = clamp(index, 0, unlockedLevel);
+    levelSource = 'official'; customLevelIndex = -1; levelIndex = index;
+    initializeLevel(levels[index], String(index + 1).padStart(2, '0'));
+    saveProgress();
+  }
+
+  function loadCustomLevel(index) {
+    const entry = customLevelEntries[index];
+    if (!entry) return;
+    levelSource = 'custom'; customLevelIndex = index;
+    initializeLevel(entry.level, `C${String(index + 1).padStart(2, '0')}`);
   }
 
   function setOverlay(next) {
@@ -455,24 +526,33 @@ import {
       $('secondary').textContent = 'Change Trail';
       $('announcer').textContent = 'Crashed. Press R or select Try Again to retry.';
     } else if (next === 'won') {
-      unlockedLevel = Math.max(unlockedLevel, Math.min(levelIndex + 1, levels.length - 1));
-      saveProgress();
-      $('overlay-badge').textContent = 'TRAIL COMPLETED';
+      $('overlay-badge').textContent = levelSource === 'official' ? 'TRAIL COMPLETED' : 'CUSTOM TRAIL COMPLETED';
       $('overlay-title').textContent = 'Goal Reached!';
-      const previous = readBest(activeSaveSlot, levelIndex, levels.length);
-      const record = previous === null || elapsed < previous;
-      if (record) {
-        saveBest(activeSaveSlot, levelIndex, elapsed, levels.length);
-        saveGame.bestTimes[levelIndex] = elapsed;
+      if (levelSource === 'official') {
+        unlockedLevel = Math.max(unlockedLevel, Math.min(levelIndex + 1, levels.length - 1));
+        saveProgress();
+        const previous = readBest(activeSaveSlot, levelIndex, levels.length);
+        const record = previous === null || elapsed < previous;
+        if (record) {
+          saveBest(activeSaveSlot, levelIndex, elapsed, levels.length);
+          saveGame.bestTimes[levelIndex] = elapsed;
+        }
+        $('overlay-description').textContent = 'Finished in ' + timeText(elapsed) + '. ' + (record ? 'New best time on this trail!' : 'Best: ' + timeText(previous) + '.');
+        $('primary').textContent = levelIndex === levels.length - 1 ? 'Play Again →' : 'Next Trail →';
+      } else {
+        $('overlay-description').textContent = 'Finished in ' + timeText(elapsed) + '. Custom trails do not affect career progression.';
+        $('primary').textContent = 'Play Again →';
       }
-      $('overlay-description').textContent = 'Finished in ' + timeText(elapsed) + '. ' + (record ? 'New best time on this trail!' : 'Best: ' + timeText(previous) + '.');
-      $('primary').textContent = levelIndex === levels.length - 1 ? 'Play Again →' : 'Next Trail →';
       $('secondary').textContent = 'Replay Trail';
       $('announcer').textContent = 'Trail complete in ' + timeText(elapsed) + '. All ' + apples.length + ' apples collected.';
     }
   }
 
-  function startFresh() { loadLevel(levelIndex); setOverlay('running'); focusGame(); }
+  function startFresh() {
+    if (levelSource === 'custom') loadCustomLevel(customLevelIndex);
+    else loadLevel(levelIndex);
+    setOverlay('running'); focusGame();
+  }
   function pauseGame() { if (state === 'running') setOverlay('paused'); }
   function notify(message, duration = 2600) {
     $('toast').textContent = message;
@@ -1048,27 +1128,9 @@ import {
   function drawProp(prop,layer){
     if(preferences.scenery === 'reduced' && prop.type === 'tree')return;
     if(prop.x<cameraX-70||prop.x>cameraX+W+70)return;
-    const ground=terrain(prop.x);if(!ground.solid)return;
-    const y=ground.y;
-    ctx.save(); ctx.translate(Math.round(prop.x/2)*2,Math.round(y/2)*2);
-    ctx.globalAlpha=layer==='front'?1:.82;
-    if(prop.type==='tree'){
-      pixelRect(-4,-44,8,44,'#66543f',2);
-      drawPixelDisc(-8,-52,14,'#477158',4); drawPixelDisc(8,-56,16,'#568061',4); drawPixelDisc(0,-70,12,'#618b66',4);
-    } else if(prop.type==='fence'){
-      pixelRect(-22,-26,4,26,'#856d4f',2); pixelRect(18,-26,4,26,'#856d4f',2);
-      pixelRect(-24,-20,46,4,'#aa8a60',2); pixelRect(-24,-10,46,4,'#aa8a60',2);
-    } else if(prop.type==='rock'){
-      pixelRect(-16,-8,34,8,'#697872',2); pixelRect(-10,-14,22,6,'#7f8d83',2); pixelRect(-4,-18,10,4,'#aeb5a7',2);
-    } else if(prop.type==='flowers'){
-      for(let i=-2;i<=2;i++){const x=i*6,h=8+(Math.abs(i)%2)*4;pixelRect(x,-h,2,h,'#58784d',2);pixelRect(x-2,-h-4,6,4,i%2?'#f1b95d':'#e8755b',2);}
-    } else if(prop.type==='stump'){
-      pixelRect(-10,-14,20,14,'#806244',2); pixelRect(-10,-16,20,4,'#c39664',2); pixelRect(-4,-16,8,2,'#76573d',2);
-    } else if(prop.type==='crystal'){
-      pixelPath([[-14,0],[-8,-28],[0,-40],[8,-24],[14,0]],'#83d1ce',3);
-      pixelPath([[0,-36],[0,-4]],'#d9ffff',1);
-    }
-    ctx.restore();
+    const ground=terrain(prop.x);if(!ground.solid&&!Number.isFinite(prop.y))return;
+    const y=Number.isFinite(prop.y)?prop.y:ground.y;
+    gameArt.drawProp(prop.type, prop.x, y, layer==='front'?1:.82);
   }
 
 
@@ -1444,7 +1506,8 @@ import {
   $('primary').addEventListener('click', () => {
     if (state === 'paused') { setOverlay('running'); focusGame(); }
     else if (state === 'won') {
-      loadLevel((levelIndex + 1) % levels.length); setOverlay('running'); focusGame();
+      if (levelSource === 'custom') startFresh();
+      else { loadLevel((levelIndex + 1) % levels.length); setOverlay('running'); focusGame(); }
     } else startFresh();
   });
   $('secondary').addEventListener('click', () => {
@@ -1455,6 +1518,7 @@ import {
     } else startFresh();
   });
   $('menu-how-to').addEventListener('click', () => showMenuView('how'));
+  $('menu-editor').addEventListener('click', () => { window.location.href = './editor.html'; });
   $('menu-settings').addEventListener('click', () => {
     applyPreferences();
     showMenuView('settings');

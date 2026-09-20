@@ -1,0 +1,178 @@
+{
+  "name": "Rolling Country",
+  "label": "ROLLING COUNTRY / 02",
+  "goal": 2820,
+  "terrain": "dirt",
+  "description": "Momentum is your friend. Carry speed through valleys, ease over crests, and lean forward when the front wheel gets light.",
+  "start": {
+    "x": 90,
+    "y": null,
+    "facing": 1
+  },
+  "points": [
+    [
+      0,
+      320
+    ],
+    [
+      170,
+      320
+    ],
+    [
+      320,
+      272
+    ],
+    [
+      455,
+      336
+    ],
+    [
+      610,
+      244
+    ],
+    [
+      765,
+      326
+    ],
+    [
+      920,
+      278
+    ],
+    [
+      1060,
+      337
+    ],
+    [
+      1225,
+      235
+    ],
+    [
+      1390,
+      324
+    ],
+    [
+      1545,
+      267
+    ],
+    [
+      1690,
+      330
+    ],
+    [
+      1845,
+      249
+    ],
+    [
+      2005,
+      337
+    ],
+    [
+      2160,
+      286
+    ],
+    [
+      2300,
+      235
+    ],
+    [
+      2460,
+      326
+    ],
+    [
+      2620,
+      273
+    ],
+    [
+      2760,
+      318
+    ],
+    [
+      2960,
+      318
+    ]
+  ],
+  "apples": [
+    {
+      "x": 315,
+      "y": null
+    },
+    {
+      "x": 910,
+      "y": null
+    },
+    {
+      "x": 1390,
+      "y": null
+    },
+    {
+      "x": 2050,
+      "y": null
+    },
+    {
+      "x": 2610,
+      "y": null
+    }
+  ],
+  "props": [
+    {
+      "x": 230,
+      "y": null,
+      "type": "rock",
+      "layer": "front"
+    },
+    {
+      "x": 505,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 825,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 1115,
+      "y": null,
+      "type": "flowers",
+      "layer": "front"
+    },
+    {
+      "x": 1480,
+      "y": null,
+      "type": "stump",
+      "layer": "front"
+    },
+    {
+      "x": 1940,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 2370,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 2690,
+      "y": null,
+      "type": "rock",
+      "layer": "front"
+    }
+  ],
+  "weather": {
+    "sun": 0.75,
+    "clouds": 0.65
+  },
+  "sky": "#eae9d9",
+  "sun": "#efd69b",
+  "mountain": "#b7c8b1",
+  "spray": [
+    "#9a805c",
+    "#b99d72",
+    "#d0b78d"
+  ]
+}

@@ -1,0 +1,160 @@
+{
+  "name": "The Orchard",
+  "label": "THE ORCHARD / 01",
+  "goal": 2380,
+  "terrain": "grass",
+  "description": "Learn the rhythm: build speed on gentle rollers, lean forward on climbs, and settle the bike before each landing.",
+  "start": {
+    "x": 90,
+    "y": null,
+    "facing": 1
+  },
+  "points": [
+    [
+      0,
+      320
+    ],
+    [
+      180,
+      320
+    ],
+    [
+      320,
+      292
+    ],
+    [
+      455,
+      322
+    ],
+    [
+      610,
+      276
+    ],
+    [
+      760,
+      320
+    ],
+    [
+      920,
+      300
+    ],
+    [
+      1060,
+      257
+    ],
+    [
+      1215,
+      323
+    ],
+    [
+      1375,
+      286
+    ],
+    [
+      1515,
+      321
+    ],
+    [
+      1665,
+      267
+    ],
+    [
+      1815,
+      318
+    ],
+    [
+      1960,
+      294
+    ],
+    [
+      2110,
+      326
+    ],
+    [
+      2245,
+      304
+    ],
+    [
+      2490,
+      304
+    ]
+  ],
+  "apples": [
+    {
+      "x": 300,
+      "y": null
+    },
+    {
+      "x": 760,
+      "y": null
+    },
+    {
+      "x": 1050,
+      "y": null
+    },
+    {
+      "x": 1645,
+      "y": null
+    },
+    {
+      "x": 2190,
+      "y": null
+    }
+  ],
+  "props": [
+    {
+      "x": 215,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 520,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 825,
+      "y": null,
+      "type": "flowers",
+      "layer": "front"
+    },
+    {
+      "x": 1180,
+      "y": null,
+      "type": "stump",
+      "layer": "front"
+    },
+    {
+      "x": 1450,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 1900,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 2250,
+      "y": null,
+      "type": "flowers",
+      "layer": "front"
+    }
+  ],
+  "weather": {
+    "sun": 1,
+    "clouds": 0.15
+  },
+  "sky": "#eae9d9",
+  "sun": "#f2c082",
+  "mountain": "#b7c8b1",
+  "spray": [
+    "#6f8b59",
+    "#9c8b68",
+    "#c5b496"
+  ]
+}

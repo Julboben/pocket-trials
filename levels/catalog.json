@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "levels": [
+    {
+      "id": "official:01-the-orchard",
+      "source": "official",
+      "file": "official/01-the-orchard.json",
+      "name": "The Orchard"
+    },
+    {
+      "id": "official:02-rolling-country",
+      "source": "official",
+      "file": "official/02-rolling-country.json",
+      "name": "Rolling Country"
+    },
+    {
+      "id": "official:03-high-hopes",
+      "source": "official",
+      "file": "official/03-high-hopes.json",
+      "name": "High Hopes"
+    },
+    {
+      "id": "official:04-skybound",
+      "source": "official",
+      "file": "official/04-skybound.json",
+      "name": "Skybound"
+    },
+    {
+      "id": "official:05-brake-point",
+      "source": "official",
+      "file": "official/05-brake-point.json",
+      "name": "Brake Point"
+    },
+    {
+      "id": "official:06-long-way-up",
+      "source": "official",
+      "file": "official/06-long-way-up.json",
+      "name": "Long Way Up"
+    },
+    {
+      "id": "official:07-elastic-summit",
+      "source": "official",
+      "file": "official/07-elastic-summit.json",
+      "name": "Elastic Summit"
+    },
+    {
+      "id": "custom:08-the-orchard-test",
+      "source": "custom",
+      "file": "custom/08-the-orchard-test.json",
+      "name": "The Orchard - TEST"
+    }
+  ]
+}

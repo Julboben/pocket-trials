@@ -1,0 +1,126 @@
+import { terrainMaterials } from './levels.js';
+import { curveAt } from './terrain.js';
+
+export const cloneLevel = level => JSON.parse(JSON.stringify(level));
+
+export function createBlankLevel(index = 0) {
+  const number = String(index + 1).padStart(2, '0');
+  return {
+    name: 'New Trail',
+    label: `NEW TRAIL / ${number}`,
+    goal: 1200,
+    terrain: 'grass',
+    description: '',
+    start: { x: 90, y: null, facing: 1 },
+    points: [[0, 320], [180, 320], [420, 270], [680, 330], [940, 280], [1320, 300]],
+    gaps: [],
+    platforms: [],
+    apples: [
+      { x: 260, y: null },
+      { x: 470, y: null },
+      { x: 710, y: null },
+      { x: 930, y: null },
+      { x: 1100, y: null }
+    ],
+    props: [],
+    weather: { sun: 1, clouds: .2 },
+    fallY: 620,
+    sky: '#eae9d9',
+    sun: '#f2c082',
+    mountain: '#b7c8b1',
+    spray: ['#6f8b59', '#9c8b68', '#c5b496']
+  };
+}
+
+export function normalizeLevel(input, index = 0) {
+  const fallback = createBlankLevel(index);
+  const level = { ...fallback, ...cloneLevel(input || {}) };
+  level.name = String(level.name || fallback.name);
+  level.label = String(level.label || `${level.name.toUpperCase()} / ${String(index + 1).padStart(2, '0')}`);
+  level.goal = Number(level.goal) || fallback.goal;
+  level.fallY = Number(level.fallY) || fallback.fallY;
+  level.terrain = terrainMaterials[level.terrain] ? level.terrain : 'grass';
+  level.points = Array.isArray(level.points) && level.points.length >= 2
+    ? level.points.map(point => [Number(point[0]), Number(point[1])]).sort((a, b) => a[0] - b[0])
+    : fallback.points;
+  level.gaps = Array.isArray(level.gaps)
+    ? level.gaps.map(gap => [Number(gap[0]), Number(gap[1])].sort((a, b) => a - b))
+    : [];
+  level.platforms = Array.isArray(level.platforms) ? level.platforms.map(platform => ({
+    ...platform,
+    points: (platform.points || []).map(point => [Number(point[0]), Number(point[1])]).sort((a, b) => a[0] - b[0]),
+    thickness: Math.max(16, Number(platform.thickness) || 48),
+    material: terrainMaterials[platform.material] ? platform.material : level.terrain
+  })).filter(platform => platform.points.length >= 2) : [];
+  const start = level.start || fallback.start;
+  level.start = {
+    x: Number(start.x) || 90,
+    y: start.y === null || start.y === undefined ? null : (Number.isFinite(Number(start.y)) ? Number(start.y) : null),
+    facing: Number(start.facing) < 0 ? -1 : 1
+  };
+  level.apples = Array.isArray(level.apples) ? level.apples.map(apple => ({
+    x: Number(apple.x) || 0,
+    y: apple.y === null ? null : Number(apple.y)
+  })) : [];
+  level.props = Array.isArray(level.props) ? level.props.map(prop => ({
+    x: Number(prop.x) || 0,
+    y: prop.y === null || prop.y === undefined ? null : (Number.isFinite(Number(prop.y)) ? Number(prop.y) : null),
+    type: String(prop.type || 'tree'),
+    layer: prop.layer === 'front' ? 'front' : 'back'
+  })) : [];
+  level.weather = { ...fallback.weather, ...(level.weather || {}) };
+  return level;
+}
+
+export function validateLevel(level) {
+  const messages = [];
+  const error = text => messages.push({ type: 'error', text });
+  const warning = text => messages.push({ type: 'warning', text });
+  if (!level.name.trim()) error('The trail needs a name.');
+  if (!terrainMaterials[level.terrain]) error(`Unknown base material “${level.terrain}”.`);
+  if (!Array.isArray(level.points) || level.points.length < 2) error('Ground requires at least two control points.');
+  for (let index = 1; index < level.points.length; index++) {
+    const [previousX, previousY] = level.points[index - 1];
+    const [x, y] = level.points[index];
+    if (x <= previousX) error(`Ground point ${index + 1} must be to the right of point ${index}.`);
+    if (x - previousX < 70 && Math.abs(y - previousY) > 70) warning(`Ground segment ${index}–${index + 1} is very steep.`);
+  }
+  const finalX = level.points.at(-1)?.[0] || 0;
+  if (level.goal <= 115 || level.goal >= finalX) error('The finish must be after the start and before the final ground point.');
+  for (const [index, gap] of (level.gaps || []).entries()) {
+    if (gap[1] <= gap[0]) error(`Gap ${index + 1} has an invalid range.`);
+    if (gap[1] - gap[0] > 160) warning(`Gap ${index + 1} is wider than 160 units and may be difficult.`);
+    if (level.goal > gap[0] && level.goal < gap[1]) error(`The finish is inside gap ${index + 1}.`);
+  }
+  for (const [index, platform] of (level.platforms || []).entries()) {
+    if (!terrainMaterials[platform.material]) error(`Platform ${index + 1} has an unknown material.`);
+    if (platform.points.length < 2) error(`Platform ${index + 1} needs at least two points.`);
+    for (let pointIndex = 1; pointIndex < platform.points.length; pointIndex++) {
+      if (platform.points[pointIndex][0] <= platform.points[pointIndex - 1][0]) error(`Platform ${index + 1} points are not ordered.`);
+    }
+    for (const [x, y] of platform.points) {
+      const ground = curveAt(level.points, x).y;
+      if (y + platform.thickness >= ground - 8) warning(`Platform ${index + 1} comes close to or intersects the ground near x ${Math.round(x)}.`);
+    }
+  }
+  if (!Number.isFinite(level.start?.x)) error('The level needs a valid start position.');
+  if (level.start?.y === null && (level.gaps || []).some(gap => level.start.x > gap[0] && level.start.x < gap[1])) error('The ground-anchored start position is inside a gap.');
+  for (const apple of level.apples || []) {
+    if (apple.x >= level.goal) warning(`Apple at x ${Math.round(apple.x)} is at or beyond the finish.`);
+    if (apple.y === null && (level.gaps || []).some(gap => apple.x > gap[0] && apple.x < gap[1])) error(`Ground-anchored apple at x ${Math.round(apple.x)} is inside a gap.`);
+  }
+  for (const [index, prop] of (level.props || []).entries()) {
+    if (!['tree', 'fence', 'rock', 'flowers', 'stump', 'crystal'].includes(prop.type)) warning(`Prop ${index + 1} has an unknown type “${prop.type}”.`);
+    if (prop.y === null && (level.gaps || []).some(gap => prop.x > gap[0] && prop.x < gap[1])) error(`Ground-anchored prop ${index + 1} is inside a gap.`);
+  }
+  for (const key of ['sun', 'clouds', 'rain', 'lightning']) {
+    const value = level.weather?.[key];
+    if (value !== undefined && (!Number.isFinite(Number(value)) || value < 0 || value > 1)) error(`Weather.${key} must be between 0 and 1.`);
+  }
+  if (!messages.length) messages.push({ type: 'ok', text: 'Level data is valid.' });
+  return messages;
+}
+
+export function levelToModule(level) {
+  return `export default ${JSON.stringify(level, null, 2)};\n`;
+}

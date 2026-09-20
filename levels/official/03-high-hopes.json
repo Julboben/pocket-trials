@@ -1,0 +1,187 @@
+{
+  "name": "High Hopes",
+  "label": "HIGH HOPES / 03",
+  "goal": 3260,
+  "terrain": "rock",
+  "description": "Steeper faces create wheelies and bigger airtime. Shift your weight early, then use small lean inputs to match the landing slope.",
+  "start": {
+    "x": 90,
+    "y": null,
+    "facing": 1
+  },
+  "points": [
+    [
+      0,
+      320
+    ],
+    [
+      170,
+      320
+    ],
+    [
+      325,
+      255
+    ],
+    [
+      465,
+      340
+    ],
+    [
+      635,
+      210
+    ],
+    [
+      795,
+      332
+    ],
+    [
+      950,
+      258
+    ],
+    [
+      1090,
+      328
+    ],
+    [
+      1270,
+      190
+    ],
+    [
+      1450,
+      329
+    ],
+    [
+      1600,
+      242
+    ],
+    [
+      1760,
+      324
+    ],
+    [
+      1905,
+      278
+    ],
+    [
+      2045,
+      334
+    ],
+    [
+      2220,
+      205
+    ],
+    [
+      2390,
+      329
+    ],
+    [
+      2545,
+      250
+    ],
+    [
+      2690,
+      342
+    ],
+    [
+      2860,
+      218
+    ],
+    [
+      3020,
+      324
+    ],
+    [
+      3170,
+      275
+    ],
+    [
+      3370,
+      310
+    ]
+  ],
+  "apples": [
+    {
+      "x": 315,
+      "y": null
+    },
+    {
+      "x": 790,
+      "y": null
+    },
+    {
+      "x": 1260,
+      "y": null
+    },
+    {
+      "x": 2210,
+      "y": null
+    },
+    {
+      "x": 3000,
+      "y": null
+    }
+  ],
+  "props": [
+    {
+      "x": 245,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 535,
+      "y": null,
+      "type": "rock",
+      "layer": "front"
+    },
+    {
+      "x": 875,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 1360,
+      "y": null,
+      "type": "flowers",
+      "layer": "front"
+    },
+    {
+      "x": 1700,
+      "y": null,
+      "type": "stump",
+      "layer": "front"
+    },
+    {
+      "x": 2110,
+      "y": null,
+      "type": "rock",
+      "layer": "front"
+    },
+    {
+      "x": 2475,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 2930,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    }
+  ],
+  "weather": {
+    "sun": 0.35,
+    "clouds": 0.78,
+    "rain": 0.28
+  },
+  "sky": "#eae9d9",
+  "sun": "#f1bb92",
+  "mountain": "#b7c8b1",
+  "spray": [
+    "#6f7773",
+    "#929994",
+    "#b8b9aa"
+  ]
+}

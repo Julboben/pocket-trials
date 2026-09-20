@@ -1,0 +1,201 @@
+{
+  "name": "Skybound",
+  "label": "SKYBOUND / 04",
+  "goal": 3020,
+  "terrain": "grass",
+  "description": "Commit to the jumps. Build speed before each lip, stay calm in the air, and line both wheels up with the far-side slope.",
+  "start": {
+    "x": 90,
+    "y": null,
+    "facing": 1
+  },
+  "points": [
+    [
+      0,
+      320
+    ],
+    [
+      180,
+      320
+    ],
+    [
+      350,
+      286
+    ],
+    [
+      500,
+      322
+    ],
+    [
+      660,
+      270
+    ],
+    [
+      800,
+      315
+    ],
+    [
+      950,
+      245
+    ],
+    [
+      1045,
+      292
+    ],
+    [
+      1210,
+      258
+    ],
+    [
+      1370,
+      292
+    ],
+    [
+      1510,
+      292
+    ],
+    [
+      1650,
+      332
+    ],
+    [
+      1810,
+      264
+    ],
+    [
+      1950,
+      318
+    ],
+    [
+      2090,
+      230
+    ],
+    [
+      2225,
+      301
+    ],
+    [
+      2380,
+      267
+    ],
+    [
+      2520,
+      324
+    ],
+    [
+      2680,
+      242
+    ],
+    [
+      2825,
+      307
+    ],
+    [
+      2960,
+      280
+    ],
+    [
+      3150,
+      280
+    ]
+  ],
+  "gaps": [
+    [
+      950,
+      1045
+    ],
+    [
+      1510,
+      1650
+    ]
+  ],
+  "island": [
+    1045,
+    1510
+  ],
+  "fallY": 560,
+  "apples": [
+    {
+      "x": 345,
+      "y": null
+    },
+    {
+      "x": 790,
+      "y": null
+    },
+    {
+      "x": 1210,
+      "y": null
+    },
+    {
+      "x": 2080,
+      "y": null
+    },
+    {
+      "x": 2670,
+      "y": null
+    }
+  ],
+  "weather": {
+    "sun": 0.82,
+    "clouds": 0.24
+  },
+  "props": [
+    {
+      "x": 230,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 590,
+      "y": null,
+      "type": "flowers",
+      "layer": "front"
+    },
+    {
+      "x": 860,
+      "y": null,
+      "type": "rock",
+      "layer": "front"
+    },
+    {
+      "x": 1140,
+      "y": null,
+      "type": "crystal",
+      "layer": "back"
+    },
+    {
+      "x": 1415,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 1880,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 2290,
+      "y": null,
+      "type": "crystal",
+      "layer": "back"
+    },
+    {
+      "x": 2760,
+      "y": null,
+      "type": "rock",
+      "layer": "front"
+    }
+  ],
+  "sky": "#eae9d9",
+  "sun": "#f6d48d",
+  "mountain": "#b7c8b1",
+  "spray": [
+    "#8d806b",
+    "#b4a58a",
+    "#d2c3a2"
+  ]
+}

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pocket Trials Level Editor</title>
+  <link rel="stylesheet" href="./css/editor.css">
+</head>
+<body>
+  <main class="editor-shell">
+    <header class="editor-header">
+      <a class="brand" href="./index.html"><span>↗</span><strong>POCKET TRIALS</strong></a>
+      <label>TRAIL <select id="level-picker"></select></label>
+      <div class="header-actions">
+        <button id="undo" title="Undo (Cmd/Ctrl+Z)">UNDO</button>
+        <button id="redo" title="Redo (Cmd/Ctrl+Shift+Z)">REDO</button>
+        <button id="save-draft">SAVE DRAFT</button>
+        <button id="export-json">EXPORT JSON</button>
+        <button id="export-js">EXPORT JS</button>
+      </div>
+    </header>
+
+    <section class="workspace">
+      <aside class="toolbox">
+        <h2>TOOLS</h2>
+        <button class="tool active" data-tool="select">↖ <span>Select</span></button>
+        <button class="tool" data-tool="ground">＋ <span>Ground point</span></button>
+        <button class="tool" data-tool="platform">▰ <span>Platform</span></button>
+        <button class="tool" data-tool="gap">⌁ <span>Gap</span></button>
+        <button class="tool" data-tool="apple">● <span>Apple</span></button>
+        <button class="tool" data-tool="start">▶ <span>Start</span></button>
+        <button class="tool" data-tool="prop">♣ <span>Prop</span></button>
+        <button class="tool" data-tool="finish">⚑ <span>Finish</span></button>
+        <button class="tool" data-tool="pan">✥ <span>Pan</span></button>
+        <div class="zoom-controls"><button id="zoom-out">−</button><span id="zoom-label">100%</span><button id="zoom-in">+</button></div>
+        <a class="back-game" href="./index.html">← GAME</a>
+      </aside>
+
+      <div class="canvas-wrap" id="canvas-wrap">
+        <canvas id="editor-canvas" tabindex="0" aria-label="Editable trail canvas"></canvas>
+        <div class="canvas-help">DRAG POINTS OR PLATFORM BODIES · TWO-FINGER PAN · PINCH TO ZOOM</div>
+      </div>
+
+      <aside class="inspector">
+        <div class="panel-head"><span>INSPECTOR</span><strong id="selection-title">LEVEL</strong></div>
+        <label>Name <input id="level-name" type="text"></label>
+        <label>Base material <select id="base-material"></select></label>
+        <label>Finish X <input id="goal-x" type="number" step="10"></label>
+        <label>Fall Y <input id="fall-y" type="number" step="10"></label>
+
+        <fieldset>
+          <legend>WEATHER 0–1</legend>
+          <label>Sun <input id="weather-sun" type="range" min="0" max="1" step="0.05"></label>
+          <label>Clouds <input id="weather-clouds" type="range" min="0" max="1" step="0.05"></label>
+          <label>Rain <input id="weather-rain" type="range" min="0" max="1" step="0.05"></label>
+          <label>Lightning <input id="weather-lightning" type="range" min="0" max="1" step="0.05"></label>
+        </fieldset>
+
+        <div id="selection-fields" hidden>
+          <fieldset>
+            <legend>SELECTION</legend>
+            <label>X <input id="selection-x" type="number" step="1"></label>
+            <label id="selection-y-row">Y <input id="selection-y" type="number" step="1"></label>
+            <label id="selection-material-row" hidden>Material <select id="selection-material"></select></label>
+            <label id="selection-thickness-row" hidden>Thickness <input id="selection-thickness" type="number" min="16" step="2"></label>
+            <label id="selection-facing-row" hidden>Facing <select id="selection-facing"><option value="1">Right</option><option value="-1">Left</option></select></label>
+            <label id="selection-prop-type-row" hidden>Prop <select id="selection-prop-type"><option value="tree">Tree</option><option value="fence">Fence</option><option value="rock">Rock</option><option value="flowers">Flowers</option><option value="stump">Stump</option><option value="crystal">Crystal</option></select></label>
+            <label id="selection-layer-row" hidden>Layer <select id="selection-layer"><option value="back">Back</option><option value="front">Front</option></select></label>
+            <button class="danger" id="delete-selection">DELETE SELECTION</button>
+          </fieldset>
+        </div>
+
+        <section class="validation"><h3>VALIDATION</h3><ul id="validation-list"></ul></section>
+        <details class="json-panel"><summary>JSON IMPORT / EXPORT</summary><textarea id="level-json" spellcheck="false"></textarea><button id="import-json">IMPORT JSON</button></details>
+      </aside>
+    </section>
+  </main>
+  <script type="module" src="./js/editor.js"></script>
+</body>
+</html>

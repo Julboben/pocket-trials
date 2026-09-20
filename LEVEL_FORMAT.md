@@ -1,12 +1,18 @@
 # Pocket Trials level format
 
-Levels are defined in `js/levels.js`. The world uses Canvas coordinates:
+All trails use the same JSON schema. Shipped career trails live in `levels/official/`, while locally authored standalone trails live in `levels/custom/`. The editor's JSON export can be placed directly in `levels/custom/`.
+
+`npm run dev` watches both folders and regenerates `levels/catalog.json` whenever a JSON file changes. The browser loads that catalog through `js/levels.js`, so custom files appear automatically after the development server reloads.
+
+A level cannot declare itself official inside its JSON. The generated catalog assigns source from the containing folder: official trails participate in career progression and official best times; custom trails are clearly labeled and never alter career progress.
+
+The world uses Canvas coordinates:
 
 - `x` increases to the right.
 - `y` increases downward.
 - A smaller `y` value therefore means higher terrain.
 - Distances are expressed in world-space pixels.
-- The bike starts with its wheels near `x = 65` and `x = 115`.
+- With the default start at `x = 90`, the bike's wheels begin near `x = 65` and `x = 115`.
 
 ## Complete example
 
@@ -16,6 +22,7 @@ Levels are defined in `js/levels.js`. The world uses Canvas coordinates:
   label: 'EXAMPLE TRAIL / 08',
   goal: 1800,
   terrain: 'grass',
+  start: { x: 90, y: null, facing: 1 },
 
   points: [
     [0, 320],
@@ -38,11 +45,17 @@ Levels are defined in `js/levels.js`. The world uses Canvas coordinates:
     }
   ],
 
-  apples: [300, 700, 1100, 1450, 1700],
+  apples: [
+    { x: 300, y: null },
+    { x: 700, y: 190 },
+    { x: 1100, y: null },
+    { x: 1450, y: 150 },
+    { x: 1700, y: null }
+  ],
 
   props: [
-    { x: 250, type: 'tree', layer: 'back' },
-    { x: 650, type: 'rock', layer: 'front' }
+    { x: 250, y: null, type: 'tree', layer: 'back' },
+    { x: 650, y: 245, type: 'rock', layer: 'front' }
   ],
 
   weather: {
@@ -78,6 +91,20 @@ The renderer creates a smooth cosine curve between consecutive points. Every poi
 - Keep a final point beyond `goal`, otherwise the finish can sit at the edge of the terrain.
 
 As a starting guideline, horizontal spans of `140–190` are forgiving. Spans below roughly `100` combined with large height changes can create abrupt or difficult geometry.
+
+## Start: `start`
+
+`start` controls the bike's initial midpoint and riding direction:
+
+```js
+start: { x: 90, y: null, facing: 1 }
+```
+
+- `x` is the horizontal midpoint between the wheels.
+- `y` is the wheel-axle height. Use `null` to place both wheels automatically on the base terrain, or a number for an explicit airborne or platform-height start.
+- `facing` is `1` for right and `-1` for left.
+
+The editor's **Start** tool places an explicit start position. Select the start marker to move it or change its facing in the inspector. A level always has one start, so it cannot be deleted.
 
 ## Finish: `goal`
 
@@ -152,24 +179,30 @@ Material definitions live in `terrainMaterials` at the top of `js/levels.js`. Ea
 
 ## Apples
 
-Apples are currently defined by horizontal position:
+Each apple has a horizontal and optional vertical position:
 
 ```js
-apples: [300, 700, 1100, 1450, 1700]
+apples: [
+  { x: 300, y: null },
+  { x: 700, y: 190 }
+]
 ```
 
-Their vertical position is calculated from the base terrain when the level loads. Keep apples out of gaps. An apple can appear near an elevated platform when the platform runs close above the base surface, but explicit platform-relative collectible placement is not yet part of the format.
+A numeric `y` is the apple's center and allows it to be placed freely in the world, including over gaps or platforms. `y: null` anchors the apple 60 units above the base terrain; do not put a ground-anchored apple inside a gap. The editor's **Apple** tool always places an apple at the exact clicked position.
+
 
 ## Props
 
 ```js
 props: [
-  { x: 250, type: 'tree', layer: 'back' },
-  { x: 650, type: 'rock', layer: 'front' }
+  { x: 250, y: null, type: 'tree', layer: 'back' },
+  { x: 650, y: 245, type: 'rock', layer: 'front' }
 ]
 ```
 
-Available prop types are `tree`, `fence`, `rock`, `flowers`, `stump`, and `crystal`. Props currently anchor to the base terrain. `layer` may be `back` or `front`.
+Available prop types are `tree`, `fence`, `rock`, `flowers`, `stump`, and `crystal`. `y: null` anchors a prop to the base terrain; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front` and controls whether the prop is rendered behind or in front of gameplay.
+
+Use the editor's **Prop** tool to place a prop. Select it to drag it, edit its type and layer in the inspector, or remove it with **Delete Selection**, `Delete`, or `Backspace`.
 
 ## Weather
 
@@ -209,11 +242,15 @@ Any property may be omitted. This supports clear skies, sunny skies with scatter
 6. Add props, materials, and weather last so they do not hide gameplay problems.
 7. Test at low speed, full speed, and after imperfect landings—not only with an ideal run.
 
-## Suggested future improvement
+## Visual editor
 
-The current arrays are compact but become difficult to maintain as levels grow. A small visual level editor would be the best next step. It could provide draggable terrain points, platform previews, collision outlines, material selectors, and automatic validation.
+Open `editor.html` or choose **Level Editor** from the game dashboard. Individual points can be dragged to reshape a platform. Clicking and dragging inside a platform's filled body moves the complete platform while preserving its shape. The inspector edits its material and thickness.
 
-Before building a full editor, the format could also be improved by giving platforms stable IDs and allowing objects to attach to a surface:
+The **Apple**, **Start**, and **Prop** tools place those objects at the exact clicked world position. Select an object to move it numerically or by dragging; the inspector also changes start direction and prop type/layer. Apples and props can be removed, while the required start and finish markers can only be moved.
+
+## Suggested future format improvement
+
+Platforms could eventually receive stable IDs so objects can attach to a surface:
 
 ```js
 platforms: [
@@ -224,4 +261,4 @@ collectibles: [
 ]
 ```
 
-That would make apples and props easier to place reliably on elevated routes after terrain edits.
+That would let apples and props follow an elevated surface automatically after its shape changes. Explicit world-space placement already works, but it intentionally remains fixed when nearby terrain is edited.

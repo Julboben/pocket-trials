@@ -1,0 +1,291 @@
+{
+  "name": "Elastic Summit",
+  "label": "ELASTIC SUMMIT / 07",
+  "goal": 4080,
+  "terrain": "rock",
+  "description": "The final exam: rolling speed, precise braking, steep climbs, controlled airtime, and enough patience to finish in one piece.",
+  "start": {
+    "x": 90,
+    "y": null,
+    "facing": 1
+  },
+  "points": [
+    [
+      0,
+      320
+    ],
+    [
+      180,
+      320
+    ],
+    [
+      335,
+      268
+    ],
+    [
+      475,
+      338
+    ],
+    [
+      645,
+      228
+    ],
+    [
+      795,
+      326
+    ],
+    [
+      950,
+      282
+    ],
+    [
+      1090,
+      195
+    ],
+    [
+      1235,
+      342
+    ],
+    [
+      1390,
+      260
+    ],
+    [
+      1530,
+      314
+    ],
+    [
+      1690,
+      184
+    ],
+    [
+      1840,
+      335
+    ],
+    [
+      1990,
+      246
+    ],
+    [
+      2130,
+      325
+    ],
+    [
+      2290,
+      205
+    ],
+    [
+      2440,
+      346
+    ],
+    [
+      2590,
+      275
+    ],
+    [
+      2740,
+      218
+    ],
+    [
+      2890,
+      330
+    ],
+    [
+      3040,
+      252
+    ],
+    [
+      3180,
+      176
+    ],
+    [
+      3330,
+      340
+    ],
+    [
+      3480,
+      286
+    ],
+    [
+      3620,
+      212
+    ],
+    [
+      3760,
+      326
+    ],
+    [
+      3910,
+      262
+    ],
+    [
+      4200,
+      262
+    ]
+  ],
+  "gaps": [
+    [
+      1530,
+      1690
+    ],
+    [
+      2740,
+      2890
+    ]
+  ],
+  "fallY": 570,
+  "platforms": [
+    {
+      "points": [
+        [
+          1120,
+          90
+        ],
+        [
+          1260,
+          58
+        ],
+        [
+          1430,
+          84
+        ]
+      ],
+      "thickness": 52,
+      "material": "brick"
+    },
+    {
+      "points": [
+        [
+          2050,
+          190
+        ],
+        [
+          2200,
+          158
+        ],
+        [
+          2370,
+          190
+        ]
+      ],
+      "thickness": 58,
+      "material": "grass"
+    },
+    {
+      "points": [
+        [
+          3070,
+          160
+        ],
+        [
+          3220,
+          130
+        ],
+        [
+          3390,
+          174
+        ]
+      ],
+      "thickness": 54,
+      "material": "snow"
+    }
+  ],
+  "apples": [
+    {
+      "x": 330,
+      "y": null
+    },
+    {
+      "x": 1080,
+      "y": null
+    },
+    {
+      "x": 2280,
+      "y": null
+    },
+    {
+      "x": 3170,
+      "y": null
+    },
+    {
+      "x": 3750,
+      "y": null
+    }
+  ],
+  "props": [
+    {
+      "x": 235,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 565,
+      "y": null,
+      "type": "rock",
+      "layer": "front"
+    },
+    {
+      "x": 885,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 1290,
+      "y": null,
+      "type": "flowers",
+      "layer": "front"
+    },
+    {
+      "x": 1770,
+      "y": null,
+      "type": "crystal",
+      "layer": "back"
+    },
+    {
+      "x": 2200,
+      "y": null,
+      "type": "stump",
+      "layer": "front"
+    },
+    {
+      "x": 2505,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 2960,
+      "y": null,
+      "type": "crystal",
+      "layer": "back"
+    },
+    {
+      "x": 3400,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 3830,
+      "y": null,
+      "type": "rock",
+      "layer": "front"
+    }
+  ],
+  "weather": {
+    "sun": 0.06,
+    "clouds": 1,
+    "rain": 0.72,
+    "lightning": 0.65
+  },
+  "sky": "#e5e2d6",
+  "sun": "#efa56f",
+  "mountain": "#a9b5aa",
+  "spray": [
+    "#6d6c62",
+    "#928675",
+    "#b9a68c"
+  ]
+}

@@ -1,0 +1,182 @@
+{
+  "name": "The Orchard - TEST",
+  "label": "THE ORCHARD - TEST / 08",
+  "goal": 2380,
+  "terrain": "grass",
+  "description": "Learn the rhythm: build speed on gentle rollers, lean forward on climbs, and settle the bike before each landing.",
+  "start": {
+    "x": 90,
+    "y": null,
+    "facing": 1
+  },
+  "points": [
+    [
+      0,
+      320
+    ],
+    [
+      180,
+      320
+    ],
+    [
+      320,
+      292
+    ],
+    [
+      455,
+      322
+    ],
+    [
+      610,
+      276
+    ],
+    [
+      760,
+      320
+    ],
+    [
+      920,
+      300
+    ],
+    [
+      1148.5430174715298,
+      246.67341209254306
+    ],
+    [
+      1158.5430174715298,
+      343.0070624265984
+    ],
+    [
+      1367.8132433826686,
+      409.877498201282
+    ],
+    [
+      1515,
+      321
+    ],
+    [
+      1665,
+      267
+    ],
+    [
+      1815,
+      318
+    ],
+    [
+      1960,
+      294
+    ],
+    [
+      2110,
+      326
+    ],
+    [
+      2245,
+      304
+    ],
+    [
+      2490,
+      304
+    ]
+  ],
+  "gaps": [],
+  "platforms": [
+    {
+      "points": [
+        [
+          1217.478855218099,
+          243.83001594886022
+        ],
+        [
+          1317.478855218099,
+          218.83001594886017
+        ],
+        [
+          1417.478855218099,
+          243.83001594886022
+        ]
+      ],
+      "thickness": 48,
+      "material": "grass"
+    }
+  ],
+  "apples": [
+    {
+      "x": 300,
+      "y": null
+    },
+    {
+      "x": 774.5899840399273,
+      "y": 266.4310095185913
+    },
+    {
+      "x": 1322.093306341732,
+      "y": 167.7473037696751
+    },
+    {
+      "x": 1645,
+      "y": null
+    },
+    {
+      "x": 2190,
+      "y": null
+    }
+  ],
+  "props": [
+    {
+      "x": 215,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 520,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 825,
+      "y": null,
+      "type": "flowers",
+      "layer": "front"
+    },
+    {
+      "x": 1180,
+      "y": null,
+      "type": "stump",
+      "layer": "front"
+    },
+    {
+      "x": 1321.575623770154,
+      "y": 217.86940483654735,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 1900,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 2250,
+      "y": null,
+      "type": "flowers",
+      "layer": "front"
+    }
+  ],
+  "weather": {
+    "sun": 1,
+    "clouds": 0.15
+  },
+  "fallY": 620,
+  "sky": "#eae9d9",
+  "sun": "#f2c082",
+  "mountain": "#b7c8b1",
+  "spray": [
+    "#6f8b59",
+    "#9c8b68",
+    "#c5b496"
+  ]
+}

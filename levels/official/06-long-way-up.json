@@ -1,0 +1,208 @@
+{
+  "name": "Long Way Up",
+  "label": "LONG WAY UP / 06",
+  "goal": 3650,
+  "terrain": "snow",
+  "description": "Link everything together across a long climb: preserve momentum, control wheelies, and recover your balance without losing speed.",
+  "start": {
+    "x": 90,
+    "y": null,
+    "facing": 1
+  },
+  "points": [
+    [
+      0,
+      320
+    ],
+    [
+      175,
+      320
+    ],
+    [
+      330,
+      284
+    ],
+    [
+      470,
+      332
+    ],
+    [
+      630,
+      238
+    ],
+    [
+      790,
+      330
+    ],
+    [
+      940,
+      270
+    ],
+    [
+      1080,
+      215
+    ],
+    [
+      1220,
+      334
+    ],
+    [
+      1380,
+      290
+    ],
+    [
+      1525,
+      200
+    ],
+    [
+      1670,
+      326
+    ],
+    [
+      1810,
+      256
+    ],
+    [
+      1960,
+      178
+    ],
+    [
+      2110,
+      335
+    ],
+    [
+      2260,
+      278
+    ],
+    [
+      2400,
+      224
+    ],
+    [
+      2540,
+      340
+    ],
+    [
+      2700,
+      294
+    ],
+    [
+      2840,
+      190
+    ],
+    [
+      2990,
+      326
+    ],
+    [
+      3140,
+      247
+    ],
+    [
+      3280,
+      205
+    ],
+    [
+      3420,
+      320
+    ],
+    [
+      3570,
+      272
+    ],
+    [
+      3770,
+      272
+    ]
+  ],
+  "apples": [
+    {
+      "x": 325,
+      "y": null
+    },
+    {
+      "x": 1070,
+      "y": null
+    },
+    {
+      "x": 1950,
+      "y": null
+    },
+    {
+      "x": 2830,
+      "y": null
+    },
+    {
+      "x": 3410,
+      "y": null
+    }
+  ],
+  "props": [
+    {
+      "x": 240,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 560,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 875,
+      "y": null,
+      "type": "rock",
+      "layer": "front"
+    },
+    {
+      "x": 1290,
+      "y": null,
+      "type": "flowers",
+      "layer": "front"
+    },
+    {
+      "x": 1730,
+      "y": null,
+      "type": "stump",
+      "layer": "front"
+    },
+    {
+      "x": 2180,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 2615,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 3060,
+      "y": null,
+      "type": "rock",
+      "layer": "front"
+    },
+    {
+      "x": 3480,
+      "y": null,
+      "type": "flowers",
+      "layer": "front"
+    }
+  ],
+  "weather": {
+    "sun": 0.7,
+    "clouds": 0.35
+  },
+  "sky": "#e4e7dc",
+  "sun": "#edc486",
+  "mountain": "#a9b9ad",
+  "spray": [
+    "#717b65",
+    "#929477",
+    "#b7ae8c"
+  ]
+}

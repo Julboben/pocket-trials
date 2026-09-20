@@ -1,0 +1,8 @@
+{
+  "name": "pocket-trials",
+  "private": true,
+  "scripts": {
+    "levels": "node scripts/generate-level-catalog.mjs",
+    "dev": "node scripts/dev.mjs"
+  }
+}
