@@ -503,7 +503,6 @@ Big physics.</h2>
     const throttleRate = throttleTarget > throttle ? 1.1 : 4;
     throttle = lerp(throttle, throttleTarget, 1 - Math.exp(-throttleRate * STEP));
     brakePressure = lerp(brakePressure, braking ? 1 : 0, 1 - Math.exp(-(braking ? 10 : 14) * STEP));
-    const drive = facing * 800 * throttle;
     const speedLimit = 340;
     const grounded = rear.grounded || front.grounded;
     const bikeSpeed = ((rear.x - rear.ox) + (front.x - front.ox)) / (2 * STEP);
@@ -511,6 +510,8 @@ Big physics.</h2>
     const midSlope = terrain((rear.x + front.x) / 2).slope;
     const uphill = clamp(-midSlope * facing, 0, 1);
     const downhill = clamp(midSlope * facing, 0, 1);
+    const forwardLean = clamp(leanControl * facing, 0, 1);
+    const drive = facing * 800 * throttle * (1 + uphill * forwardLean * .25);
     // Front bias grows with speed while the rear remains useful for stability.
     const frontBrakeGrip = (.72 + speedFactor * .28) * brakePressure;
     const rearBrakeGrip = (.55 - speedFactor * .2) * brakePressure;
@@ -520,7 +521,7 @@ Big physics.</h2>
       ? clamp(bikeSpeed / 220 * brakePressure * (1 + downhill * .55), -1.2, 1.2)
       : 0;
     const throttlePitch = accelerating && !braking && grounded
-      ? -facing * throttle * (.2 + uphill * .95)
+      ? -facing * throttle * (.2 + uphill * .95) * (1 - forwardLean * .7)
       : 0;
     const effectiveLean = clamp(leanControl + brakePitch + throttlePitch, -1.45, 1.45);
     // On the ground the rider's shifted weight can unload either wheel;
