@@ -150,6 +150,14 @@
   .setting-option[aria-pressed="true"] { background: #c6dfa9; border-color: #9fbd86; color: #294537; box-shadow: inset 0 0 0 1px #f4ffe8; }
   .setting-option[aria-pressed="true"] .rider-symbol { background: #f2ffe7; }
   .settings-done { margin-top: 3px; }
+  .pixel-ui { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; }
+  .pixel-ui, .pixel-ui .viewport, .pixel-ui .control, .pixel-ui .icon-button,
+  .pixel-ui .hud-pill, .pixel-ui .modal, .pixel-ui .primary, .pixel-ui select {
+    border-radius: 2px;
+  }
+  .pixel-ui .control, .pixel-ui .primary, .pixel-ui .icon-button { box-shadow: 3px 3px 0 #0d1b20; }
+  .pixel-ui .modal { box-shadow: 8px 8px 0 #102a2370; }
+  .pixel-ui .overlay { backdrop-filter: none; }
   @media (max-width: 600px) {
     body { padding: 0; align-items: flex-start; }
     .game { max-width: 600px; border-radius: 0; border-left: 0; border-right: 0; }
@@ -383,6 +391,8 @@ Big physics.</h2>
   }
   function applyPreferences() {
     rider = preferences.rider;
+    game.classList.toggle('pixel-ui', preferences.art === 'pixel');
+    ctx.imageSmoothingEnabled = preferences.art !== 'pixel';
     $('keyboard-help').hidden = preferences.hints === 'hide';
     document.querySelectorAll('[data-setting]').forEach(button => {
       button.setAttribute('aria-pressed', String(preferences[button.dataset.setting] === button.dataset.value));
@@ -803,6 +813,15 @@ Big physics.</h2>
       }
     }
   }
+  function drawPixelDisc(x, y, radius, color, pixel = 4) {
+    ctx.fillStyle = color;
+    const cells = Math.ceil(radius / pixel);
+    for (let py = -cells; py <= cells; py++) for (let px = -cells; px <= cells; px++) {
+      if (px * px + py * py <= cells * cells) {
+        ctx.fillRect(x + px * pixel, y + py * pixel, pixel, pixel);
+      }
+    }
+  }
   function drawPixelSpring(x1, y1, x2, y2, color) {
     const dx = x2 - x1, dy = y2 - y1;
     const length = Math.hypot(dx, dy) || 1;
@@ -828,7 +847,77 @@ Big physics.</h2>
     line(points, color, 1.5);
   }
 
+  function backgroundLayers() {
+    return [
+      {color:level.mountain,base:201,amp:37,frequency:.009,parallax:.16},
+      {color:'#8ea997',base:247,amp:24,frequency:.015,parallax:.29}
+    ];
+  }
+  function mountainWorldY(wx,layer) {
+    return layer.base+Math.sin(wx*layer.frequency+1.7)*layer.amp+Math.sin(wx*layer.frequency*2.1)*10;
+  }
+  function drawMountainLayers(pixelated) {
+    for(const layer of backgroundLayers()){
+      const step=pixelated?8:6;
+      const first=Math.floor(cameraX*layer.parallax/step)-1;
+      const count=Math.ceil(W/step)+3;
+      ctx.fillStyle=layer.color; ctx.beginPath();
+      let previousY=H, lastX=0;
+      for(let i=first;i<first+count;i++){
+        const wx=i*step, x=wx-cameraX*layer.parallax;
+        const worldY=mountainWorldY(wx,layer);
+        const y=(pixelated?Math.round(worldY/3)*3:worldY)-cameraY*layer.parallax;
+        if(i===first) { ctx.moveTo(x,H); ctx.lineTo(x,y); }
+        else if(pixelated) { ctx.lineTo(x,previousY); ctx.lineTo(x,y); }
+        else ctx.lineTo(x,y);
+        previousY=y; lastX=x;
+      }
+      ctx.lineTo(lastX,H); ctx.closePath(); ctx.fill();
+    }
+  }
+  function drawHillTrees(pixelated) {
+    const layer=backgroundLayers()[1];
+    const spacing=100;
+    const first=Math.floor(cameraX*layer.parallax/spacing)-1;
+    const count=Math.ceil(W/spacing)+3;
+    for(let i=first;i<first+count;i++){
+      const wx=i*spacing;
+      const x=wx-cameraX*layer.parallax;
+      const worldY=mountainWorldY(wx,layer);
+      const y=(pixelated?Math.round(worldY/3)*3:worldY)-cameraY*layer.parallax;
+      if(pixelated){
+        ctx.save();ctx.translate(x,y);
+        pixelRect(-2,-28,4,28,'#708b78');
+        drawPixelDisc(0,-34,14,'#78977b',4);
+        drawPixelDisc(-10,-29,10,'#78977b',4);
+        drawPixelDisc(10,-28,10,'#78977b',4);
+        ctx.restore();
+      } else {
+        line([[x,y],[x,y-28]],'#799684',3);
+        circle(x,y-34,13,'#89a38a');circle(x-8,y-29,9,'#89a38a');circle(x+9,y-28,10,'#89a38a');
+      }
+    }
+  }
+
+  function drawPixelBackground() {
+    ctx.fillStyle = level.sky; ctx.fillRect(0,0,W,H);
+    drawPixelDisc(W*.77-cameraX*.015,85-cameraY*.08,36,level.sun,6);
+    const firstCloud = Math.floor(cameraX*.07/150)-1;
+    for (let i=firstCloud;i<firstCloud+Math.ceil(W/150)+2;i++) {
+      const x=i*150+55-cameraX*.07;
+      const y=64+Math.sin(i*4)*22-cameraY*.08;
+      ctx.save(); ctx.translate(x,y);
+      pixelRect(0,0,54,6,'#f8f7e9',6);
+      pixelRect(12,-6,24,6,'#f8f7e9',6);
+      pixelRect(30,6,42,6,'#f8f7e9',6);
+      ctx.restore();
+    }
+    drawMountainLayers(true);
+    drawHillTrees(true);
+  }
+
   function drawBackground() {
+    if (preferences.art === 'pixel') { drawPixelBackground(); return; }
     ctx.fillStyle = level.sky; ctx.fillRect(0, 0, W, H);
     circle(W * .77 - cameraX * .015, 85 - cameraY * .08, 39, level.sun);
     ctx.fillStyle = '#f8f7e9'; ctx.globalAlpha = .68;
@@ -841,29 +930,8 @@ Big physics.</h2>
       ctx.beginPath(); ctx.ellipse(x + 25, y + 6, 38, 2, 0, 0, TAU); ctx.fill();
     }
     ctx.globalAlpha = 1;
-    [
-      { color: level.mountain, base: 201, amp: 37, frequency: .009, parallax: .16 },
-      { color: '#8ea997', base: 247, amp: 24, frequency: .015, parallax: .29 }
-    ].forEach(layer => {
-      ctx.fillStyle = layer.color; ctx.beginPath(); ctx.moveTo(0, H);
-      for (let x = 0; x <= W + 8; x += 8) {
-        const wx = x + cameraX * layer.parallax;
-        const y = layer.base + Math.sin(wx * layer.frequency + 1.7) * layer.amp
-          + Math.sin(wx * layer.frequency * 2.1) * 10 - cameraY * layer.parallax;
-        ctx.lineTo(x, y);
-      }
-      ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
-    });
-    // Sparse, parallax orchard silhouettes.
-    for (let i = -1; i < Math.ceil(W / 96) + 2; i++) {
-      const wx = Math.floor(cameraX * .4 / 96) * 96 + i * 96;
-      const x = wx - cameraX * .4;
-      const y = 271 + Math.sin(wx * .03) * 9 - cameraY * .35;
-      line([[x, y + 20], [x, y - 8]], '#799684', 3);
-      circle(x, y - 13, 13, '#89a38a');
-      circle(x - 7, y - 9, 9, '#89a38a');
-      circle(x + 9, y - 7, 10, '#89a38a');
-    }
+    drawMountainLayers(false);
+    drawHillTrees(false);
   }
 
   function solidRanges() {
@@ -901,6 +969,7 @@ Big physics.</h2>
       ctx.closePath();
     }
   }
+
 
   function drawTerrain() {
     groundPath(); ctx.fillStyle = '#c5b496'; ctx.fill();
@@ -945,11 +1014,34 @@ Big physics.</h2>
     }
   }
 
+  function drawPixelProp(prop,layer,y){
+    ctx.save(); ctx.translate(Math.round(prop.x/2)*2,Math.round(y/2)*2);
+    ctx.globalAlpha=layer==='front'?1:.82;
+    if(prop.type==='tree'){
+      pixelRect(-4,-44,8,44,'#66543f',2);
+      drawPixelDisc(-8,-52,14,'#477158',4); drawPixelDisc(8,-56,16,'#568061',4); drawPixelDisc(0,-70,12,'#618b66',4);
+    } else if(prop.type==='fence'){
+      pixelRect(-22,-26,4,26,'#856d4f',2); pixelRect(18,-26,4,26,'#856d4f',2);
+      pixelRect(-24,-20,46,4,'#aa8a60',2); pixelRect(-24,-10,46,4,'#aa8a60',2);
+    } else if(prop.type==='rock'){
+      pixelRect(-16,-8,34,8,'#697872',2); pixelRect(-10,-14,22,6,'#7f8d83',2); pixelRect(-4,-18,10,4,'#aeb5a7',2);
+    } else if(prop.type==='flowers'){
+      for(let i=-2;i<=2;i++){const x=i*6,h=8+(Math.abs(i)%2)*4;pixelRect(x,-h,2,h,'#58784d',2);pixelRect(x-2,-h-4,6,4,i%2?'#f1b95d':'#e8755b',2);}
+    } else if(prop.type==='stump'){
+      pixelRect(-10,-14,20,14,'#806244',2); pixelRect(-10,-16,20,4,'#c39664',2); pixelRect(-4,-16,8,2,'#76573d',2);
+    } else if(prop.type==='crystal'){
+      pixelPath([[-14,0],[-8,-28],[0,-40],[8,-24],[14,0]],'#83d1ce',3);
+      pixelPath([[0,-36],[0,-4]],'#d9ffff',1);
+    }
+    ctx.restore();
+  }
+
   function drawProp(prop, layer) {
     if (prop.x < cameraX - 70 || prop.x > cameraX + W + 70) return;
     const ground = terrain(prop.x);
     if (!ground.solid) return;
     const y = ground.y;
+    if(preferences.art==='pixel'){drawPixelProp(prop,layer,y);return;}
     ctx.save();
     ctx.globalAlpha = layer === 'front' ? .96 : .78;
     ctx.translate(prop.x, y);
@@ -995,6 +1087,7 @@ Big physics.</h2>
   function drawApple(apple, now) {
     if (apple.taken || apple.x < cameraX - 30 || apple.x > cameraX + W + 30) return;
     const y = apple.y + (reducedMotion ? 0 : Math.sin(now * .0025 + apple.x) * 2);
+
     circle(apple.x, y, 15, '#fbf0ce50');
     ctx.save(); ctx.translate(apple.x, y);
     ctx.fillStyle = '#ed774e';
@@ -1015,6 +1108,14 @@ Big physics.</h2>
     const x = level.goal, y = terrain(x).y;
     if (x < cameraX - 65 || x > cameraX + W + 65) return;
     const unlocked = collected === apples.length;
+    if(preferences.art==='pixel'){
+      pixelRect(x-2,y-108,4,108,'#304a42',2); pixelRect(x-4,y-112,8,6,'#ed9150',2);
+      const size=8;
+      for(let row=0;row<3;row++)for(let col=0;col<4;col++)pixelRect(x+2+col*size,y-104+row*size,size,size,(row+col)%2?(unlocked?'#28483a':'#758477'):'#f2e9cf',2);
+      pixelRect(x-24,y-62,48,16,'#f4e9d1',2);
+      ctx.fillStyle='#365345';ctx.font='bold 7px ui-monospace, monospace';ctx.textAlign='center';ctx.fillText(unlocked?'FINISH':'5 APPLES',x,y-51);
+      return;
+    }
     if (unlocked) {
       ctx.fillStyle = '#f8e6a32e'; ctx.fillRect(x - 20,y - 160,40,160);
     }
@@ -1133,8 +1234,13 @@ Big physics.</h2>
       ctx.save();
       ctx.translate(mx, ground.y - 1);
       ctx.rotate(Math.atan(ground.slope));
-      ctx.fillStyle = 'rgba(31,53,39,' + shadowAlpha + ')';
-      ctx.beginPath(); ctx.ellipse(0,0,shadowWidth,3.5,0,0,TAU); ctx.fill();
+      if(preferences.art==='pixel'){
+        pixelRect(-shadowWidth,-2,shadowWidth*2,4,'rgba(31,53,39,'+shadowAlpha+')',2);
+        pixelRect(-shadowWidth*.7,-4,shadowWidth*1.4,2,'rgba(31,53,39,'+(shadowAlpha*.6)+')',2);
+      } else {
+        ctx.fillStyle = 'rgba(31,53,39,' + shadowAlpha + ')';
+        ctx.beginPath(); ctx.ellipse(0,0,shadowWidth,3.5,0,0,TAU); ctx.fill();
+      }
       ctx.restore();
     }
 
@@ -1222,7 +1328,8 @@ Big physics.</h2>
         p.life -= dt; p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 210*dt;
       }
       ctx.globalAlpha = clamp(p.life/p.max,0,1);
-      circle(p.x,p.y,2.5,p.color);
+      if(preferences.art==='pixel') pixelRect(p.x,p.y,4,4,p.color,2);
+      else circle(p.x,p.y,2.5,p.color);
     }
     ctx.globalAlpha = 1;
     particles = particles.filter(p => p.life > 0);
@@ -1241,6 +1348,7 @@ Big physics.</h2>
     canvas.width = Math.round(rect.width * dpr);
     canvas.height = Math.round(rect.height * dpr);
     ctx.setTransform(dpr * worldScale,0,0,dpr * worldScale,0,0);
+    ctx.imageSmoothingEnabled = preferences.art !== 'pixel';
   }
 
   actionButtons.forEach(button => {

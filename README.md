@@ -14,7 +14,7 @@ The current version is a dependency-free browser prototype implemented in a sing
 - Independent front and rear suspension animation
 - Impact-sensitive suspension compression and landing rebound
 - Direction flipping with an animated rider and bike transition
-- Code-drawn modular pixel bike and riders, with the illustrated style retained as an option
+- Hybrid code-drawn pixel presentation, with smooth terrain, mountains, and apples
 - Responsive mobile and desktop layouts
 - Keyboard and touch controls
 - Two selectable riders: Max and Maya
@@ -117,10 +117,11 @@ Everything is rendered with the Canvas 2D API, including:
 
 - Terrain and floating islands
 - Modular pixel or illustrated bike, rider, wheels, and suspension
-- Apples and finish gates
-- Layered props and particles
-- Parallax scenery
-- Ground-following shadows
+- Illustrated apples with pixel or illustrated finish gates
+- Layered pixel or illustrated props and particles
+- Smooth terrain, floating islands, and mountain silhouettes in both styles
+- Pixel or illustrated foreground and atmospheric scenery
+- Ground-following shadows in both styles
 
 The logical viewport and camera framing adapt to mobile and desktop dimensions.
 
