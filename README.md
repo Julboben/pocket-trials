@@ -20,6 +20,8 @@ The current version is a dependency-free browser prototype implemented in a sing
 - Keyboard and touch controls
 - Two selectable riders: Max and Maxine
 - Layered foreground and background scenery
+- Terrain-colored wheel spray, brake lights, and fading ground skid marks
+- Procedural engine, braking, collectible, crash, flip, and finish sound effects
 - Collectibles, finish gates, timers, and best times
 - Persisted settings and level progression
 - Four trails, including a floating-island jump
@@ -64,10 +66,9 @@ Each trail requires collecting all five apples before the finish gate will open.
 The settings menu includes:
 
 - Rider selection
-
-- Camera framing
 - Full or reduced scenery
-- Visible or hidden control hints
+- Visible or hidden on-screen controls
+- Sound effects on or off
 
 Preferences, the current trail, unlocked trails, and best times are stored in browser `localStorage`.
 
@@ -142,9 +143,9 @@ When changing physics values, validate at least these cases:
 
 ## Upcoming features
 
-- [ ] Sound Effects
+- [x] Sound Effects
 - [ ] Different terrain types (grass, mud, snow, etc.)
-- [ ] Splatter behind the bike when you drive on different terrain
+- [x] Splatter behind the bike when you drive on different terrain
 
 ## Possible Godot migration
 

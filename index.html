@@ -297,6 +297,13 @@ Big physics.</h2>
           <button type="button" class="setting-option" data-setting="controls" data-value="hide">Hide</button>
         </div>
       </fieldset>
+      <fieldset class="setting-group">
+        <legend>SOUND EFFECTS</legend>
+        <div class="setting-options" style="--options:2">
+          <button type="button" class="setting-option" data-setting="sound" data-value="on">On</button>
+          <button type="button" class="setting-option" data-setting="sound" data-value="off">Off</button>
+        </div>
+      </fieldset>
       <button class="primary settings-done" value="done">Done</button>
     </form>
   </dialog>
@@ -322,21 +329,21 @@ Big physics.</h2>
       points: [[0,320],[175,320],[300,288],[430,320],[590,267],[720,319],[850,296],[985,250],[1130,318],[1420,318]],
       apples: [245,535,790,970,1170],
       props: [{x:195,type:'fence',layer:'back'},{x:390,type:'tree',layer:'back'},{x:680,type:'flowers',layer:'front'},{x:895,type:'stump',layer:'front'},{x:1090,type:'fence',layer:'back'}],
-      sky: '#eae9d9', sun: '#f2c082', mountain: '#b7c8b1'
+      sky: '#eae9d9', sun: '#f2c082', mountain: '#b7c8b1', spray: ['#6f8b59','#9c8b68','#c5b496']
     },
     {
       name: 'Rolling country', label: 'ROLLING COUNTRY / 02', goal: 1610,
       points: [[0,320],[160,320],[290,266],[415,334],[565,244],[710,323],[855,270],[995,334],[1150,229],[1300,322],[1450,270],[1600,320],[1770,320]],
       apples: [265,555,850,1140,1470],
       props: [{x:210,type:'rock',layer:'front'},{x:465,type:'fence',layer:'back'},{x:760,type:'tree',layer:'back'},{x:1055,type:'flowers',layer:'front'},{x:1370,type:'stump',layer:'front'}],
-      sky: '#e5e8db', sun: '#efd69b', mountain: '#a9c0ad'
+      sky: '#e5e8db', sun: '#efd69b', mountain: '#a9c0ad', spray: ['#9a805c','#b99d72','#d0b78d']
     },
     {
       name: 'High hopes', label: 'HIGH HOPES / 03', goal: 1950,
       points: [[0,320],[155,320],[310,251],[440,337],[610,216],[765,330],[915,256],[1040,325],[1220,195],[1400,326],[1540,247],[1695,320],[1810,276],[1920,319],[2130,319]],
       apples: [300,595,910,1210,1785],
       props: [{x:235,type:'fence',layer:'back'},{x:510,type:'rock',layer:'front'},{x:810,type:'tree',layer:'back'},{x:1325,type:'flowers',layer:'front'},{x:1660,type:'stump',layer:'front'}],
-      sky: '#e4e2de', sun: '#f1bb92', mountain: '#b2bcc0'
+      sky: '#e4e2de', sun: '#f1bb92', mountain: '#b2bcc0', spray: ['#6f7773','#929994','#b8b9aa']
     },
     {
       name: 'Skybound', label: 'SKYBOUND / 04', goal: 1260,
@@ -344,18 +351,19 @@ Big physics.</h2>
       gaps: [[820,945],[1340,2400]], island: [945,1340], fallY: 560,
       apples: [280,520,735,1035,1190],
       props: [{x:205,type:'fence',layer:'back'},{x:580,type:'flowers',layer:'front'},{x:770,type:'rock',layer:'front'},{x:1010,type:'crystal',layer:'back'},{x:1240,type:'tree',layer:'back'}],
-      sky: '#dce9ed', sun: '#f6d48d', mountain: '#a8bdc4'
+      sky: '#dce9ed', sun: '#f6d48d', mountain: '#a8bdc4', spray: ['#8d806b','#b4a58a','#d2c3a2']
     }
   ];
 
   let levelIndex = 0, level = levels[0], state = 'ready', rider = 'max';
   let unlockedLevel = 0, savedLevel = 0, resumeAfterSettings = false;
-  let preferences = { rider: 'max', scenery: 'full', controls: 'show' };
-  let rear, front, apples = [], particles = [], ragdoll = null, hair = null;
+  let preferences = { rider: 'max', scenery: 'full', controls: 'show', sound: 'on' };
+  let rear, front, apples = [], particles = [], skidMarks = [], ragdoll = null, hair = null;
   let elapsed = 0, collected = 0, facing = 1, throttle = 0, brakePressure = 0;
   let cameraX = 0, cameraY = 0, leanControl = 0, leanVisual = 0, flipVisual = 1;
-  let lastTime = 0, accumulator = 0, lastGateNotice = -10, toastUntil = 0;
+  let lastTime = 0, accumulator = 0, sprayAccumulator = 0, skidAccumulator = 0, lastGateNotice = -10, toastUntil = 0;
   let lastProgress = -1, lastTimer = '';
+  let audio = null;
   const keys = new Set();
   const pointers = new Map();
   const actionButtons = [...document.querySelectorAll('[data-action]')];
@@ -363,6 +371,97 @@ Big physics.</h2>
     ArrowUp:'up', KeyW:'up', ArrowDown:'down', KeyS:'down',
     ArrowLeft:'back', KeyA:'back', ArrowRight:'forward', KeyD:'forward'
   };
+
+  function initAudio() {
+    if (audio) {
+      if (audio.context.state === 'suspended') audio.context.resume();
+      return;
+    }
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const context = new AudioContext();
+    const master = context.createGain();
+    const compressor = context.createDynamicsCompressor();
+    master.gain.value = preferences.sound === 'on' ? .45 : 0;
+    master.connect(compressor); compressor.connect(context.destination);
+
+    const engine = context.createOscillator();
+    const engineFilter = context.createBiquadFilter();
+    const engineGain = context.createGain();
+    engine.type = 'sawtooth'; engine.frequency.value = 55;
+    engineFilter.type = 'lowpass'; engineFilter.frequency.value = 260;
+    engineGain.gain.value = 0;
+    engine.connect(engineFilter); engineFilter.connect(engineGain); engineGain.connect(master); engine.start();
+
+    const noiseBuffer = context.createBuffer(1, context.sampleRate, context.sampleRate);
+    const noiseData = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < noiseData.length; i++) noiseData[i] = Math.random() * 2 - 1;
+    const skid = context.createBufferSource();
+    const skidFilter = context.createBiquadFilter();
+    const skidGain = context.createGain();
+    skid.buffer = noiseBuffer; skid.loop = true;
+    skidFilter.type = 'bandpass'; skidFilter.frequency.value = 520; skidFilter.Q.value = .7;
+    skidGain.gain.value = 0;
+    skid.connect(skidFilter); skidFilter.connect(skidGain); skidGain.connect(master); skid.start();
+    audio = { context, master, engine, engineFilter, engineGain, noiseBuffer, skidGain };
+  }
+
+  function playTone(frequency, duration, type = 'square', volume = .08, delay = 0, endFrequency = frequency) {
+    if (!audio || preferences.sound === 'off') return;
+    const { context, master } = audio;
+    const start = context.currentTime + delay;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, start);
+    oscillator.frequency.exponentialRampToValueAtTime(Math.max(20, endFrequency), start + duration);
+    gain.gain.setValueAtTime(.0001, start);
+    gain.gain.exponentialRampToValueAtTime(volume, start + .012);
+    gain.gain.exponentialRampToValueAtTime(.0001, start + duration);
+    oscillator.connect(gain); gain.connect(master);
+    oscillator.start(start); oscillator.stop(start + duration + .02);
+  }
+
+  function playNoise(duration, volume = .1, cutoff = 900) {
+    if (!audio || preferences.sound === 'off') return;
+    const { context, master, noiseBuffer } = audio;
+    const source = context.createBufferSource();
+    const filter = context.createBiquadFilter();
+    const gain = context.createGain();
+    source.buffer = noiseBuffer;
+    filter.type = 'lowpass'; filter.frequency.value = cutoff;
+    gain.gain.setValueAtTime(volume, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(.0001, context.currentTime + duration);
+    source.connect(filter); filter.connect(gain); gain.connect(master);
+    source.start(); source.stop(context.currentTime + duration);
+  }
+
+  function updateAudio() {
+    if (!audio) return;
+    const { context, engine, engineFilter, engineGain, skidGain } = audio;
+    const speed = rear && front ? Math.abs(((rear.x - rear.ox) + (front.x - front.ox)) / (2 * STEP)) : 0;
+    const running = state === 'running';
+    const grounded = rear && front && (rear.grounded || front.grounded);
+    const engineLevel = running ? .018 + throttle * .065 : 0;
+    const enginePitch = 48 + clamp(speed, 0, 340) * .32 + throttle * 42;
+    engine.frequency.setTargetAtTime(enginePitch, context.currentTime, .035);
+    engineFilter.frequency.setTargetAtTime(180 + throttle * 360 + speed * .35, context.currentTime, .04);
+    engineGain.gain.setTargetAtTime(engineLevel, context.currentTime, .045);
+    const skidLevel = running && grounded && speed > 24 ? brakePressure * clamp(speed / 220, 0, 1) * .16 : 0;
+    skidGain.gain.setTargetAtTime(skidLevel, context.currentTime, .025);
+  }
+
+  function soundApple() {
+    playTone(620, .1, 'square', .07, 0, 880);
+    playTone(880, .13, 'square', .055, .07, 1240);
+  }
+  function soundCrash() {
+    playNoise(.35, .18, 700);
+    playTone(120, .32, 'sawtooth', .09, 0, 42);
+  }
+  function soundWin() {
+    [523, 659, 784, 1047].forEach((note, index) => playTone(note, .18, 'square', .055, index * .1, note));
+  }
 
   function timeText(seconds) {
     const tenths = Math.floor(seconds * 10 + 0.00001);
@@ -394,6 +493,7 @@ Big physics.</h2>
     rider = preferences.rider;
     ctx.imageSmoothingEnabled = false;
     $('control-buttons').hidden = preferences.controls === 'hide';
+    if (audio) audio.master.gain.setTargetAtTime(preferences.sound === 'on' ? .45 : 0, audio.context.currentTime, .015);
     document.querySelectorAll('[data-setting]').forEach(button => {
       button.setAttribute('aria-pressed', String(preferences[button.dataset.setting] === button.dataset.value));
     });
@@ -404,7 +504,8 @@ Big physics.</h2>
       if (storedSettings) preferences = {
         rider: storedSettings.rider ?? preferences.rider,
         scenery: storedSettings.scenery ?? preferences.scenery,
-        controls: storedSettings.controls ?? storedSettings.hints ?? preferences.controls
+        controls: storedSettings.controls ?? storedSettings.hints ?? preferences.controls,
+        sound: storedSettings.sound ?? preferences.sound
       };
       else preferences.rider = localStorage.getItem('pocket-trials-rider') || preferences.rider;
       const progress = JSON.parse(localStorage.getItem('pocket-trials-progress-v1') || 'null');
@@ -422,6 +523,7 @@ Big physics.</h2>
 
     if (!['full','reduced'].includes(preferences.scenery)) preferences.scenery = 'full';
     if (!['show','hide'].includes(preferences.controls)) preferences.controls = 'show';
+    if (!['on','off'].includes(preferences.sound)) preferences.sound = 'on';
   }
 
   // Smooth heightfield with an analytic derivative for tire contact normals.
@@ -475,9 +577,9 @@ Big physics.</h2>
     levelIndex = index; level = levels[index];
     rear = wheel(65); front = wheel(115);
     apples = level.apples.map(x => ({ x, y: terrain(x).y - 60, taken: false }));
-    particles = []; ragdoll = null; hair = null; elapsed = 0; collected = 0; facing = 1; throttle = 0; brakePressure = 0;
+    particles = []; skidMarks = []; ragdoll = null; hair = null; elapsed = 0; collected = 0; facing = 1; throttle = 0; brakePressure = 0;
     cameraX = 0; cameraY = 0; leanControl = 0; leanVisual = 0; flipVisual = 1;
-    accumulator = 0; lastGateNotice = -10; lastProgress = -1; lastTimer = '';
+    accumulator = 0; sprayAccumulator = 0; skidAccumulator = 0; lastGateNotice = -10; lastProgress = -1; lastTimer = '';
     clearInput(); updateDirectionControls();
     updateLevelOptions();
     $('level-select').value = String(index);
@@ -653,6 +755,7 @@ Big physics.</h2>
   }
   function startRagdoll() {
     if (ragdoll) return;
+    soundCrash();
     const mx=(rear.x+front.x)/2,my=(rear.y+front.y)/2;
     const angle=Math.atan2(front.y-rear.y,front.x-rear.x),c=Math.cos(angle),s=Math.sin(angle);
     const vx=((rear.x-rear.ox)+(front.x-front.ox))/2;
@@ -707,6 +810,52 @@ Big physics.</h2>
       const angle = TAU * i / count;
       const speed = 25 + Math.random() * 85;
       particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 35, life: .65, max: .65, color });
+    }
+  }
+
+  function emitBrakeMarks(bikeSpeed, braking) {
+    const speed = Math.abs(bikeSpeed);
+    if (state !== 'running' || !braking || speed < 24) {
+      skidAccumulator = 0;
+      return;
+    }
+    skidAccumulator += STEP;
+    if (skidAccumulator < .045) return;
+    skidAccumulator = 0;
+    const direction = Math.sign(bikeSpeed || facing);
+    for (const wheelPoint of [rear, front]) {
+      if (!wheelPoint.grounded) continue;
+      const ground = terrain(wheelPoint.x);
+      const length = clamp(speed * .035 * brakePressure, 3, 10);
+      skidMarks.push({
+        x: wheelPoint.x, y: ground.y - 1, slope: ground.slope,
+        direction, length, life: 1.6, max: 1.6
+      });
+    }
+  }
+
+  function emitTerrainSpray(bikeSpeed, braking) {
+    if (state !== 'running') return;
+    const speed = Math.abs(bikeSpeed);
+    const contactWheel = facing > 0 ? rear : front;
+    if (!contactWheel.grounded || speed < 28 || (!braking && throttle < .12)) {
+      sprayAccumulator = Math.min(sprayAccumulator, .8);
+      return;
+    }
+    const intensity = clamp(speed / 210, .15, 1) * (braking ? 1.5 : .8 + throttle * .7);
+    sprayAccumulator += intensity * STEP * 24;
+    while (sprayAccumulator >= 1) {
+      sprayAccumulator--;
+      const direction = Math.sign(bikeSpeed || facing);
+      const color = level.spray[Math.floor(Math.random() * level.spray.length)];
+      const life = .28 + Math.random() * .32;
+      particles.push({
+        x: contactWheel.x - direction * (RADIUS - 2),
+        y: terrain(contactWheel.x).y - 2,
+        vx: bikeSpeed * .12 - direction * (35 + Math.random() * (braking ? 95 : 65)),
+        vy: -(25 + Math.random() * (braking ? 90 : 55)),
+        life, max: life, color, size: Math.random() < .7 ? 2 : 4, drag: 2.5, splatter: true
+      });
     }
   }
 
@@ -784,6 +933,8 @@ Big physics.</h2>
         p.spin += ((p.x - p.ox) + slope * (p.y - p.oy)) / Math.hypot(1, slope) / RADIUS;
       }
     }
+    emitTerrainSpray(bikeSpeed, braking);
+    emitBrakeMarks(bikeSpeed, braking);
 
     const head = headPosition();
     const mx = (rear.x + front.x) / 2, my = (rear.y + front.y) / 2;
@@ -803,7 +954,7 @@ Big physics.</h2>
         Math.hypot(mx - apple.x, my - 18 - apple.y) < 34
       )) {
         apple.taken = true; collected++;
-        burst(apple.x, apple.y, '#ef8150');
+        burst(apple.x, apple.y, '#ef8150'); soundApple();
         $('apple-count').textContent = collected + ' / ' + apples.length;
         $('announcer').textContent = collected + ' of ' + apples.length + ' apples collected.';
         if (collected === apples.length) notify('All apples collected. Head for the flag! ⚑');
@@ -812,7 +963,7 @@ Big physics.</h2>
 
     if (mx > level.goal - 20) {
       if (collected === apples.length) {
-        burst(mx, my - 55, '#e8964f', 25);
+        burst(mx, my - 55, '#e8964f', 25); soundWin();
         setOverlay('won');
       } else if (elapsed - lastGateNotice > 5) {
         lastGateNotice = elapsed;
@@ -1144,6 +1295,8 @@ Big physics.</h2>
     ctx.save(); ctx.translate(0,Math.round(bodyDrop/2)*2); ctx.rotate(bodyPitch);
     pixelRect(-9,-20,24,4,'#ee6f3f');
     pixelRect(-17,-24,14,4,'#263a35');
+    pixelRect(-20,-27,5,5,brakePressure > .08 ? '#ff6045' : '#713c35',2);
+    if (brakePressure > .6) pixelRect(-19,-26,3,3,'#ffd0a2',1);
     pixelPath([[10,-23],[18,-26],[24,-26]],'#263a35',2);
     pixelRect(-9,-8,12,10,'#435a52');
     pixelRect(-5,-4,10,6,'#2f463d');
@@ -1319,6 +1472,45 @@ Big physics.</h2>
     drawPixelBike(mx,my,angle,length);
   }
 
+  function updateParticles(dt) {
+    if (state === 'paused') return;
+    for (const mark of skidMarks) mark.life -= dt;
+    for (const p of particles) {
+      p.life -= dt;
+      if (p.drag) p.vx *= Math.exp(-p.drag * dt);
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 210 * dt;
+      if (p.splatter) {
+        const ground = terrain(p.x);
+        if (ground.solid && p.y > ground.y - 1) {
+          p.y = ground.y - 1;
+          p.vx *= .45; p.vy = -Math.abs(p.vy) * .16;
+          p.life = Math.min(p.life, .16);
+        }
+      }
+    }
+  }
+
+  function drawSkidMarks() {
+    for (const mark of skidMarks) {
+      const length = mark.length * mark.direction;
+      ctx.globalAlpha = clamp(mark.life / mark.max, 0, 1) * .42;
+      pixelPath([
+        [mark.x - length, mark.y - mark.slope * length],
+        [mark.x, mark.y]
+      ], '#263b36', 1, 2);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawParticles(splatter) {
+    for (const p of particles) {
+      if (Boolean(p.splatter) !== splatter) continue;
+      ctx.globalAlpha = clamp(p.life / p.max, 0, 1);
+      pixelRect(p.x, p.y, p.size || 4, p.size || 4, p.color, 2);
+    }
+    ctx.globalAlpha = 1;
+  }
+
   function drawRagdoll() {
     if(!ragdoll)return;
     const p=ragdoll.points,isMaxine=rider==='Maxine';
@@ -1356,23 +1548,17 @@ Big physics.</h2>
     cameraY = lerp(cameraY,targetY,smoothing);
     drawBackground();
     ctx.save(); ctx.translate(-cameraX,-cameraY);
-    drawTerrain(); drawProps('back'); drawFlag();
+    updateParticles(dt);
+    drawTerrain(); drawSkidMarks(); drawProps('back'); drawParticles(true); drawFlag();
     apples.forEach(a => drawApple(a,now));
     updateHair(state === 'paused' ? 0 : dt);
     drawHair();
     drawBike();
     drawRagdoll();
     drawProps('front');
-
-    for (const p of particles) {
-      if (state !== 'paused') {
-        p.life -= dt; p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 210*dt;
-      }
-      ctx.globalAlpha = clamp(p.life/p.max,0,1);
-      pixelRect(p.x,p.y,4,4,p.color,2);
-    }
-    ctx.globalAlpha = 1;
+    drawParticles(false);
     particles = particles.filter(p => p.life > 0);
+    skidMarks = skidMarks.filter(mark => mark.life > 0);
     ctx.restore();
     if (toastUntil && now > toastUntil) {
       $('toast').classList.remove('visible'); toastUntil = 0;
@@ -1422,7 +1608,7 @@ Big physics.</h2>
     if (state !== 'running') return;
     if (e.code === 'Space') {
       e.preventDefault();
-      if (!e.repeat) { facing *= -1; updateDirectionControls(); }
+      if (!e.repeat) { facing *= -1; updateDirectionControls(); playTone(180, .12, 'square', .035, 0, 260); }
       return;
     }
     if (!keyActions[e.code]) return;
@@ -1491,9 +1677,13 @@ Big physics.</h2>
         if (state !== 'running' && state !== 'ragdoll') { accumulator = 0; break; }
       }
     } else accumulator = 0;
-    updateHud(); render(now,dt);
+    updateHud(); updateAudio(); render(now,dt);
     requestAnimationFrame(frame);
   }
+
+  const unlockAudio = () => initAudio();
+  window.addEventListener('pointerdown', unlockAudio, { once: true, capture: true });
+  window.addEventListener('keydown', unlockAudio, { once: true, capture: true });
 
   loadStoredState(); applyPreferences(); savePreferences(); updateLevelOptions();
   loadLevel(savedLevel); setOverlay('ready'); resizeCanvas();
