@@ -34,6 +34,12 @@
   }
   .icon-button:disabled { opacity: .35; cursor: default; }
   .icon-button svg { width: 16px; height: 16px; }
+  .restart-fab {
+    position: absolute; right: 12px; bottom: 12px; z-index: 3;
+    width: 30px; height: 30px; border-radius: 50%; background: #203b36db;
+    color: #fff4df; box-shadow: 0 2px 0 #102821;
+  }
+
   .level-strip {
     display: flex; align-items: center; justify-content: space-between;
     padding: 0 16px 13px; gap: 8px;
@@ -157,6 +163,11 @@
   }
   .pixel-ui .control, .pixel-ui .primary, .pixel-ui .icon-button { box-shadow: 3px 3px 0 #0d1b20; }
   .pixel-ui .modal { box-shadow: 8px 8px 0 #102a2370; }
+  .pixel-ui .toast {
+    border: 2px solid #f3ecd7; border-radius: 2px; background: #203932;
+    box-shadow: 4px 4px 0 #10241f; font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-weight: 850; letter-spacing: .8px; text-transform: uppercase;
+  }
   .pixel-ui .overlay { backdrop-filter: none; }
   @media (max-width: 600px) {
     body { padding: 0; align-items: flex-start; }
@@ -173,7 +184,7 @@
     .controls { gap: 5px; }
   }
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { transition: none !important; }
+    *, *::before, *::after { transition: none !important; animation: none !important; }
   }
 </style>
 </head>
@@ -188,9 +199,7 @@
     <button class="icon-button" id="settings" title="Settings" aria-label="Open settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"></path></svg>
     </button>
-    <button class="icon-button" id="restart" title="Restart (R)" aria-label="Restart trail">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6"></path></svg>
-    </button>
+
     <button class="icon-button" id="pause" title="Pause (Esc)" aria-label="Pause game" disabled="">
       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>
     </button>
@@ -219,6 +228,9 @@
     </div>
     <div class="toast" id="toast" role="status"></div>
     <div class="scene-label" id="scene-label">THE ORCHARD / 01</div>
+    <button class="icon-button restart-fab" id="restart" title="Restart (R)" aria-label="Restart trail">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6"></path></svg>
+    </button>
 
     <div class="overlay" id="overlay">
       <div class="modal">
@@ -350,7 +362,7 @@ Big physics.</h2>
   let levelIndex = 0, level = levels[0], state = 'ready', rider = 'max';
   let unlockedLevel = 0, savedLevel = 0, resumeAfterSettings = false;
   let preferences = { rider: 'max', art: 'pixel', camera: 'balanced', scenery: 'full', hints: 'show' };
-  let rear, front, apples = [], particles = [];
+  let rear, front, apples = [], particles = [], ragdoll = null;
   let elapsed = 0, collected = 0, facing = 1, throttle = 0, brakePressure = 0;
   let cameraX = 0, cameraY = 0, leanControl = 0, leanVisual = 0, flipVisual = 1;
   let lastTime = 0, accumulator = 0, lastGateNotice = -10, toastUntil = 0;
@@ -472,7 +484,7 @@ Big physics.</h2>
     levelIndex = index; level = levels[index];
     rear = wheel(65); front = wheel(115);
     apples = level.apples.map(x => ({ x, y: terrain(x).y - 60, taken: false }));
-    particles = []; elapsed = 0; collected = 0; facing = 1; throttle = 0; brakePressure = 0;
+    particles = []; ragdoll = null; elapsed = 0; collected = 0; facing = 1; throttle = 0; brakePressure = 0;
     cameraX = 0; cameraY = 0; leanControl = 0; leanVisual = 0; flipVisual = 1;
     accumulator = 0; lastGateNotice = -10; lastProgress = -1; lastTimer = '';
     clearInput(); updateDirectionControls();
@@ -532,9 +544,9 @@ Big physics.</h2>
 
   function startFresh() { loadLevel(levelIndex); setOverlay('running'); focusGame(); }
   function pauseGame() { if (state === 'running') setOverlay('paused'); }
-  function notify(message) {
+  function notify(message, duration = 2600) {
     $('toast').textContent = message;
-    toastUntil = performance.now() + 2600;
+    toastUntil = duration === Infinity ? Infinity : performance.now() + duration;
     $('toast').classList.add('visible');
   }
 
@@ -645,6 +657,60 @@ Big physics.</h2>
     }
   }
 
+  function makeRagdollPoint(x,y,vx,vy,radius=3) {
+    return {x,y,ox:x-vx,oy:y-vy,radius};
+  }
+  function startRagdoll() {
+    if (ragdoll) return;
+    const mx=(rear.x+front.x)/2,my=(rear.y+front.y)/2;
+    const angle=Math.atan2(front.y-rear.y,front.x-rear.x),c=Math.cos(angle),s=Math.sin(angle);
+    const vx=((rear.x-rear.ox)+(front.x-front.ox))/2;
+    const vy=((rear.y-rear.oy)+(front.y-front.oy))/2;
+    const world=(x,y)=>({x:mx+c*x*facing-s*y,y:my+s*x*facing+c*y});
+    const pose={
+      head:world(3,-43),shoulder:world(1,-35),hip:world(-8,-24),
+      elbow:world(11,-30),hand:world(19,-25),knee:world(4,-14),foot:world(-2,-3)
+    };
+    const points={};
+    for(const [name,p] of Object.entries(pose)) points[name]=makeRagdollPoint(p.x,p.y,vx+(Math.random()-.5)*.35,vy-1.1+(Math.random()-.5)*.25,name==='head'?6:3);
+    const links=[['head','shoulder'],['shoulder','hip'],['shoulder','elbow'],['elbow','hand'],['hip','knee'],['knee','foot']]
+      .map(([a,b])=>({a,b,length:Math.hypot(points[b].x-points[a].x,points[b].y-points[a].y)}));
+    ragdoll={points,links};
+    state='ragdoll'; clearInput();
+    $('pause').disabled=true;
+    $('announcer').textContent='Rider down. Press R or use the restart button to try again.';
+    notify('Rider down · Press R or ↻ to retry', Infinity);
+  }
+  function collideRagdollPoint(p) {
+    const t=terrain(p.x);
+    if(!t.solid)return;
+    const length=Math.hypot(t.slope,1),nx=t.slope/length,ny=-1/length;
+    const penetration=p.radius+(p.y-t.y)/length;
+    if(penetration<=0)return;
+    let vx=p.x-p.ox,vy=p.y-p.oy;
+    const normal=vx*nx+vy*ny;
+    if(normal<0){vx-=nx*normal*1.12;vy-=ny*normal*1.12;}
+    const tangentX=-ny,tangentY=nx,tangent=vx*tangentX+vy*tangentY;
+    vx-=tangentX*tangent*.16;vy-=tangentY*tangent*.16;
+    p.x+=nx*penetration;p.y+=ny*penetration;p.ox=p.x-vx;p.oy=p.y-vy;
+  }
+  function updateRagdoll() {
+    if(!ragdoll)return;
+    for(const p of Object.values(ragdoll.points)){
+      const vx=(p.x-p.ox)*.996,vy=(p.y-p.oy)*.996;
+      p.ox=p.x;p.oy=p.y;p.x+=vx;p.y+=vy+630*STEP*STEP;
+    }
+    for(let iteration=0;iteration<6;iteration++){
+      for(const link of ragdoll.links){
+        const a=ragdoll.points[link.a],b=ragdoll.points[link.b];
+        const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||.001;
+        const correction=(d-link.length)/d*.5;
+        a.x+=dx*correction;a.y+=dy*correction;b.x-=dx*correction;b.y-=dy*correction;
+      }
+      for(const p of Object.values(ragdoll.points))collideRagdollPoint(p);
+    }
+  }
+
   function burst(x, y, color, count = 12) {
     for (let i = 0; i < count; i++) {
       const angle = TAU * i / count;
@@ -654,8 +720,8 @@ Big physics.</h2>
   }
 
   function physics() {
-    if (state !== 'running') return;
-    elapsed += STEP;
+    if (state !== 'running' && state !== 'ragdoll') return;
+    if (state === 'running') elapsed += STEP;
     for (const p of [rear, front]) {
       p.springVelocity += -42 * p.compression * STEP;
       p.springVelocity *= Math.exp(-6.4 * STEP);
@@ -666,7 +732,8 @@ Big physics.</h2>
     const leanInput = Number(down('forward')) - Number(down('back'));
     const leanTarget = leanInput;
     leanControl = lerp(leanControl, leanTarget, 1 - Math.exp(-5.8 * STEP));
-    const accelerating = down('up'), braking = down('down');
+    const acceptingInput = state === 'running';
+    const accelerating = acceptingInput && down('up'), braking = acceptingInput && down('down');
     const coasting = !accelerating && !braking;
     const throttleTarget = accelerating && !braking ? 1 : 0;
     const throttleRate = throttleTarget > throttle ? 1.1 : 4;
@@ -730,11 +797,12 @@ Big physics.</h2>
     const head = headPosition();
     const mx = (rear.x + front.x) / 2, my = (rear.y + front.y) / 2;
 
+    if(state==='ragdoll'){updateRagdoll();return;}
     const headGround = terrain(head.x);
     if ((headGround.solid && head.y + 6 > headGround.y && elapsed > .2)
       || my > (level.fallY || 620)) {
       burst(head.x, head.y, '#ed8b54', 15);
-      setOverlay('crashed');
+      startRagdoll();
       return;
     }
 
@@ -1191,6 +1259,7 @@ Big physics.</h2>
     pixelRect(-5,-4,10,6,'#2f463d');
     pixelRect(-3,-2,6,6,'#edb466');
 
+    if(state!=='ragdoll'){
     const shift = Math.round(leanVisual * 4.5) * 2;
     const isMaya = rider === 'maya';
     const jacket = isMaya ? '#d86f82' : '#e8e5d9';
@@ -1218,6 +1287,7 @@ Big physics.</h2>
     pixelRect(0+shift,-52,8,4,helmetLight);
     pixelRect(6+shift,-48,8,4,'#234844');
     pixelRect(8+shift,-42,6,2,'#efb36b');
+    }
     ctx.restore();
     ctx.restore();
   }
@@ -1278,6 +1348,7 @@ Big physics.</h2>
     circle(-3,-1,4,'#334d40');
     line([[-3,-1],[4,2]],'#c8d1b6',2);
 
+    if(state!=='ragdoll'){
     const shift = leanVisual * 9;
     const isMaya = rider === 'maya';
     const jacket = isMaya ? '#d98291' : '#f3eee0';
@@ -1300,16 +1371,52 @@ Big physics.</h2>
     ctx.beginPath(); ctx.ellipse(7+shift,-43,5.5,3,0,0,TAU); ctx.fill();
     line([[-2+shift,-47],[4+shift,-49]],isMaya ? '#c8eee1' : '#ffe0a0',1.8);
     line([[7+shift,-38],[11+shift,-39]],'#f2bc73',2.3);
+    }
     ctx.restore();
     ctx.restore();
   }
 
+  function drawRagdoll() {
+    if(!ragdoll)return;
+    const p=ragdoll.points,isMaya=rider==='maya';
+    const trousers=isMaya?'#39435d':'#29464e';
+    const jacket=isMaya?'#d86f82':'#e8e5d9';
+    const sleeve=isMaya?'#ef9aa8':'#fff8e7';
+    const helmet=isMaya?'#63aa98':'#f4a442';
+    if(preferences.art==='pixel'){
+      pixelPath([[p.foot.x,p.foot.y],[p.knee.x,p.knee.y],[p.hip.x,p.hip.y]],trousers,3);
+      pixelPath([[p.hip.x,p.hip.y],[p.shoulder.x,p.shoulder.y]],jacket,4);
+      pixelPath([[p.shoulder.x,p.shoulder.y],[p.elbow.x,p.elbow.y]],sleeve,2);
+      pixelPath([[p.elbow.x,p.elbow.y],[p.hand.x,p.hand.y]],'#bd7954',2);
+      pixelPath([[p.shoulder.x,p.shoulder.y],[p.head.x,p.head.y]],'#bd7954',2);
+      if(isMaya) pixelRect(p.head.x-8,p.head.y-4,6,10,'#54362d',2);
+      pixelRect(p.head.x-7,p.head.y-7,14,14,'#263b36',2);
+      pixelRect(p.head.x-5,p.head.y-7,12,10,helmet,2);
+      pixelRect(p.head.x+3,p.head.y-3,8,4,'#234844',2);
+    } else {
+      line([[p.foot.x,p.foot.y],[p.knee.x,p.knee.y],[p.hip.x,p.hip.y]],trousers,6);
+      line([[p.hip.x,p.hip.y],[p.shoulder.x,p.shoulder.y]],jacket,8);
+      line([[p.shoulder.x,p.shoulder.y],[p.elbow.x,p.elbow.y]],sleeve,5);
+      line([[p.elbow.x,p.elbow.y],[p.hand.x,p.hand.y]],'#bd7954',4);
+      line([[p.shoulder.x,p.shoulder.y],[p.head.x,p.head.y]],'#bd7954',4);
+      if(isMaya)circle(p.head.x-5,p.head.y+2,5,'#54362d');
+      circle(p.head.x,p.head.y,8,helmet);
+      circle(p.head.x+4,p.head.y,3,'#234844');
+    }
+  }
+
   function render(now, dt) {
     const midX = (rear.x + front.x)/2, midY = (rear.y + front.y)/2;
+    let focusX=midX,focusY=midY;
+    if(ragdoll){
+      const points=Object.values(ragdoll.points);
+      focusX=points.reduce((sum,p)=>sum+p.x,0)/points.length;
+      focusY=points.reduce((sum,p)=>sum+p.y,0)/points.length;
+    }
     const cameraRatio = preferences.camera === 'centered' ? .5 : preferences.camera === 'ahead' ? .22 : .3;
     const lead = clamp(W * cameraRatio, 95, W / 2);
-    const targetX = Math.max(0, midX - (facing > 0 ? lead : W - lead));
-    const targetY = clamp(midY - H * .67, -H * .42, 100);
+    const targetX = Math.max(0, ragdoll ? focusX-W/2 : focusX-(facing > 0 ? lead : W-lead));
+    const targetY = clamp(focusY-H*.67,-H*.42,ragdoll?500:100);
     const smoothing = 1 - Math.exp(-8 * dt);
     const flipSmoothing = reducedMotion ? 1 : 1 - Math.exp(-18 * dt);
     flipVisual = lerp(flipVisual, facing, flipSmoothing);
@@ -1321,6 +1428,7 @@ Big physics.</h2>
     drawTerrain(); drawProps('back'); drawFlag();
     apples.forEach(a => drawApple(a,now));
     drawBike();
+    drawRagdoll();
     drawProps('front');
 
     for (const p of particles) {
@@ -1444,11 +1552,11 @@ Big physics.</h2>
   function frame(now) {
     const dt = lastTime ? Math.min((now-lastTime)/1000,.05) : 1/60;
     lastTime = now;
-    if (state === 'running') {
+    if (state === 'running' || state === 'ragdoll') {
       accumulator += dt;
       while (accumulator >= STEP) {
         physics(); accumulator -= STEP;
-        if (state !== 'running') { accumulator = 0; break; }
+        if (state !== 'running' && state !== 'ragdoll') { accumulator = 0; break; }
       }
     } else accumulator = 0;
     updateHud(); render(now,dt);

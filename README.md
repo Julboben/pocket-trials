@@ -13,6 +13,7 @@ The current version is a dependency-free browser prototype implemented in a sing
 - Rider weight transfer, wheelies, and stoppies
 - Independent front and rear suspension animation
 - Impact-sensitive suspension compression and landing rebound
+- Live post-crash rider ragdoll simulation with a detached, coasting bike
 - Direction flipping with an animated rider and bike transition
 - Hybrid code-drawn pixel presentation, with smooth terrain, mountains, and apples
 - Responsive mobile and desktop layouts
@@ -43,7 +44,7 @@ No install or build step is required for the game itself.
 | Brake | `Down Arrow` or `S` | Brake button |
 | Lean backward / forward | `Left Arrow` / `Right Arrow` or `A` / `D` | Lean buttons |
 | Flip riding direction | `Space` | — |
-| Restart trail | `R` | Restart button |
+| Restart trail | `R` | Compact restart button in the game viewport |
 | Pause / resume | `Escape` | Pause button |
 | Activate the primary menu action | `Enter` | Menu button |
 
