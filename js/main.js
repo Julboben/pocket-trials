@@ -1,0 +1,1215 @@
+import { STEP, RADIUS, WHEELBASE, TAU, clamp, lerp } from './config.js';
+import { levels } from './levels.js';
+import { createAudio } from './audio.js';
+import { createDrawingTools } from './drawing.js';
+import { terrainAt } from './terrain.js';
+import {
+  loadPreferences,
+  loadProgress,
+  readBest,
+  saveBest,
+  savePreferences as persistPreferences,
+  saveProgress as persistProgress
+} from './storage.js';
+
+(() => {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+  const game = $('game');
+  const canvas = $('canvas');
+  const ctx = canvas.getContext('2d');
+  const { line, circle, pixelRect, pixelPath, drawPixelDisc, drawPixelSpring } = createDrawingTools(ctx);
+  let W = 380, H = 410;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let levelIndex = 0, level = levels[0], state = 'ready', rider = 'max';
+  let unlockedLevel = 0, savedLevel = 0, resumeAfterSettings = false;
+  let preferences = { rider: 'max', scenery: 'full', controls: 'show', sound: 'on' };
+  let rear, front, apples = [], particles = [], skidMarks = [], ragdoll = null, hair = null;
+  let elapsed = 0, collected = 0, facing = 1, throttle = 0, brakePressure = 0;
+  let cameraX = 0, cameraY = 0, leanControl = 0, leanVisual = 0, flipVisual = 1;
+  let lastTime = 0, accumulator = 0, sprayAccumulator = 0, skidAccumulator = 0, landingSoundCooldown = 0, airRotation = 0, airTurnMilestone = 0, previousAirAngle = 0, lastGateNotice = -10, toastUntil = 0;
+  let lastProgress = -1, lastTimer = '';
+  const sounds = createAudio(() => ({ state, rear, front, throttle, brakePressure }));
+  const keys = new Set();
+  const pointers = new Map();
+  const actionButtons = [...document.querySelectorAll('[data-action]')];
+  const keyActions = {
+    ArrowUp:'up', KeyW:'up', ArrowDown:'down', KeyS:'down',
+    ArrowLeft:'back', KeyA:'back', ArrowRight:'forward', KeyD:'forward'
+  };
+
+
+  function timeText(seconds) {
+    const tenths = Math.floor(seconds * 10 + 0.00001);
+    return Math.floor(tenths / 600) + ':' + String(Math.floor(tenths / 10) % 60).padStart(2, '0') + '.' + (tenths % 10);
+  }
+  function updateBest() {
+    const best = readBest(levelIndex);
+    $('best-time').textContent = best === null ? '—' : timeText(best);
+  }
+  function savePreferences() { persistPreferences(preferences); }
+  function saveProgress() { persistProgress(levelIndex, unlockedLevel); }
+  function updateLevelOptions() {
+    [...$('level-select').options].forEach((option, index) => {
+      option.disabled = index > unlockedLevel;
+      option.textContent = option.textContent.replace(/^🔒 /, '');
+      if (option.disabled) option.textContent = '🔒 ' + option.textContent;
+    });
+  }
+  function applyPreferences() {
+    rider = preferences.rider;
+    ctx.imageSmoothingEnabled = false;
+    $('control-buttons').hidden = preferences.controls === 'hide';
+    sounds.setEnabled(preferences.sound === 'on');
+    document.querySelectorAll('[data-setting]').forEach(button => {
+      button.setAttribute('aria-pressed', String(preferences[button.dataset.setting] === button.dataset.value));
+    });
+  }
+  function loadStoredState() {
+    preferences = loadPreferences(preferences);
+    const progress = loadProgress(levels.length);
+    unlockedLevel = progress.unlocked;
+    savedLevel = progress.level;
+    if (!['max','Maxine'].includes(preferences.rider)) preferences.rider = 'max';
+    if (!['full','reduced'].includes(preferences.scenery)) preferences.scenery = 'full';
+    if (!['show','hide'].includes(preferences.controls)) preferences.controls = 'show';
+    if (!['on','off'].includes(preferences.sound)) preferences.sound = 'on';
+  }
+
+  // Keep the active level binding local while terrain math remains reusable.
+  const terrain = x => terrainAt(level, x);
+
+  function wheel(x) {
+    const y = terrain(x).y - RADIUS;
+    return { x, y, ox: x, oy: y, grounded: true, spin: 0, compression: 0, springVelocity: 0, impactSpeed: 0 };
+  }
+
+  function clearInput() {
+    keys.clear();
+    pointers.clear();
+    actionButtons.forEach(b => b.classList.remove('held'));
+  }
+  function down(action) {
+    for (const code of keys) if (keyActions[code] === action) return true;
+    for (const held of pointers.values()) if (held === action) return true;
+    return false;
+  }
+  function paintInput() {
+    actionButtons.forEach(b => b.classList.toggle('held', down(b.dataset.action)));
+  }
+  function focusGame() { game.focus({ preventScroll: true }); }
+  function updateDirectionControls() {
+    const left = $('left-control'), right = $('right-control');
+    const facingRight = facing > 0;
+    left.querySelector('.caption').textContent = facingRight ? 'LEAN BACK' : 'LEAN FWD';
+    right.querySelector('.caption').textContent = facingRight ? 'LEAN FWD' : 'LEAN BACK';
+    left.setAttribute('aria-label', (facingRight ? 'Lean back' : 'Lean forward') + ', left arrow');
+    right.setAttribute('aria-label', (facingRight ? 'Lean forward' : 'Lean back') + ', right arrow');
+  }
+  function flipDirection() {
+    const airborne = !rear.grounded && !front.grounded;
+    facing *= -1;
+    updateDirectionControls();
+    sounds.flip(airborne);
+  }
+
+  function loadLevel(index) {
+    index = clamp(index, 0, unlockedLevel);
+    levelIndex = index; level = levels[index];
+    rear = wheel(65); front = wheel(115);
+    apples = level.apples.map(x => ({ x, y: terrain(x).y - 60, taken: false }));
+    particles = []; skidMarks = []; ragdoll = null; hair = null; elapsed = 0; collected = 0; facing = 1; throttle = 0; brakePressure = 0;
+    cameraX = 0; cameraY = 0; leanControl = 0; leanVisual = 0; flipVisual = 1;
+    accumulator = 0; sprayAccumulator = 0; skidAccumulator = 0; landingSoundCooldown = 0;
+    airRotation = 0; airTurnMilestone = 0; previousAirAngle = 0;
+    lastGateNotice = -10; lastProgress = -1; lastTimer = '';
+    clearInput(); updateDirectionControls();
+    updateLevelOptions();
+    $('level-select').value = String(index);
+    $('scene-label').textContent = level.label;
+    $('apple-count').textContent = '0 / ' + apples.length;
+    $('toast').classList.remove('visible'); toastUntil = 0;
+    updateBest(); updateHud(); saveProgress();
+  }
+
+  function setOverlay(next) {
+    state = next; clearInput();
+    const visible = next !== 'running';
+    $('overlay').hidden = !visible;
+    $('pause').disabled = !['running','paused'].includes(next);
+    $('pause').setAttribute('aria-label', next === 'paused' ? 'Resume game' : 'Pause game');
+    $('mini-tips').hidden = next !== 'ready';
+    $('secondary').hidden = next === 'ready';
+    if (visible) requestAnimationFrame(() => $('primary').focus({ preventScroll: true }));
+
+    if (next === 'ready') {
+      $('overlay-badge').textContent = 'TRAIL ' + String(levelIndex + 1).padStart(2,'0') + ' / ' + level.name.toUpperCase();
+      $('overlay-title').textContent = 'Small bike.\nBig physics.';
+      $('overlay-description').textContent = 'Build speed into the hills and anticipate your lean. Lean controls swap with the biker when you flip using Space.';
+      $('primary').textContent = "Let's ride →";
+    } else if (next === 'paused') {
+      $('overlay-badge').textContent = 'TAKE A BREATHER';
+      $('overlay-title').textContent = 'Parked up.';
+      $('overlay-description').textContent = 'Your bike is right where you left it. Ready for the next hill?';
+      $('primary').textContent = 'Keep riding →';
+      $('secondary').textContent = 'Restart this trail';
+    } else if (next === 'crashed') {
+      $('overlay-badge').textContent = 'DUST YOURSELF OFF';
+      $('overlay-title').textContent = 'A little too\nhead over heels.';
+      $('overlay-description').textContent = 'Your helmet met the hillside. Try short taps of lean, and line up both wheels before landing.';
+      $('primary').textContent = 'One more go ↗';
+      $('secondary').textContent = 'Back to trail menu';
+      $('announcer').textContent = 'Crashed. Press R or choose One more go to retry.';
+    } else if (next === 'won') {
+      unlockedLevel = Math.max(unlockedLevel, Math.min(levelIndex + 1, levels.length - 1));
+      updateLevelOptions(); saveProgress();
+      $('overlay-badge').textContent = 'FIVE APPLES. ONE HAPPY RIDER.';
+      $('overlay-title').textContent = 'Trail nailed.';
+      const previous = readBest(levelIndex);
+      const record = previous === null || elapsed < previous;
+      if (record) saveBest(levelIndex, elapsed);
+      updateBest();
+      $('overlay-description').textContent = 'Finished in ' + timeText(elapsed) + '. ' + (record ? 'Your best run on this trail!' : 'Smooth riding. Can you beat your best?');
+      $('primary').textContent = levelIndex === levels.length - 1 ? 'Back to the orchard →' : 'Next trail →';
+      $('secondary').textContent = 'Ride this one again';
+      $('announcer').textContent = 'Trail complete in ' + timeText(elapsed) + '. All five apples collected.';
+    }
+  }
+
+  function startFresh() { loadLevel(levelIndex); setOverlay('running'); focusGame(); }
+  function pauseGame() { if (state === 'running') setOverlay('paused'); }
+  function notify(message, duration = 2600) {
+    $('toast').textContent = message;
+    toastUntil = duration === Infinity ? Infinity : performance.now() + duration;
+    $('toast').classList.add('visible');
+  }
+
+  function headPosition() {
+    const angle = Math.atan2(front.y - rear.y, front.x - rear.x);
+    const c = Math.cos(angle), s = Math.sin(angle);
+    const riderShift = leanVisual * 9;
+    const backCompression = facing > 0 ? rear.compression : front.compression;
+    const frontCompression = facing > 0 ? front.compression : rear.compression;
+    const bodyDrop = (backCompression + frontCompression) * .4;
+    const bodyPitch = (frontCompression - backCompression) * .0096;
+    const pc = Math.cos(bodyPitch), ps = Math.sin(bodyPitch);
+    const localX = (3 + riderShift) * pc + 43 * ps;
+    const localY = (3 + riderShift) * ps - 43 * pc + bodyDrop;
+    const facingX = localX * facing;
+    return {
+      x: (rear.x + front.x) / 2 + c * facingX - s * localY,
+      y: (rear.y + front.y) / 2 + s * facingX + c * localY
+    };
+  }
+
+  // Verlet integration: two tires joined by an elastic distance constraint.
+  function integrate(p, drive, speedLimit, lean, leanTorque, driveGrip, brakeGrip, braking, coasting) {
+    let vx = (p.x - p.ox) * (p.grounded ? .9997 : .9998);
+    let vy = (p.y - p.oy) * .9998;
+    let ax = 0, ay = 630;
+
+    if (p.grounded) {
+      const slope = terrain(p.x).slope;
+      const length = Math.hypot(1, slope);
+      const tx = 1 / length, ty = slope / length;
+      const tangentialVelocity = vx * tx + vy * ty;
+
+      if (braking) {
+        // Both wheels brake, with a stronger front-wheel bias. Clamping the
+        // low-speed velocity makes the brake hold instead of merely adding drag.
+        const brakeStep = 1150 * brakeGrip * STEP * STEP;
+        const reduction = clamp(tangentialVelocity, -brakeStep, brakeStep);
+        vx -= tx * reduction;
+        vy -= ty * reduction;
+      } else if (coasting) {
+        // Rolling resistance is strongest near rest, so shallow valleys settle,
+        // while high-speed momentum still carries over long hills and jumps.
+        const coastSpeed = Math.abs(tangentialVelocity) / STEP;
+        const climbing = tangentialVelocity * slope < 0;
+        const baseResistance = lerp(105, 18, clamp(coastSpeed / 140, 0, 1));
+        const resistance = baseResistance * (climbing ? .18 : 1);
+        const reduction = clamp(tangentialVelocity, -resistance * STEP * STEP, resistance * STEP * STEP);
+        vx -= tx * reduction;
+        vy -= ty * reduction;
+      } else if (drive) {
+        const tangentialSpeed = tangentialVelocity / STEP;
+        const speedRatio = clamp(tangentialSpeed * Math.sign(drive) / speedLimit, 0, 1);
+        if (speedRatio < 1) {
+          const torqueCurve = .28 + .72 * (1 - speedRatio);
+          const uphillLoad = clamp(-slope * Math.sign(drive), 0, 1);
+          const climbTorque = 1 + uphillLoad * 1.4 * (1 - speedRatio);
+          const power = drive * driveGrip * torqueCurve * climbTorque;
+          ax += tx * power;
+          ay += ty * power;
+        }
+      }
+    }
+
+    const dx = front.x - rear.x, dy = front.y - rear.y;
+    const length = Math.hypot(dx, dy) || WHEELBASE;
+    const sign = p === front ? 1 : -1;
+    ax += (-dy / length) * lean * leanTorque * sign;
+    ay += ( dx / length) * lean * leanTorque * sign;
+
+    const speed = Math.hypot(vx, vy);
+    if (speed > 760 * STEP) { vx *= 760 * STEP / speed; vy *= 760 * STEP / speed; }
+    p.ox = p.x; p.oy = p.y;
+    p.x += vx + ax * STEP * STEP;
+    p.y += vy + ay * STEP * STEP;
+    p.grounded = false;
+  }
+
+  function collide(p) {
+    const t = terrain(p.x);
+    if (!t.solid) return;
+    const length = Math.hypot(t.slope, 1);
+    const nx = t.slope / length, ny = -1 / length;
+    const penetration = RADIUS + (p.y - t.y) / length;
+    if (penetration > 0) {
+      let vx = p.x - p.ox, vy = p.y - p.oy;
+      const intoGround = vx * nx + vy * ny;
+      if (intoGround < 0) {
+        const impactSpeed = -intoGround / STEP;
+        p.impactSpeed = Math.max(p.impactSpeed, impactSpeed);
+        const restitution = impactSpeed > 35 ? clamp(.08 + impactSpeed / 1200, .08, .22) : 0;
+        vx -= nx * intoGround * (1 + restitution);
+        vy -= ny * intoGround * (1 + restitution);
+        if (impactSpeed > 12) {
+          p.compression = clamp(p.compression + (impactSpeed - 12) * .065, 0, 16);
+          p.springVelocity += impactSpeed * .018;
+        }
+      }
+      p.x += nx * penetration;
+      p.y += ny * penetration;
+      p.ox = p.x - vx;
+      p.oy = p.y - vy;
+      p.grounded = true;
+    }
+    if (p.x < RADIUS) {
+      const vx = Math.max(0, p.x - p.ox);
+      p.x = RADIUS;
+      p.ox = p.x - vx;
+    }
+  }
+
+  function makeRagdollPoint(x,y,vx,vy,radius=3) {
+    return {x,y,ox:x-vx,oy:y-vy,radius};
+  }
+  function startRagdoll() {
+    if (ragdoll) return;
+    sounds.crash();
+    const mx=(rear.x+front.x)/2,my=(rear.y+front.y)/2;
+    const angle=Math.atan2(front.y-rear.y,front.x-rear.x),c=Math.cos(angle),s=Math.sin(angle);
+    const vx=((rear.x-rear.ox)+(front.x-front.ox))/2;
+    const vy=((rear.y-rear.oy)+(front.y-front.oy))/2;
+    const world=(x,y)=>({x:mx+c*x*facing-s*y,y:my+s*x*facing+c*y});
+    const pose={
+      head:world(3,-43),shoulder:world(1,-35),hip:world(-8,-24),
+      elbow:world(11,-30),hand:world(19,-25),knee:world(4,-14),foot:world(-2,-3)
+    };
+    const points={};
+    for(const [name,p] of Object.entries(pose)) points[name]=makeRagdollPoint(p.x,p.y,vx+(Math.random()-.5)*.35,vy-1.1+(Math.random()-.5)*.25,name==='head'?6:3);
+    const links=[['head','shoulder'],['shoulder','hip'],['shoulder','elbow'],['elbow','hand'],['hip','knee'],['knee','foot']]
+      .map(([a,b])=>({a,b,length:Math.hypot(points[b].x-points[a].x,points[b].y-points[a].y)}));
+    ragdoll={points,links};
+    state='ragdoll'; clearInput();
+    $('pause').disabled=true;
+    $('announcer').textContent='Rider down. Press R or use the restart button to try again.';
+    notify('Rider down · Press R or ↻ to retry', Infinity);
+  }
+  function collideRagdollPoint(p) {
+    const t=terrain(p.x);
+    if(!t.solid)return;
+    const length=Math.hypot(t.slope,1),nx=t.slope/length,ny=-1/length;
+    const penetration=p.radius+(p.y-t.y)/length;
+    if(penetration<=0)return;
+    let vx=p.x-p.ox,vy=p.y-p.oy;
+    const normal=vx*nx+vy*ny;
+    if(normal<0){vx-=nx*normal*1.12;vy-=ny*normal*1.12;}
+    const tangentX=-ny,tangentY=nx,tangent=vx*tangentX+vy*tangentY;
+    vx-=tangentX*tangent*.16;vy-=tangentY*tangent*.16;
+    p.x+=nx*penetration;p.y+=ny*penetration;p.ox=p.x-vx;p.oy=p.y-vy;
+  }
+  function updateRagdoll() {
+    if(!ragdoll)return;
+    for(const p of Object.values(ragdoll.points)){
+      const vx=(p.x-p.ox)*.996,vy=(p.y-p.oy)*.996;
+      p.ox=p.x;p.oy=p.y;p.x+=vx;p.y+=vy+630*STEP*STEP;
+    }
+    for(let iteration=0;iteration<6;iteration++){
+      for(const link of ragdoll.links){
+        const a=ragdoll.points[link.a],b=ragdoll.points[link.b];
+        const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||.001;
+        const correction=(d-link.length)/d*.5;
+        a.x+=dx*correction;a.y+=dy*correction;b.x-=dx*correction;b.y-=dy*correction;
+      }
+      for(const p of Object.values(ragdoll.points))collideRagdollPoint(p);
+    }
+  }
+
+  function burst(x, y, color, count = 12) {
+    for (let i = 0; i < count; i++) {
+      const angle = TAU * i / count;
+      const speed = 25 + Math.random() * 85;
+      particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 35, life: .65, max: .65, color });
+    }
+  }
+
+  function emitBrakeMarks(bikeSpeed, braking) {
+    const speed = Math.abs(bikeSpeed);
+    if (state !== 'running' || !braking || speed < 24) {
+      skidAccumulator = 0;
+      return;
+    }
+    skidAccumulator += STEP;
+    if (skidAccumulator < .045) return;
+    skidAccumulator = 0;
+    const direction = Math.sign(bikeSpeed || facing);
+    for (const wheelPoint of [rear, front]) {
+      if (!wheelPoint.grounded) continue;
+      const ground = terrain(wheelPoint.x);
+      const length = clamp(speed * .035 * brakePressure, 3, 10);
+      skidMarks.push({
+        x: wheelPoint.x, y: ground.y - 1, slope: ground.slope,
+        direction, length, life: 1.6, max: 1.6
+      });
+    }
+  }
+
+  function emitTerrainSpray(bikeSpeed, braking) {
+    if (state !== 'running') return;
+    const speed = Math.abs(bikeSpeed);
+    const contactWheel = facing > 0 ? rear : front;
+    if (!contactWheel.grounded || speed < 28 || (!braking && throttle < .12)) {
+      sprayAccumulator = Math.min(sprayAccumulator, .8);
+      return;
+    }
+    const intensity = clamp(speed / 210, .15, 1) * (braking ? 1.5 : .8 + throttle * .7);
+    sprayAccumulator += intensity * STEP * 24;
+    while (sprayAccumulator >= 1) {
+      sprayAccumulator--;
+      const direction = Math.sign(bikeSpeed || facing);
+      const color = level.spray[Math.floor(Math.random() * level.spray.length)];
+      const life = .28 + Math.random() * .32;
+      particles.push({
+        x: contactWheel.x - direction * (RADIUS - 2),
+        y: terrain(contactWheel.x).y - 2,
+        vx: bikeSpeed * .12 - direction * (35 + Math.random() * (braking ? 95 : 65)),
+        vy: -(25 + Math.random() * (braking ? 90 : 55)),
+        life, max: life, color, size: Math.random() < .7 ? 2 : 4, drag: 2.5, splatter: true
+      });
+    }
+  }
+
+  function physics() {
+    if (state !== 'running' && state !== 'ragdoll') return;
+    if (state === 'running') elapsed += STEP;
+    landingSoundCooldown = Math.max(0, landingSoundCooldown - STEP);
+    const wasRearGrounded = rear.grounded, wasFrontGrounded = front.grounded;
+    rear.impactSpeed = 0; front.impactSpeed = 0;
+    for (const p of [rear, front]) {
+      p.springVelocity += -42 * p.compression * STEP;
+      p.springVelocity *= Math.exp(-6.4 * STEP);
+      p.compression += p.springVelocity * STEP;
+      if (p.compression <= 0) { p.compression = 0; p.springVelocity = 0; }
+    }
+
+    const leanInput = Number(down('forward')) - Number(down('back'));
+    const leanTarget = leanInput;
+    leanControl = lerp(leanControl, leanTarget, 1 - Math.exp(-5.8 * STEP));
+    const acceptingInput = state === 'running';
+    const accelerating = acceptingInput && down('up'), braking = acceptingInput && down('down');
+    const coasting = !accelerating && !braking;
+    const throttleTarget = accelerating && !braking ? 1 : 0;
+    const throttleRate = throttleTarget > throttle ? 1.1 : 4;
+    throttle = lerp(throttle, throttleTarget, 1 - Math.exp(-throttleRate * STEP));
+    brakePressure = lerp(brakePressure, braking ? 1 : 0, 1 - Math.exp(-(braking ? 10 : 14) * STEP));
+    const speedLimit = 340;
+    const grounded = rear.grounded || front.grounded;
+    const bikeSpeed = ((rear.x - rear.ox) + (front.x - front.ox)) / (2 * STEP);
+    const speedFactor = clamp(Math.abs(bikeSpeed) / 300, 0, 1);
+    const midSlope = terrain((rear.x + front.x) / 2).slope;
+    const uphill = clamp(-midSlope * facing, 0, 1);
+    const downhill = clamp(midSlope * facing, 0, 1);
+    const forwardLean = clamp(leanControl * facing, 0, 1);
+    const drive = facing * 800 * throttle * (1 + uphill * forwardLean * .25);
+    // Front bias grows with speed while the rear remains useful for stability.
+    const frontBrakeGrip = (.72 + speedFactor * .28) * brakePressure;
+    const rearBrakeGrip = (.55 - speedFactor * .2) * brakePressure;
+    // Braking pitches with travel; rear-wheel drive reacts the other way.
+    // Downhill speed transfers additional weight onto the front wheel.
+    const brakePitch = braking && grounded
+      ? clamp(bikeSpeed / 220 * brakePressure * (1 + downhill * .55), -1.2, 1.2)
+      : 0;
+    const throttlePitch = accelerating && !braking && grounded
+      ? -facing * throttle * (.2 + uphill * .95) * (1 - forwardLean * .7)
+      : 0;
+    const effectiveLean = clamp(leanControl + brakePitch + throttlePitch, -1.45, 1.45);
+    // On the ground the rider's shifted weight can unload either wheel;
+    // in the air, lower torque keeps rotation deliberate and momentum-led.
+    const leanTorque = grounded ? 820 : 300;
+
+    // Mild angular damping makes small corrective taps more controllable.
+    const dx = front.x - rear.x, dy = front.y - rear.y;
+    const length = Math.hypot(dx, dy) || WHEELBASE;
+    const px = -dy / length, py = dx / length;
+    const relative = ((front.x - front.ox) - (rear.x - rear.ox)) * px
+      + ((front.y - front.oy) - (rear.y - rear.oy)) * py;
+    const dampingRate = Math.abs(effectiveLean) > .02 ? .001 : coasting && Math.abs(bikeSpeed) < 60 ? .01 : .005;
+    const damping = relative * dampingRate;
+    front.ox += px * damping; front.oy += py * damping;
+    rear.ox -= px * damping; rear.oy -= py * damping;
+
+    integrate(rear, drive, speedLimit, effectiveLean, leanTorque, facing > 0 ? 1 : 0, facing > 0 ? rearBrakeGrip : frontBrakeGrip, braking, coasting);
+    integrate(front, drive, speedLimit, effectiveLean, leanTorque, facing > 0 ? 0 : 1, facing > 0 ? frontBrakeGrip : rearBrakeGrip, braking, coasting);
+
+    for (let i = 0; i < 7; i++) {
+      const x = front.x - rear.x, y = front.y - rear.y;
+      const d = Math.hypot(x, y) || .001;
+      const correction = ((d - WHEELBASE) / d) * .43;
+      rear.x += x * correction; rear.y += y * correction;
+      front.x -= x * correction; front.y -= y * correction;
+      collide(rear); collide(front);
+    }
+
+    for (const p of [rear, front]) {
+      const slope = terrain(p.x).slope;
+      if (!(braking && p.grounded)) {
+        p.spin += ((p.x - p.ox) + slope * (p.y - p.oy)) / Math.hypot(1, slope) / RADIUS;
+      }
+    }
+    const airborne = !rear.grounded && !front.grounded;
+    const wasAirborne = !wasRearGrounded && !wasFrontGrounded;
+    const bikeAngle = Math.atan2(front.y - rear.y, front.x - rear.x);
+    if (airborne) {
+      if (!wasAirborne) {
+        airRotation = 0;
+        airTurnMilestone = 0;
+      } else {
+        airRotation += Math.atan2(Math.sin(bikeAngle - previousAirAngle), Math.cos(bikeAngle - previousAirAngle));
+        const milestone = Math.floor(Math.abs(airRotation) / Math.PI);
+        if (milestone > airTurnMilestone) {
+          airTurnMilestone = milestone;
+          sounds.airTurn(milestone % 2 === 0);
+        }
+      }
+      previousAirAngle = bikeAngle;
+    } else {
+      airRotation = 0;
+      airTurnMilestone = 0;
+      previousAirAngle = bikeAngle;
+    }
+
+    const landingImpact = Math.max(
+      !wasRearGrounded && rear.grounded ? rear.impactSpeed : 0,
+      !wasFrontGrounded && front.grounded ? front.impactSpeed : 0
+    );
+    if (state === 'running' && landingImpact > 45 && landingSoundCooldown === 0) {
+      sounds.land(landingImpact);
+      landingSoundCooldown = .12;
+    }
+    emitTerrainSpray(bikeSpeed, braking);
+    emitBrakeMarks(bikeSpeed, braking);
+
+    const head = headPosition();
+    const mx = (rear.x + front.x) / 2, my = (rear.y + front.y) / 2;
+
+    if(state==='ragdoll'){updateRagdoll();return;}
+    const headGround = terrain(head.x);
+    if ((headGround.solid && head.y + 6 > headGround.y && elapsed > .2)
+      || my > (level.fallY || 620)) {
+      burst(head.x, head.y, '#ed8b54', 15);
+      startRagdoll();
+      return;
+    }
+
+    for (const apple of apples) {
+      if (!apple.taken && (
+        Math.hypot(head.x - apple.x, head.y - apple.y) < 25 ||
+        Math.hypot(mx - apple.x, my - 18 - apple.y) < 34
+      )) {
+        apple.taken = true; collected++;
+        burst(apple.x, apple.y, '#ef8150'); sounds.apple();
+        $('apple-count').textContent = collected + ' / ' + apples.length;
+        $('announcer').textContent = collected + ' of ' + apples.length + ' apples collected.';
+        if (collected === apples.length) notify('All apples collected. Head for the flag! ⚑');
+      }
+    }
+
+    if (mx > level.goal - 20) {
+      if (collected === apples.length) {
+        burst(mx, my - 55, '#e8964f', 25); sounds.win();
+        setOverlay('won');
+      } else if (elapsed - lastGateNotice > 5) {
+        lastGateNotice = elapsed;
+        const missing = apples.length - collected;
+        notify(missing + (missing === 1 ? ' apple left. ' : ' apples left. ') + 'Flip around to pick them up!');
+      }
+    }
+
+    leanVisual = lerp(leanVisual, leanInput, 1 - Math.exp(-7 * STEP));
+  }
+
+  function updateHud() {
+    const text = timeText(elapsed);
+    if (text !== lastTimer) { $('timer').textContent = text; lastTimer = text; }
+    const mid = (rear.x + front.x) / 2;
+    const progress = Math.round(clamp((mid - 90) / (level.goal - 90), 0, 1) * 100);
+    if (progress !== lastProgress) {
+      $('progress-fill').style.width = progress + '%';
+      $('progress').setAttribute('aria-valuenow', String(progress));
+      lastProgress = progress;
+    }
+  }
+
+
+
+  function backgroundLayers() {
+    return [
+      {color:level.mountain,base:201,amp:37,frequency:.009,parallax:.16},
+      {color:'#8ea997',base:247,amp:24,frequency:.015,parallax:.29}
+    ];
+  }
+  function mountainWorldY(wx,layer) {
+    return layer.base+Math.sin(wx*layer.frequency+1.7)*layer.amp+Math.sin(wx*layer.frequency*2.1)*10;
+  }
+  function drawMountainLayers() {
+    for(const layer of backgroundLayers()){
+      const step=8;
+      const first=Math.floor(cameraX*layer.parallax/step)-1;
+      const count=Math.ceil(W/step)+3;
+      ctx.fillStyle=layer.color; ctx.beginPath();
+      let previousY=H, lastX=0;
+      for(let i=first;i<first+count;i++){
+        const wx=i*step, x=wx-cameraX*layer.parallax;
+        const worldY=mountainWorldY(wx,layer);
+        const y=Math.round(worldY/3)*3-cameraY*layer.parallax;
+        if(i===first) { ctx.moveTo(x,H); ctx.lineTo(x,y); }
+        else { ctx.lineTo(x,previousY); ctx.lineTo(x,y); }
+        previousY=y; lastX=x;
+      }
+      ctx.lineTo(lastX,H); ctx.closePath(); ctx.fill();
+    }
+  }
+  function drawHillTrees() {
+    const layer=backgroundLayers()[1];
+    const spacing=100;
+    const first=Math.floor(cameraX*layer.parallax/spacing)-1;
+    const count=Math.ceil(W/spacing)+3;
+    for(let i=first;i<first+count;i++){
+      const wx=i*spacing;
+      const x=wx-cameraX*layer.parallax;
+      const worldY=mountainWorldY(wx,layer);
+      const y=Math.round(worldY/3)*3-cameraY*layer.parallax;
+      ctx.save();ctx.translate(x,y);
+      pixelRect(-2,-28,4,28,'#708b78');
+      drawPixelDisc(0,-34,14,'#78977b',4);
+      drawPixelDisc(-10,-29,10,'#78977b',4);
+      drawPixelDisc(10,-28,10,'#78977b',4);
+      ctx.restore();
+    }
+  }
+
+  function drawBackground() {
+    ctx.fillStyle = level.sky; ctx.fillRect(0,0,W,H);
+    drawPixelDisc(W*.77-cameraX*.015,85-cameraY*.08,36,level.sun,6);
+    const firstCloud = Math.floor(cameraX*.07/150)-1;
+    for (let i=firstCloud;i<firstCloud+Math.ceil(W/150)+2;i++) {
+      const x=i*150+55-cameraX*.07;
+      const y=64+Math.sin(i*4)*22-cameraY*.08;
+      ctx.save(); ctx.translate(x,y);
+      pixelRect(0,0,54,6,'#f8f7e9',6);
+      pixelRect(12,-6,24,6,'#f8f7e9',6);
+      pixelRect(30,6,42,6,'#f8f7e9',6);
+      ctx.restore();
+    }
+    if (preferences.scenery === 'full') {
+      drawMountainLayers();
+      drawHillTrees();
+    }
+  }
+
+
+  function solidRanges() {
+    const start = cameraX - 15, end = cameraX + W + 15;
+    const ranges = [];
+    let cursor = start;
+    for (const gap of level.gaps || []) {
+      if (gap[1] <= cursor || gap[0] >= end) continue;
+      if (gap[0] > cursor) ranges.push([cursor, Math.min(gap[0], end)]);
+      cursor = Math.max(cursor, gap[1]);
+      if (cursor >= end) break;
+    }
+    if (cursor < end) ranges.push([cursor, end]);
+    return ranges;
+  }
+
+  function groundPath(offset = 0) {
+    ctx.beginPath();
+    const bottom = cameraY + H + 100;
+    for (const [start, end] of solidRanges()) {
+      if (end <= start) continue;
+      const floating = level.island && start >= level.island[0] - 1 && end <= level.island[1] + 1;
+      const pathStart = floating ? level.island[0] : start;
+      const pathEnd = floating ? level.island[1] : end;
+      ctx.moveTo(pathStart, floating ? terrain(pathStart).y + 58 + offset : bottom);
+      ctx.lineTo(pathStart, terrain(pathStart).y + offset);
+      for (let x = pathStart + 5; x < pathEnd; x += 5) ctx.lineTo(x, terrain(x).y + offset);
+      ctx.lineTo(pathEnd, terrain(pathEnd).y + offset);
+      if (floating) {
+        const islandBottom = Math.max(terrain(pathStart).y, terrain(pathEnd).y) + 145 + offset;
+        ctx.lineTo(pathEnd - 28, terrain(pathEnd).y + 62 + offset);
+        ctx.lineTo((pathStart + pathEnd) / 2, islandBottom);
+        ctx.lineTo(pathStart + 28, terrain(pathStart).y + 62 + offset);
+      } else ctx.lineTo(pathEnd, bottom);
+      ctx.closePath();
+    }
+  }
+
+
+  function drawTerrain() {
+    groundPath(); ctx.fillStyle = '#c5b496'; ctx.fill();
+    ctx.save(); groundPath(); ctx.clip();
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath();
+      for (let x = cameraX - 20; x < cameraX + W + 25; x += 8) {
+        const y = terrain(x).y + 27 + i * 30 + Math.sin(x * .022 + i) * 5;
+        if (x === cameraX - 20) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = i % 2 ? '#d3c2a2' : '#b7a687'; ctx.lineWidth = 2; ctx.stroke();
+    }
+    for (let i = Math.floor(cameraX / 31); i < Math.ceil((cameraX + W) / 31); i++) {
+      const x = i * 31 + Math.sin(i * 18) * 9;
+      const y = terrain(x).y + 16 + (Math.sin(i * 23) + 1) * 34;
+      ctx.fillStyle = '#ac9c806e';
+      ctx.beginPath(); ctx.ellipse(x, y, 2 + (i % 3 + 3) % 3, 1.5, .3, 0, TAU); ctx.fill();
+    }
+    ctx.restore();
+
+    ctx.beginPath();
+    for (const [start, end] of solidRanges()) {
+      ctx.moveTo(start, terrain(start).y);
+      for (let x = start + 3; x < end; x += 3) ctx.lineTo(x,terrain(x).y);
+      ctx.lineTo(end,terrain(end).y);
+    }
+    ctx.strokeStyle = '#375d4d'; ctx.lineWidth = 7; ctx.lineJoin = 'round'; ctx.stroke();
+    ctx.strokeStyle = '#6f8b59'; ctx.lineWidth = 2; ctx.stroke();
+
+    for (let i = Math.floor(cameraX / 45); i < Math.ceil((cameraX + W) / 45); i++) {
+      const x = i * 45 + Math.sin(i * 9) * 8, t = terrain(x);
+      if (!t.solid) continue;
+      pixelPath([[x - 4, t.y - 2],[x - 4, t.y - 8],[x, t.y - 4],[x + 2, t.y - 10]], '#628455', 1, 2);
+    }
+
+    if (cameraX < 230) {
+      const y = terrain(28).y;
+      line([[28,y],[28,y-48]], '#6d7862', 3);
+      ctx.fillStyle = '#e8e4ce'; ctx.fillRect(8,y-52,41,19);
+      ctx.fillStyle = '#3c5e4b'; ctx.font = 'bold 8px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText('GO →',28,y-39);
+    }
+  }
+
+  function drawProp(prop,layer){
+    if(preferences.scenery === 'reduced' && prop.type === 'tree')return;
+    if(prop.x<cameraX-70||prop.x>cameraX+W+70)return;
+    const ground=terrain(prop.x);if(!ground.solid)return;
+    const y=ground.y;
+    ctx.save(); ctx.translate(Math.round(prop.x/2)*2,Math.round(y/2)*2);
+    ctx.globalAlpha=layer==='front'?1:.82;
+    if(prop.type==='tree'){
+      pixelRect(-4,-44,8,44,'#66543f',2);
+      drawPixelDisc(-8,-52,14,'#477158',4); drawPixelDisc(8,-56,16,'#568061',4); drawPixelDisc(0,-70,12,'#618b66',4);
+    } else if(prop.type==='fence'){
+      pixelRect(-22,-26,4,26,'#856d4f',2); pixelRect(18,-26,4,26,'#856d4f',2);
+      pixelRect(-24,-20,46,4,'#aa8a60',2); pixelRect(-24,-10,46,4,'#aa8a60',2);
+    } else if(prop.type==='rock'){
+      pixelRect(-16,-8,34,8,'#697872',2); pixelRect(-10,-14,22,6,'#7f8d83',2); pixelRect(-4,-18,10,4,'#aeb5a7',2);
+    } else if(prop.type==='flowers'){
+      for(let i=-2;i<=2;i++){const x=i*6,h=8+(Math.abs(i)%2)*4;pixelRect(x,-h,2,h,'#58784d',2);pixelRect(x-2,-h-4,6,4,i%2?'#f1b95d':'#e8755b',2);}
+    } else if(prop.type==='stump'){
+      pixelRect(-10,-14,20,14,'#806244',2); pixelRect(-10,-16,20,4,'#c39664',2); pixelRect(-4,-16,8,2,'#76573d',2);
+    } else if(prop.type==='crystal'){
+      pixelPath([[-14,0],[-8,-28],[0,-40],[8,-24],[14,0]],'#83d1ce',3);
+      pixelPath([[0,-36],[0,-4]],'#d9ffff',1);
+    }
+    ctx.restore();
+  }
+
+
+  function drawProps(layer) {
+    for (const prop of level.props || []) if (prop.layer === layer) drawProp(prop, layer);
+  }
+
+  function drawApple(apple, now) {
+    if (apple.taken || apple.x < cameraX - 30 || apple.x > cameraX + W + 30) return;
+    const y = apple.y + (reducedMotion ? 0 : Math.sin(now * .0025 + apple.x) * 2);
+
+    circle(apple.x, y, 15, '#fbf0ce50');
+    ctx.save(); ctx.translate(apple.x, y);
+    ctx.fillStyle = '#ed774e';
+    ctx.beginPath();
+    ctx.moveTo(0,-5);
+    ctx.bezierCurveTo(-12,-12,-14,6,-4,9);
+    ctx.quadraticCurveTo(0,7,4,9);
+    ctx.bezierCurveTo(14,6,12,-12,0,-5);
+    ctx.fill();
+    line([[0,-5],[1,-11]], '#617144', 1.5);
+    ctx.fillStyle = '#567a4e';
+    ctx.beginPath(); ctx.ellipse(4,-10,4,2,-.5,0,TAU); ctx.fill();
+    line([[-6,-2],[-7,1]], '#ffc295', 2);
+    ctx.restore();
+  }
+
+  function drawFlag() {
+    const x=level.goal,y=terrain(x).y;
+    if(x<cameraX-65||x>cameraX+W+65)return;
+    const unlocked=collected===apples.length;
+    pixelRect(x-2,y-108,4,108,'#304a42',2);pixelRect(x-4,y-112,8,6,'#ed9150',2);
+    const size=8;
+    for(let row=0;row<3;row++)for(let col=0;col<4;col++)pixelRect(x+2+col*size,y-104+row*size,size,size,(row+col)%2?(unlocked?'#28483a':'#758477'):'#f2e9cf',2);
+    pixelRect(x-24,y-62,48,16,'#f4e9d1',2);
+    ctx.fillStyle='#365345';ctx.font='bold 7px ui-monospace, monospace';ctx.textAlign='center';ctx.fillText(unlocked?'FINISH':'5 APPLES',x,y-51);
+  }
+
+  function drawPixelWheel(p) {
+    ctx.save(); ctx.translate(Math.round(p.x),Math.round(p.y));
+    for (let y = -6; y <= 6; y++) for (let x = -6; x <= 6; x++) {
+      const distance = Math.hypot(x,y);
+      if (distance <= 6.5 && distance >= 4.7) pixelRect(x*2,y*2,2,2,'#203332');
+      else if (distance < 4.7 && distance >= 3.5) pixelRect(x*2,y*2,2,2,'#b9c4af');
+    }
+    const phase = Math.round(p.spin / (Math.PI / 4)) * Math.PI / 4;
+    for (let i = 0; i < 4; i++) {
+      const spoke = phase + i * Math.PI / 2;
+      pixelPath([[0,0],[Math.cos(spoke)*8,Math.sin(spoke)*8]],'#657a70',1);
+    }
+    pixelRect(-2,-2,4,4,'#f1cb91');
+    ctx.restore();
+  }
+
+
+  function drawPixelBike(mx, my, angle, length) {
+    drawPixelWheel(rear); drawPixelWheel(front);
+    const pixelAngle = Math.round(angle / (TAU / 32)) * (TAU / 32);
+    ctx.save(); ctx.translate(Math.round(mx),Math.round(my)); ctx.rotate(pixelAngle); ctx.scale(flipVisual,1);
+    const half = length / 2;
+    const backCompression = facing > 0 ? rear.compression : front.compression;
+    const frontCompression = facing > 0 ? front.compression : rear.compression;
+    const bodyDrop = (backCompression + frontCompression) * .4;
+    const bodyPitch = (frontCompression - backCompression) * .0096;
+    const pc = Math.cos(bodyPitch), ps = Math.sin(bodyPitch);
+    const bodyPoint = (x,y) => [x*pc-y*ps,x*ps+y*pc+bodyDrop];
+    const backMount = bodyPoint(-9,-15), frontMount = bodyPoint(12,-23);
+    const crank = bodyPoint(-3,-1);
+
+    pixelPath([[-half,0],bodyPoint(-7,-18),bodyPoint(13,-17),[half,0]],'#d95832',2);
+    pixelPath([[-half,0],crank,[half,0]],'#ed7842',2);
+    pixelPath([[-half,0],backMount],'#819084',1);
+    pixelPath([[half,0],frontMount],'#b9c4af',2);
+    drawPixelSpring(-half,0,backMount[0],backMount[1],'#f0b45f');
+    drawPixelSpring(half,0,frontMount[0],frontMount[1],'#f0b45f');
+
+    ctx.save(); ctx.translate(0,Math.round(bodyDrop/2)*2); ctx.rotate(bodyPitch);
+    pixelRect(-9,-20,24,4,'#ee6f3f');
+    pixelRect(-17,-24,14,4,'#263a35');
+    pixelRect(-20,-27,5,5,brakePressure > .08 ? '#ff6045' : '#713c35',2);
+    if (brakePressure > .6) pixelRect(-19,-26,3,3,'#ffd0a2',1);
+    pixelPath([[10,-23],[18,-26],[24,-26]],'#263a35',2);
+    pixelRect(-9,-8,12,10,'#435a52');
+    pixelRect(-5,-4,10,6,'#2f463d');
+    pixelRect(-3,-2,6,6,'#edb466');
+
+    if(state!=='ragdoll'){
+    const shift = Math.round(leanVisual * 4.5) * 2;
+    const isMaxine = rider === 'Maxine';
+    const jacket = isMaxine ? '#d86f82' : '#e8e5d9';
+    const jacketLight = isMaxine ? '#ef9aa8' : '#fff8e7';
+    const trousers = isMaxine ? '#39435d' : '#29464e';
+    const helmet = isMaxine ? '#63aa98' : '#f4a442';
+    const helmetLight = isMaxine ? '#a8dfcf' : '#ffd078';
+    const skin = '#bd7954';
+
+    pixelPath([[-8+shift,-24],[4+shift*.45,-14],[-2,-3]],trousers,3);
+    pixelRect(-5,-6,10,4,'#233630');
+    pixelPath([[-8+shift,-25],[1+shift,-37]],'#263b36',5);
+    pixelPath([[-7+shift,-25],[2+shift,-37]],jacket,3);
+    pixelRect(-6+shift,-38,14,12,jacket);
+    pixelRect(-4+shift,-38,10,4,jacketLight);
+    pixelPath([[3+shift,-35],[11+shift*.45,-30],[20,-25]],skin,2);
+    pixelPath([[2+shift,-36],[10+shift*.45,-31]],jacketLight,2);
+
+    pixelRect(0+shift,-46,8,8,skin);
+    pixelRect(-4+shift,-52,14,12,'#263b36');
+    pixelRect(-2+shift,-52,12,10,helmet);
+    pixelRect(0+shift,-52,8,4,helmetLight);
+    pixelRect(6+shift,-48,8,4,'#234844');
+    pixelRect(8+shift,-42,6,2,'#efb36b');
+    }
+    ctx.restore();
+    ctx.restore();
+  }
+
+  function hairAnchors() {
+    if (ragdoll) {
+      const head = ragdoll.points.head;
+      return [-4, 0, 4].map(offset => ({ x: head.x - facing * 6, y: head.y + offset }));
+    }
+    const mx = Math.round((rear.x + front.x) / 2);
+    const my = Math.round((rear.y + front.y) / 2);
+    const angle = Math.atan2(front.y - rear.y, front.x - rear.x);
+    const pixelAngle = Math.round(angle / (TAU / 32)) * (TAU / 32);
+    const backCompression = facing > 0 ? rear.compression : front.compression;
+    const frontCompression = facing > 0 ? front.compression : rear.compression;
+    const bodyDrop = Math.round((backCompression + frontCompression) * .2) * 2;
+    const bodyPitch = (frontCompression - backCompression) * .0096;
+    const shift = Math.round(leanVisual * 4.5) * 2;
+    return [-48, -44, -40].map((localY, index) => {
+      const localX = -5 - index + shift;
+      const pitchedX = localX * Math.cos(bodyPitch) - localY * Math.sin(bodyPitch);
+      const pitchedY = localX * Math.sin(bodyPitch) + localY * Math.cos(bodyPitch) + bodyDrop;
+      const flippedX = pitchedX * flipVisual;
+      return {
+        x: mx + Math.cos(pixelAngle) * flippedX - Math.sin(pixelAngle) * pitchedY,
+        y: my + Math.sin(pixelAngle) * flippedX + Math.cos(pixelAngle) * pitchedY
+      };
+    });
+  }
+
+  function hairBackSupport() {
+    if (ragdoll) return null;
+    const mx = Math.round((rear.x + front.x) / 2);
+    const my = Math.round((rear.y + front.y) / 2);
+    const angle = Math.atan2(front.y - rear.y, front.x - rear.x);
+    const pixelAngle = Math.round(angle / (TAU / 32)) * (TAU / 32);
+    const backCompression = facing > 0 ? rear.compression : front.compression;
+    const frontCompression = facing > 0 ? front.compression : rear.compression;
+    const bodyDrop = Math.round((backCompression + frontCompression) * .2) * 2;
+    const bodyPitch = (frontCompression - backCompression) * .0096;
+    const shift = Math.round(leanVisual * 4.5) * 2;
+    const transform = (localX, localY) => {
+      const pitchedX = localX * Math.cos(bodyPitch) - localY * Math.sin(bodyPitch);
+      const pitchedY = localX * Math.sin(bodyPitch) + localY * Math.cos(bodyPitch) + bodyDrop;
+      const flippedX = pitchedX * flipVisual;
+      return {
+        x: mx + Math.cos(pixelAngle) * flippedX - Math.sin(pixelAngle) * pitchedY,
+        y: my + Math.sin(pixelAngle) * flippedX + Math.cos(pixelAngle) * pitchedY
+      };
+    };
+    const top = transform(-7 + shift, -39);
+    const bottom = transform(-8 + shift, -27);
+    const outside = transform(-9 + shift, -33);
+    const inside = transform(-7 + shift, -33);
+    const dx = outside.x - inside.x, dy = outside.y - inside.y;
+    const length = Math.hypot(dx, dy) || 1;
+    return { top, bottom, nx: dx / length, ny: dy / length };
+  }
+
+  function updateHair(dt) {
+    if (rider !== 'Maxine') { hair = null; return; }
+    const anchors = hairAnchors();
+    const strandLengths = [[5, 5], [5, 5, 6], [5, 6, 6]];
+    if (!hair) {
+      const backward = ragdoll ? -facing : -Math.sign(flipVisual || facing);
+      hair = strandLengths.map((lengths, strandIndex) => {
+        let x = anchors[strandIndex].x, y = anchors[strandIndex].y;
+        return lengths.map(length => {
+          x += backward * length * .45;
+          y += length * .89;
+          return { x, y, vx: 0, vy: 0 };
+        });
+      });
+    }
+    if (dt <= 0) return;
+    const step = Math.min(dt, 1 / 30);
+    const damping = Math.exp(-13 * step);
+    const back = hairBackSupport();
+    for (const strand of hair) for (const point of strand) {
+      point.startX = point.x; point.startY = point.y;
+      point.vx *= damping;
+      point.vy = point.vy * damping + 620 * step;
+      point.x += point.vx * step;
+      point.y += point.vy * step;
+    }
+    for (let iteration = 0; iteration < 7; iteration++) {
+      hair.forEach((strand, strandIndex) => {
+        let parent = anchors[strandIndex];
+        strand.forEach((point, pointIndex) => {
+          const dx = point.x - parent.x, dy = point.y - parent.y;
+          const distance = Math.hypot(dx, dy) || 1;
+          const length = strandLengths[strandIndex][pointIndex];
+          point.x = parent.x + dx / distance * length;
+          point.y = parent.y + dy / distance * length;
+          if (back) {
+            const bx = back.bottom.x - back.top.x, by = back.bottom.y - back.top.y;
+            const backLengthSquared = bx * bx + by * by || 1;
+            const t = clamp(((point.x - back.top.x) * bx + (point.y - back.top.y) * by) / backLengthSquared, 0, 1);
+            const nearestX = back.top.x + bx * t, nearestY = back.top.y + by * t;
+            const clearance = (point.x - nearestX) * back.nx + (point.y - nearestY) * back.ny;
+            if (clearance < 2) {
+              point.x += back.nx * (2 - clearance);
+              point.y += back.ny * (2 - clearance);
+            }
+          }
+          const ground = terrain(point.x);
+          if (ground.solid) point.y = Math.min(point.y, ground.y - 2);
+          parent = point;
+        });
+      });
+    }
+    for (const strand of hair) for (const point of strand) {
+      point.vx = clamp((point.x - point.startX) / step, -100, 100);
+      point.vy = clamp((point.y - point.startY) / step, -100, 100);
+    }
+  }
+
+  function drawHair() {
+    if (!hair) return;
+    const anchors = hairAnchors();
+    hair.forEach((strand, strandIndex) => {
+      const points = [[anchors[strandIndex].x, anchors[strandIndex].y], ...strand.map(point => [point.x, point.y])];
+      pixelPath(points, strandIndex === 1 ? '#684438' : '#54362d', 2, 2);
+      for (let i = 1; i < points.length; i++) pixelRect(points[i][0] - 2, points[i][1] - 2, 4, 4, '#54362d', 2);
+    });
+  }
+
+  function drawBike() {
+    const mx=(rear.x+front.x)/2,my=(rear.y+front.y)/2;
+    const angle=Math.atan2(front.y-rear.y,front.x-rear.x);
+    const length=Math.hypot(front.x-rear.x,front.y-rear.y);
+    const ground=terrain(mx);
+    if(ground.solid){
+      const heightAboveGround=Math.max(0,ground.y-my-RADIUS);
+      const shadowAlpha=clamp(.22-heightAboveGround/700,.035,.22);
+      const shadowWidth=clamp(35-heightAboveGround*.07,13,35);
+      ctx.save();ctx.translate(mx,ground.y-1);ctx.rotate(Math.atan(ground.slope));
+      pixelRect(-shadowWidth,-2,shadowWidth*2,4,'rgba(31,53,39,'+shadowAlpha+')',2);
+      pixelRect(-shadowWidth*.7,-4,shadowWidth*1.4,2,'rgba(31,53,39,'+(shadowAlpha*.6)+')',2);
+      ctx.restore();
+    }
+    drawPixelBike(mx,my,angle,length);
+  }
+
+  function updateParticles(dt) {
+    if (state === 'paused') return;
+    for (const mark of skidMarks) mark.life -= dt;
+    for (const p of particles) {
+      p.life -= dt;
+      if (p.drag) p.vx *= Math.exp(-p.drag * dt);
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 210 * dt;
+      if (p.splatter) {
+        const ground = terrain(p.x);
+        if (ground.solid && p.y > ground.y - 1) {
+          p.y = ground.y - 1;
+          p.vx *= .45; p.vy = -Math.abs(p.vy) * .16;
+          p.life = Math.min(p.life, .16);
+        }
+      }
+    }
+  }
+
+  function drawSkidMarks() {
+    for (const mark of skidMarks) {
+      const length = mark.length * mark.direction;
+      ctx.globalAlpha = clamp(mark.life / mark.max, 0, 1) * .42;
+      pixelPath([
+        [mark.x - length, mark.y - mark.slope * length],
+        [mark.x, mark.y]
+      ], '#263b36', 1, 2);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawParticles(splatter) {
+    for (const p of particles) {
+      if (Boolean(p.splatter) !== splatter) continue;
+      ctx.globalAlpha = clamp(p.life / p.max, 0, 1);
+      pixelRect(p.x, p.y, p.size || 4, p.size || 4, p.color, 2);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawRagdoll() {
+    if(!ragdoll)return;
+    const p=ragdoll.points,isMaxine=rider==='Maxine';
+    const trousers=isMaxine?'#39435d':'#29464e';
+    const jacket=isMaxine?'#d86f82':'#e8e5d9';
+    const sleeve=isMaxine?'#ef9aa8':'#fff8e7';
+    const helmet=isMaxine?'#63aa98':'#f4a442';
+    pixelPath([[p.foot.x,p.foot.y],[p.knee.x,p.knee.y],[p.hip.x,p.hip.y]],trousers,3);
+    pixelPath([[p.hip.x,p.hip.y],[p.shoulder.x,p.shoulder.y]],jacket,4);
+    pixelPath([[p.shoulder.x,p.shoulder.y],[p.elbow.x,p.elbow.y]],sleeve,2);
+    pixelPath([[p.elbow.x,p.elbow.y],[p.hand.x,p.hand.y]],'#bd7954',2);
+    pixelPath([[p.shoulder.x,p.shoulder.y],[p.head.x,p.head.y]],'#bd7954',2);
+
+    pixelRect(p.head.x-7,p.head.y-7,14,14,'#263b36',2);
+    pixelRect(p.head.x-5,p.head.y-7,12,10,helmet,2);
+    pixelRect(p.head.x+3,p.head.y-3,8,4,'#234844',2);
+  }
+
+  function render(now, dt) {
+    const midX = (rear.x + front.x)/2, midY = (rear.y + front.y)/2;
+    let focusX=midX,focusY=midY;
+    if(ragdoll){
+      const points=Object.values(ragdoll.points);
+      focusX=points.reduce((sum,p)=>sum+p.x,0)/points.length;
+      focusY=points.reduce((sum,p)=>sum+p.y,0)/points.length;
+    }
+    const lead = clamp(W * .3, 95, W / 2);
+    const targetX = Math.max(0, ragdoll ? focusX-W/2 : focusX-(facing > 0 ? lead : W-lead));
+    const targetY = clamp(focusY-H*.67,-H*.42,ragdoll?500:100);
+    const smoothing = 1 - Math.exp(-8 * dt);
+    const flipSmoothing = reducedMotion ? 1 : 1 - Math.exp(-18 * dt);
+    flipVisual = lerp(flipVisual, facing, flipSmoothing);
+    if (Math.abs(flipVisual - facing) < .002) flipVisual = facing;
+    cameraX = lerp(cameraX,targetX,smoothing);
+    cameraY = lerp(cameraY,targetY,smoothing);
+    drawBackground();
+    ctx.save(); ctx.translate(-cameraX,-cameraY);
+    updateParticles(dt);
+    drawTerrain(); drawSkidMarks(); drawProps('back'); drawParticles(true); drawFlag();
+    apples.forEach(a => drawApple(a,now));
+    updateHair(state === 'paused' ? 0 : dt);
+    drawHair();
+    drawBike();
+    drawRagdoll();
+    drawProps('front');
+    drawParticles(false);
+    particles = particles.filter(p => p.life > 0);
+    skidMarks = skidMarks.filter(mark => mark.life > 0);
+    ctx.restore();
+    if (toastUntil && now > toastUntil) {
+      $('toast').classList.remove('visible'); toastUntil = 0;
+    }
+  }
+
+  function resizeCanvas() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    const rect = canvas.getBoundingClientRect();
+    const worldScale = clamp(rect.width / 760, 1, 1.45);
+    W = Math.max(320, rect.width / worldScale);
+    H = Math.max(340, rect.height / worldScale);
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr * worldScale,0,0,dpr * worldScale,0,0);
+    ctx.imageSmoothingEnabled = false;
+  }
+
+  actionButtons.forEach(button => {
+    button.addEventListener('pointerdown', e => {
+      if (state !== 'running') return;
+      e.preventDefault();
+      focusGame();
+      const action = button.dataset.action;
+      if (action === 'flip') {
+        flipDirection();
+        return;
+      }
+      button.setPointerCapture(e.pointerId);
+      pointers.set(e.pointerId, action);
+      paintInput();
+    });
+    const release = e => { pointers.delete(e.pointerId); paintInput(); };
+    button.addEventListener('pointerup', release);
+    button.addEventListener('pointercancel', release);
+    button.addEventListener('lostpointercapture', release);
+    button.addEventListener('contextmenu', e => e.preventDefault());
+  });
+
+  game.addEventListener('keydown', e => {
+    if ($('settings-dialog').open || e.target.tagName === 'SELECT') return;
+    if (e.code === 'Escape') {
+      e.preventDefault();
+      if (state === 'running') pauseGame();
+      else if (state === 'paused') { setOverlay('running'); focusGame(); }
+      return;
+    }
+    if (e.code === 'KeyR') {
+      e.preventDefault(); if (!e.repeat) startFresh(); return;
+    }
+    if (state !== 'running') return;
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (!e.repeat) flipDirection();
+      return;
+    }
+    if (!keyActions[e.code]) return;
+    e.preventDefault();
+    keys.add(e.code); paintInput();
+  });
+  window.addEventListener('keyup', e => {
+    if (keys.has(e.code)) { keys.delete(e.code); paintInput(); }
+  });
+  game.addEventListener('focusout', e => {
+    if (!game.contains(e.relatedTarget)) { clearInput(); pauseGame(); }
+  });
+  canvas.addEventListener('pointerdown', () => focusGame());
+  window.addEventListener('blur', () => { clearInput(); pauseGame(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { clearInput(); pauseGame(); }
+    lastTime = 0; accumulator = 0;
+  });
+
+  $('primary').addEventListener('click', () => {
+    if (state === 'paused') { setOverlay('running'); focusGame(); }
+    else if (state === 'won') {
+      loadLevel((levelIndex + 1) % levels.length); setOverlay('running'); focusGame();
+    } else startFresh();
+  });
+  $('secondary').addEventListener('click', () => {
+    if (state === 'crashed') { loadLevel(levelIndex); setOverlay('ready'); }
+    else startFresh();
+  });
+  $('settings').addEventListener('click', () => {
+    resumeAfterSettings = state === 'running';
+    if (resumeAfterSettings) setOverlay('paused');
+    applyPreferences();
+    $('settings-dialog').showModal();
+  });
+  document.querySelectorAll('[data-setting]').forEach(button => {
+    button.addEventListener('click', () => {
+      preferences[button.dataset.setting] = button.dataset.value;
+      applyPreferences(); savePreferences();
+    });
+  });
+  $('settings-dialog').addEventListener('close', () => {
+    if (resumeAfterSettings && state === 'paused') setOverlay('running');
+    else if (state !== 'running') requestAnimationFrame(() => $('primary').focus({ preventScroll: true }));
+    resumeAfterSettings = false;
+    focusGame();
+  });
+  $('restart').addEventListener('click', startFresh);
+  $('pause').addEventListener('click', () => {
+    if (state === 'running') pauseGame();
+    else if (state === 'paused') { setOverlay('running'); focusGame(); }
+  });
+  $('level-select').addEventListener('change', e => {
+    loadLevel(Number(e.target.value)); setOverlay('ready');
+  });
+  window.addEventListener('resize', resizeCanvas);
+  if ('ResizeObserver' in window) new ResizeObserver(resizeCanvas).observe(canvas);
+
+  function frame(now) {
+    const dt = lastTime ? Math.min((now-lastTime)/1000,.05) : 1/60;
+    lastTime = now;
+    if (state === 'running' || state === 'ragdoll') {
+      accumulator += dt;
+      while (accumulator >= STEP) {
+        physics(); accumulator -= STEP;
+        if (state !== 'running' && state !== 'ragdoll') { accumulator = 0; break; }
+      }
+    } else accumulator = 0;
+    updateHud(); sounds.update(); render(now,dt);
+    requestAnimationFrame(frame);
+  }
+
+  const unlockAudio = () => sounds.init();
+  window.addEventListener('pointerdown', unlockAudio, { once: true, capture: true });
+  window.addEventListener('keydown', unlockAudio, { once: true, capture: true });
+
+  loadStoredState(); applyPreferences(); savePreferences(); updateLevelOptions();
+  loadLevel(savedLevel); setOverlay('ready'); resizeCanvas();
+  requestAnimationFrame(frame);
+})();
