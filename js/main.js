@@ -1,4 +1,9 @@
-import { STEP, RADIUS, WHEELBASE, TAU, clamp, lerp } from './config.js';
+import {
+  STEP, RADIUS, WHEELBASE, TAU, GRAVITY, MAX_DRIVE_SPEED, MAX_POINT_SPEED,
+  ENGINE_FORCE, BRAKE_FORCE, GROUND_LEAN_TORQUE, AIR_LEAN_TORQUE,
+  COAST_RESISTANCE_LOW_SPEED, COAST_RESISTANCE_HIGH_SPEED,
+  COAST_SPEED_REFERENCE, UPHILL_TORQUE_BOOST, clamp, lerp
+} from './config.js';
 import { levels } from './levels.js';
 import { createAudio } from './audio.js';
 import { createDrawingTools, createGameArt } from './drawing.js';
@@ -456,7 +461,7 @@ import {
   function integrate(p, drive, speedLimit, lean, leanTorque, driveGrip, brakeGrip, braking, coasting) {
     let vx = (p.x - p.ox) * (p.grounded ? .9997 : .9998);
     let vy = (p.y - p.oy) * .9998;
-    let ax = 0, ay = 630;
+    let ax = 0, ay = GRAVITY;
 
     if (p.grounded) {
       const slope = terrain(p.x).slope;
@@ -467,7 +472,7 @@ import {
       if (braking) {
         // Both wheels brake, with a stronger front-wheel bias. Clamping the
         // low-speed velocity makes the brake hold instead of merely adding drag.
-        const brakeStep = 1150 * brakeGrip * STEP * STEP;
+        const brakeStep = BRAKE_FORCE * brakeGrip * STEP * STEP;
         const reduction = clamp(tangentialVelocity, -brakeStep, brakeStep);
         vx -= tx * reduction;
         vy -= ty * reduction;
@@ -476,7 +481,7 @@ import {
         // while high-speed momentum still carries over long hills and jumps.
         const coastSpeed = Math.abs(tangentialVelocity) / STEP;
         const climbing = tangentialVelocity * slope < 0;
-        const baseResistance = lerp(105, 18, clamp(coastSpeed / 140, 0, 1));
+        const baseResistance = lerp(COAST_RESISTANCE_LOW_SPEED, COAST_RESISTANCE_HIGH_SPEED, clamp(coastSpeed / COAST_SPEED_REFERENCE, 0, 1));
         const resistance = baseResistance * (climbing ? .18 : 1);
         const reduction = clamp(tangentialVelocity, -resistance * STEP * STEP, resistance * STEP * STEP);
         vx -= tx * reduction;
@@ -487,7 +492,7 @@ import {
         if (speedRatio < 1) {
           const torqueCurve = .28 + .72 * (1 - speedRatio);
           const uphillLoad = clamp(-slope * Math.sign(drive), 0, 1);
-          const climbTorque = 1 + uphillLoad * 1.4 * (1 - speedRatio);
+          const climbTorque = 1 + uphillLoad * UPHILL_TORQUE_BOOST * (1 - speedRatio);
           const power = drive * driveGrip * torqueCurve * climbTorque;
           ax += tx * power;
           ay += ty * power;
@@ -502,7 +507,7 @@ import {
     ay += ( dx / length) * lean * leanTorque * sign;
 
     const speed = Math.hypot(vx, vy);
-    if (speed > 760 * STEP) { vx *= 760 * STEP / speed; vy *= 760 * STEP / speed; }
+    if (speed > MAX_POINT_SPEED * STEP) { vx *= MAX_POINT_SPEED * STEP / speed; vy *= MAX_POINT_SPEED * STEP / speed; }
     p.ox = p.x; p.oy = p.y;
     p.x += vx + ax * STEP * STEP;
     p.y += vy + ay * STEP * STEP;
@@ -584,7 +589,7 @@ import {
     if(!ragdoll)return;
     for(const p of Object.values(ragdoll.points)){
       const vx=(p.x-p.ox)*.996,vy=(p.y-p.oy)*.996;
-      p.ox=p.x;p.oy=p.y;p.x+=vx;p.y+=vy+630*STEP*STEP;
+      p.ox=p.x;p.oy=p.y;p.x+=vx;p.y+=vy+GRAVITY*STEP*STEP;
     }
     for(let iteration=0;iteration<6;iteration++){
       for(const link of ragdoll.links){
@@ -674,7 +679,7 @@ import {
     const throttleRate = throttleTarget > throttle ? 1.1 : 4;
     throttle = lerp(throttle, throttleTarget, 1 - Math.exp(-throttleRate * STEP));
     brakePressure = lerp(brakePressure, braking ? 1 : 0, 1 - Math.exp(-(braking ? 10 : 14) * STEP));
-    const speedLimit = 340;
+    const speedLimit = MAX_DRIVE_SPEED;
     const grounded = rear.grounded || front.grounded;
     const bikeSpeed = ((rear.x - rear.ox) + (front.x - front.ox)) / (2 * STEP);
     const speedFactor = clamp(Math.abs(bikeSpeed) / 300, 0, 1);
@@ -682,7 +687,7 @@ import {
     const uphill = clamp(-midSlope * facing, 0, 1);
     const downhill = clamp(midSlope * facing, 0, 1);
     const forwardLean = clamp(leanControl * facing, 0, 1);
-    const drive = facing * 800 * throttle * (1 + uphill * forwardLean * .25);
+    const drive = facing * ENGINE_FORCE * throttle * (1 + uphill * forwardLean * .25);
     // Front bias grows with speed while the rear remains useful for stability.
     const frontBrakeGrip = (.72 + speedFactor * .28) * brakePressure;
     const rearBrakeGrip = (.55 - speedFactor * .2) * brakePressure;
@@ -697,7 +702,7 @@ import {
     const effectiveLean = clamp(leanControl + brakePitch + throttlePitch, -1.45, 1.45);
     // On the ground the rider's shifted weight can unload either wheel;
     // in the air, lower torque keeps rotation deliberate and momentum-led.
-    const leanTorque = grounded ? 820 : 300;
+    const leanTorque = grounded ? GROUND_LEAN_TORQUE : AIR_LEAN_TORQUE;
 
     // Mild angular damping makes small corrective taps more controllable.
     const dx = front.x - rear.x, dy = front.y - rear.y;
