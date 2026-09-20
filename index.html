@@ -338,6 +338,7 @@ Big physics.</h2>
     $('pause').setAttribute('aria-label', next === 'paused' ? 'Resume game' : 'Pause game');
     $('mini-tips').hidden = next !== 'ready';
     $('secondary').hidden = next === 'ready';
+    if (visible) requestAnimationFrame(() => $('primary').focus({ preventScroll: true }));
 
     if (next === 'ready') {
       $('overlay-badge').textContent = 'TRAIL ' + String(levelIndex + 1).padStart(2,'0') + ' / ' + level.name.toUpperCase();
@@ -406,7 +407,7 @@ Big physics.</h2>
       if (braking) {
         // Both wheels brake, with a stronger front-wheel bias. Clamping the
         // low-speed velocity makes the brake hold instead of merely adding drag.
-        const brakeStep = 1500 * brakeGrip * STEP * STEP;
+        const brakeStep = 1150 * brakeGrip * STEP * STEP;
         const reduction = clamp(tangentialVelocity, -brakeStep, brakeStep);
         vx -= tx * reduction;
         vy -= ty * reduction;
