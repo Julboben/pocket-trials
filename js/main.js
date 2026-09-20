@@ -40,10 +40,11 @@ import {
   let preferences = { scenery: 'full', controls: 'show', sound: 'on' };
   let rear, front, apples = [], particles = [], skidMarks = [], ragdoll = null, hair = null;
   let elapsed = 0, collected = 0, facing = 1, throttle = 0, brakePressure = 0;
+  let weatherTime = 0, nextLightning = Infinity, lightningFlash = 0, lightningX = .5, lightningDistance = .5;
   let cameraX = 0, cameraY = 0, leanControl = 0, leanVisual = 0, flipVisual = 1;
   let lastTime = 0, accumulator = 0, sprayAccumulator = 0, skidAccumulator = 0, landingSoundCooldown = 0, airRotation = 0, airTurnMilestone = 0, previousAirAngle = 0, lastGateNotice = -10, toastUntil = 0;
   let lastProgress = -1, lastTimer = '';
-  const sounds = createAudio(() => ({ state, rear, front, throttle, brakePressure }));
+  const sounds = createAudio(() => ({ state, rear, front, throttle, brakePressure, weather: level?.weather }));
   const keys = new Set();
   const pointers = new Map();
   const actionButtons = [...document.querySelectorAll('[data-action]')];
@@ -244,6 +245,27 @@ import {
     });
   }
 
+  function drawMenuBackground() {
+    const backgroundCanvas = $('menu-background');
+    const bounds = backgroundCanvas.getBoundingClientRect();
+    if (!bounds.width || !bounds.height) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    backgroundCanvas.width = Math.round(bounds.width * dpr);
+    backgroundCanvas.height = Math.round(bounds.height * dpr);
+    const backgroundContext = backgroundCanvas.getContext('2d');
+    backgroundContext.setTransform(dpr, 0, 0, dpr, 0, 0);
+    backgroundContext.imageSmoothingEnabled = false;
+    const palette = levels[saveGame?.level || 0];
+    createGameArt(backgroundContext).drawBackground({
+      width: bounds.width,
+      height: bounds.height,
+      palette,
+      cameraX: 260,
+      cameraY: 0,
+      full: preferences.scenery === 'full'
+    });
+  }
+
   function updateMenuDashboard() {
     const hasSave = Boolean(saveGame);
     drawActiveSaveIllustration();
@@ -254,8 +276,21 @@ import {
     $('menu-new-game').classList.toggle('menu-action-primary', !hasSave);
     $('menu-levels').disabled = !hasSave;
     buildSaveSlots();
+    drawMenuBackground();
     drawHowToPlayIllustrations();
     buildMenuLevelCards();
+  }
+
+  function menuControls() {
+    const visibleView = document.querySelector('.menu-view:not([hidden])');
+    return visibleView ? [...visibleView.querySelectorAll('button:not([disabled]):not([hidden])')] : [];
+  }
+
+  function selectMenuControl(button) {
+    document.querySelectorAll('.menu-selected').forEach(control => control.classList.remove('menu-selected'));
+    if (!button) return;
+    button.classList.add('menu-selected');
+    button.focus({ preventScroll: true });
   }
 
   function showMenuView(view) {
@@ -265,6 +300,10 @@ import {
     $('menu-save-view').hidden = view !== 'save';
     $('menu-how-view').hidden = view !== 'how';
     $('menu-settings-view').hidden = view !== 'settings';
+    requestAnimationFrame(() => {
+      const controls = menuControls();
+      selectMenuControl(controls.find(button => !button.matches('[data-menu-back]')) || controls[0]);
+    });
   }
 
   function fullscreenElement() {
@@ -293,9 +332,9 @@ import {
     $('overlay').hidden = true;
     $('pause').disabled = true;
     game.classList.add('menu-open');
-    updateMenuDashboard(); showMenuView('home');
     $('menu-screen').hidden = false;
-    requestAnimationFrame(() => $(saveGame ? 'menu-start' : 'menu-new-game').focus({ preventScroll: true }));
+    updateMenuDashboard(); showMenuView('home');
+    requestAnimationFrame(() => selectMenuControl($(saveGame ? 'menu-start' : 'menu-new-game')));
   }
 
   function closeMainMenu() {
@@ -379,6 +418,8 @@ import {
     rear = wheel(65); front = wheel(115);
     apples = level.apples.map(x => ({ x, y: terrain(x).y - 60, taken: false }));
     particles = []; skidMarks = []; ragdoll = null; hair = null; elapsed = 0; collected = 0; facing = 1; throttle = 0; brakePressure = 0;
+    weatherTime = 0; lightningFlash = 0; lightningX = .5; lightningDistance = .5;
+    nextLightning = level.weather?.lightning ? 2.5 + Math.random() * 4 : Infinity;
     cameraX = 0; cameraY = 0; leanControl = 0; leanVisual = 0; flipVisual = 1;
     accumulator = 0; sprayAccumulator = 0; skidAccumulator = 0; landingSoundCooldown = 0;
     airRotation = 0; airTurnMilestone = 0; previousAirAngle = 0;
@@ -656,8 +697,23 @@ import {
     }
   }
 
+  function updateWeather() {
+    weatherTime += STEP;
+    lightningFlash = Math.max(0, lightningFlash - STEP * 4.5);
+    const intensity = clamp(Number(level.weather?.lightning) || 0, 0, 1);
+    if (!intensity || weatherTime < nextLightning) return;
+    lightningDistance = Math.pow(Math.random(), .75);
+    const proximity = 1 - lightningDistance;
+    lightningFlash = (.4 + intensity * .35) * (.45 + proximity * .55);
+    lightningX = .15 + Math.random() * .7;
+    const interval = lerp(12, 4.5, intensity);
+    nextLightning = weatherTime + interval * (.7 + Math.random() * .65);
+    sounds.thunder(intensity, lightningDistance);
+  }
+
   function physics() {
     if (state !== 'running' && state !== 'ragdoll') return;
+    updateWeather();
     if (state === 'running') elapsed += STEP;
     landingSoundCooldown = Math.max(0, landingSoundCooldown - STEP);
     const wasRearGrounded = rear.grounded, wasFrontGrounded = front.grounded;
@@ -819,69 +875,15 @@ import {
 
 
 
-  function backgroundLayers() {
-    return [
-      {color:level.mountain,base:201,amp:37,frequency:.009,parallax:.16},
-      {color:'#8ea997',base:247,amp:24,frequency:.015,parallax:.29}
-    ];
-  }
-  function mountainWorldY(wx,layer) {
-    return layer.base+Math.sin(wx*layer.frequency+1.7)*layer.amp+Math.sin(wx*layer.frequency*2.1)*10;
-  }
-  function drawMountainLayers() {
-    for(const layer of backgroundLayers()){
-      const step=8;
-      const first=Math.floor(cameraX*layer.parallax/step)-1;
-      const count=Math.ceil(W/step)+3;
-      ctx.fillStyle=layer.color; ctx.beginPath();
-      let previousY=H, lastX=0;
-      for(let i=first;i<first+count;i++){
-        const wx=i*step, x=wx-cameraX*layer.parallax;
-        const worldY=mountainWorldY(wx,layer);
-        const y=Math.round(worldY/3)*3-cameraY*layer.parallax;
-        if(i===first) { ctx.moveTo(x,H); ctx.lineTo(x,y); }
-        else { ctx.lineTo(x,previousY); ctx.lineTo(x,y); }
-        previousY=y; lastX=x;
-      }
-      ctx.lineTo(lastX,H); ctx.closePath(); ctx.fill();
-    }
-  }
-  function drawHillTrees() {
-    const layer=backgroundLayers()[1];
-    const spacing=100;
-    const first=Math.floor(cameraX*layer.parallax/spacing)-1;
-    const count=Math.ceil(W/spacing)+3;
-    for(let i=first;i<first+count;i++){
-      const wx=i*spacing;
-      const x=wx-cameraX*layer.parallax;
-      const worldY=mountainWorldY(wx,layer);
-      const y=Math.round(worldY/3)*3-cameraY*layer.parallax;
-      ctx.save();ctx.translate(x,y);
-      pixelRect(-2,-28,4,28,'#708b78');
-      drawPixelDisc(0,-34,14,'#78977b',4);
-      drawPixelDisc(-10,-29,10,'#78977b',4);
-      drawPixelDisc(10,-28,10,'#78977b',4);
-      ctx.restore();
-    }
-  }
-
   function drawBackground() {
-    ctx.fillStyle = level.sky; ctx.fillRect(0,0,W,H);
-    drawPixelDisc(W*.77-cameraX*.015,85-cameraY*.08,36,level.sun,6);
-    const firstCloud = Math.floor(cameraX*.07/150)-1;
-    for (let i=firstCloud;i<firstCloud+Math.ceil(W/150)+2;i++) {
-      const x=i*150+55-cameraX*.07;
-      const y=64+Math.sin(i*4)*22-cameraY*.08;
-      ctx.save(); ctx.translate(x,y);
-      pixelRect(0,0,54,6,'#f8f7e9',6);
-      pixelRect(12,-6,24,6,'#f8f7e9',6);
-      pixelRect(30,6,42,6,'#f8f7e9',6);
-      ctx.restore();
-    }
-    if (preferences.scenery === 'full') {
-      drawMountainLayers();
-      drawHillTrees();
-    }
+    gameArt.drawBackground({
+      width: W,
+      height: H,
+      palette: level,
+      cameraX,
+      cameraY,
+      full: preferences.scenery === 'full'
+    });
   }
 
 
@@ -1209,6 +1211,53 @@ import {
     pixelRect(p.head.x+3,p.head.y-3,8,4,'#234844',2);
   }
 
+  function drawWeather() {
+    const rainIntensity = clamp(Number(level.weather?.rain) || 0, 0, 1);
+    if (!rainIntensity && lightningFlash <= 0) return;
+
+    ctx.save();
+    if (rainIntensity) {
+      const count = Math.round((45 + rainIntensity * 95) * clamp(W / 760, .7, 1.5));
+      const motion = reducedMotion ? 0 : weatherTime * 720;
+      ctx.fillStyle = `rgba(33, 52, 61, ${.04 + rainIntensity * .08})`;
+      ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = `rgba(205, 225, 224, ${.22 + rainIntensity * .3})`;
+      ctx.lineWidth = rainIntensity > .6 ? 1.4 : 1;
+      ctx.beginPath();
+      for (let index = 0; index < count; index++) {
+        const seedX = (index * 97.31) % (W + 80);
+        const seedY = (index * 53.17) % (H + 100);
+        const speed = .72 + (index % 7) * .055;
+        const y = (seedY + motion * speed) % (H + 70) - 35;
+        const rainWidth = W + 80;
+        const rawX = seedX - motion * .13 + y * .08;
+        const x = ((rawX % rainWidth) + rainWidth) % rainWidth - 40;
+        const length = 7 + rainIntensity * 8 + (index % 4);
+        ctx.moveTo(x, y);
+        ctx.lineTo(x - length * .22, y + length);
+      }
+      ctx.stroke();
+    }
+    if (lightningFlash > 0) {
+      ctx.fillStyle = `rgba(225, 239, 237, ${lightningFlash * .28})`;
+      ctx.fillRect(0, 0, W, H);
+      if (lightningFlash > .3 && !reducedMotion) {
+        const proximity = 1 - lightningDistance;
+        const startX = lightningX * W;
+        ctx.strokeStyle = `rgba(246, 244, 204, ${lightningFlash})`;
+        ctx.lineWidth = 1.2 + proximity * 2.3;
+        ctx.beginPath(); ctx.moveTo(startX, 0);
+        for (let step = 1; step <= 6; step++) {
+          const y = step * H * .085;
+          const offset = Math.sin(lightningX * 91 + step * 7.3) * 16;
+          ctx.lineTo(startX + offset, y);
+        }
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
   function render(now, dt) {
     const midX = (rear.x + front.x)/2, midY = (rear.y + front.y)/2;
     let focusX=midX,focusY=midY;
@@ -1240,6 +1289,7 @@ import {
     particles = particles.filter(p => p.life > 0);
     skidMarks = skidMarks.filter(mark => mark.life > 0);
     ctx.restore();
+    drawWeather();
     if (toastUntil && now > toastUntil) {
       $('toast').classList.remove('visible'); toastUntil = 0;
     }
@@ -1281,6 +1331,7 @@ import {
   game.addEventListener('keydown', e => {
     if (e.code === 'Escape') {
       e.preventDefault();
+      sounds.escape();
       if (!$('menu-screen').hidden) closeMainMenu();
       else showMainMenu();
       return;
@@ -1333,8 +1384,33 @@ import {
   $('menu-fullscreen').addEventListener('click', toggleFullscreen);
   $('fullscreen').addEventListener('click', toggleFullscreen);
   $('menu').addEventListener('click', () => { sounds.menuBack(); showMainMenu(); });
+  $('menu-screen').addEventListener('keydown', event => {
+    const direction = {
+      ArrowUp: -1, ArrowLeft: -1, KeyW: -1, KeyA: -1,
+      ArrowDown: 1, ArrowRight: 1, KeyS: 1, KeyD: 1
+    }[event.code];
+    if (!direction) return;
+    const controls = menuControls();
+    if (!controls.length) return;
+    event.preventDefault();
+    const selected = $('menu-screen').querySelector('.menu-selected');
+    const current = controls.indexOf(selected);
+    const next = current < 0 ? 0 : (current + direction + controls.length) % controls.length;
+    selectMenuControl(controls[next]);
+    sounds.menuMove();
+  });
+  $('menu-screen').addEventListener('focusin', event => {
+    const button = event.target.closest('button');
+    if (!button?.closest('.menu-view')) return;
+    document.querySelectorAll('.menu-selected').forEach(control => control.classList.remove('menu-selected'));
+    button.classList.add('menu-selected');
+  });
   $('menu-screen').addEventListener('pointerover', event => {
-    if (event.pointerType === 'mouse' && event.target.closest('button') && !event.target.closest('button').contains(event.relatedTarget)) sounds.menuMove();
+    const button = event.target.closest('button');
+    if (event.pointerType === 'mouse' && button && !button.contains(event.relatedTarget)) {
+      if (button.closest('.menu-view')) selectMenuControl(button);
+      sounds.menuMove();
+    }
   });
   $('menu-screen').addEventListener('click', event => {
     const button = event.target.closest('button');
@@ -1386,7 +1462,7 @@ import {
   document.querySelectorAll('[data-setting]').forEach(button => {
     button.addEventListener('click', () => {
       preferences[button.dataset.setting] = button.dataset.value;
-      applyPreferences(); savePreferences();
+      applyPreferences(); savePreferences(); drawMenuBackground();
     });
   });
   $('restart').addEventListener('click', startFresh);
@@ -1394,11 +1470,14 @@ import {
     if (state === 'running') pauseGame();
     else if (state === 'paused') { setOverlay('running'); focusGame(); }
   });
-  window.addEventListener('resize', resizeCanvas);
+  window.addEventListener('resize', () => { resizeCanvas(); drawMenuBackground(); });
   const fullscreenSupported = Boolean(document.fullscreenEnabled || document.webkitFullscreenEnabled || game.webkitRequestFullscreen);
   $('fullscreen').hidden = !fullscreenSupported;
   $('menu-fullscreen').hidden = !fullscreenSupported;
-  const handleFullscreenChange = () => { updateFullscreenControls(); requestAnimationFrame(resizeCanvas); };
+  const handleFullscreenChange = () => {
+    updateFullscreenControls();
+    requestAnimationFrame(() => { resizeCanvas(); drawMenuBackground(); });
+  };
   document.addEventListener('fullscreenchange', handleFullscreenChange);
   document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
   updateFullscreenControls();

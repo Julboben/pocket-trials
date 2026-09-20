@@ -73,7 +73,7 @@ export function createDrawingTools(ctx) {
 }
 
 export function createGameArt(ctx) {
-  const { line, pixelRect, pixelPath, drawPixelSpring } = createDrawingTools(ctx);
+  const { line, pixelRect, pixelPath, drawPixelDisc, drawPixelSpring } = createDrawingTools(ctx);
   const TAU = Math.PI * 2;
 
   function drawApple(x, y, { glow = true } = {}) {
@@ -121,6 +121,83 @@ export function createGameArt(ctx) {
     }
     pixelRect(-2,-2,4,4,'#f1cb91');
     ctx.restore();
+  }
+
+  function drawBackground({ width, height, palette, cameraX = 0, cameraY = 0, full = true }) {
+    const weather = palette.weather || {};
+    const rain = Math.max(0, Math.min(1, Number(weather.rain) || 0));
+    const lightning = Math.max(0, Math.min(1, Number(weather.lightning) || 0));
+    const cloudiness = Math.max(0, Math.min(1, weather.clouds ?? .35));
+    const sunshine = Math.max(0, Math.min(1, weather.sun ?? 1));
+    const storminess = Math.max(rain, lightning);
+
+    ctx.fillStyle = palette.sky; ctx.fillRect(0, 0, width, height);
+    if (sunshine > 0) {
+      ctx.save();
+      ctx.globalAlpha = sunshine * (1 - cloudiness * .55);
+      drawPixelDisc(width * .77 - cameraX * .015, 85 - cameraY * .08, 28 + sunshine * 8, palette.sun, 6);
+      ctx.restore();
+    }
+    if (cloudiness > 0) {
+      const spacing = 300 - cloudiness * 190;
+      const scale = .62 + cloudiness * .65;
+      const firstCloud = Math.floor(cameraX * .07 / spacing) - 1;
+      for (let index = firstCloud; index < firstCloud + Math.ceil(width / spacing) + 2; index++) {
+        const x = index * spacing + 55 - cameraX * .07;
+        const y = 64 + Math.sin(index * 4) * 22 - cameraY * .08;
+        ctx.save(); ctx.translate(x, y); ctx.scale(scale, scale);
+        ctx.globalAlpha = .42 + cloudiness * .5;
+        const cloudColor = storminess > .15 ? '#bdc8c3' : '#f8f7e9';
+        pixelRect(0,0,54,6,cloudColor,6);
+        pixelRect(12,-6,24,6,cloudColor,6);
+        pixelRect(30,6,42,6,cloudColor,6);
+        ctx.restore();
+      }
+    }
+
+    if (full) {
+      const layers = [
+      { color: palette.mountain, base: 201, amp: 37, frequency: .009, parallax: .16 },
+      { color: '#8ea997', base: 247, amp: 24, frequency: .015, parallax: .29 }
+    ];
+    const mountainY = (worldX, layer) => layer.base + Math.sin(worldX * layer.frequency + 1.7) * layer.amp + Math.sin(worldX * layer.frequency * 2.1) * 10;
+    for (const layer of layers) {
+      const step = 8;
+      const first = Math.floor(cameraX * layer.parallax / step) - 1;
+      const count = Math.ceil(width / step) + 3;
+      ctx.fillStyle = layer.color; ctx.beginPath();
+      let previousY = height, lastX = 0;
+      for (let index = first; index < first + count; index++) {
+        const worldX = index * step;
+        const x = worldX - cameraX * layer.parallax;
+        const y = Math.round(mountainY(worldX, layer) / 3) * 3 - cameraY * layer.parallax;
+        if (index === first) { ctx.moveTo(x, height); ctx.lineTo(x, y); }
+        else { ctx.lineTo(x, previousY); ctx.lineTo(x, y); }
+        previousY = y; lastX = x;
+      }
+      ctx.lineTo(lastX, height); ctx.closePath(); ctx.fill();
+    }
+
+      const treeLayer = layers[1];
+      const spacing = 100;
+      const firstTree = Math.floor(cameraX * treeLayer.parallax / spacing) - 1;
+      const treeCount = Math.ceil(width / spacing) + 3;
+      for (let index = firstTree; index < firstTree + treeCount; index++) {
+        const worldX = index * spacing;
+        const x = worldX - cameraX * treeLayer.parallax;
+        const y = Math.round(mountainY(worldX, treeLayer) / 3) * 3 - cameraY * treeLayer.parallax;
+        ctx.save(); ctx.translate(x, y);
+        pixelRect(-2,-28,4,28,'#708b78');
+        drawPixelDisc(0,-34,14,'#78977b',4);
+        drawPixelDisc(-10,-29,10,'#78977b',4);
+        drawPixelDisc(10,-28,10,'#78977b',4);
+        ctx.restore();
+      }
+    }
+    if (storminess > 0) {
+      ctx.fillStyle = `rgba(38, 55, 62, ${storminess * .2})`;
+      ctx.fillRect(0, 0, width, height);
+    }
   }
 
   function drawBike({ rear, front, mx, my, angle, length, flipVisual = 1, facing = 1, brakePressure = 0, state = 'ready', leanVisual = 0, rider = 'max' }) {
@@ -184,5 +261,5 @@ export function createGameArt(ctx) {
     ctx.restore();
   }
 
-  return { drawApple, drawFlag, drawBike };
+  return { drawApple, drawFlag, drawBike, drawBackground };
 }

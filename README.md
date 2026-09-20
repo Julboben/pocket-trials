@@ -21,10 +21,11 @@ The current version is a dependency-free browser prototype built with native Jav
 - Two selectable riders: Max and Maxine
 - Layered foreground and background scenery
 - Terrain-colored wheel spray, brake lights, and fading ground skid marks
-- Procedural engine, braking, wheel-landing, aerial trick, collectible, crash, flip, finish, and dashboard interaction sound effects
+- Procedural engine, braking, wheel-landing, aerial trick, collectible, crash, flip, finish, dashboard, and rain sound effects
 - Collectibles, finish gates, timers, and best times
 - Persisted settings and level progression
 - Seven progressively longer trails, including floating-island jumps
+- Per-trail rain and lightning configuration with procedural ambience and distance-aware thunder
 
 ## Play
 
@@ -50,7 +51,8 @@ No install or build step is required for the game itself.
 | Pause / resume | — | Pause button |
 | Open / close the main menu | `Escape` | In-game menu button |
 | Toggle fullscreen | Fullscreen button | Fullscreen button |
-| Activate the primary menu action | `Enter` | Menu button |
+| Navigate dashboard controls | Arrow keys or `W` / `A` / `S` / `D` | Tap a menu item |
+| Activate the focused menu action | `Enter` or `Space` | Tap a menu item |
 
 Lean labels adjust to the direction the rider is facing.
 
@@ -133,7 +135,7 @@ The physics are deliberately game-oriented rather than a complete real-world mot
 
 ### Terrain and levels
 
-Trails are smooth analytic heightfields defined by control points. Terrain derivatives provide wheel contact normals and slope information. Levels can also define collision-free gaps, floating islands, collectibles, props, visual colors, and a finish position.
+Trails are smooth analytic heightfields defined by control points. Terrain derivatives provide wheel contact normals and slope information. Levels can also define collision-free gaps, floating islands, collectibles, props, visual colors, a finish position, and weather. Configure rain and lightning independently with `weather: { rain: 0–1, lightning: 0–1 }`. Either property can be omitted, so a trail may have rain, lightning, both, or clear weather.
 
 ### Rendering
 
@@ -144,7 +146,7 @@ Everything is rendered with the Canvas 2D API. The gameplay and illustrated How 
 - Smooth vector apples and pixel finish gates
 - Layered pixel props and particles
 - Smooth terrain and floating islands with anchored pixel mountain silhouettes
-- Pixel foreground and atmospheric scenery
+- Layered pixel foreground and atmospheric scenery shared by gameplay and the dashboard
 - Pixel ground-following shadows
 
 The logical viewport and camera framing adapt to mobile and desktop dimensions.
@@ -168,6 +170,7 @@ When changing physics values, validate at least these cases:
 - [x] Sound Effects
 - [ ] Different terrain types (grass, mud, snow, etc.)
 - [x] Splatter behind the bike when you drive on different terrain
+- [x] Add weather effects (rain, lightning, and procedural ambience)
 - [ ] Add import / export of savegames
 
 ## Possible Godot migration
