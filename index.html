@@ -6,15 +6,15 @@
   * { box-sizing: border-box; }
   html { width: 100%; min-height: 100%; background: #111c20; }
   body {
-    margin: 0; padding: 12px 0;
+    margin: 0; min-height: 100vh; padding: 12px;
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    color: #f6f3e8; display: flex; justify-content: center;
+    color: #f6f3e8; display: flex; justify-content: center; align-items: center;
   }
   button, select { font: inherit; }
   button { -webkit-tap-highlight-color: transparent; cursor: pointer; }
   button:focus-visible, select:focus-visible { outline: 3px solid #ffad76; outline-offset: 3px; }
   .game {
-    width: 100%; max-width: 380px; overflow: hidden;
+    width: 100%; max-width: 1100px; overflow: hidden;
     background: #17262b; border: 1px solid #344348;
     border-radius: 22px; box-shadow: 0 18px 55px #0004;
     outline: none; user-select: none; -webkit-user-select: none;
@@ -44,7 +44,10 @@
   }
   .best { color: #99aaad; font-size: 10px; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .best b { color: #e5e7d9; font-weight: 500; }
-  .viewport { position: relative; background: #e9e9d9; aspect-ratio: 380 / 410; overflow: hidden; }
+  .viewport {
+    position: relative; height: clamp(410px, calc(100vh - 230px), 680px);
+    background: #e9e9d9; overflow: hidden;
+  }
   canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   .hud {
     position: absolute; left: 14px; right: 14px; top: 13px; display: flex;
@@ -98,7 +101,7 @@
   .primary:active { transform: translateY(2px); box-shadow: 0 1px 0 #d16839; }
   .secondary { border: 0; background: none; color: #60746a; padding: 13px 8px 0; font-size: 11px; }
   .secondary[hidden], .mini-tips[hidden] { display: none; }
-  .control-area { padding: 14px 13px 12px; }
+  .control-area { width: min(100%, 760px); margin: 0 auto; padding: 14px 13px 12px; }
   .control-heading {
     display: flex; justify-content: space-between; font-size: 8px;
     letter-spacing: 1.5px; color: #91a7a8; margin: 0 2px 9px;
@@ -119,6 +122,11 @@
   .keyboard { margin: 13px 0 0; text-align: center; color: #8ea4a6; font-size: 9px; line-height: 1.6; }
   .keyboard b { font-weight: 600; color: #c1cdca; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+  @media (max-width: 600px) {
+    body { padding: 0; align-items: flex-start; }
+    .game { max-width: 600px; border-radius: 0; border-left: 0; border-right: 0; }
+    .viewport { height: auto; aspect-ratio: 380 / 410; }
+  }
   @media (max-width: 340px) {
     .header { padding: 13px 11px; gap: 7px; }
     h1 { font-size: 17px; }
@@ -208,7 +216,8 @@ Big physics.</h2>
   const game = $('game');
   const canvas = $('canvas');
   const ctx = canvas.getContext('2d');
-  const W = 380, H = 410, STEP = 1 / 120, RADIUS = 12, WHEELBASE = 50;
+  let W = 380, H = 410;
+  const STEP = 1 / 120, RADIUS = 12, WHEELBASE = 50;
   const TAU = Math.PI * 2;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -237,7 +246,7 @@ Big physics.</h2>
 
   let levelIndex = 0, level = levels[0], state = 'ready';
   let rear, front, apples = [], particles = [];
-  let elapsed = 0, collected = 0, facing = 1;
+  let elapsed = 0, collected = 0, facing = 1, throttle = 0, brakePressure = 0;
   let cameraX = 0, cameraY = 0, leanControl = 0, leanVisual = 0, flipVisual = 1;
   let lastTime = 0, accumulator = 0, lastGateNotice = -10, toastUntil = 0;
   let lastProgress = -1, lastTimer = '';
@@ -310,7 +319,7 @@ Big physics.</h2>
     levelIndex = index; level = levels[index];
     rear = wheel(65); front = wheel(115);
     apples = level.apples.map(x => ({ x, y: terrain(x).y - 60, taken: false }));
-    particles = []; elapsed = 0; collected = 0; facing = 1;
+    particles = []; elapsed = 0; collected = 0; facing = 1; throttle = 0; brakePressure = 0;
     cameraX = 0; cameraY = 0; leanControl = 0; leanVisual = 0; flipVisual = 1;
     accumulator = 0; lastGateNotice = -10; lastProgress = -1; lastTimer = '';
     clearInput(); updateDirectionControls();
@@ -375,7 +384,7 @@ Big physics.</h2>
   function headPosition() {
     const angle = Math.atan2(front.y - rear.y, front.x - rear.x);
     const c = Math.cos(angle), s = Math.sin(angle);
-    const riderShift = leanControl * 9;
+    const riderShift = leanVisual * 9;
     return {
       x: (rear.x + front.x) / 2 + c * (3 * facing + riderShift) + s * 43,
       y: (rear.y + front.y) / 2 + s * (3 * facing + riderShift) - c * 43
@@ -383,9 +392,9 @@ Big physics.</h2>
   }
 
   // Verlet integration: two tires joined by an elastic distance constraint.
-  function integrate(p, drive, speedLimit, lean, leanTorque, driveGrip, braking) {
-    let vx = (p.x - p.ox) * (p.grounded ? .9994 : .9996);
-    let vy = (p.y - p.oy) * .9996;
+  function integrate(p, drive, speedLimit, lean, leanTorque, driveGrip, brakeGrip, braking) {
+    let vx = (p.x - p.ox) * (p.grounded ? .9997 : .9998);
+    let vy = (p.y - p.oy) * .9998;
     let ax = 0, ay = 630;
 
     if (p.grounded) {
@@ -395,13 +404,20 @@ Big physics.</h2>
       const tangentialVelocity = vx * tx + vy * ty;
 
       if (braking) {
-        const brakeAmount = 1 - Math.exp(-3.8 * driveGrip * STEP);
-        vx -= tx * tangentialVelocity * brakeAmount;
-        vy -= ty * tangentialVelocity * brakeAmount;
+        // Both wheels brake, with a stronger front-wheel bias. Clamping the
+        // low-speed velocity makes the brake hold instead of merely adding drag.
+        const brakeStep = 1500 * brakeGrip * STEP * STEP;
+        const reduction = clamp(tangentialVelocity, -brakeStep, brakeStep);
+        vx -= tx * reduction;
+        vy -= ty * reduction;
       } else if (drive) {
         const tangentialSpeed = tangentialVelocity / STEP;
-        if (tangentialSpeed * Math.sign(drive) < speedLimit) {
-          const power = drive * driveGrip;
+        const speedRatio = clamp(tangentialSpeed * Math.sign(drive) / speedLimit, 0, 1);
+        if (speedRatio < 1) {
+          const torqueCurve = .28 + .72 * (1 - speedRatio);
+          const uphillLoad = clamp(-slope * Math.sign(drive), 0, 1);
+          const climbTorque = 1 + uphillLoad * 1.4 * (1 - speedRatio);
+          const power = drive * driveGrip * torqueCurve * climbTorque;
           ax += tx * power;
           ay += ty * power;
         }
@@ -431,7 +447,7 @@ Big physics.</h2>
       const intoGround = vx * nx + vy * ny;
       if (intoGround < 0) {
         const impactSpeed = -intoGround / STEP;
-        const restitution = impactSpeed > 45 ? .24 : 0;
+        const restitution = impactSpeed > 28 ? clamp(.22 + impactSpeed / 700, .22, .42) : 0;
         vx -= nx * intoGround * (1 + restitution);
         vy -= ny * intoGround * (1 + restitution);
       }
@@ -461,13 +477,35 @@ Big physics.</h2>
     elapsed += STEP;
     const leanInput = Number(down('forward')) - Number(down('back'));
     const leanTarget = leanInput;
-    leanControl = lerp(leanControl, leanTarget, 1 - Math.exp(-4 * STEP));
+    leanControl = lerp(leanControl, leanTarget, 1 - Math.exp(-5.8 * STEP));
     const accelerating = down('up'), braking = down('down');
-    const drive = accelerating && !braking ? facing * 1000 : 0;
+    const throttleTarget = accelerating && !braking ? 1 : 0;
+    const throttleRate = throttleTarget > throttle ? 1.1 : 4;
+    throttle = lerp(throttle, throttleTarget, 1 - Math.exp(-throttleRate * STEP));
+    brakePressure = lerp(brakePressure, braking ? 1 : 0, 1 - Math.exp(-(braking ? 10 : 14) * STEP));
+    const drive = facing * 800 * throttle;
     const speedLimit = 340;
+    const grounded = rear.grounded || front.grounded;
+    const bikeSpeed = ((rear.x - rear.ox) + (front.x - front.ox)) / (2 * STEP);
+    const speedFactor = clamp(Math.abs(bikeSpeed) / 300, 0, 1);
+    const midSlope = terrain((rear.x + front.x) / 2).slope;
+    const uphill = clamp(-midSlope * facing, 0, 1);
+    const downhill = clamp(midSlope * facing, 0, 1);
+    // Front bias grows with speed while the rear remains useful for stability.
+    const frontBrakeGrip = (.72 + speedFactor * .28) * brakePressure;
+    const rearBrakeGrip = (.55 - speedFactor * .2) * brakePressure;
+    // Braking pitches with travel; rear-wheel drive reacts the other way.
+    // Downhill speed transfers additional weight onto the front wheel.
+    const brakePitch = braking && grounded
+      ? clamp(bikeSpeed / 220 * brakePressure * (1 + downhill * .55), -1.2, 1.2)
+      : 0;
+    const throttlePitch = accelerating && !braking && grounded
+      ? -facing * throttle * (.2 + uphill * .95)
+      : 0;
+    const effectiveLean = clamp(leanControl + brakePitch + throttlePitch, -1.45, 1.45);
     // On the ground the rider's shifted weight can unload either wheel;
     // in the air, lower torque keeps rotation deliberate and momentum-led.
-    const leanTorque = rear.grounded || front.grounded ? 820 : 300;
+    const leanTorque = grounded ? 820 : 300;
 
     // Mild angular damping makes small corrective taps more controllable.
     const dx = front.x - rear.x, dy = front.y - rear.y;
@@ -475,12 +513,12 @@ Big physics.</h2>
     const px = -dy / length, py = dx / length;
     const relative = ((front.x - front.ox) - (rear.x - rear.ox)) * px
       + ((front.y - front.oy) - (rear.y - rear.oy)) * py;
-    const damping = relative * (Math.abs(leanControl) > .02 ? .001 : .005);
+    const damping = relative * (Math.abs(effectiveLean) > .02 ? .001 : .005);
     front.ox += px * damping; front.oy += py * damping;
     rear.ox -= px * damping; rear.oy -= py * damping;
 
-    integrate(rear, drive, speedLimit, leanControl, leanTorque, facing > 0 ? 1 : .8, braking);
-    integrate(front, drive, speedLimit, leanControl, leanTorque, facing > 0 ? .8 : 1, braking);
+    integrate(rear, drive, speedLimit, effectiveLean, leanTorque, facing > 0 ? 1 : 0, facing > 0 ? rearBrakeGrip : frontBrakeGrip, braking);
+    integrate(front, drive, speedLimit, effectiveLean, leanTorque, facing > 0 ? 0 : 1, facing > 0 ? frontBrakeGrip : rearBrakeGrip, braking);
 
     for (let i = 0; i < 7; i++) {
       const x = front.x - rear.x, y = front.y - rear.y;
@@ -493,7 +531,9 @@ Big physics.</h2>
 
     for (const p of [rear, front]) {
       const slope = terrain(p.x).slope;
-      p.spin += ((p.x - p.ox) + slope * (p.y - p.oy)) / Math.hypot(1, slope) / RADIUS;
+      if (!(braking && p.grounded)) {
+        p.spin += ((p.x - p.ox) + slope * (p.y - p.oy)) / Math.hypot(1, slope) / RADIUS;
+      }
     }
 
     const head = headPosition();
@@ -529,7 +569,7 @@ Big physics.</h2>
       }
     }
 
-    leanVisual = lerp(leanVisual, leanControl * facing, .025);
+    leanVisual = lerp(leanVisual, leanInput, 1 - Math.exp(-7 * STEP));
   }
 
   function updateHud() {
@@ -554,10 +594,12 @@ Big physics.</h2>
 
   function drawBackground() {
     ctx.fillStyle = level.sky; ctx.fillRect(0, 0, W, H);
-    circle(292 - cameraX * .015, 85 - cameraY * .08, 39, level.sun);
+    circle(W * .77 - cameraX * .015, 85 - cameraY * .08, 39, level.sun);
     ctx.fillStyle = '#f8f7e9'; ctx.globalAlpha = .68;
-    for (let i = 0; i < 4; i++) {
-      const x = ((i * 147 + 55 - cameraX * .07) % 630 + 630) % 630 - 100;
+    const firstCloud = Math.floor(cameraX * .07 / 147) - 1;
+    const cloudCount = Math.ceil(W / 147) + 2;
+    for (let i = firstCloud; i < firstCloud + cloudCount; i++) {
+      const x = i * 147 + 55 - cameraX * .07;
       const y = 65 + Math.sin(i * 4) * 23 - cameraY * .08;
       ctx.beginPath(); ctx.ellipse(x, y, 24, 3, 0, 0, TAU); ctx.fill();
       ctx.beginPath(); ctx.ellipse(x + 25, y + 6, 38, 2, 0, 0, TAU); ctx.fill();
@@ -577,7 +619,7 @@ Big physics.</h2>
       ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
     });
     // Sparse, parallax orchard silhouettes.
-    for (let i = -1; i < 7; i++) {
+    for (let i = -1; i < Math.ceil(W / 96) + 2; i++) {
       const wx = Math.floor(cameraX * .4 / 96) * 96 + i * 96;
       const x = wx - cameraX * .4;
       const y = 271 + Math.sin(wx * .03) * 9 - cameraY * .35;
@@ -695,10 +737,16 @@ Big physics.</h2>
     const mx = (rear.x + front.x) / 2, my = (rear.y + front.y) / 2;
     const angle = Math.atan2(front.y-rear.y,front.x-rear.x);
     const length = Math.hypot(front.x-rear.x,front.y-rear.y);
-    const ground = terrain(mx).y;
-    const shadowAlpha = clamp(1-(ground-my)/170,0,.2);
+    const ground = terrain(mx);
+    const heightAboveGround = Math.max(0, ground.y - my - RADIUS);
+    const shadowAlpha = clamp(.22 - heightAboveGround / 700, .035, .22);
+    const shadowWidth = clamp(35 - heightAboveGround * .07, 13, 35);
+    ctx.save();
+    ctx.translate(mx, ground.y - 1);
+    ctx.rotate(Math.atan(ground.slope));
     ctx.fillStyle = 'rgba(31,53,39,' + shadowAlpha + ')';
-    ctx.beginPath(); ctx.ellipse(mx,ground-1,34,4,0,0,TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0,0,shadowWidth,3.5,0,0,TAU); ctx.fill();
+    ctx.restore();
 
     drawWheel(rear); drawWheel(front);
     ctx.save(); ctx.translate(mx,my); ctx.rotate(angle); ctx.scale(flipVisual, 1);
@@ -733,8 +781,9 @@ Big physics.</h2>
 
   function render(now, dt) {
     const midX = (rear.x + front.x)/2, midY = (rear.y + front.y)/2;
-    const targetX = Math.max(0, midX - (facing > 0 ? 115 : 265));
-    const targetY = clamp(midY - 276, -170, 100);
+    const lead = clamp(W * .3, 115, 260);
+    const targetX = Math.max(0, midX - (facing > 0 ? lead : W - lead));
+    const targetY = clamp(midY - H * .67, -H * .42, 100);
     const smoothing = 1 - Math.exp(-8 * dt);
     const flipSmoothing = reducedMotion ? 1 : 1 - Math.exp(-18 * dt);
     flipVisual = lerp(flipVisual, facing, flipSmoothing);
@@ -764,10 +813,13 @@ Big physics.</h2>
 
   function resizeCanvas() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
-    const scale = canvas.getBoundingClientRect().width / W * dpr;
-    canvas.width = Math.round(W * scale);
-    canvas.height = Math.round(H * scale);
-    ctx.setTransform(canvas.width/W,0,0,canvas.height/H,0,0);
+    const rect = canvas.getBoundingClientRect();
+    const worldScale = clamp(rect.width / 760, 1, 1.45);
+    W = Math.max(320, rect.width / worldScale);
+    H = Math.max(340, rect.height / worldScale);
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr * worldScale,0,0,dpr * worldScale,0,0);
   }
 
   actionButtons.forEach(button => {
