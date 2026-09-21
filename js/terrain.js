@@ -1,4 +1,5 @@
 import { lerp, TERRAIN_SAMPLE_SPACING } from './config.js';
+import { sweepCircleSegment } from './physics.js';
 
 export function curveAt(points, x) {
   let y = points[0][1];
@@ -35,6 +36,30 @@ export function terrainSurfacesAt(level, x) {
 
 const platformPolygons = new WeakMap();
 const terrainGeometryCache = new WeakMap();
+
+export function invalidateTerrain(level) {
+  terrainGeometryCache.delete(level);
+}
+
+export function pathSegments(path) {
+  const points = path.points || [];
+  const segments = [];
+  for (let index = 1; index < points.length; index++) segments.push([points[index - 1], points[index]]);
+  if (path.closed && points.length > 2) segments.push([points.at(-1), points[0]]);
+  return segments;
+}
+
+export function pathBounds(path) {
+  const radius = (path.thickness || 32) / 2;
+  const xs = path.points.map(point => point[0]);
+  const ys = path.points.map(point => point[1]);
+  return {
+    left: Math.min(...xs) - radius,
+    right: Math.max(...xs) + radius,
+    top: Math.min(...ys) - radius,
+    bottom: Math.max(...ys) + radius
+  };
+}
 
 export function invalidatePlatform(platform) {
   platformPolygons.delete(platform);
@@ -119,7 +144,18 @@ function collisionGeometry(level) {
       polygon: platformPolygon(platform)
     });
   }
+  for (const path of level.paths || []) {
+    bodies.push({
+      kind: 'path',
+      material: path.material || level.terrain || 'grass',
+      path,
+      segments: pathSegments(path),
+      pathRadius: (path.thickness || 32) / 2,
+      bounds: pathBounds(path)
+    });
+  }
   for (const body of bodies) {
+    if (body.bounds) continue;
     const xs = body.polygon.map(point => point[0]);
     const ys = body.polygon.map(point => point[1]);
     body.bounds = { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) };
@@ -163,15 +199,92 @@ function circlePolygonContact(body, x, y, radius) {
     platform: body.platform || null,
     nx,
     ny,
+    tangentX: nearest.dx / (Math.hypot(nearest.dx, nearest.dy) || 1),
+    tangentY: nearest.dy / (Math.hypot(nearest.dx, nearest.dy) || 1),
+    pointX: nearest.nearestX,
+    pointY: nearest.nearestY,
     penetration: inside ? radius + nearest.distance : radius - nearest.distance
+  };
+}
+
+function circlePathContact(body, x, y, radius) {
+  const { bounds, pathRadius } = body;
+  const reach = radius + pathRadius;
+  if (x < bounds.left - radius || x > bounds.right + radius || y < bounds.top - radius || y > bounds.bottom + radius) return null;
+  let nearest = null;
+  for (const [a, b] of body.segments) {
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    const lengthSquared = dx * dx + dy * dy || 1;
+    const amount = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / lengthSquared));
+    const nearestX = a[0] + dx * amount, nearestY = a[1] + dy * amount;
+    const distance = Math.hypot(x - nearestX, y - nearestY);
+    if (!nearest || distance < nearest.distance) nearest = { distance, nearestX, nearestY, dx, dy };
+  }
+  if (!nearest || nearest.distance >= reach) return null;
+  let nx, ny;
+  if (nearest.distance > .0001) {
+    nx = (x - nearest.nearestX) / nearest.distance;
+    ny = (y - nearest.nearestY) / nearest.distance;
+  } else {
+    const length = Math.hypot(nearest.dx, nearest.dy) || 1;
+    nx = nearest.dy / length;
+    ny = -nearest.dx / length;
+  }
+  return {
+    kind: body.kind,
+    y: nearest.nearestY,
+    slope: Math.abs(nearest.dx) > .0001 ? nearest.dy / nearest.dx : 0,
+    solid: true,
+    material: body.material,
+    path: body.path,
+    nx,
+    ny,
+    tangentX: nearest.dx / (Math.hypot(nearest.dx, nearest.dy) || 1),
+    tangentY: nearest.dy / (Math.hypot(nearest.dx, nearest.dy) || 1),
+    pointX: nearest.nearestX + nx * pathRadius,
+    pointY: nearest.nearestY + ny * pathRadius,
+    penetration: reach - nearest.distance
   };
 }
 
 export function terrainCollisionsAt(level, x, y, radius) {
   return collisionGeometry(level)
-    .map(body => circlePolygonContact(body, x, y, radius))
+    .map(body => body.segments ? circlePathContact(body, x, y, radius) : circlePolygonContact(body, x, y, radius))
     .filter(Boolean)
     .sort((a, b) => b.penetration - a.penetration);
+}
+
+export function terrainSweepCollision(level, fromX, fromY, toX, toY, radius) {
+  let earliest = null;
+  for (const body of collisionGeometry(level)) {
+    const sweepRadius = radius + (body.pathRadius || 0);
+    const sweepLeft = Math.min(fromX, toX) - sweepRadius;
+    const sweepRight = Math.max(fromX, toX) + sweepRadius;
+    const sweepTop = Math.min(fromY, toY) - sweepRadius;
+    const sweepBottom = Math.max(fromY, toY) + sweepRadius;
+    if (sweepRight < body.bounds.left || sweepLeft > body.bounds.right || sweepBottom < body.bounds.top || sweepTop > body.bounds.bottom) continue;
+    const segments = body.segments || body.polygon.map((point, index) => [point, body.polygon[(index + 1) % body.polygon.length]]);
+    for (const [a, b] of segments) {
+      const hit = sweepCircleSegment(fromX, fromY, toX, toY, sweepRadius, a[0], a[1], b[0], b[1]);
+      if (!hit || (earliest && hit.time >= earliest.time)) continue;
+      const motionX = toX - fromX, motionY = toY - fromY;
+      // Ignore an edge when motion is away from its candidate normal.
+      if (motionX * hit.nx + motionY * hit.ny >= 0) continue;
+      earliest = {
+        ...hit,
+        kind: body.kind,
+        material: body.material,
+        platform: body.platform || null,
+        path: body.path || null,
+        slope: Math.abs(b[0] - a[0]) > .0001 ? (b[1] - a[1]) / (b[0] - a[0]) : 0,
+        tangentX: (b[0] - a[0]) / (Math.hypot(b[0] - a[0], b[1] - a[1]) || 1),
+        tangentY: (b[1] - a[1]) / (Math.hypot(b[0] - a[0], b[1] - a[1]) || 1),
+        penetration: 0,
+        swept: true
+      };
+    }
+  }
+  return earliest;
 }
 
 export function terrainAt(level, x, referenceY = null) {

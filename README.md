@@ -153,10 +153,10 @@ Shared interface colors, spacing, corner radii, typography, and pixel-shadow val
 
 ### Physics
 
-The bike uses two Verlet-integrated wheel points connected by an elastic distance constraint. The simulation runs at a fixed 120 Hz step and includes:
+The stable default bike uses the original Verlet wheelbase solver. An experimental version 2 connects Verlet-integrated wheels through compliant suspension to a rigid XPBD chassis triangle. The simulation runs at a fixed 120 Hz step and includes:
 
-- Gravity and terrain-normal collision resolution
-- Rear-wheel traction
+- Gravity, static overlap correction, and swept circle collision
+- Angular wheel dynamics and contact-slip traction
 - Progressive throttle pressure
 - Speed-dependent engine torque
 - Slope-aware climbing torque
@@ -164,13 +164,14 @@ The bike uses two Verlet-integrated wheel points connected by an elastic distanc
 - Rider lean torque and weight transfer
 - Momentum preservation in the air and on the ground
 - Impact-dependent restitution
-- Independent visual suspension state for each wheel
+- Independent physical and visual suspension state for each wheel
+- An experimental version 2 solver selectable with `?physicsVersion=2`
 
 The physics are deliberately game-oriented rather than a complete real-world motorcycle simulation.
 
 ### Terrain and levels
 
-Trails use smooth curves defined by control points. Wheel collision tessellates those curves into closed terrain polygons and resolves against the nearest edge or corner, including steep faces. A level can also define any number of elevated solid platforms with independent curved points, thickness, and terrain material. Platform tops, undersides, side walls, and corners participate in collision, and gaps are represented by real breaks with solid cliff walls. Levels can also define collectibles, props, visual colors, a finish position, and weather.
+Trails use smooth curves defined by control points. Wheel collision tessellates those curves into closed terrain polygons and resolves against the nearest edge or corner, including steep faces. A level can also define elevated solid platforms and authored-order thick paths. Paths may double back along x or close into loops; rendering, collision, validation, and editor handles all use the same path centerline and thickness. Platform tops, undersides, side walls, corners, path sides, and path caps participate in collision, and gaps are represented by real breaks with solid cliff walls. Levels can also define collectibles, props, visual colors, a finish position, and weather.
 
 See [`LEVEL_FORMAT.md`](./LEVEL_FORMAT.md) for the complete schema, coordinate system, examples, and design guidelines. The staged collision, suspension, traction, and loop roadmap is documented in [`PHYSICS_NEXT_STEPS.md`](./PHYSICS_NEXT_STEPS.md). Configure rain and lightning independently with `weather: { rain: 0–1, lightning: 0–1 }`. Either property can be omitted, so a trail may have rain, lightning, both, or clear weather.
 
@@ -192,7 +193,9 @@ The logical viewport and camera framing adapt to mobile and desktop dimensions.
 
 The game is currently a **design and physics prototype**. Its most important asset is the accumulated handling behavior: throttle response, braking, rider lean, suspension, momentum, and camera feel.
 
-To investigate a sudden physics launch, open the game with `?physicsDebug=1` and reproduce it. The console automatically prints the detected spike as expanded JSON. Run `pocketTrialsPhysicsDebug.dumpSpike()` to print it again or `pocketTrialsPhysicsDebug.copySpike()` to copy it. The rolling trace keeps the latest 360 simulation frames; `dump()` and `copy()` expose the latest 120. Traces include wheel velocities, steep-segment probes, every wheelbase correction, and collision responses.
+To investigate physics, open the game with `?physicsVersion=2&physicsDebug=1`. The overlay shows particles, constraints, contact normals, and center of mass. The console automatically prints detected spikes as expanded JSON. Run `pocketTrialsPhysicsDebug.dumpSpike()` or `copySpike()` for the latest spike, and `dump()` or `copy()` for the latest 120 frames. Record deterministic input with `startRecording()` and `stopRecording()`, then replay the returned array with `replay(inputs)`; call `stopReplay()` to return to live controls. Traces include wheel velocities, angular/contact state, v2 torque components, suspension lengths, chassis area, constraints, traction, and collision responses.
+
+`npm test` also runs the DOM-independent version 2 vehicle harness in `scripts/test-vehicle-physics.mjs`. It exercises flat acceleration, braking versus coasting, stationary wheel lift, air rotation, mirrored hills, valley settling, and one-wheel landing through the exact `js/vehicle-physics.js` code used by the game.
 
 When changing physics values, validate at least these cases:
 

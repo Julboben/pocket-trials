@@ -15,6 +15,8 @@ export function createBlankLevel(index = 0) {
     points: [[0, 320], [180, 320], [420, 270], [680, 330], [940, 280], [1320, 300]],
     gaps: [],
     platforms: [],
+    paths: [],
+    physicsVersion: 1,
     apples: [
       { x: 260, y: null },
       { x: 470, y: null },
@@ -40,6 +42,7 @@ export function normalizeLevel(input, index = 0) {
   level.goal = Number(level.goal) || fallback.goal;
   level.fallY = Number(level.fallY) || fallback.fallY;
   level.terrain = terrainMaterials[level.terrain] ? level.terrain : 'grass';
+  level.physicsVersion = Number(level.physicsVersion) === 2 ? 2 : 1;
   level.points = Array.isArray(level.points) && level.points.length >= 2
     ? level.points.map(point => [Number(point[0]), Number(point[1])]).sort((a, b) => a[0] - b[0])
     : fallback.points;
@@ -52,6 +55,13 @@ export function normalizeLevel(input, index = 0) {
     thickness: Math.max(16, Number(platform.thickness) || 48),
     material: terrainMaterials[platform.material] ? platform.material : level.terrain
   })).filter(platform => platform.points.length >= 2) : [];
+  level.paths = Array.isArray(level.paths) ? level.paths.map(path => ({
+    ...path,
+    points: (path.points || []).map(point => [Number(point[0]), Number(point[1])]),
+    closed: Boolean(path.closed),
+    thickness: Math.max(16, Number(path.thickness) || 32),
+    material: terrainMaterials[path.material] ? path.material : level.terrain
+  })).filter(path => path.points.length >= (path.closed ? 3 : 2)) : [];
   const start = level.start || fallback.start;
   level.start = {
     x: Number(start.x) || 90,
@@ -91,6 +101,17 @@ export function validateLevel(level) {
     if (gap[1] <= gap[0]) error(`Gap ${index + 1} has an invalid range.`);
     if (gap[1] - gap[0] > 160) warning(`Gap ${index + 1} is wider than 160 units and may be difficult.`);
     if (level.goal > gap[0] && level.goal < gap[1]) error(`The finish is inside gap ${index + 1}.`);
+  }
+  for (const [index, path] of (level.paths || []).entries()) {
+    if (!terrainMaterials[path.material]) error(`Path ${index + 1} has an unknown material.`);
+    if (!Number.isFinite(path.thickness) || path.thickness < 16) error(`Path ${index + 1} thickness must be at least 16.`);
+    if (!Array.isArray(path.points) || path.points.length < (path.closed ? 3 : 2)) error(`Path ${index + 1} needs at least ${path.closed ? 3 : 2} points.`);
+    for (let pointIndex = 0; pointIndex < path.points.length; pointIndex++) {
+      const point = path.points[pointIndex];
+      if (!Number.isFinite(point?.[0]) || !Number.isFinite(point?.[1])) error(`Path ${index + 1} point ${pointIndex + 1} must contain finite coordinates.`);
+      if (pointIndex > 0 && Math.hypot(point[0] - path.points[pointIndex - 1][0], point[1] - path.points[pointIndex - 1][1]) < 1) error(`Path ${index + 1} has coincident consecutive points.`);
+    }
+    if (path.closed && path.points.length > 2 && Math.hypot(path.points[0][0] - path.points.at(-1)[0], path.points[0][1] - path.points.at(-1)[1]) < 1) error(`Path ${index + 1} is closed automatically; remove its repeated final point.`);
   }
   for (const [index, platform] of (level.platforms || []).entries()) {
     if (!terrainMaterials[platform.material]) error(`Platform ${index + 1} has an unknown material.`);

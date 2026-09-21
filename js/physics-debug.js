@@ -6,6 +6,10 @@ export function createPhysicsDebugger({ enabled, step, inspectPoint }) {
   let frame = null;
   let iteration = -1;
   let lastAlert = -Infinity;
+  let recording = false;
+  let recordedInputs = [];
+  let replayInputs = [];
+  let replayIndex = 0;
 
   function snapshot(point) {
     return {
@@ -14,6 +18,13 @@ export function createPhysicsDebugger({ enabled, step, inspectPoint }) {
       vx: round((point.x - point.ox) / step),
       vy: round((point.y - point.oy) / step),
       grounded: point.grounded,
+      angularVelocity: round(point.angularVelocity || 0),
+      contact: point.contact ? {
+        kind: point.contact.kind,
+        nx: round(point.contact.nx),
+        ny: round(point.contact.ny),
+        swept: Boolean(point.contact.swept)
+      } : null,
       ...inspectPoint(point, round)
     };
   }
@@ -24,13 +35,25 @@ export function createPhysicsDebugger({ enabled, step, inspectPoint }) {
       time: round(metadata.time),
       level: metadata.level,
       source: metadata.source,
+      physicsVersion: metadata.physicsVersion,
       facing: metadata.facing,
       throttle: round(metadata.throttle),
       before: { rear: snapshot(rear), front: snapshot(front) },
       maxConstraintCorrection: 0,
       constraints: [],
-      contacts: []
+      contacts: [],
+      traction: []
     };
+  }
+
+  function recordInput(input) {
+    if (frame) frame.input = { ...input };
+    if (recording) recordedInputs.push({ ...input });
+  }
+
+  function nextReplayInput() {
+    if (replayIndex >= replayInputs.length) return null;
+    return replayInputs[replayIndex++];
   }
 
   function capture(name, rear, front) {
@@ -78,6 +101,24 @@ export function createPhysicsDebugger({ enabled, step, inspectPoint }) {
       velocityBeforeY: round(beforeVy / step),
       velocityAfterX: round(afterVx / step),
       velocityAfterY: round(afterVy / step)
+    });
+  }
+
+  function recordDynamics(values) {
+    if (!frame) return;
+    frame.dynamics = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, round(value)]));
+  }
+
+  function recordTraction(wheel, result, point) {
+    if (!frame) return;
+    frame.traction.push({
+      wheel,
+      slip: round(result.slip),
+      normalImpulse: round(result.normalImpulse),
+      tangentImpulse: round(result.tangentImpulse),
+      angularVelocity: round(point.angularVelocity || 0),
+      vx: round((point.x - point.ox) / step),
+      vy: round((point.y - point.oy) / step)
     });
   }
 
@@ -129,6 +170,14 @@ export function createPhysicsDebugger({ enabled, step, inspectPoint }) {
     frames,
     spikes,
     clear() { frames.length = 0; spikes.length = 0; },
+    startRecording() { recordedInputs = []; recording = true; },
+    stopRecording() { recording = false; return recordedInputs.map(input => ({ ...input })); },
+    replay(inputs) {
+      replayInputs = Array.isArray(inputs) ? inputs.map(input => ({ ...input })) : [];
+      replayIndex = 0;
+      return replayInputs.length;
+    },
+    stopReplay() { replayInputs = []; replayIndex = 0; },
     dump() {
       const trace = frames.slice(-120);
       console.log('[Pocket Trials] Physics trace', trace);
@@ -152,5 +201,5 @@ export function createPhysicsDebugger({ enabled, step, inspectPoint }) {
   globalThis.pocketTrialsPhysicsDebug = publicApi;
   if (enabled) console.info('[Pocket Trials] Physics tracing enabled. Reproduce a spike, then run pocketTrialsPhysicsDebug.dumpSpike() or copySpike().');
 
-  return { begin, capture, setIteration, recordConstraint, recordContactsResolved, recordContact, finish };
+  return { begin, recordInput, nextReplayInput, capture, setIteration, recordConstraint, recordContactsResolved, recordContact, recordDynamics, recordTraction, finish };
 }
