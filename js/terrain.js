@@ -298,3 +298,17 @@ export function terrainAt(level, x, referenceY = null) {
   const surface = surfaces.find(candidate => candidate.y >= referenceY - .5);
   return surface || { y: level.fallY || 620, slope: 0, solid: false, material: level.terrain || 'grass', platform: null };
 }
+
+export function seatedSurfaceAt(level, x, y, tolerance = 12) {
+  if (y == null || !Number.isFinite(y)) {
+    const ground = terrainAt(level, x);
+    return ground.solid ? ground : null;
+  }
+  let nearest = null;
+  for (const surface of terrainSurfacesAt(level, x)) {
+    const distance = Math.abs(surface.y - y);
+    if (distance > tolerance || (nearest && distance >= Math.abs(nearest.y - y))) continue;
+    nearest = surface;
+  }
+  return nearest;
+}

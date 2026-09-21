@@ -1,6 +1,6 @@
 import { levelEntries, terrainMaterials } from './levels.js';
 import { curveAt, platformPolygon, pointInPlatform, invalidatePlatform, invalidateTerrain, pathBounds, pathSegments } from './terrain.js';
-import { createDrawingTools, createGameArt } from './drawing.js';
+import { createDrawingTools, createGameArt, propAlignmentSlope, propGroundOffset } from './drawing.js';
 import { cloneLevel, createBlankLevel, normalizeLevel, validateLevel, levelToModule } from './level-schema.js';
 
 const $ = id => document.getElementById(id);
@@ -180,7 +180,9 @@ function objectY(object, offset = 0) {
 }
 
 function drawProps() {
-  for (const prop of level.props || []) art.drawProp(prop.type, prop.x, objectY(prop), prop.layer === 'front' ? 1 : .82);
+  for (const prop of level.props || []) {
+    art.drawProp(prop.type, prop.x, objectY(prop), prop.layer === 'front' ? 1 : .82, propAlignmentSlope(level, prop), propGroundOffset(level, prop));
+  }
 }
 
 function drawObjects() {

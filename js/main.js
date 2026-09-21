@@ -12,7 +12,7 @@ import { createAudio } from './audio.js';
 import { solveDistanceConstraint, constrainDistanceVelocity, advanceAfterTimeOfImpact } from './physics.js';
 import { createVersion2Vehicle, stepVersion2Vehicle, version2VehicleMetrics } from './vehicle-physics.js';
 import { createPhysicsDebugger } from './physics-debug.js';
-import { createDrawingTools, createGameArt } from './drawing.js';
+import { createDrawingTools, createGameArt, propAlignmentSlope, propGroundOffset } from './drawing.js';
 import { terrainAt, terrainSegmentSlopeAt, terrainCollisionsAt, terrainSweepCollision, platformPolygon, pathBounds } from './terrain.js';
 import {
   loadPreferences,
@@ -1226,7 +1226,7 @@ import {
     if(prop.x<cameraX-70||prop.x>cameraX+W+70)return;
     const ground=terrain(prop.x);if(!ground.solid&&!Number.isFinite(prop.y))return;
     const y=Number.isFinite(prop.y)?prop.y:ground.y;
-    gameArt.drawProp(prop.type, prop.x, y, layer==='front'?1:.82);
+    gameArt.drawProp(prop.type, prop.x, y, layer==='front'?1:.82, propAlignmentSlope(level, prop), propGroundOffset(level, prop));
   }
 
 

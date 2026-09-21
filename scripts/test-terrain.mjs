@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import { terrainCollisionsAt, terrainSweepCollision, pathSegments } from '../js/terrain.js';
+import { readFileSync } from 'node:fs';
+import { terrainCollisionsAt, terrainSweepCollision, pathSegments, seatedSurfaceAt, curveAt } from '../js/terrain.js';
+import { propAlignmentSlope, propDrawAngle, propGroundOffset } from '../js/drawing.js';
 
 const flatGapLevel = {
   points: [[0, 100], [300, 100]],
@@ -64,5 +66,48 @@ const overhangLevel = {
 };
 assert.ok(terrainCollisionsAt(overhangLevel, 208, 130, 6).some(contact => contact.kind === 'path'), 'paths may move backward along x');
 assert.ok(terrainCollisionsAt(overhangLevel, 250, 70, 6).some(contact => contact.kind === 'path'), 'open path endpoints have solid caps');
+
+const hillLevel = {
+  points: [[0, 100], [200, 300]],
+  gaps: [[140, 180]],
+  platforms: [{ points: [[40, 40], [160, 80]], thickness: 30, material: 'rock' }],
+  terrain: 'grass',
+  fallY: 500
+};
+const hillMid = curveAt(hillLevel.points, 100);
+assert.ok(Math.abs(seatedSurfaceAt(hillLevel, 100, null).slope - hillMid.slope) < 1e-9, 'ground-anchored props sit on the base curve');
+assert.equal(seatedSurfaceAt(hillLevel, 160, null), null, 'ground-anchored props inside a gap have no surface');
+assert.equal(seatedSurfaceAt(hillLevel, 100, hillMid.y - 40), null, 'a prop floating above the hill stays unseated');
+assert.equal(seatedSurfaceAt(hillLevel, 100, hillMid.y)?.y, hillMid.y, 'a prop resting on the hill uses that surface');
+const platformY = curveAt(hillLevel.platforms[0].points, 80).y;
+assert.equal(seatedSurfaceAt(hillLevel, 80, platformY).platform, hillLevel.platforms[0], 'a prop resting on a platform uses that platform');
+
+const fence = { x: 100, y: null, type: 'fence' };
+const tree = { x: 100, y: null, type: 'tree' };
+const flowers = { x: 80, y: platformY, type: 'flowers' };
+const rock = { x: 80, y: platformY, type: 'rock' };
+assert.equal(propAlignmentSlope(hillLevel, tree), 0, 'trees stay upright');
+assert.equal(propAlignmentSlope(hillLevel, flowers), 0, 'flowers stay upright');
+assert.ok(propAlignmentSlope(hillLevel, fence) > .5, 'fences follow the hill under their footprint');
+assert.ok(propAlignmentSlope(hillLevel, rock) > .3, 'rocks follow the platform under their footprint');
+assert.equal(propDrawAngle('tree', 1), 0, 'upright props ignore slope when drawn');
+assert.equal(propDrawAngle('stump', 1), 0, 'stumps stay upright');
+assert.equal(propDrawAngle('crystal', 1), 0, 'crystals stay upright');
+assert.ok(Math.abs(propDrawAngle('fence', 1) - Math.atan(1)) < 1e-9, 'fences rotate to the ground angle');
+
+const rolling = JSON.parse(readFileSync(new URL('../levels/official/02-rolling-country.json', import.meta.url)));
+const rollingFence = rolling.props.find(prop => prop.type === 'fence');
+const rollingTree = rolling.props.find(prop => prop.type === 'tree');
+assert.ok(Math.abs(propAlignmentSlope(rolling, rollingFence)) > .2, 'rolling-country fences sit on the hillside');
+assert.equal(propAlignmentSlope(rolling, rollingTree), 0, 'rolling-country trees stay upright on the hillside');
+
+const treeBase = propGroundOffset(hillLevel, tree);
+const flowerBase = propGroundOffset(hillLevel, flowers);
+const floatingTree = propGroundOffset(hillLevel, { x: 100, y: hillMid.y - 40, type: 'tree' });
+assert.equal(treeBase(0), 0, 'an upright prop stays planted at its anchor');
+assert.ok(treeBase(8) > treeBase(-8), 'tree trunks meet the downhill side of the hill');
+assert.ok(flowerBase(6) > flowerBase(-6), 'each flower is planted on the slope under it');
+assert.equal(floatingTree(8), 0, 'a floating prop keeps a level base');
+assert.ok(propGroundOffset(rolling, rollingTree)(6) !== 0, 'rolling-country trees meet the hillside at the trunk');
 
 console.log('Terrain polygon, path, and sweep collision tests passed.');
