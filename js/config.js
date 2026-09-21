@@ -33,27 +33,36 @@ export const SUSPENSION_REST_LENGTH = 20;
 export const SUSPENSION_TRAVEL = 13;
 export const WHEEL_INERTIA = .5;
 export const WHEEL_FRICTION = .92;
-// Version 2 physical controls. These do not modify or derive behavior from
-// the legacy direct-force handling model.
+// Version 2 physical controls. Acceleration, top speed, rider lean, and
+// throttle/brake pitch are tuned to version 1. The forces still come from
+// tire torque and the chassis, not from version 1's direct wheel pushes.
 export const XPBD_CHASSIS_MOUNT_INVERSE_MASS = .65;
 export const XPBD_CHASSIS_TOP_INVERSE_MASS = .5;
-// Drive and chassis reaction are tuned separately: stronger wheel torque adds
-// speed without making flat-ground throttle pitch the bike over backward.
-export const XPBD_MOTOR_ANGULAR_ACCELERATION = 800;
-export const XPBD_MAX_DRIVE_SPEED = 375;
-export const XPBD_MOTOR_REACTION_SCALE = .08;
-export const XPBD_RIDER_GROUND_ANGULAR_ACCELERATION = 20;
-export const XPBD_RIDER_AIR_ANGULAR_ACCELERATION = 10;
+// No-slip split of version 1's 400 px/s². Grip below is high enough that this
+// torque reaches the ground instead of spinning the driven wheel. Top speed is 340.
+export const XPBD_MOTOR_ANGULAR_ACCELERATION = 708;
+export const XPBD_MAX_DRIVE_SPEED = 340;
+// Full reaction torque. With version 1's drive strength this stays grounded
+// on flat ground and still lifts the front on a climb.
+export const XPBD_MOTOR_REACTION_SCALE = 1;
+export const XPBD_RIDER_GROUND_ANGULAR_ACCELERATION = 26;
+export const XPBD_RIDER_AIR_ANGULAR_ACCELERATION = 12;
 export const XPBD_THROTTLE_LEAN_ASSIST = .12;
-export const XPBD_THROTTLE_INPUT_RESPONSE = 2.6;
-export const XPBD_LEAN_INPUT_RESPONSE = 10;
-export const XPBD_UPHILL_FORWARD_LEAN_REDUCTION = .35;
-export const XPBD_UPHILL_FORWARD_LEAN_MOTOR_BOOST = 1.2;
-export const XPBD_UPHILL_ANTI_WHEELIE_ACCELERATION = 7;
+export const XPBD_THROTTLE_INPUT_RESPONSE = 1.1;
+export const XPBD_LEAN_INPUT_RESPONSE = 5.8;
+export const XPBD_UPHILL_FORWARD_LEAN_REDUCTION = 0;
+export const XPBD_UPHILL_FORWARD_LEAN_MOTOR_BOOST = .25;
+export const XPBD_UPHILL_ANTI_WHEELIE_ACCELERATION = 0;
+// Brake dive follows travel speed, capped at version 1's 1.2 × full-lean pitch.
+export const XPBD_BRAKE_REACTION_SCALE = .85;
+export const XPBD_BRAKE_REACTION_LIMIT = 39.36;
 // Produces approximately version 1's full-pressure braking deceleration.
 export const XPBD_BRAKE_RATE = 64;
+// Brake grip stays moderate. Drive grip is high enough that hitting the gas
+// hooks the tire up instead of spinning it out the way a direct version 1 push does.
 export const XPBD_CONTACT_LOAD_SCALE = 4.5;
-export const XPBD_UPHILL_CONTACT_LOAD_SCALE = 7;
+export const XPBD_DRIVE_LOAD_SCALE = 12;
+export const XPBD_UPHILL_CONTACT_LOAD_SCALE = 16;
 export const XPBD_ROLLING_LOAD_SCALE = 1.35;
 // Two wheel impulses are distributed over the full version 2 mass, so these
 // values reproduce version 1's 105 / 18 px/s² center-of-mass coast losses.

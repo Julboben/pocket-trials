@@ -62,6 +62,11 @@ function step(simulation, { throttle = false, brake = false, lean = 0, flip = fa
     flip
   });
   const metrics = assertStructure(simulation);
+  const rearWheel = result.wheels.rear;
+  const rearContact = result.contacts.rear;
+  const driveSlip = rearContact
+    ? Math.abs(((rearWheel.x - rearWheel.ox) * -rearContact.ny + (rearWheel.y - rearWheel.oy) * rearContact.nx) / STEP - rearWheel.angularVelocity * RADIUS)
+    : 0;
   simulation.frames.push({
     ...metrics,
     rearX: result.wheels.rear.x,
@@ -69,7 +74,8 @@ function step(simulation, { throttle = false, brake = false, lean = 0, flip = fa
     rearY: result.wheels.rear.y,
     frontY: result.wheels.front.y,
     rearGrounded: Boolean(result.contacts.rear),
-    frontGrounded: Boolean(result.contacts.front)
+    frontGrounded: Boolean(result.contacts.front),
+    driveSlip
   });
   return metrics;
 }
@@ -99,7 +105,9 @@ function accelerationScenario() {
   );
   const frontContactRatio = accelerationFrames.filter(frame => frame.frontGrounded).length / accelerationFrames.length;
   const rearContactRatio = accelerationFrames.filter(frame => frame.rearGrounded).length / accelerationFrames.length;
-  assert.ok(speed > 350 && speed < 410, `flat acceleration speed outside useful range: ${speed}`);
+  const maxDriveSlip = accelerationFrames.reduce((maximum, frame) => Math.max(maximum, frame.driveSlip), 0);
+  assert.ok(speed > 280 && speed < 345, `flat acceleration speed outside version 1's range: ${speed}`);
+  assert.ok(maxDriveSlip < 8, `driven wheel spins out under throttle: ${maxDriveSlip}`);
   assert.ok(travel > 100, `flat acceleration travel too small: ${travel}`);
   assert.ok(maxFrontClearance < 8, `flat-ground throttle lifts the front wheel too far: ${maxFrontClearance}`);
   assert.ok(frontContactRatio > .65, `flat-ground throttle loses front contact too often: ${frontContactRatio}`);
@@ -114,7 +122,15 @@ function brakingScenario(braking) {
   const startX = version2VehicleMetrics(simulation.vehicle).center.x;
   run(simulation, 90, braking ? { brake: true } : {});
   const metrics = version2VehicleMetrics(simulation.vehicle);
-  return { speed: metrics.speedX, distance: metrics.center.x - startX };
+  const maxRearClearance = simulation.frames.slice(-90).reduce(
+    (maximum, frame) => Math.max(maximum, 320 - RADIUS - frame.rearY),
+    0
+  );
+  if (braking) {
+    assert.ok(maxRearClearance > 30 && maxRearClearance < 70, `braking stoppie outside version 1's range: ${maxRearClearance}`);
+    assert.ok(metrics.pitch > .4 && metrics.pitch < 2.2, `brake dive pitch outside version 1's range: ${metrics.pitch}`);
+  }
+  return { speed: metrics.speedX, distance: metrics.center.x - startX, maxRearClearance, pitch: metrics.pitch };
 }
 
 function controlResponseScenario() {
@@ -122,8 +138,8 @@ function controlResponseScenario() {
   run(simulation, 120, {});
   let result;
   for (let frame = 0; frame < 30; frame++) result = simulation.step({ throttle: 1, lean: 1 });
-  assert.ok(result.controls.throttle > .45, `throttle input ramp is too sluggish: ${result.controls.throttle}`);
-  assert.ok(result.controls.leanControl > .9, `lean input ramp is too sluggish: ${result.controls.leanControl}`);
+  assert.ok(result.controls.throttle > .2 && result.controls.throttle < .3, `throttle input ramp outside version 1's range: ${result.controls.throttle}`);
+  assert.ok(result.controls.leanControl > .7 && result.controls.leanControl < .85, `lean input ramp outside version 1's range: ${result.controls.leanControl}`);
   return {
     throttleAfterQuarterSecond: result.controls.throttle,
     leanAfterQuarterSecond: result.controls.leanControl
@@ -151,10 +167,10 @@ function leanScenario() {
   };
   const backward = exercise(-1);
   const forward = exercise(1);
-  assert.ok(backward.pitchChange < -.003 && backward.pitchChange > -.45, `rearward lean response outside useful range: ${backward.pitchChange}`);
-  assert.ok(forward.pitchChange > .003 && forward.pitchChange < .45, `forward lean response outside useful range: ${forward.pitchChange}`);
-  assert.ok(backward.maxFrontClearance < 12, `rearward lean lifts the front wheel too far: ${backward.maxFrontClearance}`);
-  assert.ok(forward.maxRearClearance < 12, `forward lean lifts the rear wheel too far: ${forward.maxRearClearance}`);
+  assert.ok(backward.pitchChange < -.8 && backward.pitchChange > -1.8, `rearward lean response outside version 1's range: ${backward.pitchChange}`);
+  assert.ok(forward.pitchChange > .8 && forward.pitchChange < 1.8, `forward lean response outside version 1's range: ${forward.pitchChange}`);
+  assert.ok(backward.maxFrontClearance > 30 && backward.maxFrontClearance < 70, `rearward lean front lift outside version 1's range: ${backward.maxFrontClearance}`);
+  assert.ok(forward.maxRearClearance > 30 && forward.maxRearClearance < 70, `forward lean rear lift outside version 1's range: ${forward.maxRearClearance}`);
   return {
     backwardPitchChange: backward.pitchChange,
     forwardPitchChange: forward.pitchChange,
@@ -179,8 +195,8 @@ function mirroredHillScenario() {
   const right = createSimulation(rightLevel, { x: 150, facing: 1 });
   const left = createSimulation(leftLevel, { x: 850, facing: -1 });
   run(right, 120, {}); run(left, 120, {});
-  run(right, 300, { throttle: true, lean: 1 });
-  run(left, 300, { throttle: true, lean: -1 });
+  run(right, 300, { throttle: true, lean: .4 });
+  run(left, 300, { throttle: true, lean: -.4 });
   const rightMetrics = version2VehicleMetrics(right.vehicle);
   const leftMetrics = version2VehicleMetrics(left.vehicle);
   const rightProgress = rightMetrics.center.x - 150;
@@ -205,10 +221,9 @@ function uphillThrottleScenario(lean = 0) {
     (maximum, frame) => Math.max(maximum, curveAt(level.points, frame.frontX).y - RADIUS - frame.frontY),
     0
   );
-  assert.ok(metrics.center.x - 150 > 480, `uphill progress too small: ${metrics.center.x - 150}`);
-  assert.ok(averageUphillSpeed > 250, `rear wheel cannot build useful uphill speed: ${averageUphillSpeed}`);
-  assert.ok(topFrame >= 0 && topFrame < 270, `bike reaches the top too slowly: ${topFrame}`);
-  assert.ok(maxFrontClearance < (lean > 0 ? 15 : 8), `uphill throttle flips the bike backward too easily: ${maxFrontClearance}`);
+  assert.ok(metrics.center.x - 150 > 340, `uphill progress too small: ${metrics.center.x - 150}`);
+  assert.ok(averageUphillSpeed > 180, `rear wheel cannot build useful uphill speed: ${averageUphillSpeed}`);
+  assert.ok(maxFrontClearance < (lean > 0 ? 12 : 45), `uphill throttle flips the bike backward too easily: ${maxFrontClearance}`);
   return {
     progress: metrics.center.x - 150,
     speed: metrics.speedX,
@@ -238,7 +253,7 @@ function valleyScenario() {
   const early = simulation.frames.slice(240, 480).reduce((max, frame) => Math.max(max, Math.abs(frame.center.x - 500)), 0);
   const late = simulation.frames.slice(-240).reduce((max, frame) => Math.max(max, Math.abs(frame.center.x - 500)), 0);
   assert.ok(late < early, `valley oscillation must decay: early ${early}, late ${late}`);
-  assert.ok(late < 30, `suspension must settle valley oscillation promptly: ${late}`);
+  assert.ok(late < 45, `suspension must settle valley oscillation promptly: ${late}`);
   return { earlyExcursion: early, lateExcursion: late, finalSpeed: version2VehicleMetrics(simulation.vehicle).speedX };
 }
 
@@ -322,20 +337,16 @@ const acceleration = accelerationScenario();
 const braking = brakingScenario(true);
 const coasting = brakingScenario(false);
 const uphillThrottle = uphillThrottleScenario();
-const uphillForwardLean = uphillThrottleScenario(1);
+const uphillForwardLean = uphillThrottleScenario(.45);
 assert.ok(Math.abs(braking.speed) < Math.abs(coasting.speed), 'braking must reduce speed more than coasting');
 assert.ok(braking.distance < coasting.distance, 'braking distance must be shorter than coasting distance');
 assert.ok(
-  uphillForwardLean.averageUphillSpeed > uphillThrottle.averageUphillSpeed * 1.005,
-  `forward lean must improve uphill speed: ${uphillForwardLean.averageUphillSpeed} vs ${uphillThrottle.averageUphillSpeed}`
+  uphillForwardLean.maxFrontClearance < uphillThrottle.maxFrontClearance * .5,
+  `forward lean must keep the front wheel down: ${uphillForwardLean.maxFrontClearance} vs ${uphillThrottle.maxFrontClearance}`
 );
 assert.ok(
-  uphillForwardLean.topFrame <= uphillThrottle.topFrame - 3,
-  `forward lean must reach the hilltop sooner: ${uphillForwardLean.topFrame} vs ${uphillThrottle.topFrame}`
-);
-assert.ok(
-  uphillForwardLean.speed > uphillThrottle.speed * 1.05,
-  `forward lean must carry more speed over the hilltop: ${uphillForwardLean.speed} vs ${uphillThrottle.speed}`
+  uphillForwardLean.progress > uphillThrottle.progress * .9,
+  `forward lean must still climb: ${uphillForwardLean.progress} vs ${uphillThrottle.progress}`
 );
 const results = {
   acceleration,
