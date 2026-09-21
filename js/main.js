@@ -49,7 +49,7 @@ import {
   let weatherTime = 0, nextLightning = Infinity, lightningFlash = 0, lightningX = .5, lightningDistance = .5;
   let cameraX = 0, cameraY = 0, leanControl = 0, leanVisual = 0, flipVisual = 1;
   let lastTime = 0, accumulator = 0, sprayAccumulator = 0, skidAccumulator = 0, landingSoundCooldown = 0, airRotation = 0, airTurnMilestone = 0, previousAirAngle = 0, lastGateNotice = -10, toastUntil = 0;
-  let lastProgress = -1, lastTimer = '';
+  let lastTimer = '';
   const sounds = createAudio(() => ({ state, rear, front, throttle, brakePressure, weather: level?.weather }));
   const keys = new Set();
   const pointers = new Map();
@@ -350,7 +350,6 @@ import {
     if (state !== 'menu') stateBeforeMenu = state;
     state = 'menu'; clearInput();
     $('overlay').hidden = true;
-    $('pause').disabled = true;
     game.classList.add('menu-open');
     $('menu-screen').hidden = false;
     updateMenuDashboard(); showMenuView('home');
@@ -361,7 +360,7 @@ import {
     if (!gameLoopStarted || (!saveGame && levelSource === 'official')) return;
     $('menu-screen').hidden = true;
     game.classList.remove('menu-open');
-    setOverlay(stateBeforeMenu === 'paused' ? 'paused' : 'running');
+    setOverlay('running');
     focusGame();
   }
 
@@ -504,7 +503,7 @@ import {
     previousRiderContacts = riderCollisionPoints();
     accumulator = 0; sprayAccumulator = 0; skidAccumulator = 0; landingSoundCooldown = 0;
     airRotation = 0; airTurnMilestone = 0; previousAirAngle = 0;
-    lastGateNotice = -10; lastProgress = -1; lastTimer = '';
+    lastGateNotice = -10; lastTimer = '';
     clearInput(); updateDirectionControls();
     $('scene-label').textContent = level.name.toUpperCase();
     $('scene-label').dataset.trailNumber = marker;
@@ -531,18 +530,10 @@ import {
     state = next; clearInput();
     const visible = next !== 'running';
     $('overlay').hidden = !visible;
-    $('pause').disabled = !['running','paused'].includes(next);
-    $('pause').setAttribute('aria-label', next === 'paused' ? 'Resume game' : 'Pause game');
     $('secondary').hidden = next === 'running';
     if (visible) requestAnimationFrame(() => $('primary').focus({ preventScroll: true }));
 
-    if (next === 'paused') {
-      $('overlay-badge').textContent = 'PAUSED';
-      $('overlay-title').textContent = 'Game Paused';
-      $('overlay-description').textContent = 'Resume when you are ready, or restart the current trail.';
-      $('primary').textContent = 'Resume →';
-      $('secondary').textContent = 'Restart Trail';
-    } else if (next === 'crashed') {
+    if (next === 'crashed') {
       $('overlay-badge').textContent = 'CRASHED';
       $('overlay-title').textContent = 'Wiped Out';
       $('overlay-description').textContent = 'Your helmet hit the ground. Reset and give the trail another run.';
@@ -577,7 +568,6 @@ import {
     else loadLevel(levelIndex);
     setOverlay('running'); focusGame();
   }
-  function pauseGame() { if (state === 'running') setOverlay('paused'); }
   function notify(message, duration = 2600) {
     $('toast').textContent = message;
     toastUntil = duration === Infinity ? Infinity : performance.now() + duration;
@@ -761,7 +751,6 @@ import {
       .map(([a,b])=>({a,b,length:Math.hypot(points[b].x-points[a].x,points[b].y-points[a].y)}));
     ragdoll={points,links};
     state='ragdoll'; clearInput();
-    $('pause').disabled=true;
     $('announcer').textContent='Rider down. Press R or select the restart button to try again.';
     notify('Rider down · Press R to retry', Infinity);
   }
@@ -1046,13 +1035,6 @@ import {
   function updateHud() {
     const text = timeText(elapsed);
     if (text !== lastTimer) { $('timer').textContent = text; lastTimer = text; }
-    const mid = (rear.x + front.x) / 2;
-    const progress = Math.round(clamp((mid - 90) / (level.goal - 90), 0, 1) * 100);
-    if (progress !== lastProgress) {
-      $('progress-fill').style.width = progress + '%';
-      $('progress').setAttribute('aria-valuenow', String(progress));
-      lastProgress = progress;
-    }
   }
 
 
@@ -1391,7 +1373,6 @@ import {
   }
 
   function updateParticles(dt) {
-    if (state === 'paused') return;
     for (const mark of skidMarks) mark.life -= dt;
     for (const p of particles) {
       p.life -= dt;
@@ -1542,7 +1523,7 @@ import {
     updateParticles(dt);
     drawTerrain(); drawSkidMarks(); drawProps('back'); drawParticles(true); drawFlag();
     apples.forEach(a => drawApple(a,now));
-    updateHair(state === 'paused' ? 0 : dt);
+    updateHair(dt);
     drawHair();
     drawBike();
     drawPhysicsOverlay();
@@ -1617,18 +1598,17 @@ import {
     if (keys.has(e.code)) { keys.delete(e.code); paintInput(); }
   });
   game.addEventListener('focusout', e => {
-    if (!game.contains(e.relatedTarget)) { clearInput(); pauseGame(); }
+    if (!game.contains(e.relatedTarget)) clearInput();
   });
   canvas.addEventListener('pointerdown', () => focusGame());
-  window.addEventListener('blur', () => { clearInput(); pauseGame(); });
+  window.addEventListener('blur', clearInput);
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { clearInput(); pauseGame(); }
+    if (document.hidden) clearInput();
     lastTime = 0; accumulator = 0;
   });
 
   $('primary').addEventListener('click', () => {
-    if (state === 'paused') { setOverlay('running'); focusGame(); }
-    else if (state === 'won') {
+    if (state === 'won') {
       if (levelSource === 'custom') startFresh();
       else { loadLevel((levelIndex + 1) % levels.length); setOverlay('running'); focusGame(); }
     } else startFresh();
@@ -1731,10 +1711,6 @@ import {
     });
   });
   $('restart').addEventListener('click', startFresh);
-  $('pause').addEventListener('click', () => {
-    if (state === 'running') pauseGame();
-    else if (state === 'paused') { setOverlay('running'); focusGame(); }
-  });
   window.addEventListener('resize', () => { resizeCanvas(); drawMenuBackground(); });
   const fullscreenSupported = Boolean(document.fullscreenEnabled || document.webkitFullscreenEnabled || game.webkitRequestFullscreen);
   $('fullscreen').hidden = !fullscreenSupported;
