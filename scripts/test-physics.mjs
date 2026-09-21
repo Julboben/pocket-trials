@@ -3,6 +3,7 @@ import {
   GRAVITY, WHEELBASE, XPBD_RIDER_GROUND_ANGULAR_ACCELERATION,
   XPBD_RIDER_AIR_ANGULAR_ACCELERATION, XPBD_CHASSIS_MOUNT_INVERSE_MASS,
   XPBD_CHASSIS_TOP_INVERSE_MASS, XPBD_MOTOR_ANGULAR_ACCELERATION,
+  XPBD_MAX_DRIVE_SPEED, XPBD_MOTOR_REACTION_SCALE, XPBD_THROTTLE_LEAN_ASSIST,
   XPBD_COAST_RESISTANCE_LOW_SPEED, XPBD_COAST_RESISTANCE_HIGH_SPEED,
   XPBD_SUSPENSION_COMPLIANCE, XPBD_SUSPENSION_DAMPING,
   XPBD_LONGITUDINAL_COMPLIANCE, XPBD_LONGITUDINAL_DAMPING
@@ -26,19 +27,21 @@ const beforeCenterVelocity = [
 
 const approximatelyEqual = (actual, expected) => Math.abs(actual - expected) < 1e-9;
 
-assert.equal(riderTorqueMultiplier(-1, 1, 1, true, .45), 1.45, 'full throttle must moderately increase rearward lean authority');
-assert.equal(riderTorqueMultiplier(1, 1, 1, true, .45), 1, 'throttle must not amplify forward lean');
-assert.equal(riderTorqueMultiplier(1, -1, 1, true, .45), 1.45, 'rearward lean assist must follow flipped facing');
+assert.equal(riderTorqueMultiplier(-1, 1, 1, true, XPBD_THROTTLE_LEAN_ASSIST), 1 + XPBD_THROTTLE_LEAN_ASSIST, 'full throttle must only slightly increase rearward lean authority');
+assert.equal(riderTorqueMultiplier(1, 1, 1, true, XPBD_THROTTLE_LEAN_ASSIST), 1, 'throttle must not amplify forward lean');
+assert.equal(riderTorqueMultiplier(1, -1, 1, true, XPBD_THROTTLE_LEAN_ASSIST), 1 + XPBD_THROTTLE_LEAN_ASSIST, 'rearward lean assist must follow flipped facing');
 assert.equal(riderTorqueMultiplier(-1, 1, 1, false), 1, 'released throttle must not amplify lean');
 assert.ok(
-  XPBD_RIDER_GROUND_ANGULAR_ACCELERATION * WHEELBASE / 2 > GRAVITY,
-  'ground rider torque must be capable of unloading a wheel from rest'
+  XPBD_RIDER_GROUND_ANGULAR_ACCELERATION > 0
+    && XPBD_RIDER_GROUND_ANGULAR_ACCELERATION < 820 / (WHEELBASE / 2),
+  'ground rider torque must remain positive with less authority than version 1'
 );
-assert.ok(approximatelyEqual(XPBD_RIDER_GROUND_ANGULAR_ACCELERATION, 820 / (WHEELBASE / 2)), 'version 2 ground rotation must match version 1');
-assert.ok(approximatelyEqual(XPBD_RIDER_AIR_ANGULAR_ACCELERATION, 300 / (WHEELBASE / 2)), 'version 2 air rotation must match version 1');
+assert.ok(XPBD_RIDER_AIR_ANGULAR_ACCELERATION <= 300 / (WHEELBASE / 2), 'version 2 air rotation must not exceed version 1');
+assert.ok(XPBD_MAX_DRIVE_SPEED > 340, 'version 2 must have a higher drive-speed ceiling than version 1');
+assert.ok(XPBD_MOTOR_REACTION_SCALE > 0 && XPBD_MOTOR_REACTION_SCALE < .5, 'motor reaction must be reduced without being removed');
 const v2Mass = 2 + 2 / XPBD_CHASSIS_MOUNT_INVERSE_MASS + 1 / XPBD_CHASSIS_TOP_INVERSE_MASS;
 const lowSpeedDriveAcceleration = (XPBD_MOTOR_ANGULAR_ACCELERATION / 30) * 120 / v2Mass;
-assert.ok(Math.abs(lowSpeedDriveAcceleration - 400) < 5, 'version 2 low-speed acceleration must match version 1');
+assert.ok(lowSpeedDriveAcceleration > 445 && lowSpeedDriveAcceleration < 460, 'version 2 low-speed acceleration must be moderately stronger than version 1');
 assert.ok(Math.abs(2 * XPBD_COAST_RESISTANCE_LOW_SPEED / v2Mass - 105) < 1, 'version 2 low-speed coast loss must match version 1');
 assert.ok(Math.abs(2 * XPBD_COAST_RESISTANCE_HIGH_SPEED / v2Mass - 18) < 1, 'version 2 high-speed coast loss must match version 1');
 assert.equal(riderTerrainTorqueScale(-1, 1, 1), 1, 'uphill travel must not weaken rearward lean');

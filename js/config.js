@@ -5,7 +5,7 @@ export const WHEELBASE = 50;
 export const TAU = Math.PI * 2;
 
 // Handling values. These are intentionally centralized for feel-tuning.
-export const GRAVITY = 480;
+export const GRAVITY = 380;
 export const MAX_DRIVE_SPEED = 340;
 export const MAX_POINT_SPEED = 760;
 export const ENGINE_FORCE = 800;
@@ -23,32 +23,37 @@ export const BIKE_VELOCITY_ITERATIONS = 3;
 export const BIKE_CONSTRAINT_STIFFNESS = .43;
 export const XPBD_CHASSIS_COMPLIANCE = 0.000001;
 export const XPBD_CHASSIS_AREA_COMPLIANCE = 0.000001;
-export const XPBD_SUSPENSION_COMPLIANCE = 0.00022;
-export const XPBD_SUSPENSION_DAMPING = .35;
+export const XPBD_SUSPENSION_COMPLIANCE = 0.00055;
+export const XPBD_SUSPENSION_DAMPING = .67;
 export const XPBD_LONGITUDINAL_COMPLIANCE = 0.00018;
 export const XPBD_LONGITUDINAL_DAMPING = .08;
-export const XPBD_CROSS_LINK_COMPLIANCE = 0.00012;
-export const XPBD_CROSS_LINK_DAMPING = .08;
-export const SUSPENSION_REST_LENGTH = 18;
-export const SUSPENSION_TRAVEL = 10;
+export const XPBD_CROSS_LINK_COMPLIANCE = 0.00024;
+export const XPBD_CROSS_LINK_DAMPING = .06;
+export const SUSPENSION_REST_LENGTH = 20;
+export const SUSPENSION_TRAVEL = 13;
 export const WHEEL_INERTIA = .5;
 export const WHEEL_FRICTION = .92;
 // Version 2 physical controls. These do not modify or derive behavior from
 // the legacy direct-force handling model.
 export const XPBD_CHASSIS_MOUNT_INVERSE_MASS = .65;
 export const XPBD_CHASSIS_TOP_INVERSE_MASS = .5;
-// Calibrated to version 1's ~400 px/s² low-speed center acceleration after
-// accounting for the 7.08-unit total mass of the version 2 bike.
-export const XPBD_MOTOR_ANGULAR_ACCELERATION = 710;
-// Version 1's opposing wheel forces produce 820 / 25 = 32.8 rad/s² on the
-// ground and 300 / 25 = 12 rad/s² in the air.
-export const XPBD_RIDER_GROUND_ANGULAR_ACCELERATION = 32.8;
-export const XPBD_RIDER_AIR_ANGULAR_ACCELERATION = 12;
-export const XPBD_THROTTLE_LEAN_ASSIST = .45;
-export const XPBD_UPHILL_FORWARD_LEAN_REDUCTION = 1.4;
+// Drive and chassis reaction are tuned separately: stronger wheel torque adds
+// speed without making flat-ground throttle pitch the bike over backward.
+export const XPBD_MOTOR_ANGULAR_ACCELERATION = 800;
+export const XPBD_MAX_DRIVE_SPEED = 375;
+export const XPBD_MOTOR_REACTION_SCALE = .08;
+export const XPBD_RIDER_GROUND_ANGULAR_ACCELERATION = 20;
+export const XPBD_RIDER_AIR_ANGULAR_ACCELERATION = 10;
+export const XPBD_THROTTLE_LEAN_ASSIST = .12;
+export const XPBD_THROTTLE_INPUT_RESPONSE = 2.6;
+export const XPBD_LEAN_INPUT_RESPONSE = 10;
+export const XPBD_UPHILL_FORWARD_LEAN_REDUCTION = .35;
+export const XPBD_UPHILL_FORWARD_LEAN_MOTOR_BOOST = 1.2;
+export const XPBD_UPHILL_ANTI_WHEELIE_ACCELERATION = 7;
 // Produces approximately version 1's full-pressure braking deceleration.
 export const XPBD_BRAKE_RATE = 64;
-export const XPBD_CONTACT_LOAD_SCALE = 7;
+export const XPBD_CONTACT_LOAD_SCALE = 4.5;
+export const XPBD_UPHILL_CONTACT_LOAD_SCALE = 7;
 export const XPBD_ROLLING_LOAD_SCALE = 1.35;
 // Two wheel impulses are distributed over the full version 2 mass, so these
 // values reproduce version 1's 105 / 18 px/s² center-of-mass coast losses.

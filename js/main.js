@@ -4,6 +4,7 @@ import {
   COAST_RESISTANCE_LOW_SPEED, COAST_RESISTANCE_HIGH_SPEED,
   COAST_SPEED_REFERENCE, UPHILL_TORQUE_BOOST, BIKE_SOLVER_ITERATIONS,
   BIKE_CONSTRAINT_STIFFNESS, CONTACT_GROUNDED_NORMAL, CONTACT_RESTITUTION_SPEED,
+  XPBD_THROTTLE_INPUT_RESPONSE, XPBD_LEAN_INPUT_RESPONSE,
   clamp, lerp
 } from './config.js';
 import { levels, customLevelEntries, terrainMaterials } from './levels.js';
@@ -880,17 +881,20 @@ import {
 
     const replayInput = physicsDebug.nextReplayInput();
     if (replayInput && Number(replayInput.facing)) facing = replayInput.facing < 0 ? -1 : 1;
+    const physicsVersion = activePhysicsVersion();
     const leanInput = replayInput?.leanInput ?? (Number(down('forward')) - Number(down('back')));
     const leanTarget = leanInput;
-    leanControl = lerp(leanControl, leanTarget, 1 - Math.exp(-5.8 * STEP));
+    const leanResponse = physicsVersion === 2 ? XPBD_LEAN_INPUT_RESPONSE : 5.8;
+    leanControl = lerp(leanControl, leanTarget, 1 - Math.exp(-leanResponse * STEP));
     const acceptingInput = state === 'running';
-    const physicsVersion = activePhysicsVersion();
     const accelerating = acceptingInput && (replayInput?.accelerating ?? down('up'));
     const braking = acceptingInput && (replayInput?.braking ?? down('down'));
     physicsDebug.recordInput({ facing, leanInput, accelerating, braking });
     const coasting = !accelerating && !braking;
     const throttleTarget = accelerating && !braking ? 1 : 0;
-    const throttleRate = throttleTarget > throttle ? 1.1 : 4;
+    const throttleRate = throttleTarget > throttle
+      ? (physicsVersion === 2 ? XPBD_THROTTLE_INPUT_RESPONSE : 1.1)
+      : 4;
     throttle = lerp(throttle, throttleTarget, 1 - Math.exp(-throttleRate * STEP));
     brakePressure = lerp(brakePressure, braking ? 1 : 0, 1 - Math.exp(-(braking ? 10 : 14) * STEP));
     const speedLimit = MAX_DRIVE_SPEED;
@@ -902,8 +906,6 @@ import {
     const uphill = clamp(-midSlope * facing, 0, 1);
     const downhill = clamp(midSlope * facing, 0, 1);
     const forwardLean = clamp(leanControl * facing, 0, 1);
-    let drivenWheel = null, angularDrive = 0;
-
     if (physicsVersion === 1) {
       const drive = facing * ENGINE_FORCE * throttle * (1 + uphill * forwardLean * .25);
       const frontBrakeGrip = (.72 + speedFactor * .28) * brakePressure;

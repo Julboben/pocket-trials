@@ -1,5 +1,5 @@
 import {
-  STEP, RADIUS, WHEELBASE, GRAVITY, MAX_DRIVE_SPEED, MAX_POINT_SPEED,
+  STEP, RADIUS, WHEELBASE, GRAVITY, MAX_POINT_SPEED,
   BIKE_SOLVER_ITERATIONS, BIKE_VELOCITY_ITERATIONS,
   XPBD_CHASSIS_COMPLIANCE, XPBD_CHASSIS_AREA_COMPLIANCE,
   XPBD_SUSPENSION_COMPLIANCE, XPBD_SUSPENSION_DAMPING,
@@ -8,10 +8,12 @@ import {
   SUSPENSION_REST_LENGTH, SUSPENSION_TRAVEL,
   WHEEL_INERTIA, WHEEL_FRICTION,
   XPBD_CHASSIS_MOUNT_INVERSE_MASS, XPBD_CHASSIS_TOP_INVERSE_MASS,
-  XPBD_MOTOR_ANGULAR_ACCELERATION,
+  XPBD_MOTOR_ANGULAR_ACCELERATION, XPBD_MAX_DRIVE_SPEED, XPBD_MOTOR_REACTION_SCALE,
   XPBD_RIDER_GROUND_ANGULAR_ACCELERATION, XPBD_RIDER_AIR_ANGULAR_ACCELERATION,
-  XPBD_THROTTLE_LEAN_ASSIST, XPBD_UPHILL_FORWARD_LEAN_REDUCTION,
-  XPBD_BRAKE_RATE, XPBD_CONTACT_LOAD_SCALE, XPBD_ROLLING_LOAD_SCALE,
+  XPBD_THROTTLE_LEAN_ASSIST, XPBD_THROTTLE_INPUT_RESPONSE, XPBD_LEAN_INPUT_RESPONSE,
+  XPBD_UPHILL_FORWARD_LEAN_REDUCTION, XPBD_UPHILL_FORWARD_LEAN_MOTOR_BOOST,
+  XPBD_UPHILL_ANTI_WHEELIE_ACCELERATION,
+  XPBD_BRAKE_RATE, XPBD_CONTACT_LOAD_SCALE, XPBD_UPHILL_CONTACT_LOAD_SCALE, XPBD_ROLLING_LOAD_SCALE,
   XPBD_COAST_RESISTANCE_LOW_SPEED, XPBD_COAST_RESISTANCE_HIGH_SPEED,
   XPBD_COAST_SPEED_REFERENCE, XPBD_CONTACT_RESTITUTION_SCALE,
   CONTACT_GROUNDED_NORMAL, CONTACT_RESTITUTION_SPEED,
@@ -160,9 +162,12 @@ export function stepVersion2Vehicle(vehicle, level, controls, hooks = {}) {
   const uphill = clamp(-slope * facing, 0, 1);
   const drivenWheel = facing > 0 ? rear : front;
   const wheelSurfaceSpeed = Math.abs(drivenWheel.angularVelocity * RADIUS);
-  const speedRatio = clamp(wheelSurfaceSpeed / MAX_DRIVE_SPEED, 0, 1);
+  const speedRatio = clamp(wheelSurfaceSpeed / XPBD_MAX_DRIVE_SPEED, 0, 1);
   const torqueCurve = .28 + .72 * (1 - speedRatio);
-  const angularDrive = facing * XPBD_MOTOR_ANGULAR_ACCELERATION * throttle * torqueCurve;
+  const forwardLean = clamp(leanControl * facing, 0, 1);
+  const uphillLeanDriveBoost = 1 + uphill * forwardLean * XPBD_UPHILL_FORWARD_LEAN_MOTOR_BOOST;
+  const uphillGripBlend = clamp(uphill * (1 + forwardLean * 2), 0, 1);
+  const angularDrive = facing * XPBD_MOTOR_ANGULAR_ACCELERATION * throttle * torqueCurve * uphillLeanDriveBoost;
   const riderAssist = riderTorqueMultiplier(leanControl, facing, throttle, accelerating, XPBD_THROTTLE_LEAN_ASSIST);
   const riderTerrainScale = grounded
     ? riderTerrainTorqueScale(leanControl, facing, uphill, XPBD_UPHILL_FORWARD_LEAN_REDUCTION)
@@ -170,10 +175,13 @@ export function stepVersion2Vehicle(vehicle, level, controls, hooks = {}) {
   const riderAngularAcceleration = leanControl * (grounded
     ? XPBD_RIDER_GROUND_ANGULAR_ACCELERATION
     : XPBD_RIDER_AIR_ANGULAR_ACCELERATION) * riderAssist * riderTerrainScale;
+  const antiWheelieAngularAcceleration = grounded
+    ? facing * uphill * throttle * XPBD_UPHILL_ANTI_WHEELIE_ACCELERATION * (1 - forwardLean * .35)
+    : 0;
   const wheelMoment = WHEEL_INERTIA * RADIUS * RADIUS;
   const chassisPoints = Object.values(chassis);
   const chassisInertia = momentOfInertia(chassisPoints);
-  const motorReactionAcceleration = -angularDrive * wheelMoment / chassisInertia;
+  const motorReactionAcceleration = -angularDrive * wheelMoment / chassisInertia * XPBD_MOTOR_REACTION_SCALE;
   const brakingWheelAcceleration = braking
     ? -(rear.angularVelocity + front.angularVelocity) * XPBD_BRAKE_RATE * brakePressure
     : 0;
@@ -183,12 +191,18 @@ export function stepVersion2Vehicle(vehicle, level, controls, hooks = {}) {
       .map(({ point, ax, ay }) => [point, { ax, ay }])
   );
   const bikePoints = [rear, front, ...chassisPoints];
-  const riderAccelerations = angularAccelerations(bikePoints, riderAngularAcceleration);
+  const riderAccelerations = angularAccelerations(
+    bikePoints,
+    riderAngularAcceleration + antiWheelieAngularAcceleration
+  );
   const dynamics = {
     angularDrive,
+    uphillLeanDriveBoost,
+    uphillGripBlend,
     riderAssist,
     riderTerrainScale,
     riderAngularAcceleration,
+    antiWheelieAngularAcceleration,
     motorReactionAcceleration,
     brakeReactionAcceleration,
     chassisReactionAngularAcceleration: motorReactionAcceleration + brakeReactionAcceleration,
@@ -231,7 +245,7 @@ export function stepVersion2Vehicle(vehicle, level, controls, hooks = {}) {
       point.angularVelocity += (point === drivenWheel ? angularDrive : 0) * STEP;
       point.angularVelocity *= Math.exp(-.08 * STEP);
       if (braking) point.angularVelocity *= Math.max(0, 1 - XPBD_BRAKE_RATE * brakePressure * STEP);
-      point.angularVelocity = clamp(point.angularVelocity, -MAX_DRIVE_SPEED / RADIUS, MAX_DRIVE_SPEED / RADIUS);
+      point.angularVelocity = clamp(point.angularVelocity, -XPBD_MAX_DRIVE_SPEED / RADIUS, XPBD_MAX_DRIVE_SPEED / RADIUS);
       point.spin += point.angularVelocity * STEP;
       continue;
     }
@@ -258,12 +272,16 @@ export function stepVersion2Vehicle(vehicle, level, controls, hooks = {}) {
       restingNormalAcceleration: GRAVITY * (braking
         ? XPBD_CONTACT_LOAD_SCALE
         : point === drivenWheel
-          ? lerp(XPBD_ROLLING_LOAD_SCALE, XPBD_CONTACT_LOAD_SCALE, throttle)
+          ? lerp(
+            XPBD_ROLLING_LOAD_SCALE,
+            lerp(XPBD_CONTACT_LOAD_SCALE, XPBD_UPHILL_CONTACT_LOAD_SCALE, uphillGripBlend),
+            throttle
+          )
           : XPBD_ROLLING_LOAD_SCALE),
       freeRolling: !braking && (point !== drivenWheel || throttle < .01),
       rollingResistance: coasting ? coastResistance : 0
     });
-    point.angularVelocity = clamp(point.angularVelocity, -MAX_DRIVE_SPEED / RADIUS, MAX_DRIVE_SPEED / RADIUS);
+    point.angularVelocity = clamp(point.angularVelocity, -XPBD_MAX_DRIVE_SPEED / RADIUS, XPBD_MAX_DRIVE_SPEED / RADIUS);
     hooks.traction?.(name, result, point);
   }
   for (let iteration = 0; iteration < BIKE_VELOCITY_ITERATIONS; iteration++) {
@@ -287,5 +305,105 @@ export function version2VehicleMetrics(vehicle) {
     rearSuspensionLength: distance(vehicle.rear, vehicle.chassis.rearMount),
     frontSuspensionLength: distance(vehicle.front, vehicle.chassis.frontMount),
     chassisArea: signedTriangleArea(vehicle.chassis.rearMount, vehicle.chassis.frontMount, vehicle.chassis.top)
+  };
+}
+
+export function createVersion2Simulation({ vehicle, level, facing = 1, hooks = {} }) {
+  let currentFacing = facing < 0 ? -1 : 1;
+  let throttle = 0;
+  let brakePressure = 0;
+  let leanControl = 0;
+
+  function step({ throttle: throttleInput = 0, brake = 0, lean = 0, flip = false } = {}) {
+    if (flip) currentFacing *= -1;
+
+    const throttleTarget = clamp(Number(throttleInput) || 0, 0, 1);
+    const brakeTarget = clamp(Number(brake) || 0, 0, 1);
+    const accelerating = throttleTarget > 0 && brakeTarget === 0;
+    const braking = brakeTarget > 0;
+    const coasting = !accelerating && !braking;
+    throttle = lerp(
+      throttle,
+      accelerating ? throttleTarget : 0,
+      1 - Math.exp(-((accelerating ? throttleTarget : 0) > throttle ? XPBD_THROTTLE_INPUT_RESPONSE : 4) * STEP)
+    );
+    brakePressure = lerp(
+      brakePressure,
+      brakeTarget,
+      1 - Math.exp(-(braking ? 10 : 14) * STEP)
+    );
+    leanControl = lerp(
+      leanControl,
+      clamp(Number(lean) || 0, -1, 1),
+      1 - Math.exp(-XPBD_LEAN_INPUT_RESPONSE * STEP)
+    );
+
+    const contactEvents = [];
+    const traction = {};
+    const dynamics = stepVersion2Vehicle(vehicle, level, {
+      facing: currentFacing,
+      throttle,
+      brakePressure,
+      leanControl,
+      accelerating,
+      braking,
+      coasting
+    }, {
+      ...hooks,
+      contact(value) {
+        contactEvents.push(value);
+        hooks.contact?.(value);
+      },
+      traction(wheelName, result, point) {
+        traction[wheelName] = result;
+        hooks.traction?.(wheelName, result, point);
+      }
+    });
+    const metrics = version2VehicleMetrics(vehicle);
+
+    return {
+      facing: currentFacing,
+      input: { throttle: throttleInput, brake, lean, flip },
+      controls: { throttle, brakePressure, leanControl },
+      wheels: { rear: vehicle.rear, front: vehicle.front },
+      chassis: vehicle.chassis,
+      suspension: {
+        rearLength: metrics.rearSuspensionLength,
+        frontLength: metrics.frontSuspensionLength,
+        restLength: SUSPENSION_REST_LENGTH,
+        travel: SUSPENSION_TRAVEL
+      },
+      contacts: {
+        rear: vehicle.rear.contact,
+        front: vehicle.front.contact,
+        events: contactEvents
+      },
+      forces: { ...dynamics, traction },
+      metrics
+    };
+  }
+
+  return {
+    vehicle,
+    level,
+    step,
+    get facing() { return currentFacing; },
+    get state() {
+      const metrics = version2VehicleMetrics(vehicle);
+      return {
+        facing: currentFacing,
+        controls: { throttle, brakePressure, leanControl },
+        wheels: { rear: vehicle.rear, front: vehicle.front },
+        chassis: vehicle.chassis,
+        suspension: {
+          rearLength: metrics.rearSuspensionLength,
+          frontLength: metrics.frontSuspensionLength,
+          restLength: SUSPENSION_REST_LENGTH,
+          travel: SUSPENSION_TRAVEL
+        },
+        contacts: { rear: vehicle.rear.contact, front: vehicle.front.contact },
+        metrics
+      };
+    }
   };
 }
