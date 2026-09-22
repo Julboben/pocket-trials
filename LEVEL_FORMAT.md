@@ -22,7 +22,7 @@ The world uses Canvas coordinates:
   label: 'EXAMPLE TRAIL / 08',
   goal: 1800,
   terrain: 'grass',
-  physicsVersion: 1,
+  physicsVersion: 2,
   start: { x: 90, y: null, facing: 1 },
 
   points: [
@@ -197,10 +197,10 @@ The editor's **Path / loop** tool creates an open path. Select a path or one of 
 
 `physicsVersion` selects the bike solver:
 
-- `1` (default): stable two-wheel distance constraint and direct drive.
-- `2` (experimental): XPBD chassis and suspension, swept collision, and angular wheel traction.
+- `1` (legacy): two-wheel distance constraint and direct drive.
+- `2` (default): XPBD chassis and suspension, swept collision, and angular wheel traction.
 
-The query parameter `?physicsVersion=1` or `?physicsVersion=2` overrides the level setting for a play session.
+Omitting `physicsVersion` selects version 2. The query parameter `?physicsVersion=1` or `?physicsVersion=2` overrides the level setting for a play session.
 
 ## Terrain materials
 

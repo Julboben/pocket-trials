@@ -60,7 +60,7 @@ import {
   };
   const requestedPhysicsVersion = Number(new URLSearchParams(window.location.search).get('physicsVersion'));
   const physicsDebugEnabled = new URLSearchParams(window.location.search).get('physicsDebug') === '1';
-  const activePhysicsVersion = () => requestedPhysicsVersion === 1 || requestedPhysicsVersion === 2 ? requestedPhysicsVersion : (level.physicsVersion || 1);
+  const activePhysicsVersion = () => requestedPhysicsVersion === 1 || requestedPhysicsVersion === 2 ? requestedPhysicsVersion : (level.physicsVersion || 2);
   const physicsDebug = createPhysicsDebugger({
     enabled: physicsDebugEnabled,
     step: STEP,

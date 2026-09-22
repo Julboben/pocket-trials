@@ -1,6 +1,6 @@
 # Physics implementation status
 
-The staged physics roadmap is implemented behind a version switch. Version 1 remains the stable default; append `?physicsVersion=2` to test the new solver. Physics traces remain available with `?physicsDebug=1`.
+The staged physics roadmap is implemented behind a version switch. Version 2 is the default; append `?physicsVersion=1` to compare the legacy solver. Physics traces remain available with `?physicsDebug=1`.
 
 ## Implemented foundation
 
@@ -18,10 +18,10 @@ The staged physics roadmap is implemented behind a version switch. Version 1 rem
 
 ## Physics versions
 
-- **Version 1 (default):** stable wheelbase stiffness solver and direct linear drive.
-- **Version 2 (experimental):** physical chassis, XPBD suspension, swept collision, angular traction, motor/brake reaction torque, and rider-applied chassis torque. It has an independent set of handling constants and does not use version 1's direct wheel forces or synthetic pitch terms. Use `?physicsVersion=2` to test it.
+- **Version 1 (legacy):** wheelbase stiffness solver and direct linear drive. Use `?physicsVersion=1` for final regression comparisons.
+- **Version 2 (default):** physical chassis, XPBD suspension, swept collision, angular traction, motor/brake reaction torque, and rider-applied chassis torque. It has an independent set of handling constants and does not use version 1's direct wheel forces or synthetic pitch terms.
 
-A level may opt into `"physicsVersion": 2` while it is being retuned. The URL query parameter takes precedence.
+Existing levels without a `physicsVersion` use version 2. A level may temporarily opt into `"physicsVersion": 1`; the URL query parameter takes precedence.
 
 ## Authored path format
 
@@ -62,3 +62,13 @@ Physics constants are centralized in `js/config.js`, but feel tuning requires br
 - Full loops with enough approach speed and appropriately broad radii
 
 Tune restitution, friction, suspension compliance/damping, and the grounded-normal threshold only after this matrix is reliable.
+
+## Version 1 retirement
+
+Keep `?physicsVersion=1` through one final regression pass. After every official trail has been checked in both directions:
+
+1. Freeze the version 2 handling constants and record representative debug replays.
+2. Remove the version switch, legacy integration/contact path, and version 1-only constants.
+3. Rename version 2 types and APIs to unversioned vehicle-physics names.
+4. Profile the default solver before optimizing; prioritize terrain contact queries and repeated constraint-array allocation only when measurements show they matter.
+5. Keep the deterministic vehicle scenarios as the handling regression suite.
