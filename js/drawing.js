@@ -19,6 +19,25 @@ export function propDrawAngle(type, slope = 0) {
   return GROUND_ALIGNED_PROP_SPANS[type] && Number.isFinite(slope) ? Math.atan(slope) : 0;
 }
 
+export function sunLight({ width, cameraX = 0, cameraY = 0, weather = {} }) {
+  const sunshine = Math.max(0, Math.min(1, weather.sun ?? 1));
+  const cloudiness = Math.max(0, Math.min(1, weather.clouds ?? .35));
+  return {
+    x: width * .77 - cameraX * .015,
+    y: 85 - cameraY * .08,
+    sunshine,
+    strength: sunshine * (1 - cloudiness * .55)
+  };
+}
+
+export function sunShadowOffset({ bikeX, bikeY, sunX, sunY, height = 0, strength = 1 }) {
+  const slant = (sunX - bikeX) / Math.max(Math.abs(sunY - bikeY), 48);
+  const reach = 10 + Math.max(0, height) * .05;
+  const offset = -slant * strength * reach;
+  if (!offset) return 0;
+  return Math.max(-14, Math.min(14, offset));
+}
+
 export function propGroundOffset(level, prop) {
   const surface = seatedSurfaceAt(level, prop.x, prop.y);
   if (!surface) return () => 0;
@@ -157,14 +176,14 @@ export function createGameArt(ctx) {
     const rain = Math.max(0, Math.min(1, Number(weather.rain) || 0));
     const lightning = Math.max(0, Math.min(1, Number(weather.lightning) || 0));
     const cloudiness = Math.max(0, Math.min(1, weather.clouds ?? .35));
-    const sunshine = Math.max(0, Math.min(1, weather.sun ?? 1));
+    const light = sunLight({ width, cameraX, cameraY, weather });
     const storminess = Math.max(rain, lightning);
 
     ctx.fillStyle = palette.sky; ctx.fillRect(0, 0, width, height);
-    if (sunshine > 0) {
+    if (light.sunshine > 0) {
       ctx.save();
-      ctx.globalAlpha = sunshine * (1 - cloudiness * .55);
-      drawPixelDisc(width * .77 - cameraX * .015, 85 - cameraY * .08, 28 + sunshine * 8, palette.sun, 6);
+      ctx.globalAlpha = light.strength;
+      drawPixelDisc(light.x, light.y, 28 + light.sunshine * 8, palette.sun, 6);
       ctx.restore();
     }
     if (cloudiness > 0) {

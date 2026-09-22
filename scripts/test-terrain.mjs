@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { terrainCollisionsAt, terrainSweepCollision, pathSegments, seatedSurfaceAt, curveAt } from '../js/terrain.js';
+import { terrainCollisionsAt, terrainSweepCollision, pathSegments, seatedSurfaceAt, curveAt, groundShadowSamples } from '../js/terrain.js';
+import { sunLight, sunShadowOffset } from '../js/drawing.js';
 import { propAlignmentSlope, propDrawAngle, propGroundOffset } from '../js/drawing.js';
 
 const flatGapLevel = {
@@ -109,5 +110,34 @@ assert.ok(treeBase(8) > treeBase(-8), 'tree trunks meet the downhill side of the
 assert.ok(flowerBase(6) > flowerBase(-6), 'each flower is planted on the slope under it');
 assert.equal(floatingTree(8), 0, 'a floating prop keeps a level base');
 assert.ok(propGroundOffset(rolling, rollingTree)(6) !== 0, 'rolling-country trees meet the hillside at the trunk');
+
+const crest = {
+  points: [[0, 200], [100, 100], [200, 200]],
+  gaps: [[20, 40]],
+  platforms: [],
+  terrain: 'grass',
+  fallY: 400
+};
+const crestShadow = groundShadowSamples(crest, 100, 80, 30).flat();
+const crestCenter = crestShadow.find(sample => sample.x === 100);
+const crestEdge = crestShadow.find(sample => sample.x === 70);
+assert.ok(crestCenter && crestEdge, 'the shadow is sampled across the crest');
+assert.ok(crestEdge.y > crestCenter.y, 'the shadow drops with the ground on either side of a hilltop');
+const gapShadow = groundShadowSamples(crest, 50, 100, 40);
+assert.equal(gapShadow.flat().some(sample => sample.x > 20 && sample.x < 40), false, 'the shadow does not cross a gap');
+assert.equal(gapShadow.length, 2, 'the shadow breaks into the solid ground on either side of a gap');
+
+const slopeShadow = groundShadowSamples(hillLevel, 100, hillMid.y - 20, 24).flat();
+assert.ok(slopeShadow.at(-1).y > slopeShadow[0].y, 'the shadow follows a downhill slope');
+
+const noon = sunLight({ width: 400, cameraX: 0, cameraY: 0, weather: { sun: 1, clouds: 0 } });
+assert.ok(noon.x > 200, 'the sun sits in the right side of the sky');
+assert.equal(sunLight({ width: 400, weather: { sun: 0, clouds: 1 } }).strength, 0, 'a hidden sun casts no sideways light');
+const besideSun = sunShadowOffset({ bikeX: 120, bikeY: 280, sunX: noon.x, sunY: noon.y, height: 0, strength: noon.strength });
+const airborne = sunShadowOffset({ bikeX: 120, bikeY: 280, sunX: noon.x, sunY: noon.y, height: 400, strength: noon.strength });
+assert.ok(besideSun < 0, 'a sun on the right shifts the shadow to the left');
+assert.ok(airborne < besideSun, 'jumping shifts the shadow a little farther from the sun');
+assert.ok(Math.abs(airborne) <= 14, 'the shadow stays with the rider instead of sliding down the hill');
+assert.equal(sunShadowOffset({ bikeX: 120, bikeY: 280, sunX: noon.x, sunY: noon.y, height: 400, strength: 0 }), 0, 'a hidden sun leaves the shadow centered');
 
 console.log('Terrain polygon, path, and sweep collision tests passed.');

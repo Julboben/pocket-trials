@@ -12,8 +12,8 @@ import { createAudio } from './audio.js';
 import { solveDistanceConstraint, constrainDistanceVelocity, advanceAfterTimeOfImpact } from './physics.js';
 import { createVersion2Vehicle, stepVersion2Vehicle, version2VehicleMetrics } from './vehicle-physics.js';
 import { createPhysicsDebugger } from './physics-debug.js';
-import { createDrawingTools, createGameArt, propAlignmentSlope, propGroundOffset } from './drawing.js';
-import { terrainAt, terrainSegmentSlopeAt, terrainCollisionsAt, terrainSweepCollision, platformPolygon, pathBounds } from './terrain.js';
+import { createDrawingTools, createGameArt, propAlignmentSlope, propGroundOffset, sunLight, sunShadowOffset } from './drawing.js';
+import { terrainAt, terrainSegmentSlopeAt, terrainCollisionsAt, terrainSweepCollision, platformPolygon, pathBounds, groundShadowSamples } from './terrain.js';
 import {
   loadPreferences,
   loadSaveSlots,
@@ -1203,6 +1203,11 @@ import {
     }
   }
 
+  const SCENERY_SHADOWS = {
+    tree: { width: 16, alpha: .15, thickness: 3, lift: 36 },
+    crystal: { width: 10, alpha: .14, thickness: 3, lift: 28 }
+  };
+
   function drawProp(prop,layer){
     if(preferences.scenery === 'reduced' && prop.type === 'tree')return;
     if(prop.x<cameraX-70||prop.x>cameraX+W+70)return;
@@ -1216,10 +1221,41 @@ import {
     for (const prop of level.props || []) if (prop.layer === layer) drawProp(prop, layer);
   }
 
+  function appleDrawY(apple, now) {
+    return apple.y + (reducedMotion ? 0 : Math.sin(now * .0025 + apple.x) * 2);
+  }
+
+  function drawSceneryShadow(x, y, light, { width, alpha, thickness, lift = 0 }) {
+    const ground = terrain(x, y);
+    if (!ground.solid) return;
+    const height = Math.max(0, ground.y - y) + lift;
+    const offset = sunShadowOffset({
+      bikeX: x - cameraX, bikeY: y - cameraY, sunX: light.x, sunY: light.y,
+      height, strength: light.strength
+    });
+    const center = x + offset;
+    drawShadowBlob(groundShadowSamples(level, x, y, width, 2, center).flat(), center, width, alpha, thickness);
+  }
+
+  function drawSceneryShadows(now) {
+    if (preferences.scenery === 'reduced') return;
+    const light = sunLight({ width: W, cameraX, cameraY, weather: level.weather });
+    for (const prop of level.props || []) {
+      const spec = SCENERY_SHADOWS[prop.type];
+      if (!spec || prop.x < cameraX - 80 || prop.x > cameraX + W + 80) continue;
+      const ground = terrain(prop.x);
+      if (!ground.solid && !Number.isFinite(prop.y)) continue;
+      drawSceneryShadow(prop.x, Number.isFinite(prop.y) ? prop.y : ground.y, light, spec);
+    }
+    for (const apple of apples) {
+      if (apple.taken || apple.x < cameraX - 40 || apple.x > cameraX + W + 40) continue;
+      drawSceneryShadow(apple.x, appleDrawY(apple, now), light, { width: 8, alpha: .18, thickness: 3 });
+    }
+  }
+
   function drawApple(apple, now) {
     if (apple.taken || apple.x < cameraX - 30 || apple.x > cameraX + W + 30) return;
-    const y = apple.y + (reducedMotion ? 0 : Math.sin(now * .0025 + apple.x) * 2);
-    gameArt.drawApple(apple.x, y);
+    gameArt.drawApple(apple.x, appleDrawY(apple, now));
   }
 
   function drawFlag() {
@@ -1355,19 +1391,34 @@ import {
     });
   }
 
+  function drawShadowBlob(samples, centerX, width, alpha, thickness) {
+    for (const sample of samples) {
+      const along = (sample.x - centerX) / width;
+      if (Math.abs(along) > 1) continue;
+      const envelope = Math.sqrt(Math.max(0, 1 - along * along));
+      const height = Math.max(2, thickness * envelope);
+      pixelRect(sample.x - 1, sample.y - height + 1, 2, height, 'rgba(31,53,39,' + (alpha * (.45 + .55 * envelope)) + ')', 2);
+    }
+  }
+
   function drawBike() {
     const mx=(rear.x+front.x)/2,my=(rear.y+front.y)/2;
     const angle=Math.atan2(front.y-rear.y,front.x-rear.x);
     const length=Math.hypot(front.x-rear.x,front.y-rear.y);
-    const ground=terrain(mx);
+    const ground=terrain(mx,my);
     if(ground.solid){
+      const light=sunLight({ width: W, cameraX, cameraY, weather: level.weather });
       const heightAboveGround=Math.max(0,ground.y-my-RADIUS);
       const shadowAlpha=clamp(.22-heightAboveGround/700,.035,.22);
       const shadowWidth=clamp(35-heightAboveGround*.07,13,35);
-      ctx.save();ctx.translate(mx,ground.y-1);ctx.rotate(Math.atan(ground.slope));
-      pixelRect(-shadowWidth,-2,shadowWidth*2,4,'rgba(31,53,39,'+shadowAlpha+')',2);
-      pixelRect(-shadowWidth*.7,-4,shadowWidth*1.4,2,'rgba(31,53,39,'+(shadowAlpha*.6)+')',2);
-      ctx.restore();
+      const offset=sunShadowOffset({
+        bikeX: mx - cameraX, bikeY: my - cameraY, sunX: light.x, sunY: light.y,
+        height: heightAboveGround, strength: light.strength
+      });
+      const center=mx+offset;
+      const samples=groundShadowSamples(level, mx, my, shadowWidth, 2, center).flat();
+      drawShadowBlob(samples, center, shadowWidth, shadowAlpha, 4);
+      drawShadowBlob(samples, center + Math.sign(offset) * 3, shadowWidth * .7, shadowAlpha * .55, 2);
     }
     drawPixelBike(mx,my,angle,length);
   }
@@ -1521,7 +1572,7 @@ import {
     drawBackground();
     ctx.save(); ctx.translate(-cameraX,-cameraY);
     updateParticles(dt);
-    drawTerrain(); drawSkidMarks(); drawProps('back'); drawParticles(true); drawFlag();
+    drawTerrain(); drawSkidMarks(); drawSceneryShadows(now); drawProps('back'); drawParticles(true); drawFlag();
     apples.forEach(a => drawApple(a,now));
     updateHair(dt);
     drawHair();

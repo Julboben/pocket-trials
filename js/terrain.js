@@ -299,6 +299,35 @@ export function terrainAt(level, x, referenceY = null) {
   return surface || { y: level.fallY || 620, slope: 0, solid: false, material: level.terrain || 'grass', platform: null };
 }
 
+function surfaceCurve(level, surface) {
+  const points = surface.platform?.points || level.points;
+  const contains = sampleX => surface.platform
+    ? sampleX >= points[0][0] && sampleX <= points.at(-1)[0]
+    : sampleX >= level.points[0][0] && sampleX <= level.points.at(-1)[0] && !(level.gaps || []).some(gap => sampleX > gap[0] && sampleX < gap[1]);
+  return { points, contains };
+}
+
+export function groundShadowSamples(level, x, referenceY, width, step = 2, center = x) {
+  const surface = terrainAt(level, x, referenceY);
+  if (!surface.solid || !(width > 0)) return [];
+  const { points, contains } = surfaceCurve(level, surface);
+  const origin = Number.isFinite(center) ? center : x;
+  const start = origin - width;
+  const end = origin + width;
+  const segments = [];
+  let segment = [];
+  for (let sampleX = start; sampleX <= end; sampleX += step) {
+    if (!contains(sampleX)) {
+      if (segment.length) segments.push(segment);
+      segment = [];
+      continue;
+    }
+    segment.push({ x: sampleX, ...curveAt(points, sampleX) });
+  }
+  if (segment.length) segments.push(segment);
+  return segments;
+}
+
 export function seatedSurfaceAt(level, x, y, tolerance = 12) {
   if (y == null || !Number.isFinite(y)) {
     const ground = terrainAt(level, x);
