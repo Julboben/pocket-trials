@@ -296,7 +296,7 @@ function landingScenario() {
     minimumFrontSuspension < SUSPENSION_REST_LENGTH - 5.5,
     `first wheel did not use enough suspension travel: ${minimumFrontSuspension}`
   );
-  assert.ok(maxUpwardSpeed < 55, `landing rebound too large: ${maxUpwardSpeed}`);
+  assert.ok(maxUpwardSpeed < 40, `landing rebound too large: ${maxUpwardSpeed}`);
   assert.ok(lateVerticalSpeed < .05, `landing did not settle promptly: ${lateVerticalSpeed}`);
   return {
     firstContact,
@@ -307,6 +307,16 @@ function landingScenario() {
     minimumFrontSuspension,
     lateVerticalSpeed
   };
+}
+
+function flipKeepsTiresRollingScenario() {
+  const simulation = createSimulation(flatLevel(), { x: 300 });
+  run(simulation, 120, { throttle: true });
+  step(simulation, { flip: true, throttle: true });
+  const sameSign = (rear, front) => Math.sign(rear.angularVelocity) === Math.sign(front.angularVelocity) && rear.angularVelocity !== 0;
+  assert.ok(sameSign(simulation.vehicle.rear, simulation.vehicle.front), 'a flip must not leave the tires spinning against each other');
+  for (let index = 0; index < 40; index++) step(simulation, { throttle: true });
+  assert.ok(sameSign(simulation.vehicle.rear, simulation.vehicle.front), 'tires must keep a shared roll direction after flipping');
 }
 
 function determinismAndFlipScenario() {
@@ -361,6 +371,7 @@ const results = {
   crestRelease: crestReleaseScenario(),
   valley: valleyScenario(),
   landing: landingScenario(),
+  flipKeepsTiresRolling: flipKeepsTiresRollingScenario(),
   determinismAndFlip: determinismAndFlipScenario()
 };
 console.log('Version 2 integrated scenarios passed.');

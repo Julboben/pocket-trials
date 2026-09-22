@@ -5,7 +5,7 @@ import {
   XPBD_SUSPENSION_COMPLIANCE, XPBD_SUSPENSION_DAMPING,
   XPBD_LONGITUDINAL_COMPLIANCE, XPBD_LONGITUDINAL_DAMPING,
   XPBD_CROSS_LINK_COMPLIANCE, XPBD_CROSS_LINK_DAMPING,
-  SUSPENSION_REST_LENGTH, SUSPENSION_TRAVEL,
+  SUSPENSION_REST_LENGTH, SUSPENSION_TRAVEL, XPBD_WHEELBASE_SLACK,
   WHEEL_INERTIA, WHEEL_FRICTION,
   XPBD_CHASSIS_MOUNT_INVERSE_MASS, XPBD_CHASSIS_TOP_INVERSE_MASS,
   XPBD_MOTOR_ANGULAR_ACCELERATION, XPBD_MAX_DRIVE_SPEED, XPBD_MOTOR_REACTION_SCALE,
@@ -41,8 +41,8 @@ export function createVersion2Vehicle(rear, front) {
   const wheelbaseLimit = createDistanceConstraint(rear, front, WHEELBASE, {
     compliance: 0,
     damping: XPBD_CROSS_LINK_DAMPING,
-    minLength: WHEELBASE - SUSPENSION_TRAVEL,
-    maxLength: WHEELBASE + SUSPENSION_TRAVEL
+    minLength: WHEELBASE - XPBD_WHEELBASE_SLACK,
+    maxLength: WHEELBASE + XPBD_WHEELBASE_SLACK
   });
   const constraints = [
     createDistanceConstraint(chassis.rearMount, chassis.frontMount, WHEELBASE, { compliance: XPBD_CHASSIS_COMPLIANCE, damping: 1 }),
@@ -154,6 +154,19 @@ function collideWheel(level, point, wheelName, hooks, sweep = true) {
 export function stepVersion2Vehicle(vehicle, level, controls, hooks = {}) {
   const { rear, front, chassis, constraints, wheelbaseLimit } = vehicle;
   const { facing, throttle, brakePressure, leanControl, accelerating, braking, coasting } = controls;
+  if (vehicle.lastFacing !== undefined && vehicle.lastFacing !== facing) {
+    for (const point of [rear, front]) {
+      const vx = (point.x - point.ox) / STEP;
+      const vy = (point.y - point.oy) / STEP;
+      if (point.contact) {
+        const tx = -point.contact.ny, ty = point.contact.nx;
+        point.angularVelocity = (vx * tx + vy * ty) / RADIUS;
+      } else {
+        point.angularVelocity = vx / RADIUS;
+      }
+    }
+  }
+  vehicle.lastFacing = facing;
   const grounded = rear.grounded || front.grounded;
   rear.impactSpeed = 0; front.impactSpeed = 0;
   const midpointX = (rear.x + front.x) / 2;
@@ -296,8 +309,9 @@ export function stepVersion2Vehicle(vehicle, level, controls, hooks = {}) {
   };
   for (const [point, name] of solverWheels) {
     if (!point.contact) {
+      const rolling = ((rear.x - rear.ox) + (front.x - front.ox)) / (2 * STEP * RADIUS);
       point.angularVelocity += (point === drivenWheel ? angularDrive : 0) * STEP;
-      point.angularVelocity *= Math.exp(-.08 * STEP);
+      point.angularVelocity += (rolling - point.angularVelocity) * (1 - Math.exp(-8 * STEP));
       if (braking) point.angularVelocity *= Math.max(0, 1 - XPBD_BRAKE_RATE * brakePressure * STEP);
       point.angularVelocity = clamp(point.angularVelocity, -XPBD_MAX_DRIVE_SPEED / RADIUS, XPBD_MAX_DRIVE_SPEED / RADIUS);
       point.spin += point.angularVelocity * STEP;
