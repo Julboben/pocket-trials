@@ -5,6 +5,6 @@
   "scripts": {
     "levels": "node scripts/generate-level-catalog.mjs",
     "dev": "node scripts/dev.mjs",
-    "test": "node scripts/test-terrain.mjs && node scripts/test-physics.mjs"
+    "test": "node scripts/test-terrain.mjs && node scripts/test-physics.mjs && node scripts/test-vehicle-physics.mjs"
   }
 }

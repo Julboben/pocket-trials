@@ -22,6 +22,7 @@ The world uses Canvas coordinates:
   label: 'EXAMPLE TRAIL / 08',
   goal: 1800,
   terrain: 'grass',
+  physicsVersion: 1,
   start: { x: 90, y: null, facing: 1 },
 
   points: [
@@ -42,6 +43,15 @@ The world uses Canvas coordinates:
       points: [[1050, 220], [1210, 185], [1380, 215]],
       thickness: 52,
       material: 'brick'
+    }
+  ],
+
+  paths: [
+    {
+      points: [[1500, 300], [1600, 180], [1710, 100], [1800, 220], [1740, 340]],
+      closed: true,
+      thickness: 28,
+      material: 'dirt'
     }
   ],
 
@@ -157,6 +167,41 @@ A level can contain any number of platforms, including multiple platforms over t
 
 Keep at least one wheel diameter of visual separation between a platform and the ground. Larger clearances are preferable when the player is expected to pass underneath.
 
+## Authored paths, loops, and overhangs: `paths`
+
+`paths` defines solid ribbons in authored traversal order. Unlike base `points` and platform points, path points are never sorted by x, so a path can be vertical, double back, or close into a loop:
+
+```js
+paths: [
+  {
+    points: [[900, 310], [1040, 190], [1120, 80], [1230, 170], [1190, 310], [1040, 370]],
+    closed: true,
+    thickness: 28,
+    material: 'dirt'
+  }
+]
+```
+
+- `points` describes the centerline of the ribbon and requires at least two points, or three for a closed path.
+- `closed: true` connects the last point back to the first. Do not repeat the first point at the end.
+- `thickness` is the full solid width and must be at least 16.
+- Open paths have solid rounded endpoints; closed paths leave their center empty.
+- Rendering and collision use the same ordered line segments, thickness, joins, and end caps.
+- `gaps` apply only to base terrain. Use multiple open paths when a path needs a break.
+- Objects with `y: null` still anchor to the base heightfield. Give starts, apples, and props an explicit `y` when placing them near a path.
+- Leave generous room in tight bends. A centerline radius smaller than roughly the path thickness plus one wheel radius can be difficult or impossible to ride cleanly.
+
+The editor's **Path / loop** tool creates an open path. Select a path or one of its points to move it, edit its material and thickness, or toggle **Closed loop**. Path points move freely in both axes and retain authored order.
+
+## Physics version
+
+`physicsVersion` selects the bike solver:
+
+- `1` (default): stable two-wheel distance constraint and direct drive.
+- `2` (experimental): XPBD chassis and suspension, swept collision, and angular wheel traction.
+
+The query parameter `?physicsVersion=1` or `?physicsVersion=2` overrides the level setting for a play session.
+
 ## Terrain materials
 
 Set the base material with:
@@ -237,7 +282,7 @@ Any property may be omitted. This supports clear skies, sunny skies with scatter
 1. Build the base route with `points` and no gaps.
 2. Ride it in both directions and verify every slope is recoverable.
 3. Add gaps one at a time, beginning around `80–100` units wide.
-4. Add elevated platforms and test their tops, undersides, walls, and both corners.
+4. Add elevated platforms and authored paths; test tops, undersides, walls, corners, and path caps in both directions.
 5. Place apples only after the route is stable.
 6. Add props, materials, and weather last so they do not hide gameplay problems.
 7. Test at low speed, full speed, and after imperfect landings—not only with an ideal run.

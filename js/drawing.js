@@ -1,3 +1,51 @@
+import { curveAt, seatedSurfaceAt } from './terrain.js';
+
+const GROUND_ALIGNED_PROP_SPANS = {
+  fence: [-24, 22],
+  rock: [-16, 18]
+};
+
+export function propAlignmentSlope(level, prop) {
+  const span = GROUND_ALIGNED_PROP_SPANS[prop.type];
+  if (!span) return 0;
+  const surface = seatedSurfaceAt(level, prop.x, prop.y);
+  if (!surface) return 0;
+  const points = surface.platform?.points || level.points;
+  const [left, right] = span;
+  return (curveAt(points, prop.x + right).y - curveAt(points, prop.x + left).y) / (right - left);
+}
+
+export function propDrawAngle(type, slope = 0) {
+  return GROUND_ALIGNED_PROP_SPANS[type] && Number.isFinite(slope) ? Math.atan(slope) : 0;
+}
+
+export function sunLight({ width, cameraX = 0, cameraY = 0, weather = {} }) {
+  const sunshine = Math.max(0, Math.min(1, weather.sun ?? 1));
+  const cloudiness = Math.max(0, Math.min(1, weather.clouds ?? .35));
+  return {
+    x: width * .77 - cameraX * .015,
+    y: 85 - cameraY * .08,
+    sunshine,
+    strength: sunshine * (1 - cloudiness * .55)
+  };
+}
+
+export function sunShadowOffset({ bikeX, bikeY, sunX, sunY, height = 0, strength = 1 }) {
+  const slant = (sunX - bikeX) / Math.max(Math.abs(sunY - bikeY), 48);
+  const reach = 10 + Math.max(0, height) * .05;
+  const offset = -slant * strength * reach;
+  if (!offset) return 0;
+  return Math.max(-14, Math.min(14, offset));
+}
+
+export function propGroundOffset(level, prop) {
+  const surface = seatedSurfaceAt(level, prop.x, prop.y);
+  if (!surface) return () => 0;
+  const points = surface.platform?.points || level.points;
+  const originY = Number.isFinite(prop.y) ? prop.y : surface.y;
+  return localX => curveAt(points, prop.x + localX).y - originY;
+}
+
 export function createDrawingTools(ctx) {
   function line(points, color, width) {
     ctx.strokeStyle = color;
@@ -128,14 +176,14 @@ export function createGameArt(ctx) {
     const rain = Math.max(0, Math.min(1, Number(weather.rain) || 0));
     const lightning = Math.max(0, Math.min(1, Number(weather.lightning) || 0));
     const cloudiness = Math.max(0, Math.min(1, weather.clouds ?? .35));
-    const sunshine = Math.max(0, Math.min(1, weather.sun ?? 1));
+    const light = sunLight({ width, cameraX, cameraY, weather });
     const storminess = Math.max(rain, lightning);
 
     ctx.fillStyle = palette.sky; ctx.fillRect(0, 0, width, height);
-    if (sunshine > 0) {
+    if (light.sunshine > 0) {
       ctx.save();
-      ctx.globalAlpha = sunshine * (1 - cloudiness * .55);
-      drawPixelDisc(width * .77 - cameraX * .015, 85 - cameraY * .08, 28 + sunshine * 8, palette.sun, 6);
+      ctx.globalAlpha = light.strength;
+      drawPixelDisc(light.x, light.y, 28 + light.sunshine * 8, palette.sun, 6);
       ctx.restore();
     }
     if (cloudiness > 0) {
@@ -200,11 +248,27 @@ export function createGameArt(ctx) {
     }
   }
 
-  function drawProp(type, x, y, alpha = 1) {
-    ctx.save(); ctx.translate(Math.round(x/2)*2,Math.round(y/2)*2);
+  function rectDownTo(x, top, width, color, pixel, groundOffset) {
+    for (let column = 0; column < width; column += pixel) {
+      const bottom = groundOffset(x + column + pixel / 2);
+      if (bottom <= top) continue;
+      pixelRect(x + column, top, pixel, bottom - top, color, pixel);
+    }
+  }
+
+  function rectAboveGround(x, y, width, height, color, pixel, groundOffset) {
+    for (let column = 0; column < width; column += pixel) {
+      const bottom = Math.min(y + height, groundOffset(x + column + pixel / 2));
+      if (bottom <= y) continue;
+      pixelRect(x + column, y, pixel, bottom - y, color, pixel);
+    }
+  }
+
+  function drawProp(type, x, y, alpha = 1, slope = 0, groundOffset = () => 0) {
+    ctx.save(); ctx.translate(Math.round(x/2)*2,Math.round(y/2)*2); ctx.rotate(propDrawAngle(type, slope));
     ctx.globalAlpha=alpha;
     if(type==='tree'){
-      pixelRect(-4,-44,8,44,'#66543f',2);
+      rectDownTo(-4,-44,8,'#66543f',2,groundOffset);
       drawPixelDisc(-8,-52,14,'#477158',4); drawPixelDisc(8,-56,16,'#568061',4); drawPixelDisc(0,-70,12,'#618b66',4);
     } else if(type==='fence'){
       pixelRect(-22,-26,4,26,'#856d4f',2); pixelRect(18,-26,4,26,'#856d4f',2);
@@ -212,11 +276,17 @@ export function createGameArt(ctx) {
     } else if(type==='rock'){
       pixelRect(-16,-8,34,8,'#697872',2); pixelRect(-10,-14,22,6,'#7f8d83',2); pixelRect(-4,-18,10,4,'#aeb5a7',2);
     } else if(type==='flowers'){
-      for(let index=-2;index<=2;index++){const offset=index*6,height=8+(Math.abs(index)%2)*4;pixelRect(offset,-height,2,height,'#58784d',2);pixelRect(offset-2,-height-4,6,4,index%2?'#f1b95d':'#e8755b',2);}
+      for(let index=-2;index<=2;index++){
+        const offset=index*6, height=8+(Math.abs(index)%2)*4, drop=groundOffset(offset+1);
+        pixelRect(offset,-height+drop,2,height,'#58784d',2);
+        pixelRect(offset-2,-height-4+drop,6,4,index%2?'#f1b95d':'#e8755b',2);
+      }
     } else if(type==='stump'){
-      pixelRect(-10,-14,20,14,'#806244',2); pixelRect(-10,-16,20,4,'#c39664',2); pixelRect(-4,-16,8,2,'#76573d',2);
+      rectDownTo(-10,-14,20,'#806244',2,groundOffset);
+      rectAboveGround(-10,-16,20,4,'#c39664',2,groundOffset);
+      rectAboveGround(-4,-16,8,2,'#76573d',2,groundOffset);
     } else if(type==='crystal'){
-      pixelPath([[-14,0],[-8,-28],[0,-40],[8,-24],[14,0]],'#83d1ce',3);
+      pixelPath([[-14,groundOffset(-14)],[-8,-28],[0,-40],[8,-24],[14,groundOffset(14)]],'#83d1ce',3);
       pixelPath([[0,-36],[0,-4]],'#d9ffff',1);
     }
     ctx.restore();

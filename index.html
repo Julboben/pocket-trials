@@ -19,16 +19,12 @@
     </div>
     <div class="toast" id="toast" role="status"></div>
     <div class="scene-label" id="scene-label" data-trail-number="01">THE ORCHARD</div>
-    <div class="progress" role="progressbar" id="progress" aria-label="Distance along trail" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-fill" id="progress-fill"></div></div>
     <div class="game-actions">
       <button class="icon-button" id="menu" aria-label="Open main menu">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
       </button>
       <button class="icon-button" id="fullscreen" aria-label="Enter fullscreen">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path></svg>
-      </button>
-      <button class="icon-button" id="pause" aria-label="Pause game" disabled="">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>
       </button>
       <button class="icon-button" id="restart" aria-label="Restart trail">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6"></path></svg>
@@ -37,10 +33,10 @@
 
     <div class="overlay" id="overlay" hidden>
       <div class="modal">
-        <div class="modal-badge" id="overlay-badge">PAUSED</div>
-        <h2 id="overlay-title">Game Paused</h2>
-        <p id="overlay-description">Resume when you are ready, or restart the current trail.</p>
-        <button class="primary" id="primary">Resume →</button>
+        <div class="modal-badge" id="overlay-badge">CRASHED</div>
+        <h2 id="overlay-title">Wiped Out</h2>
+        <p id="overlay-description">Your helmet hit the ground. Reset and give the trail another run.</p>
+        <button class="primary" id="primary">Try Again ↗</button>
         <button class="secondary" id="secondary" hidden="">Back to Menu</button>
       </div>
     </div>

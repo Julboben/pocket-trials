@@ -1,6 +1,6 @@
 import { levelEntries, terrainMaterials } from './levels.js';
-import { curveAt, platformPolygon, pointInPlatform, invalidatePlatform } from './terrain.js';
-import { createDrawingTools, createGameArt } from './drawing.js';
+import { curveAt, platformPolygon, pointInPlatform, invalidatePlatform, invalidateTerrain, pathBounds, pathSegments } from './terrain.js';
+import { createDrawingTools, createGameArt, propAlignmentSlope, propGroundOffset } from './drawing.js';
 import { cloneLevel, createBlankLevel, normalizeLevel, validateLevel, levelToModule } from './level-schema.js';
 
 const $ = id => document.getElementById(id);
@@ -135,6 +135,20 @@ function drawTerrain() {
   }
   for (const [start, end] of baseRanges()) drawSurfaceTop([[start, curveAt(level.points, start).y], ...level.points.filter(point => point[0] > start && point[0] < end), [end, curveAt(level.points, end).y]], material.surface, 5);
 
+  for (const [pathIndex, path] of (level.paths || []).entries()) {
+    const pathMaterial = terrainMaterials[path.material] || material;
+    ctx.beginPath();
+    path.points.forEach((point, index) => index ? ctx.lineTo(...point) : ctx.moveTo(...point));
+    if (path.closed) ctx.closePath();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = pathMaterial.edge; ctx.lineWidth = path.thickness + 7; ctx.stroke();
+    ctx.strokeStyle = pathMaterial.surface; ctx.lineWidth = path.thickness + 3; ctx.stroke();
+    ctx.strokeStyle = pathMaterial.fill; ctx.lineWidth = path.thickness; ctx.stroke();
+    if (selection?.kind === 'path' && selection.pathIndex === pathIndex) {
+      ctx.strokeStyle = '#fff3be'; ctx.lineWidth = 3 / zoom; ctx.setLineDash([8 / zoom, 5 / zoom]); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+
   for (const [platformIndex, platform] of (level.platforms || []).entries()) {
     const platformMaterial = terrainMaterials[platform.material] || material;
     const polygon = platformPolygon(platform);
@@ -166,7 +180,9 @@ function objectY(object, offset = 0) {
 }
 
 function drawProps() {
-  for (const prop of level.props || []) art.drawProp(prop.type, prop.x, objectY(prop), prop.layer === 'front' ? 1 : .82);
+  for (const prop of level.props || []) {
+    art.drawProp(prop.type, prop.x, objectY(prop), prop.layer === 'front' ? 1 : .82, propAlignmentSlope(level, prop), propGroundOffset(level, prop));
+  }
 }
 
 function drawObjects() {
@@ -197,6 +213,7 @@ function drawHandles() {
   };
   level.points.forEach((point, index) => drawHandle(point[0], point[1], isSelected('groundPoint', index)));
   (level.platforms || []).forEach((platform, platformIndex) => platform.points.forEach((point, index) => drawHandle(point[0], point[1], isSelected('platformPoint', index, platformIndex), '#83d1ce')));
+  (level.paths || []).forEach((path, pathIndex) => path.points.forEach((point, index) => drawHandle(point[0], point[1], selection?.kind === 'pathPoint' && selection.pathIndex === pathIndex && selection.index === index, '#f0b45f')));
   for (const [index, gap] of (level.gaps || []).entries()) {
     for (const x of gap) drawHandle(x, curveAt(level.points, x).y, isSelected('gap', index), '#e65e56');
   }
@@ -231,6 +248,7 @@ function hitTest(point) {
   };
   level.points.forEach((value, index) => consider({ kind: 'groundPoint', index }, value[0], value[1]));
   level.platforms.forEach((platform, platformIndex) => platform.points.forEach((value, index) => consider({ kind: 'platformPoint', platformIndex, index }, value[0], value[1])));
+  level.paths.forEach((path, pathIndex) => path.points.forEach((value, index) => consider({ kind: 'pathPoint', pathIndex, index }, value[0], value[1])));
   level.gaps.forEach((gap, index) => consider({ kind: 'gap', index }, (gap[0] + gap[1]) / 2, curveAt(level.points, (gap[0] + gap[1]) / 2).y));
   level.apples.forEach((apple, index) => consider({ kind: 'apple', index }, apple.x, objectY(apple, 60)));
   level.props.forEach((prop, index) => consider({ kind: 'prop', index }, prop.x, objectY(prop)));
@@ -238,6 +256,16 @@ function hitTest(point) {
   consider({ kind: 'start' }, level.start.x, startY);
   consider({ kind: 'goal' }, level.goal, curveAt(level.points, level.goal).y - 112);
   if (!best) {
+    for (let pathIndex = level.paths.length - 1; pathIndex >= 0; pathIndex--) {
+      const path = level.paths[pathIndex];
+      const bounds = pathBounds(path);
+      if (point.x < bounds.left || point.x > bounds.right || point.y < bounds.top || point.y > bounds.bottom) continue;
+      for (const [a, b] of pathSegments(path)) {
+        const dx = b[0] - a[0], dy = b[1] - a[1], lengthSquared = dx * dx + dy * dy || 1;
+        const amount = Math.max(0, Math.min(1, ((point.x - a[0]) * dx + (point.y - a[1]) * dy) / lengthSquared));
+        if (Math.hypot(point.x - a[0] - dx * amount, point.y - a[1] - dy * amount) <= path.thickness / 2) return { kind: 'path', pathIndex };
+      }
+    }
     for (let platformIndex = level.platforms.length - 1; platformIndex >= 0; platformIndex--) {
       if (pointInPlatform(level.platforms[platformIndex], point.x, point.y)) {
         return { kind: 'platform', platformIndex };
@@ -251,6 +279,11 @@ function selectedPosition() {
   if (!selection) return null;
   if (selection.kind === 'groundPoint') return level.points[selection.index];
   if (selection.kind === 'platformPoint') return level.platforms[selection.platformIndex].points[selection.index];
+  if (selection.kind === 'pathPoint') return level.paths[selection.pathIndex].points[selection.index];
+  if (selection.kind === 'path') {
+    const points = level.paths[selection.pathIndex].points;
+    return [points.reduce((sum, point) => sum + point[0], 0) / points.length, points.reduce((sum, point) => sum + point[1], 0) / points.length];
+  }
   if (selection.kind === 'platform') {
     const points = level.platforms[selection.platformIndex].points;
     return [points.reduce((sum, point) => sum + point[0], 0) / points.length, points.reduce((sum, point) => sum + point[1], 0) / points.length];
@@ -277,18 +310,22 @@ function syncInspector() {
     $('selection-y').value = Math.round(position[1]);
   }
   const platformIndex = selection?.platformIndex;
+  const pathIndex = selection?.pathIndex;
   const hasPlatform = Number.isInteger(platformIndex);
+  const hasPath = Number.isInteger(pathIndex);
   $('selection-y-row').hidden = !selection || ['gap', 'goal'].includes(selection.kind);
-  $('selection-material-row').hidden = !hasPlatform;
-  $('selection-thickness-row').hidden = !hasPlatform;
+  $('selection-material-row').hidden = !hasPlatform && !hasPath;
+  $('selection-thickness-row').hidden = !hasPlatform && !hasPath;
+  $('selection-closed-row').hidden = !hasPath;
   $('selection-facing-row').hidden = selection?.kind !== 'start';
   $('selection-prop-type-row').hidden = selection?.kind !== 'prop';
   $('selection-layer-row').hidden = selection?.kind !== 'prop';
   $('delete-selection').hidden = !selection || ['start', 'goal'].includes(selection.kind);
-  if (hasPlatform) {
-    const platform = level.platforms[platformIndex];
-    $('selection-material').value = platform.material;
-    $('selection-thickness').value = platform.thickness;
+  if (hasPlatform || hasPath) {
+    const body = hasPlatform ? level.platforms[platformIndex] : level.paths[pathIndex];
+    $('selection-material').value = body.material;
+    $('selection-thickness').value = body.thickness;
+    if (hasPath) $('selection-closed').checked = body.closed;
   }
   if (selection?.kind === 'start') $('selection-facing').value = String(level.start.facing);
   if (selection?.kind === 'prop') {
@@ -311,6 +348,7 @@ function updateSelectedPosition(x, y) {
     const maximumX = index < points.length - 1 ? points[index + 1][0] - 10 : Infinity;
     points[index][0] = Math.max(minimumX, Math.min(maximumX, x));
     points[index][1] = y;
+    invalidateTerrain(level);
   } else if (selection.kind === 'platformPoint') {
     const points = level.platforms[selection.platformIndex].points, index = selection.index;
     const minimumX = index > 0 ? points[index - 1][0] + 10 : 0;
@@ -318,12 +356,24 @@ function updateSelectedPosition(x, y) {
     points[index][0] = Math.max(minimumX, Math.min(maximumX, x));
     points[index][1] = y;
     invalidatePlatform(level.platforms[selection.platformIndex]);
+    invalidateTerrain(level);
+  } else if (selection.kind === 'pathPoint') {
+    const path = level.paths[selection.pathIndex];
+    path.points[selection.index] = [x, y];
+    invalidateTerrain(level);
+  } else if (selection.kind === 'path') {
+    const path = level.paths[selection.pathIndex];
+    const current = selectedPosition();
+    const dx = x - current[0], dy = y - current[1];
+    path.points.forEach(point => { point[0] += dx; point[1] += dy; });
+    invalidateTerrain(level);
   } else if (selection.kind === 'platform') {
     const platform = level.platforms[selection.platformIndex];
     const current = selectedPosition();
     const dx = x - current[0], dy = y - current[1];
     platform.points.forEach(point => { point[0] += dx; point[1] += dy; });
     invalidatePlatform(platform);
+    invalidateTerrain(level);
   } else if (selection.kind === 'apple') {
     level.apples[selection.index].x = x; level.apples[selection.index].y = y;
   } else if (selection.kind === 'prop') {
@@ -344,6 +394,17 @@ function addAt(point) {
   } else if (tool === 'platform') {
     level.platforms.push({ points: [[point.x - 100, point.y], [point.x, point.y - 25], [point.x + 100, point.y]], thickness: 48, material: level.terrain });
     selection = { kind: 'platformPoint', platformIndex: level.platforms.length - 1, index: 1 };
+  } else if (tool === 'path') {
+    const pathIndex = selection?.pathIndex;
+    if (Number.isInteger(pathIndex) && level.paths[pathIndex]) {
+      const path = level.paths[pathIndex];
+      path.points.push([point.x, point.y]);
+      selection = { kind: 'pathPoint', pathIndex, index: path.points.length - 1 };
+    } else {
+      level.paths.push({ points: [[point.x - 60, point.y], [point.x, point.y - 60], [point.x + 60, point.y]], closed: false, thickness: 28, material: level.terrain });
+      selection = { kind: 'pathPoint', pathIndex: level.paths.length - 1, index: 1 };
+    }
+    invalidateTerrain(level);
   } else if (tool === 'gap') {
     level.gaps.push([point.x - 50, point.x + 50]); level.gaps.sort((a, b) => a[0] - b[0]);
     selection = { kind: 'gap', index: level.gaps.findIndex(gap => point.x >= gap[0] && point.x <= gap[1]) };
@@ -371,6 +432,11 @@ function deleteSelection() {
     if (platform.points.length > 2) platform.points.splice(selection.index, 1);
     else level.platforms.splice(selection.platformIndex, 1);
   } else if (selection.kind === 'platform') level.platforms.splice(selection.platformIndex, 1);
+  else if (selection.kind === 'pathPoint') {
+    const path = level.paths[selection.pathIndex];
+    if (path.points.length > (path.closed ? 3 : 2)) path.points.splice(selection.index, 1);
+    else level.paths.splice(selection.pathIndex, 1);
+  } else if (selection.kind === 'path') level.paths.splice(selection.pathIndex, 1);
   else if (selection.kind === 'gap') level.gaps.splice(selection.index, 1);
   else if (selection.kind === 'apple') level.apples.splice(selection.index, 1);
   else if (selection.kind === 'prop') level.props.splice(selection.index, 1);
@@ -486,8 +552,17 @@ for (const key of ['sun', 'clouds', 'rain', 'lightning']) {
 }
 $('selection-x').addEventListener('change', event => { const position = selectedPosition(); if (!position) return; pushHistory(); updateSelectedPosition(Number(event.target.value), position[1]); syncInspector(); render(); });
 $('selection-y').addEventListener('change', event => { const position = selectedPosition(); if (!position) return; pushHistory(); updateSelectedPosition(position[0], Number(event.target.value)); syncInspector(); render(); });
-$('selection-material').addEventListener('change', event => { if (!Number.isInteger(selection?.platformIndex)) return; pushHistory(); level.platforms[selection.platformIndex].material = event.target.value; syncInspector(); render(); });
-$('selection-thickness').addEventListener('change', event => { if (!Number.isInteger(selection?.platformIndex)) return; pushHistory(); const platform = level.platforms[selection.platformIndex]; platform.thickness = Math.max(16, Number(event.target.value)); invalidatePlatform(platform); syncInspector(); render(); });
+$('selection-material').addEventListener('change', event => {
+  const body = Number.isInteger(selection?.platformIndex) ? level.platforms[selection.platformIndex] : level.paths[selection?.pathIndex];
+  if (!body) return; pushHistory(); body.material = event.target.value; invalidateTerrain(level); syncInspector(); render();
+});
+$('selection-thickness').addEventListener('change', event => {
+  const body = Number.isInteger(selection?.platformIndex) ? level.platforms[selection.platformIndex] : level.paths[selection?.pathIndex];
+  if (!body) return; pushHistory(); body.thickness = Math.max(16, Number(event.target.value));
+  if (Number.isInteger(selection?.platformIndex)) invalidatePlatform(body);
+  invalidateTerrain(level); syncInspector(); render();
+});
+$('selection-closed').addEventListener('change', event => { if (!Number.isInteger(selection?.pathIndex)) return; pushHistory(); level.paths[selection.pathIndex].closed = event.target.checked; invalidateTerrain(level); syncInspector(); render(); });
 $('selection-facing').addEventListener('change', event => { if (selection?.kind !== 'start') return; pushHistory(); level.start.facing = Number(event.target.value) < 0 ? -1 : 1; syncInspector(); render(); });
 $('selection-prop-type').addEventListener('change', event => { if (selection?.kind !== 'prop') return; pushHistory(); level.props[selection.index].type = event.target.value; syncInspector(); render(); });
 $('selection-layer').addEventListener('change', event => { if (selection?.kind !== 'prop') return; pushHistory(); level.props[selection.index].layer = event.target.value === 'front' ? 'front' : 'back'; syncInspector(); render(); });

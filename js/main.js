@@ -4,14 +4,16 @@ import {
   COAST_RESISTANCE_LOW_SPEED, COAST_RESISTANCE_HIGH_SPEED,
   COAST_SPEED_REFERENCE, UPHILL_TORQUE_BOOST, BIKE_SOLVER_ITERATIONS,
   BIKE_CONSTRAINT_STIFFNESS, CONTACT_GROUNDED_NORMAL, CONTACT_RESTITUTION_SPEED,
+  XPBD_THROTTLE_INPUT_RESPONSE, XPBD_LEAN_INPUT_RESPONSE,
   clamp, lerp
 } from './config.js';
 import { levels, customLevelEntries, terrainMaterials } from './levels.js';
 import { createAudio } from './audio.js';
-import { solveDistanceConstraint, constrainDistanceVelocity } from './physics.js';
+import { solveDistanceConstraint, constrainDistanceVelocity, advanceAfterTimeOfImpact } from './physics.js';
+import { createVersion2Vehicle, stepVersion2Vehicle, version2VehicleMetrics } from './vehicle-physics.js';
 import { createPhysicsDebugger } from './physics-debug.js';
-import { createDrawingTools, createGameArt } from './drawing.js';
-import { terrainAt, terrainSegmentSlopeAt, terrainCollisionsAt, platformPolygon } from './terrain.js';
+import { createDrawingTools, createGameArt, propAlignmentSlope, propGroundOffset, sunLight, sunShadowOffset } from './drawing.js';
+import { terrainAt, terrainSegmentSlopeAt, terrainCollisionsAt, terrainSweepCollision, platformPolygon, pathBounds, groundShadowSamples } from './terrain.js';
 import {
   loadPreferences,
   loadSaveSlots,
@@ -42,12 +44,12 @@ import {
   let saveSlots = [null, null, null], activeSaveSlot = 0, pendingSaveSlot = 0, selectedNewRider = 'max', gameLoopStarted = false;
   let deleteArmedSlot = -1, deleteArmTimer = 0;
   let preferences = { scenery: 'full', controls: 'show', sound: 'on' };
-  let rear, front, apples = [], particles = [], skidMarks = [], ragdoll = null, hair = null;
+  let rear, front, version2Vehicle = null, previousRiderContacts = null, apples = [], particles = [], skidMarks = [], ragdoll = null, hair = null;
   let elapsed = 0, collected = 0, facing = 1, throttle = 0, brakePressure = 0;
   let weatherTime = 0, nextLightning = Infinity, lightningFlash = 0, lightningX = .5, lightningDistance = .5;
   let cameraX = 0, cameraY = 0, leanControl = 0, leanVisual = 0, flipVisual = 1;
   let lastTime = 0, accumulator = 0, sprayAccumulator = 0, skidAccumulator = 0, landingSoundCooldown = 0, airRotation = 0, airTurnMilestone = 0, previousAirAngle = 0, lastGateNotice = -10, toastUntil = 0;
-  let lastProgress = -1, lastTimer = '';
+  let lastTimer = '';
   const sounds = createAudio(() => ({ state, rear, front, throttle, brakePressure, weather: level?.weather }));
   const keys = new Set();
   const pointers = new Map();
@@ -56,8 +58,11 @@ import {
     ArrowUp:'up', KeyW:'up', ArrowDown:'down', KeyS:'down',
     ArrowLeft:'back', KeyA:'back', ArrowRight:'forward', KeyD:'forward'
   };
+  const requestedPhysicsVersion = Number(new URLSearchParams(window.location.search).get('physicsVersion'));
+  const physicsDebugEnabled = new URLSearchParams(window.location.search).get('physicsDebug') === '1';
+  const activePhysicsVersion = () => requestedPhysicsVersion === 1 || requestedPhysicsVersion === 2 ? requestedPhysicsVersion : (level.physicsVersion || 1);
   const physicsDebug = createPhysicsDebugger({
-    enabled: new URLSearchParams(window.location.search).get('physicsDebug') === '1',
+    enabled: physicsDebugEnabled,
     step: STEP,
     inspectPoint(point, round) {
       const ground = terrain(point.x);
@@ -345,7 +350,6 @@ import {
     if (state !== 'menu') stateBeforeMenu = state;
     state = 'menu'; clearInput();
     $('overlay').hidden = true;
-    $('pause').disabled = true;
     game.classList.add('menu-open');
     $('menu-screen').hidden = false;
     updateMenuDashboard(); showMenuView('home');
@@ -356,7 +360,7 @@ import {
     if (!gameLoopStarted || (!saveGame && levelSource === 'official')) return;
     $('menu-screen').hidden = true;
     game.classList.remove('menu-open');
-    setOverlay(stateBeforeMenu === 'paused' ? 'paused' : 'running');
+    setOverlay('running');
     focusGame();
   }
 
@@ -448,8 +452,10 @@ import {
 
   function wheel(x, startY = null) {
     const y = startY ?? terrain(x).y - RADIUS;
-    return { x, y, ox: x, oy: y, grounded: true, material: level.terrain || 'grass', spin: 0, compression: 0, springVelocity: 0, impactSpeed: 0 };
+    return { x, y, ox: x, oy: y, inverseMass: 1, grounded: true, contact: null, material: level.terrain || 'grass', spin: 0, angularVelocity: 0, compression: 0, springVelocity: 0, impactSpeed: 0 };
   }
+
+
 
   function clearInput() {
     keys.clear();
@@ -484,6 +490,7 @@ import {
     level = trail;
     const { x: startX, y: startY, facing: startFacing } = level.start;
     rear = wheel(startX - WHEELBASE / 2, startY); front = wheel(startX + WHEELBASE / 2, startY);
+    version2Vehicle = createVersion2Vehicle(rear, front);
     apples = level.apples.map(apple => ({
       x: apple.x,
       y: Number.isFinite(apple.y) ? apple.y : terrain(apple.x).y - 60,
@@ -493,9 +500,10 @@ import {
     weatherTime = 0; lightningFlash = 0; lightningX = .5; lightningDistance = .5;
     nextLightning = level.weather?.lightning ? 2.5 + Math.random() * 4 : Infinity;
     cameraX = 0; cameraY = 0; leanControl = 0; leanVisual = 0; flipVisual = 1;
+    previousRiderContacts = riderCollisionPoints();
     accumulator = 0; sprayAccumulator = 0; skidAccumulator = 0; landingSoundCooldown = 0;
     airRotation = 0; airTurnMilestone = 0; previousAirAngle = 0;
-    lastGateNotice = -10; lastProgress = -1; lastTimer = '';
+    lastGateNotice = -10; lastTimer = '';
     clearInput(); updateDirectionControls();
     $('scene-label').textContent = level.name.toUpperCase();
     $('scene-label').dataset.trailNumber = marker;
@@ -522,18 +530,10 @@ import {
     state = next; clearInput();
     const visible = next !== 'running';
     $('overlay').hidden = !visible;
-    $('pause').disabled = !['running','paused'].includes(next);
-    $('pause').setAttribute('aria-label', next === 'paused' ? 'Resume game' : 'Pause game');
     $('secondary').hidden = next === 'running';
     if (visible) requestAnimationFrame(() => $('primary').focus({ preventScroll: true }));
 
-    if (next === 'paused') {
-      $('overlay-badge').textContent = 'PAUSED';
-      $('overlay-title').textContent = 'Game Paused';
-      $('overlay-description').textContent = 'Resume when you are ready, or restart the current trail.';
-      $('primary').textContent = 'Resume →';
-      $('secondary').textContent = 'Restart Trail';
-    } else if (next === 'crashed') {
+    if (next === 'crashed') {
       $('overlay-badge').textContent = 'CRASHED';
       $('overlay-title').textContent = 'Wiped Out';
       $('overlay-description').textContent = 'Your helmet hit the ground. Reset and give the trail another run.';
@@ -568,14 +568,13 @@ import {
     else loadLevel(levelIndex);
     setOverlay('running'); focusGame();
   }
-  function pauseGame() { if (state === 'running') setOverlay('paused'); }
   function notify(message, duration = 2600) {
     $('toast').textContent = message;
     toastUntil = duration === Infinity ? Infinity : performance.now() + duration;
     $('toast').classList.add('visible');
   }
 
-  function headPosition() {
+  function riderCollisionPoints() {
     const angle = Math.atan2(front.y - rear.y, front.x - rear.x);
     const c = Math.cos(angle), s = Math.sin(angle);
     const riderShift = leanVisual * 9;
@@ -584,17 +583,30 @@ import {
     const bodyDrop = (backCompression + frontCompression) * .4;
     const bodyPitch = (frontCompression - backCompression) * .0096;
     const pc = Math.cos(bodyPitch), ps = Math.sin(bodyPitch);
-    const localX = (3 + riderShift) * pc + 43 * ps;
-    const localY = (3 + riderShift) * ps - 43 * pc + bodyDrop;
-    const facingX = localX * facing;
+    const transform = (localX, localY, radius) => {
+      const shiftedX = localX + riderShift;
+      const pitchedX = shiftedX * pc - localY * ps;
+      const pitchedY = shiftedX * ps + localY * pc + bodyDrop;
+      const facingX = pitchedX * facing;
+      return {
+        x: (rear.x + front.x) / 2 + c * facingX - s * pitchedY,
+        y: (rear.y + front.y) / 2 + s * facingX + c * pitchedY,
+        radius
+      };
+    };
     return {
-      x: (rear.x + front.x) / 2 + c * facingX - s * localY,
-      y: (rear.y + front.y) / 2 + s * facingX + c * localY
+      head: transform(3, -43, 6),
+      shoulder: transform(1, -34, 5),
+      hip: transform(-7, -23, 5)
     };
   }
 
-  // Verlet integration: two tires joined by an elastic distance constraint.
-  function integrate(p, drive, speedLimit, lean, leanTorque, driveGrip, brakeGrip, braking, coasting) {
+  function headPosition() {
+    return riderCollisionPoints().head;
+  }
+
+  // Version 1 integration: direct wheel forces and authored pitch behavior.
+  function integrateLegacyWheel(p, drive, speedLimit, lean, leanTorque, driveGrip, brakeGrip, braking, coasting) {
     let vx = (p.x - p.ox) * (p.grounded ? .9997 : .9998);
     let vy = (p.y - p.oy) * .9998;
     let ax = 0, ay = GRAVITY;
@@ -648,10 +660,12 @@ import {
     p.x += vx + ax * STEP * STEP;
     p.y += vy + ay * STEP * STEP;
     p.grounded = false;
+    p.contact = null;
   }
 
+
   function resolveWheelContact(p, contact) {
-    if (!contact || contact.penetration <= 0) return;
+    if (!contact || (contact.penetration <= 0 && !contact.swept)) return;
     const { nx, ny, penetration } = contact;
     const beforeX = p.x, beforeY = p.y;
     let vx = p.x - p.ox, vy = p.y - p.oy;
@@ -660,7 +674,9 @@ import {
     if (intoSurface < 0) {
       const impactSpeed = -intoSurface / STEP;
       p.impactSpeed = Math.max(p.impactSpeed, impactSpeed);
-      const restitution = impactSpeed > CONTACT_RESTITUTION_SPEED ? clamp(.08 + impactSpeed / 1200, .08, .22) : 0;
+      const restitution = impactSpeed > CONTACT_RESTITUTION_SPEED
+        ? clamp(.08 + impactSpeed / 1200, .08, .22)
+        : 0;
       vx -= nx * intoSurface * (1 + restitution);
       vy -= ny * intoSurface * (1 + restitution);
       if (ny < CONTACT_GROUNDED_NORMAL && impactSpeed > 12) {
@@ -683,15 +699,30 @@ import {
       afterVx: vx,
       afterVy: vy
     });
-    if (ny < CONTACT_GROUNDED_NORMAL) {
-      p.grounded = true;
-      p.material = contact.material;
-    }
+    p.contact = contact;
+    p.material = contact.material;
+    if (ny < CONTACT_GROUNDED_NORMAL) p.grounded = true;
   }
 
-  function collide(p) {
-    const contacts = terrainCollisionsAt(level, p.x, p.y, RADIUS);
-    for (const contact of contacts) resolveWheelContact(p, contact);
+  function collide(p, radius = RADIUS, wheelContact = true, sweep = true) {
+    if (sweep) {
+      const intendedVx = p.x - p.ox, intendedVy = p.y - p.oy;
+      const swept = terrainSweepCollision(level, p.ox, p.oy, p.x, p.y, radius);
+      if (swept) {
+        p.x = swept.x + swept.nx * .01;
+        p.y = swept.y + swept.ny * .01;
+        p.ox = p.x - intendedVx;
+        p.oy = p.y - intendedVy;
+        if (wheelContact) resolveWheelContact(p, swept);
+        else resolveRagdollContact(p, swept);
+        // Continue through the unused part of the substep with the resolved
+        // velocity. Stopping at time-of-impact discarded most tangential
+        // travel on every grounded frame, which felt like artificial glue.
+        advanceAfterTimeOfImpact(p, swept.time);
+      }
+    }
+    const contacts = terrainCollisionsAt(level, p.x, p.y, radius);
+    for (const contact of contacts) wheelContact ? resolveWheelContact(p, contact) : resolveRagdollContact(p, contact);
     if (p.x < RADIUS) {
       const vx = Math.max(0, p.x - p.ox);
       p.x = RADIUS;
@@ -720,12 +751,11 @@ import {
       .map(([a,b])=>({a,b,length:Math.hypot(points[b].x-points[a].x,points[b].y-points[a].y)}));
     ragdoll={points,links};
     state='ragdoll'; clearInput();
-    $('pause').disabled=true;
     $('announcer').textContent='Rider down. Press R or select the restart button to try again.';
     notify('Rider down · Press R to retry', Infinity);
   }
   function resolveRagdollContact(p, contact) {
-    if (!contact || contact.penetration <= 0) return;
+    if (!contact || (contact.penetration <= 0 && !contact.swept)) return;
     const { nx, ny, penetration } = contact;
     let vx=p.x-p.ox,vy=p.y-p.oy;
     const normal=vx*nx+vy*ny;
@@ -734,8 +764,8 @@ import {
     vx-=tangentX*tangent*.16;vy-=tangentY*tangent*.16;
     p.x+=nx*penetration;p.y+=ny*penetration;p.ox=p.x-vx;p.oy=p.y-vy;
   }
-  function collideRagdollPoint(p) {
-    for (const contact of terrainCollisionsAt(level, p.x, p.y, p.radius)) resolveRagdollContact(p, contact);
+  function collideRagdollPoint(p, sweep) {
+    collide(p, p.radius, false, sweep);
   }
   function updateRagdoll() {
     if(!ragdoll)return;
@@ -750,7 +780,7 @@ import {
         const correction=(d-link.length)/d*.5;
         a.x+=dx*correction;a.y+=dy*correction;b.x-=dx*correction;b.y-=dy*correction;
       }
-      for(const p of Object.values(ragdoll.points))collideRagdollPoint(p);
+      for(const p of Object.values(ragdoll.points))collideRagdollPoint(p, iteration === 0);
     }
   }
 
@@ -774,10 +804,10 @@ import {
     const direction = Math.sign(bikeSpeed || facing);
     for (const wheelPoint of [rear, front]) {
       if (!wheelPoint.grounded) continue;
-      const ground = terrain(wheelPoint.x, wheelPoint.y - RADIUS);
+      const ground = wheelPoint.contact || terrain(wheelPoint.x, wheelPoint.y - RADIUS);
       const length = clamp(speed * .035 * brakePressure, 3, 10);
       skidMarks.push({
-        x: wheelPoint.x, y: ground.y - 1, slope: ground.slope,
+        x: ground.pointX ?? wheelPoint.x, y: (ground.pointY ?? ground.y) - 1, slope: ground.slope,
         direction, length, life: 1.6, max: 1.6
       });
     }
@@ -800,8 +830,8 @@ import {
       const color = spray[Math.floor(Math.random() * spray.length)];
       const life = .28 + Math.random() * .32;
       particles.push({
-        x: contactWheel.x - direction * (RADIUS - 2),
-        y: terrain(contactWheel.x).y - 2,
+        x: (contactWheel.contact?.pointX ?? contactWheel.x) - direction * (RADIUS - 2),
+        y: (contactWheel.contact?.pointY ?? terrain(contactWheel.x).y) - 2,
         vx: bikeSpeed * .12 - direction * (35 + Math.random() * (braking ? 95 : 65)),
         vy: -(25 + Math.random() * (braking ? 90 : 55)),
         life, max: life, color, size: Math.random() < .7 ? 2 : 4, drag: 2.5, splatter: true
@@ -830,7 +860,7 @@ import {
     landingSoundCooldown = Math.max(0, landingSoundCooldown - STEP);
     const wasRearGrounded = rear.grounded, wasFrontGrounded = front.grounded;
     rear.impactSpeed = 0; front.impactSpeed = 0;
-    physicsDebug.begin({ state, time: elapsed, level: level.name, source: levelSource, facing, throttle }, rear, front);
+    physicsDebug.begin({ state, time: elapsed, level: level.name, source: levelSource, physicsVersion: activePhysicsVersion(), facing, throttle }, rear, front);
     for (const p of [rear, front]) {
       p.springVelocity += -42 * p.compression * STEP;
       p.springVelocity *= Math.exp(-6.4 * STEP);
@@ -838,14 +868,22 @@ import {
       if (p.compression <= 0) { p.compression = 0; p.springVelocity = 0; }
     }
 
-    const leanInput = Number(down('forward')) - Number(down('back'));
+    const replayInput = physicsDebug.nextReplayInput();
+    if (replayInput && Number(replayInput.facing)) facing = replayInput.facing < 0 ? -1 : 1;
+    const physicsVersion = activePhysicsVersion();
+    const leanInput = replayInput?.leanInput ?? (Number(down('forward')) - Number(down('back')));
     const leanTarget = leanInput;
-    leanControl = lerp(leanControl, leanTarget, 1 - Math.exp(-5.8 * STEP));
+    const leanResponse = physicsVersion === 2 ? XPBD_LEAN_INPUT_RESPONSE : 5.8;
+    leanControl = lerp(leanControl, leanTarget, 1 - Math.exp(-leanResponse * STEP));
     const acceptingInput = state === 'running';
-    const accelerating = acceptingInput && down('up'), braking = acceptingInput && down('down');
+    const accelerating = acceptingInput && (replayInput?.accelerating ?? down('up'));
+    const braking = acceptingInput && (replayInput?.braking ?? down('down'));
+    physicsDebug.recordInput({ facing, leanInput, accelerating, braking });
     const coasting = !accelerating && !braking;
     const throttleTarget = accelerating && !braking ? 1 : 0;
-    const throttleRate = throttleTarget > throttle ? 1.1 : 4;
+    const throttleRate = throttleTarget > throttle
+      ? (physicsVersion === 2 ? XPBD_THROTTLE_INPUT_RESPONSE : 1.1)
+      : 4;
     throttle = lerp(throttle, throttleTarget, 1 - Math.exp(-throttleRate * STEP));
     brakePressure = lerp(brakePressure, braking ? 1 : 0, 1 - Math.exp(-(braking ? 10 : 14) * STEP));
     const speedLimit = MAX_DRIVE_SPEED;
@@ -857,54 +895,64 @@ import {
     const uphill = clamp(-midSlope * facing, 0, 1);
     const downhill = clamp(midSlope * facing, 0, 1);
     const forwardLean = clamp(leanControl * facing, 0, 1);
-    const drive = facing * ENGINE_FORCE * throttle * (1 + uphill * forwardLean * .25);
-    // Front bias grows with speed while the rear remains useful for stability.
-    const frontBrakeGrip = (.72 + speedFactor * .28) * brakePressure;
-    const rearBrakeGrip = (.55 - speedFactor * .2) * brakePressure;
-    // Braking pitches with travel; rear-wheel drive reacts the other way.
-    // Downhill speed transfers additional weight onto the front wheel.
-    const brakePitch = braking && grounded
-      ? clamp(bikeSpeed / 220 * brakePressure * (1 + downhill * .55), -1.2, 1.2)
-      : 0;
-    const throttlePitch = accelerating && !braking && grounded
-      ? -facing * throttle * (.2 + uphill * .95) * (1 - forwardLean * .7)
-      : 0;
-    const effectiveLean = clamp(leanControl + brakePitch + throttlePitch, -1.45, 1.45);
-    // On the ground the rider's shifted weight can unload either wheel;
-    // in the air, lower torque keeps rotation deliberate and momentum-led.
-    const leanTorque = grounded ? GROUND_LEAN_TORQUE : AIR_LEAN_TORQUE;
+    if (physicsVersion === 1) {
+      const drive = facing * ENGINE_FORCE * throttle * (1 + uphill * forwardLean * .25);
+      const frontBrakeGrip = (.72 + speedFactor * .28) * brakePressure;
+      const rearBrakeGrip = (.55 - speedFactor * .2) * brakePressure;
+      const brakePitch = braking && grounded
+        ? clamp(bikeSpeed / 220 * brakePressure * (1 + downhill * .55), -1.2, 1.2)
+        : 0;
+      const throttlePitch = accelerating && !braking && grounded
+        ? -facing * throttle * (.2 + uphill * .95) * (1 - forwardLean * .7)
+        : 0;
+      const effectiveLean = clamp(leanControl + brakePitch + throttlePitch, -1.45, 1.45);
+      const leanTorque = grounded ? GROUND_LEAN_TORQUE : AIR_LEAN_TORQUE;
 
-    // Mild angular damping makes small corrective taps more controllable.
-    const dx = front.x - rear.x, dy = front.y - rear.y;
-    const length = Math.hypot(dx, dy) || WHEELBASE;
-    const px = -dy / length, py = dx / length;
-    const relative = ((front.x - front.ox) - (rear.x - rear.ox)) * px
-      + ((front.y - front.oy) - (rear.y - rear.oy)) * py;
-    const dampingRate = Math.abs(effectiveLean) > .02 ? .001 : coasting && Math.abs(bikeSpeed) < 60 ? .01 : .005;
-    const damping = relative * dampingRate;
-    front.ox += px * damping; front.oy += py * damping;
-    rear.ox -= px * damping; rear.oy -= py * damping;
+      // Version 1's wheelbase-specific angular damping remains isolated here.
+      const dx = front.x - rear.x, dy = front.y - rear.y;
+      const length = Math.hypot(dx, dy) || WHEELBASE;
+      const px = -dy / length, py = dx / length;
+      const relative = ((front.x - front.ox) - (rear.x - rear.ox)) * px
+        + ((front.y - front.oy) - (rear.y - rear.oy)) * py;
+      const dampingRate = Math.abs(effectiveLean) > .02 ? .001 : coasting && Math.abs(bikeSpeed) < 60 ? .01 : .005;
+      const damping = relative * dampingRate;
+      front.ox += px * damping; front.oy += py * damping;
+      rear.ox -= px * damping; rear.oy -= py * damping;
 
-    integrate(rear, drive, speedLimit, effectiveLean, leanTorque, facing > 0 ? 1 : 0, facing > 0 ? rearBrakeGrip : frontBrakeGrip, braking, coasting);
-    integrate(front, drive, speedLimit, effectiveLean, leanTorque, facing > 0 ? 0 : 1, facing > 0 ? frontBrakeGrip : rearBrakeGrip, braking, coasting);
-    physicsDebug.capture('afterIntegration', rear, front);
-    for (let i = 0; i < BIKE_SOLVER_ITERATIONS; i++) {
-      physicsDebug.setIteration(i);
-      const correction = solveDistanceConstraint(rear, front, WHEELBASE, BIKE_CONSTRAINT_STIFFNESS);
-      physicsDebug.recordConstraint(correction, rear, front);
-      collide(rear); collide(front);
-      physicsDebug.recordContactsResolved(rear, front);
+      integrateLegacyWheel(rear, drive, speedLimit, effectiveLean, leanTorque, facing > 0 ? 1 : 0, facing > 0 ? rearBrakeGrip : frontBrakeGrip, braking, coasting);
+      integrateLegacyWheel(front, drive, speedLimit, effectiveLean, leanTorque, facing < 0 ? 1 : 0, facing > 0 ? frontBrakeGrip : rearBrakeGrip, braking, coasting);
+    } else {
+      stepVersion2Vehicle(version2Vehicle, level, {
+        facing, throttle, brakePressure, leanControl, accelerating, braking, coasting
+      }, {
+        dynamics: values => physicsDebug.recordDynamics(values),
+        afterIntegration: () => physicsDebug.capture('afterIntegration', rear, front),
+        iteration: value => physicsDebug.setIteration(value),
+        constraint: correction => physicsDebug.recordConstraint(correction, rear, front),
+        contact: value => physicsDebug.recordContact(value),
+        contactsResolved: () => physicsDebug.recordContactsResolved(rear, front),
+        traction: (wheelName, result, point) => physicsDebug.recordTraction(wheelName, result, point)
+      });
     }
-    constrainDistanceVelocity(rear, front);
+    if (physicsVersion === 1) {
+      physicsDebug.capture('afterIntegration', rear, front);
+      collide(rear); collide(front);
+      for (let i = 0; i < BIKE_SOLVER_ITERATIONS; i++) {
+        physicsDebug.setIteration(i);
+        const correction = solveDistanceConstraint(rear, front, WHEELBASE, BIKE_CONSTRAINT_STIFFNESS);
+        physicsDebug.recordConstraint(correction, rear, front);
+        collide(rear, RADIUS, true, false); collide(front, RADIUS, true, false);
+        physicsDebug.recordContactsResolved(rear, front);
+      }
+      constrainDistanceVelocity(rear, front);
+    }
     physicsDebug.capture('afterVelocityConstraint', rear, front);
     physicsDebug.setIteration(-1);
     physicsDebug.finish(rear, front);
 
-    for (const p of [rear, front]) {
-      const slope = terrain(p.x, p.y - RADIUS).slope;
-      if (!(braking && p.grounded)) {
-        p.spin += ((p.x - p.ox) + slope * (p.y - p.oy)) / Math.hypot(1, slope) / RADIUS;
-      }
+    if (physicsVersion === 1) for (const p of [rear, front]) {
+      const slope = p.contact?.slope ?? terrain(p.x, p.y - RADIUS).slope;
+      if (!(braking && p.grounded)) p.spin += ((p.x - p.ox) + slope * (p.y - p.oy)) / Math.hypot(1, slope) / RADIUS;
     }
     const airborne = !rear.grounded && !front.grounded;
     const wasAirborne = !wasRearGrounded && !wasFrontGrounded;
@@ -939,12 +987,18 @@ import {
     emitTerrainSpray(bikeSpeed, braking);
     emitBrakeMarks(bikeSpeed, braking);
 
-    const head = headPosition();
+    const riderContacts = riderCollisionPoints();
+    const head = riderContacts.head;
     const mx = (rear.x + front.x) / 2, my = (rear.y + front.y) / 2;
 
     if(state==='ragdoll'){updateRagdoll();return;}
-    const headObstacle = terrainCollisionsAt(level, head.x, head.y, 6)[0];
-    if ((headObstacle && elapsed > .2)
+    const riderObstacle = Object.entries(riderContacts).some(([name, point]) => {
+      const previous = previousRiderContacts?.[name];
+      return (previous && terrainSweepCollision(level, previous.x, previous.y, point.x, point.y, point.radius))
+        || terrainCollisionsAt(level, point.x, point.y, point.radius)[0];
+    });
+    previousRiderContacts = riderContacts;
+    if ((riderObstacle && elapsed > .2)
       || my > (level.fallY || 620)) {
       burst(head.x, head.y, '#ed8b54', 15);
       startRagdoll();
@@ -981,13 +1035,6 @@ import {
   function updateHud() {
     const text = timeText(elapsed);
     if (text !== lastTimer) { $('timer').textContent = text; lastTimer = text; }
-    const mid = (rear.x + front.x) / 2;
-    const progress = Math.round(clamp((mid - 90) / (level.goal - 90), 0, 1) * 100);
-    if (progress !== lastProgress) {
-      $('progress-fill').style.width = progress + '%';
-      $('progress').setAttribute('aria-valuenow', String(progress));
-      lastProgress = progress;
-    }
   }
 
 
@@ -1063,6 +1110,20 @@ import {
     ctx.closePath();
   }
 
+  function drawAuthoredPath(path) {
+    const bounds = pathBounds(path);
+    if (bounds.right < cameraX - 30 || bounds.left > cameraX + W + 30) return;
+    const material = materialFor(path.material);
+    ctx.beginPath();
+    path.points.forEach((point, index) => index ? ctx.lineTo(point[0], point[1]) : ctx.moveTo(point[0], point[1]));
+    if (path.closed) ctx.closePath();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const thickness = path.thickness || 32;
+    ctx.strokeStyle = material.edge; ctx.lineWidth = thickness + 7; ctx.stroke();
+    ctx.strokeStyle = material.surface; ctx.lineWidth = thickness + 3; ctx.stroke();
+    ctx.strokeStyle = material.fill; ctx.lineWidth = thickness; ctx.stroke();
+  }
+
   function drawPlatform(platform) {
     const start = platform.points[0][0], end = platform.points[platform.points.length - 1][0];
     if (end < cameraX - 30 || start > cameraX + W + 30) return;
@@ -1130,6 +1191,7 @@ import {
       pixelPath([[x - 4, t.y - 2],[x - 4, t.y - 8],[x, t.y - 4],[x + 2, t.y - 10]], material.vegetation, 1, 2);
     }
 
+    for (const path of level.paths || []) drawAuthoredPath(path);
     for (const platform of level.platforms || []) drawPlatform(platform);
 
     if (cameraX < 230) {
@@ -1141,12 +1203,17 @@ import {
     }
   }
 
+  const SCENERY_SHADOWS = {
+    tree: { width: 16, alpha: .15, thickness: 3, lift: 36 },
+    crystal: { width: 10, alpha: .14, thickness: 3, lift: 28 }
+  };
+
   function drawProp(prop,layer){
     if(preferences.scenery === 'reduced' && prop.type === 'tree')return;
     if(prop.x<cameraX-70||prop.x>cameraX+W+70)return;
     const ground=terrain(prop.x);if(!ground.solid&&!Number.isFinite(prop.y))return;
     const y=Number.isFinite(prop.y)?prop.y:ground.y;
-    gameArt.drawProp(prop.type, prop.x, y, layer==='front'?1:.82);
+    gameArt.drawProp(prop.type, prop.x, y, layer==='front'?1:.82, propAlignmentSlope(level, prop), propGroundOffset(level, prop));
   }
 
 
@@ -1154,10 +1221,41 @@ import {
     for (const prop of level.props || []) if (prop.layer === layer) drawProp(prop, layer);
   }
 
+  function appleDrawY(apple, now) {
+    return apple.y + (reducedMotion ? 0 : Math.sin(now * .0025 + apple.x) * 2);
+  }
+
+  function drawSceneryShadow(x, y, light, { width, alpha, thickness, lift = 0 }) {
+    const ground = terrain(x, y);
+    if (!ground.solid) return;
+    const height = Math.max(0, ground.y - y) + lift;
+    const offset = sunShadowOffset({
+      bikeX: x - cameraX, bikeY: y - cameraY, sunX: light.x, sunY: light.y,
+      height, strength: light.strength
+    });
+    const center = x + offset;
+    drawShadowBlob(groundShadowSamples(level, x, y, width, 2, center).flat(), center, width, alpha, thickness);
+  }
+
+  function drawSceneryShadows(now) {
+    if (preferences.scenery === 'reduced') return;
+    const light = sunLight({ width: W, cameraX, cameraY, weather: level.weather });
+    for (const prop of level.props || []) {
+      const spec = SCENERY_SHADOWS[prop.type];
+      if (!spec || prop.x < cameraX - 80 || prop.x > cameraX + W + 80) continue;
+      const ground = terrain(prop.x);
+      if (!ground.solid && !Number.isFinite(prop.y)) continue;
+      drawSceneryShadow(prop.x, Number.isFinite(prop.y) ? prop.y : ground.y, light, spec);
+    }
+    for (const apple of apples) {
+      if (apple.taken || apple.x < cameraX - 40 || apple.x > cameraX + W + 40) continue;
+      drawSceneryShadow(apple.x, appleDrawY(apple, now), light, { width: 8, alpha: .18, thickness: 3 });
+    }
+  }
+
   function drawApple(apple, now) {
     if (apple.taken || apple.x < cameraX - 30 || apple.x > cameraX + W + 30) return;
-    const y = apple.y + (reducedMotion ? 0 : Math.sin(now * .0025 + apple.x) * 2);
-    gameArt.drawApple(apple.x, y);
+    gameArt.drawApple(apple.x, appleDrawY(apple, now));
   }
 
   function drawFlag() {
@@ -1293,25 +1391,39 @@ import {
     });
   }
 
+  function drawShadowBlob(samples, centerX, width, alpha, thickness) {
+    for (const sample of samples) {
+      const along = (sample.x - centerX) / width;
+      if (Math.abs(along) > 1) continue;
+      const envelope = Math.sqrt(Math.max(0, 1 - along * along));
+      const height = Math.max(2, thickness * envelope);
+      pixelRect(sample.x - 1, sample.y - height + 1, 2, height, 'rgba(31,53,39,' + (alpha * (.45 + .55 * envelope)) + ')', 2);
+    }
+  }
+
   function drawBike() {
     const mx=(rear.x+front.x)/2,my=(rear.y+front.y)/2;
     const angle=Math.atan2(front.y-rear.y,front.x-rear.x);
     const length=Math.hypot(front.x-rear.x,front.y-rear.y);
-    const ground=terrain(mx);
+    const ground=terrain(mx,my);
     if(ground.solid){
+      const light=sunLight({ width: W, cameraX, cameraY, weather: level.weather });
       const heightAboveGround=Math.max(0,ground.y-my-RADIUS);
       const shadowAlpha=clamp(.22-heightAboveGround/700,.035,.22);
       const shadowWidth=clamp(35-heightAboveGround*.07,13,35);
-      ctx.save();ctx.translate(mx,ground.y-1);ctx.rotate(Math.atan(ground.slope));
-      pixelRect(-shadowWidth,-2,shadowWidth*2,4,'rgba(31,53,39,'+shadowAlpha+')',2);
-      pixelRect(-shadowWidth*.7,-4,shadowWidth*1.4,2,'rgba(31,53,39,'+(shadowAlpha*.6)+')',2);
-      ctx.restore();
+      const offset=sunShadowOffset({
+        bikeX: mx - cameraX, bikeY: my - cameraY, sunX: light.x, sunY: light.y,
+        height: heightAboveGround, strength: light.strength
+      });
+      const center=mx+offset;
+      const samples=groundShadowSamples(level, mx, my, shadowWidth, 2, center).flat();
+      drawShadowBlob(samples, center, shadowWidth, shadowAlpha, 4);
+      drawShadowBlob(samples, center + Math.sign(offset) * 3, shadowWidth * .7, shadowAlpha * .55, 2);
     }
     drawPixelBike(mx,my,angle,length);
   }
 
   function updateParticles(dt) {
-    if (state === 'paused') return;
     for (const mark of skidMarks) mark.life -= dt;
     for (const p of particles) {
       p.life -= dt;
@@ -1414,6 +1526,32 @@ import {
     ctx.restore();
   }
 
+  function drawPhysicsOverlay() {
+    if (!physicsDebugEnabled || activePhysicsVersion() !== 2 || !version2Vehicle) return;
+    const { chassis, constraints } = version2Vehicle;
+    ctx.save();
+    ctx.globalAlpha = .85;
+    ctx.lineWidth = 1;
+    for (const constraint of [...constraints, version2Vehicle.wheelbaseLimit]) {
+      if (constraint.type !== 'distance') continue;
+      ctx.strokeStyle = constraint.minLength !== null || constraint.maxLength !== null ? '#f0b45f' : '#83d1ce';
+      ctx.beginPath(); ctx.moveTo(constraint.a.x, constraint.a.y); ctx.lineTo(constraint.b.x, constraint.b.y); ctx.stroke();
+    }
+    for (const point of Object.values(chassis)) {
+      ctx.fillStyle = '#fff3be'; ctx.beginPath(); ctx.arc(point.x, point.y, 3, 0, TAU); ctx.fill();
+    }
+    for (const point of [rear, front]) {
+      if (!point.contact) continue;
+      ctx.strokeStyle = '#e65e56'; ctx.beginPath(); ctx.moveTo(point.x, point.y);
+      ctx.lineTo(point.x + point.contact.nx * 24, point.y + point.contact.ny * 24); ctx.stroke();
+    }
+    const center = version2VehicleMetrics(version2Vehicle).center;
+    ctx.strokeStyle = '#ff8952'; ctx.beginPath();
+    ctx.moveTo(center.x - 5, center.y); ctx.lineTo(center.x + 5, center.y);
+    ctx.moveTo(center.x, center.y - 5); ctx.lineTo(center.x, center.y + 5); ctx.stroke();
+    ctx.restore();
+  }
+
   function render(now, dt) {
     const midX = (rear.x + front.x)/2, midY = (rear.y + front.y)/2;
     let focusX=midX,focusY=midY;
@@ -1434,11 +1572,12 @@ import {
     drawBackground();
     ctx.save(); ctx.translate(-cameraX,-cameraY);
     updateParticles(dt);
-    drawTerrain(); drawSkidMarks(); drawProps('back'); drawParticles(true); drawFlag();
+    drawTerrain(); drawSkidMarks(); drawSceneryShadows(now); drawProps('back'); drawParticles(true); drawFlag();
     apples.forEach(a => drawApple(a,now));
-    updateHair(state === 'paused' ? 0 : dt);
+    updateHair(dt);
     drawHair();
     drawBike();
+    drawPhysicsOverlay();
     drawRagdoll();
     drawProps('front');
     drawParticles(false);
@@ -1510,18 +1649,17 @@ import {
     if (keys.has(e.code)) { keys.delete(e.code); paintInput(); }
   });
   game.addEventListener('focusout', e => {
-    if (!game.contains(e.relatedTarget)) { clearInput(); pauseGame(); }
+    if (!game.contains(e.relatedTarget)) clearInput();
   });
   canvas.addEventListener('pointerdown', () => focusGame());
-  window.addEventListener('blur', () => { clearInput(); pauseGame(); });
+  window.addEventListener('blur', clearInput);
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { clearInput(); pauseGame(); }
+    if (document.hidden) clearInput();
     lastTime = 0; accumulator = 0;
   });
 
   $('primary').addEventListener('click', () => {
-    if (state === 'paused') { setOverlay('running'); focusGame(); }
-    else if (state === 'won') {
+    if (state === 'won') {
       if (levelSource === 'custom') startFresh();
       else { loadLevel((levelIndex + 1) % levels.length); setOverlay('running'); focusGame(); }
     } else startFresh();
@@ -1624,10 +1762,6 @@ import {
     });
   });
   $('restart').addEventListener('click', startFresh);
-  $('pause').addEventListener('click', () => {
-    if (state === 'running') pauseGame();
-    else if (state === 'paused') { setOverlay('running'); focusGame(); }
-  });
   window.addEventListener('resize', () => { resizeCanvas(); drawMenuBackground(); });
   const fullscreenSupported = Boolean(document.fullscreenEnabled || document.webkitFullscreenEnabled || game.webkitRequestFullscreen);
   $('fullscreen').hidden = !fullscreenSupported;
