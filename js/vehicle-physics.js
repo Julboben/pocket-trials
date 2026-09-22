@@ -29,7 +29,7 @@ import { terrainAt, terrainCollisionsAt, terrainSweepCollision } from './terrain
 
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
-export function createVersion2Vehicle(rear, front) {
+export function createVehicle(rear, front) {
   const mountY = (rear.y + front.y) / 2 - SUSPENSION_REST_LENGTH;
   const makePoint = (x, y, inverseMass) => ({ x, y, ox: x, oy: y, inverseMass, grounded: false, contact: null, radius: 4 });
   const chassis = {
@@ -151,7 +151,7 @@ function collideWheel(level, point, wheelName, hooks, sweep = true) {
   }
 }
 
-export function stepVersion2Vehicle(vehicle, level, controls, hooks = {}) {
+export function stepVehicle(vehicle, level, controls, hooks = {}) {
   const { rear, front, chassis, constraints, wheelbaseLimit } = vehicle;
   const { facing, throttle, brakePressure, leanControl, accelerating, braking, coasting } = controls;
   if (vehicle.lastFacing !== undefined && vehicle.lastFacing !== facing) {
@@ -334,7 +334,7 @@ export function stepVersion2Vehicle(vehicle, level, controls, hooks = {}) {
   return dynamics;
 }
 
-export function version2VehicleMetrics(vehicle) {
+export function vehicleMetrics(vehicle) {
   const points = [vehicle.rear, vehicle.front, ...Object.values(vehicle.chassis)];
   const center = centerOfMass(points);
   return {
@@ -349,7 +349,7 @@ export function version2VehicleMetrics(vehicle) {
   };
 }
 
-export function createVersion2Simulation({ vehicle, level, facing = 1, hooks = {} }) {
+export function createSimulation({ vehicle, level, facing = 1, hooks = {} }) {
   let currentFacing = facing < 0 ? -1 : 1;
   let throttle = 0;
   let brakePressure = 0;
@@ -381,7 +381,7 @@ export function createVersion2Simulation({ vehicle, level, facing = 1, hooks = {
 
     const contactEvents = [];
     const traction = {};
-    const dynamics = stepVersion2Vehicle(vehicle, level, {
+    const dynamics = stepVehicle(vehicle, level, {
       facing: currentFacing,
       throttle,
       brakePressure,
@@ -400,7 +400,7 @@ export function createVersion2Simulation({ vehicle, level, facing = 1, hooks = {
         hooks.traction?.(wheelName, result, point);
       }
     });
-    const metrics = version2VehicleMetrics(vehicle);
+    const metrics = vehicleMetrics(vehicle);
 
     return {
       facing: currentFacing,
@@ -430,7 +430,7 @@ export function createVersion2Simulation({ vehicle, level, facing = 1, hooks = {
     step,
     get facing() { return currentFacing; },
     get state() {
-      const metrics = version2VehicleMetrics(vehicle);
+      const metrics = vehicleMetrics(vehicle);
       return {
         facing: currentFacing,
         controls: { throttle, brakePressure, leanControl },

@@ -1,16 +1,12 @@
 import {
-  STEP, RADIUS, WHEELBASE, TAU, GRAVITY, MAX_DRIVE_SPEED, MAX_POINT_SPEED,
-  ENGINE_FORCE, BRAKE_FORCE, GROUND_LEAN_TORQUE, AIR_LEAN_TORQUE,
-  COAST_RESISTANCE_LOW_SPEED, COAST_RESISTANCE_HIGH_SPEED,
-  COAST_SPEED_REFERENCE, UPHILL_TORQUE_BOOST, BIKE_SOLVER_ITERATIONS,
-  BIKE_CONSTRAINT_STIFFNESS, CONTACT_GROUNDED_NORMAL, CONTACT_RESTITUTION_SPEED,
+  STEP, RADIUS, WHEELBASE, TAU, GRAVITY,
   XPBD_THROTTLE_INPUT_RESPONSE, XPBD_LEAN_INPUT_RESPONSE,
   clamp, lerp
 } from './config.js';
 import { levels, customLevelEntries, terrainMaterials } from './levels.js';
 import { createAudio } from './audio.js';
-import { solveDistanceConstraint, constrainDistanceVelocity, advanceAfterTimeOfImpact } from './physics.js';
-import { createVersion2Vehicle, stepVersion2Vehicle, version2VehicleMetrics } from './vehicle-physics.js';
+import { advanceAfterTimeOfImpact } from './physics.js';
+import { createVehicle, stepVehicle, vehicleMetrics } from './vehicle-physics.js';
 import { createPhysicsDebugger } from './physics-debug.js';
 import { createDrawingTools, createGameArt, propAlignmentSlope, propGroundOffset, sunLight, sunShadowOffset } from './drawing.js';
 import { terrainAt, terrainSegmentSlopeAt, terrainCollisionsAt, terrainSweepCollision, platformPolygon, pathBounds, groundShadowSamples } from './terrain.js';
@@ -44,7 +40,7 @@ import {
   let saveSlots = [null, null, null], activeSaveSlot = 0, pendingSaveSlot = 0, selectedNewRider = 'max', gameLoopStarted = false;
   let deleteArmedSlot = -1, deleteArmTimer = 0;
   let preferences = { scenery: 'full', controls: 'show', sound: 'on' };
-  let rear, front, version2Vehicle = null, previousRiderContacts = null, apples = [], particles = [], skidMarks = [], ragdoll = null, hair = null;
+  let rear, front, vehicle = null, previousRiderContacts = null, apples = [], particles = [], skidMarks = [], ragdoll = null, hair = null;
   let elapsed = 0, collected = 0, facing = 1, throttle = 0, brakePressure = 0;
   let weatherTime = 0, nextLightning = Infinity, lightningFlash = 0, lightningX = .5, lightningDistance = .5;
   let cameraX = 0, cameraY = 0, leanControl = 0, leanVisual = 0, flipVisual = 1;
@@ -58,9 +54,7 @@ import {
     ArrowUp:'up', KeyW:'up', ArrowDown:'down', KeyS:'down',
     ArrowLeft:'back', KeyA:'back', ArrowRight:'forward', KeyD:'forward'
   };
-  const requestedPhysicsVersion = Number(new URLSearchParams(window.location.search).get('physicsVersion'));
   const physicsDebugEnabled = new URLSearchParams(window.location.search).get('physicsDebug') === '1';
-  const activePhysicsVersion = () => requestedPhysicsVersion === 1 || requestedPhysicsVersion === 2 ? requestedPhysicsVersion : (level.physicsVersion || 2);
   const physicsDebug = createPhysicsDebugger({
     enabled: physicsDebugEnabled,
     step: STEP,
@@ -490,7 +484,7 @@ import {
     level = trail;
     const { x: startX, y: startY, facing: startFacing } = level.start;
     rear = wheel(startX - WHEELBASE / 2, startY); front = wheel(startX + WHEELBASE / 2, startY);
-    version2Vehicle = createVersion2Vehicle(rear, front);
+    vehicle = createVehicle(rear, front);
     apples = level.apples.map(apple => ({
       x: apple.x,
       y: Number.isFinite(apple.y) ? apple.y : terrain(apple.x).y - 60,
@@ -605,131 +599,6 @@ import {
     return riderCollisionPoints().head;
   }
 
-  // Version 1 integration: direct wheel forces and authored pitch behavior.
-  function integrateLegacyWheel(p, drive, speedLimit, lean, leanTorque, driveGrip, brakeGrip, braking, coasting) {
-    let vx = (p.x - p.ox) * (p.grounded ? .9997 : .9998);
-    let vy = (p.y - p.oy) * .9998;
-    let ax = 0, ay = GRAVITY;
-
-    if (p.grounded) {
-      const slope = terrain(p.x, p.y - RADIUS).slope;
-      const length = Math.hypot(1, slope);
-      const tx = 1 / length, ty = slope / length;
-      const tangentialVelocity = vx * tx + vy * ty;
-
-      if (braking) {
-        // Both wheels brake, with a stronger front-wheel bias. Clamping the
-        // low-speed velocity makes the brake hold instead of merely adding drag.
-        const brakeStep = BRAKE_FORCE * brakeGrip * STEP * STEP;
-        const reduction = clamp(tangentialVelocity, -brakeStep, brakeStep);
-        vx -= tx * reduction;
-        vy -= ty * reduction;
-      } else if (coasting) {
-        // Rolling resistance is strongest near rest, so shallow valleys settle,
-        // while high-speed momentum still carries over long hills and jumps.
-        const coastSpeed = Math.abs(tangentialVelocity) / STEP;
-        const climbing = tangentialVelocity * slope < 0;
-        const baseResistance = lerp(COAST_RESISTANCE_LOW_SPEED, COAST_RESISTANCE_HIGH_SPEED, clamp(coastSpeed / COAST_SPEED_REFERENCE, 0, 1));
-        const resistance = baseResistance * (climbing ? .18 : 1);
-        const reduction = clamp(tangentialVelocity, -resistance * STEP * STEP, resistance * STEP * STEP);
-        vx -= tx * reduction;
-        vy -= ty * reduction;
-      } else if (drive) {
-        const tangentialSpeed = tangentialVelocity / STEP;
-        const speedRatio = clamp(tangentialSpeed * Math.sign(drive) / speedLimit, 0, 1);
-        if (speedRatio < 1) {
-          const torqueCurve = .28 + .72 * (1 - speedRatio);
-          const uphillLoad = clamp(-slope * Math.sign(drive), 0, 1);
-          const climbTorque = 1 + uphillLoad * UPHILL_TORQUE_BOOST * (1 - speedRatio);
-          const power = drive * driveGrip * torqueCurve * climbTorque;
-          ax += tx * power;
-          ay += ty * power;
-        }
-      }
-    }
-
-    const dx = front.x - rear.x, dy = front.y - rear.y;
-    const length = Math.hypot(dx, dy) || WHEELBASE;
-    const sign = p === front ? 1 : -1;
-    ax += (-dy / length) * lean * leanTorque * sign;
-    ay += ( dx / length) * lean * leanTorque * sign;
-
-    const speed = Math.hypot(vx, vy);
-    if (speed > MAX_POINT_SPEED * STEP) { vx *= MAX_POINT_SPEED * STEP / speed; vy *= MAX_POINT_SPEED * STEP / speed; }
-    p.ox = p.x; p.oy = p.y;
-    p.x += vx + ax * STEP * STEP;
-    p.y += vy + ay * STEP * STEP;
-    p.grounded = false;
-    p.contact = null;
-  }
-
-
-  function resolveWheelContact(p, contact) {
-    if (!contact || (contact.penetration <= 0 && !contact.swept)) return;
-    const { nx, ny, penetration } = contact;
-    const beforeX = p.x, beforeY = p.y;
-    let vx = p.x - p.ox, vy = p.y - p.oy;
-    const beforeVx = vx, beforeVy = vy;
-    const intoSurface = vx * nx + vy * ny;
-    if (intoSurface < 0) {
-      const impactSpeed = -intoSurface / STEP;
-      p.impactSpeed = Math.max(p.impactSpeed, impactSpeed);
-      const restitution = impactSpeed > CONTACT_RESTITUTION_SPEED
-        ? clamp(.08 + impactSpeed / 1200, .08, .22)
-        : 0;
-      vx -= nx * intoSurface * (1 + restitution);
-      vy -= ny * intoSurface * (1 + restitution);
-      if (ny < CONTACT_GROUNDED_NORMAL && impactSpeed > 12) {
-        p.compression = clamp(p.compression + (impactSpeed - 12) * .065, 0, 16);
-        p.springVelocity += impactSpeed * .018;
-      }
-    }
-    p.x += nx * penetration;
-    p.y += ny * penetration;
-    p.ox = p.x - vx;
-    p.oy = p.y - vy;
-    physicsDebug.recordContact({
-      wheel: p === rear ? 'rear' : 'front',
-      contact,
-      beforeX,
-      beforeY,
-      beforeVx,
-      beforeVy,
-      point: p,
-      afterVx: vx,
-      afterVy: vy
-    });
-    p.contact = contact;
-    p.material = contact.material;
-    if (ny < CONTACT_GROUNDED_NORMAL) p.grounded = true;
-  }
-
-  function collide(p, radius = RADIUS, wheelContact = true, sweep = true) {
-    if (sweep) {
-      const intendedVx = p.x - p.ox, intendedVy = p.y - p.oy;
-      const swept = terrainSweepCollision(level, p.ox, p.oy, p.x, p.y, radius);
-      if (swept) {
-        p.x = swept.x + swept.nx * .01;
-        p.y = swept.y + swept.ny * .01;
-        p.ox = p.x - intendedVx;
-        p.oy = p.y - intendedVy;
-        if (wheelContact) resolveWheelContact(p, swept);
-        else resolveRagdollContact(p, swept);
-        // Continue through the unused part of the substep with the resolved
-        // velocity. Stopping at time-of-impact discarded most tangential
-        // travel on every grounded frame, which felt like artificial glue.
-        advanceAfterTimeOfImpact(p, swept.time);
-      }
-    }
-    const contacts = terrainCollisionsAt(level, p.x, p.y, radius);
-    for (const contact of contacts) wheelContact ? resolveWheelContact(p, contact) : resolveRagdollContact(p, contact);
-    if (p.x < RADIUS) {
-      const vx = Math.max(0, p.x - p.ox);
-      p.x = RADIUS;
-      p.ox = p.x - vx;
-    }
-  }
-
   function makeRagdollPoint(x,y,vx,vy,radius=3) {
     return {x,y,ox:x-vx,oy:y-vy,radius};
   }
@@ -765,7 +634,27 @@ import {
     p.x+=nx*penetration;p.y+=ny*penetration;p.ox=p.x-vx;p.oy=p.y-vy;
   }
   function collideRagdollPoint(p, sweep) {
-    collide(p, p.radius, false, sweep);
+    if (sweep) {
+      const intendedVx = p.x - p.ox, intendedVy = p.y - p.oy;
+      const swept = terrainSweepCollision(level, p.ox, p.oy, p.x, p.y, p.radius);
+      if (swept) {
+        p.x = swept.x + swept.nx * .01;
+        p.y = swept.y + swept.ny * .01;
+        p.ox = p.x - intendedVx;
+        p.oy = p.y - intendedVy;
+        resolveRagdollContact(p, swept);
+        // Continue through the unused part of the substep with the resolved
+        // velocity. Stopping at time-of-impact discarded most tangential
+        // travel on every grounded frame, which felt like artificial glue.
+        advanceAfterTimeOfImpact(p, swept.time);
+      }
+    }
+    for (const contact of terrainCollisionsAt(level, p.x, p.y, p.radius)) resolveRagdollContact(p, contact);
+    if (p.x < RADIUS) {
+      const vx = Math.max(0, p.x - p.ox);
+      p.x = RADIUS;
+      p.ox = p.x - vx;
+    }
   }
   function updateRagdoll() {
     if(!ragdoll)return;
@@ -860,7 +749,7 @@ import {
     landingSoundCooldown = Math.max(0, landingSoundCooldown - STEP);
     const wasRearGrounded = rear.grounded, wasFrontGrounded = front.grounded;
     rear.impactSpeed = 0; front.impactSpeed = 0;
-    physicsDebug.begin({ state, time: elapsed, level: level.name, source: levelSource, physicsVersion: activePhysicsVersion(), facing, throttle }, rear, front);
+    physicsDebug.begin({ state, time: elapsed, level: level.name, source: levelSource, facing, throttle }, rear, front);
     for (const p of [rear, front]) {
       p.springVelocity += -42 * p.compression * STEP;
       p.springVelocity *= Math.exp(-6.4 * STEP);
@@ -870,90 +759,33 @@ import {
 
     const replayInput = physicsDebug.nextReplayInput();
     if (replayInput && Number(replayInput.facing)) facing = replayInput.facing < 0 ? -1 : 1;
-    const physicsVersion = activePhysicsVersion();
     const leanInput = replayInput?.leanInput ?? (Number(down('forward')) - Number(down('back')));
-    const leanTarget = leanInput;
-    const leanResponse = physicsVersion === 2 ? XPBD_LEAN_INPUT_RESPONSE : 5.8;
-    leanControl = lerp(leanControl, leanTarget, 1 - Math.exp(-leanResponse * STEP));
+    leanControl = lerp(leanControl, leanInput, 1 - Math.exp(-XPBD_LEAN_INPUT_RESPONSE * STEP));
     const acceptingInput = state === 'running';
     const accelerating = acceptingInput && (replayInput?.accelerating ?? down('up'));
     const braking = acceptingInput && (replayInput?.braking ?? down('down'));
     physicsDebug.recordInput({ facing, leanInput, accelerating, braking });
     const coasting = !accelerating && !braking;
     const throttleTarget = accelerating && !braking ? 1 : 0;
-    const throttleRate = throttleTarget > throttle
-      ? (physicsVersion === 2 ? XPBD_THROTTLE_INPUT_RESPONSE : 1.1)
-      : 4;
+    const throttleRate = throttleTarget > throttle ? XPBD_THROTTLE_INPUT_RESPONSE : 4;
     throttle = lerp(throttle, throttleTarget, 1 - Math.exp(-throttleRate * STEP));
     brakePressure = lerp(brakePressure, braking ? 1 : 0, 1 - Math.exp(-(braking ? 10 : 14) * STEP));
-    const speedLimit = MAX_DRIVE_SPEED;
-    const grounded = rear.grounded || front.grounded;
     const bikeSpeed = ((rear.x - rear.ox) + (front.x - front.ox)) / (2 * STEP);
-    const speedFactor = clamp(Math.abs(bikeSpeed) / 300, 0, 1);
-    const midY = Math.min(rear.y, front.y) - RADIUS;
-    const midSlope = terrain((rear.x + front.x) / 2, midY).slope;
-    const uphill = clamp(-midSlope * facing, 0, 1);
-    const downhill = clamp(midSlope * facing, 0, 1);
-    const forwardLean = clamp(leanControl * facing, 0, 1);
-    if (physicsVersion === 1) {
-      const drive = facing * ENGINE_FORCE * throttle * (1 + uphill * forwardLean * .25);
-      const frontBrakeGrip = (.72 + speedFactor * .28) * brakePressure;
-      const rearBrakeGrip = (.55 - speedFactor * .2) * brakePressure;
-      const brakePitch = braking && grounded
-        ? clamp(bikeSpeed / 220 * brakePressure * (1 + downhill * .55), -1.2, 1.2)
-        : 0;
-      const throttlePitch = accelerating && !braking && grounded
-        ? -facing * throttle * (.2 + uphill * .95) * (1 - forwardLean * .7)
-        : 0;
-      const effectiveLean = clamp(leanControl + brakePitch + throttlePitch, -1.45, 1.45);
-      const leanTorque = grounded ? GROUND_LEAN_TORQUE : AIR_LEAN_TORQUE;
-
-      // Version 1's wheelbase-specific angular damping remains isolated here.
-      const dx = front.x - rear.x, dy = front.y - rear.y;
-      const length = Math.hypot(dx, dy) || WHEELBASE;
-      const px = -dy / length, py = dx / length;
-      const relative = ((front.x - front.ox) - (rear.x - rear.ox)) * px
-        + ((front.y - front.oy) - (rear.y - rear.oy)) * py;
-      const dampingRate = Math.abs(effectiveLean) > .02 ? .001 : coasting && Math.abs(bikeSpeed) < 60 ? .01 : .005;
-      const damping = relative * dampingRate;
-      front.ox += px * damping; front.oy += py * damping;
-      rear.ox -= px * damping; rear.oy -= py * damping;
-
-      integrateLegacyWheel(rear, drive, speedLimit, effectiveLean, leanTorque, facing > 0 ? 1 : 0, facing > 0 ? rearBrakeGrip : frontBrakeGrip, braking, coasting);
-      integrateLegacyWheel(front, drive, speedLimit, effectiveLean, leanTorque, facing < 0 ? 1 : 0, facing > 0 ? frontBrakeGrip : rearBrakeGrip, braking, coasting);
-    } else {
-      stepVersion2Vehicle(version2Vehicle, level, {
-        facing, throttle, brakePressure, leanControl, accelerating, braking, coasting
-      }, {
-        dynamics: values => physicsDebug.recordDynamics(values),
-        afterIntegration: () => physicsDebug.capture('afterIntegration', rear, front),
-        iteration: value => physicsDebug.setIteration(value),
-        constraint: correction => physicsDebug.recordConstraint(correction, rear, front),
-        contact: value => physicsDebug.recordContact(value),
-        contactsResolved: () => physicsDebug.recordContactsResolved(rear, front),
-        traction: (wheelName, result, point) => physicsDebug.recordTraction(wheelName, result, point)
-      });
-    }
-    if (physicsVersion === 1) {
-      physicsDebug.capture('afterIntegration', rear, front);
-      collide(rear); collide(front);
-      for (let i = 0; i < BIKE_SOLVER_ITERATIONS; i++) {
-        physicsDebug.setIteration(i);
-        const correction = solveDistanceConstraint(rear, front, WHEELBASE, BIKE_CONSTRAINT_STIFFNESS);
-        physicsDebug.recordConstraint(correction, rear, front);
-        collide(rear, RADIUS, true, false); collide(front, RADIUS, true, false);
-        physicsDebug.recordContactsResolved(rear, front);
-      }
-      constrainDistanceVelocity(rear, front);
-    }
+    stepVehicle(vehicle, level, {
+      facing, throttle, brakePressure, leanControl, accelerating, braking, coasting
+    }, {
+      dynamics: values => physicsDebug.recordDynamics(values),
+      afterIntegration: () => physicsDebug.capture('afterIntegration', rear, front),
+      iteration: value => physicsDebug.setIteration(value),
+      constraint: correction => physicsDebug.recordConstraint(correction, rear, front),
+      contact: value => physicsDebug.recordContact(value),
+      contactsResolved: () => physicsDebug.recordContactsResolved(rear, front),
+      traction: (wheelName, result, point) => physicsDebug.recordTraction(wheelName, result, point)
+    });
     physicsDebug.capture('afterVelocityConstraint', rear, front);
     physicsDebug.setIteration(-1);
     physicsDebug.finish(rear, front);
 
-    if (physicsVersion === 1) for (const p of [rear, front]) {
-      const slope = p.contact?.slope ?? terrain(p.x, p.y - RADIUS).slope;
-      if (!(braking && p.grounded)) p.spin += ((p.x - p.ox) + slope * (p.y - p.oy)) / Math.hypot(1, slope) / RADIUS;
-    }
     const airborne = !rear.grounded && !front.grounded;
     const wasAirborne = !wasRearGrounded && !wasFrontGrounded;
     const bikeAngle = Math.atan2(front.y - rear.y, front.x - rear.x);
@@ -1527,12 +1359,12 @@ import {
   }
 
   function drawPhysicsOverlay() {
-    if (!physicsDebugEnabled || activePhysicsVersion() !== 2 || !version2Vehicle) return;
-    const { chassis, constraints } = version2Vehicle;
+    if (!physicsDebugEnabled || !vehicle) return;
+    const { chassis, constraints } = vehicle;
     ctx.save();
     ctx.globalAlpha = .85;
     ctx.lineWidth = 1;
-    for (const constraint of [...constraints, version2Vehicle.wheelbaseLimit]) {
+    for (const constraint of [...constraints, vehicle.wheelbaseLimit]) {
       if (constraint.type !== 'distance') continue;
       ctx.strokeStyle = constraint.minLength !== null || constraint.maxLength !== null ? '#f0b45f' : '#83d1ce';
       ctx.beginPath(); ctx.moveTo(constraint.a.x, constraint.a.y); ctx.lineTo(constraint.b.x, constraint.b.y); ctx.stroke();
@@ -1545,7 +1377,7 @@ import {
       ctx.strokeStyle = '#e65e56'; ctx.beginPath(); ctx.moveTo(point.x, point.y);
       ctx.lineTo(point.x + point.contact.nx * 24, point.y + point.contact.ny * 24); ctx.stroke();
     }
-    const center = version2VehicleMetrics(version2Vehicle).center;
+    const center = vehicleMetrics(vehicle).center;
     ctx.strokeStyle = '#ff8952'; ctx.beginPath();
     ctx.moveTo(center.x - 5, center.y); ctx.lineTo(center.x + 5, center.y);
     ctx.moveTo(center.x, center.y - 5); ctx.lineTo(center.x, center.y + 5); ctx.stroke();

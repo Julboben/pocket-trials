@@ -6,21 +6,12 @@ export const TAU = Math.PI * 2;
 
 // Handling values. These are intentionally centralized for feel-tuning.
 export const GRAVITY = 380;
-export const MAX_DRIVE_SPEED = 340;
 export const MAX_POINT_SPEED = 760;
-export const ENGINE_FORCE = 800;
-export const BRAKE_FORCE = 1150;
-export const GROUND_LEAN_TORQUE = 820;
-export const AIR_LEAN_TORQUE = 300;
-export const COAST_RESISTANCE_LOW_SPEED = 105;
-export const COAST_RESISTANCE_HIGH_SPEED = 18;
-export const COAST_SPEED_REFERENCE = 140;
 export const UPHILL_TORQUE_BOOST = 1.4;
 
 // Constraint and contact solver tuning.
 export const BIKE_SOLVER_ITERATIONS = 7;
 export const BIKE_VELOCITY_ITERATIONS = 3;
-export const BIKE_CONSTRAINT_STIFFNESS = .43;
 export const XPBD_CHASSIS_COMPLIANCE = 0.000001;
 export const XPBD_CHASSIS_AREA_COMPLIANCE = 0.000001;
 export const XPBD_SUSPENSION_COMPLIANCE = 0.0014;
@@ -34,13 +25,13 @@ export const SUSPENSION_TRAVEL = 16;
 export const XPBD_WHEELBASE_SLACK = 6;
 export const WHEEL_INERTIA = .5;
 export const WHEEL_FRICTION = .92;
-// Version 2 physical controls. Acceleration, top speed, rider lean, and
-// throttle/brake pitch are tuned to version 1. The forces still come from
-// tire torque and the chassis, not from version 1's direct wheel pushes.
+// Physical controls. All drive, brake, and lean forces come from tire torque
+// and the chassis rather than direct wheel pushes.
 export const XPBD_CHASSIS_MOUNT_INVERSE_MASS = .65;
 export const XPBD_CHASSIS_TOP_INVERSE_MASS = .5;
-// No-slip split of version 1's 400 px/s². Grip below is high enough that this
-// torque reaches the ground instead of spinning the driven wheel. Top speed is 340.
+// Gives roughly 400 px/s² of hooked-up low-speed acceleration. Grip below is
+// high enough that this torque reaches the ground instead of spinning the
+// driven wheel. Top speed is 340.
 export const XPBD_MOTOR_ANGULAR_ACCELERATION = 708;
 export const XPBD_MAX_DRIVE_SPEED = 340;
 // Slightly under full reaction so throttle does not flip the bike backward.
@@ -57,22 +48,21 @@ export const XPBD_UPHILL_FORWARD_LEAN_MOTOR_BOOST = .25;
 // Small nose-down bias while climbing under throttle. It grows with the
 // slope, so a steep face is harder to loop without removing the wheelie.
 export const XPBD_UPHILL_ANTI_WHEELIE_ACCELERATION = 9;
-// Brake dive follows travel speed, capped at version 1's 1.2 × full-lean pitch.
+// Brake dive follows travel speed, capped at 1.2 × full-lean pitch.
 export const XPBD_BRAKE_REACTION_SCALE = .85;
 export const XPBD_BRAKE_REACTION_LIMIT = 39.36;
-// Produces approximately version 1's full-pressure braking deceleration.
 export const XPBD_BRAKE_RATE = 64;
 // Brake grip stays moderate. Drive grip is high enough that hitting the gas
-// hooks the tire up instead of spinning it out the way a direct version 1 push does.
+// hooks the tire up instead of spinning it out.
 export const XPBD_CONTACT_LOAD_SCALE = 4.5;
 export const XPBD_DRIVE_LOAD_SCALE = 12;
 export const XPBD_UPHILL_CONTACT_LOAD_SCALE = 16;
 export const XPBD_ROLLING_LOAD_SCALE = 1.35;
-// Two wheel impulses are distributed over the full version 2 mass, so these
-// values reproduce version 1's 105 / 18 px/s² center-of-mass coast losses.
+// Two wheel impulses are distributed over the full vehicle mass, so these
+// values produce 105 / 18 px/s² center-of-mass coast losses.
 export const XPBD_COAST_RESISTANCE_LOW_SPEED = 372;
 export const XPBD_COAST_RESISTANCE_HIGH_SPEED = 64;
-export const XPBD_COAST_SPEED_REFERENCE = COAST_SPEED_REFERENCE;
+export const XPBD_COAST_SPEED_REFERENCE = 140;
 export const XPBD_CONTACT_RESTITUTION_SCALE = .03;
 export const CONTACT_GROUNDED_NORMAL = -.35;
 export const CONTACT_RESTITUTION_SPEED = 35;

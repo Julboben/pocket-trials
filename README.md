@@ -153,7 +153,7 @@ Shared interface colors, spacing, corner radii, typography, and pixel-shadow val
 
 ### Physics
 
-The default bike connects Verlet-integrated wheels through compliant suspension to a rigid XPBD chassis triangle. The simulation runs at a fixed 120 Hz step and includes:
+The bike connects Verlet-integrated wheels through compliant suspension to a rigid XPBD chassis triangle. The simulation runs at a fixed 120 Hz step and includes:
 
 - Gravity, static overlap correction, and swept circle collision
 - Angular wheel dynamics and contact-slip traction
@@ -165,7 +165,6 @@ The default bike connects Verlet-integrated wheels through compliant suspension 
 - Momentum preservation in the air and on the ground
 - Impact-dependent restitution
 - Independent physical and visual suspension state for each wheel
-- The legacy version 1 solver remains temporarily selectable with `?physicsVersion=1`
 
 The physics are deliberately game-oriented rather than a complete real-world motorcycle simulation.
 
@@ -195,7 +194,7 @@ The game is currently a **design and physics prototype**. Its most important ass
 
 To investigate physics, open the game with `?physicsDebug=1`. The overlay shows particles, constraints, contact normals, and center of mass. The console automatically prints detected spikes as expanded JSON. Run `pocketTrialsPhysicsDebug.dumpSpike()` or `copySpike()` for the latest spike, and `dump()` or `copy()` for the latest 120 frames. Record deterministic input with `startRecording()` and `stopRecording()`, then replay the returned array with `replay(inputs)`; call `stopReplay()` to return to live controls. Traces include wheel velocities, angular/contact state, torque components, suspension lengths, chassis area, constraints, traction, and collision responses.
 
-`npm test` also runs the DOM-independent version 2 vehicle harness in `scripts/test-vehicle-physics.mjs`. It exercises flat acceleration, braking versus coasting, stationary wheel lift, air rotation, mirrored hills, valley settling, and one-wheel landing through the exact `js/vehicle-physics.js` code used by the game.
+`npm test` also runs the DOM-independent vehicle harness in `scripts/test-vehicle-physics.mjs`. It exercises flat acceleration, braking versus coasting, stationary wheel lift, air rotation, mirrored hills, valley settling, and one-wheel landing through the exact `js/vehicle-physics.js` code used by the game.
 
 When changing physics values, validate at least these cases:
 
@@ -214,7 +213,7 @@ When changing physics values, validate at least these cases:
 - [x] Splatter behind the bike when you drive on different terrain
 - [x] Add weather effects (rain, lightning, and procedural ambience)
 - [ ] Add import / export of savegames
-- [ ] New physics engine with support for overhangs, loops, caves, and fully polygonal ground
+- [x] New physics engine with support for overhangs, loops, caves, and fully polygonal ground
 
 ## Possible Godot migration
 
