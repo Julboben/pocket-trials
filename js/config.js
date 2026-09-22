@@ -43,9 +43,10 @@ export const XPBD_CHASSIS_TOP_INVERSE_MASS = .5;
 // torque reaches the ground instead of spinning the driven wheel. Top speed is 340.
 export const XPBD_MOTOR_ANGULAR_ACCELERATION = 708;
 export const XPBD_MAX_DRIVE_SPEED = 340;
-// Full reaction torque. With version 1's drive strength this stays grounded
-// on flat ground and still lifts the front on a climb.
-export const XPBD_MOTOR_REACTION_SCALE = 1;
+// Slightly under full reaction so throttle does not flip the bike backward.
+// Steep climbs add extra drive torque, and that extra is discounted here.
+export const XPBD_MOTOR_REACTION_SCALE = .86;
+export const XPBD_UPHILL_REACTION_REDUCTION = .4;
 export const XPBD_RIDER_GROUND_ANGULAR_ACCELERATION = 26;
 export const XPBD_RIDER_AIR_ANGULAR_ACCELERATION = 12;
 export const XPBD_THROTTLE_LEAN_ASSIST = .12;
@@ -53,7 +54,9 @@ export const XPBD_THROTTLE_INPUT_RESPONSE = 1.1;
 export const XPBD_LEAN_INPUT_RESPONSE = 5.8;
 export const XPBD_UPHILL_FORWARD_LEAN_REDUCTION = 0;
 export const XPBD_UPHILL_FORWARD_LEAN_MOTOR_BOOST = .25;
-export const XPBD_UPHILL_ANTI_WHEELIE_ACCELERATION = 0;
+// Small nose-down bias while climbing under throttle. It grows with the
+// slope, so a steep face is harder to loop without removing the wheelie.
+export const XPBD_UPHILL_ANTI_WHEELIE_ACCELERATION = 9;
 // Brake dive follows travel speed, capped at version 1's 1.2 × full-lean pitch.
 export const XPBD_BRAKE_REACTION_SCALE = .85;
 export const XPBD_BRAKE_REACTION_LIMIT = 39.36;

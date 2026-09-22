@@ -8,7 +8,7 @@ import {
   SUSPENSION_REST_LENGTH, SUSPENSION_TRAVEL, XPBD_WHEELBASE_SLACK,
   WHEEL_INERTIA, WHEEL_FRICTION,
   XPBD_CHASSIS_MOUNT_INVERSE_MASS, XPBD_CHASSIS_TOP_INVERSE_MASS,
-  XPBD_MOTOR_ANGULAR_ACCELERATION, XPBD_MAX_DRIVE_SPEED, XPBD_MOTOR_REACTION_SCALE,
+  XPBD_MOTOR_ANGULAR_ACCELERATION, XPBD_MAX_DRIVE_SPEED, XPBD_MOTOR_REACTION_SCALE, XPBD_UPHILL_REACTION_REDUCTION,
   XPBD_RIDER_GROUND_ANGULAR_ACCELERATION, XPBD_RIDER_AIR_ANGULAR_ACCELERATION,
   XPBD_THROTTLE_LEAN_ASSIST, XPBD_THROTTLE_INPUT_RESPONSE, XPBD_LEAN_INPUT_RESPONSE,
   XPBD_UPHILL_FORWARD_LEAN_REDUCTION, XPBD_UPHILL_FORWARD_LEAN_MOTOR_BOOST,
@@ -197,7 +197,8 @@ export function stepVersion2Vehicle(vehicle, level, controls, hooks = {}) {
   const chassisInertia = momentOfInertia(chassisPoints);
   const bikePoints = [rear, front, ...chassisPoints];
   const bikeInertia = momentOfInertia(bikePoints);
-  const motorReactionTorque = -angularDrive * wheelMoment * XPBD_MOTOR_REACTION_SCALE;
+  const reactionScale = XPBD_MOTOR_REACTION_SCALE * (1 - uphill * XPBD_UPHILL_REACTION_REDUCTION);
+  const motorReactionTorque = -angularDrive * wheelMoment * reactionScale;
   const rollingSpin = (point) => {
     const spin = point.angularVelocity || 0;
     if (!point.contact) return spin;
