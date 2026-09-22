@@ -3,7 +3,7 @@ import {
   STEP, RADIUS, WHEELBASE, SUSPENSION_REST_LENGTH, SUSPENSION_TRAVEL
 } from '../js/config.js';
 import { curveAt } from '../js/terrain.js';
-import { createVersion2Simulation, createVersion2Vehicle, version2VehicleMetrics } from '../js/vehicle-physics.js';
+import { createSimulation as createVehicleSimulation, createVehicle, vehicleMetrics } from '../js/vehicle-physics.js';
 
 const flatLevel = (y = 320) => ({
   name: 'test', points: [[0, y], [1400, y]], gaps: [], platforms: [], paths: [], terrain: 'grass', fallY: y + 500
@@ -19,14 +19,14 @@ function createSimulation(level, { x = 180, y = null, facing = 1 } = {}) {
     };
   };
   const rear = wheel(x - WHEELBASE / 2), front = wheel(x + WHEELBASE / 2);
-  const vehicle = createVersion2Vehicle(rear, front);
-  const simulation = createVersion2Simulation({ vehicle, level, facing });
+  const vehicle = createVehicle(rear, front);
+  const simulation = createVehicleSimulation({ vehicle, level, facing });
   simulation.frames = [];
   return simulation;
 }
 
 function assertStructure(simulation) {
-  const metrics = version2VehicleMetrics(simulation.vehicle);
+  const metrics = vehicleMetrics(simulation.vehicle);
   const points = [simulation.vehicle.rear, simulation.vehicle.front, ...Object.values(simulation.vehicle.chassis)];
   assert.ok(
     points.every(point => [point.x, point.y, point.ox, point.oy].every(Number.isFinite))
@@ -88,14 +88,14 @@ function run(simulation, count, controls) {
 function accelerationScenario() {
   const simulation = createSimulation(flatLevel());
   run(simulation, 120, {});
-  const startX = version2VehicleMetrics(simulation.vehicle).center.x;
+  const startX = vehicleMetrics(simulation.vehicle).center.x;
   const firstResult = simulation.step({ throttle: 1 });
   assert.deepEqual(Object.keys(firstResult.wheels).sort(), ['front', 'rear'], 'step result must expose both wheels');
   assert.deepEqual(Object.keys(firstResult.chassis).sort(), ['frontMount', 'rearMount', 'top'], 'step result must expose the chassis');
   assert.ok(firstResult.suspension.restLength > 0 && firstResult.suspension.travel > 0, 'step result must expose suspension configuration');
   assert.ok('contacts' in firstResult && 'forces' in firstResult, 'step result must expose contacts and forces');
   run(simulation, 239, { throttle: true });
-  const metrics = version2VehicleMetrics(simulation.vehicle);
+  const metrics = vehicleMetrics(simulation.vehicle);
   const speed = metrics.speedX;
   const travel = metrics.center.x - startX;
   const accelerationFrames = simulation.frames.slice(-239);
@@ -106,7 +106,7 @@ function accelerationScenario() {
   const frontContactRatio = accelerationFrames.filter(frame => frame.frontGrounded).length / accelerationFrames.length;
   const rearContactRatio = accelerationFrames.filter(frame => frame.rearGrounded).length / accelerationFrames.length;
   const maxDriveSlip = accelerationFrames.reduce((maximum, frame) => Math.max(maximum, frame.driveSlip), 0);
-  assert.ok(speed > 280 && speed < 345, `flat acceleration speed outside version 1's range: ${speed}`);
+  assert.ok(speed > 280 && speed < 345, `flat acceleration speed outside the tuned range: ${speed}`);
   assert.ok(maxDriveSlip < 8, `driven wheel spins out under throttle: ${maxDriveSlip}`);
   assert.ok(travel > 100, `flat acceleration travel too small: ${travel}`);
   assert.ok(maxFrontClearance < 8, `flat-ground throttle lifts the front wheel too far: ${maxFrontClearance}`);
@@ -119,16 +119,16 @@ function brakingScenario(braking) {
   const simulation = createSimulation(flatLevel());
   run(simulation, 120, {});
   run(simulation, 240, { throttle: true });
-  const startX = version2VehicleMetrics(simulation.vehicle).center.x;
+  const startX = vehicleMetrics(simulation.vehicle).center.x;
   run(simulation, 90, braking ? { brake: true } : {});
-  const metrics = version2VehicleMetrics(simulation.vehicle);
+  const metrics = vehicleMetrics(simulation.vehicle);
   const maxRearClearance = simulation.frames.slice(-90).reduce(
     (maximum, frame) => Math.max(maximum, 320 - RADIUS - frame.rearY),
     0
   );
   if (braking) {
-    assert.ok(maxRearClearance > 30 && maxRearClearance < 70, `braking stoppie outside version 1's range: ${maxRearClearance}`);
-    assert.ok(metrics.pitch > .4 && metrics.pitch < 2.2, `brake dive pitch outside version 1's range: ${metrics.pitch}`);
+    assert.ok(maxRearClearance > 30 && maxRearClearance < 70, `braking stoppie outside the tuned range: ${maxRearClearance}`);
+    assert.ok(metrics.pitch > .4 && metrics.pitch < 2.2, `brake dive pitch outside the tuned range: ${metrics.pitch}`);
   }
   return { speed: metrics.speedX, distance: metrics.center.x - startX, maxRearClearance, pitch: metrics.pitch };
 }
@@ -138,8 +138,8 @@ function controlResponseScenario() {
   run(simulation, 120, {});
   let result;
   for (let frame = 0; frame < 30; frame++) result = simulation.step({ throttle: 1, lean: 1 });
-  assert.ok(result.controls.throttle > .2 && result.controls.throttle < .3, `throttle input ramp outside version 1's range: ${result.controls.throttle}`);
-  assert.ok(result.controls.leanControl > .7 && result.controls.leanControl < .85, `lean input ramp outside version 1's range: ${result.controls.leanControl}`);
+  assert.ok(result.controls.throttle > .2 && result.controls.throttle < .3, `throttle input ramp outside the tuned range: ${result.controls.throttle}`);
+  assert.ok(result.controls.leanControl > .7 && result.controls.leanControl < .85, `lean input ramp outside the tuned range: ${result.controls.leanControl}`);
   return {
     throttleAfterQuarterSecond: result.controls.throttle,
     leanAfterQuarterSecond: result.controls.leanControl
@@ -150,11 +150,11 @@ function leanScenario() {
   const exercise = lean => {
     const simulation = createSimulation(flatLevel(), { x: 220 });
     run(simulation, 120, {});
-    const initialPitch = version2VehicleMetrics(simulation.vehicle).pitch;
+    const initialPitch = vehicleMetrics(simulation.vehicle).pitch;
     run(simulation, 90, { lean });
     const inputFrames = simulation.frames.slice(-90);
     return {
-      pitchChange: version2VehicleMetrics(simulation.vehicle).pitch - initialPitch,
+      pitchChange: vehicleMetrics(simulation.vehicle).pitch - initialPitch,
       maxFrontClearance: inputFrames.reduce(
         (maximum, frame) => Math.max(maximum, 320 - RADIUS - frame.frontY),
         0
@@ -167,10 +167,10 @@ function leanScenario() {
   };
   const backward = exercise(-1);
   const forward = exercise(1);
-  assert.ok(backward.pitchChange < -.8 && backward.pitchChange > -1.8, `rearward lean response outside version 1's range: ${backward.pitchChange}`);
-  assert.ok(forward.pitchChange > .8 && forward.pitchChange < 1.8, `forward lean response outside version 1's range: ${forward.pitchChange}`);
-  assert.ok(backward.maxFrontClearance > 30 && backward.maxFrontClearance < 70, `rearward lean front lift outside version 1's range: ${backward.maxFrontClearance}`);
-  assert.ok(forward.maxRearClearance > 30 && forward.maxRearClearance < 70, `forward lean rear lift outside version 1's range: ${forward.maxRearClearance}`);
+  assert.ok(backward.pitchChange < -.8 && backward.pitchChange > -1.8, `rearward lean response outside the tuned range: ${backward.pitchChange}`);
+  assert.ok(forward.pitchChange > .8 && forward.pitchChange < 1.8, `forward lean response outside the tuned range: ${forward.pitchChange}`);
+  assert.ok(backward.maxFrontClearance > 30 && backward.maxFrontClearance < 70, `rearward lean front lift outside the tuned range: ${backward.maxFrontClearance}`);
+  assert.ok(forward.maxRearClearance > 30 && forward.maxRearClearance < 70, `forward lean rear lift outside the tuned range: ${forward.maxRearClearance}`);
   return {
     backwardPitchChange: backward.pitchChange,
     forwardPitchChange: forward.pitchChange,
@@ -182,9 +182,9 @@ function leanScenario() {
 function airScenario() {
   const simulation = createSimulation(flatLevel(800), { x: 300, y: 250 });
   simulation.vehicle.rear.grounded = false; simulation.vehicle.front.grounded = false;
-  const initialPitch = version2VehicleMetrics(simulation.vehicle).pitch;
+  const initialPitch = vehicleMetrics(simulation.vehicle).pitch;
   run(simulation, 60, { lean: 1 });
-  const pitchChange = version2VehicleMetrics(simulation.vehicle).pitch - initialPitch;
+  const pitchChange = vehicleMetrics(simulation.vehicle).pitch - initialPitch;
   assert.ok(Math.abs(pitchChange) > .25 && Math.abs(pitchChange) < .9, `air rotation outside useful range: ${pitchChange}`);
   return { pitchChange };
 }
@@ -197,8 +197,8 @@ function mirroredHillScenario() {
   run(right, 120, {}); run(left, 120, {});
   run(right, 300, { throttle: true, lean: .4 });
   run(left, 300, { throttle: true, lean: -.4 });
-  const rightMetrics = version2VehicleMetrics(right.vehicle);
-  const leftMetrics = version2VehicleMetrics(left.vehicle);
+  const rightMetrics = vehicleMetrics(right.vehicle);
+  const leftMetrics = vehicleMetrics(left.vehicle);
   const rightProgress = rightMetrics.center.x - 150;
   const leftProgress = 850 - leftMetrics.center.x;
   assert.ok(rightProgress > 200 && leftProgress > 200, 'both directions must climb the mirrored hill');
@@ -212,7 +212,7 @@ function uphillThrottleScenario(lean = 0) {
   const simulation = createSimulation(level, { x: 150 });
   run(simulation, 120, {});
   run(simulation, 300, { throttle: true, lean });
-  const metrics = version2VehicleMetrics(simulation.vehicle);
+  const metrics = vehicleMetrics(simulation.vehicle);
   const inputFrames = simulation.frames.slice(-300);
   const slopeFrames = inputFrames.filter(frame => frame.center.x >= 250 && frame.center.x <= 550);
   const averageUphillSpeed = slopeFrames.reduce((sum, frame) => sum + frame.speedX, 0) / Math.max(1, slopeFrames.length);
@@ -254,7 +254,7 @@ function valleyScenario() {
   const late = simulation.frames.slice(-240).reduce((max, frame) => Math.max(max, Math.abs(frame.center.x - 500)), 0);
   assert.ok(late < early, `valley oscillation must decay: early ${early}, late ${late}`);
   assert.ok(late < 45, `suspension must settle valley oscillation promptly: ${late}`);
-  return { earlyExcursion: early, lateExcursion: late, finalSpeed: version2VehicleMetrics(simulation.vehicle).speedX };
+  return { earlyExcursion: early, lateExcursion: late, finalSpeed: vehicleMetrics(simulation.vehicle).speedX };
 }
 
 function rotateVehicle(vehicle, angle, centerX, centerY) {
@@ -331,7 +331,7 @@ function determinismAndFlipScenario() {
     for (const input of inputs) step(simulation, input);
     return {
       facing: simulation.facing,
-      metrics: version2VehicleMetrics(simulation.vehicle),
+      metrics: vehicleMetrics(simulation.vehicle),
       points: [simulation.vehicle.rear, simulation.vehicle.front, ...Object.values(simulation.vehicle.chassis)]
         .map(point => [point.x, point.y, point.ox, point.oy])
     };
@@ -374,5 +374,5 @@ const results = {
   flipKeepsTiresRolling: flipKeepsTiresRollingScenario(),
   determinismAndFlip: determinismAndFlipScenario()
 };
-console.log('Version 2 integrated scenarios passed.');
+console.log('Vehicle integrated scenarios passed.');
 console.table(results);

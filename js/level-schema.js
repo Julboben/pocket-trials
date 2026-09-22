@@ -16,7 +16,6 @@ export function createBlankLevel(index = 0) {
     gaps: [],
     platforms: [],
     paths: [],
-    physicsVersion: 2,
     apples: [
       { x: 260, y: null },
       { x: 470, y: null },
@@ -42,7 +41,7 @@ export function normalizeLevel(input, index = 0) {
   level.goal = Number(level.goal) || fallback.goal;
   level.fallY = Number(level.fallY) || fallback.fallY;
   level.terrain = terrainMaterials[level.terrain] ? level.terrain : 'grass';
-  level.physicsVersion = Number(level.physicsVersion) === 1 ? 1 : 2;
+  delete level.physicsVersion;
   level.points = Array.isArray(level.points) && level.points.length >= 2
     ? level.points.map(point => [Number(point[0]), Number(point[1])]).sort((a, b) => a[0] - b[0])
     : fallback.points;

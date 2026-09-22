@@ -10,7 +10,7 @@ import {
   XPBD_LONGITUDINAL_COMPLIANCE, XPBD_LONGITUDINAL_DAMPING
 } from '../js/config.js';
 import {
-  constrainDistanceVelocity, solveDistanceConstraint, createDistanceConstraint,
+  constrainDistanceVelocity, createDistanceConstraint,
   createAreaConstraint, signedTriangleArea, resetConstraintMultiplier,
   solveXpbdDistanceConstraint, solveXpbdConstraint, dampingPerIteration,
   dampDistanceConstraint, sweepCircleSegment, riderTorqueMultiplier,
@@ -32,16 +32,16 @@ assert.equal(riderTorqueMultiplier(-1, 1, 1, true, XPBD_THROTTLE_LEAN_ASSIST), 1
 assert.equal(riderTorqueMultiplier(1, 1, 1, true, XPBD_THROTTLE_LEAN_ASSIST), 1, 'throttle must not amplify forward lean');
 assert.equal(riderTorqueMultiplier(1, -1, 1, true, XPBD_THROTTLE_LEAN_ASSIST), 1 + XPBD_THROTTLE_LEAN_ASSIST, 'rearward lean assist must follow flipped facing');
 assert.equal(riderTorqueMultiplier(-1, 1, 1, false), 1, 'released throttle must not amplify lean');
-const version1AirAlpha = 300 / (WHEELBASE / 2);
+const targetAirAlpha = 300 / (WHEELBASE / 2);
 assert.ok(
   XPBD_RIDER_GROUND_ANGULAR_ACCELERATION > 20 && XPBD_RIDER_GROUND_ANGULAR_ACCELERATION < 820 / (WHEELBASE / 2),
-  'ground rider torque must be strong enough to lift a wheel without exceeding version 1\'s raw couple'
+  'ground rider torque must be strong enough to lift a wheel without becoming twitchy'
 );
 assert.ok(
-  Math.abs(XPBD_RIDER_AIR_ANGULAR_ACCELERATION - version1AirAlpha) < .05,
-  'air rotation must match version 1'
+  Math.abs(XPBD_RIDER_AIR_ANGULAR_ACCELERATION - targetAirAlpha) < .05,
+  'air rotation must stay at the tuned handling target'
 );
-assert.equal(XPBD_MAX_DRIVE_SPEED, 340, 'version 2 drive-speed ceiling must match version 1');
+assert.equal(XPBD_MAX_DRIVE_SPEED, 340, 'drive-speed ceiling must stay at the tuned handling target');
 assert.ok(
   XPBD_MOTOR_REACTION_SCALE > 0 && XPBD_MOTOR_REACTION_SCALE <= 1,
   'motor reaction must stay within the physical wheel torque'
@@ -55,29 +55,17 @@ assert.ok(
   XPBD_MOTOR_REACTION_SCALE < 1 && XPBD_UPHILL_REACTION_REDUCTION > 0 && XPBD_UPHILL_REACTION_REDUCTION < .7,
   'throttle reaction must be eased slightly, and more on a climb'
 );
-const v2Mass = 2 + 2 / XPBD_CHASSIS_MOUNT_INVERSE_MASS + 1 / XPBD_CHASSIS_TOP_INVERSE_MASS;
-const lowSpeedDriveAcceleration = (XPBD_MOTOR_ANGULAR_ACCELERATION / 30) * 120 / v2Mass;
+const vehicleMass = 2 + 2 / XPBD_CHASSIS_MOUNT_INVERSE_MASS + 1 / XPBD_CHASSIS_TOP_INVERSE_MASS;
+const lowSpeedDriveAcceleration = (XPBD_MOTOR_ANGULAR_ACCELERATION / 30) * 120 / vehicleMass;
 assert.ok(
   lowSpeedDriveAcceleration > 400 && lowSpeedDriveAcceleration < 460,
-  'hooked-up low-speed acceleration must match version 1'
+  'hooked-up low-speed acceleration must stay at the tuned handling target'
 );
-assert.ok(Math.abs(2 * XPBD_COAST_RESISTANCE_LOW_SPEED / v2Mass - 105) < 1, 'version 2 low-speed coast loss must match version 1');
-assert.ok(Math.abs(2 * XPBD_COAST_RESISTANCE_HIGH_SPEED / v2Mass - 18) < 1, 'version 2 high-speed coast loss must match version 1');
+assert.ok(Math.abs(2 * XPBD_COAST_RESISTANCE_LOW_SPEED / vehicleMass - 105) < 1, 'low-speed coast loss must stay at 105 px/s²');
+assert.ok(Math.abs(2 * XPBD_COAST_RESISTANCE_HIGH_SPEED / vehicleMass - 18) < 1, 'high-speed coast loss must stay at 18 px/s²');
 assert.equal(riderTerrainTorqueScale(-1, 1, 1), 1, 'uphill travel must not weaken rearward lean');
 assert.ok(riderTerrainTorqueScale(1, 1, .5) < GRAVITY / (XPBD_RIDER_GROUND_ANGULAR_ACCELERATION * WHEELBASE / 2), 'forward lean on a steep uphill must remain below the static rear-wheel lift threshold');
 assert.equal(riderTerrainTorqueScale(-1, -1, .5), 1 - .5 * 1.4, 'uphill forward-lean reduction must follow flipped facing');
-
-solveDistanceConstraint(rear, front, 50, .43);
-assert.ok(
-  approximatelyEqual(rear.x - rear.ox, beforeRearVelocity[0])
-    && approximatelyEqual(rear.y - rear.oy, beforeRearVelocity[1]),
-  'position correction must not become rear-wheel velocity'
-);
-assert.ok(
-  approximatelyEqual(front.x - front.ox, beforeFrontVelocity[0])
-    && approximatelyEqual(front.y - front.oy, beforeFrontVelocity[1]),
-  'position correction must not become front-wheel velocity'
-);
 
 constrainDistanceVelocity(rear, front);
 const afterCenterVelocity = [

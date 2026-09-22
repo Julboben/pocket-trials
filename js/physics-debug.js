@@ -35,7 +35,6 @@ export function createPhysicsDebugger({ enabled, step, inspectPoint }) {
       time: round(metadata.time),
       level: metadata.level,
       source: metadata.source,
-      physicsVersion: metadata.physicsVersion,
       facing: metadata.facing,
       throttle: round(metadata.throttle),
       before: { rear: snapshot(rear), front: snapshot(front) },

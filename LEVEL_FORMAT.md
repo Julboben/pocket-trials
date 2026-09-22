@@ -22,7 +22,6 @@ The world uses Canvas coordinates:
   label: 'EXAMPLE TRAIL / 08',
   goal: 1800,
   terrain: 'grass',
-  physicsVersion: 2,
   start: { x: 90, y: null, facing: 1 },
 
   points: [
@@ -192,15 +191,6 @@ paths: [
 - Leave generous room in tight bends. A centerline radius smaller than roughly the path thickness plus one wheel radius can be difficult or impossible to ride cleanly.
 
 The editor's **Path / loop** tool creates an open path. Select a path or one of its points to move it, edit its material and thickness, or toggle **Closed loop**. Path points move freely in both axes and retain authored order.
-
-## Physics version
-
-`physicsVersion` selects the bike solver:
-
-- `1` (legacy): two-wheel distance constraint and direct drive.
-- `2` (default): XPBD chassis and suspension, swept collision, and angular wheel traction.
-
-Omitting `physicsVersion` selects version 2. The query parameter `?physicsVersion=1` or `?physicsVersion=2` overrides the level setting for a play session.
 
 ## Terrain materials
 

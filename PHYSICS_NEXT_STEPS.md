@@ -1,6 +1,6 @@
 # Physics implementation status
 
-The staged physics roadmap is implemented behind a version switch. Version 2 is the default; append `?physicsVersion=1` to compare the legacy solver. Physics traces remain available with `?physicsDebug=1`.
+The staged physics roadmap is implemented in `js/vehicle-physics.js`: a physical chassis, XPBD suspension, swept collision, angular traction, motor/brake reaction torque, and rider-applied chassis torque. The original two-wheel distance-constraint solver has been removed. Physics traces remain available with `?physicsDebug=1`.
 
 ## Implemented foundation
 
@@ -15,13 +15,6 @@ The staged physics roadmap is implemented behind a version switch. Version 2 is 
 - Contact-point slip converted into coupled linear/angular friction impulses
 - Ordered thick paths for loops and overhangs, shared by rendering, collision, validation, and editor handles
 - Opt-in physics traces with `?physicsDebug=1`
-
-## Physics versions
-
-- **Version 1 (legacy):** wheelbase stiffness solver and direct linear drive. Use `?physicsVersion=1` for final regression comparisons.
-- **Version 2 (default):** physical chassis, XPBD suspension, swept collision, angular traction, motor/brake reaction torque, and rider-applied chassis torque. It has an independent set of handling constants and does not use version 1's direct wheel forces or synthetic pitch terms.
-
-Existing levels without a `physicsVersion` use version 2. A level may temporarily opt into `"physicsVersion": 1`; the URL query parameter takes precedence.
 
 ## Authored path format
 
@@ -38,11 +31,11 @@ The automated suite covers:
 - Fast circle sweeps against thin segments and authored paths
 - Closed-loop outer contact and empty centers
 - Open path caps and decreasing-x overhangs
-- Position-safe legacy constraints and predicted-position XPBD correction
+- Predicted-position XPBD correction
 - Inverse-mass XPBD correction
-- Center-of-mass preservation in the legacy velocity pass
+- Center-of-mass preservation in the distance velocity projection
 - Angular-to-linear traction transfer
-- Full version 2 flat acceleration and braking-versus-coasting runs
+- Full-vehicle flat acceleration and braking-versus-coasting runs
 - Stationary wheel lift and airborne rotation
 - Mirrored left/right hill climbing
 - Valley settling
@@ -52,7 +45,7 @@ The game and deterministic scenarios execute the same DOM-independent `js/vehicl
 
 ## Manual handling pass still required
 
-Physics constants are centralized in `js/config.js`, but feel tuning requires browser play-testing. Before removing version 1, ride every official trail in both directions and verify:
+Physics constants are centralized in `js/config.js`, but feel tuning requires browser play-testing. Ride every official trail in both directions and verify:
 
 - Sharp crests and valleys
 - Both sides of every gap
@@ -63,12 +56,7 @@ Physics constants are centralized in `js/config.js`, but feel tuning requires br
 
 Tune restitution, friction, suspension compliance/damping, and the grounded-normal threshold only after this matrix is reliable.
 
-## Version 1 retirement
+## Next steps
 
-Keep `?physicsVersion=1` through one final regression pass. After every official trail has been checked in both directions:
-
-1. Freeze the version 2 handling constants and record representative debug replays.
-2. Remove the version switch, legacy integration/contact path, and version 1-only constants.
-3. Rename version 2 types and APIs to unversioned vehicle-physics names.
-4. Profile the default solver before optimizing; prioritize terrain contact queries and repeated constraint-array allocation only when measurements show they matter.
-5. Keep the deterministic vehicle scenarios as the handling regression suite.
+1. Record one representative debug replay per official trail and add them to the deterministic vehicle scenarios as the handling regression suite.
+2. Profile the solver before optimizing; prioritize terrain contact queries and repeated constraint-array allocation only when measurements show they matter.

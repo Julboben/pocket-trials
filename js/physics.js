@@ -13,26 +13,6 @@ function setVelocity(point, vx, vy) {
   point.oy = point.y - vy;
 }
 
-export function solveDistanceConstraint(a, b, targetLength, stiffness) {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const distance = Math.hypot(dx, dy) || .001;
-  const correction = ((distance - targetLength) / distance) * stiffness;
-  const correctionX = dx * correction;
-  const correctionY = dy * correction;
-
-  a.x += correctionX;
-  a.y += correctionY;
-  a.ox += correctionX;
-  a.oy += correctionY;
-  b.x -= correctionX;
-  b.y -= correctionY;
-  b.ox -= correctionX;
-  b.oy -= correctionY;
-
-  return { distance, correctionDistance: Math.abs(distance - targetLength) * stiffness, correctionX, correctionY };
-}
-
 export function constrainDistanceVelocity(a, b, damping = 1) {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
@@ -83,10 +63,10 @@ export function solveXpbdDistanceConstraint(constraint, dt) {
   const ax = -nx * deltaLambda * wa, ay = -ny * deltaLambda * wa;
   const bx = nx * deltaLambda * wb, by = ny * deltaLambda * wb;
 
-  // XPBD corrects predicted positions. Unlike the legacy shape repair, the
-  // correction must participate in the reconstructed velocity; moving the old
-  // positions too preserves constraint-violating velocities and causes the
-  // chassis to oscillate while appearing position-correct.
+  // XPBD corrects predicted positions, so the correction must participate in
+  // the reconstructed velocity; moving the old positions too preserves
+  // constraint-violating velocities and causes the chassis to oscillate while
+  // appearing position-correct.
   a.x += ax; a.y += ay;
   b.x += bx; b.y += by;
   return {
