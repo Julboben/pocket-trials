@@ -42,6 +42,12 @@
       "source": "official",
       "file": "official/07-elastic-summit.json",
       "name": "Elastic Summit"
+    },
+    {
+      "id": "custom:00-custom-level",
+      "source": "custom",
+      "file": "custom/00-custom-level.json",
+      "name": "Custom Level"
     }
   ]
 }

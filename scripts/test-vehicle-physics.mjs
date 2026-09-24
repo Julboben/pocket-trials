@@ -451,19 +451,6 @@ function singleWheelLandingScenario() {
   return { rearSink: sink, springBacks };
 }
 
-function upsideDownLandingScenario() {
-  const flagged = tilt => {
-    const simulation = droppedSimulation(30, tilt);
-    for (let index = 0; index < 180; index++) if (simulation.step({}).forces.upsideDownLanding) return true;
-    return false;
-  };
-  assert.equal(flagged(0), false, 'a level landing is not a crash');
-  assert.equal(flagged(40), false, 'a steep rear-wheel landing is not a crash');
-  assert.equal(flagged(180), true, 'landing upside down on the wheels is a crash');
-  assert.equal(flagged(95), true, 'dropping tail-first onto the rear wheel is a crash');
-  return { level: false, upsideDown: true };
-}
-
 function steepClimbForwardLeanScenario() {
   const rise = Math.tan(40 * Math.PI / 180) * 300;
   const level = { ...flatLevel(600), points: [[0, 600], [250, 600], [550, 600 - rise], [1400, 600 - rise]] };
@@ -484,26 +471,6 @@ function steepClimbForwardLeanScenario() {
   assert.ok(progress > 400, `forward lean must still let the bike climb: ${progress}`);
   return { maxRearLift, minRelativePitch, progress };
 }
-
-function steepWheelieHopScenario() {
-  const simulation = createSimulation(flatLevel(), { x: 300 });
-  run(simulation, 60, {});
-  let previousTilt = 0, maxTilt = 0, hops = 0;
-  for (let index = 0; index < 120; index++) {
-    const tilt = -vehicleMetrics(simulation.vehicle).pitch * 180 / Math.PI;
-    const rate = (tilt - previousTilt) / STEP;
-    previousTilt = tilt;
-    const lean = index < 40 ? -1 : Math.max(-1, Math.min(1, (tilt - 85) * .06 + rate * .012));
-    const wasGrounded = simulation.vehicle.rear.grounded;
-    const result = simulation.step({ throttle: .3, lean });
-    if (!wasGrounded && result.contacts.rear) hops++;
-    maxTilt = Math.max(maxTilt, tilt);
-    assert.equal(result.forces.upsideDownLanding, false, `the rear wheel settling in a ${tilt.toFixed(0)}° wheelie is not a crash`);
-  }
-  assert.ok(maxTilt > 90 && hops > 0, `the wheelie should pass vertical and hop: ${maxTilt}, ${hops}`);
-  return { maxTilt, hops };
-}
-
 const acceleration = accelerationScenario();
 const braking = brakingScenario(true);
 const coasting = brakingScenario(false);
@@ -539,8 +506,6 @@ const results = {
   steadyAirSpin: steadyAirSpinScenario(),
   airLeanKeepsMomentum: airLeanKeepsMomentumScenario(),
   singleWheelLanding: singleWheelLandingScenario(),
-  upsideDownLanding: upsideDownLandingScenario(),
-  steepWheelieHop: steepWheelieHopScenario(),
   steepClimbForwardLean: steepClimbForwardLeanScenario(),
   flipKeepsTiresRolling: flipKeepsTiresRollingScenario(),
   determinismAndFlip: determinismAndFlipScenario()

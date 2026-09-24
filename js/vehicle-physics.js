@@ -11,7 +11,7 @@ import {
   XPBD_MOTOR_ANGULAR_ACCELERATION, XPBD_MAX_DRIVE_SPEED, XPBD_MOTOR_REACTION_SCALE, XPBD_UPHILL_REACTION_REDUCTION,
   XPBD_RIDER_GROUND_ANGULAR_ACCELERATION, XPBD_RIDER_AIR_ANGULAR_ACCELERATION,
   XPBD_RIDER_LEVERAGE_FADE_START, XPBD_RIDER_LEVERAGE_FADE_END, XPBD_RIDER_MAX_AIR_SPIN, XPBD_RIDER_AIR_SPIN_RESPONSE, XPBD_RIDER_MAX_GROUND_SPIN,
-  XPBD_TOUCHDOWN_SPIN_THRESHOLD, XPBD_TOUCHDOWN_SPIN_ABSORPTION, XPBD_CRASH_LANDING_TILT, XPBD_CRASH_LANDING_SPEED,
+  XPBD_TOUCHDOWN_SPIN_THRESHOLD, XPBD_TOUCHDOWN_SPIN_ABSORPTION,
   XPBD_THROTTLE_LEAN_ASSIST, XPBD_THROTTLE_INPUT_RESPONSE, XPBD_LEAN_INPUT_RESPONSE,
   XPBD_UPHILL_FORWARD_LEAN_REDUCTION, XPBD_UPHILL_FORWARD_LEAN_FULL_TILT, XPBD_UPHILL_FORWARD_LEAN_MOTOR_BOOST,
   XPBD_UPHILL_ANTI_WHEELIE_ACCELERATION, XPBD_BRAKE_REACTION_SCALE, XPBD_BRAKE_REACTION_LIMIT,
@@ -150,11 +150,6 @@ function chassisUp(chassis) {
   const baseY = (chassis.rearMount.y + chassis.frontMount.y) / 2;
   const length = Math.hypot(chassis.top.x - baseX, chassis.top.y - baseY) || 1;
   return { x: (chassis.top.x - baseX) / length, y: (chassis.top.y - baseY) / length };
-}
-
-function tiltFromContact(chassis, contact) {
-  const up = chassisUp(chassis);
-  return Math.acos(clamp(up.x * contact.nx + up.y * contact.ny, -1, 1));
 }
 
 // Signed chassis tilt from the ground normal, positive when the nose is raised.
@@ -356,8 +351,6 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
   }
   const touchdowns = [[rear, wasRearGrounded], [front, wasFrontGrounded]].filter(([point, was]) => !was && point.grounded);
   if (touchdowns.length) absorbTouchdownSpin(bikePoints, bikeInertia);
-  dynamics.upsideDownLanding = touchdowns.some(([point]) => point.impactSpeed > XPBD_CRASH_LANDING_SPEED
-    && tiltFromContact(chassis, point.contact) > XPBD_CRASH_LANDING_TILT);
 
   const driveLoadScale = lerp(
     XPBD_ROLLING_LOAD_SCALE,

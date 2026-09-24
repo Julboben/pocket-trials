@@ -65,12 +65,6 @@ export const XPBD_RIDER_MAX_GROUND_SPIN = 3;
 // (rad/s) is absorbed, so a tumbling bike cannot cartwheel off its wheels.
 export const XPBD_TOUCHDOWN_SPIN_THRESHOLD = 3;
 export const XPBD_TOUCHDOWN_SPIN_ABSORPTION = .6;
-// A wheel touching down while the bike is tilted further than this from the
-// ground normal (radians) throws the rider: nose- or tail-first, or upside down.
-export const XPBD_CRASH_LANDING_TILT = 85 * Math.PI / 180;
-// Only touchdowns faster than this (px/s) count, so the rear wheel settling
-// back after a hop in a steep wheelie does not throw the rider.
-export const XPBD_CRASH_LANDING_SPEED = 50;
 export const XPBD_THROTTLE_LEAN_ASSIST = .12;
 export const XPBD_THROTTLE_INPUT_RESPONSE = 1.1;
 export const XPBD_LEAN_INPUT_RESPONSE = 5.8;

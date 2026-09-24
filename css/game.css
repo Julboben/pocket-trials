@@ -415,7 +415,7 @@ h2 { margin: 0; font-size: 28px; line-height: 1.08; letter-spacing: -1px; white-
 .game:-webkit-full-screen .viewport { flex: 1 1 auto; min-height: 0; height: auto; aspect-ratio: auto; }
 .game.menu-open > .viewport,
 .game.menu-open > .control-area { visibility: hidden; }
-.menu-dashboard { position: relative; z-index: 2; width: min(760px, 100%); }
+.menu-dashboard { position: relative; z-index: 2; width: min(760px, 100%); margin-block: auto; }
 .menu-view { width: min(560px, 100%); margin-inline: auto; }
 .dashboard-fullscreen {
   position: absolute;
