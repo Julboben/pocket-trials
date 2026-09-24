@@ -68,13 +68,21 @@ export const XPBD_TOUCHDOWN_SPIN_ABSORPTION = .6;
 // A wheel touching down while the bike is tilted further than this from the
 // ground normal (radians) throws the rider: nose- or tail-first, or upside down.
 export const XPBD_CRASH_LANDING_TILT = 85 * Math.PI / 180;
+// Only touchdowns faster than this (px/s) count, so the rear wheel settling
+// back after a hop in a steep wheelie does not throw the rider.
+export const XPBD_CRASH_LANDING_SPEED = 50;
 export const XPBD_THROTTLE_LEAN_ASSIST = .12;
 export const XPBD_THROTTLE_INPUT_RESPONSE = 1.1;
 export const XPBD_LEAN_INPUT_RESPONSE = 5.8;
-export const XPBD_UPHILL_FORWARD_LEAN_REDUCTION = 0;
+export const XPBD_UPHILL_FORWARD_LEAN_REDUCTION = 1.4;
+// Nose-up tilt from the slope (radians) at which the front wheel counts as
+// lifted: forward lean is back to full strength for pulling it down, and the
+// anti-wheelie bias below is fully on.
+export const XPBD_UPHILL_FORWARD_LEAN_FULL_TILT = 12 * Math.PI / 180;
 export const XPBD_UPHILL_FORWARD_LEAN_MOTOR_BOOST = .25;
 // Small nose-down bias while climbing under throttle. It grows with the
-// slope, so a steep face is harder to loop without removing the wheelie.
+// slope, so a steep face is harder to loop without removing the wheelie. It
+// only acts once the front wheel lifts, so it never levers the rear wheel up.
 export const XPBD_UPHILL_ANTI_WHEELIE_ACCELERATION = 9;
 // Brake dive follows travel speed, capped at about twice full-lean pitch; the
 // front suspension dives and takes up part of it.

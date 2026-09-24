@@ -47,7 +47,7 @@ assert.ok(
   XPBD_MOTOR_REACTION_SCALE > 0 && XPBD_MOTOR_REACTION_SCALE <= 1,
   'motor reaction must stay within the physical wheel torque'
 );
-assert.equal(XPBD_UPHILL_FORWARD_LEAN_REDUCTION, 0, 'uphill travel must not weaken rider lean');
+assert.ok(XPBD_UPHILL_FORWARD_LEAN_REDUCTION > 0, 'forward lean must not lever the rear wheel off a climb');
 assert.ok(
   XPBD_UPHILL_ANTI_WHEELIE_ACCELERATION > 0 && XPBD_UPHILL_ANTI_WHEELIE_ACCELERATION <= 9,
   'uphill throttle may only slightly resist a backward flip'
@@ -67,6 +67,8 @@ assert.ok(Math.abs(2 * XPBD_COAST_RESISTANCE_HIGH_SPEED / vehicleMass - 18) < 1,
 assert.equal(riderTerrainTorqueScale(-1, 1, 1), 1, 'uphill travel must not weaken rearward lean');
 assert.ok(riderTerrainTorqueScale(1, 1, .5) < GRAVITY / (XPBD_RIDER_GROUND_ANGULAR_ACCELERATION * WHEELBASE / 2), 'forward lean on a steep uphill must remain below the static rear-wheel lift threshold');
 assert.equal(riderTerrainTorqueScale(-1, -1, .5), 1 - .5 * 1.4, 'uphill forward-lean reduction must follow flipped facing');
+assert.equal(riderTerrainTorqueScale(1, 1, .5, 1.4, 1), 1, 'forward lean keeps full strength to pull a lifted front wheel down');
+assert.equal(riderTerrainTorqueScale(1, 1, .5, 1.4, .5), 1 - .5 * .5 * 1.4, 'forward-lean reduction eases out as the front wheel lifts');
 
 constrainDistanceVelocity(rear, front);
 const afterCenterVelocity = [

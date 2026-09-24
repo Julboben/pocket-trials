@@ -11,9 +11,9 @@ import {
   XPBD_MOTOR_ANGULAR_ACCELERATION, XPBD_MAX_DRIVE_SPEED, XPBD_MOTOR_REACTION_SCALE, XPBD_UPHILL_REACTION_REDUCTION,
   XPBD_RIDER_GROUND_ANGULAR_ACCELERATION, XPBD_RIDER_AIR_ANGULAR_ACCELERATION,
   XPBD_RIDER_LEVERAGE_FADE_START, XPBD_RIDER_LEVERAGE_FADE_END, XPBD_RIDER_MAX_AIR_SPIN, XPBD_RIDER_AIR_SPIN_RESPONSE, XPBD_RIDER_MAX_GROUND_SPIN,
-  XPBD_TOUCHDOWN_SPIN_THRESHOLD, XPBD_TOUCHDOWN_SPIN_ABSORPTION, XPBD_CRASH_LANDING_TILT,
+  XPBD_TOUCHDOWN_SPIN_THRESHOLD, XPBD_TOUCHDOWN_SPIN_ABSORPTION, XPBD_CRASH_LANDING_TILT, XPBD_CRASH_LANDING_SPEED,
   XPBD_THROTTLE_LEAN_ASSIST, XPBD_THROTTLE_INPUT_RESPONSE, XPBD_LEAN_INPUT_RESPONSE,
-  XPBD_UPHILL_FORWARD_LEAN_REDUCTION, XPBD_UPHILL_FORWARD_LEAN_MOTOR_BOOST,
+  XPBD_UPHILL_FORWARD_LEAN_REDUCTION, XPBD_UPHILL_FORWARD_LEAN_FULL_TILT, XPBD_UPHILL_FORWARD_LEAN_MOTOR_BOOST,
   XPBD_UPHILL_ANTI_WHEELIE_ACCELERATION, XPBD_BRAKE_REACTION_SCALE, XPBD_BRAKE_REACTION_LIMIT,
   XPBD_BRAKE_RATE, XPBD_CONTACT_LOAD_SCALE, XPBD_DRIVE_LOAD_SCALE, XPBD_UPHILL_CONTACT_LOAD_SCALE, XPBD_ROLLING_LOAD_SCALE,
   XPBD_COAST_RESISTANCE_LOW_SPEED, XPBD_COAST_RESISTANCE_HIGH_SPEED,
@@ -93,6 +93,24 @@ function angularAccelerations(points, angularAcceleration) {
   }));
 }
 
+// Rider lean is a weight shift, so it can tip the bike around a wheel that is
+// on the ground but cannot pull that wheel off it. With one wheel down, the
+// part of the spin that would lift that wheel off its contact is removed from
+// every point; motion along the ground is left alone.
+function keepPivotPlanted(accelerations, rear, front) {
+  if (rear.grounded === front.grounded) return;
+  const pivot = rear.grounded ? rear : front;
+  if (!pivot.contact) return;
+  const { nx, ny } = pivot.contact;
+  const pivotAcceleration = accelerations.find(({ point }) => point === pivot);
+  const lift = pivotAcceleration.ax * nx + pivotAcceleration.ay * ny;
+  if (lift <= 0) return;
+  for (const acceleration of accelerations) {
+    acceleration.ax -= lift * nx;
+    acceleration.ay -= lift * ny;
+  }
+}
+
 function momentOfInertia(points) {
   const center = centerOfMass(points);
   return points.reduce((sum, point) => {
@@ -137,6 +155,14 @@ function chassisUp(chassis) {
 function tiltFromContact(chassis, contact) {
   const up = chassisUp(chassis);
   return Math.acos(clamp(up.x * contact.nx + up.y * contact.ny, -1, 1));
+}
+
+// Signed chassis tilt from the ground normal, positive when the nose is raised.
+function noseUpTilt({ rear, front, chassis }, facing) {
+  const contact = rear.contact || front.contact;
+  if (!contact) return 0;
+  const up = chassisUp(chassis);
+  return Math.atan2(up.x * contact.ny - up.y * contact.nx, up.x * contact.nx + up.y * contact.ny) * facing;
 }
 
 function riderGroundLeverage({ rear, front, chassis }) {
@@ -227,11 +253,12 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
   const uphillLeanDriveBoost = 1 + uphill * forwardLean * XPBD_UPHILL_FORWARD_LEAN_MOTOR_BOOST;
   const uphillGripBlend = clamp(uphill * (1 + forwardLean * 2), 0, 1);
   const angularDrive = facing * XPBD_MOTOR_ANGULAR_ACCELERATION * throttle * torqueCurve * climbTorque * uphillLeanDriveBoost;  const riderAssist = riderTorqueMultiplier(leanControl, facing, throttle, accelerating, XPBD_THROTTLE_LEAN_ASSIST);
+  const frontLift = grounded ? clamp(noseUpTilt(vehicle, facing) / XPBD_UPHILL_FORWARD_LEAN_FULL_TILT, 0, 1) : 0;
   const riderTerrainScale = grounded
-    ? riderTerrainTorqueScale(leanControl, facing, uphill, XPBD_UPHILL_FORWARD_LEAN_REDUCTION)
+    ? riderTerrainTorqueScale(leanControl, facing, uphill, XPBD_UPHILL_FORWARD_LEAN_REDUCTION, frontLift)
     : 1;
   const antiWheelieAngularAcceleration = grounded
-    ? facing * uphill * throttle * XPBD_UPHILL_ANTI_WHEELIE_ACCELERATION * (1 - forwardLean * .35)
+    ? facing * uphill * throttle * frontLift * XPBD_UPHILL_ANTI_WHEELIE_ACCELERATION * (1 - forwardLean * .35)
     : 0;
   const wheelMoment = WHEEL_INERTIA * RADIUS * RADIUS;
   const chassisPoints = Object.values(chassis);
@@ -280,6 +307,7 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
     bikePoints,
     riderAngularAcceleration + antiWheelieAngularAcceleration
   );
+  keepPivotPlanted(riderAccelerations, rear, front);
   const dynamics = {
     angularDrive,
     climbTorque,
@@ -328,7 +356,8 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
   }
   const touchdowns = [[rear, wasRearGrounded], [front, wasFrontGrounded]].filter(([point, was]) => !was && point.grounded);
   if (touchdowns.length) absorbTouchdownSpin(bikePoints, bikeInertia);
-  dynamics.upsideDownLanding = touchdowns.some(([point]) => tiltFromContact(chassis, point.contact) > XPBD_CRASH_LANDING_TILT);
+  dynamics.upsideDownLanding = touchdowns.some(([point]) => point.impactSpeed > XPBD_CRASH_LANDING_SPEED
+    && tiltFromContact(chassis, point.contact) > XPBD_CRASH_LANDING_TILT);
 
   const driveLoadScale = lerp(
     XPBD_ROLLING_LOAD_SCALE,

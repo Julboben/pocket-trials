@@ -460,7 +460,48 @@ function upsideDownLandingScenario() {
   assert.equal(flagged(0), false, 'a level landing is not a crash');
   assert.equal(flagged(40), false, 'a steep rear-wheel landing is not a crash');
   assert.equal(flagged(180), true, 'landing upside down on the wheels is a crash');
+  assert.equal(flagged(95), true, 'dropping tail-first onto the rear wheel is a crash');
   return { level: false, upsideDown: true };
+}
+
+function steepClimbForwardLeanScenario() {
+  const rise = Math.tan(40 * Math.PI / 180) * 300;
+  const level = { ...flatLevel(600), points: [[0, 600], [250, 600], [550, 600 - rise], [1400, 600 - rise]] };
+  const simulation = createSimulation(level, { x: 150 });
+  run(simulation, 120, {});
+  let maxRearLift = 0, minRelativePitch = Infinity;
+  for (let index = 0; index < 420; index++) {
+    const { rear, front } = simulation.vehicle;
+    const middle = (rear.x + front.x) / 2;
+    step(simulation, { throttle: true, lean: middle > 250 ? 1 : 0 });
+    if (middle < 290 || middle > 510) continue;
+    maxRearLift = Math.max(maxRearLift, curveAt(level.points, rear.x).y - RADIUS - rear.y);
+    minRelativePitch = Math.min(minRelativePitch, -vehicleMetrics(simulation.vehicle).pitch * 180 / Math.PI - 40);
+  }
+  const progress = vehicleMetrics(simulation.vehicle).center.x - 150;
+  assert.ok(maxRearLift < 12, `forward lean must not lever the rear wheel off a steep climb: ${maxRearLift}`);
+  assert.ok(minRelativePitch > -35, `forward lean must not tip the bike over its front wheel on a climb: ${minRelativePitch}`);
+  assert.ok(progress > 400, `forward lean must still let the bike climb: ${progress}`);
+  return { maxRearLift, minRelativePitch, progress };
+}
+
+function steepWheelieHopScenario() {
+  const simulation = createSimulation(flatLevel(), { x: 300 });
+  run(simulation, 60, {});
+  let previousTilt = 0, maxTilt = 0, hops = 0;
+  for (let index = 0; index < 120; index++) {
+    const tilt = -vehicleMetrics(simulation.vehicle).pitch * 180 / Math.PI;
+    const rate = (tilt - previousTilt) / STEP;
+    previousTilt = tilt;
+    const lean = index < 40 ? -1 : Math.max(-1, Math.min(1, (tilt - 85) * .06 + rate * .012));
+    const wasGrounded = simulation.vehicle.rear.grounded;
+    const result = simulation.step({ throttle: .3, lean });
+    if (!wasGrounded && result.contacts.rear) hops++;
+    maxTilt = Math.max(maxTilt, tilt);
+    assert.equal(result.forces.upsideDownLanding, false, `the rear wheel settling in a ${tilt.toFixed(0)}° wheelie is not a crash`);
+  }
+  assert.ok(maxTilt > 90 && hops > 0, `the wheelie should pass vertical and hop: ${maxTilt}, ${hops}`);
+  return { maxTilt, hops };
 }
 
 const acceleration = accelerationScenario();
@@ -499,6 +540,8 @@ const results = {
   airLeanKeepsMomentum: airLeanKeepsMomentumScenario(),
   singleWheelLanding: singleWheelLandingScenario(),
   upsideDownLanding: upsideDownLandingScenario(),
+  steepWheelieHop: steepWheelieHopScenario(),
+  steepClimbForwardLean: steepClimbForwardLeanScenario(),
   flipKeepsTiresRolling: flipKeepsTiresRollingScenario(),
   determinismAndFlip: determinismAndFlipScenario()
 };

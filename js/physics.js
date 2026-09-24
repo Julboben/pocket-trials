@@ -220,10 +220,15 @@ export function riderTorqueMultiplier(leanInput, facing, throttle, accelerating,
   return 1 + backwardLean * activeThrottle * assist;
 }
 
-export function riderTerrainTorqueScale(leanInput, facing, uphill, reduction = 1.4) {
+// Uphill, the rider's weight sits far behind the front contact, so leaning
+// forward cannot lever the rear wheel off the slope. frontLift (0..1) is how
+// far the front wheel is raised; forward lean keeps full strength while it is
+// pulling a lifted front wheel back down.
+export function riderTerrainTorqueScale(leanInput, facing, uphill, reduction = 1.4, frontLift = 0) {
   const forwardLean = Math.max(0, Math.min(1, leanInput * facing));
   const uphillAmount = Math.max(0, Math.min(1, uphill));
-  return 1 - forwardLean * Math.min(.9, uphillAmount * reduction);
+  const rearLift = 1 - Math.max(0, Math.min(1, frontLift));
+  return 1 - forwardLean * rearLift * Math.min(.9, uphillAmount * reduction);
 }
 
 // A rider balancing on one wheel has no leverage once the bike stands past
