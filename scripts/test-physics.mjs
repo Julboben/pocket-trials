@@ -11,10 +11,11 @@ import {
 } from '../js/config.js';
 import {
   constrainDistanceVelocity, createDistanceConstraint,
-  createAreaConstraint, signedTriangleArea, resetConstraintMultiplier,
+  createAreaConstraint, createSliderConstraint, signedTriangleArea, resetConstraintMultiplier,
   solveXpbdDistanceConstraint, solveXpbdConstraint, dampingPerIteration,
   dampDistanceConstraint, sweepCircleSegment, riderTorqueMultiplier,
-  riderTerrainTorqueScale, advanceAfterTimeOfImpact, solveWheelContactVelocity
+  riderTerrainTorqueScale, riderTiltTorqueScale, riderSpinTorqueScale,
+  advanceAfterTimeOfImpact, solveWheelContactVelocity
 } from '../js/physics.js';
 
 const rear = { x: 0, y: 0, ox: -2, oy: 1 };
@@ -209,5 +210,37 @@ solveWheelContactVelocity(brakingWheel, { nx: 0, ny: -1 }, {
 });
 assert.ok((brakingWheel.x - brakingWheel.ox) * 120 < 120, 'wheel braking must reduce linear ground speed');
 assert.ok(brakingWheel.angularVelocity < 10, 'wheel braking must reduce angular speed');
+
+const sliderStart = { x: 0, y: 0, ox: 0, oy: 0, inverseMass: 0 };
+const sliderEnd = { x: 50, y: 0, ox: 50, oy: 0, inverseMass: 0 };
+const sliderMount = { x: 10, y: 0, ox: 10, oy: 0, inverseMass: 1 };
+const sliderWheel = { x: 16, y: 20, ox: 16, oy: 20, inverseMass: 1 };
+const slider = createSliderConstraint(sliderWheel, sliderMount, sliderStart, sliderEnd);
+solveXpbdConstraint(slider, 1 / 120);
+assert.ok(approximatelyEqual(sliderWheel.x, sliderMount.x), 'a rigid slider lines the wheel up with its mount along the axis');
+assert.ok(approximatelyEqual(sliderWheel.x, 13) && approximatelyEqual(sliderWheel.y, 20), 'a slider only corrects along the axis and splits it by inverse mass');
+sliderWheel.y = 4;
+solveXpbdConstraint(slider, 1 / 120);
+assert.ok(approximatelyEqual(sliderWheel.y, 4), 'a slider leaves travel across the axis free for the spring');
+
+const quarter = Math.PI / 2;
+assert.equal(riderTiltTorqueScale(0, -1, 0, -1, quarter * .8, quarter * 1.1), 1, 'an upright bike keeps full ground lean leverage');
+assert.equal(riderTiltTorqueScale(0, 1, 0, -1, quarter * .8, quarter * 1.1), 0, 'an upside-down bike has no ground lean leverage');
+assert.ok(approximatelyEqual(riderTiltTorqueScale(1, 0, 0, -1, quarter * .8, quarter * 1.2), .5), 'ground lean leverage fades linearly between the tilt limits');
+assert.equal(riderSpinTorqueScale(-12, 3, 10), 1, 'lean against the current spin is never reduced');
+assert.equal(riderSpinTorqueScale(12, 7, 10), 1, 'lean keeps full strength below three quarters of the spin cap');
+assert.ok(approximatelyEqual(riderSpinTorqueScale(12, 8.75, 10), .5), 'lean fades over the last quarter of the spin cap');
+assert.equal(riderSpinTorqueScale(-12, -10, 10), 0, 'lean adds no spin at the cap');
+
+const reboundA = { x: 0, y: 0, ox: 0, oy: 0 };
+const reboundB = { x: 20, y: 0, ox: 19, oy: 0 };
+const rebound = createDistanceConstraint(reboundA, reboundB, 20, { damping: .2, reboundDamping: .8 });
+dampDistanceConstraint(rebound, rebound.damping, rebound.reboundDamping);
+assert.ok(approximatelyEqual(reboundB.x - reboundB.ox - (reboundA.x - reboundA.ox), .2), 'an extending link uses rebound damping');
+const compressA = { x: 0, y: 0, ox: 0, oy: 0 };
+const compressB = { x: 20, y: 0, ox: 21, oy: 0 };
+const compress = createDistanceConstraint(compressA, compressB, 20, { damping: .2, reboundDamping: .8 });
+dampDistanceConstraint(compress, compress.damping, compress.reboundDamping);
+assert.ok(approximatelyEqual(compressB.x - compressB.ox - (compressA.x - compressA.ox), -.8), 'a compressing link uses the softer damping');
 
 console.log('Bike constraint, sweep, and traction tests passed.');
