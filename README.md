@@ -107,6 +107,9 @@ Current storage keys:
 - `pocket-trials-settings-v1`
 - `pocket-trials-saves-v2`
 - `pocket-trials-active-slot-v1`
+- `pocket-trials-leaderboard-v1`
+
+The dashboard's Leaderboard view ranks the ten fastest finishes per official and custom trail across all savegames on the device. On first load it is seeded from each slot's existing best times, and runs remain on the board after their savegame is deleted.
 
 The former single-save keys are read once to migrate an existing career into slot 1.
 
