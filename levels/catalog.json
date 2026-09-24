@@ -42,12 +42,6 @@
       "source": "official",
       "file": "official/07-elastic-summit.json",
       "name": "Elastic Summit"
-    },
-    {
-      "id": "custom:08-the-orchard-test",
-      "source": "custom",
-      "file": "custom/08-the-orchard-test.json",
-      "name": "The Orchard - TEST"
     }
   ]
 }

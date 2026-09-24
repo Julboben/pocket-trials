@@ -1,4 +1,4 @@
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -10,6 +10,7 @@ export async function generateLevelCatalog() {
   const catalog = { schemaVersion: 1, levels: [] };
   for (const source of sources) {
     const directory = path.join(levelsRoot, source);
+    await mkdir(directory, { recursive: true });
     const files = (await readdir(directory)).filter(file => file.endsWith('.json')).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     for (const file of files) {
       const relativePath = `${source}/${file}`;
