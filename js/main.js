@@ -8,6 +8,7 @@ import { createAudio } from './audio.js';
 import { advanceAfterTimeOfImpact } from './physics.js';
 import { createVehicle, stepVehicle, vehicleMetrics } from './vehicle-physics.js';
 import { createPhysicsDebugger } from './physics-debug.js';
+import { createRiderHair, hairRoot, hairRestDirection, freeHairRestDirection, hairBackSupport } from './rider-hair.js';
 import { createDrawingTools, createGameArt, propAlignmentSlope, propGroundOffset, sunLight, sunShadowOffset } from './drawing.js';
 import { terrainAt, terrainSegmentSlopeAt, terrainCollisionsAt, terrainSweepCollision, platformPolygon, pathBounds, groundShadowSamples } from './terrain.js';
 import {
@@ -136,15 +137,33 @@ function drawActiveSaveIllustration() {
     artCtx.fillText('+', 60, 50);
     return;
   }
-  const art = createGameArt(artCtx);
   artCtx.fillStyle = '#eae9d9'; artCtx.fillRect(0, 0, 120, 84);
   artCtx.fillStyle = '#c5b496';
   artCtx.beginPath(); artCtx.moveTo(0,72); artCtx.quadraticCurveTo(30,58,60,69); artCtx.quadraticCurveTo(90,78,120,58); artCtx.lineTo(120,84); artCtx.lineTo(0,84); artCtx.fill();
   artCtx.strokeStyle = '#375d4d'; artCtx.lineWidth = 5; artCtx.beginPath(); artCtx.moveTo(0,72); artCtx.quadraticCurveTo(30,58,60,69); artCtx.quadraticCurveTo(90,78,120,58); artCtx.stroke();
-  art.drawBike({
-    rear: { x: 35, y: 61, spin: 0, compression: 0 },
-    front: { x: 85, y: 65, spin: 0, compression: 0 },
-    mx: 60, my: 63, angle: Math.atan2(4, 50), length: 50, rider
+  drawPreviewRider(artCtx, [35, 61], [85, 65]);
+}
+
+// Draws the in-game rider model, including Maxine's simulated hair, at rest.
+function drawPreviewRider(artCtx, rearPoint, frontPoint, leanVisual = 0) {
+  const pose = {
+    rear: { x: rearPoint[0], y: rearPoint[1], spin: 0, compression: 0 },
+    front: { x: frontPoint[0], y: frontPoint[1], spin: 0, compression: 0 },
+    facing: 1, flipVisual: 1, leanVisual
+  };
+  if (rider === 'Maxine') {
+    const root = hairRoot(pose, true), rest = hairRestDirection(pose);
+    const previewHair = createRiderHair(root, rest);
+    previewHair.settle(1.5, { root, rest, back: hairBackSupport(pose) });
+    previewHair.draw(createDrawingTools(artCtx).pixelPath, hairRoot(pose, false));
+  }
+  createGameArt(artCtx).drawBike({
+    ...pose,
+    mx: (rearPoint[0] + frontPoint[0]) / 2,
+    my: (rearPoint[1] + frontPoint[1]) / 2,
+    angle: Math.atan2(frontPoint[1] - rearPoint[1], frontPoint[0] - rearPoint[0]),
+    length: Math.hypot(frontPoint[0] - rearPoint[0], frontPoint[1] - rearPoint[1]),
+    rider
   });
 }
 
@@ -224,16 +243,7 @@ function drawHowToPlayIllustrations() {
       artCtx.beginPath(); points.forEach((point, index) => index ? artCtx.lineTo(point[0], point[1]) : artCtx.moveTo(point[0], point[1])); artCtx.stroke();
       artCtx.strokeStyle = '#6f8b59'; artCtx.lineWidth = 2; artCtx.stroke();
     };
-    const bike = (rear, front, lean = 0) => art.drawBike({
-      rear: { x: rear[0], y: rear[1], spin: 0, compression: 0 },
-      front: { x: front[0], y: front[1], spin: 0, compression: 0 },
-      mx: (rear[0] + front[0]) / 2,
-      my: (rear[1] + front[1]) / 2,
-      angle: Math.atan2(front[1] - rear[1], front[0] - rear[0]),
-      length: Math.hypot(front[0] - rear[0], front[1] - rear[1]),
-      leanVisual: lean,
-      rider
-    });
+    const bike = (rear, front, lean = 0) => drawPreviewRider(artCtx, rear, front, lean);
 
     if (kind === 'drive') {
       ground([[0,84],[55,70],[95,80],[145,70],[190,78],[240,68]]);
@@ -311,6 +321,7 @@ function showMenuView(view) {
   $('menu-save-view').hidden = view !== 'save';
   $('menu-how-view').hidden = view !== 'how';
   $('menu-settings-view').hidden = view !== 'settings';
+  $('menu-screen').scrollTop = 0;
   requestAnimationFrame(() => {
     const controls = menuControls();
     selectMenuControl(controls.find(button => !button.matches('[data-menu-back]')) || controls[0]);
@@ -1102,209 +1113,28 @@ function drawPixelBike(mx, my, angle, length) {
   gameArt.drawBike({ rear, front, mx, my, angle, length, flipVisual, facing, brakePressure, state, leanVisual, rider });
 }
 
-const HAIR_STEP = 1 / 120;
-const HAIR_MAX_STEPS = 4;
-const HAIR_LENGTHS = [4, 4, 4, 4, 4];
-const HAIR_ROOT = [-6, -44];
-const HAIR_REST = [-.55, .84];
-const HAIR_STRANDS = [
-  { offset: -1, reach: .7, width: 2, color: '#54362d' },
-  { offset: 1, reach: 1, width: 2, color: '#54362d' },
-  { offset: 0, reach: .9, width: 3, color: '#684438' }
-];
-
-function riderBodyFrame(exact = false) {
-  const snap = (value, step) => exact ? value : Math.round(value / step) * step;
-  const mx = snap((rear.x + front.x) / 2, 1);
-  const my = snap((rear.y + front.y) / 2, 1);
-  const pixelAngle = snap(Math.atan2(front.y - rear.y, front.x - rear.x), TAU / 32);
-  const backCompression = facing > 0 ? rear.compression : front.compression;
-  const frontCompression = facing > 0 ? front.compression : rear.compression;
-  const bodyDrop = snap((backCompression + frontCompression) * .4, 2);
-  const bodyPitch = (frontCompression - backCompression) * .0096;
-  const shift = snap(leanVisual * 9, 2);
-  const cosPitch = Math.cos(bodyPitch), sinPitch = Math.sin(bodyPitch);
-  const cosAngle = Math.cos(pixelAngle), sinAngle = Math.sin(pixelAngle);
-  const rotate = (localX, localY, drop) => {
-    const pitchedX = localX * cosPitch - localY * sinPitch;
-    const pitchedY = localX * sinPitch + localY * cosPitch + drop;
-    const flippedX = pitchedX * flipVisual;
-    return { x: cosAngle * flippedX - sinAngle * pitchedY, y: sinAngle * flippedX + cosAngle * pitchedY };
-  };
-  return {
-    point(localX, localY) {
-      const offset = rotate(localX + shift, localY, bodyDrop);
-      return { x: mx + offset.x, y: my + offset.y };
-    },
-    direction(localX, localY) {
-      const direction = rotate(localX, localY, 0);
-      const length = Math.hypot(direction.x, direction.y) || 1;
-      return { x: direction.x / length, y: direction.y / length };
-    }
-  };
+function riderPose() {
+  return { rear, front, facing, flipVisual, leanVisual };
 }
 
-function hairRoot(exact) {
+function currentHairRoot(exact) {
   if (ragdoll) {
     const head = ragdoll.points.head;
     return { x: head.x - facing * 6, y: head.y };
   }
-  return riderBodyFrame(exact).point(HAIR_ROOT[0], HAIR_ROOT[1]);
-}
-
-function hairRestDirection() {
-  if (ragdoll) {
-    const length = Math.hypot(HAIR_REST[0], HAIR_REST[1]);
-    return { x: HAIR_REST[0] * facing / length, y: HAIR_REST[1] / length };
-  }
-  return riderBodyFrame(true).direction(HAIR_REST[0], HAIR_REST[1]);
-}
-
-function hairBackSupport() {
-  if (ragdoll) return null;
-  const frame = riderBodyFrame(true);
-  const top = frame.point(-7, -39);
-  const bottom = frame.point(-8, -27);
-  const outside = frame.point(-9, -33);
-  const inside = frame.point(-7, -33);
-  const dx = outside.x - inside.x, dy = outside.y - inside.y;
-  const length = Math.hypot(dx, dy) || 1;
-  const bx = bottom.x - top.x, by = bottom.y - top.y;
-  return { top, bx, by, lengthSquared: bx * bx + by * by || 1, nx: dx / length, ny: dy / length };
-}
-
-function resetHair(root, rest) {
-  let { x, y } = root;
-  hair = {
-    accumulator: 0, root: { ...root },
-    points: HAIR_LENGTHS.map(length => {
-      x += rest.x * length;
-      y += rest.y * length + length * .3;
-      return { x, y, px: x, py: y };
-    })
-  };
-}
-
-function pushOutOfBack(point, back) {
-  const t = clamp(((point.x - back.top.x) * back.bx + (point.y - back.top.y) * back.by) / back.lengthSquared, 0, 1);
-  const clearance = (point.x - back.top.x - back.bx * t) * back.nx + (point.y - back.top.y - back.by * t) * back.ny;
-  if (clearance < 2) {
-    point.x += back.nx * (2 - clearance);
-    point.y += back.ny * (2 - clearance);
-  }
-}
-
-function stepHair(h, from, to, blend, rest, back) {
-  const anchor = { x: lerp(from.x, to.x, blend), y: lerp(from.y, to.y, blend) };
-  const anchorVX = anchor.x - hair.root.x, anchorVY = anchor.y - hair.root.y;
-  hair.root = anchor;
-  const follow = 1 - Math.exp(-12 * h);
-  const wind = 3.5 * h;
-  const gravity = 620 * h * h;
-  const points = hair.points;
-  let parent = anchor, parentDirection = rest;
-  points.forEach((point, index) => {
-    const along = index / (points.length - 1);
-    let vx = point.x - point.px, vy = point.y - point.py;
-    vx = clamp(vx + (anchorVX - vx) * follow - anchorVX * wind, -5, 5);
-    vy = clamp(vy + (anchorVY - vy) * follow - anchorVY * wind, -5, 5);
-    point.px = point.x; point.py = point.y;
-    point.x += vx;
-    point.y += vy + gravity;
-    let targetX = rest.x, targetY = rest.y;
-    if (index > 0) {
-      targetX = parentDirection.x * .85 + rest.x * .15;
-      targetY = parentDirection.y * .85 + rest.y * .15;
-      const targetLength = Math.hypot(targetX, targetY) || 1;
-      targetX /= targetLength; targetY /= targetLength;
-    }
-    const stiffness = lerp(.045, .008, along);
-    point.x += (parent.x + targetX * HAIR_LENGTHS[index] - point.x) * stiffness;
-    point.y += (parent.y + targetY * HAIR_LENGTHS[index] - point.y) * stiffness;
-    const dx = point.x - parent.x, dy = point.y - parent.y;
-    const distance = Math.hypot(dx, dy) || 1;
-    parentDirection = { x: dx / distance, y: dy / distance };
-    parent = point;
-  });
-  for (let iteration = 0; iteration < 3; iteration++) {
-    let chainParent = anchor;
-    points.forEach((point, index) => {
-      const dx = point.x - chainParent.x, dy = point.y - chainParent.y;
-      const distance = Math.hypot(dx, dy) || 1;
-      point.x = chainParent.x + dx / distance * HAIR_LENGTHS[index];
-      point.y = chainParent.y + dy / distance * HAIR_LENGTHS[index];
-      if (back) pushOutOfBack(point, back);
-      chainParent = point;
-    });
-  }
-  for (const point of points) {
-    const ground = terrain(point.x);
-    if (ground.solid && point.y > ground.y - 2) {
-      point.y = ground.y - 2;
-      point.px = lerp(point.px, point.x, .5);
-    }
-  }
+  return hairRoot(riderPose(), exact);
 }
 
 function updateHair(dt) {
   if (rider !== 'Maxine') { hair = null; return; }
-  const root = hairRoot(true);
-  const rest = hairRestDirection();
-  if (!hair || Math.hypot(root.x - hair.root.x, root.y - hair.root.y) > 60) resetHair(root, rest);
-  if (dt <= 0) return;
-  const steps = Math.min(HAIR_MAX_STEPS, Math.floor((hair.accumulator + dt) / HAIR_STEP));
-  hair.accumulator = steps === HAIR_MAX_STEPS ? 0 : hair.accumulator + dt - steps * HAIR_STEP;
-  if (!steps) return;
-  const back = hairBackSupport();
-  const from = hair.root;
-  for (let step = 1; step <= steps; step++) stepHair(HAIR_STEP, from, root, step / steps, rest, back);
-}
-
-function catmullRom(points, samplesPerSegment) {
-  const curve = [];
-  for (let i = 0; i < points.length - 1; i++) {
-    const p0 = points[Math.max(0, i - 1)], p1 = points[i], p2 = points[i + 1], p3 = points[Math.min(points.length - 1, i + 2)];
-    for (let sample = 0; sample < samplesPerSegment; sample++) {
-      const t = sample / samplesPerSegment, t2 = t * t, t3 = t2 * t;
-      curve.push([0, 1].map(axis => .5 * (2 * p1[axis] + (p2[axis] - p0[axis]) * t
-        + (2 * p0[axis] - 5 * p1[axis] + 4 * p2[axis] - p3[axis]) * t2
-        + (3 * p1[axis] - p0[axis] - 3 * p2[axis] + p3[axis]) * t3)));
-    }
-  }
-  curve.push(points.at(-1));
-  return curve;
+  const root = currentHairRoot(true);
+  const rest = ragdoll ? freeHairRestDirection(facing) : hairRestDirection(riderPose());
+  if (!hair || Math.hypot(root.x - hair.root.x, root.y - hair.root.y) > 60) hair = createRiderHair(root, rest);
+  hair.update(dt, { root, rest, back: ragdoll ? null : hairBackSupport(riderPose()), groundAt: x => terrain(x) });
 }
 
 function drawHair() {
-  if (!hair) return;
-  const drawnRoot = hairRoot(false);
-  const offsetX = drawnRoot.x - hair.root.x, offsetY = drawnRoot.y - hair.root.y;
-  const controls = [[drawnRoot.x, drawnRoot.y], ...hair.points.map((point, index) => {
-    const pinned = 1 - (index + 1) / hair.points.length;
-    return [point.x + offsetX * pinned, point.y + offsetY * pinned];
-  })];
-  const spine = catmullRom(controls, 2);
-  const last = spine.length - 1;
-  const strands = HAIR_STRANDS.map(({ offset, reach, width }) => {
-    const count = Math.max(2, Math.round(last * reach) + 1);
-    return spine.slice(0, count).map((point, index) => {
-      const previous = spine[Math.max(0, index - 1)], next = spine[Math.min(last, index + 1)];
-      const tx = next[0] - previous[0], ty = next[1] - previous[1];
-      const length = Math.hypot(tx, ty) || 1;
-      const along = index / (count - 1);
-      const spread = offset * (1 + 1.5 * Math.sin(Math.PI * along));
-      return { x: point[0] - ty / length * spread, y: point[1] + tx / length * spread, width: Math.max(1, Math.round(width * (1 - along * .7))) };
-    });
-  });
-  for (const pass of ['outline', 'fill']) strands.forEach((strand, strandIndex) => {
-    for (let i = 1; i < strand.length; i++) {
-      const a = strand[i - 1], b = strand[i];
-      if (pass === 'outline') pixelPath([[a.x, a.y], [b.x, b.y]], '#2e1d19', a.width + 1, 2);
-      else pixelPath([[a.x, a.y], [b.x, b.y]], HAIR_STRANDS[strandIndex].color, a.width, 2);
-    }
-  });
-  const shine = strands[2];
-  pixelPath(shine.slice(0, Math.ceil(shine.length * .35)).map(point => [point.x, point.y]), '#8c5d48', 1, 2);
+  if (hair) hair.draw(pixelPath, currentHairRoot(false));
 }
 
 function drawShadowBlob(samples, centerX, width, alpha, thickness) {
