@@ -7,7 +7,31 @@ const LEADERBOARD_KEY = 'pocket-trials-leaderboard-v1';
 const SLOT_COUNT = 3;
 export const LEADERBOARD_SIZE = 10;
 
+// Parsed copies of each key. localStorage is only read on first use and after
+// another tab writes, and every change is written through immediately.
+const cache = new Map();
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', event => {
+    if (event.key === null) cache.clear();
+    else cache.delete(event.key);
+  });
+}
+
+function readJson(key, fallback) {
+  if (cache.has(key)) return cache.get(key);
+  let value = fallback;
+  try { value = JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch (_) {}
+  cache.set(key, value);
+  return value;
+}
+
+function writeJson(key, value) {
+  cache.set(key, value);
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
+}
+
 const emptySlots = () => Array(SLOT_COUNT).fill(null);
+const cloneSave = save => save && { ...save, bestTimes: [...save.bestTimes] };
 
 function normalizeSave(save, levelCount) {
   if (!save || !['max', 'Maxine'].includes(save.rider)) return null;
@@ -20,50 +44,52 @@ function normalizeSave(save, levelCount) {
   return { rider: save.rider, createdAt: Number(save.createdAt) || Date.now(), level, unlocked, bestTimes };
 }
 
-function persistSlots(slots) {
-  try { localStorage.setItem(SAVE_SLOTS_KEY, JSON.stringify(slots)); } catch (_) {}
+function slots(levelCount) {
+  const stored = readJson(SAVE_SLOTS_KEY, null);
+  if (stored?.levelCount === levelCount && Array.isArray(stored.slots)) return stored.slots;
+  const normalized = Array.isArray(stored)
+    ? emptySlots().map((_, index) => normalizeSave(stored[index], levelCount))
+    : Array.isArray(stored?.slots)
+      ? emptySlots().map((_, index) => normalizeSave(stored.slots[index], levelCount))
+      : emptySlots();
+  cache.set(SAVE_SLOTS_KEY, { levelCount, slots: normalized });
+  return normalized;
+}
+
+function persistSlots(levelCount, next) {
+  cache.set(SAVE_SLOTS_KEY, { levelCount, slots: next });
+  try { localStorage.setItem(SAVE_SLOTS_KEY, JSON.stringify(next)); } catch (_) {}
 }
 
 export function savePreferences(preferences) {
-  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(preferences)); } catch (_) {}
+  writeJson(SETTINGS_KEY, { ...preferences });
 }
 
 export function loadPreferences(defaults) {
-  try {
-    const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null');
-    if (stored) return {
-      scenery: stored.scenery ?? defaults.scenery,
-      controls: stored.controls ?? defaults.controls,
-      sound: stored.sound ?? defaults.sound
-    };
-    return { ...defaults };
-  } catch (_) {
-    return { ...defaults };
+  const stored = readJson(SETTINGS_KEY, null);
+  const merged = { ...defaults };
+  if (stored && typeof stored === 'object') {
+    for (const key of Object.keys(defaults)) if (stored[key] !== undefined) merged[key] = stored[key];
   }
+  return merged;
 }
 
 export function loadSaveSlots(levelCount) {
-  try {
-    const stored = JSON.parse(localStorage.getItem(SAVE_SLOTS_KEY) || 'null');
-    return Array.isArray(stored) ? emptySlots().map((_, index) => normalizeSave(stored[index], levelCount)) : emptySlots();
-  } catch (_) {
-    return emptySlots();
-  }
+  return slots(levelCount).map(cloneSave);
 }
 
 export function loadActiveSlot() {
-  try { return clamp(Number(localStorage.getItem(ACTIVE_SLOT_KEY)) || 0, 0, SLOT_COUNT - 1); }
-  catch (_) { return 0; }
+  return clamp(Number(readJson(ACTIVE_SLOT_KEY, 0)) || 0, 0, SLOT_COUNT - 1);
 }
 
 export function saveActiveSlot(slotIndex) {
-  try { localStorage.setItem(ACTIVE_SLOT_KEY, String(clamp(slotIndex, 0, SLOT_COUNT - 1))); } catch (_) {}
+  writeJson(ACTIVE_SLOT_KEY, clamp(slotIndex, 0, SLOT_COUNT - 1));
 }
 
 export function createSave(slotIndex, rider, levelCount) {
-  const slots = loadSaveSlots(levelCount);
+  const next = [...slots(levelCount)];
   const index = clamp(slotIndex, 0, SLOT_COUNT - 1);
-  if (slots[index]) return null;
+  if (next[index]) return null;
   const save = {
     rider: rider === 'Maxine' ? 'Maxine' : 'max',
     createdAt: Date.now(),
@@ -71,40 +97,41 @@ export function createSave(slotIndex, rider, levelCount) {
     unlocked: 0,
     bestTimes: Array(levelCount).fill(null)
   };
-  slots[index] = save;
-  persistSlots(slots);
+  next[index] = save;
+  persistSlots(levelCount, next);
   saveActiveSlot(index);
-  return save;
+  return cloneSave(save);
 }
 
 export function deleteSave(slotIndex, levelCount) {
-  const slots = loadSaveSlots(levelCount);
-  const index = clamp(slotIndex, 0, SLOT_COUNT - 1);
-  slots[index] = null;
-  persistSlots(slots);
+  const next = [...slots(levelCount)];
+  next[clamp(slotIndex, 0, SLOT_COUNT - 1)] = null;
+  persistSlots(levelCount, next);
+}
+
+function updateSave(slotIndex, levelCount, change) {
+  const next = [...slots(levelCount)];
+  const save = cloneSave(next[slotIndex]);
+  if (!save) return;
+  change(save);
+  next[slotIndex] = save;
+  persistSlots(levelCount, next);
 }
 
 export function saveProgress(slotIndex, levelIndex, unlockedLevel, levelCount) {
-  const slots = loadSaveSlots(levelCount);
-  const save = slots[slotIndex];
-  if (!save) return;
-  save.level = clamp(levelIndex, 0, unlockedLevel);
-  save.unlocked = clamp(unlockedLevel, 0, levelCount - 1);
-  persistSlots(slots);
+  updateSave(slotIndex, levelCount, save => {
+    save.level = clamp(levelIndex, 0, unlockedLevel);
+    save.unlocked = clamp(unlockedLevel, 0, levelCount - 1);
+  });
 }
 
 export function readBest(slotIndex, levelIndex, levelCount) {
-  const save = loadSaveSlots(levelCount)[slotIndex];
-  const value = Number(save?.bestTimes?.[levelIndex]);
+  const value = Number(slots(levelCount)[slotIndex]?.bestTimes?.[levelIndex]);
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
 export function saveBest(slotIndex, levelIndex, elapsed, levelCount) {
-  const slots = loadSaveSlots(levelCount);
-  const save = slots[slotIndex];
-  if (!save) return;
-  save.bestTimes[levelIndex] = elapsed;
-  persistSlots(slots);
+  updateSave(slotIndex, levelCount, save => { save.bestTimes[levelIndex] = elapsed; });
 }
 
 function normalizeRun(run) {
@@ -126,17 +153,9 @@ function rankRuns(runs) {
     .slice(0, LEADERBOARD_SIZE);
 }
 
-function persistLeaderboards(boards) {
-  try { localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(boards)); } catch (_) {}
-}
-
 function loadLeaderboards() {
-  try {
-    const stored = JSON.parse(localStorage.getItem(LEADERBOARD_KEY) || 'null');
-    return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
-  } catch (_) {
-    return {};
-  }
+  const stored = readJson(LEADERBOARD_KEY, {});
+  return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
 }
 
 export function readLeaderboard(trailId) {
@@ -144,13 +163,28 @@ export function readLeaderboard(trailId) {
   return Array.isArray(runs) ? rankRuns(runs) : [];
 }
 
+const GHOST_KEY_PREFIX = 'pocket-trials-ghost-v1:';
+
+/**
+ * The fastest finished run on a trail, as encoded inputs for ghost playback.
+ * @returns {{ time: number, splits: number[], startStep: number, seed: number, inputs: number[][], physics: number } | null}
+ */
+export function readGhost(trailKey) {
+  const ghost = readJson(GHOST_KEY_PREFIX + trailKey, null);
+  return ghost && Number.isFinite(ghost.time) && Array.isArray(ghost.inputs) ? ghost : null;
+}
+
+export function saveGhost(trailKey, ghost) {
+  writeJson(GHOST_KEY_PREFIX + trailKey, ghost);
+}
+
 // Returns the 1-based rank of the new run, or null when it misses the board.
 export function recordLeaderboardRun(trailId, run) {
-  const boards = loadLeaderboards();
+  const boards = { ...loadLeaderboards() };
   const entry = normalizeRun({ ...run, date: Date.now() });
   if (!entry) return null;
   const ranked = rankRuns([...(Array.isArray(boards[trailId]) ? boards[trailId] : []), entry]);
   boards[trailId] = ranked;
-  persistLeaderboards(boards);
+  writeJson(LEADERBOARD_KEY, boards);
   return ranked.findIndex(item => item.date === entry.date && item.time === entry.time) + 1 || null;
 }

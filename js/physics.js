@@ -1,3 +1,4 @@
+import { acos, hypot, pow } from './det-math.js';
 const EPSILON = 1e-8;
 
 function inverseMass(point) {
@@ -16,7 +17,7 @@ function setVelocity(point, vx, vy) {
 export function constrainDistanceVelocity(a, b, damping = 1) {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
-  const distance = Math.hypot(dx, dy) || .001;
+  const distance = hypot(dx, dy) || .001;
   const nx = dx / distance;
   const ny = dy / distance;
   const av = velocity(a), bv = velocity(b);
@@ -50,7 +51,7 @@ export function createSliderConstraint(point, mount, axisStart, axisEnd, { compl
 export function solveXpbdSliderConstraint(constraint, dt) {
   const { a, b, axisStart, axisEnd } = constraint;
   const axisX = axisEnd.x - axisStart.x, axisY = axisEnd.y - axisStart.y;
-  const axisLength = Math.hypot(axisX, axisY) || EPSILON;
+  const axisLength = hypot(axisX, axisY) || EPSILON;
   const ux = axisX / axisLength, uy = axisY / axisLength;
   const offset = (a.x - b.x) * ux + (a.y - b.y) * uy;
   const wa = inverseMass(a), wb = inverseMass(b);
@@ -71,7 +72,7 @@ export function resetConstraintMultiplier(constraint) {
 export function solveXpbdDistanceConstraint(constraint, dt) {
   const { a, b } = constraint;
   const dx = b.x - a.x, dy = b.y - a.y;
-  const distance = Math.hypot(dx, dy) || EPSILON;
+  const distance = hypot(dx, dy) || EPSILON;
   let target = constraint.length;
   if (constraint.minLength !== null && distance < constraint.minLength) target = constraint.minLength;
   else if (constraint.maxLength !== null && distance > constraint.maxLength) target = constraint.maxLength;
@@ -104,7 +105,7 @@ export function solveXpbdDistanceConstraint(constraint, dt) {
 
 export function dampingPerIteration(totalDamping, iterations) {
   const clamped = Math.max(0, Math.min(1, totalDamping));
-  return iterations > 1 ? 1 - Math.pow(1 - clamped, 1 / iterations) : clamped;
+  return iterations > 1 ? 1 - pow(1 - clamped, 1 / iterations) : clamped;
 }
 
 export function solveXpbdAreaConstraint(constraint, dt) {
@@ -175,13 +176,13 @@ function earliestRoot(a, b, c) {
 export function sweepCircleSegment(fromX, fromY, toX, toY, radius, ax, ay, bx, by) {
   const vx = toX - fromX, vy = toY - fromY;
   const sx = bx - ax, sy = by - ay;
-  const length = Math.hypot(sx, sy);
+  const length = hypot(sx, sy);
   if (length < EPSILON) {
     const rx = fromX - ax, ry = fromY - ay;
     const time = earliestRoot(vx * vx + vy * vy, 2 * (rx * vx + ry * vy), rx * rx + ry * ry - radius * radius);
     if (time === null) return null;
     const hx = fromX + vx * time, hy = fromY + vy * time;
-    const normalLength = Math.hypot(hx - ax, hy - ay) || 1;
+    const normalLength = hypot(hx - ax, hy - ay) || 1;
     return { time, x: hx, y: hy, pointX: ax, pointY: ay, nx: (hx - ax) / normalLength, ny: (hy - ay) / normalLength };
   }
 
@@ -208,7 +209,7 @@ export function sweepCircleSegment(fromX, fromY, toX, toY, radius, ax, ay, bx, b
     const time = earliestRoot(vx * vx + vy * vy, 2 * (rx * vx + ry * vy), rx * rx + ry * ry - radius * radius);
     if (time === null || (best && time >= best.time)) continue;
     const hx = fromX + vx * time, hy = fromY + vy * time;
-    const normalLength = Math.hypot(hx - px, hy - py) || 1;
+    const normalLength = hypot(hx - px, hy - py) || 1;
     best = { time, x: hx, y: hy, pointX: px, pointY: py, nx: (hx - px) / normalLength, ny: (hy - py) / normalLength };
   }
   return best;
@@ -235,7 +236,7 @@ export function riderTerrainTorqueScale(leanInput, facing, uphill, reduction = 1
 // upright, so ground lean fades out with the tilt of the chassis away from the
 // ground normal instead of spinning the bike around its contact wheel.
 export function riderTiltTorqueScale(upX, upY, normalX, normalY, fadeStart, fadeEnd) {
-  const tilt = Math.acos(Math.max(-1, Math.min(1, upX * normalX + upY * normalY)));
+  const tilt = acos(Math.max(-1, Math.min(1, upX * normalX + upY * normalY)));
   if (tilt <= fadeStart) return 1;
   if (tilt >= fadeEnd) return 0;
   return 1 - (tilt - fadeStart) / (fadeEnd - fadeStart);

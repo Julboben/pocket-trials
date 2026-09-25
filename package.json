@@ -5,6 +5,9 @@
   "scripts": {
     "levels": "node scripts/generate-level-catalog.mjs",
     "dev": "node scripts/dev.mjs",
-    "test": "node scripts/test-terrain.mjs && node scripts/test-physics.mjs && node scripts/test-vehicle-physics.mjs"
+    "replays": "node scripts/record-replays.mjs",
+    "check": "node scripts/check-syntax.mjs",
+    "typecheck": "npx -y -p typescript@5 tsc -p jsconfig.json",
+    "test": "node scripts/test-det-math.mjs && node scripts/test-terrain.mjs && node scripts/test-physics.mjs && node scripts/test-vehicle-physics.mjs && node scripts/test-level-schema.mjs && node scripts/test-replays.mjs"
   }
 }

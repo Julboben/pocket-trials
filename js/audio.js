@@ -2,7 +2,7 @@ import { STEP, clamp } from './config.js';
 
 export function createAudio(getSnapshot) {
   let audio = null;
-  let enabled = true;
+  let enabled = true, volume = 1;
 
   function init() {
     if (audio) {
@@ -14,7 +14,7 @@ export function createAudio(getSnapshot) {
     const context = new AudioContext();
     const master = context.createGain();
     const compressor = context.createDynamicsCompressor();
-    master.gain.value = enabled ? .45 : 0;
+    master.gain.value = masterLevel();
     master.connect(compressor); compressor.connect(context.destination);
 
     const engine = context.createOscillator();
@@ -62,9 +62,17 @@ export function createAudio(getSnapshot) {
     audio = { context, master, engine, engineFilter, engineGain, noiseBuffer, skidGain, rainGain };
   }
 
+  function masterLevel() { return enabled ? .45 * volume * volume : 0; }
+
   function setEnabled(nextEnabled) {
     enabled = nextEnabled;
-    if (audio) audio.master.gain.setTargetAtTime(enabled ? .45 : 0, audio.context.currentTime, .015);
+    if (audio) audio.master.gain.setTargetAtTime(masterLevel(), audio.context.currentTime, .015);
+  }
+
+  /** @param {number} level 0 … 1; squared so the slider feels even. */
+  function setVolume(level) {
+    volume = clamp(level, 0, 1);
+    if (audio) audio.master.gain.setTargetAtTime(masterLevel(), audio.context.currentTime, .015);
   }
 
   function playTone(frequency, duration, type = 'square', volume = .08, delay = 0, endFrequency = frequency) {
@@ -124,6 +132,7 @@ export function createAudio(getSnapshot) {
   return {
     init,
     setEnabled,
+    setVolume,
     update,
     menuMove: () => playTone(420, .035, 'square', .018, 0, 470),
     menuSelect: () => playTone(520, .07, 'square', .035, 0, 680),

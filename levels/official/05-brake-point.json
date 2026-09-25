@@ -4,6 +4,11 @@
   "goal": 3220,
   "terrain": "brick",
   "description": "Speed alone will not solve this trail. Brake before steep drops, lean back to resist stoppies, and accelerate cleanly out of bowls.",
+  "medals": {
+    "gold": 18,
+    "silver": 23.5,
+    "bronze": 31
+  },
   "start": {
     "x": 90,
     "y": null,

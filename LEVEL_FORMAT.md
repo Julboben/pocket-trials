@@ -296,6 +296,14 @@ Any property may be omitted. This supports clear skies, sunny skies with scatter
 - `spray`: fallback wheel-particle colors. Material-specific spray takes priority.
 - `description`: design notes for the trail. It is not currently shown during gameplay.
 
+## Medals
+
+```js
+medals: { gold: 11, silver: 14.5, bronze: 19 }
+```
+
+These optional target times are in seconds. The results screen and level cards award the best medal whose time the run beats or matches. Times must be positive and ordered `gold ≤ silver ≤ bronze`. Any medal can be left out, and an invalid `medals` object is dropped during normalization. The official trails' gold times are based on the replay bot's finishing times in `tests/replays/`.
+
 ## Recommended authoring workflow
 
 1. Build the base route with `points` and no gaps.

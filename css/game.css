@@ -267,6 +267,50 @@ h2 { margin: 0; font-size: 28px; line-height: 1.08; letter-spacing: -1px; white-
 .secondary { border: 0; background: transparent; color: #aab4b0; padding: 14px 8px 0; font-size: 10px; }
 .secondary[hidden] { display: none; }
 
+.split-pill[hidden] { display: none; }
+.split-pill.ahead { background: #315d46e8; color: #d8ebcb; }
+.split-pill.behind { background: #6b3328e8; color: #ffd0bd; }
+
+.results[hidden], .results-hint[hidden] { display: none; }
+.results { margin-top: 14px; display: grid; gap: 12px; }
+.results-time { display: flex; align-items: baseline; justify-content: center; gap: 10px; font-variant-numeric: tabular-nums; }
+.results-time strong { font-size: 30px; letter-spacing: -1px; }
+.results-delta { font-size: 12px; font-weight: 850; }
+.results-delta.ahead { color: var(--color-green); }
+.results-delta.behind { color: #ff9f87; }
+.results-medal { justify-self: center; min-height: 24px; padding: 5px 12px; border-radius: var(--radius-pixel); font-size: 10px; font-weight: 900; letter-spacing: 2px; box-shadow: var(--shadow-pixel-small); }
+.results-medal:empty { display: none; }
+.results-medal[data-medal="gold"] { background: #f1c75b; color: #3d2c07; }
+.results-medal[data-medal="silver"] { background: #c9d2d0; color: #27322f; }
+.results-medal[data-medal="bronze"] { background: #c98553; color: #2f1a0c; }
+.results-medal[data-medal="none"] { background: #2b3e45; color: #aeb7b3; box-shadow: none; }
+.results-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 0; }
+.results-stats div { padding: 7px 4px; border: 1px solid var(--color-border); background: var(--color-surface); }
+.results-stats dt { color: #91a7a8; font-size: 8px; font-weight: 850; letter-spacing: 1.5px; }
+.results-stats dd { margin: 3px 0 0; font-size: 12px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.results-targets { display: flex; justify-content: center; gap: 12px; margin: 0; padding: 0; list-style: none; color: #91a7a8; font-size: 9px; font-weight: 800; }
+.results-targets:empty { display: none; }
+.results-targets .reached { color: var(--color-text); }
+.results-hint { margin: 12px 0 0; color: #7f9494; font-size: 9px; letter-spacing: .5px; }
+.modal .results + p { margin-top: 10px; }
+
+.level-best[data-medal="gold"] { color: #f1c75b; }
+.level-best[data-medal="silver"] { color: #c9d2d0; }
+.level-best[data-medal="bronze"] { color: #d9955f; }
+.level-best[data-medal]::after { content: ' ●'; }
+
+.setting-range { display: flex; align-items: center; gap: 12px; }
+.setting-range input { flex: 1; accent-color: var(--color-accent); }
+.setting-range output { min-width: 3ch; color: var(--color-text); font-size: 11px; font-weight: 850; text-align: right; font-variant-numeric: tabular-nums; }
+.setting-keys { align-items: start; }
+.key-bindings { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px; }
+.key-binding { display: flex; justify-content: space-between; gap: 8px; min-height: 34px; padding: 6px 9px; border: 0; border-radius: 7px; background: #252d2e; color: #aab4b0; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.key-binding kbd { color: var(--color-text); font: inherit; }
+.key-binding.listening { background: var(--color-accent); color: #241710; }
+.key-binding.listening kbd { color: #241710; }
+.setting-note { grid-column: 1 / -1; margin: 0; color: #7f9494; font-size: 9px; line-height: 1.5; }
+.key-reset { grid-column: 1 / -1; justify-self: start; }
+
 .game.controls-hidden .viewport { height: clamp(560px, calc(100vh - 58px), 920px); }
 
 .control-area {

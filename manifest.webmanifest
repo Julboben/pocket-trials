@@ -1,0 +1,15 @@
+{
+  "name": "Pocket Trials",
+  "short_name": "Trials",
+  "description": "A pixel-art motorcycle trials game. Balance, collect every apple and reach the flag.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#111c20",
+  "theme_color": "#111c20",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

@@ -4,6 +4,11 @@
   "goal": 3650,
   "terrain": "snow",
   "description": "Link everything together across a long climb: preserve momentum, control wheelies, and recover your balance without losing speed.",
+  "medals": {
+    "gold": 20,
+    "silver": 26,
+    "bronze": 34
+  },
   "start": {
     "x": 90,
     "y": null,
