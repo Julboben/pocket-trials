@@ -3,10 +3,6 @@ import { clamp } from './config.js';
 const SETTINGS_KEY = 'pocket-trials-settings-v1';
 const SAVE_SLOTS_KEY = 'pocket-trials-saves-v2';
 const ACTIVE_SLOT_KEY = 'pocket-trials-active-slot-v1';
-const LEGACY_SAVE_KEY = 'pocket-trials-save-v1';
-const LEGACY_PROGRESS_KEY = 'pocket-trials-progress-v1';
-const LEGACY_BEST_KEY_PREFIX = 'pocket-trials-v2-';
-const OLDEST_BEST_KEY_PREFIX = 'pocket-trials-v1-';
 const LEADERBOARD_KEY = 'pocket-trials-leaderboard-v1';
 const SLOT_COUNT = 3;
 export const LEADERBOARD_SIZE = 10;
@@ -37,7 +33,7 @@ export function loadPreferences(defaults) {
     const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null');
     if (stored) return {
       scenery: stored.scenery ?? defaults.scenery,
-      controls: stored.controls ?? stored.hints ?? defaults.controls,
+      controls: stored.controls ?? defaults.controls,
       sound: stored.sound ?? defaults.sound
     };
     return { ...defaults };
@@ -49,34 +45,7 @@ export function loadPreferences(defaults) {
 export function loadSaveSlots(levelCount) {
   try {
     const stored = JSON.parse(localStorage.getItem(SAVE_SLOTS_KEY) || 'null');
-    if (Array.isArray(stored)) return emptySlots().map((_, index) => normalizeSave(stored[index], levelCount));
-
-    // Migrate the former single-save format into slot 1 without losing progress.
-    const legacySave = JSON.parse(localStorage.getItem(LEGACY_SAVE_KEY) || 'null');
-    const legacyProgress = JSON.parse(localStorage.getItem(LEGACY_PROGRESS_KEY) || 'null');
-    const hasLegacyData = legacySave || legacyProgress
-      || localStorage.getItem(LEGACY_BEST_KEY_PREFIX + '0') !== null
-      || localStorage.getItem(OLDEST_BEST_KEY_PREFIX + '0') !== null;
-    if (!hasLegacyData) return emptySlots();
-
-    const oldPreferences = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null');
-    const rider = ['max', 'Maxine'].includes(legacySave?.rider)
-      ? legacySave.rider
-      : (oldPreferences?.rider === 'Maxine' || localStorage.getItem('pocket-trials-rider') === 'Maxine' ? 'Maxine' : 'max');
-    let unlocked = clamp(Number(legacyProgress?.unlocked) || 0, 0, levelCount - 1);
-    const bestTimes = Array.from({ length: levelCount }, (_, index) => {
-      const value = Number(localStorage.getItem(LEGACY_BEST_KEY_PREFIX + index));
-      return Number.isFinite(value) && value > 0 ? value : null;
-    });
-    if (!legacyProgress) {
-      unlocked = 0;
-      for (let index = 0; index < levelCount - 1 && bestTimes[index]; index++) unlocked = index + 1;
-    }
-    const level = clamp(Number(legacyProgress?.level) || 0, 0, unlocked);
-    const slots = emptySlots();
-    slots[0] = { rider, createdAt: Number(legacySave?.createdAt) || Date.now(), level, unlocked, bestTimes };
-    persistSlots(slots);
-    return slots;
+    return Array.isArray(stored) ? emptySlots().map((_, index) => normalizeSave(stored[index], levelCount)) : emptySlots();
   } catch (_) {
     return emptySlots();
   }
@@ -161,34 +130,23 @@ function persistLeaderboards(boards) {
   try { localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(boards)); } catch (_) {}
 }
 
-// Seeds the board from career best times recorded before leaderboards existed.
-function loadLeaderboards(officialTrailIds) {
+function loadLeaderboards() {
   try {
     const stored = JSON.parse(localStorage.getItem(LEADERBOARD_KEY) || 'null');
-    if (stored && typeof stored === 'object' && !Array.isArray(stored)) return stored;
-    const boards = {};
-    loadSaveSlots(officialTrailIds.length).forEach((save, slot) => {
-      save?.bestTimes.forEach((time, levelIndex) => {
-        if (time === null) return;
-        const trailId = officialTrailIds[levelIndex];
-        boards[trailId] = rankRuns([...(boards[trailId] || []), { time, rider: save.rider, slot, saveId: save.createdAt }]);
-      });
-    });
-    persistLeaderboards(boards);
-    return boards;
+    return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
   } catch (_) {
     return {};
   }
 }
 
-export function readLeaderboard(trailId, officialTrailIds) {
-  const runs = loadLeaderboards(officialTrailIds)[trailId];
+export function readLeaderboard(trailId) {
+  const runs = loadLeaderboards()[trailId];
   return Array.isArray(runs) ? rankRuns(runs) : [];
 }
 
 // Returns the 1-based rank of the new run, or null when it misses the board.
-export function recordLeaderboardRun(trailId, run, officialTrailIds) {
-  const boards = loadLeaderboards(officialTrailIds);
+export function recordLeaderboardRun(trailId, run) {
+  const boards = loadLeaderboards();
   const entry = normalizeRun({ ...run, date: Date.now() });
   if (!entry) return null;
   const ranked = rankRuns([...(Array.isArray(boards[trailId]) ? boards[trailId] : []), entry]);

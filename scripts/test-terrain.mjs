@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { terrainCollisionsAt, terrainSweepCollision, pathSegments, seatedSurfaceAt, curveAt, groundShadowSamples } from '../js/terrain.js';
+import { terrainCollisionsAt, terrainSweepCollision, pathSegments, seatedSurfaceAt, curveAt, groundShadowSamples, platformUndersideAt, pointInPlatform } from '../js/terrain.js';
 import { sunLight, sunShadowOffset } from '../js/drawing.js';
 import { propAlignmentSlope, propDrawAngle, propGroundOffset } from '../js/drawing.js';
 
@@ -19,13 +19,22 @@ assert.ok(terrainCollisionsAt(flatGapLevel, 196, 130, radius).some(contact => co
 
 const platformLevel = {
   points: [[0, 500], [400, 500]], gaps: [], terrain: 'grass', fallY: 700,
-  platforms: [{ points: [[100, 200], [240, 200]], thickness: 40, material: 'rock' }]
+  platforms: [{ points: [[100, 200], [240, 200]], bottom: [[100, 240], [240, 240]], material: 'rock' }]
 };
 assert.ok(terrainCollisionsAt(platformLevel, 170, 190, radius).some(contact => contact.kind === 'platform' && contact.ny < 0), 'platform top must collide');
 assert.ok(terrainCollisionsAt(platformLevel, 90, 220, radius).some(contact => contact.kind === 'platform' && contact.nx < 0), 'platform side must collide');
 assert.ok(terrainCollisionsAt(platformLevel, 170, 248, radius).some(contact => contact.kind === 'platform' && contact.ny > 0), 'platform underside must collide');
 assert.ok(terrainCollisionsAt(platformLevel, 94, 194, radius).some(contact => contact.kind === 'platform'), 'platform corner must collide');
 assert.ok(terrainSweepCollision(platformLevel, 170, 100, 170, 280, radius)?.kind === 'platform', 'maximum-speed approach must sweep into a platform');
+
+const shapedLevel = {
+  points: [[0, 500], [400, 500]], gaps: [], terrain: 'grass', fallY: 700,
+  platforms: [{ points: [[100, 200], [240, 200]], bottom: [[120, 210], [170, 260], [220, 210]], material: 'rock' }]
+};
+assert.equal(platformUndersideAt(shapedLevel.platforms[0], 170), 260, 'bottom points define the underside');
+assert.ok(pointInPlatform(shapedLevel.platforms[0], 170, 250), 'the deep middle of a shaped underside is solid');
+assert.ok(!pointInPlatform(shapedLevel.platforms[0], 125, 230), 'area outside the tapered underside is open');
+assert.ok(terrainCollisionsAt(shapedLevel, 170, 268, radius).some(contact => contact.kind === 'platform' && contact.ny > 0), 'shaped underside must collide');
 
 const tracedLevel = {
   points: [[920, 300], [1148.5430174715298, 246.67341209254306], [1158.5430174715298, 343.0070624265984], [1367.8132433826686, 409.877498201282]],
@@ -71,7 +80,7 @@ assert.ok(terrainCollisionsAt(overhangLevel, 250, 70, 6).some(contact => contact
 const hillLevel = {
   points: [[0, 100], [200, 300]],
   gaps: [[140, 180]],
-  platforms: [{ points: [[40, 40], [160, 80]], thickness: 30, material: 'rock' }],
+  platforms: [{ points: [[40, 40], [160, 80]], bottom: [[40, 70], [160, 110]], material: 'rock' }],
   terrain: 'grass',
   fallY: 500
 };

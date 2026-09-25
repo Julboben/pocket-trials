@@ -11,9 +11,16 @@
     <header class="editor-header">
       <a class="brand" href="./index.html"><span>↗</span><strong>POCKET TRIALS</strong></a>
       <label>TRAIL <select id="level-picker"></select></label>
+      <div class="trail-actions">
+        <button id="new-trail" title="Create a new custom trail">NEW</button>
+        <button id="duplicate-trail" title="Copy this trail into a new custom trail">DUPLICATE</button>
+        <button id="delete-trail" class="danger-inline" hidden>DELETE</button>
+      </div>
+      <span class="save-status" id="save-status"></span>
       <div class="header-actions">
         <button id="undo" title="Undo (Cmd/Ctrl+Z)">UNDO</button>
         <button id="redo" title="Redo (Cmd/Ctrl+Shift+Z)">REDO</button>
+        <button id="save-trail" class="primary-action" title="Save (Cmd/Ctrl+S)" hidden>SAVE</button>
         <button id="save-draft">SAVE DRAFT</button>
         <button id="export-json">EXPORT JSON</button>
         <button id="export-js">EXPORT JS</button>
@@ -22,41 +29,79 @@
 
     <section class="workspace">
       <aside class="toolbox">
-        <h2>TOOLS</h2>
-        <button class="tool active" data-tool="select">↖ <span>Select</span></button>
-        <button class="tool" data-tool="ground">＋ <span>Ground point</span></button>
-        <button class="tool" data-tool="platform">▰ <span>Platform</span></button>
-        <button class="tool" data-tool="path">◯ <span>Path / loop</span></button>
-        <button class="tool" data-tool="gap">⌁ <span>Gap</span></button>
-        <button class="tool" data-tool="apple">● <span>Apple</span></button>
-        <button class="tool" data-tool="start">▶ <span>Start</span></button>
-        <button class="tool" data-tool="prop">♣ <span>Prop</span></button>
-        <button class="tool" data-tool="spike">✹ <span>Spike</span></button>
-        <button class="tool" data-tool="finish">⚑ <span>Finish</span></button>
-        <button class="tool" data-tool="pan">✥ <span>Pan</span></button>
-        <div class="zoom-controls"><button id="zoom-out">−</button><span id="zoom-label">100%</span><button id="zoom-in">+</button></div>
-        <a class="back-game" href="./index.html">← GAME</a>
+        <div class="side-tabs" role="tablist">
+          <button class="side-tab active" role="tab" id="tab-tools" aria-selected="true" aria-controls="panel-tools" data-tab="tools">TOOLS</button>
+          <button class="side-tab" role="tab" id="tab-level" aria-selected="false" aria-controls="panel-level" data-tab="level">LEVEL</button>
+        </div>
+
+        <div class="side-panel" id="panel-tools" role="tabpanel" aria-labelledby="tab-tools">
+          <section class="tool-group">
+            <h3>NAVIGATE</h3>
+            <div class="tool-grid">
+              <button class="tool active" data-tool="select" title="Select (V)">↖ <span>Select</span></button>
+              <button class="tool" data-tool="pan" title="Pan (H)">✥ <span>Pan</span></button>
+            </div>
+          </section>
+          <section class="tool-group">
+            <h3>TERRAIN</h3>
+            <div class="tool-grid">
+              <button class="tool" data-tool="ground">＋ <span>Ground</span></button>
+              <button class="tool" data-tool="gap">⌁ <span>Gap</span></button>
+              <button class="tool" data-tool="platform">▰ <span>Island</span></button>
+              <button class="tool" data-tool="path">◯ <span>Path / loop</span></button>
+            </div>
+          </section>
+          <section class="tool-group">
+            <h3>OBJECTS</h3>
+            <div class="tool-grid">
+              <button class="tool" data-tool="apple">● <span>Apple</span></button>
+              <button class="tool" data-tool="spike">✹ <span>Spike</span></button>
+              <button class="tool" data-tool="prop">♣ <span>Prop</span></button>
+            </div>
+          </section>
+          <section class="tool-group">
+            <h3>COURSE</h3>
+            <div class="tool-grid">
+              <button class="tool" data-tool="start">▶ <span>Start</span></button>
+              <button class="tool" data-tool="finish">⚑ <span>Finish</span></button>
+            </div>
+          </section>
+
+          <fieldset class="tool-settings">
+            <legend id="tool-settings-title">SELECT</legend>
+            <p class="tool-hint" id="tool-hint"></p>
+            <div id="tool-settings-fields"></div>
+          </fieldset>
+        </div>
+
+        <div class="side-panel" id="panel-level" role="tabpanel" aria-labelledby="tab-level" hidden>
+          <label>Name <input id="level-name" type="text"></label>
+          <label>Base material <select id="base-material"></select></label>
+          <label>Finish X <input id="goal-x" type="number" step="10"></label>
+          <label>Fall Y <input id="fall-y" type="number" step="10"></label>
+          <fieldset>
+            <legend>WEATHER 0–1</legend>
+            <label>Sun <input id="weather-sun" type="range" min="0" max="1" step="0.05"></label>
+            <label>Clouds <input id="weather-clouds" type="range" min="0" max="1" step="0.05"></label>
+            <label>Rain <input id="weather-rain" type="range" min="0" max="1" step="0.05"></label>
+            <label>Lightning <input id="weather-lightning" type="range" min="0" max="1" step="0.05"></label>
+          </fieldset>
+        </div>
+
+        <div class="toolbox-footer">
+          <div class="zoom-controls"><button id="zoom-out">−</button><span id="zoom-label">100%</span><button id="zoom-in">+</button></div>
+          <a class="back-game" href="./index.html">← GAME</a>
+        </div>
       </aside>
 
       <div class="canvas-wrap" id="canvas-wrap">
         <canvas id="editor-canvas" tabindex="0" aria-label="Editable trail canvas"></canvas>
-        <div class="canvas-help">DRAG POINTS OR PLATFORM BODIES · TWO-FINGER PAN · PINCH TO ZOOM</div>
+        <div class="canvas-help">DRAG POINTS OR PLATFORM BODIES · DOUBLE-CLICK AN ISLAND EDGE OR THE GROUND TO ADD A POINT · TWO-FINGER PAN · PINCH TO ZOOM</div>
       </div>
 
       <aside class="inspector">
-        <div class="panel-head"><span>INSPECTOR</span><strong id="selection-title">LEVEL</strong></div>
-        <label>Name <input id="level-name" type="text"></label>
-        <label>Base material <select id="base-material"></select></label>
-        <label>Finish X <input id="goal-x" type="number" step="10"></label>
-        <label>Fall Y <input id="fall-y" type="number" step="10"></label>
-
-        <fieldset>
-          <legend>WEATHER 0–1</legend>
-          <label>Sun <input id="weather-sun" type="range" min="0" max="1" step="0.05"></label>
-          <label>Clouds <input id="weather-clouds" type="range" min="0" max="1" step="0.05"></label>
-          <label>Rain <input id="weather-rain" type="range" min="0" max="1" step="0.05"></label>
-          <label>Lightning <input id="weather-lightning" type="range" min="0" max="1" step="0.05"></label>
-        </fieldset>
+        <div class="panel-head"><span>INSPECTOR</span><strong id="selection-title">NOTHING SELECTED</strong></div>
+        <p class="tool-hint" id="selection-empty">Select an object on the canvas to edit it. Trail-wide settings are in the LEVEL tab.</p>
 
         <div id="selection-fields" hidden>
           <fieldset>

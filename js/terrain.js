@@ -65,16 +65,21 @@ export function invalidatePlatform(platform) {
   platformPolygons.delete(platform);
 }
 
+export function platformUndersideAt(platform, x) {
+  return curveAt(platform.bottom, x).y;
+}
+
 export function platformPolygon(platform) {
   if (platformPolygons.has(platform)) return platformPolygons.get(platform);
   const start = platform.points[0][0];
   const end = platform.points[platform.points.length - 1][0];
-  const thickness = platform.thickness || 48;
+  const bottomStart = platform.bottom[0][0];
+  const bottomEnd = platform.bottom.at(-1)[0];
   const polygon = [];
   for (let x = start; x < end; x += 4) polygon.push([x, curveAt(platform.points, x).y]);
   polygon.push([end, curveAt(platform.points, end).y]);
-  for (let x = end; x > start; x -= 8) polygon.push([x, curveAt(platform.points, x).y + thickness + Math.sin(x * .12) * 4]);
-  polygon.push([start, curveAt(platform.points, start).y + thickness + Math.sin(start * .12) * 4]);
+  for (let x = bottomEnd; x > bottomStart; x -= 4) polygon.push([x, platformUndersideAt(platform, x)]);
+  polygon.push([bottomStart, platformUndersideAt(platform, bottomStart)]);
   platformPolygons.set(platform, polygon);
   return polygon;
 }

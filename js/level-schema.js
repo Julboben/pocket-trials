@@ -1,5 +1,5 @@
 import { terrainMaterials } from './levels.js';
-import { curveAt } from './terrain.js';
+import { curveAt, platformUndersideAt } from './terrain.js';
 
 export const cloneLevel = level => JSON.parse(JSON.stringify(level));
 
@@ -35,6 +35,15 @@ export function createBlankLevel(index = 0) {
 }
 
 export const SPIKE_RADIUS = { min: 8, max: 64, default: 18 };
+export const PLATFORM_MIN_THICKNESS = 8;
+export const PLATFORM_MIN_GAP = 4;
+
+export const PLATFORM_DEFAULT_THICKNESS = 48;
+
+// Bottom points mirror the top at a uniform depth, so every top corner gets a matching bottom corner.
+export function uniformUnderside(points, thickness = PLATFORM_DEFAULT_THICKNESS) {
+  return points.map(([x, y]) => [x, y + thickness]);
+}
 
 export function normalizeSpike(spike, groundPoints) {
   const radius = Math.max(SPIKE_RADIUS.min, Math.min(SPIKE_RADIUS.max, Number(spike?.radius) || SPIKE_RADIUS.default));
@@ -52,19 +61,21 @@ export function normalizeLevel(input, index = 0) {
   level.goal = Number(level.goal) || fallback.goal;
   level.fallY = Number(level.fallY) || fallback.fallY;
   level.terrain = terrainMaterials[level.terrain] ? level.terrain : 'grass';
-  delete level.physicsVersion;
   level.points = Array.isArray(level.points) && level.points.length >= 2
     ? level.points.map(point => [Number(point[0]), Number(point[1])]).sort((a, b) => a[0] - b[0])
     : fallback.points;
   level.gaps = Array.isArray(level.gaps)
     ? level.gaps.map(gap => [Number(gap[0]), Number(gap[1])].sort((a, b) => a - b))
     : [];
-  level.platforms = Array.isArray(level.platforms) ? level.platforms.map(platform => ({
-    ...platform,
-    points: (platform.points || []).map(point => [Number(point[0]), Number(point[1])]).sort((a, b) => a[0] - b[0]),
-    thickness: Math.max(16, Number(platform.thickness) || 48),
-    material: terrainMaterials[platform.material] ? platform.material : level.terrain
-  })).filter(platform => platform.points.length >= 2) : [];
+  level.platforms = Array.isArray(level.platforms) ? level.platforms.map(platform => {
+    const sorted = points => (points || []).map(point => [Number(point[0]), Number(point[1])]).sort((a, b) => a[0] - b[0]);
+    return {
+      ...platform,
+      points: sorted(platform.points),
+      bottom: sorted(platform.bottom),
+      material: terrainMaterials[platform.material] ? platform.material : level.terrain
+    };
+  }).filter(platform => platform.points.length >= 2 && platform.bottom.length >= 2) : [];
   level.paths = Array.isArray(level.paths) ? level.paths.map(path => ({
     ...path,
     points: (path.points || []).map(point => [Number(point[0]), Number(point[1])]),
@@ -130,9 +141,26 @@ export function validateLevel(level) {
     for (let pointIndex = 1; pointIndex < platform.points.length; pointIndex++) {
       if (platform.points[pointIndex][0] <= platform.points[pointIndex - 1][0]) error(`Platform ${index + 1} points are not ordered.`);
     }
-    for (const [x, y] of platform.points) {
-      const ground = curveAt(level.points, x).y;
-      if (y + platform.thickness >= ground - 8) warning(`Platform ${index + 1} comes close to or intersects the ground near x ${Math.round(x)}.`);
+    if (!Array.isArray(platform.bottom) || platform.bottom.length < 2) {
+      error(`Platform ${index + 1} needs at least two underside points.`);
+      continue;
+    }
+    for (let pointIndex = 1; pointIndex < platform.bottom.length; pointIndex++) {
+      if (platform.bottom[pointIndex][0] <= platform.bottom[pointIndex - 1][0]) error(`Platform ${index + 1} underside points are not ordered.`);
+    }
+    const start = platform.points[0][0], end = platform.points.at(-1)[0];
+    for (let x = start; x <= end; x += 8) {
+      const underside = platformUndersideAt(platform, x);
+      if (underside - curveAt(platform.points, x).y < PLATFORM_MIN_GAP) {
+        error(`Platform ${index + 1} underside crosses its top near x ${Math.round(x)}.`);
+        break;
+      }
+    }
+    for (const [x] of [...platform.points, ...platform.bottom]) {
+      if (platformUndersideAt(platform, x) >= curveAt(level.points, x).y - 8) {
+        warning(`Platform ${index + 1} comes close to or intersects the ground near x ${Math.round(x)}.`);
+        break;
+      }
     }
   }
   if (!Number.isFinite(level.start?.x)) error('The level needs a valid start position.');

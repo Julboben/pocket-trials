@@ -3,7 +3,7 @@ import {
   XPBD_THROTTLE_INPUT_RESPONSE, XPBD_LEAN_INPUT_RESPONSE,
   clamp, lerp
 } from './config.js';
-import { levels, officialLevelEntries, customLevelEntries, terrainMaterials } from './levels.js';
+import { levels, officialLevelEntries, customLevelEntries, terrainMaterials, saveBrowserLevel } from './levels.js';
 import { createAudio } from './audio.js';
 import { advanceAfterTimeOfImpact } from './physics.js';
 import { createVehicle, stepVehicle, vehicleMetrics } from './vehicle-physics.js';
@@ -26,7 +26,7 @@ import {
   savePreferences as persistPreferences,
   saveProgress as persistProgress
 } from './storage.js';
-import { normalizeSpike } from './level-schema.js';
+import { normalizeSpike, normalizeLevel, validateLevel } from './level-schema.js';
 
 const $ = id => document.getElementById(id);
 const game = $('game');
@@ -42,7 +42,7 @@ let unlockedLevel = 0, savedLevel = 0, saveGame = null;
 let saveSlots = [null, null, null], activeSaveSlot = 0, pendingSaveSlot = 0, selectedNewRider = 'max', gameLoopStarted = false;
 let deleteArmedSlot = -1, deleteArmTimer = 0;
 const officialTrailIds = officialLevelEntries.map(entry => entry.id);
-const leaderboardTrails = [...officialLevelEntries, ...customLevelEntries];
+const leaderboardTrails = () => [...officialLevelEntries, ...customLevelEntries];
 let leaderboardTrail = 0;
 let preferences = { scenery: 'full', controls: 'show', sound: 'on' };
 let rear, front, vehicle = null, previousRiderContacts = null, apples = [], spikes = [], spikeTime = 0, particles = [], skidMarks = [], ragdoll = null, hair = null;
@@ -458,7 +458,7 @@ function buildMenuLevelCards() {
     customLevelEntries.forEach((entry, index) => cards.push(levelCard({
       trail: entry.level,
       number: `C${String(index + 1).padStart(2, '0')}`,
-      status: 'CUSTOM TRAIL',
+      status: entry.storage === 'browser' ? 'CUSTOM · SAVED IN BROWSER' : 'CUSTOM TRAIL',
       best: 'CUSTOM',
       custom: true,
       onSelect: () => closeMenuForCustomLevel(index)
@@ -512,13 +512,14 @@ function leaderboardRow(run, rank) {
 }
 
 function buildLeaderboard() {
-  leaderboardTrail = (leaderboardTrail + leaderboardTrails.length) % leaderboardTrails.length;
-  const entry = leaderboardTrails[leaderboardTrail];
-  const runs = readLeaderboard(entry.id, officialTrailIds);
+  const trails = leaderboardTrails();
+  leaderboardTrail = (leaderboardTrail + trails.length) % trails.length;
+  const entry = trails[leaderboardTrail];
+  const runs = readLeaderboard(entry.id);
   $('leaderboard-trail-number').textContent = trailMarker(leaderboardTrail);
   $('leaderboard-trail-name').textContent = entry.name.toUpperCase();
   $('leaderboard-trail-meta').textContent = (entry.source === 'custom' ? 'CUSTOM TRAIL' : 'OFFICIAL TRAIL')
-    + ' · ' + (leaderboardTrail + 1) + ' / ' + leaderboardTrails.length;
+    + ' · ' + (leaderboardTrail + 1) + ' / ' + trails.length;
   const rows = Array.from({ length: LEADERBOARD_SIZE }, (_, index) => leaderboardRow(runs[index], index + 1));
   $('leaderboard-list').replaceChildren(...rows);
 }
@@ -625,7 +626,7 @@ function setOverlay(next) {
     const trailId = levelSource === 'official' ? officialTrailIds[levelIndex] : customLevelEntries[customLevelIndex]?.id;
     const rank = trailId ? recordLeaderboardRun(trailId, {
       time: elapsed, rider, slot: saveGame ? activeSaveSlot : null, saveId: saveGame?.createdAt
-    }, officialTrailIds) : null;
+    }) : null;
     const rankText = rank ? ' Leaderboard rank #' + rank + '.' : '';
     if (levelSource === 'official') {
       unlockedLevel = Math.max(unlockedLevel, Math.min(levelIndex + 1, levels.length - 1));
@@ -1015,19 +1016,11 @@ function groundPath(offset = 0) {
   const bottom = cameraY + H + 100;
   for (const [start, end] of solidRanges()) {
     if (end <= start) continue;
-    const floating = level.island && start >= level.island[0] - 1 && end <= level.island[1] + 1;
-    const pathStart = floating ? level.island[0] : start;
-    const pathEnd = floating ? level.island[1] : end;
-    ctx.moveTo(pathStart, floating ? terrain(pathStart).y + 58 + offset : bottom);
-    ctx.lineTo(pathStart, terrain(pathStart).y + offset);
-    for (let x = pathStart + 5; x < pathEnd; x += 5) ctx.lineTo(x, terrain(x).y + offset);
-    ctx.lineTo(pathEnd, terrain(pathEnd).y + offset);
-    if (floating) {
-      const islandBottom = Math.max(terrain(pathStart).y, terrain(pathEnd).y) + 145 + offset;
-      ctx.lineTo(pathEnd - 28, terrain(pathEnd).y + 62 + offset);
-      ctx.lineTo((pathStart + pathEnd) / 2, islandBottom);
-      ctx.lineTo(pathStart + 28, terrain(pathStart).y + 62 + offset);
-    } else ctx.lineTo(pathEnd, bottom);
+    ctx.moveTo(start, bottom);
+    ctx.lineTo(start, terrain(start).y + offset);
+    for (let x = start + 5; x < end; x += 5) ctx.lineTo(x, terrain(x).y + offset);
+    ctx.lineTo(end, terrain(end).y + offset);
+    ctx.lineTo(end, bottom);
     ctx.closePath();
   }
 }
@@ -1071,20 +1064,22 @@ function drawAuthoredPath(path) {
 
 function drawPlatform(platform) {
   const start = platform.points[0][0], end = platform.points[platform.points.length - 1][0];
-  if (end < cameraX - 30 || start > cameraX + W + 30) return;
+  const polygon = platformPolygon(platform);
+  const left = Math.min(...polygon.map(point => point[0])), right = Math.max(...polygon.map(point => point[0]));
+  if (right < cameraX - 30 || left > cameraX + W + 30) return;
+  const top = Math.min(...polygon.map(point => point[1]));
+  const bottom = Math.max(...polygon.map(point => point[1]));
   const material = materialFor(platform.material);
   platformPath(platform); ctx.fillStyle = material.fill; ctx.fill();
   ctx.save(); platformPath(platform); ctx.clip();
   if (material.pattern === 'brick') {
-    const top = Math.min(...platform.points.map(point => point[1]));
-    const bottom = Math.max(...platform.points.map(point => point[1])) + (platform.thickness || 48) + 8;
-    drawBrickPattern(start, end, top, bottom);
+    drawBrickPattern(left, right, top, bottom + 8);
   } else {
-    for (let offset = 16, index = 0; offset < (platform.thickness || 48); offset += 16, index++) {
+    for (let offset = 16, index = 0; offset < bottom - top; offset += 16, index++) {
       ctx.beginPath();
-      for (let x = start; x <= end; x += 6) {
+      for (let x = left; x <= right; x += 6) {
         const y = terrainAt({ points: platform.points }, x).y + offset;
-        if (x === start) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        if (x === left) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
       ctx.strokeStyle = material.layers[index % material.layers.length]; ctx.lineWidth = 2; ctx.stroke();
     }
@@ -1601,6 +1596,27 @@ $('menu-load-game').addEventListener('click', () => {
   showMenuView('load');
 });
 $('menu-levels').addEventListener('click', () => { buildMenuLevelCards(); showMenuView('levels'); });
+function setImportStatus(text, isError = false) {
+  $('import-trail-status').textContent = text;
+  $('import-trail-status').classList.toggle('error', isError);
+}
+$('import-trail').addEventListener('click', () => $('import-trail-file').click());
+$('import-trail-file').addEventListener('change', async event => {
+  const file = event.target.files?.[0];
+  event.target.value = '';
+  if (!file) return;
+  try {
+    const trail = normalizeLevel(JSON.parse(await file.text()), customLevelEntries.length);
+    const errors = validateLevel(trail).filter(message => message.type === 'error');
+    if (errors.length) throw new Error(errors[0].text);
+    saveBrowserLevel(trail);
+    updateMenuDashboard();
+    showMenuView('levels');
+    setImportStatus(`Imported “${trail.name}”. It is saved in this browser under Custom Trails.`);
+  } catch (error) {
+    setImportStatus(`Could not import ${file.name}: ${error.message}`, true);
+  }
+});
 $('menu-leaderboard').addEventListener('click', () => {
   leaderboardTrail = currentLeaderboardTrail();
   buildLeaderboard();

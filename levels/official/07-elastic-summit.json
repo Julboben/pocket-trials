@@ -150,8 +150,21 @@
           84
         ]
       ],
-      "thickness": 52,
-      "material": "brick"
+      "material": "brick",
+      "bottom": [
+        [
+          1120,
+          142
+        ],
+        [
+          1260,
+          110
+        ],
+        [
+          1430,
+          136
+        ]
+      ]
     },
     {
       "points": [
@@ -168,8 +181,21 @@
           190
         ]
       ],
-      "thickness": 58,
-      "material": "grass"
+      "material": "grass",
+      "bottom": [
+        [
+          2050,
+          248
+        ],
+        [
+          2200,
+          216
+        ],
+        [
+          2370,
+          248
+        ]
+      ]
     },
     {
       "points": [
@@ -186,8 +212,21 @@
           174
         ]
       ],
-      "thickness": 54,
-      "material": "snow"
+      "material": "snow",
+      "bottom": [
+        [
+          3070,
+          214
+        ],
+        [
+          3220,
+          184
+        ],
+        [
+          3390,
+          228
+        ]
+      ]
     }
   ],
   "apples": [

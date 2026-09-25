@@ -2,7 +2,7 @@
 
 All trails use the same JSON schema. Shipped career trails live in `levels/official/`, while locally authored standalone trails live in `levels/custom/`. The editor's JSON export can be placed directly in `levels/custom/`.
 
-`npm run dev` watches both folders and regenerates `levels/catalog.json` whenever a JSON file changes. The browser loads that catalog through `js/levels.js`, so custom files appear automatically after the development server reloads.
+`npm run dev` watches both folders and regenerates `levels/catalog.json` whenever a JSON file changes. The browser loads that catalog through `js/levels.js`, so new files appear after the next page refresh. Trails saved or imported in the browser outside dev mode are kept in localStorage and listed alongside the file-based custom trails.
 
 A level cannot declare itself official inside its JSON. The generated catalog assigns source from the containing folder: official trails participate in career progression and official best times; custom trails are clearly labeled and never alter career progress.
 
@@ -40,7 +40,7 @@ The world uses Canvas coordinates:
   platforms: [
     {
       points: [[1050, 220], [1210, 185], [1380, 215]],
-      thickness: 52,
+      bottom: [[1070, 260], [1210, 250], [1360, 250]],
       material: 'brick'
     }
   ],
@@ -153,11 +153,13 @@ Platforms are independent solid terrain bodies above the main ground:
 platforms: [
   {
     points: [[1050, 220], [1210, 185], [1380, 215]],
-    thickness: 52,
+    bottom: [[1070, 260], [1210, 250], [1360, 250]],
     material: 'brick'
   }
 ]
 ```
+
+`points` is the top edge and `bottom` is the underside. Both need at least two points ordered by x.
 
 Each platform supports collision on:
 
@@ -167,6 +169,13 @@ Each platform supports collision on:
 - Its corner points
 
 A level can contain any number of platforms, including multiple platforms over the same base-ground region. Platform points follow the same coordinate and smoothing rules as main terrain points.
+
+### Underside: `bottom`
+
+- `bottom` uses the same smoothing as `points`.
+- The first and last top points are the top corners; the first and last bottom points are the bottom corners. Side walls connect them, so corners at different x values produce slanted walls.
+- The underside must stay at least 4 units below the top. Validation reports an error when it crosses.
+In the editor, the **Island** tool's **Starting thickness** sets the depth of new islands. Double-click an island's top or underside to add a point to that edge, or pick the **Island** tool while an island is selected and click to add points; press `Escape` to return to **Select**. Each edge keeps at least two points.
 
 Keep at least one wheel diameter of visual separation between a platform and the ground. Larger clearances are preferable when the player is expected to pass underneath.
 
@@ -286,7 +295,6 @@ Any property may be omitted. This supports clear skies, sunny skies with scatter
 - `sky`, `sun`, and `mountain`: level palette colors.
 - `spray`: fallback wheel-particle colors. Material-specific spray takes priority.
 - `description`: design notes for the trail. It is not currently shown during gameplay.
-- `island`: legacy visual shaping for a base-ground segment enclosed by gaps. Use `platforms` for new elevated geometry.
 
 ## Recommended authoring workflow
 
@@ -300,7 +308,7 @@ Any property may be omitted. This supports clear skies, sunny skies with scatter
 
 ## Visual editor
 
-Open `editor.html` or choose **Level Editor** from the game dashboard. Individual points can be dragged to reshape a platform. Clicking and dragging inside a platform's filled body moves the complete platform while preserving its shape. The inspector edits its material and thickness.
+Open `editor.html` or choose **Level Editor** from the game dashboard. Individual points can be dragged to reshape a platform. Clicking and dragging inside a platform's filled body moves the complete platform while preserving its shape. The inspector edits its material.
 
 The **Apple**, **Start**, and **Prop** tools place those objects at the exact clicked world position. Select an object to move it numerically or by dragging; the inspector also changes start direction and prop type/layer. Apples and props can be removed, while the required start and finish markers can only be moved.
 
@@ -310,7 +318,7 @@ Platforms could eventually receive stable IDs so objects can attach to a surface
 
 ```js
 platforms: [
-  { id: 'upper-route', points: [[1050, 220], [1380, 215]], thickness: 52, material: 'brick' }
+  { id: 'upper-route', points: [[1050, 220], [1380, 215]], bottom: [[1050, 270], [1380, 265]], material: 'brick' }
 ],
 collectibles: [
   { x: 1200, surface: 'upper-route', offset: 60 }

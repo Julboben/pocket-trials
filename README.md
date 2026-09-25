@@ -36,9 +36,9 @@ Run a local static server from the project directory:
 npm run dev
 ```
 
-This generates `levels/catalog.json`, watches the level folders for changes, and starts `live-server`. Add or edit a JSON file while the command is running and the catalog is regenerated automatically; the development server then reloads the page.
+This starts a small dependency-free Node server at `http://127.0.0.1:8080` (override with `PORT=…`). It generates `levels/catalog.json`, regenerates it when a level JSON file changes, and lets the editor save trails straight into `levels/official/` and `levels/custom/`. It never reloads the page on its own, so a running game is not interrupted; refresh manually after changing code.
 
-A local server is required because the game uses native JavaScript modules. No dependency installation or application build is required.
+A local server is required because the game uses native JavaScript modules and fetches level JSON, which browsers block on `file://`. Any static server also works for playing, for example on a static host, but only `npm run dev` enables saving level files from the editor.
 
 ## Controls
 
@@ -62,7 +62,7 @@ Lean labels adjust to the direction the rider is facing.
 1. **The Orchard** — gentle rollers that teach throttle rhythm and basic balance.
 2. **Rolling Country** — longer hills that teach momentum management and crest control.
 3. **High Hopes** — steep climbs and bigger landings that reward early weight shifts.
-4. **Skybound** — two committed jumps, including a floating-island crossing.
+4. **Skybound** — two committed jumps across a narrow middle section.
 5. **Brake Point** — sharp drops and deep bowls that teach controlled braking and recovery.
 6. **Long Way Up** — a sustained technical climb combining momentum and wheelie control.
 7. **Elastic Summit** — a long final exam combining climbs, braking, landings, gaps, and stacked platforms.
@@ -71,12 +71,19 @@ Each trail requires collecting all five apples before the finish gate will open.
 
 ## Level editor
 
-Open the visual editor from **Level Editor** on the main dashboard or navigate directly to `editor.html`. The initial editor supports:
+Open the visual editor from **Level Editor** on the main dashboard or navigate directly to `editor.html`. The left column has two tabs:
+
+- **Tools**: tools grouped into Navigate, Terrain, Objects, and Course. Picking a tool shows its settings (for example island material and thickness, spike radius and spin, or prop type) before anything is placed. New objects use those settings, which are remembered between sessions. `V` or `Escape` selects, and `H` pans.
+- **Level**: trail name, base material, finish and fall positions, and weather.
+
+The inspector on the right edits the current selection. The editor supports:
 
 - Loading every official and custom trail, with its source clearly labeled
 - Dragging ground and platform control points
 - Adding ground points, elevated platforms, gaps, freely positioned apples, start points, props, and finish positions
 - Moving complete platforms by dragging their filled bodies
+- Shaping islands with top and bottom points; double-click an island edge (or use the Island tool while an island is selected) to add a point
+- Double-clicking the ground to insert a ground point
 - Moving or removing props and changing their type and foreground/background layer
 - Placing spinning spike hazards and editing their radius and spin speed
 - Choosing the start position and left/right facing direction
@@ -88,6 +95,12 @@ Open the visual editor from **Level Editor** on the main dashboard or navigate d
 - Continuous level validation
 - Browser-local drafts
 - JSON and JavaScript module export
+- **New**, **Duplicate**, **Save** (`Cmd`/`Ctrl` + `S`), and **Delete** for trails
+
+Where **Save** writes depends on how the editor is served:
+
+- Under `npm run dev`, official and file-based custom trails save directly to their JSON file, and new trails are created in `levels/custom/`.
+- On any other server, official and file-based trails are read-only. **New** and **Duplicate** create custom trails stored in the browser (localStorage), which then appear under **Custom Trails** in the game. Players can also add trails with **Import trail** in the game's level menu.
 
 Editor drafts do not overwrite level files. Official trails live in `levels/official/`; locally authored trails belong in `levels/custom/`. Both use the exact JSON format produced by **Export JSON**. Source classification comes from the generated catalog and folder—not from a user-editable property inside the level. See [`LEVEL_FORMAT.md`](./LEVEL_FORMAT.md) for the full schema and design guidelines.
 
@@ -110,9 +123,7 @@ Current storage keys:
 - `pocket-trials-active-slot-v1`
 - `pocket-trials-leaderboard-v1`
 
-The dashboard's Leaderboard view ranks the ten fastest finishes per official and custom trail across all savegames on the device. On first load it is seeded from each slot's existing best times, and runs remain on the board after their savegame is deleted.
-
-The former single-save keys are read once to migrate an existing career into slot 1.
+The dashboard's Leaderboard view ranks the ten fastest finishes per official and custom trail across all savegames on the device. Runs remain on the board after their savegame is deleted.
 
 Clearing site data resets settings, progression, and recorded times.
 

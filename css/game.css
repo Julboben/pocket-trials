@@ -579,6 +579,9 @@ h2 { margin: 0; font-size: 28px; line-height: 1.08; letter-spacing: -1px; white-
   font-weight: 850;
 }
 .level-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.level-import { margin-top: 14px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.level-import-status { margin: 0; color: var(--color-text-muted); font-size: 8px; }
+.level-import-status.error { color: #f0a08c; }
 .level-section-title {
   grid-column: 1 / -1;
   margin-top: 8px;

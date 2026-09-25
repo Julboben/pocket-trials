@@ -96,6 +96,11 @@
       <div class="menu-view" id="menu-level-view" hidden>
         <div class="menu-view-head"><div><span class="save-label">TRAIL SELECT</span><h3>Choose a level</h3></div><button class="menu-back" data-menu-back>← BACK</button></div>
         <div class="level-grid" id="menu-level-grid"></div>
+        <div class="level-import">
+          <button type="button" class="menu-back" id="import-trail">＋ IMPORT TRAIL (.JSON)</button>
+          <input type="file" id="import-trail-file" accept=".json,application/json" hidden>
+          <p class="level-import-status" id="import-trail-status" role="status"></p>
+        </div>
       </div>
 
       <div class="menu-view" id="menu-leaderboard-view" hidden>
