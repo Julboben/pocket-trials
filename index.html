@@ -80,6 +80,7 @@
           <button class="menu-action" id="menu-new-game"><span>NEW GAME</span><small>Create a rider in an empty slot</small></button>
           <button class="menu-action" id="menu-load-game"><span>LOAD GAME</span><small>Choose or delete a savegame</small></button>
           <button class="menu-action" id="menu-levels"><span>LEVELS</span><small>Browse unlocked trails</small></button>
+          <button class="menu-action" id="menu-leaderboard"><span>LEADERBOARD</span><small>Fastest runs on every trail</small></button>
           <button class="menu-action" id="menu-settings"><span>SETTINGS</span><small>Audio, controls, and scenery</small></button>
           <button class="menu-action" id="menu-how-to"><span>HOW TO PLAY</span><small>Controls, balance, and objectives</small></button>
           <button class="menu-action" id="menu-editor"><span>LEVEL EDITOR</span><small>Build and export custom trails</small></button>
@@ -95,6 +96,20 @@
       <div class="menu-view" id="menu-level-view" hidden>
         <div class="menu-view-head"><div><span class="save-label">TRAIL SELECT</span><h3>Choose a level</h3></div><button class="menu-back" data-menu-back>← BACK</button></div>
         <div class="level-grid" id="menu-level-grid"></div>
+      </div>
+
+      <div class="menu-view" id="menu-leaderboard-view" hidden>
+        <div class="menu-view-head"><div><span class="save-label">HALL OF FAME</span><h3>Leaderboard</h3></div><button class="menu-back" data-menu-back>← BACK</button></div>
+        <div class="leaderboard-trail">
+          <button type="button" class="leaderboard-step" id="leaderboard-prev" aria-label="Previous trail">←</button>
+          <div class="leaderboard-trail-copy" aria-live="polite">
+            <span class="level-number" id="leaderboard-trail-number">01</span>
+            <span class="level-copy"><strong id="leaderboard-trail-name">THE ORCHARD</strong><small id="leaderboard-trail-meta">OFFICIAL TRAIL</small></span>
+          </div>
+          <button type="button" class="leaderboard-step" id="leaderboard-next" aria-label="Next trail">→</button>
+        </div>
+        <ol class="leaderboard-list" id="leaderboard-list" aria-label="Fastest runs"></ol>
+        <p class="load-game-help leaderboard-help">Top 10 finishes on this device across all savegames. Runs stay on the board after a savegame is deleted.</p>
       </div>
 
       <div class="menu-view" id="menu-save-view" hidden>

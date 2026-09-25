@@ -7,7 +7,9 @@ const LEGACY_SAVE_KEY = 'pocket-trials-save-v1';
 const LEGACY_PROGRESS_KEY = 'pocket-trials-progress-v1';
 const LEGACY_BEST_KEY_PREFIX = 'pocket-trials-v2-';
 const OLDEST_BEST_KEY_PREFIX = 'pocket-trials-v1-';
+const LEADERBOARD_KEY = 'pocket-trials-leaderboard-v1';
 const SLOT_COUNT = 3;
+export const LEADERBOARD_SIZE = 10;
 
 const emptySlots = () => Array(SLOT_COUNT).fill(null);
 
@@ -134,4 +136,63 @@ export function saveBest(slotIndex, levelIndex, elapsed, levelCount) {
   if (!save) return;
   save.bestTimes[levelIndex] = elapsed;
   persistSlots(slots);
+}
+
+function normalizeRun(run) {
+  const time = Number(run?.time);
+  if (!Number.isFinite(time) || time <= 0) return null;
+  const slot = run.slot === null || run.slot === undefined ? null : Number(run.slot);
+  return {
+    time,
+    rider: run.rider === 'Maxine' ? 'Maxine' : 'max',
+    slot: Number.isInteger(slot) && slot >= 0 && slot < SLOT_COUNT ? slot : null,
+    saveId: Number(run.saveId) || null,
+    date: Number(run.date) || null
+  };
+}
+
+function rankRuns(runs) {
+  return runs.map(normalizeRun).filter(Boolean)
+    .sort((a, b) => a.time - b.time || (a.date ?? 0) - (b.date ?? 0))
+    .slice(0, LEADERBOARD_SIZE);
+}
+
+function persistLeaderboards(boards) {
+  try { localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(boards)); } catch (_) {}
+}
+
+// Seeds the board from career best times recorded before leaderboards existed.
+function loadLeaderboards(officialTrailIds) {
+  try {
+    const stored = JSON.parse(localStorage.getItem(LEADERBOARD_KEY) || 'null');
+    if (stored && typeof stored === 'object' && !Array.isArray(stored)) return stored;
+    const boards = {};
+    loadSaveSlots(officialTrailIds.length).forEach((save, slot) => {
+      save?.bestTimes.forEach((time, levelIndex) => {
+        if (time === null) return;
+        const trailId = officialTrailIds[levelIndex];
+        boards[trailId] = rankRuns([...(boards[trailId] || []), { time, rider: save.rider, slot, saveId: save.createdAt }]);
+      });
+    });
+    persistLeaderboards(boards);
+    return boards;
+  } catch (_) {
+    return {};
+  }
+}
+
+export function readLeaderboard(trailId, officialTrailIds) {
+  const runs = loadLeaderboards(officialTrailIds)[trailId];
+  return Array.isArray(runs) ? rankRuns(runs) : [];
+}
+
+// Returns the 1-based rank of the new run, or null when it misses the board.
+export function recordLeaderboardRun(trailId, run, officialTrailIds) {
+  const boards = loadLeaderboards(officialTrailIds);
+  const entry = normalizeRun({ ...run, date: Date.now() });
+  if (!entry) return null;
+  const ranked = rankRuns([...(Array.isArray(boards[trailId]) ? boards[trailId] : []), entry]);
+  boards[trailId] = ranked;
+  persistLeaderboards(boards);
+  return ranked.findIndex(item => item.date === entry.date && item.time === entry.time) + 1 || null;
 }

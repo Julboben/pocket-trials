@@ -3,7 +3,7 @@ import {
   XPBD_THROTTLE_INPUT_RESPONSE, XPBD_LEAN_INPUT_RESPONSE,
   clamp, lerp
 } from './config.js';
-import { levels, customLevelEntries, terrainMaterials } from './levels.js';
+import { levels, officialLevelEntries, customLevelEntries, terrainMaterials } from './levels.js';
 import { createAudio } from './audio.js';
 import { advanceAfterTimeOfImpact } from './physics.js';
 import { createVehicle, stepVehicle, vehicleMetrics } from './vehicle-physics.js';
@@ -20,6 +20,9 @@ import {
   deleteSave,
   readBest,
   saveBest,
+  readLeaderboard,
+  recordLeaderboardRun,
+  LEADERBOARD_SIZE,
   savePreferences as persistPreferences,
   saveProgress as persistProgress
 } from './storage.js';
@@ -37,6 +40,9 @@ let levelIndex = 0, level = levels[0], levelSource = 'official', customLevelInde
 let unlockedLevel = 0, savedLevel = 0, saveGame = null;
 let saveSlots = [null, null, null], activeSaveSlot = 0, pendingSaveSlot = 0, selectedNewRider = 'max', gameLoopStarted = false;
 let deleteArmedSlot = -1, deleteArmTimer = 0;
+const officialTrailIds = officialLevelEntries.map(entry => entry.id);
+const leaderboardTrails = [...officialLevelEntries, ...customLevelEntries];
+let leaderboardTrail = 0;
 let preferences = { scenery: 'full', controls: 'show', sound: 'on' };
 let rear, front, vehicle = null, previousRiderContacts = null, apples = [], particles = [], skidMarks = [], ragdoll = null, hair = null;
 let elapsed = 0, collected = 0, facing = 1, throttle = 0, brakePressure = 0;
@@ -318,6 +324,7 @@ function showMenuView(view) {
   $('menu-home').hidden = view !== 'home';
   $('menu-load-view').hidden = view !== 'load';
   $('menu-level-view').hidden = view !== 'levels';
+  $('menu-leaderboard-view').hidden = view !== 'leaderboard';
   $('menu-save-view').hidden = view !== 'save';
   $('menu-how-view').hidden = view !== 'how';
   $('menu-settings-view').hidden = view !== 'settings';
@@ -459,6 +466,67 @@ function buildMenuLevelCards() {
   $('menu-level-grid').replaceChildren(...cards);
 }
 
+function trailMarker(index) {
+  return index < officialLevelEntries.length
+    ? String(index + 1).padStart(2, '0')
+    : `C${String(index - officialLevelEntries.length + 1).padStart(2, '0')}`;
+}
+
+function currentLeaderboardTrail() {
+  if (levelSource === 'custom' && customLevelIndex >= 0) return officialLevelEntries.length + customLevelIndex;
+  return gameLoopStarted ? levelIndex : savedLevel;
+}
+
+function leaderboardRow(run, rank) {
+  const row = document.createElement('li');
+  row.className = 'leaderboard-row' + (rank <= 3 && run ? ' podium-' + rank : '') + (run ? '' : ' open');
+  const rankLabel = document.createElement('span');
+  rankLabel.className = 'leaderboard-rank';
+  rankLabel.textContent = String(rank).padStart(2, '0');
+  if (!run) {
+    const empty = document.createElement('span');
+    empty.className = 'leaderboard-open';
+    empty.textContent = rank === 1 ? 'NO RUNS YET · FINISH THE TRAIL TO CLAIM IT' : '— — —';
+    row.append(rankLabel, empty);
+    return row;
+  }
+  const mine = Boolean(saveGame && run.saveId && run.saveId === saveGame.createdAt);
+  row.classList.toggle('mine', mine);
+  const avatar = document.createElement('span');
+  avatar.className = 'save-avatar ' + (run.rider === 'Maxine' ? 'female' : 'male');
+  avatar.innerHTML = riderSymbolMarkup(run.rider);
+  const copy = document.createElement('span');
+  copy.className = 'leaderboard-copy';
+  const name = document.createElement('strong');
+  name.textContent = (run.rider === 'Maxine' ? 'MAXINE' : 'MAX') + (mine ? ' · YOU' : '');
+  const detail = document.createElement('small');
+  const date = run.date ? new Date(run.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }).toUpperCase() : 'CAREER BEST';
+  detail.textContent = (run.slot === null ? 'NO SAVE' : 'SLOT ' + (run.slot + 1)) + ' · ' + date;
+  copy.append(name, detail);
+  const time = document.createElement('span');
+  time.className = 'leaderboard-time';
+  time.textContent = timeText(run.time);
+  row.append(rankLabel, avatar, copy, time);
+  return row;
+}
+
+function buildLeaderboard() {
+  leaderboardTrail = (leaderboardTrail + leaderboardTrails.length) % leaderboardTrails.length;
+  const entry = leaderboardTrails[leaderboardTrail];
+  const runs = readLeaderboard(entry.id, officialTrailIds);
+  $('leaderboard-trail-number').textContent = trailMarker(leaderboardTrail);
+  $('leaderboard-trail-name').textContent = entry.name.toUpperCase();
+  $('leaderboard-trail-meta').textContent = (entry.source === 'custom' ? 'CUSTOM TRAIL' : 'OFFICIAL TRAIL')
+    + ' · ' + (leaderboardTrail + 1) + ' / ' + leaderboardTrails.length;
+  const rows = Array.from({ length: LEADERBOARD_SIZE }, (_, index) => leaderboardRow(runs[index], index + 1));
+  $('leaderboard-list').replaceChildren(...rows);
+}
+
+function stepLeaderboard(direction) {
+  leaderboardTrail += direction;
+  buildLeaderboard();
+}
+
 // Keep the active level binding local while terrain math remains reusable.
 const terrain = (x, referenceY = null) => terrainAt(level, x, referenceY);
 
@@ -551,6 +619,11 @@ function setOverlay(next) {
   } else if (next === 'won') {
     $('overlay-badge').textContent = levelSource === 'official' ? 'TRAIL COMPLETED' : 'CUSTOM TRAIL COMPLETED';
     $('overlay-title').textContent = 'Goal Reached!';
+    const trailId = levelSource === 'official' ? officialTrailIds[levelIndex] : customLevelEntries[customLevelIndex]?.id;
+    const rank = trailId ? recordLeaderboardRun(trailId, {
+      time: elapsed, rider, slot: saveGame ? activeSaveSlot : null, saveId: saveGame?.createdAt
+    }, officialTrailIds) : null;
+    const rankText = rank ? ' Leaderboard rank #' + rank + '.' : '';
     if (levelSource === 'official') {
       unlockedLevel = Math.max(unlockedLevel, Math.min(levelIndex + 1, levels.length - 1));
       saveProgress();
@@ -560,10 +633,10 @@ function setOverlay(next) {
         saveBest(activeSaveSlot, levelIndex, elapsed, levels.length);
         saveGame.bestTimes[levelIndex] = elapsed;
       }
-      $('overlay-description').textContent = 'Finished in ' + timeText(elapsed) + '. ' + (record ? 'New best time on this trail!' : 'Best: ' + timeText(previous) + '.');
+      $('overlay-description').textContent = 'Finished in ' + timeText(elapsed) + '. ' + (record ? 'New best time on this trail!' : 'Best: ' + timeText(previous) + '.') + rankText;
       $('primary').textContent = levelIndex === levels.length - 1 ? 'Play Again →' : 'Next Trail →';
     } else {
-      $('overlay-description').textContent = 'Finished in ' + timeText(elapsed) + '. Custom trails do not affect career progression.';
+      $('overlay-description').textContent = 'Finished in ' + timeText(elapsed) + '.' + rankText + ' Custom trails do not affect career progression.';
       $('primary').textContent = 'Play Again →';
     }
     $('secondary').textContent = 'Replay Trail';
@@ -1431,6 +1504,13 @@ $('menu-fullscreen').addEventListener('click', toggleFullscreen);
 $('fullscreen').addEventListener('click', toggleFullscreen);
 $('menu').addEventListener('click', () => { sounds.menuBack(); showMainMenu(); });
 $('menu-screen').addEventListener('keydown', event => {
+  const trailStep = { ArrowLeft: -1, KeyA: -1, ArrowRight: 1, KeyD: 1 }[event.code];
+  if (trailStep && !$('menu-leaderboard-view').hidden) {
+    event.preventDefault();
+    stepLeaderboard(trailStep);
+    sounds.menuMove();
+    return;
+  }
   const direction = {
     ArrowUp: -1, ArrowLeft: -1, KeyW: -1, KeyA: -1,
     ArrowDown: 1, ArrowRight: 1, KeyS: 1, KeyD: 1
@@ -1487,6 +1567,13 @@ $('menu-load-game').addEventListener('click', () => {
   showMenuView('load');
 });
 $('menu-levels').addEventListener('click', () => { buildMenuLevelCards(); showMenuView('levels'); });
+$('menu-leaderboard').addEventListener('click', () => {
+  leaderboardTrail = currentLeaderboardTrail();
+  buildLeaderboard();
+  showMenuView('leaderboard');
+});
+$('leaderboard-prev').addEventListener('click', () => stepLeaderboard(-1));
+$('leaderboard-next').addEventListener('click', () => stepLeaderboard(1));
 document.querySelectorAll('[data-menu-back]').forEach(button => button.addEventListener('click', () => {
   updateMenuDashboard();
   showMenuView('home');
