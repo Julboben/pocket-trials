@@ -1,5 +1,4 @@
 // @ts-check
-import { ART_PIXEL } from './drawing.js';
 import { clamp, lerp } from './config.js';
 
 export function createCamera() {
@@ -23,14 +22,14 @@ export function createCamera() {
       camera.shakeTime += dt;
       camera.shake = Math.max(0, camera.shake - dt * 28);
     },
-    /** The camera snapped to whole art pixels, with shake applied. */
+    /** The camera position with shake applied. */
     view() {
       let x = camera.x, y = camera.y;
       if (camera.shake > .5) {
         x += Math.sin(camera.shakeTime * 71) * camera.shake;
         y += Math.cos(camera.shakeTime * 53) * camera.shake * .7;
       }
-      return { x: Math.round(x / ART_PIXEL) * ART_PIXEL, y: Math.round(y / ART_PIXEL) * ART_PIXEL };
+      return { x, y };
     }
   };
   return camera;

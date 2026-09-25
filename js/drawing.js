@@ -253,6 +253,13 @@ export function createGameArt(ctx) {
   const backgroundStrips = new Map();
   let bikeSprite = null;
 
+  // Moving sprites sit at their exact position rounded to whole device pixels,
+  // so they glide instead of stepping a full art pixel at a time.
+  function translateToDevice(x, y) {
+    const scale = ctx.getTransform().a || 1;
+    ctx.translate(Math.round(x * scale) / scale, Math.round(y * scale) / scale);
+  }
+
   function drawApple(x, y, { glow = true } = {}) {
     if (glow) {
       drawPixelDisc(x, y, 15, '#fbf0ce50', ART_PIXEL);
@@ -338,7 +345,9 @@ export function createGameArt(ctx) {
   }
 
   function drawWheel(point) {
-    const cx = Math.round(point.x / ART_PIXEL) * ART_PIXEL, cy = Math.round(point.y / ART_PIXEL) * ART_PIXEL;
+    ctx.save();
+    translateToDevice(point.x, point.y);
+    const cx = 0, cy = 0;
     for (let y = -6; y <= 6; y++) for (let x = -6; x <= 6; x++) {
       const distance = Math.hypot(x,y);
       if (distance <= 6.5 && distance >= 4.7) pixelRect(cx+x*2,cy+y*2,2,2,'#203332');
@@ -350,6 +359,7 @@ export function createGameArt(ctx) {
       pixelPath([[cx,cy],[cx+Math.cos(spoke)*8,cy+Math.sin(spoke)*8]],'#657a70',1);
     }
     pixelRect(cx-2,cy-2,4,4,'#f1cb91');
+    ctx.restore();
   }
 
   function mountainY(worldX, layer) {
@@ -357,7 +367,7 @@ export function createGameArt(ctx) {
   }
 
   // Parallax layers are static in their own scroll space, so each is cached as
-  // 512-unit strips that are blitted at the layer's snapped scroll offset.
+  // 512-unit strips that are blitted at the layer's scroll offset.
   function backgroundStrip(layer, layerIndex, index, trees) {
     const key = `${layer.color}|${layerIndex}|${index}`;
     if (backgroundStrips.has(key)) {
@@ -391,7 +401,20 @@ export function createGameArt(ctx) {
     return canvas;
   }
 
-  function drawBackground({ width, height, palette, cameraX = 0, cameraY = 0, full = true }) {
+  /**
+   * `smooth` is for contexts that map world units to many device pixels: shapes
+   * keep their pixel grid but are placed at their exact scroll position.
+   */
+  function drawBackground({ width, height, palette, cameraX = 0, cameraY = 0, full = true, smooth = false }) {
+    // Offsets land on whole device pixels so pixel rows never blend at their seams.
+    const deviceScale = smooth ? ctx.getTransform().a : 1 / ART_PIXEL;
+    const snap = value => Math.round(value * deviceScale) / deviceScale;
+    // Draws pixel-snapped art around (x, y), then shifts it by the snapping error.
+    const placed = (x, y, grid, draw) => {
+      if (!smooth) { draw(x, y); return; }
+      const gx = Math.round(x / grid) * grid, gy = Math.round(y / grid) * grid;
+      ctx.save(); ctx.translate(snap(x - gx), snap(y - gy)); draw(gx, gy); ctx.restore();
+    };
     const weather = palette.weather || {};
     const rain = Math.max(0, Math.min(1, Number(weather.rain) || 0));
     const lightning = Math.max(0, Math.min(1, Number(weather.lightning) || 0));
@@ -403,7 +426,7 @@ export function createGameArt(ctx) {
     if (light.sunshine > 0) {
       ctx.save();
       ctx.globalAlpha = light.strength;
-      drawPixelDisc(light.x, light.y, 28 + light.sunshine * 8, palette.sun, 4);
+      placed(light.x, light.y, 4, (x, y) => drawPixelDisc(x, y, 28 + light.sunshine * 8, palette.sun, 4));
       ctx.restore();
     }
     if (cloudiness > 0) {
@@ -414,11 +437,11 @@ export function createGameArt(ctx) {
       ctx.save();
       ctx.globalAlpha = .42 + cloudiness * .5;
       for (let index = firstCloud; index < firstCloud + Math.ceil(width / spacing) + 2; index++) {
-        const x = index * spacing + 55 - cameraX * .07;
-        const y = 64 + Math.sin(index * 4) * 22 - cameraY * .08;
-        pixelRect(x, y, 54 * scale, 6 * scale, cloudColor, 4);
-        pixelRect(x + 12 * scale, y - 6 * scale, 24 * scale, 6 * scale, cloudColor, 4);
-        pixelRect(x + 30 * scale, y + 6 * scale, 42 * scale, 6 * scale, cloudColor, 4);
+        placed(index * spacing + 55 - cameraX * .07, 64 + Math.sin(index * 4) * 22 - cameraY * .08, 4, (x, y) => {
+          pixelRect(x, y, 54 * scale, 6 * scale, cloudColor, 4);
+          pixelRect(x + 12 * scale, y - 6 * scale, 24 * scale, 6 * scale, cloudColor, 4);
+          pixelRect(x + 30 * scale, y + 6 * scale, 42 * scale, 6 * scale, cloudColor, 4);
+        });
       }
       ctx.restore();
     }
@@ -429,8 +452,8 @@ export function createGameArt(ctx) {
         { color: '#8ea997', base: 247, amp: 24, frequency: .015, parallax: .29 }
       ];
       layers.forEach((layer, layerIndex) => {
-        const offsetX = Math.round(cameraX * layer.parallax / ART_PIXEL) * ART_PIXEL;
-        const offsetY = Math.round(cameraY * layer.parallax / ART_PIXEL) * ART_PIXEL;
+        const offsetX = snap(cameraX * layer.parallax);
+        const offsetY = snap(cameraY * layer.parallax);
         const first = Math.floor(offsetX / BACKGROUND_STRIP_WIDTH);
         const last = Math.floor((offsetX + width) / BACKGROUND_STRIP_WIDTH);
         for (let index = first; index <= last; index++) {
@@ -571,7 +594,7 @@ export function createGameArt(ctx) {
 
     ctx.save();
     ctx.imageSmoothingEnabled = false;
-    ctx.translate(Math.round(mx / ART_PIXEL) * ART_PIXEL, Math.round(my / ART_PIXEL) * ART_PIXEL);
+    translateToDevice(mx, my);
     ctx.rotate(pixelAngle); ctx.scale(flipVisual, 1);
     ctx.drawImage(sprite.canvas, -BIKE_SPRITE_REACH, -BIKE_SPRITE_REACH, BIKE_SPRITE_REACH * 2, BIKE_SPRITE_REACH * 2);
     ctx.restore();

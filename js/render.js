@@ -1,7 +1,9 @@
-// Scene rendering. The scene draws into a low-resolution buffer, one buffer
-// pixel per art pixel, which is scaled up by a whole number onto the screen.
+// Scene rendering. Everything is drawn straight onto the screen canvas, scaled
+// so one art pixel covers a whole number of device pixels. Art stays on its
+// pixel grid, while the camera and moving sprites are placed to the nearest
+// device pixel so scrolling and riding stay smooth.
 import { RADIUS, TAU, clamp, lerp } from './config.js';
-import { ART_PIXEL, createCanvas, createDrawingTools, createGameArt, propAlignmentSlope, propGroundOffset, sunLight, sunShadowOffset } from './drawing.js';
+import { ART_PIXEL, createDrawingTools, createGameArt, propAlignmentSlope, propGroundOffset, sunLight, sunShadowOffset } from './drawing.js';
 import { terrainAt, groundShadowSamples } from './terrain.js';
 import { createTerrainRenderer } from './terrain-render.js';
 import { vehicleMetrics } from './vehicle-physics.js';
@@ -17,9 +19,7 @@ const GHOST_ALPHA = .38;
 
 /** @param {HTMLCanvasElement} canvas */
 export function createRenderer(canvas) {
-  const screenCtx = canvas.getContext('2d');
-  const buffer = createCanvas(380, 410);
-  const ctx = buffer.getContext('2d');
+  const ctx = canvas.getContext('2d');
   const { pixelRect, pixelPath, drawPixelText } = createDrawingTools(ctx);
   const gameArt = createGameArt(ctx);
   const terrainRenderer = createTerrainRenderer();
@@ -41,13 +41,8 @@ export function createRenderer(canvas) {
     ));
     canvas.width = deviceWidth;
     canvas.height = deviceHeight;
-    buffer.width = Math.ceil(deviceWidth / pixelScale);
-    buffer.height = Math.ceil(deviceHeight / pixelScale);
-    W = buffer.width * ART_PIXEL;
-    H = buffer.height * ART_PIXEL;
-    ctx.setTransform(1 / ART_PIXEL, 0, 0, 1 / ART_PIXEL, 0, 0);
-    ctx.imageSmoothingEnabled = false;
-    screenCtx.imageSmoothingEnabled = false;
+    W = Math.ceil(deviceWidth / pixelScale) * ART_PIXEL;
+    H = Math.ceil(deviceHeight / pixelScale) * ART_PIXEL;
   }
 
   function reset(nextLevel, facing) {
@@ -284,13 +279,18 @@ export function createRenderer(canvas) {
     const flipSmoothing = reducedMotion ? 1 : 1 - Math.exp(-18 * dt);
     flipVisual = lerp(flipVisual, ride.facing, flipSmoothing);
     if (Math.abs(flipVisual - ride.facing) < .002) flipVisual = ride.facing;
+    const worldToDevice = pixelScale / ART_PIXEL;
     const view = camera.view();
-    cameraX = view.x; cameraY = view.y;
+    // Whole device pixels, so art on the world's pixel grid never straddles a pixel.
+    cameraX = Math.round(view.x * worldToDevice) / worldToDevice;
+    cameraY = Math.round(view.y * worldToDevice) / worldToDevice;
 
-    gameArt.drawBackground({ width: W, height: H, palette: level, cameraX: view.x, cameraY: view.y, full });
-    ctx.save(); ctx.translate(-view.x, -view.y);
+    ctx.setTransform(worldToDevice, 0, 0, worldToDevice, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    gameArt.drawBackground({ width: W, height: H, palette: level, cameraX, cameraY, full, smooth: true });
+    ctx.save(); ctx.translate(-cameraX, -cameraY);
     effects.update(animationDt);
-    terrainRenderer.draw(ctx, level, view.x, view.y, W, H);
+    terrainRenderer.draw(ctx, level, cameraX, cameraY, W, H);
     drawSkidMarks(effects.skidMarks);
     drawSceneryShadows(ride, now, full);
     drawProps('back', full);
@@ -312,7 +312,6 @@ export function createRenderer(canvas) {
     effects.prune();
     ctx.restore();
     drawWeather(effects.weather);
-    screenCtx.drawImage(buffer, 0, 0, buffer.width * pixelScale, buffer.height * pixelScale);
   }
 
   return {
