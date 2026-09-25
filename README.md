@@ -13,11 +13,15 @@ The current version is a dependency-free browser prototype built with native Jav
 - Rider weight transfer, wheelies, and stoppies
 - Independent front and rear suspension animation
 - Impact-sensitive suspension compression and landing rebound
-- Live post-crash rider ragdoll simulation with a detached, coasting bike
+- Live post-crash rider ragdoll with jointed elbows and knees, while the crashed bike keeps colliding with the ground
 - Direction flipping with an animated rider and bike transition
 - Code-drawn pixel presentation with smooth terrain, mountains, and apples for readability
 - Responsive mobile and expanded desktop layouts with optional fullscreen play
-- Keyboard and touch controls
+- Keyboard, touch, and gamepad controls with remappable keys
+- Ghost of your best run, with split deltas at each apple
+- Results screen with rank, personal best, flips, and gold/silver/bronze medal targets
+- The run timer starts on your first input
+- Installable as an offline-capable web app
 - Two selectable riders: Max and Maxine
 - Layered foreground and background scenery
 - Terrain-colored wheel spray, brake lights, and fading ground skid marks
@@ -49,13 +53,15 @@ A local server is required because the game uses native JavaScript modules and f
 | Lean backward / forward | `Left Arrow` / `Right Arrow` or `A` / `D` | Lean buttons |
 | Flip riding direction | `Space` | — |
 | Restart trail | `R` | Compact restart button in the game viewport |
-| Pause / resume | — | Pause button |
+| Pause / resume | `P` | Pause button |
 | Open / close the main menu | `Escape` | In-game menu button |
 | Toggle fullscreen | Fullscreen button | Fullscreen button |
 | Navigate dashboard controls | Arrow keys or `W` / `A` / `S` / `D` | Tap a menu item |
 | Activate the focused menu action | `Enter` or `Space` | Tap a menu item |
 
-Lean labels adjust to the direction the rider is facing.
+Lean labels adjust to the direction the rider is facing. Every keyboard action can be rebound under **Settings → Keys**. Holding restart freezes the bike until you let go, so you can line up a clean start.
+
+Gamepads use the standard mapping: `RT` or `A` for gas, `LT` or `X` for brake, the left stick or d-pad to lean, `B` to turn around, `Y` to restart, and `Start` to pause. In menus, the d-pad or stick moves the selection, `A` confirms, and `B` goes back.
 
 ## Trails
 
@@ -110,7 +116,11 @@ The dashboard's Settings view includes:
 
 - Full or reduced scenery
 - Visible or hidden on-screen controls
-- Sound effects on or off
+- Sound effects on or off, and master volume
+- Screen shake (off by default when the system prefers reduced motion)
+- Vibration on landings and crashes (on devices that support it)
+- Ghost of your best run on or off
+- Keyboard bindings
 
 The game opens on a dedicated dashboard before any level is loaded or rendered. Settings, level selection, and an illustrated How to Play guide are full dashboard views rather than separate modals. Control instructions are centralized in the guide instead of being repeated around the gameplay interface. It provides three independent savegame slots. The main dashboard shows only the active career, while the Load Game view contains slot selection and deletion. New Game always uses an empty slot; when all slots are occupied, one must be explicitly deleted first. A rider is chosen when a slot is created and is permanently tied to that save.
 
@@ -122,8 +132,9 @@ Current storage keys:
 - `pocket-trials-saves-v2`
 - `pocket-trials-active-slot-v1`
 - `pocket-trials-leaderboard-v1`
+- `pocket-trials-ghost-v1:<trail>` (inputs of the best run, re-simulated as the ghost)
 
-The dashboard's Leaderboard view ranks the ten fastest finishes per official and custom trail across all savegames on the device. Runs remain on the board after their savegame is deleted.
+The dashboard's Leaderboard view ranks the ten fastest finishes per official and custom trail across all savegames on the device. Runs remain on the board after their savegame is deleted. Custom trails are keyed by a hash of their geometry, so editing a trail's layout starts a fresh board, while renaming it keeps the existing one.
 
 Clearing site data resets settings, progression, and recorded times.
 
@@ -139,9 +150,21 @@ Clearing site data resets settings, progression, and recorded times.
 │   ├── official/       # Shipped career trails
 │   ├── custom/         # Locally authored standalone trails
 │   └── catalog.json    # Generated level index
-├── scripts/            # Catalog generator and development watcher
+├── scripts/            # Catalog generator, dev server, tests, and replay recorder
+├── tests/replays/      # One recorded replay per official trail (regression fixtures)
 ├── js/
-│   ├── main.js         # Game loop, simulation, rendering, input, and UI orchestration
+│   ├── main.js         # Entry point and service worker registration
+│   ├── game.js         # State machine, fixed-step loop, and event handling
+│   ├── ride.js         # DOM-free ride simulation: rider probes, spikes, apples, goal, crash
+│   ├── ragdoll.js      # Jointed post-crash rider ragdoll
+│   ├── det-math.js     # Deterministic sin/cos/atan2/exp/log, identical in every JS engine
+│   ├── render.js       # Canvas rendering of the world, bike, ghost, and effects
+│   ├── camera.js       # Camera follow and screen shake
+│   ├── effects.js      # Particles, skid marks, and weather
+│   ├── input.js        # Keyboard, touch, and gamepad input with remapping
+│   ├── state.js        # Shared session state and preferences
+│   ├── ui/             # Dashboard menu and in-game overlay/results
+│   ├── vehicle-physics.js # Wheel, suspension, and chassis simulation
 │   ├── physics.js      # Reusable bike-constraint physics helpers
 │   ├── physics-debug.js # Opt-in physics tracing and console export
 │   ├── editor.js       # Visual editor tools, canvas interaction, and import/export
@@ -211,6 +234,10 @@ To investigate physics, open the game with `?physicsDebug=1`. The overlay shows 
 
 `npm test` also runs the DOM-independent vehicle harness in `scripts/test-vehicle-physics.mjs`. It exercises flat acceleration, braking versus coasting, stationary wheel lift, air rotation, mirrored hills, valley settling, and one-wheel landing through the exact `js/vehicle-physics.js` code used by the game.
 
+`scripts/test-replays.mjs` replays one recorded run per official trail through `js/ride.js` and checks that the finish time, apples, and crash outcome are unchanged, with no NaN values and no terrain tunnelling. After an intentional handling change, re-record the fixtures with `npm run replays`. A search bot drives each trail and writes `tests/replays/*.json`. The simulation only uses `js/det-math.js` for transcendental functions, so a replay recorded in Node plays back bit-for-bit in the browser. Don't use `Math.sin`, `Math.atan2`, `Math.exp`, and similar functions in simulation code, because their last-digit results differ between JavaScript engines.
+
+Run `npm run check` (syntax), `npm run typecheck` (JSDoc types in `// @ts-check` files), and `npm test` before pushing. CI runs all three.
+
 When changing physics values, validate at least these cases:
 
 1. Starting from rest on a moderate hill
@@ -270,13 +297,12 @@ resources/
 
 ## Roadmap ideas
 
-- Sound effects and music
-- Gamepad support
+- Music
 - More trails and terrain features
 - Moving and interactive obstacles
 - Improved rider animation
-- Ghost runs and replays
-- Online or local leaderboards
+- Shareable replay files
+- Online leaderboards
 - Additional bikes and cosmetic customization
 - A visual level-building workflow
 

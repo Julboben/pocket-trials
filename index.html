@@ -1,7 +1,12 @@
 <html data-type="html" data-identifier="4154825f-50c6-4a6f-97bb-8b1ab631f51b" data-title="Pocket Trials" data-version="1" width="600" height="740" lang="en"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111c20">
+<meta name="description" content="A pixel-art motorcycle trials game. Balance, collect every apple and reach the flag.">
 <title>Pocket Trials</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icons/icon-maskable.svg">
 <link rel="stylesheet" href="./css/game.css">
 </head>
 <body>
@@ -16,6 +21,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7C5 2 0 10 5 18c3 5 5 2 7 2s4 3 7-2c5-8 0-16-7-11Z" fill="#ec7044"></path><path d="M12 7c0-4 2-6 5-5 0 3-2 4-5 5" fill="#4b7952"></path></svg>
         <span id="apple-count">0 / 5</span>
       </div>
+      <div class="hud-pill split-pill" id="split" hidden></div>
     </div>
     <div class="toast" id="toast" role="status"></div>
     <div class="scene-label" id="scene-label" data-trail-number="01">THE ORCHARD</div>
@@ -35,9 +41,20 @@
       <div class="modal">
         <div class="modal-badge" id="overlay-badge">CRASHED</div>
         <h2 id="overlay-title">Wiped Out</h2>
+        <div class="results" id="results" hidden>
+          <div class="results-time"><strong id="results-time">0:00.0</strong><span class="results-delta" id="results-delta"></span></div>
+          <div class="results-medal" id="results-medal" data-medal=""></div>
+          <dl class="results-stats">
+            <div><dt>RANK</dt><dd id="results-rank">—</dd></div>
+            <div><dt>BEST</dt><dd id="results-best">—</dd></div>
+            <div><dt>FLIPS</dt><dd id="results-flips">0</dd></div>
+          </dl>
+          <ol class="results-targets" id="results-targets" aria-label="Medal target times"></ol>
+        </div>
         <p id="overlay-description">Your helmet hit the ground. Reset and give the trail another run.</p>
         <button class="primary" id="primary">Try Again ↗</button>
         <button class="secondary" id="secondary" hidden="">Back to Menu</button>
+        <p class="results-hint" id="results-hint" hidden></p>
       </div>
     </div>
     <div class="pause-overlay" id="pause-overlay" hidden><span class="pause-title">PAUSED</span><span class="pause-hint">Press P or Esc to resume</span></div>
@@ -173,11 +190,45 @@
               <button type="button" class="setting-option" data-setting="sound" data-value="off">Off</button>
             </div>
           </fieldset>
+          <fieldset class="setting-group">
+            <legend>VOLUME</legend>
+            <div class="setting-range">
+              <input type="range" id="setting-volume" min="0" max="100" step="5" aria-label="Volume">
+              <output id="setting-volume-value" for="setting-volume">80</output>
+            </div>
+          </fieldset>
+          <fieldset class="setting-group">
+            <legend>SCREEN SHAKE</legend>
+            <div class="setting-options" style="--options:2">
+              <button type="button" class="setting-option" data-setting="shake" data-value="on">On</button>
+              <button type="button" class="setting-option" data-setting="shake" data-value="off">Off</button>
+            </div>
+          </fieldset>
+          <fieldset class="setting-group">
+            <legend>VIBRATION</legend>
+            <div class="setting-options" style="--options:2">
+              <button type="button" class="setting-option" data-setting="haptics" data-value="on">On</button>
+              <button type="button" class="setting-option" data-setting="haptics" data-value="off">Off</button>
+            </div>
+          </fieldset>
+          <fieldset class="setting-group">
+            <legend>GHOST OF BEST RUN</legend>
+            <div class="setting-options" style="--options:2">
+              <button type="button" class="setting-option" data-setting="ghost" data-value="on">Show</button>
+              <button type="button" class="setting-option" data-setting="ghost" data-value="off">Hide</button>
+            </div>
+          </fieldset>
+          <fieldset class="setting-group setting-keys">
+            <legend>KEYS</legend>
+            <div class="key-bindings" id="key-bindings"></div>
+            <p class="setting-note" id="gamepad-note">Gamepad: RT/A gas · LT/X brake · stick or d-pad lean · B turn · Y restart · Start pause</p>
+          </fieldset>
         </div>
       </div>
     </div>
   </section>
 </main>
 <script type="module" src="./js/main.js"></script>
+<noscript>Pocket Trials needs JavaScript.</noscript>
 
 </body></html>

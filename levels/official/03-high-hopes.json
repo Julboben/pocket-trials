@@ -4,6 +4,11 @@
   "goal": 3260,
   "terrain": "rock",
   "description": "Steeper faces create wheelies and bigger airtime. Shift your weight early, then use small lean inputs to match the landing slope.",
+  "medals": {
+    "gold": 18.5,
+    "silver": 24.5,
+    "bronze": 32
+  },
   "start": {
     "x": 90,
     "y": null,

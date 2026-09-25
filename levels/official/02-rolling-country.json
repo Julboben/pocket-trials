@@ -4,6 +4,11 @@
   "goal": 2820,
   "terrain": "dirt",
   "description": "Momentum is your friend. Carry speed through valleys, ease over crests, and lean forward when the front wheel gets light.",
+  "medals": {
+    "gold": 16.5,
+    "silver": 21,
+    "bronze": 28
+  },
   "start": {
     "x": 90,
     "y": null,

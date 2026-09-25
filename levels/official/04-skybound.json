@@ -4,6 +4,11 @@
   "goal": 3020,
   "terrain": "grass",
   "description": "Commit to the jumps. Build speed before each lip, stay calm in the air, and line both wheels up with the far-side slope.",
+  "medals": {
+    "gold": 14.5,
+    "silver": 19,
+    "bronze": 25
+  },
   "start": {
     "x": 90,
     "y": null,

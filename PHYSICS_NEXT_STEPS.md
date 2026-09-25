@@ -41,7 +41,15 @@ The automated suite covers:
 - Valley settling
 - One-wheel landing and second-wheel recovery
 
-The game and deterministic scenarios execute the same DOM-independent `js/vehicle-physics.js` step function. Run the complete suite with `npm test`.
+- One recorded replay per official trail (`tests/replays/`), replayed through the DOM-free `js/ride.js` to check finish time, apples, crash outcome, NaN values, and tunnelling
+- Seeded ragdoll determinism, elbow/knee hinge limits, and the crashed chassis resting on the ground
+- Chassis-anchored rider probes that follow chassis pitch
+
+The game and deterministic scenarios execute the same DOM-independent `js/ride.js` and `js/vehicle-physics.js` step functions. Run the complete suite with `npm test`.
+
+## Cross-engine determinism
+
+V8 in Chrome and V8 in Node return different last-digit results for `Math.sin`, `cos`, `atan2`, `exp`, `log`, and related functions. A one-ULP difference compounds into a different run within a few hundred steps. Simulation code therefore imports these functions from `js/det-math.js`, which implements them with only `+ − × ÷` and `sqrt` (both exactly rounded by IEEE 754), ported from fdlibm/musl. `scripts/test-det-math.mjs` checks their accuracy against `Math`. Keep `Math.*` transcendentals out of `ride.js`, `ragdoll.js`, `vehicle-physics.js`, `physics.js`, and `terrain.js`. They are fine in rendering code.
 
 ## Manual handling pass still required
 
@@ -58,5 +66,5 @@ Tune restitution, friction, suspension compliance/damping, and the grounded-norm
 
 ## Next steps
 
-1. Record one representative debug replay per official trail and add them to the deterministic vehicle scenarios as the handling regression suite.
-2. Profile the solver before optimizing; prioritize terrain contact queries and repeated constraint-array allocation only when measurements show they matter.
+1. Replace the bot-recorded fixtures with hand-ridden replays once handling tuning settles, since bot lines avoid some of the riskier features.
+2. Profile the solver before optimizing further. The terrain collision index, hot-path allocation, and curve lookup work are already done.

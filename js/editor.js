@@ -19,6 +19,7 @@ const ctx = canvas.getContext('2d');
 const art = createGameArt(ctx);
 const tools = createDrawingTools(ctx);
 const DRAFT_PREFIX = 'pocket-trials-editor-draft-v1-';
+const GAP_MIN_WIDTH = 20;
 
 let devServer = false;
 let levelIndex = 0;
@@ -90,7 +91,7 @@ const propTypeOptions = () => [...$('selection-prop-type').options].map(option =
 const materialOptions = () => [[BASE_MATERIAL, 'Level base material'], ...Object.keys(terrainMaterials).map(name => [name, name.toUpperCase()])];
 
 const TOOL_INFO = {
-  select: { title: 'Select', hint: 'Click to select and drag to move. Double-click an island edge or the ground to add a point. Delete removes the selection.' },
+  select: { title: 'Select', hint: 'Click to select and drag to move. Double-click an island edge or the ground to add a point. Drag a gap edge to resize it, or its middle to move it; Alt/Option-click reaches a ground point under a gap edge. Delete removes the selection.' },
   pan: { title: 'Pan', hint: 'Drag to move the view. Hold Space or use the middle mouse button to pan with any tool.' },
   ground: { title: 'Ground point', hint: 'Click to add a point to the main ground line.' },
   gap: {
@@ -366,7 +367,10 @@ function drawHandles() {
   });
   (level.paths || []).forEach((path, pathIndex) => path.points.forEach((point, index) => drawHandle(point[0], point[1], selection?.kind === 'pathPoint' && selection.pathIndex === pathIndex && selection.index === index, '#f0b45f')));
   for (const [index, gap] of (level.gaps || []).entries()) {
-    for (const x of gap) drawHandle(x, curveAt(level.points, x).y, isSelected('gap', index), '#e65e56');
+    gap.forEach((x, edge) => {
+      const selected = isSelected('gap', index) && (selection.edge === undefined || selection.edge === edge);
+      drawHandle(x, curveAt(level.points, x).y, selected, '#e65e56');
+    });
   }
   level.apples.forEach((apple, index) => drawHandle(apple.x, objectY(apple, 60), isSelected('apple', index), '#ef8150'));
   level.props.forEach((prop, index) => drawHandle(prop.x, objectY(prop), isSelected('prop', index), '#83d1ce'));
@@ -391,20 +395,28 @@ function render() {
   ctx.restore();
 }
 
-function hitTest(point) {
+/** Alt/Option-click passes `skipGaps` to reach a ground point hidden under a gap edge. */
+function hitTest(point, { skipGaps = false } = {}) {
   const threshold = 13 / zoom;
   let best = null;
   const consider = (selectionValue, x, y) => {
     const distance = Math.hypot(point.x - x, point.y - y);
     if (distance <= threshold && (!best || distance < best.distance)) best = { selection: selectionValue, distance };
   };
+  // Gap edges often sit exactly on a ground point; they are drawn on top, so they win ties.
+  if (!skipGaps) level.gaps.forEach((gap, index) => {
+    const [left, right] = gap.map(x => curveAt(level.points, x).y);
+    consider({ kind: 'gap', index, edge: 0 }, gap[0], left);
+    consider({ kind: 'gap', index, edge: 1 }, gap[1], right);
+    // Between the two edge handles grabs the whole gap.
+    consider({ kind: 'gap', index }, (gap[0] + gap[1]) / 2, (left + right) / 2);
+  });
   level.points.forEach((value, index) => consider({ kind: 'groundPoint', index }, value[0], value[1]));
   level.platforms.forEach((platform, platformIndex) => {
     platform.points.forEach((value, index) => consider({ kind: 'platformPoint', platformIndex, index }, value[0], value[1]));
     platform.bottom.forEach((value, index) => consider({ kind: 'platformBottomPoint', platformIndex, index }, value[0], value[1]));
   });
   level.paths.forEach((path, pathIndex) => path.points.forEach((value, index) => consider({ kind: 'pathPoint', pathIndex, index }, value[0], value[1])));
-  level.gaps.forEach((gap, index) => consider({ kind: 'gap', index }, (gap[0] + gap[1]) / 2, curveAt(level.points, (gap[0] + gap[1]) / 2).y));
   level.apples.forEach((apple, index) => consider({ kind: 'apple', index }, apple.x, objectY(apple, 60)));
   level.props.forEach((prop, index) => consider({ kind: 'prop', index }, prop.x, objectY(prop)));
   level.spikes.forEach((spike, index) => consider({ kind: 'spike', index }, spike.x, spike.y));
@@ -454,7 +466,11 @@ function selectedPosition() {
   if (selection.kind === 'prop') { const prop = level.props[selection.index]; return [prop.x, objectY(prop)]; }
   if (selection.kind === 'spike') { const spike = level.spikes[selection.index]; return [spike.x, spike.y]; }
   if (selection.kind === 'start') return [level.start.x, Number.isFinite(level.start.y) ? level.start.y : curveAt(level.points, level.start.x).y - 12];
-  if (selection.kind === 'gap') return [(level.gaps[selection.index][0] + level.gaps[selection.index][1]) / 2, curveAt(level.points, level.gaps[selection.index][0]).y];
+  if (selection.kind === 'gap') {
+    const gap = level.gaps[selection.index];
+    const x = selection.edge === undefined ? (gap[0] + gap[1]) / 2 : gap[selection.edge];
+    return [x, curveAt(level.points, x).y];
+  }
   if (selection.kind === 'goal') return [level.goal, curveAt(level.points, level.goal).y - 112];
   return null;
 }
@@ -557,8 +573,18 @@ function updateSelectedPosition(x, y) {
   } else if (selection.kind === 'start') {
     level.start.x = x; level.start.y = y;
   } else if (selection.kind === 'gap') {
-    const gap = level.gaps[selection.index], half = (gap[1] - gap[0]) / 2;
-    gap[0] = x - half; gap[1] = x + half;
+    const gap = level.gaps[selection.index];
+    // Edges stay clear of the neighbouring gaps and keep a minimum width.
+    const previousEnd = level.gaps[selection.index - 1]?.[1] ?? -Infinity;
+    const nextStart = level.gaps[selection.index + 1]?.[0] ?? Infinity;
+    if (selection.edge === 0) gap[0] = Math.max(previousEnd + GAP_MIN_WIDTH, Math.min(gap[1] - GAP_MIN_WIDTH, x));
+    else if (selection.edge === 1) gap[1] = Math.min(nextStart - GAP_MIN_WIDTH, Math.max(gap[0] + GAP_MIN_WIDTH, x));
+    else {
+      const half = (gap[1] - gap[0]) / 2;
+      const center = Math.max(previousEnd + GAP_MIN_WIDTH + half, Math.min(nextStart - GAP_MIN_WIDTH - half, x));
+      gap[0] = center - half; gap[1] = center + half;
+    }
+    invalidateTerrain(level);
   } else if (selection.kind === 'goal') level.goal = x;
 }
 
@@ -827,7 +853,7 @@ canvas.addEventListener('pointerdown', event => {
     panning = true; pointerStart = { clientX: event.clientX, clientY: event.clientY, cameraX, cameraY }; canvas.setPointerCapture(event.pointerId); return;
   }
   if (tool !== 'select') { addAt(point); return; }
-  selection = hitTest(point);
+  selection = hitTest(point, { skipGaps: event.altKey });
   if (selection) { pushHistory(); dragging = true; canvas.setPointerCapture(event.pointerId); }
   syncInspector(); render();
 });

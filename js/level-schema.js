@@ -1,5 +1,6 @@
-import { terrainMaterials } from './levels.js';
+import { terrainMaterials } from './materials.js';
 import { curveAt, platformUndersideAt } from './terrain.js';
+import { hypot } from './det-math.js';
 
 export const cloneLevel = level => JSON.parse(JSON.stringify(level));
 
@@ -101,7 +102,25 @@ export function normalizeLevel(input, index = 0) {
   })) : [];
   level.spikes = Array.isArray(level.spikes) ? level.spikes.map(spike => normalizeSpike(spike, level.points)) : [];
   level.weather = { ...fallback.weather, ...(level.weather || {}) };
+  const medals = normalizeMedals(level.medals);
+  if (medals) level.medals = medals; else delete level.medals;
   return level;
+}
+
+export const MEDALS = ['gold', 'silver', 'bronze'];
+
+/** Target times in seconds; invalid or incomplete tables are dropped. */
+export function normalizeMedals(medals) {
+  if (!medals || typeof medals !== 'object') return null;
+  const times = MEDALS.map(name => Number(medals[name]));
+  if (!times.every(time => Number.isFinite(time) && time > 0)) return null;
+  return { gold: times[0], silver: times[1], bronze: times[2] };
+}
+
+/** @returns {'gold' | 'silver' | 'bronze' | null} */
+export function medalFor(medals, time) {
+  if (!medals) return null;
+  return MEDALS.find(name => time <= medals[name]) || null;
 }
 
 export function validateLevel(level) {
@@ -131,9 +150,9 @@ export function validateLevel(level) {
     for (let pointIndex = 0; pointIndex < path.points.length; pointIndex++) {
       const point = path.points[pointIndex];
       if (!Number.isFinite(point?.[0]) || !Number.isFinite(point?.[1])) error(`Path ${index + 1} point ${pointIndex + 1} must contain finite coordinates.`);
-      if (pointIndex > 0 && Math.hypot(point[0] - path.points[pointIndex - 1][0], point[1] - path.points[pointIndex - 1][1]) < 1) error(`Path ${index + 1} has coincident consecutive points.`);
+      if (pointIndex > 0 && hypot(point[0] - path.points[pointIndex - 1][0], point[1] - path.points[pointIndex - 1][1]) < 1) error(`Path ${index + 1} has coincident consecutive points.`);
     }
-    if (path.closed && path.points.length > 2 && Math.hypot(path.points[0][0] - path.points.at(-1)[0], path.points[0][1] - path.points.at(-1)[1]) < 1) error(`Path ${index + 1} is closed automatically; remove its repeated final point.`);
+    if (path.closed && path.points.length > 2 && hypot(path.points[0][0] - path.points.at(-1)[0], path.points[0][1] - path.points.at(-1)[1]) < 1) error(`Path ${index + 1} is closed automatically; remove its repeated final point.`);
   }
   for (const [index, platform] of (level.platforms || []).entries()) {
     if (!terrainMaterials[platform.material]) error(`Platform ${index + 1} has an unknown material.`);
@@ -177,11 +196,16 @@ export function validateLevel(level) {
     if (!Number.isFinite(spike.x) || !Number.isFinite(spike.y)) error(`Spike ${index + 1} must have finite coordinates.`);
     if (!(spike.radius >= SPIKE_RADIUS.min && spike.radius <= SPIKE_RADIUS.max)) error(`Spike ${index + 1} radius must be between ${SPIKE_RADIUS.min} and ${SPIKE_RADIUS.max}.`);
     const startY = Number.isFinite(level.start?.y) ? level.start.y : curveAt(level.points, level.start.x).y - 12;
-    if (Math.hypot(spike.x - level.start.x, spike.y - startY) < spike.radius + 70) warning(`Spike ${index + 1} is very close to the start position.`);
+    if (hypot(spike.x - level.start.x, spike.y - startY) < spike.radius + 70) warning(`Spike ${index + 1} is very close to the start position.`);
     for (const apple of level.apples || []) {
       const appleY = Number.isFinite(apple.y) ? apple.y : curveAt(level.points, apple.x).y - 60;
-      if (Math.hypot(spike.x - apple.x, spike.y - appleY) < spike.radius + 10) warning(`Spike ${index + 1} overlaps the apple at x ${Math.round(apple.x)}.`);
+      if (hypot(spike.x - apple.x, spike.y - appleY) < spike.radius + 10) warning(`Spike ${index + 1} overlaps the apple at x ${Math.round(apple.x)}.`);
     }
+  }
+  if (level.medals !== undefined) {
+    const times = MEDALS.map(name => Number(level.medals?.[name]));
+    if (!times.every(time => Number.isFinite(time) && time > 0)) error('Medal times need positive gold, silver and bronze values in seconds.');
+    else if (!(times[0] <= times[1] && times[1] <= times[2])) error('Medal times must get slower from gold to silver to bronze.');
   }
   for (const key of ['sun', 'clouds', 'rain', 'lightning']) {
     const value = level.weather?.[key];
