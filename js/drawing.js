@@ -144,7 +144,7 @@ export function createGameArt(ctx) {
     ctx.restore();
   }
 
-  function drawFlag(x, y, unlocked) {
+  function drawFlag(x, y, unlocked, remaining = 0) {
     pixelRect(x-2,y-108,4,108,'#304a42',2); pixelRect(x-4,y-112,8,6,'#ed9150',2);
     const size=8;
     for(let row=0;row<3;row++) for(let col=0;col<4;col++) {
@@ -152,7 +152,7 @@ export function createGameArt(ctx) {
     }
     pixelRect(x-24,y-62,48,16,'#f4e9d1',2);
     ctx.fillStyle='#365345'; ctx.font='bold 7px ui-monospace, monospace'; ctx.textAlign='center';
-    ctx.fillText(unlocked?'FINISH':'5 APPLES',x,y-51);
+    ctx.fillText(unlocked?'FINISH':`${remaining} APPLE${remaining===1?'':'S'}`,x,y-51);
   }
 
   function drawWheel(point) {

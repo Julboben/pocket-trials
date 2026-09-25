@@ -32,13 +32,33 @@ async function loadJson(url, description) {
   return response.json();
 }
 
-const catalog = await loadJson(new URL('../levels/catalog.json', import.meta.url), 'level catalog');
-if (catalog.schemaVersion !== 1 || !Array.isArray(catalog.levels)) throw new Error('Unsupported level catalog format.');
+async function loadLevelEntries() {
+  const catalog = await loadJson(new URL('../levels/catalog.json', import.meta.url), 'level catalog');
+  if (catalog.schemaVersion !== 1 || !Array.isArray(catalog.levels)) throw new Error('Unsupported level catalog format.');
+  return Promise.all(catalog.levels.map(async entry => ({
+    ...entry,
+    level: await loadJson(new URL(`../levels/${entry.file}`, import.meta.url), `level ${entry.file}`)
+  })));
+}
 
-export const levelEntries = await Promise.all(catalog.levels.map(async entry => ({
-  ...entry,
-  level: await loadJson(new URL(`../levels/${entry.file}`, import.meta.url), `level ${entry.file}`)
-})));
+function showLoadError(error) {
+  const message = document.createElement('div');
+  message.setAttribute('role', 'alert');
+  message.style.cssText = 'position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:24px;'
+    + 'background:#0f1a1c;color:#f6f3e8;font:600 14px/1.6 ui-monospace,monospace;text-align:center;';
+  message.textContent = `Could not load the trails: ${error.message}. Start the game with "npm run dev" so the level files can be fetched.`;
+  document.body.append(message);
+}
+
+let loadedEntries;
+try {
+  loadedEntries = await loadLevelEntries();
+} catch (error) {
+  showLoadError(error);
+  throw error;
+}
+
+export const levelEntries = loadedEntries;
 
 export const officialLevelEntries = levelEntries.filter(entry => entry.source === 'official');
 export const customLevelEntries = levelEntries.filter(entry => entry.source === 'custom');

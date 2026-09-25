@@ -2,16 +2,18 @@ import {
   STEP, RADIUS, WHEELBASE, GRAVITY, MAX_POINT_SPEED, UPHILL_TORQUE_BOOST,
   BIKE_SOLVER_ITERATIONS, BIKE_VELOCITY_ITERATIONS,
   XPBD_CHASSIS_COMPLIANCE, XPBD_CHASSIS_AREA_COMPLIANCE,
-  XPBD_SUSPENSION_COMPLIANCE, XPBD_SUSPENSION_DAMPING,
+  XPBD_SUSPENSION_COMPLIANCE, XPBD_SUSPENSION_DAMPING, XPBD_SUSPENSION_REBOUND_DAMPING,
   XPBD_LONGITUDINAL_COMPLIANCE, XPBD_LONGITUDINAL_DAMPING,
-  XPBD_CROSS_LINK_COMPLIANCE, XPBD_CROSS_LINK_DAMPING,
+  XPBD_SUSPENSION_SLIDER_COMPLIANCE, XPBD_CROSS_LINK_DAMPING,
   SUSPENSION_REST_LENGTH, SUSPENSION_TRAVEL, XPBD_WHEELBASE_SLACK,
   WHEEL_INERTIA, WHEEL_FRICTION,
   XPBD_CHASSIS_MOUNT_INVERSE_MASS, XPBD_CHASSIS_TOP_INVERSE_MASS,
   XPBD_MOTOR_ANGULAR_ACCELERATION, XPBD_MAX_DRIVE_SPEED, XPBD_MOTOR_REACTION_SCALE, XPBD_UPHILL_REACTION_REDUCTION,
   XPBD_RIDER_GROUND_ANGULAR_ACCELERATION, XPBD_RIDER_AIR_ANGULAR_ACCELERATION,
+  XPBD_RIDER_LEVERAGE_FADE_START, XPBD_RIDER_LEVERAGE_FADE_END, XPBD_RIDER_MAX_AIR_SPIN, XPBD_RIDER_AIR_SPIN_RESPONSE, XPBD_RIDER_MAX_GROUND_SPIN,
+  XPBD_TOUCHDOWN_SPIN_THRESHOLD, XPBD_TOUCHDOWN_SPIN_ABSORPTION,
   XPBD_THROTTLE_LEAN_ASSIST, XPBD_THROTTLE_INPUT_RESPONSE, XPBD_LEAN_INPUT_RESPONSE,
-  XPBD_UPHILL_FORWARD_LEAN_REDUCTION, XPBD_UPHILL_FORWARD_LEAN_MOTOR_BOOST,
+  XPBD_UPHILL_FORWARD_LEAN_REDUCTION, XPBD_UPHILL_FORWARD_LEAN_FULL_TILT, XPBD_UPHILL_FORWARD_LEAN_MOTOR_BOOST,
   XPBD_UPHILL_ANTI_WHEELIE_ACCELERATION, XPBD_BRAKE_REACTION_SCALE, XPBD_BRAKE_REACTION_LIMIT,
   XPBD_BRAKE_RATE, XPBD_CONTACT_LOAD_SCALE, XPBD_DRIVE_LOAD_SCALE, XPBD_UPHILL_CONTACT_LOAD_SCALE, XPBD_ROLLING_LOAD_SCALE,
   XPBD_COAST_RESISTANCE_LOW_SPEED, XPBD_COAST_RESISTANCE_HIGH_SPEED,
@@ -20,9 +22,9 @@ import {
   clamp, lerp
 } from './config.js';
 import {
-  createDistanceConstraint, createAreaConstraint, signedTriangleArea,
+  createDistanceConstraint, createAreaConstraint, createSliderConstraint, signedTriangleArea,
   resetConstraintMultiplier, solveXpbdConstraint, dampingPerIteration,
-  dampDistanceConstraint, riderTorqueMultiplier, riderTerrainTorqueScale,
+  dampDistanceConstraint, riderTorqueMultiplier, riderTerrainTorqueScale, riderTiltTorqueScale, riderSpinTorqueScale,
   advanceAfterTimeOfImpact, solveWheelContactVelocity
 } from './physics.js';
 import { terrainAt, terrainCollisionsAt, terrainSweepCollision } from './terrain.js';
@@ -37,7 +39,6 @@ export function createVehicle(rear, front) {
     frontMount: makePoint(front.x, mountY, XPBD_CHASSIS_MOUNT_INVERSE_MASS),
     top: makePoint((rear.x + front.x) / 2, mountY - 22, XPBD_CHASSIS_TOP_INVERSE_MASS)
   };
-  const diagonal = Math.hypot(WHEELBASE, SUSPENSION_REST_LENGTH);
   const wheelbaseLimit = createDistanceConstraint(rear, front, WHEELBASE, {
     compliance: 0,
     damping: XPBD_CROSS_LINK_DAMPING,
@@ -50,12 +51,12 @@ export function createVehicle(rear, front) {
     createDistanceConstraint(chassis.frontMount, chassis.top, Math.hypot(WHEELBASE / 2, 22), { compliance: XPBD_CHASSIS_COMPLIANCE, damping: 1 }),
     createAreaConstraint(chassis.rearMount, chassis.frontMount, chassis.top, { compliance: XPBD_CHASSIS_AREA_COMPLIANCE }),
     createDistanceConstraint(rear, front, WHEELBASE, { compliance: XPBD_LONGITUDINAL_COMPLIANCE, damping: XPBD_LONGITUDINAL_DAMPING }),
-    createDistanceConstraint(rear, chassis.rearMount, SUSPENSION_REST_LENGTH, { compliance: XPBD_SUSPENSION_COMPLIANCE, damping: XPBD_SUSPENSION_DAMPING }),
-    createDistanceConstraint(front, chassis.frontMount, SUSPENSION_REST_LENGTH, { compliance: XPBD_SUSPENSION_COMPLIANCE, damping: XPBD_SUSPENSION_DAMPING }),
-    createDistanceConstraint(rear, chassis.frontMount, diagonal, { compliance: XPBD_CROSS_LINK_COMPLIANCE, damping: XPBD_CROSS_LINK_DAMPING }),
-    createDistanceConstraint(front, chassis.rearMount, diagonal, { compliance: XPBD_CROSS_LINK_COMPLIANCE, damping: XPBD_CROSS_LINK_DAMPING }),
+    createDistanceConstraint(rear, chassis.rearMount, SUSPENSION_REST_LENGTH, { compliance: XPBD_SUSPENSION_COMPLIANCE, damping: XPBD_SUSPENSION_DAMPING, reboundDamping: XPBD_SUSPENSION_REBOUND_DAMPING }),
+    createDistanceConstraint(front, chassis.frontMount, SUSPENSION_REST_LENGTH, { compliance: XPBD_SUSPENSION_COMPLIANCE, damping: XPBD_SUSPENSION_DAMPING, reboundDamping: XPBD_SUSPENSION_REBOUND_DAMPING }),
+    createSliderConstraint(rear, chassis.rearMount, chassis.rearMount, chassis.frontMount, { compliance: XPBD_SUSPENSION_SLIDER_COMPLIANCE }),
+    createSliderConstraint(front, chassis.frontMount, chassis.rearMount, chassis.frontMount, { compliance: XPBD_SUSPENSION_SLIDER_COMPLIANCE }),
     // Limits run after the compliant links so every solver iteration ends in a
-    // valid travel range rather than allowing a later cross-link to violate it.
+    // valid travel range rather than allowing a later slider to violate it.
     createDistanceConstraint(rear, chassis.rearMount, SUSPENSION_REST_LENGTH, { compliance: 0, minLength: SUSPENSION_REST_LENGTH - SUSPENSION_TRAVEL, maxLength: SUSPENSION_REST_LENGTH + SUSPENSION_TRAVEL }),
     createDistanceConstraint(front, chassis.frontMount, SUSPENSION_REST_LENGTH, { compliance: 0, minLength: SUSPENSION_REST_LENGTH - SUSPENSION_TRAVEL, maxLength: SUSPENSION_REST_LENGTH + SUSPENSION_TRAVEL })
   ];
@@ -92,12 +93,81 @@ function angularAccelerations(points, angularAcceleration) {
   }));
 }
 
+// Rider lean is a weight shift, so it can tip the bike around a wheel that is
+// on the ground but cannot pull that wheel off it. With one wheel down, the
+// part of the spin that would lift that wheel off its contact is removed from
+// every point; motion along the ground is left alone.
+function keepPivotPlanted(accelerations, rear, front) {
+  if (rear.grounded === front.grounded) return;
+  const pivot = rear.grounded ? rear : front;
+  if (!pivot.contact) return;
+  const { nx, ny } = pivot.contact;
+  const pivotAcceleration = accelerations.find(({ point }) => point === pivot);
+  const lift = pivotAcceleration.ax * nx + pivotAcceleration.ay * ny;
+  if (lift <= 0) return;
+  for (const acceleration of accelerations) {
+    acceleration.ax -= lift * nx;
+    acceleration.ay -= lift * ny;
+  }
+}
+
 function momentOfInertia(points) {
   const center = centerOfMass(points);
   return points.reduce((sum, point) => {
     const dx = point.x - center.x, dy = point.y - center.y;
     return sum + (dx * dx + dy * dy) / point.inverseMass;
   }, 0) || 1;
+}
+
+// Rigid-body spin in rad/s, positive in the same sense as angularAccelerations.
+function angularVelocity(points, inertia) {
+  const center = centerOfMass(points);
+  let momentum = 0;
+  for (const point of points) {
+    const vx = (point.x - point.ox) / STEP, vy = (point.y - point.oy) / STEP;
+    momentum += ((point.x - center.x) * vy - (point.y - center.y) * vx) / point.inverseMass;
+  }
+  return momentum / inertia;
+}
+
+// Only wheels touch the terrain, so a fast-spinning bike that lands on one
+// wheel pivots around it and is thrown back up. The rider soaks up spin beyond
+// the threshold instead; this is a pure rotation, so forward speed is kept.
+function absorbTouchdownSpin(points, inertia) {
+  const spin = angularVelocity(points, inertia);
+  const excess = Math.sign(spin) * Math.max(0, Math.abs(spin) - XPBD_TOUCHDOWN_SPIN_THRESHOLD);
+  if (!excess) return;
+  const removed = excess * XPBD_TOUCHDOWN_SPIN_ABSORPTION * STEP;
+  const center = centerOfMass(points);
+  for (const point of points) {
+    point.ox += -(point.y - center.y) * removed;
+    point.oy += (point.x - center.x) * removed;
+  }
+}
+
+function chassisUp(chassis) {
+  const baseX = (chassis.rearMount.x + chassis.frontMount.x) / 2;
+  const baseY = (chassis.rearMount.y + chassis.frontMount.y) / 2;
+  const length = Math.hypot(chassis.top.x - baseX, chassis.top.y - baseY) || 1;
+  return { x: (chassis.top.x - baseX) / length, y: (chassis.top.y - baseY) / length };
+}
+
+// Signed chassis tilt from the ground normal, positive when the nose is raised.
+function noseUpTilt({ rear, front, chassis }, facing) {
+  const contact = rear.contact || front.contact;
+  if (!contact) return 0;
+  const up = chassisUp(chassis);
+  return Math.atan2(up.x * contact.ny - up.y * contact.nx, up.x * contact.nx + up.y * contact.ny) * facing;
+}
+
+function riderGroundLeverage({ rear, front, chassis }) {
+  const contact = rear.contact || front.contact;
+  if (!contact) return 1;
+  const up = chassisUp(chassis);
+  return riderTiltTorqueScale(
+    up.x, up.y, contact.nx, contact.ny,
+    XPBD_RIDER_LEVERAGE_FADE_START, XPBD_RIDER_LEVERAGE_FADE_END
+  );
 }
 
 function resolveContact(point, contact, wheelName, hooks) {
@@ -115,10 +185,6 @@ function resolveContact(point, contact, wheelName, hooks) {
       : 0;
     vx -= nx * intoSurface * (1 + restitution);
     vy -= ny * intoSurface * (1 + restitution);
-    if (ny < CONTACT_GROUNDED_NORMAL && impactSpeed > 12) {
-      point.compression = clamp((point.compression || 0) + (impactSpeed - 12) * .065, 0, 16);
-      point.springVelocity = (point.springVelocity || 0) + impactSpeed * .018;
-    }
   }
   point.x += nx * penetration;
   point.y += ny * penetration;
@@ -181,22 +247,30 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
   const climbTorque = 1 + uphill * UPHILL_TORQUE_BOOST * (1 - speedRatio);
   const uphillLeanDriveBoost = 1 + uphill * forwardLean * XPBD_UPHILL_FORWARD_LEAN_MOTOR_BOOST;
   const uphillGripBlend = clamp(uphill * (1 + forwardLean * 2), 0, 1);
-  const angularDrive = facing * XPBD_MOTOR_ANGULAR_ACCELERATION * throttle * torqueCurve * climbTorque * uphillLeanDriveBoost;
-  const riderAssist = riderTorqueMultiplier(leanControl, facing, throttle, accelerating, XPBD_THROTTLE_LEAN_ASSIST);
+  const angularDrive = facing * XPBD_MOTOR_ANGULAR_ACCELERATION * throttle * torqueCurve * climbTorque * uphillLeanDriveBoost;  const riderAssist = riderTorqueMultiplier(leanControl, facing, throttle, accelerating, XPBD_THROTTLE_LEAN_ASSIST);
+  const frontLift = grounded ? clamp(noseUpTilt(vehicle, facing) / XPBD_UPHILL_FORWARD_LEAN_FULL_TILT, 0, 1) : 0;
   const riderTerrainScale = grounded
-    ? riderTerrainTorqueScale(leanControl, facing, uphill, XPBD_UPHILL_FORWARD_LEAN_REDUCTION)
+    ? riderTerrainTorqueScale(leanControl, facing, uphill, XPBD_UPHILL_FORWARD_LEAN_REDUCTION, frontLift)
     : 1;
-  const riderAngularAcceleration = leanControl * (grounded
-    ? XPBD_RIDER_GROUND_ANGULAR_ACCELERATION
-    : XPBD_RIDER_AIR_ANGULAR_ACCELERATION) * riderAssist * riderTerrainScale;
   const antiWheelieAngularAcceleration = grounded
-    ? facing * uphill * throttle * XPBD_UPHILL_ANTI_WHEELIE_ACCELERATION * (1 - forwardLean * .35)
+    ? facing * uphill * throttle * frontLift * XPBD_UPHILL_ANTI_WHEELIE_ACCELERATION * (1 - forwardLean * .35)
     : 0;
   const wheelMoment = WHEEL_INERTIA * RADIUS * RADIUS;
   const chassisPoints = Object.values(chassis);
   const chassisInertia = momentOfInertia(chassisPoints);
   const bikePoints = [rear, front, ...chassisPoints];
   const bikeInertia = momentOfInertia(bikePoints);
+  const bikeSpin = angularVelocity(bikePoints, bikeInertia);
+  const groundLean = leanControl * XPBD_RIDER_GROUND_ANGULAR_ACCELERATION * riderAssist * riderTerrainScale * riderGroundLeverage(vehicle);
+  const airLeanLimit = Math.abs(leanControl) * XPBD_RIDER_AIR_ANGULAR_ACCELERATION * riderAssist;
+  const airLean = clamp(
+    (leanControl * XPBD_RIDER_MAX_AIR_SPIN - bikeSpin) * XPBD_RIDER_AIR_SPIN_RESPONSE,
+    -airLeanLimit,
+    airLeanLimit
+  );
+  const riderAngularAcceleration = grounded
+    ? groundLean * riderSpinTorqueScale(groundLean, bikeSpin, XPBD_RIDER_MAX_GROUND_SPIN)
+    : airLean;
   const reactionScale = XPBD_MOTOR_REACTION_SCALE * (1 - uphill * XPBD_UPHILL_REACTION_REDUCTION);
   const motorReactionTorque = -angularDrive * wheelMoment * reactionScale;
   const rollingSpin = (point) => {
@@ -228,6 +302,7 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
     bikePoints,
     riderAngularAcceleration + antiWheelieAngularAcceleration
   );
+  keepPivotPlanted(riderAccelerations, rear, front);
   const dynamics = {
     angularDrive,
     climbTorque,
@@ -250,6 +325,7 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
   };
   hooks.dynamics?.(dynamics);
 
+  const wasRearGrounded = rear.grounded, wasFrontGrounded = front.grounded;
   for (const { point, ax, ay } of riderAccelerations) {
     const reaction = reactionAccelerations.get(point);
     integratePoint(point, ax + (reaction?.ax || 0), GRAVITY + ay + (reaction?.ay || 0));
@@ -273,6 +349,8 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
     for (const [point, name] of solverWheels) collideWheel(level, point, name, hooks, false);
     hooks.contactsResolved?.();
   }
+  const touchdowns = [[rear, wasRearGrounded], [front, wasFrontGrounded]].filter(([point, was]) => !was && point.grounded);
+  if (touchdowns.length) absorbTouchdownSpin(bikePoints, bikeInertia);
 
   const driveLoadScale = lerp(
     XPBD_ROLLING_LOAD_SCALE,
@@ -322,7 +400,11 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
   }
   for (let iteration = 0; iteration < BIKE_VELOCITY_ITERATIONS; iteration++) {
     for (const constraint of [...solverConstraints, wheelbaseLimit]) {
-      dampDistanceConstraint(constraint, dampingPerIteration(constraint.damping, BIKE_VELOCITY_ITERATIONS));
+      dampDistanceConstraint(
+        constraint,
+        dampingPerIteration(constraint.damping, BIKE_VELOCITY_ITERATIONS),
+        dampingPerIteration(constraint.reboundDamping ?? constraint.damping, BIKE_VELOCITY_ITERATIONS)
+      );
     }
   }
   // Constraint damping moves the wheels after the drive impulse. While on the
@@ -330,6 +412,8 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
   if (throttle > .01 && !braking) {
     for (const [point, name] of solverWheels) applyWheelTraction(point, name, { drive: false });
   }
+  rear.compression = clamp(SUSPENSION_REST_LENGTH - distance(rear, chassis.rearMount), 0, SUSPENSION_TRAVEL);
+  front.compression = clamp(SUSPENSION_REST_LENGTH - distance(front, chassis.frontMount), 0, SUSPENSION_TRAVEL);
   hooks.iteration?.(-1);
   return dynamics;
 }

@@ -28,8 +28,8 @@ export function constrainDistanceVelocity(a, b, damping = 1) {
   setVelocity(b, bv.x - nx * impulse * wb, bv.y - ny * impulse * wb);
 }
 
-export function createDistanceConstraint(a, b, length, { compliance = 0, damping = 0, minLength = null, maxLength = null } = {}) {
-  return { type: 'distance', a, b, length, compliance, damping, minLength, maxLength, lambda: 0 };
+export function createDistanceConstraint(a, b, length, { compliance = 0, damping = 0, reboundDamping = damping, minLength = null, maxLength = null } = {}) {
+  return { type: 'distance', a, b, length, compliance, damping, reboundDamping, minLength, maxLength, lambda: 0 };
 }
 
 export function signedTriangleArea(a, b, c) {
@@ -38,6 +38,30 @@ export function signedTriangleArea(a, b, c) {
 
 export function createAreaConstraint(a, b, c, { compliance = 0, minArea = null, maxArea = null } = {}) {
   return { type: 'area', a, b, c, area: signedTriangleArea(a, b, c), compliance, minArea, maxArea, damping: 0, lambda: 0 };
+}
+
+// Keeps a wheel in line with its mount along the chassis axis, like a fork
+// tube: the wheel can only travel in and out along its spring, so the spring
+// alone carries the load instead of a rigid truss.
+export function createSliderConstraint(point, mount, axisStart, axisEnd, { compliance = 0 } = {}) {
+  return { type: 'slider', a: point, b: mount, axisStart, axisEnd, compliance, damping: 0, lambda: 0 };
+}
+
+export function solveXpbdSliderConstraint(constraint, dt) {
+  const { a, b, axisStart, axisEnd } = constraint;
+  const axisX = axisEnd.x - axisStart.x, axisY = axisEnd.y - axisStart.y;
+  const axisLength = Math.hypot(axisX, axisY) || EPSILON;
+  const ux = axisX / axisLength, uy = axisY / axisLength;
+  const offset = (a.x - b.x) * ux + (a.y - b.y) * uy;
+  const wa = inverseMass(a), wb = inverseMass(b);
+  const alpha = Math.max(0, constraint.compliance) / (dt * dt);
+  if (wa + wb + alpha <= EPSILON) return { distance: offset, correctionDistance: 0, correctionX: 0, correctionY: 0, lambda: constraint.lambda };
+  const deltaLambda = (-offset - alpha * constraint.lambda) / (wa + wb + alpha);
+  constraint.lambda += deltaLambda;
+  const ax = ux * deltaLambda * wa, ay = uy * deltaLambda * wa;
+  a.x += ax; a.y += ay;
+  b.x -= ux * deltaLambda * wb; b.y -= uy * deltaLambda * wb;
+  return { distance: offset, correctionDistance: Math.abs(deltaLambda), correctionX: ax, correctionY: ay, lambda: constraint.lambda };
 }
 
 export function resetConstraintMultiplier(constraint) {
@@ -113,14 +137,24 @@ export function solveXpbdAreaConstraint(constraint, dt) {
 }
 
 export function solveXpbdConstraint(constraint, dt) {
-  return constraint.type === 'area'
-    ? solveXpbdAreaConstraint(constraint, dt)
-    : solveXpbdDistanceConstraint(constraint, dt);
+  if (constraint.type === 'area') return solveXpbdAreaConstraint(constraint, dt);
+  if (constraint.type === 'slider') return solveXpbdSliderConstraint(constraint, dt);
+  return solveXpbdDistanceConstraint(constraint, dt);
 }
 
-export function dampDistanceConstraint(constraint, damping = constraint.damping) {
-  if (constraint.type === 'area' || damping <= 0) return;
-  constrainDistanceVelocity(constraint.a, constraint.b, Math.max(0, Math.min(1, damping)));
+// reboundDamping applies while the link is lengthening, like a shock absorber
+// that is firmer on rebound than on compression.
+export function dampDistanceConstraint(constraint, damping = constraint.damping, reboundDamping = damping) {
+  if (constraint.type !== 'distance') return;
+  let amount = damping;
+  if (reboundDamping !== damping) {
+    const { a, b } = constraint;
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const lengthening = ((b.x - b.ox) - (a.x - a.ox)) * dx + ((b.y - b.oy) - (a.y - a.oy)) * dy > 0;
+    if (lengthening) amount = reboundDamping;
+  }
+  if (amount <= 0) return;
+  constrainDistanceVelocity(constraint.a, constraint.b, Math.max(0, Math.min(1, amount)));
 }
 
 function earliestRoot(a, b, c) {
@@ -186,10 +220,32 @@ export function riderTorqueMultiplier(leanInput, facing, throttle, accelerating,
   return 1 + backwardLean * activeThrottle * assist;
 }
 
-export function riderTerrainTorqueScale(leanInput, facing, uphill, reduction = 1.4) {
+// Uphill, the rider's weight sits far behind the front contact, so leaning
+// forward cannot lever the rear wheel off the slope. frontLift (0..1) is how
+// far the front wheel is raised; forward lean keeps full strength while it is
+// pulling a lifted front wheel back down.
+export function riderTerrainTorqueScale(leanInput, facing, uphill, reduction = 1.4, frontLift = 0) {
   const forwardLean = Math.max(0, Math.min(1, leanInput * facing));
   const uphillAmount = Math.max(0, Math.min(1, uphill));
-  return 1 - forwardLean * Math.min(.9, uphillAmount * reduction);
+  const rearLift = 1 - Math.max(0, Math.min(1, frontLift));
+  return 1 - forwardLean * rearLift * Math.min(.9, uphillAmount * reduction);
+}
+
+// A rider balancing on one wheel has no leverage once the bike stands past
+// upright, so ground lean fades out with the tilt of the chassis away from the
+// ground normal instead of spinning the bike around its contact wheel.
+export function riderTiltTorqueScale(upX, upY, normalX, normalY, fadeStart, fadeEnd) {
+  const tilt = Math.acos(Math.max(-1, Math.min(1, upX * normalX + upY * normalY)));
+  if (tilt <= fadeStart) return 1;
+  if (tilt >= fadeEnd) return 0;
+  return 1 - (tilt - fadeStart) / (fadeEnd - fadeStart);
+}
+
+// Full lean torque up to 75% of maxSpin, fading to none at maxSpin. Torque
+// against the current spin is never reduced.
+export function riderSpinTorqueScale(angularAcceleration, angularVelocity, maxSpin) {
+  if (angularAcceleration * angularVelocity <= 0 || !(maxSpin > 0)) return 1;
+  return Math.max(0, Math.min(1, (maxSpin - Math.abs(angularVelocity)) / (maxSpin * .25)));
 }
 
 export function advanceAfterTimeOfImpact(point, time) {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {
-  STEP, RADIUS, WHEELBASE, SUSPENSION_REST_LENGTH, SUSPENSION_TRAVEL
+  STEP, RADIUS, WHEELBASE, SUSPENSION_REST_LENGTH, SUSPENSION_TRAVEL, XPBD_RIDER_MAX_AIR_SPIN
 } from '../js/config.js';
 import { curveAt } from '../js/terrain.js';
 import { createSimulation as createVehicleSimulation, createVehicle, vehicleMetrics } from '../js/vehicle-physics.js';
@@ -15,7 +15,7 @@ function createSimulation(level, { x = 180, y = null, facing = 1 } = {}) {
     return {
       x: wheelX, y: wheelY, ox: wheelX, oy: wheelY, inverseMass: 1,
       grounded: y === null, contact: null, material: level.terrain,
-      spin: 0, angularVelocity: 0, compression: 0, springVelocity: 0, impactSpeed: 0
+      spin: 0, angularVelocity: 0, compression: 0, impactSpeed: 0
     };
   };
   const rear = wheel(x - WHEELBASE / 2), front = wheel(x + WHEELBASE / 2);
@@ -343,6 +343,134 @@ function determinismAndFlipScenario() {
   return { facing: first.facing, finalX: first.metrics.center.x, finalSpeed: first.metrics.speedX };
 }
 
+function landingSagScenario() {
+  const sinkFrom = drop => {
+    const simulation = createSimulation(flatLevel());
+    run(simulation, 240, {});
+    const rest = vehicleMetrics(simulation.vehicle);
+    const restLength = (rest.rearSuspensionLength + rest.frontSuspensionLength) / 2;
+    for (const point of [simulation.vehicle.rear, simulation.vehicle.front, ...Object.values(simulation.vehicle.chassis)]) {
+      point.y -= drop; point.oy -= drop;
+    }
+    let shortest = Infinity;
+    for (let index = 0; index < 240; index++) {
+      const metrics = step(simulation, {});
+      shortest = Math.min(shortest, (metrics.rearSuspensionLength + metrics.frontSuspensionLength) / 2);
+    }
+    return { rest: SUSPENSION_REST_LENGTH - restLength, sink: restLength - shortest };
+  };
+  const small = sinkFrom(20), medium = sinkFrom(80), large = sinkFrom(200);
+  assert.ok(medium.rest > .5, `the chassis weight must visibly sag the suspension at rest: ${medium.rest}`);
+  assert.ok(small.sink < medium.sink && medium.sink < large.sink, `harder landings must sink further: ${small.sink}, ${medium.sink}, ${large.sink}`);
+  assert.ok(medium.sink > 5, `an 80 px drop must visibly compress the real suspension: ${medium.sink}`);
+  return { restSag: medium.rest, sink20: small.sink, sink80: medium.sink, sink200: large.sink };
+}
+
+function heldLeanScenario() {
+  const exercise = controls => {
+    const simulation = createSimulation(flatLevel(), { x: 300 });
+    run(simulation, 120, {});
+    let previous = vehicleMetrics(simulation.vehicle).pitch, turned = 0, lateTurn = 0;
+    for (let index = 0; index < 480; index++) {
+      const { pitch } = step(simulation, controls);
+      const change = Math.atan2(Math.sin(pitch - previous), Math.cos(pitch - previous));
+      previous = pitch; turned += change;
+      if (index >= 300) lateTurn += change;
+    }
+    return { turned: Math.abs(turned), lateTurn: Math.abs(lateTurn) };
+  };
+  const back = exercise({ lean: -1 }), forward = exercise({ lean: 1 });
+  for (const [name, result] of [['back', back], ['forward', forward]]) {
+    assert.ok(result.turned < Math.PI * 1.5, `holding lean ${name} must not spin the bike around: ${result.turned}`);
+    assert.ok(result.lateTurn < .3, `holding lean ${name} must stop rotating once the bike tips over: ${result.lateTurn}`);
+  }
+  return { backTurned: back.turned, forwardTurned: forward.turned };
+}
+
+function droppedSimulation(height, tiltDegrees) {
+  const level = flatLevel();
+  const simulation = createSimulation(level, { x: 300, y: 320 - RADIUS - height });
+  const points = [simulation.vehicle.rear, simulation.vehicle.front, ...Object.values(simulation.vehicle.chassis)];
+  const cx = 300, cy = 320 - RADIUS - height, angle = tiltDegrees * Math.PI / 180;
+  for (const point of points) {
+    const rx = point.x - cx, ry = point.y - cy;
+    point.x = cx + rx * Math.cos(angle) + ry * Math.sin(angle);
+    point.y = cy - rx * Math.sin(angle) + ry * Math.cos(angle);
+    point.ox = point.x; point.oy = point.y;
+  }
+  return simulation;
+}
+
+function steadyAirSpinScenario() {
+  const simulation = createSimulation(flatLevel(3000), { x: 300, y: 100 });
+  const rates = [];
+  let previous = vehicleMetrics(simulation.vehicle).pitch;
+  for (let index = 1; index <= 180; index++) {
+    const { pitch } = step(simulation, { lean: 1 });
+    rates.push(Math.atan2(Math.sin(pitch - previous), Math.cos(pitch - previous)) / STEP);
+    previous = pitch;
+  }
+  const average = (from, to) => rates.slice(from, to).reduce((sum, rate) => sum + rate, 0) / (to - from);
+  const atOneSecond = average(114, 126), atOneAndHalf = average(168, 180);
+  assert.ok(atOneAndHalf - atOneSecond < .5, `a held air lean should settle into an even spin: ${atOneSecond} -> ${atOneAndHalf}`);
+  assert.ok(atOneAndHalf < XPBD_RIDER_MAX_AIR_SPIN * 1.1, `air spin should not run past its target: ${atOneAndHalf}`);
+  return { spinAtOneSecond: atOneSecond, spinAtOneAndHalfSeconds: atOneAndHalf };
+}
+
+function airLeanKeepsMomentumScenario() {
+  const flight = lean => {
+    const simulation = createSimulation(flatLevel(3000), { x: 300, y: 100 });
+    const points = [simulation.vehicle.rear, simulation.vehicle.front, ...Object.values(simulation.vehicle.chassis)];
+    for (const point of points) { point.ox = point.x - 300 * STEP; point.oy = point.y + 400 * STEP; }
+    run(simulation, 120, { lean });
+    return vehicleMetrics(simulation.vehicle).center;
+  };
+  const straight = flight(0);
+  const drift = Math.max(...[1, -1].map(lean => {
+    const center = flight(lean);
+    return Math.hypot(center.x - straight.x, center.y - straight.y);
+  }));
+  assert.ok(drift < .5, `leaning in the air must not move the centre of mass: ${drift}`);
+  return { centreDrift: drift };
+}
+
+function singleWheelLandingScenario() {
+  const simulation = droppedSimulation(60, 25);
+  let sink = 0, springBacks = 0, wasCompressing = false, previous = 0;
+  for (let index = 0; index < 240; index++) {
+    step(simulation, {});
+    const compression = SUSPENSION_REST_LENGTH - vehicleMetrics(simulation.vehicle).rearSuspensionLength;
+    sink = Math.max(sink, compression);
+    const compressing = compression > previous + .02;
+    if (wasCompressing && compression < previous - .02) springBacks++;
+    if (compressing || compression < previous - .02) wasCompressing = compressing;
+    previous = compression;
+  }
+  assert.ok(sink > 5, `the rear wheel must sink on its own spring when it lands first: ${sink}`);
+  assert.ok(springBacks >= 1, `a single-wheel landing should spring back: ${springBacks}`);
+  return { rearSink: sink, springBacks };
+}
+
+function steepClimbForwardLeanScenario() {
+  const rise = Math.tan(40 * Math.PI / 180) * 300;
+  const level = { ...flatLevel(600), points: [[0, 600], [250, 600], [550, 600 - rise], [1400, 600 - rise]] };
+  const simulation = createSimulation(level, { x: 150 });
+  run(simulation, 120, {});
+  let maxRearLift = 0, minRelativePitch = Infinity;
+  for (let index = 0; index < 420; index++) {
+    const { rear, front } = simulation.vehicle;
+    const middle = (rear.x + front.x) / 2;
+    step(simulation, { throttle: true, lean: middle > 250 ? 1 : 0 });
+    if (middle < 290 || middle > 510) continue;
+    maxRearLift = Math.max(maxRearLift, curveAt(level.points, rear.x).y - RADIUS - rear.y);
+    minRelativePitch = Math.min(minRelativePitch, -vehicleMetrics(simulation.vehicle).pitch * 180 / Math.PI - 40);
+  }
+  const progress = vehicleMetrics(simulation.vehicle).center.x - 150;
+  assert.ok(maxRearLift < 12, `forward lean must not lever the rear wheel off a steep climb: ${maxRearLift}`);
+  assert.ok(minRelativePitch > -35, `forward lean must not tip the bike over its front wheel on a climb: ${minRelativePitch}`);
+  assert.ok(progress > 400, `forward lean must still let the bike climb: ${progress}`);
+  return { maxRearLift, minRelativePitch, progress };
+}
 const acceleration = accelerationScenario();
 const braking = brakingScenario(true);
 const coasting = brakingScenario(false);
@@ -350,8 +478,10 @@ const uphillThrottle = uphillThrottleScenario();
 const uphillForwardLean = uphillThrottleScenario(.45);
 assert.ok(Math.abs(braking.speed) < Math.abs(coasting.speed), 'braking must reduce speed more than coasting');
 assert.ok(braking.distance < coasting.distance, 'braking distance must be shorter than coasting distance');
+// The rear suspension squats under throttle, so plain throttle barely lifts
+// the front on a climb; forward lean must still hold it at least as low.
 assert.ok(
-  uphillForwardLean.maxFrontClearance < uphillThrottle.maxFrontClearance * .5,
+  uphillForwardLean.maxFrontClearance <= uphillThrottle.maxFrontClearance && uphillForwardLean.maxFrontClearance < 3,
   `forward lean must keep the front wheel down: ${uphillForwardLean.maxFrontClearance} vs ${uphillThrottle.maxFrontClearance}`
 );
 assert.ok(
@@ -371,6 +501,12 @@ const results = {
   crestRelease: crestReleaseScenario(),
   valley: valleyScenario(),
   landing: landingScenario(),
+  landingSag: landingSagScenario(),
+  heldLean: heldLeanScenario(),
+  steadyAirSpin: steadyAirSpinScenario(),
+  airLeanKeepsMomentum: airLeanKeepsMomentumScenario(),
+  singleWheelLanding: singleWheelLandingScenario(),
+  steepClimbForwardLean: steepClimbForwardLeanScenario(),
   flipKeepsTiresRolling: flipKeepsTiresRollingScenario(),
   determinismAndFlip: determinismAndFlipScenario()
 };

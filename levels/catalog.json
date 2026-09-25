@@ -44,10 +44,10 @@
       "name": "Elastic Summit"
     },
     {
-      "id": "custom:08-the-orchard-test",
+      "id": "custom:00-custom-level",
       "source": "custom",
-      "file": "custom/08-the-orchard-test.json",
-      "name": "The Orchard - TEST"
+      "file": "custom/00-custom-level.json",
+      "name": "Custom Level"
     }
   ]
 }

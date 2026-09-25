@@ -140,4 +140,9 @@ assert.ok(airborne < besideSun, 'jumping shifts the shadow a little farther from
 assert.ok(Math.abs(airborne) <= 14, 'the shadow stays with the rider instead of sliding down the hill');
 assert.equal(sunShadowOffset({ bikeX: 120, bikeY: 280, sunX: noon.x, sunY: noon.y, height: 400, strength: 0 }), 0, 'a hidden sun leaves the shadow centered');
 
+const [buried] = terrainCollisionsAt(flatGapLevel, 60, 140, 4);
+assert.ok(buried, 'a point buried far below the surface still collides');
+assert.ok(Math.abs(buried.nx) < 1e-9 && Math.abs(buried.ny + 1) < 1e-9, 'a buried point is pushed out through the nearest edge, even when it is outside the query radius');
+assert.ok(Math.abs(buried.penetration - 44) < 1e-9, 'a buried point reports its full depth');
+
 console.log('Terrain polygon, path, and sweep collision tests passed.');
