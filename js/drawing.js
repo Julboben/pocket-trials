@@ -155,6 +155,45 @@ export function createGameArt(ctx) {
     ctx.fillText(unlocked?'FINISH':`${remaining} APPLE${remaining===1?'':'S'}`,x,y-51);
   }
 
+  function starPath(points, outer, inner) {
+    ctx.beginPath();
+    for (let index = 0; index < points * 2; index++) {
+      const angle = index * Math.PI / points;
+      const radius = index % 2 ? inner : outer;
+      if (index) ctx.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+      else ctx.moveTo(radius, 0);
+    }
+    ctx.closePath();
+  }
+
+  function drawSpike(x, y, radius = 18, angle = 0) {
+    const points = Math.max(7, Math.min(12, Math.round(radius * .4)));
+    const core = radius * .56;
+    ctx.save(); ctx.translate(Math.round(x), Math.round(y));
+    ctx.save(); ctx.rotate(angle);
+    starPath(points, radius + 2, core);
+    ctx.fillStyle = '#263b36'; ctx.fill();
+    starPath(points, radius - .5, core * .9);
+    ctx.fillStyle = '#b9c4af'; ctx.fill();
+    for (let index = 0; index < points; index++) {
+      const spoke = index * TAU / points;
+      pixelPath([[Math.cos(spoke) * core * .7, Math.sin(spoke) * core * .7], [Math.cos(spoke) * (radius - 4), Math.sin(spoke) * (radius - 4)]], '#e8ecd9', 1, 1);
+    }
+    ctx.restore();
+    ctx.fillStyle = '#263b36';
+    ctx.beginPath(); ctx.arc(0, 0, core + 1.5, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#c7442f';
+    ctx.beginPath(); ctx.arc(0, 0, core - .5, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#ed7050';
+    ctx.beginPath(); ctx.arc(-core * .15, -core * .15, core * .65, 0, TAU); ctx.fill();
+    pixelRect(-core * .55, -core * .6, Math.max(2, core * .35), Math.max(2, core * .25), '#ffc295', 2);
+    ctx.save(); ctx.rotate(angle);
+    pixelRect(-2, -2, 4, 4, '#263b36', 2);
+    pixelRect(core * .45 - 1, -1, 3, 3, '#7c2b24', 1);
+    ctx.restore();
+    ctx.restore();
+  }
+
   function drawWheel(point) {
     ctx.save(); ctx.translate(Math.round(point.x),Math.round(point.y));
     for (let y = -6; y <= 6; y++) for (let x = -6; x <= 6; x++) {
@@ -353,5 +392,5 @@ export function createGameArt(ctx) {
     ctx.restore();
   }
 
-  return { drawApple, drawFlag, drawBike, drawProp, drawBackground };
+  return { drawApple, drawFlag, drawBike, drawProp, drawSpike, drawBackground };
 }

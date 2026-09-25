@@ -26,6 +26,7 @@ import {
   savePreferences as persistPreferences,
   saveProgress as persistProgress
 } from './storage.js';
+import { normalizeSpike } from './level-schema.js';
 
 const $ = id => document.getElementById(id);
 const game = $('game');
@@ -44,7 +45,7 @@ const officialTrailIds = officialLevelEntries.map(entry => entry.id);
 const leaderboardTrails = [...officialLevelEntries, ...customLevelEntries];
 let leaderboardTrail = 0;
 let preferences = { scenery: 'full', controls: 'show', sound: 'on' };
-let rear, front, vehicle = null, previousRiderContacts = null, apples = [], particles = [], skidMarks = [], ragdoll = null, hair = null;
+let rear, front, vehicle = null, previousRiderContacts = null, apples = [], spikes = [], spikeTime = 0, particles = [], skidMarks = [], ragdoll = null, hair = null;
 let elapsed = 0, collected = 0, facing = 1, throttle = 0, brakePressure = 0;
 let weatherTime = 0, nextLightning = Infinity, lightningFlash = 0, lightningX = .5, lightningDistance = .5;
 let cameraX = 0, cameraY = 0, leanControl = 0, leanVisual = 0, flipVisual = 1;
@@ -576,6 +577,8 @@ function initializeLevel(trail, marker) {
     y: Number.isFinite(apple.y) ? apple.y : terrain(apple.x).y - 60,
     taken: false
   }));
+  spikes = (level.spikes || []).map(spike => normalizeSpike(spike, level.points));
+  spikeTime = 0;
   particles = []; skidMarks = []; ragdoll = null; hair = null; elapsed = 0; collected = 0; facing = startFacing; throttle = 0; brakePressure = 0;
   weatherTime = 0; lightningFlash = 0; lightningX = .5; lightningDistance = .5;
   nextLightning = level.weather?.lightning ? 2.5 + Math.random() * 4 : Infinity;
@@ -766,6 +769,19 @@ function updateRagdoll() {
   }
 }
 
+// Only the solid core and inner part of each spike are lethal, so grazing a tip is forgiven.
+function touchedSpike(points) {
+  for (const spike of spikes) {
+    for (const point of points) {
+      const dx = point.x - spike.x, dy = point.y - spike.y, distance = Math.hypot(dx, dy) || 1;
+      if (distance < spike.radius * .8 + point.radius) {
+        return { x: spike.x + dx / distance * spike.radius * .8, y: spike.y + dy / distance * spike.radius * .8 };
+      }
+    }
+  }
+  return null;
+}
+
 function burst(x, y, color, count = 12) {
   for (let i = 0; i < count; i++) {
     const angle = TAU * i / count;
@@ -838,6 +854,7 @@ function updateWeather() {
 function physics() {
   if (state !== 'running' && state !== 'ragdoll') return;
   updateWeather();
+  spikeTime += STEP;
   if (state === 'running') elapsed += STEP;
   landingSoundCooldown = Math.max(0, landingSoundCooldown - STEP);
   const wasRearGrounded = rear.grounded, wasFrontGrounded = front.grounded;
@@ -916,6 +933,16 @@ function physics() {
       || terrainCollisionsAt(level, point.x, point.y, point.radius)[0];
   });
   previousRiderContacts = riderContacts;
+  const spikeHit = touchedSpike([
+    { x: rear.x, y: rear.y, radius: RADIUS },
+    { x: front.x, y: front.y, radius: RADIUS },
+    ...Object.values(riderContacts)
+  ]);
+  if (spikeHit) {
+    burst(spikeHit.x, spikeHit.y, '#d95832', 18);
+    startRagdoll();
+    return;
+  }
   if ((riderObstacle && elapsed > .2)
     || my > (level.fallY || 620)) {
     burst(head.x, head.y, '#ed8b54', 15);
@@ -1176,6 +1203,13 @@ function drawApple(apple, now) {
   gameArt.drawApple(apple.x, appleDrawY(apple, now));
 }
 
+function drawSpikes() {
+  for (const spike of spikes) {
+    if (spike.x < cameraX - spike.radius - 10 || spike.x > cameraX + W + spike.radius + 10) continue;
+    gameArt.drawSpike(spike.x, spike.y, spike.radius, reducedMotion ? 0 : spikeTime * spike.spin * TAU);
+  }
+}
+
 function drawFlag() {
   const x=level.goal,y=terrain(x).y;
   if(x<cameraX-65||x>cameraX+W+65)return;
@@ -1392,7 +1426,7 @@ function render(now, dt) {
   ctx.save(); ctx.translate(-cameraX,-cameraY);
   const animationDt = state === 'paused' ? 0 : dt;
   updateParticles(animationDt);
-  drawTerrain(); drawSkidMarks(); drawSceneryShadows(now); drawProps('back'); drawParticles(true); drawFlag();
+  drawTerrain(); drawSkidMarks(); drawSceneryShadows(now); drawProps('back'); drawParticles(true); drawFlag(); drawSpikes();
   apples.forEach(a => drawApple(a,now));
   updateHair(animationDt);
   drawHair();

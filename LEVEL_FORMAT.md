@@ -67,6 +67,10 @@ The world uses Canvas coordinates:
     { x: 650, y: 245, type: 'rock', layer: 'front' }
   ],
 
+  spikes: [
+    { x: 1250, y: 150, radius: 18, spin: 1 }
+  ],
+
   weather: {
     sun: 0.25,
     clouds: 0.9,
@@ -238,6 +242,23 @@ props: [
 Available prop types are `tree`, `fence`, `rock`, `flowers`, `stump`, and `crystal`. `y: null` anchors a prop to the base terrain; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front` and controls whether the prop is rendered behind or in front of gameplay.
 
 Use the editor's **Prop** tool to place a prop. Select it to drag it, edit its type and layer in the inspector, or remove it with **Delete Selection**, `Delete`, or `Backspace`.
+
+## Spikes
+
+Spikes are spinning spiked balls, similar to the killers in Elasto Mania. Touching one with either wheel or the rider's body ends the run.
+
+```js
+spikes: [
+  { x: 820, y: 240, radius: 18, spin: 1 },
+  { x: 1300, y: 150, radius: 30, spin: -0.5 }
+]
+```
+
+- `x` and `y` are the center of the spike in world space. A missing or `null` `y` rests the spike on the base terrain.
+- `radius` is the distance from the center to the spike tips, between `8` and `64` (default `18`). Only the inner 80% is lethal, so grazing a tip is forgiven.
+- `spin` is rotations per second. Positive values spin clockwise, negative values spin counter-clockwise, and `0` keeps the spike still. Spin is purely visual and does not change the hit area.
+
+Spikes float freely and do not collide with terrain. Use the editor's **Spike** tool to place one at the clicked position; the inspector edits its radius and spin, and the selected spike shows its lethal area as a dashed circle. Leave at least one bike length of clearance around the start position.
 
 ## Weather
 

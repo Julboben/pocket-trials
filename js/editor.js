@@ -1,7 +1,7 @@
 import { levelEntries, terrainMaterials } from './levels.js';
 import { curveAt, platformPolygon, pointInPlatform, invalidatePlatform, invalidateTerrain, pathBounds, pathSegments } from './terrain.js';
 import { createDrawingTools, createGameArt, propAlignmentSlope, propGroundOffset } from './drawing.js';
-import { cloneLevel, createBlankLevel, normalizeLevel, validateLevel, levelToModule } from './level-schema.js';
+import { cloneLevel, createBlankLevel, normalizeLevel, validateLevel, levelToModule, SPIKE_RADIUS } from './level-schema.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('editor-canvas');
@@ -185,7 +185,17 @@ function drawProps() {
   }
 }
 
+function drawSpikes() {
+  for (const [index, spike] of level.spikes.entries()) {
+    art.drawSpike(spike.x, spike.y, spike.radius);
+    if (!isSelected('spike', index)) continue;
+    ctx.beginPath(); ctx.arc(spike.x, spike.y, spike.radius * .8, 0, Math.PI * 2);
+    ctx.strokeStyle = '#fff3be'; ctx.lineWidth = 2 / zoom; ctx.setLineDash([6 / zoom, 4 / zoom]); ctx.stroke(); ctx.setLineDash([]);
+  }
+}
+
 function drawObjects() {
+  drawSpikes();
   for (const apple of level.apples) art.drawApple(apple.x, objectY(apple, 60), { glow: false });
   art.drawFlag(level.goal, curveAt(level.points, level.goal).y, true);
   drawProps();
@@ -219,6 +229,7 @@ function drawHandles() {
   }
   level.apples.forEach((apple, index) => drawHandle(apple.x, objectY(apple, 60), isSelected('apple', index), '#ef8150'));
   level.props.forEach((prop, index) => drawHandle(prop.x, objectY(prop), isSelected('prop', index), '#83d1ce'));
+  level.spikes.forEach((spike, index) => drawHandle(spike.x, spike.y, isSelected('spike', index), '#e65e56'));
   const startY = Number.isFinite(level.start.y) ? level.start.y : curveAt(level.points, level.start.x).y - 12;
   drawHandle(level.start.x, startY, selection?.kind === 'start', '#c6dfa9');
   drawHandle(level.goal, curveAt(level.points, level.goal).y - 112, selection?.kind === 'goal', '#c6dfa9');
@@ -252,10 +263,15 @@ function hitTest(point) {
   level.gaps.forEach((gap, index) => consider({ kind: 'gap', index }, (gap[0] + gap[1]) / 2, curveAt(level.points, (gap[0] + gap[1]) / 2).y));
   level.apples.forEach((apple, index) => consider({ kind: 'apple', index }, apple.x, objectY(apple, 60)));
   level.props.forEach((prop, index) => consider({ kind: 'prop', index }, prop.x, objectY(prop)));
+  level.spikes.forEach((spike, index) => consider({ kind: 'spike', index }, spike.x, spike.y));
   const startY = Number.isFinite(level.start.y) ? level.start.y : curveAt(level.points, level.start.x).y - 12;
   consider({ kind: 'start' }, level.start.x, startY);
   consider({ kind: 'goal' }, level.goal, curveAt(level.points, level.goal).y - 112);
   if (!best) {
+    for (let index = level.spikes.length - 1; index >= 0; index--) {
+      const spike = level.spikes[index];
+      if (Math.hypot(point.x - spike.x, point.y - spike.y) <= spike.radius) return { kind: 'spike', index };
+    }
     for (let pathIndex = level.paths.length - 1; pathIndex >= 0; pathIndex--) {
       const path = level.paths[pathIndex];
       const bounds = pathBounds(path);
@@ -290,6 +306,7 @@ function selectedPosition() {
   }
   if (selection.kind === 'apple') { const apple = level.apples[selection.index]; return [apple.x, objectY(apple, 60)]; }
   if (selection.kind === 'prop') { const prop = level.props[selection.index]; return [prop.x, objectY(prop)]; }
+  if (selection.kind === 'spike') { const spike = level.spikes[selection.index]; return [spike.x, spike.y]; }
   if (selection.kind === 'start') return [level.start.x, Number.isFinite(level.start.y) ? level.start.y : curveAt(level.points, level.start.x).y - 12];
   if (selection.kind === 'gap') return [(level.gaps[selection.index][0] + level.gaps[selection.index][1]) / 2, curveAt(level.points, level.gaps[selection.index][0]).y];
   if (selection.kind === 'goal') return [level.goal, curveAt(level.points, level.goal).y - 112];
@@ -320,6 +337,8 @@ function syncInspector() {
   $('selection-facing-row').hidden = selection?.kind !== 'start';
   $('selection-prop-type-row').hidden = selection?.kind !== 'prop';
   $('selection-layer-row').hidden = selection?.kind !== 'prop';
+  $('selection-radius-row').hidden = selection?.kind !== 'spike';
+  $('selection-spin-row').hidden = selection?.kind !== 'spike';
   $('delete-selection').hidden = !selection || ['start', 'goal'].includes(selection.kind);
   if (hasPlatform || hasPath) {
     const body = hasPlatform ? level.platforms[platformIndex] : level.paths[pathIndex];
@@ -331,6 +350,10 @@ function syncInspector() {
   if (selection?.kind === 'prop') {
     $('selection-prop-type').value = level.props[selection.index].type;
     $('selection-layer').value = level.props[selection.index].layer;
+  }
+  if (selection?.kind === 'spike') {
+    $('selection-radius').value = level.spikes[selection.index].radius;
+    $('selection-spin').value = level.spikes[selection.index].spin;
   }
   $('level-json').value = JSON.stringify(level, null, 2);
   const messages = validateLevel(level);
@@ -378,6 +401,8 @@ function updateSelectedPosition(x, y) {
     level.apples[selection.index].x = x; level.apples[selection.index].y = y;
   } else if (selection.kind === 'prop') {
     level.props[selection.index].x = x; level.props[selection.index].y = y;
+  } else if (selection.kind === 'spike') {
+    level.spikes[selection.index].x = x; level.spikes[selection.index].y = y;
   } else if (selection.kind === 'start') {
     level.start.x = x; level.start.y = y;
   } else if (selection.kind === 'gap') {
@@ -417,6 +442,9 @@ function addAt(point) {
   } else if (tool === 'prop') {
     level.props.push({ x: point.x, y: point.y, type: 'tree', layer: 'back' });
     selection = { kind: 'prop', index: level.props.length - 1 };
+  } else if (tool === 'spike') {
+    level.spikes.push({ x: point.x, y: point.y, radius: SPIKE_RADIUS.default, spin: 1 });
+    selection = { kind: 'spike', index: level.spikes.length - 1 };
   } else if (tool === 'finish') {
     level.goal = point.x; selection = { kind: 'goal' };
   }
@@ -440,6 +468,7 @@ function deleteSelection() {
   else if (selection.kind === 'gap') level.gaps.splice(selection.index, 1);
   else if (selection.kind === 'apple') level.apples.splice(selection.index, 1);
   else if (selection.kind === 'prop') level.props.splice(selection.index, 1);
+  else if (selection.kind === 'spike') level.spikes.splice(selection.index, 1);
   selection = null; syncInspector(); render();
 }
 
@@ -566,6 +595,17 @@ $('selection-closed').addEventListener('change', event => { if (!Number.isIntege
 $('selection-facing').addEventListener('change', event => { if (selection?.kind !== 'start') return; pushHistory(); level.start.facing = Number(event.target.value) < 0 ? -1 : 1; syncInspector(); render(); });
 $('selection-prop-type').addEventListener('change', event => { if (selection?.kind !== 'prop') return; pushHistory(); level.props[selection.index].type = event.target.value; syncInspector(); render(); });
 $('selection-layer').addEventListener('change', event => { if (selection?.kind !== 'prop') return; pushHistory(); level.props[selection.index].layer = event.target.value === 'front' ? 'front' : 'back'; syncInspector(); render(); });
+$('selection-radius').addEventListener('change', event => {
+  if (selection?.kind !== 'spike') return; pushHistory();
+  level.spikes[selection.index].radius = Math.max(SPIKE_RADIUS.min, Math.min(SPIKE_RADIUS.max, Number(event.target.value) || SPIKE_RADIUS.default));
+  syncInspector(); render();
+});
+$('selection-spin').addEventListener('change', event => {
+  if (selection?.kind !== 'spike') return; pushHistory();
+  const spin = Number(event.target.value);
+  level.spikes[selection.index].spin = Number.isFinite(spin) ? spin : 0;
+  syncInspector(); render();
+});
 $('delete-selection').addEventListener('click', deleteSelection);
 $('save-draft').addEventListener('click', () => { localStorage.setItem(DRAFT_PREFIX + levelEntries[levelIndex].id, JSON.stringify(level)); $('save-draft').textContent = 'SAVED'; setTimeout(() => { $('save-draft').textContent = 'SAVE DRAFT'; }, 1000); });
 $('export-json').addEventListener('click', () => download(`${level.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.json`, JSON.stringify(level, null, 2) + '\n', 'application/json'));

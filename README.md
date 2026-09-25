@@ -78,6 +78,7 @@ Open the visual editor from **Level Editor** on the main dashboard or navigate d
 - Adding ground points, elevated platforms, gaps, freely positioned apples, start points, props, and finish positions
 - Moving complete platforms by dragging their filled bodies
 - Moving or removing props and changing their type and foreground/background layer
+- Placing spinning spike hazards and editing their radius and spin speed
 - Choosing the start position and left/right facing direction
 - Selecting base and platform materials
 - Editing sun, cloud, rain, and lightning values

@@ -24,6 +24,7 @@ export function createBlankLevel(index = 0) {
       { x: 1100, y: null }
     ],
     props: [],
+    spikes: [],
     weather: { sun: 1, clouds: .2 },
     fallY: 620,
     sky: '#eae9d9',
@@ -31,6 +32,16 @@ export function createBlankLevel(index = 0) {
     mountain: '#b7c8b1',
     spray: ['#6f8b59', '#9c8b68', '#c5b496']
   };
+}
+
+export const SPIKE_RADIUS = { min: 8, max: 64, default: 18 };
+
+export function normalizeSpike(spike, groundPoints) {
+  const radius = Math.max(SPIKE_RADIUS.min, Math.min(SPIKE_RADIUS.max, Number(spike?.radius) || SPIKE_RADIUS.default));
+  const x = Number(spike?.x) || 0;
+  const y = Number.isFinite(Number(spike?.y)) && spike?.y !== null ? Number(spike.y) : curveAt(groundPoints, x).y - radius;
+  const spin = Number(spike?.spin);
+  return { x, y, radius, spin: Number.isFinite(spin) ? spin : 1 };
 }
 
 export function normalizeLevel(input, index = 0) {
@@ -77,6 +88,7 @@ export function normalizeLevel(input, index = 0) {
     type: String(prop.type || 'tree'),
     layer: prop.layer === 'front' ? 'front' : 'back'
   })) : [];
+  level.spikes = Array.isArray(level.spikes) ? level.spikes.map(spike => normalizeSpike(spike, level.points)) : [];
   level.weather = { ...fallback.weather, ...(level.weather || {}) };
   return level;
 }
@@ -132,6 +144,16 @@ export function validateLevel(level) {
   for (const [index, prop] of (level.props || []).entries()) {
     if (!['tree', 'fence', 'rock', 'flowers', 'stump', 'crystal'].includes(prop.type)) warning(`Prop ${index + 1} has an unknown type “${prop.type}”.`);
     if (prop.y === null && (level.gaps || []).some(gap => prop.x > gap[0] && prop.x < gap[1])) error(`Ground-anchored prop ${index + 1} is inside a gap.`);
+  }
+  for (const [index, spike] of (level.spikes || []).entries()) {
+    if (!Number.isFinite(spike.x) || !Number.isFinite(spike.y)) error(`Spike ${index + 1} must have finite coordinates.`);
+    if (!(spike.radius >= SPIKE_RADIUS.min && spike.radius <= SPIKE_RADIUS.max)) error(`Spike ${index + 1} radius must be between ${SPIKE_RADIUS.min} and ${SPIKE_RADIUS.max}.`);
+    const startY = Number.isFinite(level.start?.y) ? level.start.y : curveAt(level.points, level.start.x).y - 12;
+    if (Math.hypot(spike.x - level.start.x, spike.y - startY) < spike.radius + 70) warning(`Spike ${index + 1} is very close to the start position.`);
+    for (const apple of level.apples || []) {
+      const appleY = Number.isFinite(apple.y) ? apple.y : curveAt(level.points, apple.x).y - 60;
+      if (Math.hypot(spike.x - apple.x, spike.y - appleY) < spike.radius + 10) warning(`Spike ${index + 1} overlaps the apple at x ${Math.round(apple.x)}.`);
+    }
   }
   for (const key of ['sun', 'clouds', 'rain', 'lightning']) {
     const value = level.weather?.[key];

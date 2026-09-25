@@ -31,6 +31,7 @@
         <button class="tool" data-tool="apple">● <span>Apple</span></button>
         <button class="tool" data-tool="start">▶ <span>Start</span></button>
         <button class="tool" data-tool="prop">♣ <span>Prop</span></button>
+        <button class="tool" data-tool="spike">✹ <span>Spike</span></button>
         <button class="tool" data-tool="finish">⚑ <span>Finish</span></button>
         <button class="tool" data-tool="pan">✥ <span>Pan</span></button>
         <div class="zoom-controls"><button id="zoom-out">−</button><span id="zoom-label">100%</span><button id="zoom-in">+</button></div>
@@ -68,6 +69,8 @@
             <label id="selection-facing-row" hidden>Facing <select id="selection-facing"><option value="1">Right</option><option value="-1">Left</option></select></label>
             <label id="selection-prop-type-row" hidden>Prop <select id="selection-prop-type"><option value="tree">Tree</option><option value="fence">Fence</option><option value="rock">Rock</option><option value="flowers">Flowers</option><option value="stump">Stump</option><option value="crystal">Crystal</option></select></label>
             <label id="selection-layer-row" hidden>Layer <select id="selection-layer"><option value="back">Back</option><option value="front">Front</option></select></label>
+            <label id="selection-radius-row" hidden>Radius <input id="selection-radius" type="number" min="8" max="64" step="1"></label>
+            <label id="selection-spin-row" hidden>Spin (turns/s, negative = counter-clockwise) <input id="selection-spin" type="number" step="0.1"></label>
             <button class="danger" id="delete-selection">DELETE SELECTION</button>
           </fieldset>
         </div>
