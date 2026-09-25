@@ -1,0 +1,260 @@
+{
+    "name": "Mind Your Head",
+    "label": "MIND YOUR HEAD / CUSTOM",
+    "goal": 2420,
+    "terrain": "grass",
+    "description": "An Elasto Mania-inspired intermediate trail: collect six apples, clear two short gaps, and control your bounce beneath floating masonry and spinning killers. Build speed for the jumps, then brake before entering the sheltered apple hollows. Both gaps are 90 units wide with lower landings; all required apples follow the base route. No mandatory loops or advanced tricks. Not playtested; medal times are rough estimates.",
+    "start": {
+        "x": 90,
+        "y": null,
+        "facing": 1
+    },
+    "points": [
+        [
+            0,
+            340
+        ],
+        [
+            220,
+            340
+        ],
+        [
+            380,
+            310
+        ],
+        [
+            440,
+            310
+        ],
+        [
+            600,
+            280
+        ],
+        [
+            690,
+            325
+        ],
+        [
+            860,
+            380
+        ],
+        [
+            1040,
+            380
+        ],
+        [
+            1220,
+            380
+        ],
+        [
+            1400,
+            340
+        ],
+        [
+            1560,
+            340
+        ],
+        [
+            1740,
+            340
+        ],
+        [
+            1880,
+            300
+        ],
+        [
+            1970,
+            340
+        ],
+        [
+            2140,
+            365
+        ],
+        [
+            2300,
+            330
+        ],
+        [
+            2580,
+            330
+        ]
+    ],
+    "gaps": [
+        [
+            600,
+            690
+        ],
+        [
+            1880,
+            1970
+        ]
+    ],
+    "platforms": [
+        {
+            "points": [
+                [
+                    880,
+                    155
+                ],
+                [
+                    1060,
+                    125
+                ],
+                [
+                    1240,
+                    155
+                ]
+            ],
+            "bottom": [
+                [
+                    880,
+                    195
+                ],
+                [
+                    1060,
+                    165
+                ],
+                [
+                    1240,
+                    195
+                ]
+            ],
+            "material": "brick"
+        }
+    ],
+    "paths": [
+        {
+            "points": [
+                [
+                    1430,
+                    140
+                ],
+                [
+                    1520,
+                    110
+                ],
+                [
+                    1660,
+                    110
+                ],
+                [
+                    1770,
+                    140
+                ]
+            ],
+            "closed": false,
+            "thickness": 24,
+            "material": "rock"
+        }
+    ],
+    "apples": [
+        {
+            "x": 350,
+            "y": null
+        },
+        {
+            "x": 810,
+            "y": null
+        },
+        {
+            "x": 1080,
+            "y": null
+        },
+        {
+            "x": 1490,
+            "y": null
+        },
+        {
+            "x": 1730,
+            "y": null
+        },
+        {
+            "x": 2200,
+            "y": null
+        }
+    ],
+    "spikes": [
+        {
+            "x": 1060,
+            "y": 230,
+            "radius": 18,
+            "spin": 0.65
+        },
+        {
+            "x": 1620,
+            "y": 190,
+            "radius": 18,
+            "spin": -0.8
+        }
+    ],
+    "props": [
+        {
+            "x": 180,
+            "y": null,
+            "type": "fence",
+            "layer": "back"
+        },
+        {
+            "x": 410,
+            "y": null,
+            "type": "tree",
+            "layer": "back"
+        },
+        {
+            "x": 770,
+            "y": null,
+            "type": "flowers",
+            "layer": "back"
+        },
+        {
+            "x": 1060,
+            "y": 125,
+            "type": "tree",
+            "layer": "back"
+        },
+        {
+            "x": 1320,
+            "y": null,
+            "type": "stump",
+            "layer": "back"
+        },
+        {
+            "x": 2060,
+            "y": null,
+            "type": "rock",
+            "layer": "back"
+        },
+        {
+            "x": 2340,
+            "y": null,
+            "type": "flowers",
+            "layer": "back"
+        },
+        {
+            "x": 2500,
+            "y": null,
+            "type": "tree",
+            "layer": "back"
+        }
+    ],
+    "weather": {
+        "sun": 0.85,
+        "clouds": 0.25,
+        "rain": 0,
+        "lightning": 0
+    },
+    "medals": {
+        "gold": 20,
+        "silver": 28,
+        "bronze": 40
+    },
+    "fallY": 650,
+    "sky": "#e8efdf",
+    "sun": "#f3cc88",
+    "mountain": "#afc3ac",
+    "spray": [
+        "#6f8b59",
+        "#9c8b68",
+        "#c5b496"
+    ]
+}

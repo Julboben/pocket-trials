@@ -48,6 +48,24 @@
       "source": "custom",
       "file": "custom/00-custom-level.json",
       "name": "Custom Level"
+    },
+    {
+      "id": "custom:hanging-gardens",
+      "source": "custom",
+      "file": "custom/hanging-gardens.json",
+      "name": "The Hanging Gardens"
+    },
+    {
+      "id": "custom:mind-your-head",
+      "source": "custom",
+      "file": "custom/mind-your-head.json",
+      "name": "Mind Your Head"
+    },
+    {
+      "id": "custom:wrong-way-up",
+      "source": "custom",
+      "file": "custom/wrong-way-up.json",
+      "name": "The Wrong-Way Circus"
     }
   ]
 }

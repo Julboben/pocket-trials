@@ -1,0 +1,572 @@
+{
+    "name": "The Hanging Gardens",
+    "label": "THE HANGING GARDENS / HARD",
+    "goal": 5480,
+    "terrain": "rock",
+    "description": "A long, difficult Elasto Mania-inspired expedition with four mandatory floating islands, twelve apples, exposed transfers, and overhead killers. Reach the first island from the lip at x1160. At x2710, launch onto the first of two consecutive islands, then cross the 90-unit break between them. Reach the final island from x4260. Every island carries a required apple with an explicit height; riding through the valleys below will miss them. Valley floors offer recovery space, but missed islands require backtracking. Settle the bike before each launch and control your height beneath the killers. Geometry checked against the supplied validation rules, but not playtested; jump feasibility and medal times require in-game testing.",
+    "start": {
+        "x": 90,
+        "y": null,
+        "facing": 1
+    },
+    "points": [
+        [
+            0,
+            360
+        ],
+        [
+            220,
+            360
+        ],
+        [
+            400,
+            305
+        ],
+        [
+            570,
+            385
+        ],
+        [
+            740,
+            290
+        ],
+        [
+            910,
+            355
+        ],
+        [
+            1080,
+            275
+        ],
+        [
+            1160,
+            260
+        ],
+        [
+            1250,
+            480
+        ],
+        [
+            1430,
+            480
+        ],
+        [
+            1500,
+            480
+        ],
+        [
+            1670,
+            320
+        ],
+        [
+            1850,
+            350
+        ],
+        [
+            2030,
+            275
+        ],
+        [
+            2120,
+            325
+        ],
+        [
+            2300,
+            390
+        ],
+        [
+            2480,
+            305
+        ],
+        [
+            2640,
+            230
+        ],
+        [
+            2710,
+            215
+        ],
+        [
+            2800,
+            470
+        ],
+        [
+            2980,
+            500
+        ],
+        [
+            3160,
+            500
+        ],
+        [
+            3300,
+            470
+        ],
+        [
+            3450,
+            310
+        ],
+        [
+            3620,
+            360
+        ],
+        [
+            3800,
+            275
+        ],
+        [
+            3970,
+            365
+        ],
+        [
+            4140,
+            275
+        ],
+        [
+            4260,
+            220
+        ],
+        [
+            4350,
+            460
+        ],
+        [
+            4530,
+            490
+        ],
+        [
+            4650,
+            470
+        ],
+        [
+            4820,
+            300
+        ],
+        [
+            4990,
+            365
+        ],
+        [
+            5160,
+            280
+        ],
+        [
+            5330,
+            335
+        ],
+        [
+            5620,
+            335
+        ]
+    ],
+    "gaps": [
+        [
+            1160,
+            1250
+        ],
+        [
+            2030,
+            2120
+        ],
+        [
+            2710,
+            2800
+        ],
+        [
+            4260,
+            4350
+        ]
+    ],
+    "platforms": [
+        {
+            "points": [
+                [
+                    1250,
+                    270
+                ],
+                [
+                    1410,
+                    225
+                ],
+                [
+                    1580,
+                    275
+                ]
+            ],
+            "bottom": [
+                [
+                    1250,
+                    310
+                ],
+                [
+                    1410,
+                    265
+                ],
+                [
+                    1580,
+                    315
+                ]
+            ],
+            "material": "grass"
+        },
+        {
+            "points": [
+                [
+                    2800,
+                    230
+                ],
+                [
+                    2920,
+                    190
+                ],
+                [
+                    3030,
+                    205
+                ]
+            ],
+            "bottom": [
+                [
+                    2800,
+                    266
+                ],
+                [
+                    2920,
+                    226
+                ],
+                [
+                    3030,
+                    241
+                ]
+            ],
+            "material": "brick"
+        },
+        {
+            "points": [
+                [
+                    3120,
+                    235
+                ],
+                [
+                    3240,
+                    210
+                ],
+                [
+                    3360,
+                    255
+                ]
+            ],
+            "bottom": [
+                [
+                    3120,
+                    271
+                ],
+                [
+                    3240,
+                    246
+                ],
+                [
+                    3360,
+                    291
+                ]
+            ],
+            "material": "brick"
+        },
+        {
+            "points": [
+                [
+                    4350,
+                    235
+                ],
+                [
+                    4490,
+                    195
+                ],
+                [
+                    4610,
+                    220
+                ],
+                [
+                    4730,
+                    255
+                ]
+            ],
+            "bottom": [
+                [
+                    4350,
+                    275
+                ],
+                [
+                    4490,
+                    235
+                ],
+                [
+                    4610,
+                    260
+                ],
+                [
+                    4730,
+                    295
+                ]
+            ],
+            "material": "grass"
+        }
+    ],
+    "paths": [
+        {
+            "points": [
+                [
+                    1740,
+                    105
+                ],
+                [
+                    1850,
+                    75
+                ],
+                [
+                    1960,
+                    105
+                ]
+            ],
+            "closed": false,
+            "thickness": 24,
+            "material": "rock"
+        },
+        {
+            "points": [
+                [
+                    3510,
+                    110
+                ],
+                [
+                    3650,
+                    80
+                ],
+                [
+                    3780,
+                    110
+                ]
+            ],
+            "closed": false,
+            "thickness": 28,
+            "material": "rock"
+        }
+    ],
+    "apples": [
+        {
+            "x": 390,
+            "y": null
+        },
+        {
+            "x": 740,
+            "y": null
+        },
+        {
+            "x": 1410,
+            "y": 165
+        },
+        {
+            "x": 1850,
+            "y": null
+        },
+        {
+            "x": 2300,
+            "y": null
+        },
+        {
+            "x": 2920,
+            "y": 130
+        },
+        {
+            "x": 3240,
+            "y": 150
+        },
+        {
+            "x": 3620,
+            "y": null
+        },
+        {
+            "x": 3970,
+            "y": null
+        },
+        {
+            "x": 4490,
+            "y": 135
+        },
+        {
+            "x": 4670,
+            "y": 178
+        },
+        {
+            "x": 5230,
+            "y": null
+        }
+    ],
+    "spikes": [
+        {
+            "x": 1510,
+            "y": 90,
+            "radius": 20,
+            "spin": 0.75
+        },
+        {
+            "x": 1850,
+            "y": 195,
+            "radius": 22,
+            "spin": -0.6
+        },
+        {
+            "x": 2990,
+            "y": 55,
+            "radius": 18,
+            "spin": 0.9
+        },
+        {
+            "x": 3290,
+            "y": 75,
+            "radius": 20,
+            "spin": -0.85
+        },
+        {
+            "x": 3620,
+            "y": 205,
+            "radius": 22,
+            "spin": 0.65
+        },
+        {
+            "x": 4570,
+            "y": 60,
+            "radius": 20,
+            "spin": -0.7
+        }
+    ],
+    "props": [
+        {
+            "x": 190,
+            "y": null,
+            "type": "fence",
+            "layer": "back"
+        },
+        {
+            "x": 570,
+            "y": null,
+            "type": "tree",
+            "layer": "back"
+        },
+        {
+            "x": 970,
+            "y": null,
+            "type": "rock",
+            "layer": "back"
+        },
+        {
+            "x": 1410,
+            "y": 225,
+            "type": "flowers",
+            "layer": "back"
+        },
+        {
+            "x": 1430,
+            "y": null,
+            "type": "crystal",
+            "layer": "back"
+        },
+        {
+            "x": 1760,
+            "y": null,
+            "type": "stump",
+            "layer": "back"
+        },
+        {
+            "x": 2220,
+            "y": null,
+            "type": "tree",
+            "layer": "back"
+        },
+        {
+            "x": 2540,
+            "y": null,
+            "type": "fence",
+            "layer": "back"
+        },
+        {
+            "x": 2920,
+            "y": 190,
+            "type": "flowers",
+            "layer": "back"
+        },
+        {
+            "x": 3060,
+            "y": null,
+            "type": "crystal",
+            "layer": "back"
+        },
+        {
+            "x": 3240,
+            "y": 210,
+            "type": "flowers",
+            "layer": "back"
+        },
+        {
+            "x": 3880,
+            "y": null,
+            "type": "rock",
+            "layer": "back"
+        },
+        {
+            "x": 4070,
+            "y": null,
+            "type": "fence",
+            "layer": "back"
+        },
+        {
+            "x": 4490,
+            "y": 195,
+            "type": "flowers",
+            "layer": "back"
+        },
+        {
+            "x": 4530,
+            "y": null,
+            "type": "crystal",
+            "layer": "back"
+        },
+        {
+            "x": 4920,
+            "y": null,
+            "type": "tree",
+            "layer": "back"
+        },
+        {
+            "x": 5390,
+            "y": null,
+            "type": "flowers",
+            "layer": "back"
+        },
+        {
+            "x": 5550,
+            "y": null,
+            "type": "fence",
+            "layer": "back"
+        }
+    ],
+    "weather": {
+        "sun": 0.45,
+        "clouds": 0.6,
+        "rain": 0,
+        "lightning": 0
+    },
+    "medals": {
+        "gold": 42,
+        "silver": 60,
+        "bronze": 90
+    },
+    "fallY": 760,
+    "sky": "#dde5df",
+    "sun": "#edc58f",
+    "mountain": "#9aafa5",
+    "spray": [
+        "#626b69",
+        "#858e8a",
+        "#aeb5ad"
+    ]
+}

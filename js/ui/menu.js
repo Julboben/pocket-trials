@@ -262,7 +262,7 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
     $('menu-save-view').hidden = view !== 'save';
     $('menu-how-view').hidden = view !== 'how';
     $('menu-settings-view').hidden = view !== 'settings';
-    $('menu-screen').scrollTop = 0;
+    $('menu-scroll').scrollTop = 0;
     requestAnimationFrame(() => {
       const list = controls();
       selectControl(list.find(button => !button.matches('[data-menu-back]')) || list[0]);

@@ -1,0 +1,576 @@
+{
+    "name": "The Wrong-Way Circus",
+    "label": "THE WRONG-WAY CIRCUS / EXPERT",
+    "goal": 6280,
+    "terrain": "grass",
+    "description": "Five different challenges, not five copies of one jump. 1) FALSE START: you spawn on an elevated shelf facing right, but an apple is behind you. Flip left to collect it, then turn right and ride off the shelf. 2) THE CAMEL: jump right onto a crowned island, collect its summit apple, and control the descent. 3) RETURN TO SENDER: pass beneath the brick island, climb the hill at x3080, turn in the bowl near x3250, then jump LEFT onto the island to collect its two apples. Drop from its left end and turn right to continue. 4) HEADROOM: descend into a sheltered hollow and collect the low apple without bouncing into the hanging killer. 5) THE FALLING STAIRCASE: cross two descending islands, collecting an apple on each, then negotiate the final rollers and gap. Crystal props mark useful turnaround areas. Apple order is not enforced. This is an unplaytested expert layout: transfers, recovery routes, explicit start height and head clearances need in-game testing. Medal times are rough estimates.",
+    "start": {
+        "x": 400,
+        "y": 268,
+        "facing": 1
+    },
+    "points": [
+        [
+            0,
+            500
+        ],
+        [
+            220,
+            500
+        ],
+        [
+            450,
+            500
+        ],
+        [
+            620,
+            500
+        ],
+        [
+            800,
+            420
+        ],
+        [
+            980,
+            360
+        ],
+        [
+            1160,
+            425
+        ],
+        [
+            1340,
+            350
+        ],
+        [
+            1510,
+            295
+        ],
+        [
+            1600,
+            280
+        ],
+        [
+            1690,
+            500
+        ],
+        [
+            1870,
+            520
+        ],
+        [
+            2040,
+            480
+        ],
+        [
+            2210,
+            350
+        ],
+        [
+            2390,
+            420
+        ],
+        [
+            2560,
+            520
+        ],
+        [
+            2750,
+            520
+        ],
+        [
+            2930,
+            520
+        ],
+        [
+            3080,
+            285
+        ],
+        [
+            3250,
+            350
+        ],
+        [
+            3420,
+            305
+        ],
+        [
+            3590,
+            405
+        ],
+        [
+            3770,
+            460
+        ],
+        [
+            3900,
+            460
+        ],
+        [
+            4080,
+            370
+        ],
+        [
+            4250,
+            280
+        ],
+        [
+            4350,
+            245
+        ],
+        [
+            4440,
+            510
+        ],
+        [
+            4630,
+            530
+        ],
+        [
+            4820,
+            550
+        ],
+        [
+            5000,
+            530
+        ],
+        [
+            5170,
+            410
+        ],
+        [
+            5350,
+            335
+        ],
+        [
+            5520,
+            420
+        ],
+        [
+            5700,
+            300
+        ],
+        [
+            5790,
+            350
+        ],
+        [
+            5960,
+            400
+        ],
+        [
+            6130,
+            335
+        ],
+        [
+            6430,
+            335
+        ]
+    ],
+    "gaps": [
+        [
+            1600,
+            1690
+        ],
+        [
+            4350,
+            4440
+        ],
+        [
+            5700,
+            5790
+        ]
+    ],
+    "platforms": [
+        {
+            "points": [
+                [
+                    0,
+                    280
+                ],
+                [
+                    450,
+                    280
+                ],
+                [
+                    600,
+                    320
+                ]
+            ],
+            "bottom": [
+                [
+                    0,
+                    316
+                ],
+                [
+                    450,
+                    316
+                ],
+                [
+                    600,
+                    356
+                ]
+            ],
+            "material": "brick"
+        },
+        {
+            "points": [
+                [
+                    1690,
+                    300
+                ],
+                [
+                    1860,
+                    235
+                ],
+                [
+                    2040,
+                    310
+                ]
+            ],
+            "bottom": [
+                [
+                    1690,
+                    340
+                ],
+                [
+                    1860,
+                    275
+                ],
+                [
+                    2040,
+                    350
+                ]
+            ],
+            "material": "grass"
+        },
+        {
+            "points": [
+                [
+                    2590,
+                    355
+                ],
+                [
+                    2760,
+                    315
+                ],
+                [
+                    2930,
+                    310
+                ]
+            ],
+            "bottom": [
+                [
+                    2590,
+                    391
+                ],
+                [
+                    2760,
+                    351
+                ],
+                [
+                    2930,
+                    346
+                ]
+            ],
+            "material": "brick"
+        },
+        {
+            "points": [
+                [
+                    4440,
+                    265
+                ],
+                [
+                    4560,
+                    250
+                ],
+                [
+                    4680,
+                    290
+                ]
+            ],
+            "bottom": [
+                [
+                    4440,
+                    301
+                ],
+                [
+                    4560,
+                    286
+                ],
+                [
+                    4680,
+                    326
+                ]
+            ],
+            "material": "rock"
+        },
+        {
+            "points": [
+                [
+                    4770,
+                    325
+                ],
+                [
+                    4880,
+                    300
+                ],
+                [
+                    5000,
+                    345
+                ]
+            ],
+            "bottom": [
+                [
+                    4770,
+                    361
+                ],
+                [
+                    4880,
+                    336
+                ],
+                [
+                    5000,
+                    381
+                ]
+            ],
+            "material": "grass"
+        }
+    ],
+    "paths": [
+        {
+            "points": [
+                [
+                    3580,
+                    180
+                ],
+                [
+                    3710,
+                    215
+                ],
+                [
+                    3840,
+                    240
+                ],
+                [
+                    3950,
+                    205
+                ],
+                [
+                    4040,
+                    150
+                ]
+            ],
+            "closed": false,
+            "thickness": 28,
+            "material": "rock"
+        }
+    ],
+    "apples": [
+        {
+            "x": 140,
+            "y": 220
+        },
+        {
+            "x": 540,
+            "y": 246
+        },
+        {
+            "x": 980,
+            "y": null
+        },
+        {
+            "x": 1860,
+            "y": 175
+        },
+        {
+            "x": 2310,
+            "y": null
+        },
+        {
+            "x": 2640,
+            "y": 287
+        },
+        {
+            "x": 2870,
+            "y": 251
+        },
+        {
+            "x": 2760,
+            "y": null
+        },
+        {
+            "x": 3250,
+            "y": null
+        },
+        {
+            "x": 3840,
+            "y": null
+        },
+        {
+            "x": 4560,
+            "y": 190
+        },
+        {
+            "x": 4880,
+            "y": 240
+        },
+        {
+            "x": 5350,
+            "y": null
+        },
+        {
+            "x": 5520,
+            "y": null
+        },
+        {
+            "x": 6130,
+            "y": null
+        }
+    ],
+    "spikes": [
+        {
+            "x": 2780,
+            "y": 175,
+            "radius": 18,
+            "spin": -0.85
+        },
+        {
+            "x": 3840,
+            "y": 305,
+            "radius": 20,
+            "spin": 0.65
+        },
+        {
+            "x": 4660,
+            "y": 135,
+            "radius": 18,
+            "spin": -0.75
+        }
+    ],
+    "props": [
+        {
+            "x": 70,
+            "y": 280,
+            "type": "crystal",
+            "layer": "back"
+        },
+        {
+            "x": 340,
+            "y": 280,
+            "type": "flowers",
+            "layer": "back"
+        },
+        {
+            "x": 740,
+            "y": null,
+            "type": "tree",
+            "layer": "back"
+        },
+        {
+            "x": 1240,
+            "y": null,
+            "type": "fence",
+            "layer": "back"
+        },
+        {
+            "x": 1860,
+            "y": 235,
+            "type": "flowers",
+            "layer": "back"
+        },
+        {
+            "x": 1880,
+            "y": null,
+            "type": "rock",
+            "layer": "back"
+        },
+        {
+            "x": 2460,
+            "y": null,
+            "type": "stump",
+            "layer": "back"
+        },
+        {
+            "x": 2640,
+            "y": 347,
+            "type": "flowers",
+            "layer": "back"
+        },
+        {
+            "x": 3250,
+            "y": null,
+            "type": "crystal",
+            "layer": "back"
+        },
+        {
+            "x": 3710,
+            "y": 201,
+            "type": "tree",
+            "layer": "back"
+        },
+        {
+            "x": 4180,
+            "y": null,
+            "type": "fence",
+            "layer": "back"
+        },
+        {
+            "x": 4560,
+            "y": 250,
+            "type": "flowers",
+            "layer": "back"
+        },
+        {
+            "x": 4880,
+            "y": 300,
+            "type": "flowers",
+            "layer": "back"
+        },
+        {
+            "x": 4800,
+            "y": null,
+            "type": "crystal",
+            "layer": "back"
+        },
+        {
+            "x": 5220,
+            "y": null,
+            "type": "tree",
+            "layer": "back"
+        },
+        {
+            "x": 5890,
+            "y": null,
+            "type": "rock",
+            "layer": "back"
+        },
+        {
+            "x": 6340,
+            "y": null,
+            "type": "flowers",
+            "layer": "back"
+        }
+    ],
+    "weather": {
+        "sun": 0.65,
+        "clouds": 0.4,
+        "rain": 0,
+        "lightning": 0
+    },
+    "medals": {
+        "gold": 65,
+        "silver": 95,
+        "bronze": 145
+    },
+    "fallY": 820,
+    "sky": "#e5ebdd",
+    "sun": "#efc38b",
+    "mountain": "#a5b8a5",
+    "spray": [
+        "#6f8b59",
+        "#9c8b68",
+        "#c5b496"
+    ]
+}
