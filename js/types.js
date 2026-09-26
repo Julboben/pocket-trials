@@ -62,7 +62,7 @@
  *
  * @typedef {object} RideInput
  * @property {number} [facing] 1 or -1; omitted keeps the current facing
- * @property {number} [leanInput] -1 back … 1 forward
+ * @property {number} [leanInput] -1 left … 1 right, in screen direction
  * @property {boolean} [accelerating]
  * @property {boolean} [braking]
  *
@@ -91,7 +91,7 @@
  * @property {number} throttle
  * @property {number} brakePressure
  * @property {number} leanControl
- * @property {number} leanVisual
+ * @property {number} leanVisual -1 back … 1 forward, relative to facing
  * @property {any} ragdoll
  * @property {number[]} splits timer value at each apple pickup
  * @property {number} seed

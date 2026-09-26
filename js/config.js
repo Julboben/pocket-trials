@@ -8,7 +8,6 @@ export const TAU = Math.PI * 2;
 // Handling values. These are intentionally centralized for feel-tuning.
 export const GRAVITY = 380;
 export const MAX_POINT_SPEED = 760;
-export const UPHILL_TORQUE_BOOST = 1.4;
 
 // Constraint and contact solver tuning.
 export const BIKE_SOLVER_ITERATIONS = 7;
@@ -48,10 +47,10 @@ export const XPBD_CHASSIS_TOP_INVERSE_MASS = .5;
 // driven wheel. Top speed is 340.
 export const XPBD_MOTOR_ANGULAR_ACCELERATION = 708;
 export const XPBD_MAX_DRIVE_SPEED = 340;
-// Slightly under full reaction so throttle does not flip the bike backward.
-// Steep climbs add extra drive torque, and that extra is discounted here.
-export const XPBD_MOTOR_REACTION_SCALE = .95;
-export const XPBD_UPHILL_REACTION_REDUCTION = .4;
+// Full reaction: the torque that drives the rear wheel pushes the front up,
+// on climbs as on flat ground. Held throttle on a hill of about 40° or more
+// loops the bike over backward unless the rider leans forward.
+export const XPBD_MOTOR_REACTION_SCALE = 1;
 export const XPBD_RIDER_GROUND_ANGULAR_ACCELERATION = 28;
 export const XPBD_RIDER_AIR_ANGULAR_ACCELERATION = 12;
 // Ground lean fades out between these tilts (radians from the ground normal),
@@ -77,14 +76,8 @@ export const XPBD_THROTTLE_INPUT_RESPONSE = 1.1;
 export const XPBD_LEAN_INPUT_RESPONSE = 5.8;
 export const XPBD_UPHILL_FORWARD_LEAN_REDUCTION = 1.4;
 // Nose-up tilt from the slope (radians) at which the front wheel counts as
-// lifted: forward lean is back to full strength for pulling it down, and the
-// anti-wheelie bias below is fully on.
+// lifted: forward lean is back to full strength for pulling it down.
 export const XPBD_UPHILL_FORWARD_LEAN_FULL_TILT = 12 * Math.PI / 180;
-export const XPBD_UPHILL_FORWARD_LEAN_MOTOR_BOOST = .25;
-// Small nose-down bias while climbing under throttle. It grows with the
-// slope, so a steep face is harder to loop without removing the wheelie. It
-// only acts once the front wheel lifts, so it never levers the rear wheel up.
-export const XPBD_UPHILL_ANTI_WHEELIE_ACCELERATION = 9;
 // Brake dive follows travel speed, capped at about twice full-lean pitch; the
 // front suspension dives and takes up part of it.
 export const XPBD_BRAKE_REACTION_SCALE = 1.3;

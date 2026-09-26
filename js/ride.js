@@ -265,7 +265,8 @@ export function stepRide(ride, input = {}, hooks = {}) {
     }
   }
 
-  ride.leanVisual = lerp(ride.leanVisual, leanInput, 1 - exp(-7 * STEP));
+  // Input is in screen direction; the rider pose leans relative to facing.
+  ride.leanVisual = lerp(ride.leanVisual, leanInput * ride.facing, 1 - exp(-7 * STEP));
   return events;
 }
 

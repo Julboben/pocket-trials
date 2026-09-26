@@ -471,6 +471,44 @@ function steepClimbForwardLeanScenario() {
   assert.ok(progress > 400, `forward lean must still let the bike climb: ${progress}`);
   return { maxRearLift, minRelativePitch, progress };
 }
+// Nothing but the rider holds the nose down on a climb: held throttle on a
+// steep hill without leaning forward lifts the front until the bike loops.
+function steepClimbLoopScenario() {
+  const rise = Math.tan(45 * Math.PI / 180) * 300;
+  const level = { ...flatLevel(600), points: [[0, 600], [250, 600], [550, 600 - rise], [1400, 600 - rise]] };
+  const simulation = createSimulation(level, { x: 150 });
+  run(simulation, 120, {});
+  let maxNoseUp = -Infinity;
+  for (let index = 0; index < 600; index++) {
+    step(simulation, { throttle: true });
+    const { rear } = simulation.vehicle;
+    if (rear.x > 250 && rear.x < 550) maxNoseUp = Math.max(maxNoseUp, -vehicleMetrics(simulation.vehicle).pitch * 180 / Math.PI - 45);
+  }
+  assert.ok(maxNoseUp > 90, `held throttle must loop the bike on a 45° climb: nose rose ${maxNoseUp}° above the slope`);
+  return { maxNoseUp };
+}
+
+// Leaning forward cannot hold the nose down on a near-vertical face.
+function steepWallScenario() {
+  const height = 600, base = 300;
+  const level = { ...flatLevel(800), points: [[0, 800], [base, 800], [base + height / Math.tan(78 * Math.PI / 180), 800 - height], [1400, 800 - height]] };
+  let highest = 0;
+  for (const lean of [0, .5, 1]) {
+    const simulation = createSimulation(level, { x: 200 });
+    run(simulation, 60, {});
+    // Without the rider's crash check a looped bike keeps sliding on its back,
+    // so only count height while it is still the right way up.
+    for (let index = 0; index < 720; index++) {
+      const { rear, front } = simulation.vehicle;
+      const { pitch } = step(simulation, { throttle: true, lean: front.x > base - 10 ? lean : 0 });
+      if (Math.abs(pitch) > Math.PI * .85) break;
+      highest = Math.max(highest, 800 - RADIUS - Math.min(rear.y, front.y));
+    }
+  }
+  assert.ok(highest < height * .5, `a 78° wall must not be climbable, even leaning forward: reached ${highest} of ${height}`);
+  return { highest };
+}
+
 const acceleration = accelerationScenario();
 const braking = brakingScenario(true);
 const coasting = brakingScenario(false);
@@ -507,6 +545,8 @@ const results = {
   airLeanKeepsMomentum: airLeanKeepsMomentumScenario(),
   singleWheelLanding: singleWheelLandingScenario(),
   steepClimbForwardLean: steepClimbForwardLeanScenario(),
+  steepClimbLoop: steepClimbLoopScenario(),
+  steepWall: steepWallScenario(),
   flipKeepsTiresRolling: flipKeepsTiresRollingScenario(),
   determinismAndFlip: determinismAndFlipScenario()
 };

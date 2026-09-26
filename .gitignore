@@ -1,3 +1,2 @@
 .DS_Store
-# levels/custom/*
-# !levels/custom/README.md
+tests/replays/*

@@ -1,5 +1,5 @@
 import {
-  STEP, RADIUS, WHEELBASE, GRAVITY, MAX_POINT_SPEED, UPHILL_TORQUE_BOOST,
+  STEP, RADIUS, WHEELBASE, GRAVITY, MAX_POINT_SPEED,
   BIKE_SOLVER_ITERATIONS, BIKE_VELOCITY_ITERATIONS,
   XPBD_CHASSIS_COMPLIANCE, XPBD_CHASSIS_AREA_COMPLIANCE,
   XPBD_SUSPENSION_COMPLIANCE, XPBD_SUSPENSION_DAMPING, XPBD_SUSPENSION_REBOUND_DAMPING,
@@ -9,13 +9,13 @@ import {
   SUSPENSION_BUMP_STOP_LENGTH, XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE,
   WHEEL_INERTIA, WHEEL_FRICTION,
   XPBD_CHASSIS_MOUNT_INVERSE_MASS, XPBD_CHASSIS_TOP_INVERSE_MASS,
-  XPBD_MOTOR_ANGULAR_ACCELERATION, XPBD_MAX_DRIVE_SPEED, XPBD_MOTOR_REACTION_SCALE, XPBD_UPHILL_REACTION_REDUCTION,
+  XPBD_MOTOR_ANGULAR_ACCELERATION, XPBD_MAX_DRIVE_SPEED, XPBD_MOTOR_REACTION_SCALE,
   XPBD_RIDER_GROUND_ANGULAR_ACCELERATION, XPBD_RIDER_AIR_ANGULAR_ACCELERATION,
   XPBD_RIDER_LEVERAGE_FADE_START, XPBD_RIDER_LEVERAGE_FADE_END, XPBD_RIDER_MAX_AIR_SPIN, XPBD_RIDER_AIR_SPIN_RESPONSE, XPBD_RIDER_MAX_GROUND_SPIN,
   XPBD_TOUCHDOWN_SPIN_THRESHOLD, XPBD_TOUCHDOWN_SPIN_ABSORPTION,
   XPBD_THROTTLE_LEAN_ASSIST, XPBD_THROTTLE_INPUT_RESPONSE, XPBD_LEAN_INPUT_RESPONSE,
-  XPBD_UPHILL_FORWARD_LEAN_REDUCTION, XPBD_UPHILL_FORWARD_LEAN_FULL_TILT, XPBD_UPHILL_FORWARD_LEAN_MOTOR_BOOST,
-  XPBD_UPHILL_ANTI_WHEELIE_ACCELERATION, XPBD_BRAKE_REACTION_SCALE, XPBD_BRAKE_REACTION_LIMIT,
+  XPBD_UPHILL_FORWARD_LEAN_REDUCTION, XPBD_UPHILL_FORWARD_LEAN_FULL_TILT,
+  XPBD_BRAKE_REACTION_SCALE, XPBD_BRAKE_REACTION_LIMIT,
   XPBD_BRAKE_RATE, XPBD_CONTACT_LOAD_SCALE, XPBD_DRIVE_LOAD_SCALE, XPBD_UPHILL_CONTACT_LOAD_SCALE, XPBD_ROLLING_LOAD_SCALE,
   XPBD_COAST_RESISTANCE_LOW_SPEED, XPBD_COAST_RESISTANCE_HIGH_SPEED,
   XPBD_COAST_SPEED_REFERENCE, XPBD_CONTACT_RESTITUTION_SCALE,
@@ -229,6 +229,17 @@ function riderGroundLeverage({ rear, front, chassis }) {
   );
 }
 
+// Leaning forward shifts the rider's weight along the bike, and only the
+// level part of that shift tips it. With the nose raised by angle a the part
+// is cos(a), so on a near-vertical face gravity loops the bike over however
+// far the rider leans.
+function forwardLeanWeightShift({ chassis }, facing, leanControl) {
+  if (leanControl * facing <= 0) return 1;
+  const up = chassisUp(chassis);
+  if (up.x * facing >= 0) return 1;
+  return clamp(-up.y, 0, 1);
+}
+
 function resolveContact(point, contact, wheelName, hooks) {
   if (!contact || (contact.penetration <= 0 && !contact.swept)) return;
   const { nx, ny, penetration } = contact;
@@ -343,23 +354,20 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
   const speedRatio = clamp(wheelSurfaceSpeed / XPBD_MAX_DRIVE_SPEED, 0, 1);
   const torqueCurve = speedRatio >= 1 ? 0 : .28 + .72 * (1 - speedRatio);
   const forwardLean = clamp(leanControl * facing, 0, 1);
-  const climbTorque = 1 + uphill * UPHILL_TORQUE_BOOST * (1 - speedRatio);
-  const uphillLeanDriveBoost = 1 + uphill * forwardLean * XPBD_UPHILL_FORWARD_LEAN_MOTOR_BOOST;
   const uphillGripBlend = clamp(uphill * (1 + forwardLean * 2), 0, 1);
-  const angularDrive = facing * XPBD_MOTOR_ANGULAR_ACCELERATION * throttle * torqueCurve * climbTorque * uphillLeanDriveBoost;  const riderAssist = riderTorqueMultiplier(leanControl, facing, throttle, accelerating, XPBD_THROTTLE_LEAN_ASSIST);
+  const angularDrive = facing * XPBD_MOTOR_ANGULAR_ACCELERATION * throttle * torqueCurve;
+  const riderAssist = riderTorqueMultiplier(leanControl, facing, throttle, accelerating, XPBD_THROTTLE_LEAN_ASSIST);
   const frontLift = grounded ? clamp(noseUpTilt(vehicle, facing) / XPBD_UPHILL_FORWARD_LEAN_FULL_TILT, 0, 1) : 0;
   const riderTerrainScale = grounded
     ? riderTerrainTorqueScale(leanControl, facing, uphill, XPBD_UPHILL_FORWARD_LEAN_REDUCTION, frontLift)
     : 1;
-  const antiWheelieAngularAcceleration = grounded
-    ? facing * uphill * throttle * frontLift * XPBD_UPHILL_ANTI_WHEELIE_ACCELERATION * (1 - forwardLean * .35)
-    : 0;
   const wheelMoment = WHEEL_INERTIA * RADIUS * RADIUS;
   const { chassisPoints, bikePoints } = vehicle;
   const chassisInertia = momentOfInertia(chassisPoints);
   const bikeInertia = momentOfInertia(bikePoints);
   const bikeSpin = angularVelocity(bikePoints, bikeInertia);
-  const groundLean = leanControl * XPBD_RIDER_GROUND_ANGULAR_ACCELERATION * riderAssist * riderTerrainScale * riderGroundLeverage(vehicle);
+  const groundLean = leanControl * XPBD_RIDER_GROUND_ANGULAR_ACCELERATION * riderAssist * riderTerrainScale
+    * riderGroundLeverage(vehicle) * forwardLeanWeightShift(vehicle, facing, leanControl);
   const airLeanLimit = Math.abs(leanControl) * XPBD_RIDER_AIR_ANGULAR_ACCELERATION * riderAssist;
   const airLean = clamp(
     (leanControl * XPBD_RIDER_MAX_AIR_SPIN - bikeSpin) * XPBD_RIDER_AIR_SPIN_RESPONSE,
@@ -369,8 +377,7 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
   const riderAngularAcceleration = grounded
     ? groundLean * riderSpinTorqueScale(groundLean, bikeSpin, XPBD_RIDER_MAX_GROUND_SPIN)
     : airLean;
-  const reactionScale = XPBD_MOTOR_REACTION_SCALE * (1 - uphill * XPBD_UPHILL_REACTION_REDUCTION);
-  const motorReactionTorque = -angularDrive * wheelMoment * reactionScale;
+  const motorReactionTorque = -angularDrive * wheelMoment * XPBD_MOTOR_REACTION_SCALE;
   const diveWheel = facing > 0 ? front : rear;
   const brakingWheelAcceleration = braking && diveWheel.grounded
     ? -(rollingSpin(rear) + rollingSpin(front)) * XPBD_BRAKE_RATE * brakePressure
@@ -385,21 +392,14 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
   const motorReactionAcceleration = motorReactionTorque / bikeInertia;
   const brakeReactionAcceleration = brakeReactionTorque / bikeInertia;
   const reactionAccelerations = angularAccelerations(bikePoints, reactionAlpha, vehicle.reactionAccelerations);
-  const riderAccelerations = angularAccelerations(
-    bikePoints,
-    riderAngularAcceleration + antiWheelieAngularAcceleration,
-    vehicle.riderAccelerations
-  );
+  const riderAccelerations = angularAccelerations(bikePoints, riderAngularAcceleration, vehicle.riderAccelerations);
   keepPivotPlanted(riderAccelerations, rear, front);
   const dynamics = {
     angularDrive,
-    climbTorque,
-    uphillLeanDriveBoost,
     uphillGripBlend,
     riderAssist,
     riderTerrainScale,
     riderAngularAcceleration,
-    antiWheelieAngularAcceleration,
     motorReactionAcceleration,
     brakeReactionAcceleration,
     chassisReactionAngularAcceleration: motorReactionAcceleration + brakeReactionAcceleration,

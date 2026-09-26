@@ -1,31 +1,22 @@
 {
   "name": "The Orchard",
   "label": "THE ORCHARD / 01",
-  "goal": 2380,
+  "goal": 2110.180701442906,
   "terrain": "grass",
   "description": "Learn the rhythm: build speed on gentle rollers, lean forward on climbs, and settle the bike before each landing.",
-  "medals": {
-    "gold": 11,
-    "silver": 14.5,
-    "bronze": 19
-  },
   "start": {
-    "x": 90,
-    "y": null,
+    "x": 271.93445286745373,
+    "y": 303.45703530867854,
     "facing": 1
   },
   "points": [
     [
       0,
-      320
+      -530.0327504587311
     ],
     [
       180,
       320
-    ],
-    [
-      320,
-      292
     ],
     [
       455,
@@ -80,36 +71,31 @@
       304
     ],
     [
-      2490,
-      304
+      2468.6135977069916,
+      -527.8568553277871
     ]
   ],
+  "gaps": [],
+  "platforms": [],
+  "paths": [],
   "apples": [
     {
-      "x": 300,
-      "y": null
+      "x": 611.6796875,
+      "y": 214.42578125
     },
     {
-      "x": 760,
-      "y": null
+      "x": 1216.37890625,
+      "y": 273.9140625
     },
     {
-      "x": 1050,
-      "y": null
-    },
-    {
-      "x": 1645,
-      "y": null
-    },
-    {
-      "x": 2190,
-      "y": null
+      "x": 1664.3576591387484,
+      "y": 210.44266827177432
     }
   ],
   "props": [
     {
-      "x": 215,
-      "y": null,
+      "x": 368.576464994405,
+      "y": 321.0662943927564,
       "type": "fence",
       "layer": "back"
     },
@@ -120,8 +106,8 @@
       "layer": "back"
     },
     {
-      "x": 825,
-      "y": null,
+      "x": 838.39453125,
+      "y": 308.875,
       "type": "flowers",
       "layer": "front"
     },
@@ -138,22 +124,36 @@
       "layer": "back"
     },
     {
-      "x": 1900,
-      "y": null,
+      "x": 1882.58984375,
+      "y": 307.52734375,
       "type": "tree",
       "layer": "back"
     },
     {
-      "x": 2250,
-      "y": null,
+      "x": 2197.7332321394247,
+      "y": 305.54584909876735,
       "type": "flowers",
       "layer": "front"
+    },
+    {
+      "x": 1294.5859375,
+      "y": 306.875,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 979.3562354280114,
+      "y": 285.58516928913934,
+      "type": "tree",
+      "layer": "back"
     }
   ],
+  "spikes": [],
   "weather": {
     "sun": 1,
     "clouds": 0.15
   },
+  "fallY": 620,
   "sky": "#eae9d9",
   "sun": "#f2c082",
   "mountain": "#b7c8b1",
@@ -161,5 +161,10 @@
     "#6f8b59",
     "#9c8b68",
     "#c5b496"
-  ]
+  ],
+  "medals": {
+    "gold": 11,
+    "silver": 14.5,
+    "bronze": 19
+  }
 }
