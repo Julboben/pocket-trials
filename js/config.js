@@ -16,19 +16,26 @@ export const BIKE_VELOCITY_ITERATIONS = 3;
 export const XPBD_CHASSIS_COMPLIANCE = 0.000001;
 export const XPBD_CHASSIS_AREA_COMPLIANCE = 0.000001;
 // The spring carries the chassis on its own: sliders keep each wheel in line
-// with its mount, so each wheel sinks on its own when it lands (about 9 px
-// from a 100 px drop) and springs back a couple of times before settling.
+// with its mount, so each wheel sinks on its own when it lands, by how hard
+// that wheel hits: about 5 px below its resting sag from a 20 px drop, 9 px
+// from 80 px and 11.5 px from 200 px. It bounces back one to three times and
+// settles within about a second.
 // Damping is the share of spring speed removed per step; near 1 locks it.
-// Rebound is slightly firmer so the spring does not catapult the bike upward.
-export const XPBD_SUSPENSION_COMPLIANCE = 0.0018;
-export const XPBD_SUSPENSION_DAMPING = .45;
-export const XPBD_SUSPENSION_REBOUND_DAMPING = .5;
+// Rebound is firmer so the spring does not catapult the bike upward.
+export const XPBD_SUSPENSION_COMPLIANCE = 0.0036;
+export const XPBD_SUSPENSION_DAMPING = .26;
+export const XPBD_SUSPENSION_REBOUND_DAMPING = .42;
 export const XPBD_SUSPENSION_SLIDER_COMPLIANCE = 0.0001;
 export const XPBD_LONGITUDINAL_COMPLIANCE = 0.00004;
 export const XPBD_LONGITUDINAL_DAMPING = .55;
 export const XPBD_CROSS_LINK_DAMPING = .35;
 export const SUSPENSION_REST_LENGTH = 20;
 export const SUSPENSION_TRAVEL = 16;
+// A stiffer second spring over the last part of travel, so the soft main
+// spring keeps sinking further on harder landings instead of slamming into
+// the travel limit, which would throw the bike back into the air.
+export const SUSPENSION_BUMP_STOP_LENGTH = 10;
+export const XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE = 0.0003;
 export const XPBD_WHEELBASE_SLACK = 6;
 export const WHEEL_INERTIA = .5;
 export const WHEEL_FRICTION = .92;

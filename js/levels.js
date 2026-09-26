@@ -34,6 +34,20 @@ try {
 
 const BROWSER_LEVELS_KEY = 'pocket-trials-browser-levels-v1';
 
+// The editor hands the trail being edited to the game (index.html?playtest=1) through this key.
+export const PLAYTEST_LEVEL_KEY = 'pocket-trials-playtest-v1';
+export const PLAYTEST_EXIT_MESSAGE = 'pocket-trials-playtest-exit';
+
+export function readPlaytestLevel() {
+  if (new URLSearchParams(window.location.search).get('playtest') !== '1') return null;
+  try {
+    const level = JSON.parse(localStorage.getItem(PLAYTEST_LEVEL_KEY) || 'null');
+    return typeof level?.name === 'string' ? level : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 function readBrowserLibrary() {
   try {
     const stored = JSON.parse(localStorage.getItem(BROWSER_LEVELS_KEY) || '[]');

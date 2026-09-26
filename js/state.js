@@ -58,7 +58,7 @@ export const session = {
   /** @type {GameState} */ stateBeforeMenu: 'running',
   levelIndex: 0,
   level: levels[0],
-  /** @type {'official' | 'custom'} */ levelSource: 'official',
+  /** @type {'official' | 'custom' | 'playtest'} */ levelSource: 'official',
   customLevelIndex: -1,
   rider: 'max',
   unlockedLevel: 0,

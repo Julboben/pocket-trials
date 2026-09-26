@@ -6,6 +6,7 @@ import {
   XPBD_LONGITUDINAL_COMPLIANCE, XPBD_LONGITUDINAL_DAMPING,
   XPBD_SUSPENSION_SLIDER_COMPLIANCE, XPBD_CROSS_LINK_DAMPING,
   SUSPENSION_REST_LENGTH, SUSPENSION_TRAVEL, XPBD_WHEELBASE_SLACK,
+  SUSPENSION_BUMP_STOP_LENGTH, XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE,
   WHEEL_INERTIA, WHEEL_FRICTION,
   XPBD_CHASSIS_MOUNT_INVERSE_MASS, XPBD_CHASSIS_TOP_INVERSE_MASS,
   XPBD_MOTOR_ANGULAR_ACCELERATION, XPBD_MAX_DRIVE_SPEED, XPBD_MOTOR_REACTION_SCALE, XPBD_UPHILL_REACTION_REDUCTION,
@@ -55,6 +56,8 @@ export function createVehicle(rear, front) {
     createDistanceConstraint(rear, front, WHEELBASE, { compliance: XPBD_LONGITUDINAL_COMPLIANCE, damping: XPBD_LONGITUDINAL_DAMPING }),
     createDistanceConstraint(rear, chassis.rearMount, SUSPENSION_REST_LENGTH, { compliance: XPBD_SUSPENSION_COMPLIANCE, damping: XPBD_SUSPENSION_DAMPING, reboundDamping: XPBD_SUSPENSION_REBOUND_DAMPING }),
     createDistanceConstraint(front, chassis.frontMount, SUSPENSION_REST_LENGTH, { compliance: XPBD_SUSPENSION_COMPLIANCE, damping: XPBD_SUSPENSION_DAMPING, reboundDamping: XPBD_SUSPENSION_REBOUND_DAMPING }),
+    createDistanceConstraint(rear, chassis.rearMount, SUSPENSION_BUMP_STOP_LENGTH, { compliance: XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE, minLength: SUSPENSION_BUMP_STOP_LENGTH }),
+    createDistanceConstraint(front, chassis.frontMount, SUSPENSION_BUMP_STOP_LENGTH, { compliance: XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE, minLength: SUSPENSION_BUMP_STOP_LENGTH }),
     createSliderConstraint(rear, chassis.rearMount, chassis.rearMount, chassis.frontMount, { compliance: XPBD_SUSPENSION_SLIDER_COMPLIANCE }),
     createSliderConstraint(front, chassis.frontMount, chassis.rearMount, chassis.frontMount, { compliance: XPBD_SUSPENSION_SLIDER_COMPLIANCE }),
     // Limits run after the compliant links so every solver iteration ends in a

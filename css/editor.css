@@ -94,6 +94,15 @@ input[type="range"] { padding: 0; accent-color: var(--accent); }
 .json-panel summary { cursor: pointer; font-weight: 900; letter-spacing: 1px; }
 .json-panel textarea { width: 100%; height: 180px; margin-top: 9px; padding: 8px; resize: vertical; font-size: 8px; }
 .json-panel button { width: 100%; margin-top: 6px; min-height: 34px; font-size: 8px; }
+.play-action { border-color: var(--green); background: var(--green); color: #25372f; }
+.play-action:hover { background: #d8ecbf; }
+.playtest { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; background: var(--page); }
+.playtest-bar { min-height: 48px; padding: 7px 14px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); background: #17262b; }
+.playtest-bar strong { color: var(--green); font-size: 10px; letter-spacing: 1.5px; }
+.playtest-name { font-size: 10px; font-weight: 850; }
+.playtest-hint { margin-right: auto; color: var(--muted); font-size: 8px; letter-spacing: .5px; }
+.playtest-bar button { min-height: 34px; padding: 0 10px; font-size: 8px; }
+#playtest-frame { flex: 1; width: 100%; min-height: 0; border: 0; display: block; background: #0f1a1c; }
 @media (max-width: 900px) {
   .editor-header { flex-wrap: wrap; }
   .header-actions { width: 100%; overflow-x: auto; }

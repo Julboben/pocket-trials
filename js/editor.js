@@ -1,6 +1,6 @@
 import {
   levelEntries, terrainMaterials, detectDevServer, saveLevelFile, deleteLevelFile, uniqueCustomFile,
-  saveBrowserLevel, deleteBrowserLevel
+  saveBrowserLevel, deleteBrowserLevel, PLAYTEST_LEVEL_KEY, PLAYTEST_EXIT_MESSAGE
 } from './levels.js';
 import {
   curveAt, platformPolygon, pointInPlatform, invalidatePlatform, invalidateTerrain, pathBounds, pathSegments,
@@ -19,11 +19,25 @@ const ctx = canvas.getContext('2d');
 const art = createGameArt(ctx);
 const tools = createDrawingTools(ctx);
 const DRAFT_PREFIX = 'pocket-trials-editor-draft-v1-';
+const CURRENT_TRAIL_KEY = 'pocket-trials-editor-current-v1';
 const GAP_MIN_WIDTH = 20;
 
+function storedTrailIndex() {
+  try {
+    const index = levelEntries.findIndex(entry => entry.id === localStorage.getItem(CURRENT_TRAIL_KEY));
+    return Math.max(0, index);
+  } catch (_) {
+    return 0;
+  }
+}
+
+function rememberTrail() {
+  try { localStorage.setItem(CURRENT_TRAIL_KEY, levelEntries[levelIndex].id); } catch (_) {}
+}
+
 let devServer = false;
-let levelIndex = 0;
-let level = loadLevelData(0);
+let levelIndex = storedTrailIndex();
+let level = loadLevelData(levelIndex);
 let tool = 'select';
 let selection = null;
 let cameraX = 0;
@@ -738,7 +752,7 @@ function showStatus(type, text) {
 
 function selectEntry(index) {
   levelIndex = index; level = loadLevelData(levelIndex); selection = null; history = []; future = []; cameraX = 0; cameraY = 0;
-  buildPicker(); updateTrailControls(); syncInspector(); render();
+  rememberTrail(); buildPicker(); updateTrailControls(); syncInspector(); render();
 }
 
 async function persist(entry, data) {
@@ -785,6 +799,41 @@ async function deleteTrail() {
     showStatus('error', `Could not delete: ${error.message}`);
   }
 }
+
+const playtestFrame = /** @type {HTMLIFrameElement} */ ($('playtest-frame'));
+const playtestOpen = () => !$('playtest').hidden;
+
+function openPlaytest() {
+  if (validateLevel(level).some(message => message.type === 'error')) {
+    showStatus('error', 'Fix the validation errors before play testing.');
+    return;
+  }
+  try {
+    localStorage.setItem(PLAYTEST_LEVEL_KEY, JSON.stringify(level));
+  } catch (error) {
+    showStatus('error', `Could not start the play test: ${error.message}`);
+    return;
+  }
+  endPointer(); spaceHeld = false;
+  $('playtest-name').textContent = level.name.toUpperCase();
+  $('playtest').hidden = false;
+  playtestFrame.src = './index.html?playtest=1';
+  playtestFrame.focus();
+}
+
+function closePlaytest() {
+  if (!playtestOpen()) return;
+  $('playtest').hidden = true;
+  playtestFrame.src = 'about:blank';
+  canvas.focus({ preventScroll: true });
+}
+
+playtestFrame.addEventListener('load', () => { if (playtestOpen()) playtestFrame.focus(); });
+window.addEventListener('message', event => {
+  if (event.origin === window.location.origin && event.source === playtestFrame.contentWindow && event.data?.type === PLAYTEST_EXIT_MESSAGE) closePlaytest();
+});
+$('play-test').addEventListener('click', openPlaytest);
+$('close-playtest').addEventListener('click', closePlaytest);
 
 buildPicker();
 for (const name of Object.keys(terrainMaterials)) {
@@ -902,6 +951,14 @@ canvas.addEventListener('pointerup', endPointer);
 canvas.addEventListener('pointercancel', endPointer);
 
 window.addEventListener('keydown', event => {
+  if (playtestOpen()) {
+    if (event.key === 'Escape') { event.preventDefault(); closePlaytest(); }
+    return;
+  }
+  if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+    // Blurring commits a field that is still being typed in through its change handler.
+    event.preventDefault(); /** @type {HTMLElement} */ (document.activeElement)?.blur?.(); openPlaytest(); return;
+  }
   if ((event.metaKey || event.ctrlKey) && event.code === 'KeyZ') { event.preventDefault(); event.shiftKey ? redo() : undo(); return; }
   if ((event.metaKey || event.ctrlKey) && event.code === 'KeyS') { event.preventDefault(); if (canSave()) saveTrail(); return; }
   if ((event.key === 'Delete' || event.key === 'Backspace') && document.activeElement === canvas) { event.preventDefault(); deleteSelection(); return; }

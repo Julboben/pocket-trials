@@ -293,7 +293,7 @@ function landingScenario() {
   assert.notEqual(bothContact, null, 'one-wheel landing must recover both contacts');
   assert.ok(bothContact - firstContact >= 3 && bothContact - firstContact <= 30, `second wheel recovery outside expected range: ${bothContact - firstContact} steps`);
   assert.ok(
-    minimumFrontSuspension < SUSPENSION_REST_LENGTH - 5.5,
+    minimumFrontSuspension < SUSPENSION_REST_LENGTH - 10,
     `first wheel did not use enough suspension travel: ${minimumFrontSuspension}`
   );
   assert.ok(maxUpwardSpeed < 40, `landing rebound too large: ${maxUpwardSpeed}`);
@@ -360,9 +360,9 @@ function landingSagScenario() {
     return { rest: SUSPENSION_REST_LENGTH - restLength, sink: restLength - shortest };
   };
   const small = sinkFrom(20), medium = sinkFrom(80), large = sinkFrom(200);
-  assert.ok(medium.rest > .5, `the chassis weight must visibly sag the suspension at rest: ${medium.rest}`);
+  assert.ok(medium.rest > 2.5, `the chassis weight must visibly sag the suspension at rest: ${medium.rest}`);
   assert.ok(small.sink < medium.sink && medium.sink < large.sink, `harder landings must sink further: ${small.sink}, ${medium.sink}, ${large.sink}`);
-  assert.ok(medium.sink > 5, `an 80 px drop must visibly compress the real suspension: ${medium.sink}`);
+  assert.ok(medium.sink > 8, `an 80 px drop must visibly compress the real suspension: ${medium.sink}`);
   return { restSag: medium.rest, sink20: small.sink, sink80: medium.sink, sink200: large.sink };
 }
 
@@ -446,7 +446,7 @@ function singleWheelLandingScenario() {
     if (compressing || compression < previous - .02) wasCompressing = compressing;
     previous = compression;
   }
-  assert.ok(sink > 5, `the rear wheel must sink on its own spring when it lands first: ${sink}`);
+  assert.ok(sink > 9, `the rear wheel must sink on its own spring when it lands first: ${sink}`);
   assert.ok(springBacks >= 1, `a single-wheel landing should spring back: ${springBacks}`);
   return { rearSink: sink, springBacks };
 }

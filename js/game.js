@@ -1,13 +1,13 @@
 // The game loop and state machine: loads trails, steps the ride at a fixed
 // rate, turns ride events into sound, effects and UI, and saves results.
 import { STEP, MAX_STEPS_PER_FRAME, clamp } from './config.js';
-import { levels, customLevelEntries } from './levels.js';
+import { levels, customLevelEntries, readPlaytestLevel, PLAYTEST_EXIT_MESSAGE } from './levels.js';
 import { createAudio } from './audio.js';
 import { createPhysicsDebugger } from './physics-debug.js';
 import { terrainAt, terrainSegmentSlopeAt } from './terrain.js';
 import { createRide, stepRide, bikeSpeed, interpolateRide, RIDE_VERSION } from './ride.js';
 import { encodeInputs, decodeInputs } from './replay-codec.js';
-import { medalFor } from './level-schema.js';
+import { medalFor, normalizeLevel } from './level-schema.js';
 import {
   readBest, saveBest, readLeaderboard, recordLeaderboardRun, readGhost, saveGhost,
   saveProgress as persistProgress
@@ -21,7 +21,7 @@ import { createMenu, loadStoredState } from './ui/menu.js';
 import { $, session, currentTrailEntry, trailKey, timeText } from './state.js';
 
 const LANDING_SOUND_IMPACT = 45;
-const SHAKE_IMPACT = 170;
+const HARD_LANDING_IMPACT = 170;
 const CRASH_COLORS = { spike: '#d95832', head: '#ed8b54', fall: '#ed8b54' };
 
 export function startGame() {
@@ -85,6 +85,10 @@ export function startGame() {
   /** @type {{ ride: any, inputs: any[], index: number, data: any } | null} */
   let ghost = null;
   let wakeLock = null;
+  const playtestData = readPlaytestLevel();
+  const playtestLevel = playtestData ? normalizeLevel(playtestData) : null;
+  /** Best play-test run; kept in memory so edited trails never reach saved ghosts or leaderboards. */
+  let playtestBest = null;
 
   // --- Device features -----------------------------------------------------
 
@@ -162,7 +166,7 @@ export function startGame() {
   function loadGhost(level) {
     ghost = null;
     if (session.preferences.ghost !== 'on') return;
-    const data = readGhost(trailKey(currentTrailEntry()));
+    const data = session.levelSource === 'playtest' ? playtestBest : readGhost(trailKey(currentTrailEntry()));
     if (!data || data.physics !== RIDE_VERSION) return;
     const inputs = decodeInputs(data.inputs);
     const ride = createRide(level, { seed: data.seed });
@@ -201,6 +205,18 @@ export function startGame() {
     initializeLevel(entry.level, `C${String(index + 1).padStart(2, '0')}`);
   }
 
+  function loadPlaytestLevel() {
+    session.levelSource = 'playtest'; session.customLevelIndex = -1;
+    initializeLevel(playtestLevel, 'TEST');
+  }
+
+  function exitPlaytest() {
+    input.clear();
+    pauseGame();
+    if (window.parent !== window) window.parent.postMessage({ type: PLAYTEST_EXIT_MESSAGE }, window.location.origin);
+    else window.location.href = './editor.html';
+  }
+
   // --- State machine ---------------------------------------------------------
 
   function setState(next) {
@@ -214,7 +230,8 @@ export function startGame() {
   const focusGame = () => game.focus({ preventScroll: true });
 
   function startFresh() {
-    if (session.levelSource === 'custom') loadCustomLevel(session.customLevelIndex);
+    if (session.levelSource === 'playtest') loadPlaytestLevel();
+    else if (session.levelSource === 'custom') loadCustomLevel(session.customLevelIndex);
     else loadLevel(session.levelIndex);
     setState('running'); focusGame();
   }
@@ -235,6 +252,7 @@ export function startGame() {
   }
 
   function showMainMenu() {
+    if (session.levelSource === 'playtest') { exitPlaytest(); return; }
     if (session.state !== 'menu') session.stateBeforeMenu = session.state;
     session.state = 'menu';
     input.clear();
@@ -288,7 +306,27 @@ export function startGame() {
 
   // --- Simulation ------------------------------------------------------------
 
+  function finishPlaytestRun(ride) {
+    const time = ride.elapsed;
+    const previousBest = playtestBest?.time ?? null;
+    if (previousBest === null || time < previousBest) {
+      playtestBest = { time, splits: ride.splits.slice(), startStep, seed: ride.seed, inputs: encodeInputs(recorded), physics: RIDE_VERSION };
+    }
+    const medals = session.level.medals;
+    overlay.showResults({
+      official: false, time, previousBest, rank: null, medals, medal: medalFor(medals, time), flips,
+      apples: ride.apples.length,
+      primaryLabel: 'Play Again →',
+      restartKey: keyLabel(session.preferences.bindings.restart[0] || 'KeyR')
+    });
+    $('overlay-badge').textContent = 'PLAY TEST COMPLETED';
+    $('overlay-description').textContent = 'Play-test runs are not saved. Press Escape to return to the editor.';
+    $('overlay-description').hidden = false;
+    setState('won');
+  }
+
   function finishRun(ride) {
+    if (session.levelSource === 'playtest') { finishPlaytestRun(ride); return; }
     const entry = currentTrailEntry();
     const key = trailKey(entry);
     const time = ride.elapsed;
@@ -345,10 +383,7 @@ export function startGame() {
         sounds.land(event.impact);
         landingSoundCooldown = .12;
         for (const wheel of [ride.rear, ride.front]) if (wheel.grounded && wheel.impactSpeed > LANDING_SOUND_IMPACT) effects.dustPuff(wheel, wheel.impactSpeed);
-        if (event.impact > SHAKE_IMPACT) {
-          if (session.preferences.shake === 'on') camera.kick((event.impact - SHAKE_IMPACT) / 45);
-          vibrate(Math.round(clamp(event.impact / 12, 10, 40)));
-        }
+        if (event.impact > HARD_LANDING_IMPACT) vibrate(Math.round(clamp(event.impact / 12, 10, 40)));
         break;
       case 'crash':
         effects.burst(event.x, event.y, CRASH_COLORS[event.cause], event.cause === 'spike' ? 18 : 15);
@@ -519,6 +554,9 @@ export function startGame() {
   applyPreferences();
   handleFullscreenChange();
   renderer.resize();
-  showMainMenu();
+  if (playtestLevel) {
+    $('menu').setAttribute('aria-label', 'Back to the editor');
+    startSelectedLevel(loadPlaytestLevel, false);
+  } else showMainMenu();
   requestAnimationFrame(frame);
 }

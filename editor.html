@@ -18,6 +18,7 @@
       </div>
       <span class="save-status" id="save-status"></span>
       <div class="header-actions">
+        <button id="play-test" class="play-action" title="Ride the trail as it is now (Cmd/Ctrl+Enter)">▶ PLAY TEST</button>
         <button id="undo" title="Undo (Cmd/Ctrl+Z)">UNDO</button>
         <button id="redo" title="Redo (Cmd/Ctrl+Shift+Z)">REDO</button>
         <button id="save-trail" class="primary-action" title="Save (Cmd/Ctrl+S)" hidden>SAVE</button>
@@ -125,6 +126,16 @@
       </aside>
     </section>
   </main>
+
+  <div class="playtest" id="playtest" role="dialog" aria-modal="true" aria-labelledby="playtest-title" hidden>
+    <div class="playtest-bar">
+      <strong id="playtest-title">PLAY TEST</strong>
+      <span class="playtest-name" id="playtest-name"></span>
+      <span class="playtest-hint">ESC OR THE MENU BUTTON RETURNS TO THE EDITOR · RUNS ARE NOT SAVED</span>
+      <button id="close-playtest" class="primary-action">← BACK TO EDITOR</button>
+    </div>
+    <iframe id="playtest-frame" title="Play test of the trail being edited" allow="fullscreen; screen-wake-lock"></iframe>
+  </div>
   <script type="module" src="./js/editor.js"></script>
 </body>
 </html>
