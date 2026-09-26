@@ -2,31 +2,52 @@
 // so one art pixel covers a whole number of device pixels. Art stays on its
 // pixel grid, while the camera and moving sprites are placed to the nearest
 // device pixel so scrolling and riding stay smooth.
-import { RADIUS, TAU, clamp, lerp } from './config.js';
-import { ART_PIXEL, createDrawingTools, createGameArt, propAlignmentSlope, propGroundOffset, sunLight, sunShadowOffset } from './drawing.js';
-import { terrainAt, groundShadowSamples } from './terrain.js';
-import { createTerrainRenderer } from './terrain-render.js';
-import { vehicleMetrics } from './vehicle-physics.js';
-import { ragdollCenter } from './ragdoll.js';
-import { createRiderHair, hairRoot, hairRestDirection, freeHairRestDirection, hairBackSupport } from './rider-hair.js';
-import { reducedMotion } from './state.js';
+import { RADIUS, TAU, clamp, lerp } from "./config.js";
+import {
+  ART_PIXEL,
+  createDrawingTools,
+  createGameArt,
+  propAlignmentSlope,
+  propGroundOffset,
+  sunLight,
+  sunShadowOffset,
+} from "./drawing.js";
+import { terrainAt, groundShadowSamples } from "./terrain.js";
+import { createTerrainRenderer } from "./terrain-render.js";
+import { vehicleMetrics } from "./vehicle-physics.js";
+import { ragdollCenter } from "./ragdoll.js";
+import {
+  createRiderHair,
+  hairRoot,
+  hairRestDirection,
+  freeHairRestDirection,
+  hairBackSupport,
+} from "./rider-hair.js";
+import { reducedMotion } from "./state.js";
 
 const SCENERY_SHADOWS = {
-  tree: { width: 16, alpha: .15, thickness: 3, lift: 36 },
-  crystal: { width: 10, alpha: .14, thickness: 3, lift: 28 },
-  boulder: { width: 24, alpha: .15, thickness: 3, lift: 24 }
+  tree: { width: 16, alpha: 0.15, thickness: 3, lift: 36 },
+  pine: { width: 14, alpha: 0.15, thickness: 3, lift: 38 },
+  crystal: { width: 10, alpha: 0.14, thickness: 3, lift: 28 },
+  boulder: { width: 24, alpha: 0.15, thickness: 3, lift: 24 },
 };
-const GHOST_ALPHA = .38;
+const GHOST_ALPHA = 0.38;
 
 /** @param {HTMLCanvasElement} canvas */
 export function createRenderer(canvas) {
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext("2d");
   const { pixelRect, pixelPath, drawPixelText } = createDrawingTools(ctx);
   const gameArt = createGameArt(ctx);
   const terrainRenderer = createTerrainRenderer();
   const popups = [];
-  let W = 380, H = 410, pixelScale = 1;
-  let hair = null, flipVisual = 1, level = null, cameraX = 0, cameraY = 0;
+  let W = 380,
+    H = 410,
+    pixelScale = 1;
+  let hair = null,
+    flipVisual = 1,
+    level = null,
+    cameraX = 0,
+    cameraY = 0;
 
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
@@ -35,11 +56,15 @@ export function createRenderer(canvas) {
     const worldScale = clamp(rect.width / 760, 1, 1.45);
     const targetWidth = Math.max(320, rect.width / worldScale);
     const targetHeight = Math.max(340, rect.height / worldScale);
-    const deviceWidth = Math.round(rect.width * dpr), deviceHeight = Math.round(rect.height * dpr);
-    pixelScale = Math.max(1, Math.min(
-      Math.floor(deviceWidth / (targetWidth / ART_PIXEL)),
-      Math.floor(deviceHeight / (targetHeight / ART_PIXEL))
-    ));
+    const deviceWidth = Math.round(rect.width * dpr),
+      deviceHeight = Math.round(rect.height * dpr);
+    pixelScale = Math.max(
+      1,
+      Math.min(
+        Math.floor(deviceWidth / (targetWidth / ART_PIXEL)),
+        Math.floor(deviceHeight / (targetHeight / ART_PIXEL)),
+      ),
+    );
     canvas.width = deviceWidth;
     canvas.height = deviceHeight;
     W = Math.ceil(deviceWidth / pixelScale) * ART_PIXEL;
@@ -54,13 +79,15 @@ export function createRenderer(canvas) {
   }
 
   /** Floating pixel text in world space, e.g. "+1 FLIP". */
-  function popup(text, x, y, color = '#fff3be') {
+  function popup(text, x, y, color = "#fff3be") {
     popups.push({ text, x, y, color, life: 1.2, max: 1.2 });
   }
 
   // `rise` is how far the art reaches above its anchor `y`.
-  const inView = (x, margin, y = null, rise = margin) => x >= cameraX - margin && x <= cameraX + W + margin
-    && (y === null || (y + margin >= cameraY && y - rise <= cameraY + H));
+  const inView = (x, margin, y = null, rise = margin) =>
+    x >= cameraX - margin &&
+    x <= cameraX + W + margin &&
+    (y === null || (y + margin >= cameraY && y - rise <= cameraY + H));
 
   function drawShadowBlob(samples, centerX, width, alpha, thickness) {
     for (const sample of samples) {
@@ -68,53 +95,113 @@ export function createRenderer(canvas) {
       if (Math.abs(along) > 1) continue;
       const envelope = Math.sqrt(Math.max(0, 1 - along * along));
       const height = Math.max(2, thickness * envelope);
-      pixelRect(sample.x - 1, sample.y - height + 1, 2, height, 'rgba(31,53,39,' + (alpha * (.45 + .55 * envelope)) + ')', 2);
+      pixelRect(
+        sample.x - 1,
+        sample.y - height + 1,
+        2,
+        height,
+        "rgba(31,53,39," + alpha * (0.45 + 0.55 * envelope) + ")",
+        2,
+      );
     }
   }
 
-  const appleDrawY = (apple, now) => apple.y + (reducedMotion ? 0 : Math.sin(now * .0025 + apple.x) * 2);
+  const appleDrawY = (apple, now) =>
+    apple.y + (reducedMotion ? 0 : Math.sin(now * 0.0025 + apple.x) * 2);
 
-  function drawSceneryShadow(x, y, light, { width, alpha, thickness, lift = 0 }) {
+  function drawSceneryShadow(
+    x,
+    y,
+    light,
+    { width, alpha, thickness, lift = 0 },
+  ) {
     const ground = terrainAt(level, x, y);
     if (!ground.solid) return;
     const height = Math.max(0, ground.y - y) + lift;
-    const offset = sunShadowOffset({ bikeX: x - cameraX, bikeY: y - cameraY, sunX: light.x, sunY: light.y, height, strength: light.strength });
+    const offset = sunShadowOffset({
+      bikeX: x - cameraX,
+      bikeY: y - cameraY,
+      sunX: light.x,
+      sunY: light.y,
+      height,
+      strength: light.strength,
+    });
     const center = x + offset;
-    drawShadowBlob(groundShadowSamples(level, x, y, width, 2, center).flat(), center, width, alpha, thickness);
+    drawShadowBlob(
+      groundShadowSamples(level, x, y, width, 2, center).flat(),
+      center,
+      width,
+      alpha,
+      thickness,
+    );
   }
 
   function drawSceneryShadows(ride, now, full) {
     if (!full) return;
-    const light = sunLight({ width: W, cameraX, cameraY, weather: level.weather });
+    const light = sunLight({
+      width: W,
+      cameraX,
+      cameraY,
+      weather: level.weather,
+    });
     for (const prop of level.props || []) {
       const spec = SCENERY_SHADOWS[prop.type];
       if (!spec || !inView(prop.x, 80)) continue;
       const ground = terrainAt(level, prop.x);
       if (!ground.solid && !Number.isFinite(prop.y)) continue;
-      drawSceneryShadow(prop.x, Number.isFinite(prop.y) ? prop.y : ground.y, light, spec);
+      drawSceneryShadow(
+        prop.x,
+        Number.isFinite(prop.y) ? prop.y : ground.y,
+        light,
+        spec,
+      );
     }
     for (const apple of ride.apples) {
       if (apple.taken || !inView(apple.x, 40)) continue;
-      drawSceneryShadow(apple.x, appleDrawY(apple, now), light, { width: 8, alpha: .18, thickness: 3 });
+      drawSceneryShadow(apple.x, appleDrawY(apple, now), light, {
+        width: 8,
+        alpha: 0.18,
+        thickness: 3,
+      });
     }
   }
 
   function drawProps(layer, full) {
     for (const prop of level.props || []) {
-      if (prop.layer !== layer || (!full && prop.type === 'tree') || !inView(prop.x, 70)) continue;
+      if (
+        prop.layer !== layer ||
+        (!full && (prop.type === "tree" || prop.type === "pine")) ||
+        !inView(prop.x, 70)
+      )
+        continue;
       const ground = terrainAt(level, prop.x);
       if (!ground.solid && !Number.isFinite(prop.y)) continue;
       const y = Number.isFinite(prop.y) ? prop.y : ground.y;
       if (!inView(prop.x, 70, y, 90)) continue;
-      gameArt.drawProp(prop.type, prop.x, y, layer === 'front' ? 1 : .82, propAlignmentSlope(level, prop), propGroundOffset(level, prop));
+      gameArt.drawProp(
+        prop.type,
+        prop.x,
+        y,
+        layer === "front" ? 1 : 0.82,
+        propAlignmentSlope(level, prop),
+        propGroundOffset(level, prop),
+      );
     }
   }
 
   function drawSkidMarks(skidMarks) {
     for (const mark of skidMarks) {
       const length = mark.length * mark.direction;
-      ctx.globalAlpha = clamp(mark.life / mark.max, 0, 1) * .42;
-      pixelPath([[mark.x - length, mark.y - mark.slope * length], [mark.x, mark.y]], '#263b36', 1, 2);
+      ctx.globalAlpha = clamp(mark.life / mark.max, 0, 1) * 0.42;
+      pixelPath(
+        [
+          [mark.x - length, mark.y - mark.slope * length],
+          [mark.x, mark.y],
+        ],
+        "#263b36",
+        1,
+        2,
+      );
     }
     ctx.globalAlpha = 1;
   }
@@ -129,7 +216,13 @@ export function createRenderer(canvas) {
   }
 
   function riderPose(ride, flip = flipVisual) {
-    return { rear: ride.rear, front: ride.front, facing: ride.facing, flipVisual: flip, leanVisual: ride.leanVisual };
+    return {
+      rear: ride.rear,
+      front: ride.front,
+      facing: ride.facing,
+      flipVisual: flip,
+      leanVisual: ride.leanVisual,
+    };
   }
 
   function currentHairRoot(ride, exact) {
@@ -141,19 +234,31 @@ export function createRenderer(canvas) {
   }
 
   function updateHair(ride, rider, dt) {
-    if (rider !== 'Maxine') { hair = null; return; }
+    if (rider !== "Maxine") {
+      hair = null;
+      return;
+    }
     const root = currentHairRoot(ride, true);
-    const rest = ride.ragdoll ? freeHairRestDirection(ride.facing) : hairRestDirection(riderPose(ride));
-    if (!hair || Math.hypot(root.x - hair.root.x, root.y - hair.root.y) > 60) hair = createRiderHair(root, rest);
-    hair.update(dt, { root, rest, back: ride.ragdoll ? null : hairBackSupport(riderPose(ride)), groundAt: x => terrainAt(level, x) });
+    const rest = ride.ragdoll
+      ? freeHairRestDirection(ride.facing)
+      : hairRestDirection(riderPose(ride));
+    if (!hair || Math.hypot(root.x - hair.root.x, root.y - hair.root.y) > 60)
+      hair = createRiderHair(root, rest);
+    hair.update(dt, {
+      root,
+      rest,
+      back: ride.ragdoll ? null : hairBackSupport(riderPose(ride)),
+      groundAt: (x) => terrainAt(level, x),
+    });
   }
 
   function bikeGeometry(ride) {
     const { rear, front } = ride;
     return {
-      mx: (rear.x + front.x) / 2, my: (rear.y + front.y) / 2,
+      mx: (rear.x + front.x) / 2,
+      my: (rear.y + front.y) / 2,
       angle: Math.atan2(front.y - rear.y, front.x - rear.x),
-      length: Math.hypot(front.x - rear.x, front.y - rear.y)
+      length: Math.hypot(front.x - rear.x, front.y - rear.y),
     };
   }
 
@@ -162,28 +267,75 @@ export function createRenderer(canvas) {
     const { mx, my } = geometry;
     const ground = terrainAt(level, mx, my);
     if (ground.solid) {
-      const light = sunLight({ width: W, cameraX, cameraY, weather: level.weather });
+      const light = sunLight({
+        width: W,
+        cameraX,
+        cameraY,
+        weather: level.weather,
+      });
       const heightAboveGround = Math.max(0, ground.y - my - RADIUS);
-      const shadowAlpha = clamp(.22 - heightAboveGround / 700, .035, .22);
-      const shadowWidth = clamp(35 - heightAboveGround * .07, 13, 35);
-      const offset = sunShadowOffset({ bikeX: mx - cameraX, bikeY: my - cameraY, sunX: light.x, sunY: light.y, height: heightAboveGround, strength: light.strength });
+      const shadowAlpha = clamp(0.22 - heightAboveGround / 700, 0.035, 0.22);
+      const shadowWidth = clamp(35 - heightAboveGround * 0.07, 13, 35);
+      const offset = sunShadowOffset({
+        bikeX: mx - cameraX,
+        bikeY: my - cameraY,
+        sunX: light.x,
+        sunY: light.y,
+        height: heightAboveGround,
+        strength: light.strength,
+      });
       const center = mx + offset;
-      const samples = groundShadowSamples(level, mx, my, shadowWidth, 2, center).flat();
+      const samples = groundShadowSamples(
+        level,
+        mx,
+        my,
+        shadowWidth,
+        2,
+        center,
+      ).flat();
       drawShadowBlob(samples, center, shadowWidth, shadowAlpha, 4);
-      drawShadowBlob(samples, center + Math.sign(offset) * 3, shadowWidth * .7, shadowAlpha * .55, 2);
+      drawShadowBlob(
+        samples,
+        center + Math.sign(offset) * 3,
+        shadowWidth * 0.7,
+        shadowAlpha * 0.55,
+        2,
+      );
     }
     gameArt.drawBike({
-      rear: ride.rear, front: ride.front, ...geometry, flipVisual: flip, facing: ride.facing,
-      brakePressure: ride.brakePressure, state, leanVisual: ride.leanVisual, rider
+      rear: ride.rear,
+      front: ride.front,
+      ...geometry,
+      flipVisual: flip,
+      facing: ride.facing,
+      brakePressure: ride.brakePressure,
+      state,
+      leanVisual: ride.leanVisual,
+      rider,
     });
   }
 
   function drawGhost(ghost, rider) {
-    if (!ghost || !inView((ghost.rear.x + ghost.front.x) / 2, 80, (ghost.rear.y + ghost.front.y) / 2)) return;
+    if (
+      !ghost ||
+      !inView(
+        (ghost.rear.x + ghost.front.x) / 2,
+        80,
+        (ghost.rear.y + ghost.front.y) / 2,
+      )
+    )
+      return;
     ctx.globalAlpha = GHOST_ALPHA;
     gameArt.drawBike({
-      rear: ghost.rear, front: ghost.front, ...bikeGeometry(ghost), flipVisual: ghost.facing, facing: ghost.facing,
-      brakePressure: ghost.brakePressure, state: ghost.ragdoll ? 'ragdoll' : 'running', leanVisual: ghost.leanVisual, rider
+      rear: ghost.rear,
+      front: ghost.front,
+      ...bikeGeometry(ghost),
+      flipVisual: ghost.facing,
+      facing: ghost.facing,
+      brakePressure: ghost.brakePressure,
+      state: ghost.ragdoll ? "ragdoll" : "running",
+      leanVisual: ghost.leanVisual,
+      rider,
     });
     if (ghost.ragdoll) gameArt.drawRagdoll(ghost.ragdoll.points, rider);
     ctx.globalAlpha = 1;
@@ -193,11 +345,15 @@ export function createRenderer(canvas) {
     for (const item of popups) {
       item.life -= dt;
       item.y -= dt * 30;
-      ctx.globalAlpha = clamp(item.life / item.max * 2, 0, 1);
-      drawPixelText(item.text, item.x, item.y, item.color, { pixel: 2, align: 'center' });
+      ctx.globalAlpha = clamp((item.life / item.max) * 2, 0, 1);
+      drawPixelText(item.text, item.x, item.y, item.color, {
+        pixel: 2,
+        align: "center",
+      });
     }
     ctx.globalAlpha = 1;
-    for (let index = popups.length - 1; index >= 0; index--) if (popups[index].life <= 0) popups.splice(index, 1);
+    for (let index = popups.length - 1; index >= 0; index--)
+      if (popups[index].life <= 0) popups.splice(index, 1);
   }
 
   function drawWeather(weather) {
@@ -205,36 +361,48 @@ export function createRenderer(canvas) {
     if (!rainIntensity && weather.flash <= 0) return;
     ctx.save();
     if (rainIntensity) {
-      const count = Math.round((45 + rainIntensity * 95) * clamp(W / 760, .7, 1.5));
+      const count = Math.round(
+        (45 + rainIntensity * 95) * clamp(W / 760, 0.7, 1.5),
+      );
       const motion = reducedMotion ? 0 : weather.time * 720;
-      ctx.fillStyle = `rgba(33, 52, 61, ${.04 + rainIntensity * .08})`;
+      ctx.fillStyle = `rgba(33, 52, 61, ${0.04 + rainIntensity * 0.08})`;
       ctx.fillRect(0, 0, W, H);
-      ctx.fillStyle = `rgba(205, 225, 224, ${.22 + rainIntensity * .3})`;
+      ctx.fillStyle = `rgba(205, 225, 224, ${0.22 + rainIntensity * 0.3})`;
       for (let index = 0; index < count; index++) {
         const seedX = (index * 97.31) % (W + 80);
         const seedY = (index * 53.17) % (H + 100);
-        const speed = .72 + (index % 7) * .055;
-        const y = (seedY + motion * speed) % (H + 70) - 35;
+        const speed = 0.72 + (index % 7) * 0.055;
+        const y = ((seedY + motion * speed) % (H + 70)) - 35;
         const rainWidth = W + 80;
-        const rawX = seedX - motion * .13 + y * .08;
-        const x = ((rawX % rainWidth) + rainWidth) % rainWidth - 40;
+        const rawX = seedX - motion * 0.13 + y * 0.08;
+        const x = (((rawX % rainWidth) + rainWidth) % rainWidth) - 40;
         // A slanted streak as two offset one-pixel columns.
         const length = 7 + rainIntensity * 8 + (index % 4);
-        const half = Math.max(1, Math.round(length / 2 / ART_PIXEL)) * ART_PIXEL;
-        const left = Math.round(x / ART_PIXEL) * ART_PIXEL, top = Math.round(y / ART_PIXEL) * ART_PIXEL;
+        const half =
+          Math.max(1, Math.round(length / 2 / ART_PIXEL)) * ART_PIXEL;
+        const left = Math.round(x / ART_PIXEL) * ART_PIXEL,
+          top = Math.round(y / ART_PIXEL) * ART_PIXEL;
         ctx.fillRect(left, top, ART_PIXEL, half);
         ctx.fillRect(left - ART_PIXEL, top + half, ART_PIXEL, half);
       }
     }
     if (weather.flash > 0) {
-      ctx.fillStyle = `rgba(225, 239, 237, ${weather.flash * .28})`;
+      ctx.fillStyle = `rgba(225, 239, 237, ${weather.flash * 0.28})`;
       ctx.fillRect(0, 0, W, H);
-      if (weather.flash > .3 && !reducedMotion) {
+      if (weather.flash > 0.3 && !reducedMotion) {
         const proximity = 1 - weather.distance;
         const startX = weather.x * W;
         const bolt = [[startX, 0]];
-        for (let step = 1; step <= 6; step++) bolt.push([startX + Math.sin(weather.x * 91 + step * 7.3) * 16, step * H * .085]);
-        pixelPath(bolt, `rgba(246, 244, 204, ${weather.flash})`, proximity > .5 ? 2 : 1);
+        for (let step = 1; step <= 6; step++)
+          bolt.push([
+            startX + Math.sin(weather.x * 91 + step * 7.3) * 16,
+            step * H * 0.085,
+          ]);
+        pixelPath(
+          bolt,
+          `rgba(246, 244, 204, ${weather.flash})`,
+          proximity > 0.5 ? 2 : 1,
+        );
       }
     }
     ctx.restore();
@@ -243,31 +411,52 @@ export function createRenderer(canvas) {
   function drawPhysicsOverlay(vehicle) {
     const { chassis } = vehicle;
     ctx.save();
-    ctx.globalAlpha = .85;
+    ctx.globalAlpha = 0.85;
     ctx.lineWidth = 1;
     for (const constraint of vehicle.dampedConstraints) {
-      if (constraint.type !== 'distance') continue;
-      ctx.strokeStyle = constraint.minLength !== null || constraint.maxLength !== null ? '#f0b45f' : '#83d1ce';
-      ctx.beginPath(); ctx.moveTo(constraint.a.x, constraint.a.y); ctx.lineTo(constraint.b.x, constraint.b.y); ctx.stroke();
+      if (constraint.type !== "distance") continue;
+      ctx.strokeStyle =
+        constraint.minLength !== null || constraint.maxLength !== null
+          ? "#f0b45f"
+          : "#83d1ce";
+      ctx.beginPath();
+      ctx.moveTo(constraint.a.x, constraint.a.y);
+      ctx.lineTo(constraint.b.x, constraint.b.y);
+      ctx.stroke();
     }
     for (const point of Object.values(chassis)) {
-      ctx.fillStyle = '#fff3be'; ctx.beginPath(); ctx.arc(point.x, point.y, 3, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#fff3be";
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 3, 0, TAU);
+      ctx.fill();
     }
     for (const point of [vehicle.rear, vehicle.front]) {
       if (!point.contact) continue;
-      ctx.strokeStyle = '#e65e56'; ctx.beginPath(); ctx.moveTo(point.x, point.y);
-      ctx.lineTo(point.x + point.contact.nx * 24, point.y + point.contact.ny * 24); ctx.stroke();
+      ctx.strokeStyle = "#e65e56";
+      ctx.beginPath();
+      ctx.moveTo(point.x, point.y);
+      ctx.lineTo(
+        point.x + point.contact.nx * 24,
+        point.y + point.contact.ny * 24,
+      );
+      ctx.stroke();
     }
     const center = vehicleMetrics(vehicle).center;
-    ctx.strokeStyle = '#ff8952'; ctx.beginPath();
-    ctx.moveTo(center.x - 5, center.y); ctx.lineTo(center.x + 5, center.y);
-    ctx.moveTo(center.x, center.y - 5); ctx.lineTo(center.x, center.y + 5); ctx.stroke();
+    ctx.strokeStyle = "#ff8952";
+    ctx.beginPath();
+    ctx.moveTo(center.x - 5, center.y);
+    ctx.lineTo(center.x + 5, center.y);
+    ctx.moveTo(center.x, center.y - 5);
+    ctx.lineTo(center.x, center.y + 5);
+    ctx.stroke();
     ctx.restore();
   }
 
   /** Where the camera should look: the bike, or the tumbling rider after a crash. */
   function focusOf(ride) {
-    return ride.ragdoll ? ragdollCenter(ride.ragdoll) : vehicleMetrics(ride.vehicle).center;
+    return ride.ragdoll
+      ? ragdollCenter(ride.ragdoll)
+      : vehicleMetrics(ride.vehicle).center;
   }
 
   /**
@@ -276,13 +465,31 @@ export function createRenderer(canvas) {
    *   full: boolean, now: number, dt: number, debug: boolean
    * }} frame
    */
-  function draw({ ride, ghost, camera, effects, rider, state, full, now, dt, debug }) {
-    const paused = state === 'paused';
+  function draw({
+    ride,
+    ghost,
+    camera,
+    effects,
+    rider,
+    state,
+    full,
+    now,
+    dt,
+    debug,
+  }) {
+    const paused = state === "paused";
     const animationDt = paused ? 0 : dt;
-    camera.follow(focusOf(ride), { facing: ride.facing, loose: Boolean(ride.ragdoll), width: W, height: H, dt, fallY: level.fallY || 620 });
+    camera.follow(focusOf(ride), {
+      facing: ride.facing,
+      loose: Boolean(ride.ragdoll),
+      width: W,
+      height: H,
+      dt,
+      fallY: level.fallY || 620,
+    });
     const flipSmoothing = reducedMotion ? 1 : 1 - Math.exp(-18 * dt);
     flipVisual = lerp(flipVisual, ride.facing, flipSmoothing);
-    if (Math.abs(flipVisual - ride.facing) < .002) flipVisual = ride.facing;
+    if (Math.abs(flipVisual - ride.facing) < 0.002) flipVisual = ride.facing;
     const worldToDevice = pixelScale / ART_PIXEL;
     const view = camera.view();
     // Whole device pixels, so art on the world's pixel grid never straddles a pixel.
@@ -291,20 +498,41 @@ export function createRenderer(canvas) {
 
     ctx.setTransform(worldToDevice, 0, 0, worldToDevice, 0, 0);
     ctx.imageSmoothingEnabled = false;
-    gameArt.drawBackground({ width: W, height: H, palette: level, cameraX, cameraY, full, smooth: true });
-    ctx.save(); ctx.translate(-cameraX, -cameraY);
+    gameArt.drawBackground({
+      width: W,
+      height: H,
+      palette: level,
+      cameraX,
+      cameraY,
+      full,
+      smooth: true,
+    });
+    ctx.save();
+    ctx.translate(-cameraX, -cameraY);
     effects.update(animationDt);
-    drawProps('back', full);
+    drawProps("back", full);
     terrainRenderer.draw(ctx, level, cameraX, cameraY, W, H);
     drawSkidMarks(effects.skidMarks);
     drawSceneryShadows(ride, now, full);
     drawParticles(effects.particles, true);
     if (inView(level.goal, 65)) {
       const goalY = terrainAt(level, level.goal).y;
-      if (inView(level.goal, 65, goalY, 115)) gameArt.drawFlag(level.goal, goalY, ride.collected === ride.apples.length, ride.apples.length - ride.collected);
+      if (inView(level.goal, 65, goalY, 115))
+        gameArt.drawFlag(
+          level.goal,
+          goalY,
+          ride.collected === ride.apples.length,
+          ride.apples.length - ride.collected,
+        );
     }
     for (const spike of ride.spikes) {
-      if (inView(spike.x, spike.radius + 10, spike.y)) gameArt.drawSpike(spike.x, spike.y, spike.radius, reducedMotion ? 0 : ride.spikeTime * spike.spin * TAU);
+      if (inView(spike.x, spike.radius + 10, spike.y))
+        gameArt.drawSpike(
+          spike.x,
+          spike.y,
+          spike.radius,
+          reducedMotion ? 0 : ride.spikeTime * spike.spin * TAU,
+        );
     }
     for (const apple of ride.apples) {
       if (apple.taken) continue;
@@ -314,10 +542,10 @@ export function createRenderer(canvas) {
     drawGhost(ghost, rider);
     updateHair(ride, rider, animationDt);
     if (hair) hair.draw(pixelPath, currentHairRoot(ride, false));
-    drawBike(ride, rider, flipVisual, ride.ragdoll ? 'ragdoll' : state);
+    drawBike(ride, rider, flipVisual, ride.ragdoll ? "ragdoll" : state);
     if (debug) drawPhysicsOverlay(ride.vehicle);
     if (ride.ragdoll) gameArt.drawRagdoll(ride.ragdoll.points, rider);
-    drawProps('front', full);
+    drawProps("front", full);
     drawParticles(effects.particles, false);
     drawPopups(animationDt);
     effects.prune();
@@ -326,8 +554,15 @@ export function createRenderer(canvas) {
   }
 
   return {
-    resize, reset, draw, popup,
-    get width() { return W; },
-    get height() { return H; }
+    resize,
+    reset,
+    draw,
+    popup,
+    get width() {
+      return W;
+    },
+    get height() {
+      return H;
+    },
   };
 }

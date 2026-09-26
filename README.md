@@ -47,18 +47,18 @@ A local server is required because the game uses native JavaScript modules and f
 
 ## Controls
 
-| Action | Keyboard | Touch |
-| --- | --- | --- |
-| Gas | `Up Arrow` or `W` | Gas button |
-| Brake | `Down Arrow` or `S` | Brake button |
-| Lean backward / forward | `Left Arrow` / `Right Arrow` or `A` / `D` | Lean buttons |
-| Flip riding direction | `Space` | — |
-| Restart trail | `R` | Compact restart button in the game viewport |
-| Pause / resume | `P` | Pause button |
-| Open / close the main menu | `Escape` | In-game menu button |
-| Toggle fullscreen | Fullscreen button | Fullscreen button |
-| Navigate dashboard controls | Arrow keys or `W` / `A` / `S` / `D` | Tap a menu item |
-| Activate the focused menu action | `Enter` or `Space` | Tap a menu item |
+| Action                           | Keyboard                                  | Touch                                       |
+| -------------------------------- | ----------------------------------------- | ------------------------------------------- |
+| Gas                              | `Up Arrow` or `W`                         | Gas button                                  |
+| Brake                            | `Down Arrow` or `S`                       | Brake button                                |
+| Lean backward / forward          | `Left Arrow` / `Right Arrow` or `A` / `D` | Lean buttons                                |
+| Flip riding direction            | `Space`                                   | —                                           |
+| Restart trail                    | `R`                                       | Compact restart button in the game viewport |
+| Pause / resume                   | `P`                                       | Pause button                                |
+| Open / close the main menu       | `Escape`                                  | In-game menu button                         |
+| Toggle fullscreen                | Fullscreen button                         | Fullscreen button                           |
+| Navigate dashboard controls      | Arrow keys or `W` / `A` / `S` / `D`       | Tap a menu item                             |
+| Activate the focused menu action | `Enter` or `Space`                        | Tap a menu item                             |
 
 Lean labels adjust to the direction the rider is facing. Every keyboard action can be rebound under **Settings → Keys**. Holding restart freezes the bike until you let go, so you can line up a clean start.
 
@@ -255,12 +255,14 @@ When changing physics values, validate at least these cases:
 - [x] Different terrain types (grass, dirt, rock, snow, and brick)
 - [x] Splatter behind the bike when you drive on different terrain
 - [x] Add weather effects (rain, lightning, and procedural ambience)
+- [ ] Add day / night
 - [ ] Add import / export of savegames
-- [ ] Water
-- [ ] Add sign that you can write on in the editor
+- [ ] Add water that you can drive through
+- [ ] Add a sign that you can write on in the editor
 - [ ] Biker customization: choose your bike (the original Pocket Classic bike is already drawn as the `classic` model), and later colors and gear
 - [ ] Highscore leaderboard
 - [x] New physics engine with support for overhangs, loops, caves, and fully polygonal ground
+- [ ] Change level into trails
 
 ## Possible Godot migration
 

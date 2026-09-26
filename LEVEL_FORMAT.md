@@ -92,7 +92,12 @@ The world uses Canvas coordinates:
 `points` defines the continuous ground surface:
 
 ```js
-points: [[0, 320], [200, 320], [360, 250], [520, 330]]
+points: [
+  [0, 320],
+  [200, 320],
+  [360, 250],
+  [520, 330],
+];
 ```
 
 The renderer creates a smooth cosine curve between consecutive points. Every point must have a larger `x` value than the point before it.
@@ -125,7 +130,7 @@ The editor's **Start** tool places an explicit start position. Select the start 
 `goal` is the horizontal position of the finish flag:
 
 ```js
-goal: 1800
+goal: 1800;
 ```
 
 It should be:
@@ -139,7 +144,10 @@ It should be:
 Each gap removes a section of the main terrain:
 
 ```js
-gaps: [[780, 900], [1420, 1550]]
+gaps: [
+  [780, 900],
+  [1420, 1550],
+];
 ```
 
 The two values are the left and right edges. Gap edges have solid vertical walls and solid corner collision. A rider can ride off the upper lip normally, but can collide with the cliff face after falling into the gap.
@@ -153,11 +161,19 @@ Platforms are independent solid terrain bodies above the main ground:
 ```js
 platforms: [
   {
-    points: [[1050, 220], [1210, 185], [1380, 215]],
-    bottom: [[1070, 260], [1210, 250], [1360, 250]],
-    material: 'brick'
-  }
-]
+    points: [
+      [1050, 220],
+      [1210, 185],
+      [1380, 215],
+    ],
+    bottom: [
+      [1070, 260],
+      [1210, 250],
+      [1360, 250],
+    ],
+    material: "brick",
+  },
+];
 ```
 
 `points` is the top edge and `bottom` is the underside. Both need at least two points ordered by x.
@@ -176,7 +192,7 @@ A level can contain any number of platforms, including multiple platforms over t
 - `bottom` uses the same smoothing as `points`.
 - The first and last top points are the top corners; the first and last bottom points are the bottom corners. Side walls connect them, so corners at different x values produce slanted walls.
 - The underside must stay at least 4 units below the top. Validation reports an error when it crosses.
-In the editor, the **Island** tool's **Starting thickness** sets the depth of new islands. Double-click an island's top or underside to add a point to that edge, or pick the **Island** tool while an island is selected and click to add points; press `Escape` to return to **Select**. Each edge keeps at least two points.
+  In the editor, the **Island** tool's **Starting thickness** sets the depth of new islands. Double-click an island's top or underside to add a point to that edge, or pick the **Island** tool while an island is selected and click to add points; press `Escape` to return to **Select**. Each edge keeps at least two points.
 
 Keep at least one wheel diameter of visual separation between a platform and the ground. Larger clearances are preferable when the player is expected to pass underneath.
 
@@ -187,12 +203,19 @@ Keep at least one wheel diameter of visual separation between a platform and the
 ```js
 paths: [
   {
-    points: [[900, 310], [1040, 190], [1120, 80], [1230, 170], [1190, 310], [1040, 370]],
+    points: [
+      [900, 310],
+      [1040, 190],
+      [1120, 80],
+      [1230, 170],
+      [1190, 310],
+      [1040, 370],
+    ],
     closed: true,
     thickness: 28,
-    material: 'dirt'
-  }
-]
+    material: "dirt",
+  },
+];
 ```
 
 - `points` describes the centerline of the ribbon and requires at least two points, or three for a closed path.
@@ -211,18 +234,18 @@ The editor's **Path / loop** tool creates an open path. Select a path or one of 
 Set the base material with:
 
 ```js
-terrain: 'grass'
+terrain: "grass";
 ```
 
 Set a platform material independently with its `material` property. Available presets are:
 
-| Material | Intended character |
-| --- | --- |
-| `grass` | Green surface with soil underneath |
-| `dirt` | Warm loose-earth trail |
-| `rock` | Grey, hard mountain terrain |
-| `snow` | Pale surface and cool subsurface |
-| `brick` | Brick pattern with a green rideable edge |
+| Material | Intended character                       |
+| -------- | ---------------------------------------- |
+| `grass`  | Green surface with soil underneath       |
+| `dirt`   | Warm loose-earth trail                   |
+| `rock`   | Grey, hard mountain terrain              |
+| `snow`   | Pale surface and cool subsurface         |
+| `brick`  | Brick pattern with a green rideable edge |
 
 Material definitions live in `terrainMaterials` at the top of `js/levels.js`. Each preset controls fill, internal layers or pattern, edge colors, vegetation, and wheel-spray colors.
 
@@ -233,23 +256,22 @@ Each apple has a horizontal and optional vertical position:
 ```js
 apples: [
   { x: 300, y: null },
-  { x: 700, y: 190 }
-]
+  { x: 700, y: 190 },
+];
 ```
 
 A numeric `y` is the apple's center and allows it to be placed freely in the world, including over gaps or platforms. `y: null` anchors the apple 60 units above the base terrain; do not put a ground-anchored apple inside a gap. The editor's **Apple** tool always places an apple at the exact clicked position.
-
 
 ## Props
 
 ```js
 props: [
-  { x: 250, y: null, type: 'tree', layer: 'back' },
-  { x: 650, y: 245, type: 'rock', layer: 'front' }
-]
+  { x: 250, y: null, type: "tree", layer: "back" },
+  { x: 650, y: 245, type: "rock", layer: "front" },
+];
 ```
 
-Available prop types are `tree`, `fence`, `rock`, `boulder`, `flowers`, `stump`, and `crystal`. `y: null` anchors a prop to the base terrain; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front`: `back`-layer props are drawn behind the terrain as well as the gameplay, while `front`-layer props are drawn in front of the gameplay.
+Available prop types are `tree`, `pine`, `fence`, `rock`, `boulder`, `flowers`, `stump`, and `crystal`. `y: null` anchors a prop to the base terrain; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front`: `back`-layer props are drawn behind the terrain as well as the gameplay, while `front`-layer props are drawn in front of the gameplay.
 
 Use the editor's **Prop** tool to place a prop. Select it to drag it, edit its type and layer in the inspector, or remove it with **Delete Selection**, `Delete`, or `Backspace`.
 
@@ -260,8 +282,8 @@ Spikes are spinning spiked balls, similar to the killers in Elasto Mania. Touchi
 ```js
 spikes: [
   { x: 820, y: 240, radius: 18, spin: 1 },
-  { x: 1300, y: 150, radius: 30, spin: -0.5 }
-]
+  { x: 1300, y: 150, radius: 30, spin: -0.5 },
+];
 ```
 
 - `x` and `y` are the center of the spike in world space. A missing or `null` `y` rests the spike on the base terrain.
