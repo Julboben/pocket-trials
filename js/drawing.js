@@ -20,12 +20,19 @@ export function propDrawAngle(type, slope = 0) {
   return GROUND_ALIGNED_PROP_SPANS[type] && Number.isFinite(slope) ? Math.atan(slope) : 0;
 }
 
+// How far the camera can climb while the sun still sinks a little in the sky;
+// above that it holds its place so it stays in view on tall levels.
+const SUN_CLIMB_LIMIT = 600;
+// Vertical spacing, in cloud-parallax space, of the cloud rows repeated above
+// the first one as the camera climbs.
+const CLOUD_ROW_SPACING = 180;
+
 export function sunLight({ width, cameraX = 0, cameraY = 0, weather = {} }) {
   const sunshine = Math.max(0, Math.min(1, weather.sun ?? 1));
   const cloudiness = Math.max(0, Math.min(1, weather.clouds ?? .35));
   return {
     x: width * .77 - cameraX * .015,
-    y: 85 - cameraY * .08,
+    y: 85 - Math.max(cameraY, -SUN_CLIMB_LIMIT) * .08,
     sunshine,
     strength: sunshine * (1 - cloudiness * .55)
   };
@@ -68,6 +75,19 @@ export const RIDER_PALETTES = {
   }
 };
 export const riderPalette = rider => RIDER_PALETTES[rider] || RIDER_PALETTES.max;
+
+// Selectable bike models drawn by createGameArt().drawBike. Every model keeps
+// the same seat, peg, and handlebar positions so any rider fits any bike.
+export const BIKE_MODELS = ['elasto', 'classic'];
+export const DEFAULT_BIKE = 'elasto';
+
+const ELASTO_COLORS = {
+  green: '#3aa63c', greenLight: '#8fdc6e', greenDark: '#1f6b2c', white: '#eef1e8',
+  silver: '#c3cbcd', silverDark: '#727c80', black: '#1b2124', red: '#d63b2c', orange: '#f08a3a',
+  tire: '#16191b', tread: '#3a4246', rim: '#5d676b', spoke: '#39424a', hub: '#8e989c', hubLight: '#c9d0d2'
+};
+
+const NUMBER_EIGHT = '111101111101111';
 
 function parseColor(color) {
   const hex = color.replace('#', '');
@@ -345,7 +365,32 @@ export function createGameArt(ctx) {
     pixelRect(cx + Math.cos(angle) * core * .45 - 1, cy + Math.sin(angle) * core * .45 - 1, 2, 2, '#7c2b24', 2);
   }
 
-  function drawWheel(point) {
+  function drawElastoWheel(point) {
+    const c = ELASTO_COLORS;
+    ctx.save();
+    translateToDevice(point.x, point.y);
+    for (let y = -6; y <= 6; y++) for (let x = -6; x <= 6; x++) {
+      const distance = Math.hypot(x, y);
+      if (distance <= 6.5 && distance >= 4.9) pixelRect(x * 2, y * 2, 2, 2, c.tire);
+      else if (distance < 4.9 && distance >= 4) pixelRect(x * 2, y * 2, 2, 2, c.rim);
+    }
+    const spin = point.spin || 0;
+    const treadPhase = Math.round(spin / (TAU / 32)) * (TAU / 32);
+    for (let i = 0; i < 8; i++) {
+      const tread = treadPhase + i * TAU / 8;
+      pixelRect(Math.round(Math.cos(tread) * 5.6) * 2, Math.round(Math.sin(tread) * 5.6) * 2, 2, 2, c.tread);
+    }
+    const spokePhase = Math.round(spin / (TAU / 24)) * (TAU / 24);
+    for (let i = 0; i < 6; i++) {
+      const spoke = spokePhase + i * TAU / 6;
+      pixelPath([[0, 0], [Math.cos(spoke) * 8, Math.sin(spoke) * 8]], c.spoke, 1);
+    }
+    pixelRect(-4, -2, 8, 4, c.hub); pixelRect(-2, -4, 4, 8, c.hub);
+    pixelRect(-2, -2, 4, 4, c.hubLight);
+    ctx.restore();
+  }
+
+  function drawClassicWheel(point) {
     ctx.save();
     translateToDevice(point.x, point.y);
     const cx = 0, cy = 0;
@@ -437,12 +482,21 @@ export function createGameArt(ctx) {
       const cloudColor = storminess > .15 ? '#bdc8c3' : '#f8f7e9';
       ctx.save();
       ctx.globalAlpha = .42 + cloudiness * .5;
-      for (let index = firstCloud; index < firstCloud + Math.ceil(width / spacing) + 2; index++) {
-        placed(index * spacing + 55 - cameraX * .07, 64 + Math.sin(index * 4) * 22 - cameraY * .08, 4, (x, y) => {
-          pixelRect(x, y, 54 * scale, 6 * scale, cloudColor, 4);
-          pixelRect(x + 12 * scale, y - 6 * scale, 24 * scale, 6 * scale, cloudColor, 4);
-          pixelRect(x + 30 * scale, y + 6 * scale, 42 * scale, 6 * scale, cloudColor, 4);
-        });
+      const cloudShift = -cameraY * .08;
+      // Row 0 is the original band; rows above it only exist once the camera climbs.
+      const lastRow = Math.max(0, Math.floor((cloudShift + 64 + 60) / CLOUD_ROW_SPACING));
+      const firstRow = Math.max(0, Math.ceil((cloudShift + 64 - height - 60) / CLOUD_ROW_SPACING));
+      for (let row = firstRow; row <= lastRow; row++) {
+        const rowY = 64 - row * CLOUD_ROW_SPACING + cloudShift;
+        const rowX = row * 137;
+        for (let index = firstCloud - 1; index < firstCloud + Math.ceil(width / spacing) + 2; index++) {
+          const seed = index + row * 7;
+          placed(index * spacing + 55 + rowX % spacing - cameraX * .07, rowY + Math.sin(seed * 4) * 22, 4, (x, y) => {
+            pixelRect(x, y, 54 * scale, 6 * scale, cloudColor, 4);
+            pixelRect(x + 12 * scale, y - 6 * scale, 24 * scale, 6 * scale, cloudColor, 4);
+            pixelRect(x + 30 * scale, y + 6 * scale, 42 * scale, 6 * scale, cloudColor, 4);
+          });
+        }
       }
       ctx.restore();
     }
@@ -457,12 +511,13 @@ export function createGameArt(ctx) {
         const offsetY = snap(cameraY * layer.parallax);
         const first = Math.floor(offsetX / BACKGROUND_STRIP_WIDTH);
         const last = Math.floor((offsetX + width) / BACKGROUND_STRIP_WIDTH);
-        for (let index = first; index <= last; index++) {
+        const stripTop = BACKGROUND_STRIP_TOP - offsetY;
+        const below = stripTop + BACKGROUND_STRIP_HEIGHT;
+        if (stripTop < height && below > 0) for (let index = first; index <= last; index++) {
           ctx.drawImage(backgroundStrip(layer, layerIndex, index, layerIndex === 1),
-            index * BACKGROUND_STRIP_WIDTH - offsetX, BACKGROUND_STRIP_TOP - offsetY,
+            index * BACKGROUND_STRIP_WIDTH - offsetX, stripTop,
             BACKGROUND_STRIP_WIDTH, BACKGROUND_STRIP_HEIGHT);
         }
-        const below = BACKGROUND_STRIP_TOP + BACKGROUND_STRIP_HEIGHT - offsetY;
         if (below < height) { ctx.fillStyle = layer.color; ctx.fillRect(0, below, width, height - below); }
       });
     }
@@ -530,8 +585,79 @@ export function createGameArt(ctx) {
   // The frame and rider are drawn axis-aligned into a scratch sprite, where every
   // rectangle lands on whole art pixels, and the sprite is then rotated onto the
   // scene with nearest-neighbour sampling instead of rotating each rectangle.
-  function drawBike({ rear, front, mx, my, angle, length, flipVisual = 1, facing = 1, brakePressure = 0, state = 'ready', leanVisual = 0, rider = 'max' }) {
-    drawWheel(rear); drawWheel(front);
+  // Frames are drawn facing right with the rear axle at (-half, 0) and the front
+  // axle at (half, 0). Parts joined to an axle use `path`; parts on the sprung
+  // body use `bodyPoint`, `bodyRect`, and `bodyPath` so they pitch and drop.
+  function drawClassicFrame({ path, spring, half, bodyPoint, bodyRect, bodyPath, brakePressure }) {
+    const backMount = bodyPoint(-9,-15), frontMount = bodyPoint(12,-23);
+    const crank = bodyPoint(-3,-1);
+
+    path([[-half,0],bodyPoint(-7,-18),bodyPoint(13,-17),[half,0]],'#d95832',2);
+    path([[-half,0],crank,[half,0]],'#ed7842',2);
+    path([[-half,0],backMount],'#819084',1);
+    path([[half,0],frontMount],'#b9c4af',2);
+    spring(-half,0,backMount[0],backMount[1],'#f0b45f');
+    spring(half,0,frontMount[0],frontMount[1],'#f0b45f');
+
+    bodyRect(-9,-20,24,4,'#ee6f3f');
+    bodyRect(-17,-24,14,4,'#263a35');
+    bodyRect(-20,-27,5,5,brakePressure > .08 ? '#ff6045' : '#713c35',2);
+    if (brakePressure > .6) bodyRect(-19,-26,2,2,'#ffd0a2',2);
+    bodyPath([[10,-23],[18,-26],[24,-26]],'#263a35',2);
+    bodyRect(-9,-8,12,10,'#435a52');
+    bodyRect(-5,-4,10,6,'#2f463d');
+    bodyRect(-3,-2,6,6,'#edb466');
+  }
+
+  function drawElastoFrame({ path, spring, half, bodyPoint, bodyRect, bodyPath, brakePressure }) {
+    const c = ELASTO_COLORS;
+    const pivot = bodyPoint(-4,-6), shockTop = bodyPoint(-12,-18), forkTop = bodyPoint(14,-22);
+    const shockBase = [-half + (pivot[0] + half) * .45, pivot[1] * .45];
+    const forkSlider = [half + (forkTop[0] - half) * .45, forkTop[1] * .45];
+
+    spring(shockBase[0],shockBase[1],shockTop[0],shockTop[1],c.orange);
+    path([[-half,0],pivot],c.silver,2);
+    path([[-half,2],[pivot[0],pivot[1]+2]],c.silverDark,1);
+
+    bodyRect(-8,-14,14,12,c.silverDark);
+    bodyRect(-6,-14,10,4,c.silver);
+    bodyRect(-4,-4,8,4,c.black);
+    bodyPath([[14,-22],[6,-14],[4,-4]],c.black,2);
+
+    bodyRect(-20,-22,12,14,c.white);
+    for (let cell = 0; cell < 15; cell++) {
+      if (NUMBER_EIGHT[cell] === '1') bodyRect(-18 + (cell % 3) * 2,-20 + Math.floor(cell / 3) * 2,2,2,c.black);
+    }
+    bodyRect(-22,-26,20,4,c.black);
+    bodyRect(-20,-26,12,2,c.silverDark);
+    bodyPath([[-18,-28],[-28,-30]],c.green,2);
+    bodyPath([[-18,-26],[-28,-28]],c.white,1);
+    bodyPath([[-18,-24],[-28,-26]],c.red,1);
+    bodyRect(-32,-32,4,4,brakePressure > .08 ? '#ff6045' : '#713c35');
+    if (brakePressure > .6) bodyRect(-32,-32,2,2,'#ffd0a2');
+
+    bodyRect(-4,-28,18,8,c.green);
+    bodyRect(-2,-28,12,2,c.greenLight);
+    bodyRect(-4,-22,18,2,c.greenDark);
+    bodyRect(6,-22,10,8,c.white);
+    bodyRect(8,-18,8,2,c.green);
+
+    path([[half,0],forkTop],c.black,2);
+    path([[half,0],forkSlider],c.silver,2);
+    path([[half-8,-14],[half-2,-16],[half+6,-14]],c.green,2);
+    path([[half-6,-12],[half+4,-12]],c.greenDark,1);
+    bodyPath([[14,-22],[16,-26],[22,-26]],c.black,2);
+    bodyRect(-4,-4,4,2,c.black);
+  }
+
+  const BIKES = {
+    elasto: { wheel: drawElastoWheel, frame: drawElastoFrame },
+    classic: { wheel: drawClassicWheel, frame: drawClassicFrame }
+  };
+
+  function drawBike({ rear, front, mx, my, angle, length, flipVisual = 1, facing = 1, brakePressure = 0, state = 'ready', leanVisual = 0, rider = 'max', bike = DEFAULT_BIKE }) {
+    const model = BIKES[bike] || BIKES[DEFAULT_BIKE];
+    model.wheel(rear); model.wheel(front);
     const pixelAngle = Math.round(angle / (TAU / 32)) * (TAU / 32);
     const sprite = bikeCanvas();
     const { context, size } = sprite;
@@ -547,15 +673,6 @@ export function createGameArt(ctx) {
     const bodyPitch = (frontCompression - backCompression) * .0096;
     const pc = Math.cos(bodyPitch), ps = Math.sin(bodyPitch);
     const bodyPoint = (x,y) => [x*pc-y*ps,x*ps+y*pc+bodyDrop];
-    const backMount = bodyPoint(-9,-15), frontMount = bodyPoint(12,-23);
-    const crank = bodyPoint(-3,-1);
-
-    path([[-half,0],bodyPoint(-7,-18),bodyPoint(13,-17),[half,0]],'#d95832',2);
-    path([[-half,0],crank,[half,0]],'#ed7842',2);
-    path([[-half,0],backMount],'#819084',1);
-    path([[half,0],frontMount],'#b9c4af',2);
-    spring(-half,0,backMount[0],backMount[1],'#f0b45f');
-    spring(half,0,frontMount[0],frontMount[1],'#f0b45f');
 
     // Body parts pitch with the suspension by moving each piece's centre, so
     // the pieces themselves stay on the pixel grid.
@@ -565,14 +682,7 @@ export function createGameArt(ctx) {
       rect(cx * pc - cy * ps - width / 2, cx * ps + cy * pc - height / 2 + drop, width, height, color, pixel);
     };
     const bodyPath = (points, color, thickness) => path(points.map(([x, y]) => [x * pc - y * ps, x * ps + y * pc + drop]), color, thickness);
-    bodyRect(-9,-20,24,4,'#ee6f3f');
-    bodyRect(-17,-24,14,4,'#263a35');
-    bodyRect(-20,-27,5,5,brakePressure > .08 ? '#ff6045' : '#713c35',2);
-    if (brakePressure > .6) bodyRect(-19,-26,2,2,'#ffd0a2',2);
-    bodyPath([[10,-23],[18,-26],[24,-26]],'#263a35',2);
-    bodyRect(-9,-8,12,10,'#435a52');
-    bodyRect(-5,-4,10,6,'#2f463d');
-    bodyRect(-3,-2,6,6,'#edb466');
+    model.frame({ path, spring, half, bodyPoint, bodyRect, bodyPath, brakePressure });
 
     if(state!=='ragdoll'){
       const shift = Math.round(leanVisual * 4.5) * 2;

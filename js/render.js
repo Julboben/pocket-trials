@@ -58,7 +58,9 @@ export function createRenderer(canvas) {
     popups.push({ text, x, y, color, life: 1.2, max: 1.2 });
   }
 
-  const inView = (x, margin) => x >= cameraX - margin && x <= cameraX + W + margin;
+  // `rise` is how far the art reaches above its anchor `y`.
+  const inView = (x, margin, y = null, rise = margin) => x >= cameraX - margin && x <= cameraX + W + margin
+    && (y === null || (y + margin >= cameraY && y - rise <= cameraY + H));
 
   function drawShadowBlob(samples, centerX, width, alpha, thickness) {
     for (const sample of samples) {
@@ -103,6 +105,7 @@ export function createRenderer(canvas) {
       const ground = terrainAt(level, prop.x);
       if (!ground.solid && !Number.isFinite(prop.y)) continue;
       const y = Number.isFinite(prop.y) ? prop.y : ground.y;
+      if (!inView(prop.x, 70, y, 90)) continue;
       gameArt.drawProp(prop.type, prop.x, y, layer === 'front' ? 1 : .82, propAlignmentSlope(level, prop), propGroundOffset(level, prop));
     }
   }
@@ -176,7 +179,7 @@ export function createRenderer(canvas) {
   }
 
   function drawGhost(ghost, rider) {
-    if (!ghost || !inView((ghost.rear.x + ghost.front.x) / 2, 80)) return;
+    if (!ghost || !inView((ghost.rear.x + ghost.front.x) / 2, 80, (ghost.rear.y + ghost.front.y) / 2)) return;
     ctx.globalAlpha = GHOST_ALPHA;
     gameArt.drawBike({
       rear: ghost.rear, front: ghost.front, ...bikeGeometry(ghost), flipVisual: ghost.facing, facing: ghost.facing,
@@ -276,7 +279,7 @@ export function createRenderer(canvas) {
   function draw({ ride, ghost, camera, effects, rider, state, full, now, dt, debug }) {
     const paused = state === 'paused';
     const animationDt = paused ? 0 : dt;
-    camera.follow(focusOf(ride), { facing: ride.facing, loose: Boolean(ride.ragdoll), width: W, height: H, dt });
+    camera.follow(focusOf(ride), { facing: ride.facing, loose: Boolean(ride.ragdoll), width: W, height: H, dt, fallY: level.fallY || 620 });
     const flipSmoothing = reducedMotion ? 1 : 1 - Math.exp(-18 * dt);
     flipVisual = lerp(flipVisual, ride.facing, flipSmoothing);
     if (Math.abs(flipVisual - ride.facing) < .002) flipVisual = ride.facing;
@@ -296,11 +299,18 @@ export function createRenderer(canvas) {
     drawSkidMarks(effects.skidMarks);
     drawSceneryShadows(ride, now, full);
     drawParticles(effects.particles, true);
-    if (inView(level.goal, 65)) gameArt.drawFlag(level.goal, terrainAt(level, level.goal).y, ride.collected === ride.apples.length, ride.apples.length - ride.collected);
-    for (const spike of ride.spikes) {
-      if (inView(spike.x, spike.radius + 10)) gameArt.drawSpike(spike.x, spike.y, spike.radius, reducedMotion ? 0 : ride.spikeTime * spike.spin * TAU);
+    if (inView(level.goal, 65)) {
+      const goalY = terrainAt(level, level.goal).y;
+      if (inView(level.goal, 65, goalY, 115)) gameArt.drawFlag(level.goal, goalY, ride.collected === ride.apples.length, ride.apples.length - ride.collected);
     }
-    for (const apple of ride.apples) if (!apple.taken && inView(apple.x, 30)) gameArt.drawApple(apple.x, appleDrawY(apple, now));
+    for (const spike of ride.spikes) {
+      if (inView(spike.x, spike.radius + 10, spike.y)) gameArt.drawSpike(spike.x, spike.y, spike.radius, reducedMotion ? 0 : ride.spikeTime * spike.spin * TAU);
+    }
+    for (const apple of ride.apples) {
+      if (apple.taken) continue;
+      const appleY = appleDrawY(apple, now);
+      if (inView(apple.x, 30, appleY)) gameArt.drawApple(apple.x, appleY);
+    }
     drawGhost(ghost, rider);
     updateHair(ride, rider, animationDt);
     if (hair) hair.draw(pixelPath, currentHairRoot(ride, false));

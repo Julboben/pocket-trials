@@ -23,6 +23,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - The run timer starts on your first input
 - Installable as an offline-capable web app
 - Two selectable riders: Max and Maxine
+- Elasto Mania-style pixel dirt bike, with the original Pocket Classic bike kept for future biker customization
 - Layered foreground and background scenery
 - Terrain-colored wheel spray, brake lights, and fading ground skid marks
 - Procedural engine, braking, wheel-landing, aerial trick, collectible, crash, flip, finish, dashboard, and rain sound effects
@@ -217,7 +218,7 @@ See [`LEVEL_FORMAT.md`](./LEVEL_FORMAT.md) for the complete schema, coordinate s
 Everything is rendered with the Canvas 2D API. The gameplay and illustrated How to Play guide share the same rider, bike, apple, and finish-flag renderers, so visual updates remain synchronized. Rendered elements include:
 
 - Terrain and floating islands
-- Modular pixel bike, rider, wheels, and suspension
+- Modular pixel bike, rider, wheels, and suspension. Bike models are listed in `BIKE_MODELS` in `js/drawing.js` and chosen with the `bike` option of `drawBike`. `elasto` is the default and `classic` is the original bike
 - Smooth vector apples and pixel finish gates
 - Layered pixel props and particles
 - Smooth terrain and floating islands with anchored pixel mountain silhouettes
@@ -256,6 +257,7 @@ When changing physics values, validate at least these cases:
 - [x] Add weather effects (rain, lightning, and procedural ambience)
 - [ ] Add import / export of savegames
 - [ ] Water
+- [ ] Biker customization: choose your bike (the original Pocket Classic bike is already drawn as the `classic` model), and later colors and gear
 - [ ] Highscore leaderboard
 - [x] New physics engine with support for overhangs, loops, caves, and fully polygonal ground
 

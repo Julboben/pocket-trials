@@ -43,6 +43,7 @@ The world uses Canvas coordinates:
 - `y` increases downward.
 - A smaller `y` value therefore means higher terrain.
 - Distances are expressed in world-space pixels.
+- There is no height limit. `y` may go as far negative as you like, and the camera follows the rider all the way up. Downward, the camera stops a little below `fallY`.
 - With the default start at `x = 90`, the bike's wheels begin near `x = 65` and `x = 115`.
 
 ## Complete example
@@ -322,7 +323,7 @@ Any property may be omitted. This supports clear skies, sunny skies with scatter
 
 ## Other fields
 
-- `fallY`: vertical position at which the bike is considered lost. Increase it for deep gaps.
+- `fallY`: vertical position at which the bike is considered lost. Increase it for deep gaps or trails that descend far. It also sets how low the camera can look.
 - `sky`, `sun`, and `mountain`: level palette colors.
 - `spray`: fallback wheel-particle colors. Material-specific spray takes priority.
 - `description`: design notes for the trail. It is not currently shown during gameplay.

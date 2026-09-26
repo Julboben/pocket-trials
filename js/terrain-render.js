@@ -184,6 +184,13 @@ function drawStartSign(context, level) {
   drawPixelText('GO →', 29, y - 47, '#3c5e4b');
 }
 
+// Highest point of the base ground curve between `left` and `right`.
+function groundTop(level, left, right) {
+  let top = Infinity;
+  for (let x = left; x < right + 8; x += 8) top = Math.min(top, curveAt(level.points, Math.min(x, right)).y);
+  return top;
+}
+
 export function createTerrainRenderer() {
   let currentLevel = null;
   let chunks = new Map();
@@ -193,21 +200,20 @@ export function createTerrainRenderer() {
     const originX = column * CHUNK_SIZE, originY = row * CHUNK_SIZE;
     const left = originX - CHUNK_MARGIN, right = originX + CHUNK_SIZE + CHUNK_MARGIN;
     const top = originY - CHUNK_MARGIN, bottom = originY + CHUNK_SIZE + CHUNK_MARGIN;
+    const overlaps = bounds => !(bounds.right + 8 < left || bounds.left - 8 > right || bounds.bottom + 8 < top || bounds.top - 8 > bottom);
+    const paths = (level.paths || []).filter(path => overlaps(pathBounds(path)));
+    const platforms = (level.platforms || []).filter(platform => overlaps(platformBounds(platform)));
+    const sign = left < 60 && right > 0;
+    // Tall levels have many chunks of open sky; skip them before allocating
+    // or quantizing anything. Ground art reaches up to 12 units above its curve.
+    if (!paths.length && !platforms.length && !sign && groundTop(level, left, right) - 16 > bottom) return null;
     const canvas = createCanvas(CHUNK_PIXELS, CHUNK_PIXELS);
     const context = canvas.getContext('2d', { willReadFrequently: true });
     context.setTransform(1 / ART_PIXEL, 0, 0, 1 / ART_PIXEL, -originX / ART_PIXEL, -originY / ART_PIXEL);
     drawGround(context, level, left, right, top, bottom);
-    for (const path of level.paths || []) {
-      const bounds = pathBounds(path);
-      if (bounds.right + 8 < left || bounds.left - 8 > right || bounds.bottom + 8 < top || bounds.top - 8 > bottom) continue;
-      drawAuthoredPath(context, path);
-    }
-    for (const platform of level.platforms || []) {
-      const bounds = platformBounds(platform);
-      if (bounds.right + 8 < left || bounds.left - 8 > right || bounds.bottom + 8 < top || bounds.top - 8 > bottom) continue;
-      drawPlatform(context, platform);
-    }
-    if (left < 60 && right > 0) drawStartSign(context, level);
+    for (const path of paths) drawAuthoredPath(context, path);
+    for (const platform of platforms) drawPlatform(context, platform);
+    if (sign) drawStartSign(context, level);
     return quantizeToPalette(context, CHUNK_PIXELS, CHUNK_PIXELS, palette) ? canvas : null;
   }
 

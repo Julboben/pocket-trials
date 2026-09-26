@@ -9,7 +9,7 @@ import {
   SUSPENSION_BUMP_STOP_LENGTH, XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE,
   WHEEL_INERTIA, WHEEL_FRICTION,
   XPBD_CHASSIS_MOUNT_INVERSE_MASS, XPBD_CHASSIS_TOP_INVERSE_MASS,
-  XPBD_MOTOR_ANGULAR_ACCELERATION, XPBD_MAX_DRIVE_SPEED, XPBD_MOTOR_REACTION_SCALE,
+  XPBD_MOTOR_ANGULAR_ACCELERATION, XPBD_TORQUE_FALLOFF_SPEED, XPBD_MOTOR_REACTION_SCALE,
   XPBD_RIDER_GROUND_ANGULAR_ACCELERATION, XPBD_RIDER_AIR_ANGULAR_ACCELERATION,
   XPBD_RIDER_LEVERAGE_FADE_START, XPBD_RIDER_LEVERAGE_FADE_END, XPBD_RIDER_MAX_AIR_SPIN, XPBD_RIDER_AIR_SPIN_RESPONSE, XPBD_RIDER_MAX_GROUND_SPIN,
   XPBD_TOUCHDOWN_SPIN_THRESHOLD, XPBD_TOUCHDOWN_SPIN_ABSORPTION,
@@ -166,7 +166,7 @@ function applyWheelTraction(point, name, drive, state, hooks) {
   options.freeRolling = drive && !braking && (point !== drivenWheel || throttle < .01);
   options.rollingResistance = drive && coasting ? coastResistance : 0;
   const result = solveWheelContactVelocity(point, point.contact, options);
-  point.angularVelocity = clamp(point.angularVelocity, -XPBD_MAX_DRIVE_SPEED / RADIUS, XPBD_MAX_DRIVE_SPEED / RADIUS);
+  point.angularVelocity = clamp(point.angularVelocity, -MAX_POINT_SPEED / RADIUS, MAX_POINT_SPEED / RADIUS);
   if (drive) hooks.traction?.(name, result, point);
 }
 
@@ -351,8 +351,8 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
   const uphill = clamp(-slope * facing, 0, 1);
   const drivenWheel = facing > 0 ? rear : front;
   const wheelSurfaceSpeed = Math.abs(drivenWheel.angularVelocity * RADIUS);
-  const speedRatio = clamp(wheelSurfaceSpeed / XPBD_MAX_DRIVE_SPEED, 0, 1);
-  const torqueCurve = speedRatio >= 1 ? 0 : .28 + .72 * (1 - speedRatio);
+  const speedRatio = wheelSurfaceSpeed / XPBD_TORQUE_FALLOFF_SPEED;
+  const torqueCurve = speedRatio >= 1 ? .28 / speedRatio : .28 + .72 * (1 - speedRatio);
   const forwardLean = clamp(leanControl * facing, 0, 1);
   const uphillGripBlend = clamp(uphill * (1 + forwardLean * 2), 0, 1);
   const angularDrive = facing * XPBD_MOTOR_ANGULAR_ACCELERATION * throttle * torqueCurve;
@@ -460,7 +460,7 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
       point.angularVelocity += (point === drivenWheel ? angularDrive : 0) * STEP;
       point.angularVelocity += (rolling - point.angularVelocity) * (1 - exp(-8 * STEP));
       if (braking) point.angularVelocity *= Math.max(0, 1 - XPBD_BRAKE_RATE * brakePressure * STEP);
-      point.angularVelocity = clamp(point.angularVelocity, -XPBD_MAX_DRIVE_SPEED / RADIUS, XPBD_MAX_DRIVE_SPEED / RADIUS);
+      point.angularVelocity = clamp(point.angularVelocity, -MAX_POINT_SPEED / RADIUS, MAX_POINT_SPEED / RADIUS);
       point.spin += point.angularVelocity * STEP;
       continue;
     }

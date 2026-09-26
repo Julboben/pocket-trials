@@ -44,9 +44,11 @@ export const XPBD_CHASSIS_MOUNT_INVERSE_MASS = .65;
 export const XPBD_CHASSIS_TOP_INVERSE_MASS = .5;
 // Gives roughly 400 px/s² of hooked-up low-speed acceleration. Grip below is
 // high enough that this torque reaches the ground instead of spinning the
-// driven wheel. Top speed is 340.
+// driven wheel.
 export const XPBD_MOTOR_ANGULAR_ACCELERATION = 708;
-export const XPBD_MAX_DRIVE_SPEED = 340;
+// Engine torque tapers linearly to 28% at this wheel speed and keeps thinning
+// out above it without ever cutting off, so the bike has no top speed.
+export const XPBD_TORQUE_FALLOFF_SPEED = 340;
 // Full reaction: the torque that drives the rear wheel pushes the front up,
 // on climbs as on flat ground. Held throttle on a hill of about 40° or more
 // loops the bike over backward unless the rider leans forward.

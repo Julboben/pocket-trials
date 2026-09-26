@@ -1,4 +1,4 @@
-import { STEP, clamp } from './config.js';
+import { STEP, MAX_POINT_SPEED, TAU, clamp } from './config.js';
 
 export function createAudio(getSnapshot) {
   let audio = null;
@@ -114,8 +114,13 @@ export function createAudio(getSnapshot) {
     const speed = rear && front ? Math.abs(((rear.x - rear.ox) + (front.x - front.ox)) / (2 * STEP)) : 0;
     const running = state === 'running';
     const grounded = rear && front && (rear.grounded || front.grounded);
-    const engineLevel = running ? .018 + throttle * .065 : 0;
-    const enginePitch = 48 + clamp(speed, 0, 340) * .32 + throttle * 42;
+    // Revs climb with speed up to the bike's top speed. Holding the gas there
+    // bounces the engine off its rev limiter, since it cannot go any faster.
+    const revs = clamp(speed, 0, 340) * .32 + clamp(speed - 340, 0, MAX_POINT_SPEED - 340) * .2;
+    const redline = running ? throttle * clamp((speed - MAX_POINT_SPEED * .95) / (MAX_POINT_SPEED * .05), 0, 1) : 0;
+    const limiterCut = redline * (Math.sin(context.currentTime * TAU * 11) > 0 ? 1 : 0);
+    const engineLevel = running ? (.018 + throttle * .065) * (1 - limiterCut * .45) : 0;
+    const enginePitch = 48 + revs + throttle * 42 - limiterCut * 18;
     engine.frequency.setTargetAtTime(enginePitch, context.currentTime, .035);
     engineFilter.frequency.setTargetAtTime(180 + throttle * 360 + speed * .35, context.currentTime, .04);
     engineGain.gain.setTargetAtTime(engineLevel, context.currentTime, .045);
