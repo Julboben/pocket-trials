@@ -291,10 +291,10 @@ export function createRenderer(canvas) {
     gameArt.drawBackground({ width: W, height: H, palette: level, cameraX, cameraY, full, smooth: true });
     ctx.save(); ctx.translate(-cameraX, -cameraY);
     effects.update(animationDt);
+    drawProps('back', full);
     terrainRenderer.draw(ctx, level, cameraX, cameraY, W, H);
     drawSkidMarks(effects.skidMarks);
     drawSceneryShadows(ride, now, full);
-    drawProps('back', full);
     drawParticles(effects.particles, true);
     if (inView(level.goal, 65)) gameArt.drawFlag(level.goal, terrainAt(level, level.goal).y, ride.collected === ride.apples.length, ride.apples.length - ride.collected);
     for (const spike of ride.spikes) {

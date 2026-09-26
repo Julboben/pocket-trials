@@ -4,11 +4,6 @@
   "goal": 2820,
   "terrain": "dirt",
   "description": "Momentum is your friend. Carry speed through valleys, ease over crests, and lean forward when the front wheel gets light.",
-  "medals": {
-    "gold": 16.5,
-    "silver": 21,
-    "bronze": 28
-  },
   "start": {
     "x": 90,
     "y": null,
@@ -96,6 +91,9 @@
       318
     ]
   ],
+  "gaps": [],
+  "platforms": [],
+  "paths": [],
   "apples": [
     {
       "x": 315,
@@ -166,12 +164,26 @@
       "y": null,
       "type": "rock",
       "layer": "front"
+    },
+    {
+      "x": 1668.8364030561786,
+      "y": 326.09695775328237,
+      "type": "rock",
+      "layer": "front"
+    },
+    {
+      "x": 1687.0883657172403,
+      "y": 328.16935764254276,
+      "type": "boulder",
+      "layer": "back"
     }
   ],
+  "spikes": [],
   "weather": {
     "sun": 0.75,
     "clouds": 0.65
   },
+  "fallY": 620,
   "sky": "#eae9d9",
   "sun": "#efd69b",
   "mountain": "#b7c8b1",
@@ -179,5 +191,10 @@
     "#9a805c",
     "#b99d72",
     "#d0b78d"
-  ]
+  ],
+  "medals": {
+    "gold": 16.5,
+    "silver": 21,
+    "bronze": 28
+  }
 }

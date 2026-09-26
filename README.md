@@ -255,6 +255,8 @@ When changing physics values, validate at least these cases:
 - [x] Splatter behind the bike when you drive on different terrain
 - [x] Add weather effects (rain, lightning, and procedural ambience)
 - [ ] Add import / export of savegames
+- [ ] Water
+- [ ] Highscore leaderboard
 - [x] New physics engine with support for overhangs, loops, caves, and fully polygonal ground
 
 ## Possible Godot migration

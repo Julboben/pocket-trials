@@ -332,9 +332,10 @@ function objectY(object, offset = 0) {
   return Number.isFinite(object.y) ? object.y : curveAt(level.points, object.x).y - offset;
 }
 
-function drawProps() {
+function drawProps(layer) {
   for (const prop of level.props || []) {
-    art.drawProp(prop.type, prop.x, objectY(prop), prop.layer === 'front' ? 1 : .82, propAlignmentSlope(level, prop), propGroundOffset(level, prop));
+    if (prop.layer !== layer) continue;
+    art.drawProp(prop.type, prop.x, objectY(prop), layer === 'front' ? 1 : .82, propAlignmentSlope(level, prop), propGroundOffset(level, prop));
   }
 }
 
@@ -351,7 +352,7 @@ function drawObjects() {
   drawSpikes();
   for (const apple of level.apples) art.drawApple(apple.x, objectY(apple, 60), { glow: false });
   art.drawFlag(level.goal, curveAt(level.points, level.goal).y, true);
-  drawProps();
+  drawProps('front');
   const startY = Number.isFinite(level.start.y) ? level.start.y : curveAt(level.points, level.start.x).y - 12;
   ctx.save(); ctx.globalAlpha = .72;
   art.drawBike({
@@ -403,6 +404,7 @@ function render() {
   ctx.translate(-cameraX * zoom, -cameraY * zoom);
   ctx.scale(zoom, zoom);
   drawGrid(width, height);
+  drawProps('back');
   drawTerrain();
   drawObjects();
   drawHandles();

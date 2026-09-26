@@ -162,6 +162,18 @@ function drawPlatform(context, platform) {
   }
   context.restore();
   drawSurfaceEdge(context, platform.points, start, end, material);
+
+  // Same pixel-grass tufts as the ground, on the island's top curve. The ±8
+  // padding covers the jitter so a tuft is never missed at an island edge.
+  if (material.vegetation) {
+    const { pixelPath } = createDrawingTools(context);
+    for (let i = Math.floor((start - 8) / 45); i <= Math.floor((end + 8) / 45); i++) {
+      const x = i * 45 + Math.sin(i * 9) * 8;
+      if (x < start || x > end) continue;
+      const y = curveAt(platform.points, x).y;
+      pixelPath([[x - 4, y - 2],[x - 4, y - 8],[x, y - 4],[x + 2, y - 10]], material.vegetation, 1, 2);
+    }
+  }
 }
 
 function drawStartSign(context, level) {
