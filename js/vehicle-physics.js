@@ -23,7 +23,7 @@ import {
   clamp, lerp
 } from './config.js';
 import {
-  createDistanceConstraint, createAreaConstraint, createSliderConstraint, signedTriangleArea,
+  createDistanceConstraint, createAreaConstraint, createSliderConstraint, createAxisLimitConstraint, signedTriangleArea,
   resetConstraintMultiplier, solveXpbdConstraint, dampingPerIteration,
   dampDistanceConstraint, riderTorqueMultiplier, riderTerrainTorqueScale, riderTiltTorqueScale, riderSpinTorqueScale,
   advanceAfterTimeOfImpact, solveWheelContactVelocity
@@ -63,7 +63,9 @@ export function createVehicle(rear, front) {
     // Limits run after the compliant links so every solver iteration ends in a
     // valid travel range rather than allowing a later slider to violate it.
     createDistanceConstraint(rear, chassis.rearMount, SUSPENSION_REST_LENGTH, { compliance: 0, minLength: SUSPENSION_REST_LENGTH - SUSPENSION_TRAVEL, maxLength: SUSPENSION_REST_LENGTH + SUSPENSION_TRAVEL }),
-    createDistanceConstraint(front, chassis.frontMount, SUSPENSION_REST_LENGTH, { compliance: 0, minLength: SUSPENSION_REST_LENGTH - SUSPENSION_TRAVEL, maxLength: SUSPENSION_REST_LENGTH + SUSPENSION_TRAVEL })
+    createDistanceConstraint(front, chassis.frontMount, SUSPENSION_REST_LENGTH, { compliance: 0, minLength: SUSPENSION_REST_LENGTH - SUSPENSION_TRAVEL, maxLength: SUSPENSION_REST_LENGTH + SUSPENSION_TRAVEL }),
+    createAxisLimitConstraint(rear, chassis.rearMount, chassis.rearMount, chassis.frontMount, chassis.top, SUSPENSION_REST_LENGTH - SUSPENSION_TRAVEL),
+    createAxisLimitConstraint(front, chassis.frontMount, chassis.rearMount, chassis.frontMount, chassis.top, SUSPENSION_REST_LENGTH - SUSPENSION_TRAVEL)
   ];
   const chassisPoints = [chassis.rearMount, chassis.frontMount, chassis.top];
   const bikePoints = [rear, front, ...chassisPoints];
@@ -178,15 +180,29 @@ function momentOfInertia(points) {
   }, 0) || 1;
 }
 
-// Rigid-body spin in rad/s, positive in the same sense as angularAccelerations.
-function angularVelocity(points, inertia) {
+function angularMomentum(points) {
   const center = centerOfMass(points);
   let momentum = 0;
   for (const point of points) {
     const vx = (point.x - point.ox) / STEP, vy = (point.y - point.oy) / STEP;
     momentum += ((point.x - center.x) * vy - (point.y - center.y) * vx) / point.inverseMass;
   }
-  return momentum / inertia;
+  return momentum;
+}
+
+// Rigid-body spin in rad/s, positive in the same sense as angularAccelerations.
+function angularVelocity(points, inertia) {
+  return angularMomentum(points) / inertia;
+}
+
+// Adds a pure rotation about the centre of mass; forward speed is kept.
+function addSpin(points, spin) {
+  const center = centerOfMass(points);
+  const turn = spin * STEP;
+  for (const point of points) {
+    point.ox -= -(point.y - center.y) * turn;
+    point.oy -= (point.x - center.x) * turn;
+  }
 }
 
 // Only wheels touch the terrain, so a fast-spinning bike that lands on one
@@ -196,12 +212,7 @@ function absorbTouchdownSpin(points, inertia) {
   const spin = angularVelocity(points, inertia);
   const excess = Math.sign(spin) * Math.max(0, Math.abs(spin) - XPBD_TOUCHDOWN_SPIN_THRESHOLD);
   if (!excess) return;
-  const removed = excess * XPBD_TOUCHDOWN_SPIN_ABSORPTION * STEP;
-  const center = centerOfMass(points);
-  for (const point of points) {
-    point.ox += -(point.y - center.y) * removed;
-    point.oy += (point.x - center.x) * removed;
-  }
+  addSpin(points, -excess * XPBD_TOUCHDOWN_SPIN_ABSORPTION);
 }
 
 function chassisUp(chassis) {
@@ -423,6 +434,7 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
   }
   for (const constraint of vehicle.dampedConstraints) resetConstraintMultiplier(constraint);
   hooks.afterIntegration?.();
+  const momentumBeforeSolve = crashed ? 0 : angularMomentum(bikePoints);
 
   const solverWheels = facing < 0 ? vehicle.wheelOrder.backward : vehicle.wheelOrder.forward;
   for (const [point, name] of solverWheels) collideWheel(level, point, name, hooks);
@@ -439,6 +451,13 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
     for (const [point, name] of solverWheels) collideWheel(level, point, name, hooks, false);
     if (crashed) for (const point of vehicle.chassisPoints) collideFreePoint(level, point, false, CRASHED_CHASSIS_CONTACT);
     hooks.contactsResolved?.();
+  }
+  // In the air nothing outside the bike can speed up its spin. The wheel
+  // sliders are not momentum-conserving on their own; while the bike tumbles
+  // fast they would keep feeding the spin.
+  if (!crashed && !rear.contact && !front.contact) {
+    const drift = angularMomentum(bikePoints) - momentumBeforeSolve;
+    if (drift * momentumBeforeSolve > 0) addSpin(bikePoints, -drift / momentOfInertia(bikePoints));
   }
   if ((!wasRearGrounded && rear.grounded) || (!wasFrontGrounded && front.grounded)) absorbTouchdownSpin(bikePoints, bikeInertia);
 

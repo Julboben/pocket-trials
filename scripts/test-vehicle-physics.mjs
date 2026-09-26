@@ -509,6 +509,25 @@ function steepWallScenario() {
   return { highest };
 }
 
+// Coasting off a 65° slope onto a 14° one hits the front wheel almost head on.
+// The bike must ride it out on its wheels instead of vaulting into a tumble.
+function sharpBendScenario() {
+  const level = {
+    ...flatLevel(1400),
+    paths: [{ points: [[-41, 53], [268, 731], [962, 905], [1400, 905]], closed: false, thickness: 28, material: 'grass' }]
+  };
+  const simulation = createSimulation(level, { x: 56, y: 71 });
+  let maxTilt = 0;
+  run(simulation, 480, () => {
+    maxTilt = Math.max(maxTilt, Math.abs(vehicleMetrics(simulation.vehicle).pitch));
+    return {};
+  });
+  const last = simulation.frames.at(-1);
+  assert.ok(maxTilt < 80 * Math.PI / 180, `bike tumbled through the sharp bend: tilt ${maxTilt * 180 / Math.PI}°`);
+  assert.ok(last.center.x > 900 && last.rearGrounded && last.frontGrounded, `bike must roll on past the bend: x ${last.center.x}`);
+  return { maxTiltDegrees: maxTilt * 180 / Math.PI, finalX: last.center.x };
+}
+
 const acceleration = accelerationScenario();
 const braking = brakingScenario(true);
 const coasting = brakingScenario(false);
@@ -547,6 +566,7 @@ const results = {
   steepClimbForwardLean: steepClimbForwardLeanScenario(),
   steepClimbLoop: steepClimbLoopScenario(),
   steepWall: steepWallScenario(),
+  sharpBend: sharpBendScenario(),
   flipKeepsTiresRolling: flipKeepsTiresRollingScenario(),
   determinismAndFlip: determinismAndFlipScenario()
 };

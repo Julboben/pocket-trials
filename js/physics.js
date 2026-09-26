@@ -48,6 +48,31 @@ export function createSliderConstraint(point, mount, axisStart, axisEnd, { compl
   return { type: 'slider', a: point, b: mount, axisStart, axisEnd, compliance, damping: 0, lambda: 0 };
 }
 
+// Keeps a wheel at least `minOffset` below its mount, measured across the
+// chassis axis on the side away from `top`. A distance limit alone is a circle
+// round the mount: on a hard hit the wheel can slip round it and come out
+// above the frame, and the springs then throw the bike over.
+export function createAxisLimitConstraint(point, mount, axisStart, axisEnd, top, minOffset) {
+  return { type: 'axisLimit', a: point, b: mount, axisStart, axisEnd, top, minOffset, damping: 0, lambda: 0 };
+}
+
+export function solveXpbdAxisLimitConstraint(constraint) {
+  const { a, b, axisStart, axisEnd, top, minOffset } = constraint;
+  const axisX = axisEnd.x - axisStart.x, axisY = axisEnd.y - axisStart.y;
+  const axisLength = hypot(axisX, axisY) || EPSILON;
+  let nx = -axisY / axisLength, ny = axisX / axisLength;
+  if ((top.x - (axisStart.x + axisEnd.x) / 2) * nx + (top.y - (axisStart.y + axisEnd.y) / 2) * ny > 0) { nx = -nx; ny = -ny; }
+  const offset = (a.x - b.x) * nx + (a.y - b.y) * ny;
+  const wa = inverseMass(a), wb = inverseMass(b);
+  if (offset >= minOffset || wa + wb <= EPSILON) return { distance: offset, correctionDistance: 0, correctionX: 0, correctionY: 0, lambda: constraint.lambda };
+  const deltaLambda = (minOffset - offset) / (wa + wb);
+  constraint.lambda += deltaLambda;
+  const ax = nx * deltaLambda * wa, ay = ny * deltaLambda * wa;
+  a.x += ax; a.y += ay;
+  b.x -= nx * deltaLambda * wb; b.y -= ny * deltaLambda * wb;
+  return { distance: offset, correctionDistance: deltaLambda, correctionX: ax, correctionY: ay, lambda: constraint.lambda };
+}
+
 export function solveXpbdSliderConstraint(constraint, dt) {
   const { a, b, axisStart, axisEnd } = constraint;
   const axisX = axisEnd.x - axisStart.x, axisY = axisEnd.y - axisStart.y;
@@ -140,6 +165,7 @@ export function solveXpbdAreaConstraint(constraint, dt) {
 export function solveXpbdConstraint(constraint, dt) {
   if (constraint.type === 'area') return solveXpbdAreaConstraint(constraint, dt);
   if (constraint.type === 'slider') return solveXpbdSliderConstraint(constraint, dt);
+  if (constraint.type === 'axisLimit') return solveXpbdAxisLimitConstraint(constraint);
   return solveXpbdDistanceConstraint(constraint, dt);
 }
 

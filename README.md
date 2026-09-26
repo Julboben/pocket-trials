@@ -257,6 +257,7 @@ When changing physics values, validate at least these cases:
 - [x] Add weather effects (rain, lightning, and procedural ambience)
 - [ ] Add import / export of savegames
 - [ ] Water
+- [ ] Add sign that you can write on in the editor
 - [ ] Biker customization: choose your bike (the original Pocket Classic bike is already drawn as the `classic` model), and later colors and gear
 - [ ] Highscore leaderboard
 - [x] New physics engine with support for overhangs, loops, caves, and fully polygonal ground
