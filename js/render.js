@@ -13,7 +13,8 @@ import { reducedMotion } from './state.js';
 
 const SCENERY_SHADOWS = {
   tree: { width: 16, alpha: .15, thickness: 3, lift: 36 },
-  crystal: { width: 10, alpha: .14, thickness: 3, lift: 28 }
+  crystal: { width: 10, alpha: .14, thickness: 3, lift: 28 },
+  boulder: { width: 24, alpha: .15, thickness: 3, lift: 24 }
 };
 const GHOST_ALPHA = .38;
 

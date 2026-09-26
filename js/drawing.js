@@ -2,7 +2,8 @@ import { curveAt, seatedSurfaceAt } from './terrain.js';
 
 const GROUND_ALIGNED_PROP_SPANS = {
   fence: [-24, 22],
-  rock: [-16, 18]
+  rock: [-16, 18],
+  boulder: [-22, 22]
 };
 
 export function propAlignmentSlope(level, prop) {
@@ -498,6 +499,8 @@ export function createGameArt(ctx) {
       pixelRect(-24,-20,46,4,'#aa8a60',2); pixelRect(-24,-10,46,4,'#aa8a60',2);
     } else if(type==='rock'){
       pixelRect(-16,-8,34,8,'#697872',2); pixelRect(-10,-14,22,6,'#7f8d83',2); pixelRect(-4,-18,10,4,'#aeb5a7',2);
+    } else if(type==='boulder'){
+      pixelRect(-22,-12,44,12,'#697872',2); pixelRect(-16,-22,34,10,'#7f8d83',2); pixelRect(-10,-30,24,8,'#8b978c',2); pixelRect(-6,-36,16,6,'#a2ab9e',2); pixelRect(-2,-40,8,4,'#aeb5a7',2);
     } else if(type==='flowers'){
       for(let index=-2;index<=2;index++){
         const offset=index*6, height=8+(Math.abs(index)%2)*4, drop=groundOffset(offset+1);

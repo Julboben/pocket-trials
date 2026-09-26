@@ -248,7 +248,7 @@ props: [
 ]
 ```
 
-Available prop types are `tree`, `fence`, `rock`, `flowers`, `stump`, and `crystal`. `y: null` anchors a prop to the base terrain; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front` and controls whether the prop is rendered behind or in front of gameplay.
+Available prop types are `tree`, `fence`, `rock`, `boulder`, `flowers`, `stump`, and `crystal`. `y: null` anchors a prop to the base terrain; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front` and controls whether the prop is rendered behind or in front of gameplay.
 
 Use the editor's **Prop** tool to place a prop. Select it to drag it, edit its type and layer in the inspector, or remove it with **Delete Selection**, `Delete`, or `Backspace`.
 

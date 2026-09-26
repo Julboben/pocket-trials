@@ -189,7 +189,7 @@ export function validateLevel(level) {
     if (apple.y === null && (level.gaps || []).some(gap => apple.x > gap[0] && apple.x < gap[1])) error(`Ground-anchored apple at x ${Math.round(apple.x)} is inside a gap.`);
   }
   for (const [index, prop] of (level.props || []).entries()) {
-    if (!['tree', 'fence', 'rock', 'flowers', 'stump', 'crystal'].includes(prop.type)) warning(`Prop ${index + 1} has an unknown type “${prop.type}”.`);
+    if (!['tree', 'fence', 'rock', 'boulder', 'flowers', 'stump', 'crystal'].includes(prop.type)) warning(`Prop ${index + 1} has an unknown type “${prop.type}”.`);
     if (prop.y === null && (level.gaps || []).some(gap => prop.x > gap[0] && prop.x < gap[1])) error(`Ground-anchored prop ${index + 1} is inside a gap.`);
   }
   for (const [index, spike] of (level.spikes || []).entries()) {

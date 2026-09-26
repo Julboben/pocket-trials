@@ -96,14 +96,17 @@ const fence = { x: 100, y: null, type: 'fence' };
 const tree = { x: 100, y: null, type: 'tree' };
 const flowers = { x: 80, y: platformY, type: 'flowers' };
 const rock = { x: 80, y: platformY, type: 'rock' };
+const boulder = { x: 80, y: platformY, type: 'boulder' };
 assert.equal(propAlignmentSlope(hillLevel, tree), 0, 'trees stay upright');
 assert.equal(propAlignmentSlope(hillLevel, flowers), 0, 'flowers stay upright');
 assert.ok(propAlignmentSlope(hillLevel, fence) > .5, 'fences follow the hill under their footprint');
 assert.ok(propAlignmentSlope(hillLevel, rock) > .3, 'rocks follow the platform under their footprint');
+assert.ok(propAlignmentSlope(hillLevel, boulder) > .3, 'boulders follow the platform under their footprint');
 assert.equal(propDrawAngle('tree', 1), 0, 'upright props ignore slope when drawn');
 assert.equal(propDrawAngle('stump', 1), 0, 'stumps stay upright');
 assert.equal(propDrawAngle('crystal', 1), 0, 'crystals stay upright');
 assert.ok(Math.abs(propDrawAngle('fence', 1) - Math.atan(1)) < 1e-9, 'fences rotate to the ground angle');
+assert.ok(Math.abs(propDrawAngle('boulder', 1) - Math.atan(1)) < 1e-9, 'boulders rotate to the ground angle');
 
 const rolling = JSON.parse(readFileSync(new URL('../levels/official/02-rolling-country.json', import.meta.url)));
 const rollingFence = rolling.props.find(prop => prop.type === 'fence');
