@@ -440,6 +440,7 @@ export function createGameArt(ctx) {
   const TAU = Math.PI * 2;
   const spikeSprites = new Map();
   const backgroundStrips = new Map();
+  const ragdollHelmetSprites = new Map();
   let bikeSprite = null;
 
   // Moving sprites sit at their exact position rounded to whole device pixels,
@@ -1639,69 +1640,241 @@ export function createGameArt(ctx) {
     ctx.restore();
   }
 
+  // One tiny cached helmet per rider palette.
+  // Rotating the sprite with nearest-neighbour sampling keeps it sharp.
+  function ragdollHelmetSprite(colors) {
+    if (ragdollHelmetSprites.has(colors)) {
+      return ragdollHelmetSprites.get(colors);
+    }
+
+    const width = 24;
+    const height = 16;
+    const canvas = createCanvas(width / ART_PIXEL, height / ART_PIXEL);
+    const context = canvas.getContext("2d");
+
+    // Local helmet anchor is (0, 0).
+    // Sprite bounds: x -10..14, y -8..8.
+    context.setTransform(
+      1 / ART_PIXEL,
+      0,
+      0,
+      1 / ART_PIXEL,
+      10 / ART_PIXEL,
+      8 / ART_PIXEL,
+    );
+
+    const { pixelRect: rect } = createDrawingTools(context);
+    const outline = "#263b36";
+
+    // First redesign's helmet, relative to its center at (3, -46).
+    rect(-7, -4, 16, 8, outline);
+    rect(-5, -6, 12, 12, outline);
+
+    rect(-5, -4, 12, 8, colors.helmet);
+    rect(-3, -6, 8, 2, colors.helmetLight);
+    rect(-5, -4, 4, 4, colors.helmetLight);
+    rect(-5, 2, 8, 2, colors.helmetShade);
+
+    rect(1, -6, 2, 6, colors.stripe);
+
+    rect(-5, -2, 8, 2, colors.panel);
+    rect(3, -2, 8, 6, outline);
+    rect(3, -2, 8, 4, colors.visor);
+    rect(5, -2, 4, 2, colors.visorLight);
+
+    rect(3, -4, 10, 2, colors.helmet);
+    rect(5, -4, 6, 2, colors.helmetLight);
+    rect(3, 4, 8, 2, colors.helmetShade);
+    rect(7, 2, 4, 2, colors.helmet);
+
+    ragdollHelmetSprites.set(colors, canvas);
+    return canvas;
+  }
+
   function drawRagdoll(points, rider) {
-    const p = points,
-      colors = riderPalette(rider);
+    const p = points;
+    const colors = riderPalette(rider);
+    const outline = "#263b36";
+    const facing = p.head.drawFacing ?? 1;
+
+    const point = (joint) => [joint.x, joint.y];
+
+    // A short section of a limb, useful for sleeves, cuffs and boots.
+    const between = (a, b, amount) => [
+      a.x + (b.x - a.x) * amount,
+      a.y + (b.y - a.y) * amount,
+    ];
+
+    // The original shoulder-to-head vector is (1, -10).
+    // Recover a body-oriented frame so the helmet tumbles with the rider.
+    const headAngle =
+      Math.atan2(p.head.y - p.shoulder.y, p.head.x - p.shoulder.x) -
+      Math.atan2(-10, facing);
+
+    const fc = Math.cos(headAngle);
+    const fs = Math.sin(headAngle);
+
+    const facingVector = [fc * facing, fs * facing];
+
+    // TROUSERS
+    pixelPath([point(p.hip), point(p.knee), point(p.foot)], outline, 4, 2);
     pixelPath(
-      [
-        [p.foot.x, p.foot.y],
-        [p.knee.x, p.knee.y],
-        [p.hip.x, p.hip.y],
-      ],
+      [point(p.hip), point(p.knee), point(p.foot)],
       colors.trousers,
       3,
+      2,
     );
+
+    const thighStart = between(p.hip, p.knee, 0.15);
+    const thighEnd = between(p.hip, p.knee, 0.85);
+
     pixelPath(
       [
-        [p.hip.x, p.hip.y],
-        [p.shoulder.x, p.shoulder.y],
+        [
+          thighStart[0] + facingVector[0] * 2,
+          thighStart[1] + facingVector[1] * 2,
+        ],
+        [thighEnd[0] + facingVector[0] * 2, thighEnd[1] + facingVector[1] * 2],
       ],
-      colors.jacket,
-      4,
+      colors.trousersLight,
+      1,
+      2,
     );
+
+    pixelPath(
+      [between(p.hip, p.knee, 0.88), between(p.knee, p.foot, 0.12)],
+      colors.panel,
+      2,
+      2,
+    );
+
+    // BOOT
+    // Its toe follows the lower leg instead of remaining screen-aligned.
+    const shinX = p.foot.x - p.knee.x;
+    const shinY = p.foot.y - p.knee.y;
+    const shinLength = Math.hypot(shinX, shinY) || 1;
+    const downX = shinX / shinLength;
+    const downY = shinY / shinLength;
+
+    const toeX = downY * facing;
+    const toeY = -downX * facing;
+
+    const heel = [p.foot.x - toeX * 2, p.foot.y - toeY * 2];
+    const toe = [p.foot.x + toeX * 6, p.foot.y + toeY * 6];
+
+    pixelPath(
+      [between(p.knee, p.foot, 0.76), point(p.foot)],
+      colors.boots,
+      3,
+      2,
+    );
+    pixelPath([heel, toe], colors.boots, 2, 2);
     pixelPath(
       [
-        [p.shoulder.x, p.shoulder.y],
-        [p.elbow.x, p.elbow.y],
+        [heel[0] + downX * 2, heel[1] + downY * 2],
+        [toe[0] + downX * 2, toe[1] + downY * 2],
       ],
+      colors.sole,
+      1,
+      2,
+    );
+
+    // JACKET
+    pixelPath([point(p.hip), point(p.shoulder)], outline, 5, 2);
+    pixelPath([point(p.hip), point(p.shoulder)], colors.jacket, 4, 2);
+
+    const backLower = between(p.hip, p.shoulder, 0.18);
+    const backUpper = between(p.hip, p.shoulder, 0.82);
+
+    pixelPath(
+      [
+        [
+          backLower[0] - facingVector[0] * 2,
+          backLower[1] - facingVector[1] * 2,
+        ],
+        [
+          backUpper[0] - facingVector[0] * 2,
+          backUpper[1] - facingVector[1] * 2,
+        ],
+      ],
+      colors.jacketShade,
+      2,
+      2,
+    );
+
+    // Contrasting hem.
+    pixelPath(
+      [point(p.hip), between(p.hip, p.shoulder, 0.18)],
+      colors.panel,
+      3,
+      2,
+    );
+
+    // Shoulder highlight.
+    pixelPath(
+      [between(p.hip, p.shoulder, 0.82), point(p.shoulder)],
       colors.jacketLight,
+      3,
       2,
     );
+
+    // NECK
+    pixelPath([point(p.shoulder), point(p.head)], colors.skin, 2, 2);
+
+    // ARM
     pixelPath(
-      [
-        [p.elbow.x, p.elbow.y],
-        [p.hand.x, p.hand.y],
-      ],
-      colors.skin,
+      [point(p.shoulder), point(p.elbow), point(p.hand)],
+      outline,
+      3,
       2,
     );
+
+    pixelPath([point(p.shoulder), point(p.elbow)], colors.jacket, 2, 2);
     pixelPath(
-      [
-        [p.shoulder.x, p.shoulder.y],
-        [p.head.x, p.head.y],
-      ],
-      colors.skin,
+      [between(p.shoulder, p.elbow, 0.12), between(p.shoulder, p.elbow, 0.72)],
+      colors.jacketLight,
+      1,
       2,
     );
 
-    // Matching helmet colors and details during ragdoll motion.
-    pixelRect(p.head.x - 7, p.head.y - 5, 16, 10, "#263b36", 2);
-    pixelRect(p.head.x - 5, p.head.y - 7, 12, 14, "#263b36", 2);
+    pixelPath([point(p.elbow), point(p.hand)], colors.skin, 2, 2);
+    pixelPath(
+      [between(p.elbow, p.hand, 0.2), between(p.elbow, p.hand, 0.65)],
+      colors.skinLight,
+      1,
+      2,
+    );
 
-    pixelRect(p.head.x - 5, p.head.y - 5, 12, 10, colors.helmet, 2);
-    pixelRect(p.head.x - 3, p.head.y - 7, 8, 4, colors.helmetLight, 2);
-    pixelRect(p.head.x - 5, p.head.y + 3, 10, 2, colors.helmetShade, 2);
-    pixelRect(p.head.x + 1, p.head.y - 7, 2, 6, colors.stripe, 2);
+    // Cuff.
+    pixelPath(
+      [between(p.shoulder, p.elbow, 0.85), point(p.elbow)],
+      colors.panel,
+      2,
+      2,
+    );
 
-    // Goggle strap and lens.
-    pixelRect(p.head.x - 5, p.head.y - 3, 8, 2, colors.panel, 2);
-    pixelRect(p.head.x + 3, p.head.y - 3, 8, 6, "#263b36", 2);
-    pixelRect(p.head.x + 3, p.head.y - 3, 8, 4, colors.visor, 2);
-    pixelRect(p.head.x + 5, p.head.y - 3, 4, 2, colors.visorLight, 2);
+    // Glove and small highlight.
+    pixelPath(
+      [between(p.elbow, p.hand, 0.8), point(p.hand)],
+      colors.gloves,
+      2,
+      2,
+    );
+    pixelRect(p.hand.x - 1, p.hand.y - 1, 2, 2, colors.jacketLight, 2);
 
-    // Helmet peak and chin guard.
-    pixelRect(p.head.x + 3, p.head.y - 5, 10, 2, colors.helmetLight, 2);
-    pixelRect(p.head.x + 3, p.head.y + 3, 8, 2, colors.helmetShade, 2);
+    // HELMET
+    // Cached and mirrored correctly; follows the head/shoulder axis.
+    const sprite = ragdollHelmetSprite(colors);
+    const rotationStep = TAU / 32;
+    const pixelAngle = Math.round(headAngle / rotationStep) * rotationStep;
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    translateToDevice(p.head.x, p.head.y);
+    ctx.rotate(pixelAngle);
+    ctx.scale(facing, 1);
+    ctx.drawImage(sprite, -10, -8, 24, 16);
+    ctx.restore();
   }
 
   return {

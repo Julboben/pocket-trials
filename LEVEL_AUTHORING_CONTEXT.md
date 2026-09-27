@@ -96,7 +96,8 @@ The world uses Canvas coordinates:
 
   props: [
     { x: 250, y: null, type: 'tree', layer: 'back' },
-    { x: 650, y: 245, type: 'rock', layer: 'front' }
+    { x: 650, y: 245, type: 'rock', layer: 'front' },
+    { x: 900, y: null, type: 'sign', layer: 'front', text: 'SLOW →' }
   ],
 
   spikes: [
@@ -299,12 +300,15 @@ A numeric `y` is the apple's center and allows it to be placed freely in the wor
 props: [
   { x: 250, y: null, type: "tree", layer: "back" },
   { x: 650, y: 245, type: "rock", layer: "front" },
+  { x: 900, y: null, type: "sign", layer: "front", text: "SLOW →" },
 ];
 ```
 
-Available prop types are `tree`, `pine`, `fence`, `rock`, `boulder`, `flowers`, `stump`, and `crystal`. `y: null` anchors a prop to the base terrain; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front`: `back`-layer props are drawn behind the terrain as well as the gameplay, while `front`-layer props are drawn in front of the gameplay.
+Available prop types are `tree`, `pine`, `fence`, `rock`, `boulder`, `flowers`, `stump`, `crystal`, and `sign`. `y: null` anchors a prop to the base terrain; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front`: `back`-layer props are drawn behind the terrain as well as the gameplay, while `front`-layer props are drawn in front of the gameplay.
 
-Use the editor's **Prop** tool to place a prop. Select it to drag it, edit its type and layer in the inspector, or remove it with **Delete Selection**, `Delete`, or `Backspace`.
+A `sign` prop carries an optional `text` string that is drawn on its board with the game's pixel font. Text is limited to 8 characters; supported characters are `A`–`Z`, `0`–`9`, space, and `→` `/` `.` `!` `+` `-` `:` `×`. Anything else draws as `#`, and longer text is cut off.
+
+Use the editor's **Prop** tool to place a prop. Select it to drag it, edit its type and layer in the inspector — plus its text, for signs — or remove it with **Delete Selection**, `Delete`, or `Backspace`.
 
 ## Spikes
 
@@ -400,6 +404,7 @@ Schema, normalization and validation rules (the code is authoritative if it disa
 import { terrainMaterials } from "./materials.js";
 import { curveAt, platformUndersideAt } from "./terrain.js";
 import { hypot } from "./det-math.js";
+import { SIGN_MAX_CHARACTERS } from "./drawing.js";
 
 export const cloneLevel = (level) => JSON.parse(JSON.stringify(level));
 
@@ -556,6 +561,10 @@ export function normalizeLevel(input, index = 0) {
               : null,
         type: String(prop.type || "tree"),
         layer: prop.layer === "front" ? "front" : "back",
+        text:
+          prop.type === "sign" && typeof prop.text === "string"
+            ? prop.text
+            : undefined,
       }))
     : [];
   level.spikes = Array.isArray(level.spikes)
@@ -728,9 +737,24 @@ export function validateLevel(level) {
         "flowers",
         "stump",
         "crystal",
+        "sign",
       ].includes(prop.type)
     )
       warning(`Prop ${index + 1} has an unknown type “${prop.type}”.`);
+    if (prop.type === "sign") {
+      if (typeof prop.text !== "string")
+        warning(
+          `Sign ${index + 1} needs its text as a string; use “” for a blank sign.`,
+        );
+      else if (prop.text.length > SIGN_MAX_CHARACTERS)
+        warning(
+          `Sign ${index + 1} text is longer than ${SIGN_MAX_CHARACTERS} characters and will be cut off.`,
+        );
+      else if (/[^A-Z0-9 →\/.!+:\-×#]/.test(prop.text.toUpperCase()))
+        warning(
+          `Sign ${index + 1} text contains characters the pixel font cannot draw.`,
+        );
+    }
     if (
       prop.y === null &&
       (level.gaps || []).some((gap) => prop.x > gap[0] && prop.x < gap[1])

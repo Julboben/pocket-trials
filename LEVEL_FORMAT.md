@@ -268,12 +268,15 @@ A numeric `y` is the apple's center and allows it to be placed freely in the wor
 props: [
   { x: 250, y: null, type: "tree", layer: "back" },
   { x: 650, y: 245, type: "rock", layer: "front" },
+  { x: 900, y: null, type: "sign", layer: "front", text: "SLOW →" },
 ];
 ```
 
-Available prop types are `tree`, `pine`, `fence`, `rock`, `boulder`, `flowers`, `stump`, and `crystal`. `y: null` anchors a prop to the base terrain; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front`: `back`-layer props are drawn behind the terrain as well as the gameplay, while `front`-layer props are drawn in front of the gameplay.
+Available prop types are `tree`, `pine`, `fence`, `rock`, `boulder`, `flowers`, `stump`, `crystal`, and `sign`. `y: null` anchors a prop to the base terrain; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front`: `back`-layer props are drawn behind the terrain as well as the gameplay, while `front`-layer props are drawn in front of the gameplay.
 
-Use the editor's **Prop** tool to place a prop. Select it to drag it, edit its type and layer in the inspector, or remove it with **Delete Selection**, `Delete`, or `Backspace`.
+A `sign` prop carries an optional `text` string that is drawn on its board with the game's pixel font. Text is limited to 8 characters; supported characters are `A`–`Z`, `0`–`9`, space, and `→` `/` `.` `!` `+` `-` `:` `×`. Anything else draws as `#`, and longer text is cut off.
+
+Use the editor's **Prop** tool to place a prop. Select it to drag it, edit its type and layer in the inspector — plus its text, for signs — or remove it with **Delete Selection**, `Delete`, or `Backspace`.
 
 ## Spikes
 

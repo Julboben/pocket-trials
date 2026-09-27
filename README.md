@@ -258,7 +258,7 @@ When changing physics values, validate at least these cases:
 - [ ] Add day / night
 - [ ] Add import / export of savegames
 - [ ] Add water that you can drive through
-- [ ] Add a sign that you can write on in the editor
+- [x] Add a sign that you can write on in the editor
 - [ ] A bush prop
 - [ ] Biker customization: choose your bike (the original Pocket Classic bike is already drawn as the `classic` model), and later colors and gear
 - [ ] Online highscore leaderboard
