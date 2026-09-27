@@ -82,18 +82,40 @@ export const RIDER_PALETTES = {
   max: {
     jacket: "#e8e5d9",
     jacketLight: "#fff8e7",
+    jacketShade: "#b5bcae",
+    panel: "#29464e",
     trousers: "#29464e",
+    trousersLight: "#42616a",
     helmet: "#f4a442",
     helmetLight: "#ffd078",
+    helmetShade: "#bd7034",
+    stripe: "#fff8e7",
     skin: "#bd7954",
+    skinLight: "#dfa078",
+    gloves: "#304a42",
+    boots: "#263b36",
+    sole: "#657a70",
+    visor: "#234844",
+    visorLight: "#83bcb6",
   },
   Maxine: {
     jacket: "#d86f82",
     jacketLight: "#ef9aa8",
+    jacketShade: "#a94f69",
+    panel: "#59415c",
     trousers: "#39435d",
+    trousersLight: "#596681",
     helmet: "#63aa98",
     helmetLight: "#a8dfcf",
+    helmetShade: "#3c786e",
+    stripe: "#fff8e7",
     skin: "#bd7954",
+    skinLight: "#dfa078",
+    gloves: "#59415c",
+    boots: "#2b3347",
+    sole: "#7c8897",
+    visor: "#234844",
+    visorLight: "#b0dfd4",
   },
 };
 export const riderPalette = (rider) =>
@@ -1481,23 +1503,46 @@ export function createGameArt(ctx) {
     if (state !== "ragdoll") {
       const shift = Math.round(leanVisual * 4.5) * 2;
       const colors = riderPalette(rider);
+      const outline = "#263b36";
+
+      const hip = [-8 + shift, -24];
+      const knee = [4 + shift * 0.45, -14];
+      const ankle = [-2, -3];
+
+      const shoulder = [2 + shift, -36];
+      const elbow = [11 + shift * 0.45, -30];
+      const hand = [20, -25];
+
+      // Trousers: outlined silhouette with a narrow lit edge.
+      bodyPath([hip, knee, ankle], outline, 4);
+      bodyPath([hip, knee, ankle], colors.trousers, 3);
 
       bodyPath(
         [
-          [-8 + shift, -24],
-          [4 + shift * 0.45, -14],
-          [-2, -3],
+          [-7 + shift, -25],
+          [4 + shift * 0.45, -16],
         ],
-        colors.trousers,
-        3,
+        colors.trousersLight,
+        1,
       );
-      bodyRect(-5, -6, 10, 4, "#233630");
+
+      // Compact reinforced knee.
+      bodyRect(2 + shift * 0.45, -16, 6, 4, colors.trousersLight);
+      bodyRect(4 + shift * 0.45, -14, 4, 2, colors.panel);
+
+      // Boot stays anchored at the existing foot / peg position.
+      bodyRect(-5, -7, 6, 6, colors.boots);
+      bodyRect(-5, -5, 10, 4, colors.boots);
+      bodyRect(-5, -3, 10, 2, colors.sole);
+      bodyRect(-3, -7, 4, 2, colors.trousersLight);
+
+      // Jacket silhouette follows the existing leaning torso.
       bodyPath(
         [
           [-8 + shift, -25],
           [1 + shift, -37],
         ],
-        "#263b36",
+        outline,
         5,
       );
       bodyPath(
@@ -1508,32 +1553,75 @@ export function createGameArt(ctx) {
         colors.jacket,
         3,
       );
+
       bodyRect(-6 + shift, -38, 14, 12, colors.jacket);
+
+      // Shadow down the back, bright shoulder, contrasting hem.
+      bodyRect(-6 + shift, -36, 4, 10, colors.jacketShade);
       bodyRect(-4 + shift, -38, 10, 4, colors.jacketLight);
+      bodyRect(-8 + shift, -28, 10, 4, colors.panel);
+      bodyRect(-6 + shift, -28, 6, 2, colors.jacketShade);
+
+      // Small collar and front seam.
+      bodyRect(2 + shift, -40, 6, 4, colors.panel);
+      bodyRect(4 + shift, -34, 2, 6, colors.jacketShade);
+      bodyRect(-2 + shift, -34, 4, 2, colors.panel);
+
+      // Arm silhouette; hand remains at the original handlebar.
+      bodyPath([shoulder, elbow, hand], outline, 3);
+
+      // Rolled jacket sleeve.
+      bodyPath([shoulder, elbow], colors.jacket, 2);
       bodyPath(
         [
-          [3 + shift, -35],
-          [11 + shift * 0.45, -30],
-          [20, -25],
-        ],
-        colors.skin,
-        2,
-      );
-      bodyPath(
-        [
-          [2 + shift, -36],
-          [10 + shift * 0.45, -31],
+          [2 + shift, -37],
+          [9 + shift * 0.45, -32],
         ],
         colors.jacketLight,
-        2,
+        1,
       );
 
-      bodyRect(0 + shift, -46, 8, 8, colors.skin);
-      bodyRect(-4 + shift, -52, 14, 12, "#263b36");
-      bodyRect(-2 + shift, -52, 12, 10, colors.helmet);
-      bodyRect(0 + shift, -52, 8, 4, colors.helmetLight);
-      bodyRect(6 + shift, -48, 8, 4, "#234844");
-      bodyRect(8 + shift, -42, 6, 2, "#efb36b");
+      // Forearm, cuff and glove.
+      bodyPath([elbow, hand], colors.skin, 2);
+      bodyRect(9 + shift * 0.45, -32, 4, 4, colors.panel);
+      bodyPath(
+        [
+          [13 + shift * 0.3, -29],
+          [17, -27],
+        ],
+        colors.skinLight,
+        1,
+      );
+      bodyRect(18, -28, 6, 4, colors.gloves);
+      bodyRect(20, -28, 4, 2, colors.jacketLight);
+
+      // Neck, partly tucked into the helmet and collar.
+      bodyRect(0 + shift, -44, 8, 6, colors.skin);
+      bodyRect(4 + shift, -42, 4, 2, colors.skinLight);
+
+      // Stepped helmet shell: rounded without antialiasing.
+      bodyRect(-4 + shift, -50, 16, 8, outline);
+      bodyRect(-2 + shift, -52, 12, 12, outline);
+
+      bodyRect(-2 + shift, -50, 12, 8, colors.helmet);
+      bodyRect(0 + shift, -52, 8, 2, colors.helmetLight);
+      bodyRect(-2 + shift, -50, 4, 4, colors.helmetLight);
+      bodyRect(-2 + shift, -44, 8, 2, colors.helmetShade);
+
+      // Shared racing stripe, different shell colors.
+      bodyRect(4 + shift, -52, 2, 6, colors.stripe);
+
+      // Goggle strap, dark frame and reflected sky.
+      bodyRect(-2 + shift, -48, 8, 2, colors.panel);
+      bodyRect(6 + shift, -48, 8, 6, outline);
+      bodyRect(6 + shift, -48, 8, 4, colors.visor);
+      bodyRect(8 + shift, -48, 4, 2, colors.visorLight);
+
+      // Small forward peak and protective chin guard.
+      bodyRect(6 + shift, -50, 10, 2, colors.helmet);
+      bodyRect(8 + shift, -50, 6, 2, colors.helmetLight);
+      bodyRect(6 + shift, -42, 8, 2, colors.helmetShade);
+      bodyRect(10 + shift, -44, 4, 2, colors.helmet);
     }
 
     ctx.save();
@@ -1596,9 +1684,24 @@ export function createGameArt(ctx) {
       2,
     );
 
-    pixelRect(p.head.x - 7, p.head.y - 7, 14, 14, "#263b36", 2);
-    pixelRect(p.head.x - 5, p.head.y - 7, 12, 10, colors.helmet, 2);
-    pixelRect(p.head.x + 3, p.head.y - 3, 8, 4, "#234844", 2);
+    // Matching helmet colors and details during ragdoll motion.
+    pixelRect(p.head.x - 7, p.head.y - 5, 16, 10, "#263b36", 2);
+    pixelRect(p.head.x - 5, p.head.y - 7, 12, 14, "#263b36", 2);
+
+    pixelRect(p.head.x - 5, p.head.y - 5, 12, 10, colors.helmet, 2);
+    pixelRect(p.head.x - 3, p.head.y - 7, 8, 4, colors.helmetLight, 2);
+    pixelRect(p.head.x - 5, p.head.y + 3, 10, 2, colors.helmetShade, 2);
+    pixelRect(p.head.x + 1, p.head.y - 7, 2, 6, colors.stripe, 2);
+
+    // Goggle strap and lens.
+    pixelRect(p.head.x - 5, p.head.y - 3, 8, 2, colors.panel, 2);
+    pixelRect(p.head.x + 3, p.head.y - 3, 8, 6, "#263b36", 2);
+    pixelRect(p.head.x + 3, p.head.y - 3, 8, 4, colors.visor, 2);
+    pixelRect(p.head.x + 5, p.head.y - 3, 4, 2, colors.visorLight, 2);
+
+    // Helmet peak and chin guard.
+    pixelRect(p.head.x + 3, p.head.y - 5, 10, 2, colors.helmetLight, 2);
+    pixelRect(p.head.x + 3, p.head.y + 3, 8, 2, colors.helmetShade, 2);
   }
 
   return {
