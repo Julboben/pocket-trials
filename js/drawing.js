@@ -1,7 +1,7 @@
 import { curveAt, seatedSurfaceAt } from "./terrain.js";
 
 const GROUND_ALIGNED_PROP_SPANS = {
-  fence: [-24, 22],
+  fence: [-33, 33],
   rock: [-16, 18],
   boulder: [-22, 22],
 };
@@ -241,6 +241,9 @@ const GLYPHS = {
 export function pixelTextWidth(text, pixel = ART_PIXEL) {
   return text.length ? (text.length * 4 - 1) * pixel : 0;
 }
+
+// Longest text a sign board can draw; the level schema warns when text exceeds it.
+export const SIGN_MAX_CHARACTERS = 8;
 
 export function createDrawingTools(ctx) {
   function line(points, color, width) {
@@ -867,7 +870,15 @@ export function createGameArt(ctx) {
     }
   }
 
-  function drawProp(type, x, y, alpha = 1, slope = 0, groundOffset = () => 0) {
+  function drawProp(
+    type,
+    x,
+    y,
+    alpha = 1,
+    slope = 0,
+    groundOffset = () => 0,
+    text = "",
+  ) {
     ctx.save();
     ctx.translate(Math.round(x / 2) * 2, Math.round(y / 2) * 2);
     ctx.rotate(propDrawAngle(type, slope));
@@ -1033,59 +1044,178 @@ export function createGameArt(ctx) {
       // Small highlight on the central leader.
       pixelRect(0, -180, 2, 6, "#618b66", 2);
     } else if (type === "fence") {
-      pixelRect(-22, -26, 4, 26, "#856d4f", 2);
-      pixelRect(18, -26, 4, 26, "#856d4f", 2);
-      pixelRect(-24, -20, 46, 4, "#aa8a60", 2);
-      pixelRect(-24, -10, 46, 4, "#aa8a60", 2);
+      // Larger fence: 80 units wide and 46 units tall.
+      // Rails sit behind the posts; existing slope rotation is preserved.
+
+      // Upper rail.
+      pixelRect(-40, -34, 80, 6, "#856d4f", 2);
+      pixelRect(-40, -34, 80, 2, "#aa8a60", 2);
+      pixelRect(-40, -30, 80, 2, "#66543f", 2);
+
+      // Lower rail.
+      pixelRect(-40, -18, 80, 6, "#856d4f", 2);
+      pixelRect(-40, -18, 80, 2, "#aa8a60", 2);
+      pixelRect(-40, -14, 80, 2, "#66543f", 2);
+
+      // Balanced posts, centered at x = -33 and +33.
+      for (const postX of [-36, 30]) {
+        pixelRect(postX, -42, 6, 42, "#856d4f", 2);
+
+        // Stepped post cap.
+        pixelRect(postX, -44, 6, 2, "#aa8a60", 2);
+        pixelRect(postX + 2, -46, 2, 2, "#aa8a60", 2);
+
+        // Lit edge and shaded side.
+        pixelRect(postX, -42, 2, 40, "#aa8a60", 2);
+        pixelRect(postX + 4, -42, 2, 42, "#66543f", 2);
+
+        // Small fasteners where the rails meet each post.
+        pixelRect(postX + 2, -32, 2, 2, "#66543f", 2);
+        pixelRect(postX + 2, -16, 2, 2, "#66543f", 2);
+      }
+
+      // Sparse wood grain.
+      pixelRect(-24, -32, 10, 2, "#66543f", 2);
+      pixelRect(10, -32, 6, 2, "#66543f", 2);
+      pixelRect(-14, -16, 8, 2, "#66543f", 2);
+      pixelRect(20, -16, 4, 2, "#66543f", 2);
     } else if (type === "rock") {
-      pixelRect(-16, -8, 34, 8, "#697872", 2);
-      pixelRect(-10, -14, 22, 6, "#7f8d83", 2);
+      // Uneven silhouette, keeping the original footprint.
+      pixelRect(-16, -6, 34, 6, "#697872", 2);
+      pixelRect(-12, -12, 28, 8, "#697872", 2);
+      pixelRect(-8, -16, 20, 8, "#7f8d83", 2);
       pixelRect(-4, -18, 10, 4, "#aeb5a7", 2);
+
+      // Lit upper face and a darker right-hand fracture.
+      pixelRect(-8, -14, 16, 4, "#8b978c", 2);
+      pixelRect(-12, -10, 12, 4, "#7f8d83", 2);
+      pixelRect(8, -12, 4, 8, "#697872", 2);
+      pixelRect(12, -8, 4, 6, "#697872", 2);
+
+      // Small angular highlight and a crack.
+      pixelRect(-4, -16, 8, 2, "#aeb5a7", 2);
+      pixelRect(2, -8, 2, 4, "#697872", 2);
+      pixelRect(4, -4, 4, 2, "#697872", 2);
     } else if (type === "boulder") {
-      pixelRect(-22, -12, 44, 12, "#697872", 2);
-      pixelRect(-16, -22, 34, 10, "#7f8d83", 2);
-      pixelRect(-10, -30, 24, 8, "#8b978c", 2);
-      pixelRect(-6, -36, 16, 6, "#a2ab9e", 2);
-      pixelRect(-2, -40, 8, 4, "#aeb5a7", 2);
+      // Asymmetric stone mass, within the original 44 × 40 bounds.
+      pixelRect(-22, -10, 44, 10, "#697872", 2);
+      pixelRect(-20, -18, 40, 12, "#697872", 2);
+      pixelRect(-16, -28, 34, 18, "#7f8d83", 2);
+      pixelRect(-10, -36, 24, 20, "#8b978c", 2);
+      pixelRect(-2, -40, 8, 6, "#a2ab9e", 2);
+
+      // Broad illuminated top plane.
+      pixelRect(-8, -34, 20, 6, "#a2ab9e", 2);
+      pixelRect(-12, -28, 18, 6, "#8b978c", 2);
+      pixelRect(-2, -38, 8, 4, "#aeb5a7", 2);
+
+      // Stepped shadow plane on the right.
+      pixelRect(10, -30, 4, 10, "#7f8d83", 2);
+      pixelRect(8, -20, 10, 8, "#697872", 2);
+      pixelRect(4, -12, 16, 8, "#697872", 2);
+
+      // Short fracture and a chipped lower face.
+      pixelPath(
+        [
+          [-4, -24],
+          [0, -20],
+          [-2, -14],
+        ],
+        "#697872",
+        1,
+        2,
+      );
+      pixelRect(-14, -10, 8, 4, "#8b978c", 2);
+      pixelRect(-10, -10, 4, 2, "#a2ab9e", 2);
     } else if (type === "flowers") {
-      for (let index = -2; index <= 2; index++) {
-        const offset = index * 6,
-          height = 8 + (Math.abs(index) % 2) * 4,
-          drop = groundOffset(offset + 1);
-        pixelRect(offset, -height + drop, 2, height, "#58784d", 2);
-        pixelRect(
-          offset - 2,
-          -height - 4 + drop,
-          6,
-          4,
-          index % 2 ? "#f1b95d" : "#e8755b",
-          2,
-        );
+      // Fixed variation: no random changes or flicker between frames.
+      const flowers = [
+        { x: -12, height: 8, color: "#e8755b" },
+        { x: -6, height: 14, color: "#f1b95d" },
+        { x: 0, height: 10, color: "#e8755b" },
+        { x: 6, height: 16, color: "#f1b95d" },
+        { x: 12, height: 8, color: "#e8755b" },
+      ];
+
+      for (const flower of flowers) {
+        const base = groundOffset(flower.x + 1);
+        const top = base - flower.height;
+
+        pixelRect(flower.x, top, 2, flower.height, "#58784d", 2);
+
+        // Leaves sit above each stem's local ground anchor.
+        pixelRect(flower.x - 2, base - 6, 2, 2, "#477158", 2);
+        pixelRect(flower.x + 2, base - 8, 2, 2, "#618b66", 2);
+
+        // Compact cross-shaped blossom with a warm center.
+        pixelRect(flower.x - 2, top - 2, 6, 2, flower.color, 2);
+        pixelRect(flower.x, top - 4, 2, 6, flower.color, 2);
+        pixelRect(flower.x, top - 2, 2, 2, "#f4e9d1", 2);
       }
     } else if (type === "stump") {
-      rectDownTo(-10, -14, 20, "#806244", 2, groundOffset);
-      rectAboveGround(-10, -16, 20, 4, "#c39664", 2, groundOffset);
+      // Flared base, still following the terrain column by column.
+      rectDownTo(-10, -8, 20, "#66543f", 2, groundOffset);
+      rectDownTo(-8, -14, 16, "#806244", 2, groundOffset);
+      rectDownTo(4, -12, 4, "#856d4f", 2, groundOffset);
+
+      // Bark ridges remain clipped to the local ground.
+      rectAboveGround(-6, -12, 2, 10, "#66543f", 2, groundOffset);
+      rectAboveGround(0, -10, 2, 8, "#66543f", 2, groundOffset);
+      rectAboveGround(6, -10, 2, 8, "#aa8a60", 2, groundOffset);
+
+      // Cut surface: stepped rim and a compact growth ring.
+      rectAboveGround(-8, -16, 16, 4, "#c39664", 2, groundOffset);
+      rectAboveGround(-10, -14, 20, 2, "#aa8a60", 2, groundOffset);
       rectAboveGround(-4, -16, 8, 2, "#76573d", 2, groundOffset);
+      rectAboveGround(-2, -16, 4, 2, "#c39664", 2, groundOffset);
     } else if (type === "crystal") {
-      pixelPath(
-        [
-          [-14, groundOffset(-14)],
-          [-8, -28],
-          [0, -40],
-          [8, -24],
-          [14, groundOffset(14)],
-        ],
-        "#83d1ce",
-        3,
-      );
-      pixelPath(
-        [
-          [0, -36],
-          [0, -4],
-        ],
-        "#d9ffff",
-        1,
-      );
+      // Solid shards painted in horizontal bands.
+      // Ground clipping keeps their bases seated on uneven terrain.
+      const shard = (center, top, halfWidth, lean) => {
+        const bottom = Math.round(groundOffset(center) / 2) * 2;
+        const height = bottom - top;
+        if (height <= 0) return;
+
+        for (let py = top; py < bottom; py += 2) {
+          const t = (py - top) / height;
+
+          // Pointed tip, broad shoulder, then a narrower buried base.
+          const profile = t < 0.4 ? t / 0.4 : 1 - ((t - 0.4) / 0.6) * 0.35;
+
+          const half = Math.max(2, Math.round((halfWidth * profile) / 2) * 2);
+          const axis = center + Math.round((lean * (1 - t)) / 2) * 2;
+
+          rectAboveGround(axis - half, py, half, 2, "#568f98", 2, groundOffset);
+          rectAboveGround(axis, py, half, 2, "#83d1ce", 2, groundOffset);
+
+          // A narrow bright facet below the tip.
+          if (t > 0.1 && t < 0.8) {
+            rectAboveGround(axis, py, 2, 2, "#d9ffff", 2, groundOffset);
+          }
+        }
+      };
+
+      // Side shards behind the taller central crystal.
+      shard(-8, -26, 6, -2);
+      shard(8, -24, 6, 2);
+      shard(0, -40, 8, 0);
+    } else if (type === "sign") {
+      // Upright post carrying a small writable board.
+      // The board sizes itself to the prop's `text` (clamped to
+      // SIGN_MAX_CHARACTERS) and uses the same cream board and pixel
+      // font as the finish flag.
+      const label = [...String(text || "")]
+        .slice(0, SIGN_MAX_CHARACTERS)
+        .join("");
+      const width = Math.max(24, pixelTextWidth(label) + 8);
+
+      // Shaped post with a sunlit edge, matching the fence posts.
+      rectDownTo(-2, -24, 4, "#856d4f", 2, groundOffset);
+      rectDownTo(-2, -24, 2, "#aa8a60", 2, groundOffset);
+
+      // Board: cream face with the level's signage green text.
+      pixelRect(-width / 2, -40, width, 16, "#f4e9d1", 2);
+      drawPixelText(label, 0, -37, "#365345");
     }
     ctx.restore();
   }

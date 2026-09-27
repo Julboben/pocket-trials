@@ -7,7 +7,7 @@ export const TAU = Math.PI * 2;
 
 // Handling values. These are intentionally centralized for feel-tuning.
 export const GRAVITY = 380;
-export const MAX_POINT_SPEED = 760;
+export const MAX_POINT_SPEED = 860;
 
 // Constraint and contact solver tuning.
 export const BIKE_SOLVER_ITERATIONS = 7;
@@ -45,7 +45,7 @@ export const XPBD_CHASSIS_TOP_INVERSE_MASS = .5;
 // Gives roughly 400 px/s² of hooked-up low-speed acceleration. Grip below is
 // high enough that this torque reaches the ground instead of spinning the
 // driven wheel.
-export const XPBD_MOTOR_ANGULAR_ACCELERATION = 708;
+export const XPBD_MOTOR_ANGULAR_ACCELERATION = 808;
 // Engine torque tapers linearly to 28% at this wheel speed and keeps thinning
 // out above it without ever cutting off, so the bike has no top speed.
 export const XPBD_TORQUE_FALLOFF_SPEED = 340;

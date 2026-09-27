@@ -185,6 +185,7 @@ export function createRenderer(canvas) {
         layer === "front" ? 1 : 0.82,
         propAlignmentSlope(level, prop),
         propGroundOffset(level, prop),
+        prop.text,
       );
     }
   }

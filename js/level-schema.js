@@ -1,6 +1,7 @@
 import { terrainMaterials } from "./materials.js";
 import { curveAt, platformUndersideAt } from "./terrain.js";
 import { hypot } from "./det-math.js";
+import { SIGN_MAX_CHARACTERS } from "./drawing.js";
 
 export const cloneLevel = (level) => JSON.parse(JSON.stringify(level));
 
@@ -157,6 +158,10 @@ export function normalizeLevel(input, index = 0) {
               : null,
         type: String(prop.type || "tree"),
         layer: prop.layer === "front" ? "front" : "back",
+        text:
+          prop.type === "sign" && typeof prop.text === "string"
+            ? prop.text
+            : undefined,
       }))
     : [];
   level.spikes = Array.isArray(level.spikes)
@@ -329,9 +334,24 @@ export function validateLevel(level) {
         "flowers",
         "stump",
         "crystal",
+        "sign",
       ].includes(prop.type)
     )
       warning(`Prop ${index + 1} has an unknown type “${prop.type}”.`);
+    if (prop.type === "sign") {
+      if (typeof prop.text !== "string")
+        warning(
+          `Sign ${index + 1} needs its text as a string; use “” for a blank sign.`,
+        );
+      else if (prop.text.length > SIGN_MAX_CHARACTERS)
+        warning(
+          `Sign ${index + 1} text is longer than ${SIGN_MAX_CHARACTERS} characters and will be cut off.`,
+        );
+      else if (/[^A-Z0-9 →\/.!+:\-×#]/.test(prop.text.toUpperCase()))
+        warning(
+          `Sign ${index + 1} text contains characters the pixel font cannot draw.`,
+        );
+    }
     if (
       prop.y === null &&
       (level.gaps || []).some((gap) => prop.x > gap[0] && prop.x < gap[1])

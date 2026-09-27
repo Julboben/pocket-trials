@@ -335,7 +335,7 @@ function objectY(object, offset = 0) {
 function drawProps(layer) {
   for (const prop of level.props || []) {
     if (prop.layer !== layer) continue;
-    art.drawProp(prop.type, prop.x, objectY(prop), layer === 'front' ? 1 : .82, propAlignmentSlope(level, prop), propGroundOffset(level, prop));
+    art.drawProp(prop.type, prop.x, objectY(prop), layer === 'front' ? 1 : .82, propAlignmentSlope(level, prop), propGroundOffset(level, prop), prop.text);
   }
 }
 
@@ -516,6 +516,7 @@ function syncInspector() {
   $('selection-facing-row').hidden = selection?.kind !== 'start';
   $('selection-prop-type-row').hidden = selection?.kind !== 'prop';
   $('selection-layer-row').hidden = selection?.kind !== 'prop';
+  $('selection-prop-text-row').hidden = selection?.kind !== 'prop' || level.props[selection.index]?.type !== 'sign';
   $('selection-radius-row').hidden = selection?.kind !== 'spike';
   $('selection-spin-row').hidden = selection?.kind !== 'spike';
   $('delete-selection').hidden = !selection || ['start', 'goal'].includes(selection.kind);
@@ -531,6 +532,7 @@ function syncInspector() {
   if (selection?.kind === 'prop') {
     $('selection-prop-type').value = level.props[selection.index].type;
     $('selection-layer').value = level.props[selection.index].layer;
+    $('selection-prop-text').value = level.props[selection.index].text || '';
   }
   if (selection?.kind === 'spike') {
     $('selection-radius').value = level.spikes[selection.index].radius;
@@ -664,7 +666,9 @@ function addAt(point) {
     level.start = { x: point.x, y: point.y, facing: Number(toolSettings.start.facing) < 0 ? -1 : 1 };
     selection = { kind: 'start' };
   } else if (tool === 'prop') {
-    level.props.push({ x: point.x, y: point.y, type: toolSettings.prop.type, layer: toolSettings.prop.layer === 'front' ? 'front' : 'back' });
+    const prop = { x: point.x, y: point.y, type: toolSettings.prop.type, layer: toolSettings.prop.layer === 'front' ? 'front' : 'back' };
+    if (prop.type === 'sign') prop.text = '';
+    level.props.push(prop);
     selection = { kind: 'prop', index: level.props.length - 1 };
   } else if (tool === 'spike') {
     level.spikes.push({ x: point.x, y: point.y, radius: toolSettings.spike.radius, spin: toolSettings.spike.spin });
@@ -996,8 +1000,16 @@ $('selection-thickness').addEventListener('change', event => {
 });
 $('selection-closed').addEventListener('change', event => { if (!Number.isInteger(selection?.pathIndex)) return; pushHistory(); level.paths[selection.pathIndex].closed = event.target.checked; invalidateTerrain(level); syncInspector(); render(); });
 $('selection-facing').addEventListener('change', event => { if (selection?.kind !== 'start') return; pushHistory(); level.start.facing = Number(event.target.value) < 0 ? -1 : 1; syncInspector(); render(); });
-$('selection-prop-type').addEventListener('change', event => { if (selection?.kind !== 'prop') return; pushHistory(); level.props[selection.index].type = event.target.value; syncInspector(); render(); });
+$('selection-prop-type').addEventListener('change', event => { if (selection?.kind !== 'prop') return; pushHistory(); const prop = level.props[selection.index]; prop.type = event.target.value; if (prop.type === 'sign' && typeof prop.text !== 'string') prop.text = ''; syncInspector(); render(); });
 $('selection-layer').addEventListener('change', event => { if (selection?.kind !== 'prop') return; pushHistory(); level.props[selection.index].layer = event.target.value === 'front' ? 'front' : 'back'; syncInspector(); render(); });
+let propTextPending = false;
+$('selection-prop-text').addEventListener('focus', () => { if (selection?.kind === 'prop') propTextPending = true; });
+$('selection-prop-text').addEventListener('input', event => {
+  if (selection?.kind !== 'prop') return;
+  if (propTextPending) { pushHistory(); propTextPending = false; }
+  level.props[selection.index].text = event.target.value; render();
+});
+$('selection-prop-text').addEventListener('change', () => syncInspector());
 $('selection-radius').addEventListener('change', event => {
   if (selection?.kind !== 'spike') return; pushHistory();
   level.spikes[selection.index].radius = Math.max(SPIKE_RADIUS.min, Math.min(SPIKE_RADIUS.max, Number(event.target.value) || SPIKE_RADIUS.default));
