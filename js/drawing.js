@@ -622,6 +622,7 @@ function canopySprite(type) {
 const PROP_EXTENTS = {
   tree: [-64, -184, 64],
   pine: [-48, -186, 48],
+  bush: [-24, -32, 24],
   fence: [-42, -48, 42],
   rock: [-18, -20, 20],
   boulder: [-24, -42, 24],
@@ -1232,6 +1233,26 @@ export function createGameArt(ctx) {
       // Subtle bark marks on the exposed lower trunk.
       rectAboveGround(-4, -22, 2, 8, "#856d4f", 2, groundOffset);
       rectAboveGround(0, -12, 2, 6, "#856d4f", 2, groundOffset);
+    } else if (type === "bush") {
+      // Rounded shrub about 44 wide and 30 tall. A shaded skirt follows
+      // the local ground so the foliage never floats on slopes; the
+      // discs stack from dark underneath up to a lit crown.
+
+      // Shaded underside that reaches the terrain column by column.
+      rectDownTo(-22, -8, 44, "#477158", 2, groundOffset);
+
+      // Broad base masses.
+      drawPixelDisc(-12, -12, 10, "#4e785c", 2);
+      drawPixelDisc(12, -12, 10, "#4e785c", 2);
+
+      // Mid-green body overlapping the base.
+      drawPixelDisc(-4, -16, 10, "#568061", 2);
+      drawPixelDisc(4, -16, 10, "#568061", 2);
+
+      // Lit crown with a few chunky highlights.
+      drawPixelDisc(0, -22, 8, "#618b66", 2);
+      pixelRect(-6, -26, 4, 2, "#618b66", 2);
+      pixelRect(4, -22, 4, 2, "#618b66", 2);
     } else if (type === "fence") {
       // Larger fence: 80 units wide and 46 units tall.
       // Rails sit behind the posts; existing slope rotation is preserved.

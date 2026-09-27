@@ -328,6 +328,7 @@ export function validateLevel(level) {
       ![
         "tree",
         "pine",
+        "bush",
         "fence",
         "rock",
         "boulder",

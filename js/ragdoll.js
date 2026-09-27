@@ -84,7 +84,8 @@ export function createRagdoll(rear, front, facing, random, visual = {}) {
   const frontCompression =
     facing > 0 ? front.compression || 0 : rear.compression || 0;
 
-  const bodyDrop = (backCompression + frontCompression) * 0.4;
+  const bodyDrop =
+    Math.round(((backCompression + frontCompression) * 0.4) / 2) * 2;
   const bodyPitch = (frontCompression - backCompression) * 0.0096;
   const pc = cos(bodyPitch);
   const ps = sin(bodyPitch);
