@@ -1,7 +1,7 @@
 import { curveAt, seatedSurfaceAt } from "./terrain.js";
 
 const GROUND_ALIGNED_PROP_SPANS = {
-  fence: [-33, 33],
+  fence: [-24, 22],
   rock: [-16, 18],
   boulder: [-22, 22],
 };
@@ -82,40 +82,18 @@ export const RIDER_PALETTES = {
   max: {
     jacket: "#e8e5d9",
     jacketLight: "#fff8e7",
-    jacketShade: "#b5bcae",
-    panel: "#29464e",
     trousers: "#29464e",
-    trousersLight: "#42616a",
     helmet: "#f4a442",
     helmetLight: "#ffd078",
-    helmetShade: "#bd7034",
-    stripe: "#fff8e7",
     skin: "#bd7954",
-    skinLight: "#dfa078",
-    gloves: "#304a42",
-    boots: "#263b36",
-    sole: "#657a70",
-    visor: "#234844",
-    visorLight: "#83bcb6",
   },
   Maxine: {
     jacket: "#d86f82",
     jacketLight: "#ef9aa8",
-    jacketShade: "#a94f69",
-    panel: "#59415c",
     trousers: "#39435d",
-    trousersLight: "#596681",
     helmet: "#63aa98",
     helmetLight: "#a8dfcf",
-    helmetShade: "#3c786e",
-    stripe: "#fff8e7",
     skin: "#bd7954",
-    skinLight: "#dfa078",
-    gloves: "#59415c",
-    boots: "#2b3347",
-    sole: "#7c8897",
-    visor: "#234844",
-    visorLight: "#b0dfd4",
   },
 };
 export const riderPalette = (rider) =>
@@ -263,9 +241,6 @@ const GLYPHS = {
 export function pixelTextWidth(text, pixel = ART_PIXEL) {
   return text.length ? (text.length * 4 - 1) * pixel : 0;
 }
-
-// Longest text a sign board can draw; the level schema warns when text exceeds it.
-export const SIGN_MAX_CHARACTERS = 8;
 
 export function createDrawingTools(ctx) {
   function line(points, color, width) {
@@ -428,228 +403,6 @@ const APPLE_COLORS = {
   L: "#567a4e",
 };
 
-// Tree canopies are drawn once into sprites, down to these heights above the
-// ground anchor; the trunk below is drawn live so its base follows the slope.
-// The canopy never reaches below them, and the ground at the trunk never
-// rises above them.
-const TREE_CANOPY_BOTTOM = -64;
-const PINE_CANOPY_BOTTOM = -26;
-
-function drawTreeCanopy({ pixelRect, pixelPath, drawPixelDisc }) {
-  // Upper trunk, hidden behind the crown.
-  pixelRect(-8, -114, 16, TREE_CANOPY_BOTTOM + 114, "#66543f", 2);
-  pixelRect(2, -110, 6, TREE_CANOPY_BOTTOM + 110, "#856d4f", 2);
-  pixelRect(6, -100, 2, TREE_CANOPY_BOTTOM + 100, "#aa8a60", 2);
-
-  // Branch structure, drawn behind the foliage.
-  pixelPath(
-    [
-      [-2, -72],
-      [-8, -104],
-      [-28, -128],
-    ],
-    "#66543f",
-    3,
-    2,
-  );
-  pixelPath(
-    [
-      [2, -84],
-      [14, -112],
-      [32, -130],
-    ],
-    "#66543f",
-    3,
-    2,
-  );
-  pixelPath(
-    [
-      [4, -88],
-      [16, -112],
-      [30, -128],
-    ],
-    "#856d4f",
-    1,
-    2,
-  );
-
-  // Dark rear foliage forms a connected, uneven silhouette.
-  // Offset clusters keep the tree organic without shifting
-  // the overall crown away from the trunk.
-  drawPixelDisc(-30, -112, 28, "#477158", 2);
-  drawPixelDisc(30, -112, 30, "#477158", 2);
-  drawPixelDisc(-38, -132, 22, "#477158", 2);
-  drawPixelDisc(38, -136, 22, "#477158", 2);
-  drawPixelDisc(-18, -152, 24, "#477158", 2);
-  drawPixelDisc(14, -154, 24, "#477158", 2);
-  drawPixelDisc(0, -124, 34, "#477158", 2);
-
-  // Main leaf masses overlap the rear silhouette,
-  // leaving shadow pockets along the underside.
-  drawPixelDisc(-30, -132, 24, "#4e785c", 2);
-  drawPixelDisc(-10, -148, 26, "#4e785c", 2);
-  drawPixelDisc(22, -144, 28, "#568061", 2);
-  drawPixelDisc(36, -126, 20, "#568061", 2);
-  drawPixelDisc(2, -124, 28, "#568061", 2);
-  drawPixelDisc(-20, -112, 20, "#4e785c", 2);
-
-  // Smaller sunlit clusters on the upper-right surfaces.
-  // Broad patches read clearly at gameplay zoom.
-  drawPixelDisc(14, -158, 16, "#618b66", 2);
-  drawPixelDisc(34, -144, 12, "#618b66", 2);
-  drawPixelDisc(12, -132, 14, "#618b66", 2);
-
-  // A few chunky leaf accents, rather than scattered noise.
-  pixelRect(-16, -152, 8, 4, "#568061", 2);
-  pixelRect(-22, -148, 6, 4, "#568061", 2);
-  pixelRect(28, -116, 8, 4, "#618b66", 2);
-  pixelRect(22, -112, 6, 4, "#618b66", 2);
-  pixelRect(-10, -104, 8, 4, "#568061", 2);
-
-  // Top of the first bark detail; the rest is drawn with the lower trunk.
-  pixelRect(-4, -68, 2, TREE_CANOPY_BOTTOM + 68, "#856d4f", 2);
-}
-
-function drawPineCanopy({ pixelRect }) {
-  // Upper trunk, hidden behind the boughs.
-  pixelRect(-6, -100, 12, PINE_CANOPY_BOTTOM + 100, "#66543f", 2);
-  pixelRect(2, -100, 4, PINE_CANOPY_BOTTOM + 100, "#856d4f", 2);
-  pixelRect(4, -96, 2, PINE_CANOPY_BOTTOM + 96, "#aa8a60", 2);
-
-  // Broad lower boughs first; smaller tiers overlap them.
-  // Each tier shares EXACTLY the same horizontal center.
-  const tiers = [
-    { top: -112, bottom: -26, halfWidth: 46 },
-    { top: -140, bottom: -66, halfWidth: 34 },
-    { top: -164, bottom: -104, halfWidth: 24 },
-    { top: -182, bottom: -138, halfWidth: 14 },
-  ];
-
-  for (const { top, bottom, halfWidth } of tiers) {
-    const rows = (bottom - top) / 2;
-
-    for (let row = 0; row < rows; row++) {
-      const t = row / (rows - 1);
-
-      // A gently flared outline, not a stack of rectangles.
-      const half = Math.max(
-        2,
-        Math.round((2 + (halfWidth - 2) * Math.pow(t, 1.15)) / 2) * 2,
-      );
-
-      const py = top + row * 2;
-      const underside = row >= rows - 3;
-
-      // Both sides use the same span: [-half, +half].
-      for (let px = -half; px < half; px += 2) {
-        const cellCenter = px + 1;
-        const across = (cellCenter + half) / (half * 2);
-
-        // Small, mirrored notches under the branch skirts.
-        // Skip painting rather than erasing lower branches.
-        const fromCenter = Math.abs(cellCenter);
-        if (
-          row === rows - 1 &&
-          ((fromCenter > half * 0.28 && fromCenter < half * 0.46) ||
-            (fromCenter > half * 0.66 && fromCenter < half * 0.82))
-        ) {
-          continue;
-        }
-
-        let color = "#4e785c";
-
-        // Deep underside and shaded left flank.
-        if (underside || across < 0.24) {
-          color = "#477158";
-        } else if (across > 0.55 && across < 0.9) {
-          color = "#568061";
-        }
-
-        // A few grouped highlights, not random pixel noise.
-        if (
-          !underside &&
-          row > 3 &&
-          row % 9 < 2 &&
-          across > 0.64 &&
-          across < 0.84
-        ) {
-          color = "#618b66";
-        }
-
-        pixelRect(px, py, 2, 2, color, 2);
-      }
-    }
-  }
-
-  // Small highlight on the central leader.
-  pixelRect(0, -180, 2, 6, "#618b66", 2);
-}
-
-// Local bounds [left, top, right, bottom] of each canopy sprite, in world units.
-const CANOPY_SPRITES = {
-  tree: { bounds: [-64, -182, 64, TREE_CANOPY_BOTTOM], draw: drawTreeCanopy },
-  pine: { bounds: [-48, -186, 48, PINE_CANOPY_BOTTOM], draw: drawPineCanopy },
-};
-const canopySprites = new Map();
-
-function canopySprite(type) {
-  if (canopySprites.has(type)) return canopySprites.get(type);
-  const {
-    bounds: [left, top, right, bottom],
-    draw,
-  } = CANOPY_SPRITES[type];
-  const canvas = createCanvas(
-    (right - left) / ART_PIXEL,
-    (bottom - top) / ART_PIXEL,
-  );
-  const context = canvas.getContext("2d");
-  context.setTransform(
-    1 / ART_PIXEL,
-    0,
-    0,
-    1 / ART_PIXEL,
-    -left / ART_PIXEL,
-    -top / ART_PIXEL,
-  );
-  draw(createDrawingTools(context));
-  const sprite = { canvas, left, top, width: right - left, height: bottom - top };
-  canopySprites.set(type, sprite);
-  return sprite;
-}
-
-// Generous local bounds [left, top, right] of each prop, in world units; the
-// bottom follows the ground under it.
-const PROP_EXTENTS = {
-  tree: [-64, -184, 64],
-  pine: [-48, -186, 48],
-  fence: [-42, -48, 42],
-  rock: [-18, -20, 20],
-  boulder: [-24, -42, 24],
-  flowers: [-16, -22, 16],
-  stump: [-12, -18, 12],
-  crystal: [-16, -42, 16],
-};
-
-function propBounds(type, angle, groundOffset, text) {
-  let [left, top, right] = PROP_EXTENTS[type] || [-64, -190, 64];
-  if (type === "sign") {
-    const label = [...String(text || "")].slice(0, SIGN_MAX_CHARACTERS).join("");
-    const half = Math.max(24, pixelTextWidth(label) + 8) / 2 + 2;
-    [left, top, right] = [-half, -44, half];
-  }
-  let bottom = Math.max(
-    0,
-    groundOffset(left),
-    groundOffset(0),
-    groundOffset(right),
-  );
-  if (angle) {
-    const reach = Math.max(-left, -top, right, bottom);
-    [left, top, right, bottom] = [-reach, -reach, reach, reach];
-  }
-  return [left - 4, top - 4, right + 4, bottom + 4];
-}
-
 const BACKGROUND_STRIP_WIDTH = 512;
 const BACKGROUND_STRIP_TOP = 120;
 const BACKGROUND_STRIP_HEIGHT = 400;
@@ -662,9 +415,7 @@ export function createGameArt(ctx) {
   const TAU = Math.PI * 2;
   const spikeSprites = new Map();
   const backgroundStrips = new Map();
-  const ragdollHelmetSprites = new Map();
   let bikeSprite = null;
-  let propLayer = null;
 
   // Moving sprites sit at their exact position rounded to whole device pixels,
   // so they glide instead of stepping a full art pixel at a time.
@@ -1116,295 +867,76 @@ export function createGameArt(ctx) {
     }
   }
 
-  function drawCanopy(type) {
-    const sprite = canopySprite(type);
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(
-      sprite.canvas,
-      sprite.left,
-      sprite.top,
-      sprite.width,
-      sprite.height,
-    );
-  }
-
-  // A translucent prop is drawn opaque into a scratch layer on the same device
-  // pixel grid and then blended once, so overlapping shapes inside it do not
-  // stack up into darker, more solid patches.
-  function drawPropLayer(type, x, y, alpha, slope, groundOffset, text) {
-    const transform = ctx.getTransform();
-    if (transform.b || transform.c) return false;
-    const [left, top, right, bottom] = propBounds(
-      type,
-      propDrawAngle(type, slope),
-      groundOffset,
-      text,
-    );
-    const anchorX = Math.round(x / 2) * 2,
-      anchorY = Math.round(y / 2) * 2;
-    const deviceX = (value) => transform.a * (anchorX + value) + transform.e;
-    const deviceY = (value) => transform.d * (anchorY + value) + transform.f;
-    const x0 = Math.max(0, Math.floor(Math.min(deviceX(left), deviceX(right))));
-    const y0 = Math.max(0, Math.floor(Math.min(deviceY(top), deviceY(bottom))));
-    const x1 = Math.min(
-      ctx.canvas.width,
-      Math.ceil(Math.max(deviceX(left), deviceX(right))),
-    );
-    const y1 = Math.min(
-      ctx.canvas.height,
-      Math.ceil(Math.max(deviceY(top), deviceY(bottom))),
-    );
-    if (x1 <= x0 || y1 <= y0) return true;
-    const width = x1 - x0,
-      height = y1 - y0;
-    if (!propLayer) {
-      const canvas = createCanvas(width, height);
-      const context = canvas.getContext("2d");
-      propLayer = { canvas, context, art: createGameArt(context) };
-    }
-    const { canvas, context, art } = propLayer;
-    if (canvas.width < width || canvas.height < height) {
-      canvas.width = Math.max(canvas.width, width);
-      canvas.height = Math.max(canvas.height, height);
-    }
-    context.setTransform(1, 0, 0, 1, 0, 0);
-    context.clearRect(0, 0, width, height);
-    context.setTransform(
-      transform.a,
-      0,
-      0,
-      transform.d,
-      transform.e - x0,
-      transform.f - y0,
-    );
-    art.drawProp(type, x, y, 1, slope, groundOffset, text);
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.globalAlpha = alpha;
-    ctx.drawImage(canvas, 0, 0, width, height, x0, y0, width, height);
-    ctx.restore();
-    return true;
-  }
-
-  function drawProp(
-    type,
-    x,
-    y,
-    alpha = 1,
-    slope = 0,
-    groundOffset = () => 0,
-    text = "",
-  ) {
-    if (alpha < 1 && drawPropLayer(type, x, y, alpha, slope, groundOffset, text))
-      return;
+  function drawProp(type, x, y, alpha = 1, slope = 0, groundOffset = () => 0) {
     ctx.save();
     ctx.translate(Math.round(x / 2) * 2, Math.round(y / 2) * 2);
     ctx.rotate(propDrawAngle(type, slope));
     ctx.globalAlpha = alpha;
     if (type === "tree") {
-      // Mature deciduous tree: approximately 124 units wide
-      // and 180 units tall, centered over the ground anchor.
-      // The trunk stays upright; its base follows the terrain.
-      drawCanopy(type);
-
-      // Main trunk with a shaded side and a narrow sunlit edge.
-      const trunkTop = TREE_CANOPY_BOTTOM;
-      rectDownTo(-8, trunkTop, 10, "#66543f", 2, groundOffset);
-      rectDownTo(2, trunkTop, 4, "#856d4f", 2, groundOffset);
-      rectDownTo(6, trunkTop, 2, "#aa8a60", 2, groundOffset);
-
-      // Exposed bark details below the crown.
-      rectAboveGround(-4, trunkTop, 2, -54 - trunkTop, "#856d4f", 2, groundOffset);
-      rectAboveGround(2, -44, 2, 10, "#66543f", 2, groundOffset);
-      rectAboveGround(-4, -26, 2, 8, "#856d4f", 2, groundOffset);
+      rectDownTo(-4, -44, 8, "#66543f", 2, groundOffset);
+      drawPixelDisc(-8, -52, 14, "#477158", 2);
+      drawPixelDisc(8, -56, 16, "#568061", 2);
+      drawPixelDisc(0, -70, 12, "#618b66", 2);
     } else if (type === "pine") {
-      // Local x = 0 is the shared trunk / canopy center.
-      // Overall size: 92 units wide, 182 units tall.
-      // Keep the tree upright; only its base follows the terrain.
-      drawCanopy(type);
-
-      // Trunk: centered, with shaded bark and a narrow lit edge.
-      const trunkTop = PINE_CANOPY_BOTTOM;
-      rectDownTo(-6, trunkTop, 8, "#66543f", 2, groundOffset);
-      rectDownTo(2, trunkTop, 2, "#856d4f", 2, groundOffset);
-      rectDownTo(4, trunkTop, 2, "#aa8a60", 2, groundOffset);
-
-      // Subtle bark marks on the exposed lower trunk.
-      rectAboveGround(-4, -22, 2, 8, "#856d4f", 2, groundOffset);
-      rectAboveGround(0, -12, 2, 6, "#856d4f", 2, groundOffset);
+      rectDownTo(-2, -46, 6, "#66543f", 2, groundOffset);
+      pixelRect(-18, -58, 36, 12, "#477158", 2);
+      pixelRect(-12, -68, 24, 10, "#4e785c", 2);
+      pixelRect(-6, -76, 16, 8, "#568061", 2);
+      pixelRect(-2, -82, 8, 6, "#618b66", 2);
     } else if (type === "fence") {
-      // Larger fence: 80 units wide and 46 units tall.
-      // Rails sit behind the posts; existing slope rotation is preserved.
-
-      // Upper rail.
-      pixelRect(-40, -34, 80, 6, "#856d4f", 2);
-      pixelRect(-40, -34, 80, 2, "#aa8a60", 2);
-      pixelRect(-40, -30, 80, 2, "#66543f", 2);
-
-      // Lower rail.
-      pixelRect(-40, -18, 80, 6, "#856d4f", 2);
-      pixelRect(-40, -18, 80, 2, "#aa8a60", 2);
-      pixelRect(-40, -14, 80, 2, "#66543f", 2);
-
-      // Balanced posts, centered at x = -33 and +33.
-      for (const postX of [-36, 30]) {
-        pixelRect(postX, -42, 6, 42, "#856d4f", 2);
-
-        // Stepped post cap.
-        pixelRect(postX, -44, 6, 2, "#aa8a60", 2);
-        pixelRect(postX + 2, -46, 2, 2, "#aa8a60", 2);
-
-        // Lit edge and shaded side.
-        pixelRect(postX, -42, 2, 40, "#aa8a60", 2);
-        pixelRect(postX + 4, -42, 2, 42, "#66543f", 2);
-
-        // Small fasteners where the rails meet each post.
-        pixelRect(postX + 2, -32, 2, 2, "#66543f", 2);
-        pixelRect(postX + 2, -16, 2, 2, "#66543f", 2);
-      }
-
-      // Sparse wood grain.
-      pixelRect(-24, -32, 10, 2, "#66543f", 2);
-      pixelRect(10, -32, 6, 2, "#66543f", 2);
-      pixelRect(-14, -16, 8, 2, "#66543f", 2);
-      pixelRect(20, -16, 4, 2, "#66543f", 2);
+      pixelRect(-22, -26, 4, 26, "#856d4f", 2);
+      pixelRect(18, -26, 4, 26, "#856d4f", 2);
+      pixelRect(-24, -20, 46, 4, "#aa8a60", 2);
+      pixelRect(-24, -10, 46, 4, "#aa8a60", 2);
     } else if (type === "rock") {
-      // Uneven silhouette, keeping the original footprint.
-      pixelRect(-16, -6, 34, 6, "#697872", 2);
-      pixelRect(-12, -12, 28, 8, "#697872", 2);
-      pixelRect(-8, -16, 20, 8, "#7f8d83", 2);
+      pixelRect(-16, -8, 34, 8, "#697872", 2);
+      pixelRect(-10, -14, 22, 6, "#7f8d83", 2);
       pixelRect(-4, -18, 10, 4, "#aeb5a7", 2);
-
-      // Lit upper face and a darker right-hand fracture.
-      pixelRect(-8, -14, 16, 4, "#8b978c", 2);
-      pixelRect(-12, -10, 12, 4, "#7f8d83", 2);
-      pixelRect(8, -12, 4, 8, "#697872", 2);
-      pixelRect(12, -8, 4, 6, "#697872", 2);
-
-      // Small angular highlight and a crack.
-      pixelRect(-4, -16, 8, 2, "#aeb5a7", 2);
-      pixelRect(2, -8, 2, 4, "#697872", 2);
-      pixelRect(4, -4, 4, 2, "#697872", 2);
     } else if (type === "boulder") {
-      // Asymmetric stone mass, within the original 44 × 40 bounds.
-      pixelRect(-22, -10, 44, 10, "#697872", 2);
-      pixelRect(-20, -18, 40, 12, "#697872", 2);
-      pixelRect(-16, -28, 34, 18, "#7f8d83", 2);
-      pixelRect(-10, -36, 24, 20, "#8b978c", 2);
-      pixelRect(-2, -40, 8, 6, "#a2ab9e", 2);
-
-      // Broad illuminated top plane.
-      pixelRect(-8, -34, 20, 6, "#a2ab9e", 2);
-      pixelRect(-12, -28, 18, 6, "#8b978c", 2);
-      pixelRect(-2, -38, 8, 4, "#aeb5a7", 2);
-
-      // Stepped shadow plane on the right.
-      pixelRect(10, -30, 4, 10, "#7f8d83", 2);
-      pixelRect(8, -20, 10, 8, "#697872", 2);
-      pixelRect(4, -12, 16, 8, "#697872", 2);
-
-      // Short fracture and a chipped lower face.
-      pixelPath(
-        [
-          [-4, -24],
-          [0, -20],
-          [-2, -14],
-        ],
-        "#697872",
-        1,
-        2,
-      );
-      pixelRect(-14, -10, 8, 4, "#8b978c", 2);
-      pixelRect(-10, -10, 4, 2, "#a2ab9e", 2);
+      pixelRect(-22, -12, 44, 12, "#697872", 2);
+      pixelRect(-16, -22, 34, 10, "#7f8d83", 2);
+      pixelRect(-10, -30, 24, 8, "#8b978c", 2);
+      pixelRect(-6, -36, 16, 6, "#a2ab9e", 2);
+      pixelRect(-2, -40, 8, 4, "#aeb5a7", 2);
     } else if (type === "flowers") {
-      // Fixed variation: no random changes or flicker between frames.
-      const flowers = [
-        { x: -12, height: 8, color: "#e8755b" },
-        { x: -6, height: 14, color: "#f1b95d" },
-        { x: 0, height: 10, color: "#e8755b" },
-        { x: 6, height: 16, color: "#f1b95d" },
-        { x: 12, height: 8, color: "#e8755b" },
-      ];
-
-      for (const flower of flowers) {
-        const base = groundOffset(flower.x + 1);
-        const top = base - flower.height;
-
-        pixelRect(flower.x, top, 2, flower.height, "#58784d", 2);
-
-        // Leaves sit above each stem's local ground anchor.
-        pixelRect(flower.x - 2, base - 6, 2, 2, "#477158", 2);
-        pixelRect(flower.x + 2, base - 8, 2, 2, "#618b66", 2);
-
-        // Compact cross-shaped blossom with a warm center.
-        pixelRect(flower.x - 2, top - 2, 6, 2, flower.color, 2);
-        pixelRect(flower.x, top - 4, 2, 6, flower.color, 2);
-        pixelRect(flower.x, top - 2, 2, 2, "#f4e9d1", 2);
+      for (let index = -2; index <= 2; index++) {
+        const offset = index * 6,
+          height = 8 + (Math.abs(index) % 2) * 4,
+          drop = groundOffset(offset + 1);
+        pixelRect(offset, -height + drop, 2, height, "#58784d", 2);
+        pixelRect(
+          offset - 2,
+          -height - 4 + drop,
+          6,
+          4,
+          index % 2 ? "#f1b95d" : "#e8755b",
+          2,
+        );
       }
     } else if (type === "stump") {
-      // Flared base, still following the terrain column by column.
-      rectDownTo(-10, -8, 20, "#66543f", 2, groundOffset);
-      rectDownTo(-8, -14, 16, "#806244", 2, groundOffset);
-      rectDownTo(4, -12, 4, "#856d4f", 2, groundOffset);
-
-      // Bark ridges remain clipped to the local ground.
-      rectAboveGround(-6, -12, 2, 10, "#66543f", 2, groundOffset);
-      rectAboveGround(0, -10, 2, 8, "#66543f", 2, groundOffset);
-      rectAboveGround(6, -10, 2, 8, "#aa8a60", 2, groundOffset);
-
-      // Cut surface: stepped rim and a compact growth ring.
-      rectAboveGround(-8, -16, 16, 4, "#c39664", 2, groundOffset);
-      rectAboveGround(-10, -14, 20, 2, "#aa8a60", 2, groundOffset);
+      rectDownTo(-10, -14, 20, "#806244", 2, groundOffset);
+      rectAboveGround(-10, -16, 20, 4, "#c39664", 2, groundOffset);
       rectAboveGround(-4, -16, 8, 2, "#76573d", 2, groundOffset);
-      rectAboveGround(-2, -16, 4, 2, "#c39664", 2, groundOffset);
     } else if (type === "crystal") {
-      // Solid shards painted in horizontal bands.
-      // Ground clipping keeps their bases seated on uneven terrain.
-      const shard = (center, top, halfWidth, lean) => {
-        const bottom = Math.round(groundOffset(center) / 2) * 2;
-        const height = bottom - top;
-        if (height <= 0) return;
-
-        for (let py = top; py < bottom; py += 2) {
-          const t = (py - top) / height;
-
-          // Pointed tip, broad shoulder, then a narrower buried base.
-          const profile = t < 0.4 ? t / 0.4 : 1 - ((t - 0.4) / 0.6) * 0.35;
-
-          const half = Math.max(2, Math.round((halfWidth * profile) / 2) * 2);
-          const axis = center + Math.round((lean * (1 - t)) / 2) * 2;
-
-          rectAboveGround(axis - half, py, half, 2, "#568f98", 2, groundOffset);
-          rectAboveGround(axis, py, half, 2, "#83d1ce", 2, groundOffset);
-
-          // A narrow bright facet below the tip.
-          if (t > 0.1 && t < 0.8) {
-            rectAboveGround(axis, py, 2, 2, "#d9ffff", 2, groundOffset);
-          }
-        }
-      };
-
-      // Side shards behind the taller central crystal.
-      shard(-8, -26, 6, -2);
-      shard(8, -24, 6, 2);
-      shard(0, -40, 8, 0);
-    } else if (type === "sign") {
-      // Upright post carrying a small writable board.
-      // The board sizes itself to the prop's `text` (clamped to
-      // SIGN_MAX_CHARACTERS) and uses the same cream board and pixel
-      // font as the finish flag.
-      const label = [...String(text || "")]
-        .slice(0, SIGN_MAX_CHARACTERS)
-        .join("");
-      const width = Math.max(24, pixelTextWidth(label) + 8);
-
-      // Shaped post with a sunlit edge, matching the fence posts.
-      rectDownTo(-2, -24, 4, "#856d4f", 2, groundOffset);
-      rectDownTo(-2, -24, 2, "#aa8a60", 2, groundOffset);
-
-      // Board: cream face with the level's signage green text.
-      pixelRect(-width / 2, -40, width, 16, "#f4e9d1", 2);
-      drawPixelText(label, 0, -37, "#365345");
+      pixelPath(
+        [
+          [-14, groundOffset(-14)],
+          [-8, -28],
+          [0, -40],
+          [8, -24],
+          [14, groundOffset(14)],
+        ],
+        "#83d1ce",
+        3,
+      );
+      pixelPath(
+        [
+          [0, -36],
+          [0, -4],
+        ],
+        "#d9ffff",
+        1,
+      );
     }
     ctx.restore();
   }
@@ -1670,46 +1202,23 @@ export function createGameArt(ctx) {
     if (state !== "ragdoll") {
       const shift = Math.round(leanVisual * 4.5) * 2;
       const colors = riderPalette(rider);
-      const outline = "#263b36";
-
-      const hip = [-8 + shift, -24];
-      const knee = [4 + shift * 0.45, -14];
-      const ankle = [-2, -3];
-
-      const shoulder = [2 + shift, -36];
-      const elbow = [11 + shift * 0.45, -30];
-      const hand = [20, -25];
-
-      // Trousers: outlined silhouette with a narrow lit edge.
-      bodyPath([hip, knee, ankle], outline, 4);
-      bodyPath([hip, knee, ankle], colors.trousers, 3);
 
       bodyPath(
         [
-          [-7 + shift, -25],
-          [4 + shift * 0.45, -16],
+          [-8 + shift, -24],
+          [4 + shift * 0.45, -14],
+          [-2, -3],
         ],
-        colors.trousersLight,
-        1,
+        colors.trousers,
+        3,
       );
-
-      // Compact reinforced knee.
-      bodyRect(2 + shift * 0.45, -16, 6, 4, colors.trousersLight);
-      bodyRect(4 + shift * 0.45, -14, 4, 2, colors.panel);
-
-      // Boot stays anchored at the existing foot / peg position.
-      bodyRect(-5, -7, 6, 6, colors.boots);
-      bodyRect(-5, -5, 10, 4, colors.boots);
-      bodyRect(-5, -3, 10, 2, colors.sole);
-      bodyRect(-3, -7, 4, 2, colors.trousersLight);
-
-      // Jacket silhouette follows the existing leaning torso.
+      bodyRect(-5, -6, 10, 4, "#233630");
       bodyPath(
         [
           [-8 + shift, -25],
           [1 + shift, -37],
         ],
-        outline,
+        "#263b36",
         5,
       );
       bodyPath(
@@ -1720,75 +1229,32 @@ export function createGameArt(ctx) {
         colors.jacket,
         3,
       );
-
       bodyRect(-6 + shift, -38, 14, 12, colors.jacket);
-
-      // Shadow down the back, bright shoulder, contrasting hem.
-      bodyRect(-6 + shift, -36, 4, 10, colors.jacketShade);
       bodyRect(-4 + shift, -38, 10, 4, colors.jacketLight);
-      bodyRect(-8 + shift, -28, 10, 4, colors.panel);
-      bodyRect(-6 + shift, -28, 6, 2, colors.jacketShade);
-
-      // Small collar and front seam.
-      bodyRect(2 + shift, -40, 6, 4, colors.panel);
-      bodyRect(4 + shift, -34, 2, 6, colors.jacketShade);
-      bodyRect(-2 + shift, -34, 4, 2, colors.panel);
-
-      // Arm silhouette; hand remains at the original handlebar.
-      bodyPath([shoulder, elbow, hand], outline, 3);
-
-      // Rolled jacket sleeve.
-      bodyPath([shoulder, elbow], colors.jacket, 2);
       bodyPath(
         [
-          [2 + shift, -37],
-          [9 + shift * 0.45, -32],
+          [3 + shift, -35],
+          [11 + shift * 0.45, -30],
+          [20, -25],
+        ],
+        colors.skin,
+        2,
+      );
+      bodyPath(
+        [
+          [2 + shift, -36],
+          [10 + shift * 0.45, -31],
         ],
         colors.jacketLight,
-        1,
+        2,
       );
 
-      // Forearm, cuff and glove.
-      bodyPath([elbow, hand], colors.skin, 2);
-      bodyRect(9 + shift * 0.45, -32, 4, 4, colors.panel);
-      bodyPath(
-        [
-          [13 + shift * 0.3, -29],
-          [17, -27],
-        ],
-        colors.skinLight,
-        1,
-      );
-      bodyRect(18, -28, 6, 4, colors.gloves);
-      bodyRect(20, -28, 4, 2, colors.jacketLight);
-
-      // Neck, partly tucked into the helmet and collar.
-      bodyRect(0 + shift, -44, 8, 6, colors.skin);
-      bodyRect(4 + shift, -42, 4, 2, colors.skinLight);
-
-      // Stepped helmet shell: rounded without antialiasing.
-      bodyRect(-4 + shift, -50, 16, 8, outline);
-      bodyRect(-2 + shift, -52, 12, 12, outline);
-
-      bodyRect(-2 + shift, -50, 12, 8, colors.helmet);
-      bodyRect(0 + shift, -52, 8, 2, colors.helmetLight);
-      bodyRect(-2 + shift, -50, 4, 4, colors.helmetLight);
-      bodyRect(-2 + shift, -44, 8, 2, colors.helmetShade);
-
-      // Shared racing stripe, different shell colors.
-      bodyRect(4 + shift, -52, 2, 6, colors.stripe);
-
-      // Goggle strap, dark frame and reflected sky.
-      bodyRect(-2 + shift, -48, 8, 2, colors.panel);
-      bodyRect(6 + shift, -48, 8, 6, outline);
-      bodyRect(6 + shift, -48, 8, 4, colors.visor);
-      bodyRect(8 + shift, -48, 4, 2, colors.visorLight);
-
-      // Small forward peak and protective chin guard.
-      bodyRect(6 + shift, -50, 10, 2, colors.helmet);
-      bodyRect(8 + shift, -50, 6, 2, colors.helmetLight);
-      bodyRect(6 + shift, -42, 8, 2, colors.helmetShade);
-      bodyRect(10 + shift, -44, 4, 2, colors.helmet);
+      bodyRect(0 + shift, -46, 8, 8, colors.skin);
+      bodyRect(-4 + shift, -52, 14, 12, "#263b36");
+      bodyRect(-2 + shift, -52, 12, 10, colors.helmet);
+      bodyRect(0 + shift, -52, 8, 4, colors.helmetLight);
+      bodyRect(6 + shift, -48, 8, 4, "#234844");
+      bodyRect(8 + shift, -42, 6, 2, "#efb36b");
     }
 
     ctx.save();
@@ -1806,241 +1272,54 @@ export function createGameArt(ctx) {
     ctx.restore();
   }
 
-  // One tiny cached helmet per rider palette.
-  // Rotating the sprite with nearest-neighbour sampling keeps it sharp.
-  function ragdollHelmetSprite(colors) {
-    if (ragdollHelmetSprites.has(colors)) {
-      return ragdollHelmetSprites.get(colors);
-    }
-
-    const width = 24;
-    const height = 16;
-    const canvas = createCanvas(width / ART_PIXEL, height / ART_PIXEL);
-    const context = canvas.getContext("2d");
-
-    // Local helmet anchor is (0, 0).
-    // Sprite bounds: x -10..14, y -8..8.
-    context.setTransform(
-      1 / ART_PIXEL,
-      0,
-      0,
-      1 / ART_PIXEL,
-      10 / ART_PIXEL,
-      8 / ART_PIXEL,
-    );
-
-    const { pixelRect: rect } = createDrawingTools(context);
-    const outline = "#263b36";
-
-    // First redesign's helmet, relative to its center at (3, -46).
-    rect(-7, -4, 16, 8, outline);
-    rect(-5, -6, 12, 12, outline);
-
-    rect(-5, -4, 12, 8, colors.helmet);
-    rect(-3, -6, 8, 2, colors.helmetLight);
-    rect(-5, -4, 4, 4, colors.helmetLight);
-    rect(-5, 2, 8, 2, colors.helmetShade);
-
-    rect(1, -6, 2, 6, colors.stripe);
-
-    rect(-5, -2, 8, 2, colors.panel);
-    rect(3, -2, 8, 6, outline);
-    rect(3, -2, 8, 4, colors.visor);
-    rect(5, -2, 4, 2, colors.visorLight);
-
-    rect(3, -4, 10, 2, colors.helmet);
-    rect(5, -4, 6, 2, colors.helmetLight);
-    rect(3, 4, 8, 2, colors.helmetShade);
-    rect(7, 2, 4, 2, colors.helmet);
-
-    ragdollHelmetSprites.set(colors, canvas);
-    return canvas;
-  }
-
   function drawRagdoll(points, rider) {
-    const p = points;
-    const colors = riderPalette(rider);
-    const outline = "#263b36";
-    const facing = p.head.drawFacing ?? 1;
-
-    const point = (joint) => [joint.x, joint.y];
-
-    // A short section of a limb, useful for sleeves, cuffs and boots.
-    const between = (a, b, amount) => [
-      a.x + (b.x - a.x) * amount,
-      a.y + (b.y - a.y) * amount,
-    ];
-
-    // The original shoulder-to-head vector is (1, -10).
-    // Recover a body-oriented frame so the helmet tumbles with the rider.
-    const headAngle =
-      Math.atan2(p.head.y - p.shoulder.y, p.head.x - p.shoulder.x) -
-      Math.atan2(-10, facing);
-
-    const fc = Math.cos(headAngle);
-    const fs = Math.sin(headAngle);
-
-    const facingVector = [fc * facing, fs * facing];
-
-    // TROUSERS
-    pixelPath([point(p.hip), point(p.knee), point(p.foot)], outline, 4, 2);
+    const p = points,
+      colors = riderPalette(rider);
     pixelPath(
-      [point(p.hip), point(p.knee), point(p.foot)],
+      [
+        [p.foot.x, p.foot.y],
+        [p.knee.x, p.knee.y],
+        [p.hip.x, p.hip.y],
+      ],
       colors.trousers,
       3,
-      2,
     );
-
-    const thighStart = between(p.hip, p.knee, 0.15);
-    const thighEnd = between(p.hip, p.knee, 0.85);
-
     pixelPath(
       [
-        [
-          thighStart[0] + facingVector[0] * 2,
-          thighStart[1] + facingVector[1] * 2,
-        ],
-        [thighEnd[0] + facingVector[0] * 2, thighEnd[1] + facingVector[1] * 2],
+        [p.hip.x, p.hip.y],
+        [p.shoulder.x, p.shoulder.y],
       ],
-      colors.trousersLight,
-      1,
-      2,
+      colors.jacket,
+      4,
     );
-
-    pixelPath(
-      [between(p.hip, p.knee, 0.88), between(p.knee, p.foot, 0.12)],
-      colors.panel,
-      2,
-      2,
-    );
-
-    // BOOT
-    // Its toe follows the lower leg instead of remaining screen-aligned.
-    const shinX = p.foot.x - p.knee.x;
-    const shinY = p.foot.y - p.knee.y;
-    const shinLength = Math.hypot(shinX, shinY) || 1;
-    const downX = shinX / shinLength;
-    const downY = shinY / shinLength;
-
-    const toeX = downY * facing;
-    const toeY = -downX * facing;
-
-    const heel = [p.foot.x - toeX * 2, p.foot.y - toeY * 2];
-    const toe = [p.foot.x + toeX * 6, p.foot.y + toeY * 6];
-
-    pixelPath(
-      [between(p.knee, p.foot, 0.76), point(p.foot)],
-      colors.boots,
-      3,
-      2,
-    );
-    pixelPath([heel, toe], colors.boots, 2, 2);
     pixelPath(
       [
-        [heel[0] + downX * 2, heel[1] + downY * 2],
-        [toe[0] + downX * 2, toe[1] + downY * 2],
+        [p.shoulder.x, p.shoulder.y],
+        [p.elbow.x, p.elbow.y],
       ],
-      colors.sole,
-      1,
-      2,
-    );
-
-    // JACKET
-    pixelPath([point(p.hip), point(p.shoulder)], outline, 5, 2);
-    pixelPath([point(p.hip), point(p.shoulder)], colors.jacket, 4, 2);
-
-    const backLower = between(p.hip, p.shoulder, 0.18);
-    const backUpper = between(p.hip, p.shoulder, 0.82);
-
-    pixelPath(
-      [
-        [
-          backLower[0] - facingVector[0] * 2,
-          backLower[1] - facingVector[1] * 2,
-        ],
-        [
-          backUpper[0] - facingVector[0] * 2,
-          backUpper[1] - facingVector[1] * 2,
-        ],
-      ],
-      colors.jacketShade,
-      2,
-      2,
-    );
-
-    // Contrasting hem.
-    pixelPath(
-      [point(p.hip), between(p.hip, p.shoulder, 0.18)],
-      colors.panel,
-      3,
-      2,
-    );
-
-    // Shoulder highlight.
-    pixelPath(
-      [between(p.hip, p.shoulder, 0.82), point(p.shoulder)],
       colors.jacketLight,
-      3,
       2,
     );
-
-    // NECK
-    pixelPath([point(p.shoulder), point(p.head)], colors.skin, 2, 2);
-
-    // ARM
     pixelPath(
-      [point(p.shoulder), point(p.elbow), point(p.hand)],
-      outline,
-      3,
+      [
+        [p.elbow.x, p.elbow.y],
+        [p.hand.x, p.hand.y],
+      ],
+      colors.skin,
       2,
     );
-
-    pixelPath([point(p.shoulder), point(p.elbow)], colors.jacket, 2, 2);
     pixelPath(
-      [between(p.shoulder, p.elbow, 0.12), between(p.shoulder, p.elbow, 0.72)],
-      colors.jacketLight,
-      1,
+      [
+        [p.shoulder.x, p.shoulder.y],
+        [p.head.x, p.head.y],
+      ],
+      colors.skin,
       2,
     );
 
-    pixelPath([point(p.elbow), point(p.hand)], colors.skin, 2, 2);
-    pixelPath(
-      [between(p.elbow, p.hand, 0.2), between(p.elbow, p.hand, 0.65)],
-      colors.skinLight,
-      1,
-      2,
-    );
-
-    // Cuff.
-    pixelPath(
-      [between(p.shoulder, p.elbow, 0.85), point(p.elbow)],
-      colors.panel,
-      2,
-      2,
-    );
-
-    // Glove and small highlight.
-    pixelPath(
-      [between(p.elbow, p.hand, 0.8), point(p.hand)],
-      colors.gloves,
-      2,
-      2,
-    );
-    pixelRect(p.hand.x - 1, p.hand.y - 1, 2, 2, colors.jacketLight, 2);
-
-    // HELMET
-    // Cached and mirrored correctly; follows the head/shoulder axis.
-    const sprite = ragdollHelmetSprite(colors);
-    const rotationStep = TAU / 32;
-    const pixelAngle = Math.round(headAngle / rotationStep) * rotationStep;
-
-    ctx.save();
-    ctx.imageSmoothingEnabled = false;
-    translateToDevice(p.head.x, p.head.y);
-    ctx.rotate(pixelAngle);
-    ctx.scale(facing, 1);
-    ctx.drawImage(sprite, -10, -8, 24, 16);
-    ctx.restore();
+    pixelRect(p.head.x - 7, p.head.y - 7, 14, 14, "#263b36", 2);
+    pixelRect(p.head.x - 5, p.head.y - 7, 12, 10, colors.helmet, 2);
+    pixelRect(p.head.x + 3, p.head.y - 3, 8, 4, "#234844", 2);
   }
 
   return {

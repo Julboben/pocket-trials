@@ -16,7 +16,7 @@ import {
   XPBD_THROTTLE_LEAN_ASSIST, XPBD_THROTTLE_INPUT_RESPONSE, XPBD_LEAN_INPUT_RESPONSE,
   XPBD_UPHILL_FORWARD_LEAN_REDUCTION, XPBD_UPHILL_FORWARD_LEAN_FULL_TILT,
   XPBD_BRAKE_REACTION_SCALE, XPBD_BRAKE_REACTION_LIMIT,
-  XPBD_BRAKE_RATE, XPBD_CONTACT_LOAD_SCALE, XPBD_DRIVE_LOAD_SCALE, XPBD_UPHILL_CONTACT_LOAD_SCALE, XPBD_ROLLING_LOAD_SCALE,
+  XPBD_BRAKE_RATE, XPBD_BRAKE_TORQUE, XPBD_CONTACT_LOAD_SCALE, XPBD_DRIVE_LOAD_SCALE, XPBD_UPHILL_CONTACT_LOAD_SCALE, XPBD_ROLLING_LOAD_SCALE,
   XPBD_COAST_RESISTANCE_LOW_SPEED, XPBD_COAST_RESISTANCE_HIGH_SPEED,
   XPBD_COAST_SPEED_REFERENCE, XPBD_CONTACT_RESTITUTION_SCALE,
   CONTACT_GROUNDED_NORMAL, CONTACT_RESTITUTION_SPEED,
@@ -162,12 +162,13 @@ function applyWheelTraction(point, name, drive, state, hooks) {
   options.restitution = restitution;
   options.friction = WHEEL_FRICTION;
   options.angularDrive = drive && point === drivenWheel ? angularDrive : 0;
-  options.angularBrake = drive && braking ? XPBD_BRAKE_RATE * brakePressure : 0;
+  options.angularBrake = drive && braking ? XPBD_BRAKE_TORQUE * brakePressure : 0;
   options.inertia = WHEEL_INERTIA;
   options.restingNormalAcceleration = GRAVITY * (braking ? XPBD_CONTACT_LOAD_SCALE : point === drivenWheel ? driveLoadScale : XPBD_ROLLING_LOAD_SCALE);
   options.freeRolling = drive && !braking && (point !== drivenWheel || throttle < .01);
   options.rollingResistance = drive && coasting ? coastResistance : 0;
   const result = solveWheelContactVelocity(point, point.contact, options);
+  point.brakeHold = result.held ? result.frictionLimit * STEP : 0;
   point.angularVelocity = clamp(point.angularVelocity, -MAX_POINT_SPEED / RADIUS, MAX_POINT_SPEED / RADIUS);
   if (drive) hooks.traction?.(name, result, point);
 }
@@ -249,6 +250,21 @@ function forwardLeanWeightShift({ chassis }, facing, leanControl) {
   const up = chassisUp(chassis);
   if (up.x * facing >= 0) return 1;
   return clamp(-up.y, 0, 1);
+}
+
+// A braked wheel that gripped last step is held where it stood, within one
+// step of tire friction. Pushing a wheel out of a slope moves it a little
+// downhill each step, which velocity friction alone cannot undo.
+function holdBrakedWheel(point) {
+  if (!point.brakeHold || !point.contact) return;
+  const tx = -point.contact.ny, ty = point.contact.nx;
+  const drift = (point.x - point.holdX) * tx + (point.y - point.holdY) * ty;
+  if (Math.abs(drift) > point.brakeHold) {
+    point.brakeHold = 0;
+    return;
+  }
+  point.x -= tx * drift;
+  point.y -= ty * drift;
 }
 
 function resolveContact(point, contact, wheelName, hooks) {
@@ -425,6 +441,10 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
   hooks.dynamics?.(dynamics);
 
   const wasRearGrounded = rear.grounded, wasFrontGrounded = front.grounded;
+  for (const wheel of [rear, front]) {
+    if (!braking || crashed) wheel.brakeHold = 0;
+    if (wheel.brakeHold) { wheel.holdX = wheel.x; wheel.holdY = wheel.y; }
+  }
   for (let index = 0; index < bikePoints.length; index++) {
     integratePoint(
       bikePoints[index],
@@ -437,7 +457,7 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
   const momentumBeforeSolve = crashed ? 0 : angularMomentum(bikePoints);
 
   const solverWheels = facing < 0 ? vehicle.wheelOrder.backward : vehicle.wheelOrder.forward;
-  for (const [point, name] of solverWheels) collideWheel(level, point, name, hooks);
+  for (const [point, name] of solverWheels) { collideWheel(level, point, name, hooks); holdBrakedWheel(point); }
   if (crashed) for (const point of vehicle.chassisPoints) collideFreePoint(level, point, true, CRASHED_CHASSIS_CONTACT);
   for (let iteration = 0; iteration < BIKE_SOLVER_ITERATIONS; iteration++) {
     hooks.iteration?.(iteration);
@@ -445,10 +465,10 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
       const correction = solveXpbdConstraint(constraint, STEP);
       hooks.constraint?.(correction);
     }
-    for (const [point, name] of solverWheels) collideWheel(level, point, name, hooks, false);
+    for (const [point, name] of solverWheels) { collideWheel(level, point, name, hooks, false); holdBrakedWheel(point); }
     const wheelbaseCorrection = solveXpbdConstraint(wheelbaseLimit, STEP);
     hooks.constraint?.(wheelbaseCorrection);
-    for (const [point, name] of solverWheels) collideWheel(level, point, name, hooks, false);
+    for (const [point, name] of solverWheels) { collideWheel(level, point, name, hooks, false); holdBrakedWheel(point); }
     if (crashed) for (const point of vehicle.chassisPoints) collideFreePoint(level, point, false, CRASHED_CHASSIS_CONTACT);
     hooks.contactsResolved?.();
   }
@@ -475,10 +495,14 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
   );
   for (const [point, name] of solverWheels) {
     if (!point.contact) {
+      point.brakeHold = 0;
       const rolling = ((rear.x - rear.ox) + (front.x - front.ox)) / (2 * STEP * RADIUS);
       point.angularVelocity += (point === drivenWheel ? angularDrive : 0) * STEP;
       point.angularVelocity += (rolling - point.angularVelocity) * (1 - exp(-8 * STEP));
-      if (braking) point.angularVelocity *= Math.max(0, 1 - XPBD_BRAKE_RATE * brakePressure * STEP);
+      if (braking) {
+        const brakeLimit = XPBD_BRAKE_TORQUE * brakePressure * STEP;
+        point.angularVelocity -= clamp(point.angularVelocity, -brakeLimit, brakeLimit);
+      }
       point.angularVelocity = clamp(point.angularVelocity, -MAX_POINT_SPEED / RADIUS, MAX_POINT_SPEED / RADIUS);
       point.spin += point.angularVelocity * STEP;
       continue;

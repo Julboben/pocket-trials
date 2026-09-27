@@ -133,6 +133,22 @@ function brakingScenario(braking) {
   return { speed: metrics.speedX, distance: metrics.center.x - startX, maxRearClearance, pitch: metrics.pitch };
 }
 
+// A held brake stops the bike dead and keeps it parked on a slope.
+function brakeHoldScenario() {
+  const creepOn = degrees => {
+    const drop = Math.tan(degrees * Math.PI / 180) * 1200;
+    const level = { ...flatLevel(), points: [[0, 320], [1400, 320 + drop]], fallY: 320 + drop + 500 };
+    const simulation = createSimulation(level, { x: 400 });
+    run(simulation, 240, { brake: true });
+    const startX = vehicleMetrics(simulation.vehicle).center.x;
+    run(simulation, 480, { brake: true });
+    return Math.abs(vehicleMetrics(simulation.vehicle).center.x - startX);
+  };
+  const creep = Math.max(creepOn(10), creepOn(25));
+  assert.ok(creep < .5, `a held brake must keep the bike parked on a slope: crept ${creep}`);
+  return { creep };
+}
+
 function controlResponseScenario() {
   const simulation = createSimulation(flatLevel());
   run(simulation, 120, {});
@@ -549,6 +565,7 @@ const results = {
   acceleration,
   braking,
   coasting,
+  brakeHold: brakeHoldScenario(),
   controlResponse: controlResponseScenario(),
   lean: leanScenario(),
   air: airScenario(),

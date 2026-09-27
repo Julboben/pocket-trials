@@ -206,6 +206,18 @@ solveWheelContactVelocity(brakingWheel, { nx: 0, ny: -1 }, {
 assert.ok((brakingWheel.x - brakingWheel.ox) * 120 < 120, 'wheel braking must reduce linear ground speed');
 assert.ok(brakingWheel.angularVelocity < 10, 'wheel braking must reduce angular speed');
 
+const lockedWheel = { x: 0, y: 0, ox: -.05, oy: 0, angularVelocity: .5, spin: 0 };
+const locked = solveWheelContactVelocity(lockedWheel, { nx: 0, ny: -1 }, {
+  dt: 1 / 120,
+  radius: 12,
+  inertia: .5,
+  angularBrake: 720,
+  restingNormalAcceleration: 480 * 4.5
+});
+assert.equal(lockedWheel.angularVelocity, 0, 'a strong enough brake locks a slow wheel');
+assert.ok(approximatelyEqual(lockedWheel.x - lockedWheel.ox, 0), 'a locked wheel with grip to spare stops on the spot');
+assert.ok(locked.held, 'a locked, gripping wheel reports that it is held');
+
 const sliderStart = { x: 0, y: 0, ox: 0, oy: 0, inverseMass: 0 };
 const sliderEnd = { x: 50, y: 0, ox: 50, oy: 0, inverseMass: 0 };
 const sliderMount = { x: 10, y: 0, ox: 10, oy: 0, inverseMass: 1 };

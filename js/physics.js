@@ -311,7 +311,6 @@ export function solveWheelContactVelocity(point, contact, {
   const tx = -contact.ny, ty = contact.nx;
   omega += angularDrive * dt;
   omega *= Math.max(0, 1 - angularDrag * dt);
-  if (angularBrake > 0) omega *= Math.max(0, 1 - angularBrake * dt);
   const tangentialSpeed = vx * tx + vy * ty;
   const slip = tangentialSpeed - omega * radius;
   if (freeRolling && angularDrive === 0 && angularBrake === 0) {
@@ -324,17 +323,30 @@ export function solveWheelContactVelocity(point, contact, {
     point.spin = (point.spin || 0) + omega * dt;
     return { normalImpulse, tangentImpulse: reduction ? -reduction : 0, slip };
   }
-  const effectiveMass = 1 + 1 / Math.max(EPSILON, inertia);
-  const requestedImpulse = -slip / effectiveMass;
   // Resting contacts have no impact impulse, so include one gravity step of
   // normal load to keep traction effective after landing.
   const frictionLimit = Math.max(Math.abs(normalImpulse) * friction, friction * restingNormalAcceleration * dt);
-  const tangentImpulse = Math.max(-frictionLimit, Math.min(frictionLimit, requestedImpulse));
+  const spinPerImpulse = 1 / Math.max(EPSILON, inertia * radius);
+  // angularBrake is the most spin (rad/s²) the brake can take out. When that
+  // is enough to hold the wheel still, the tire grips or skids on a locked
+  // wheel, so a held brake stops the bike and keeps it parked on a slope.
+  const brakeLimit = angularBrake * dt;
+  const lockedImpulse = Math.max(-frictionLimit, Math.min(frictionLimit, -tangentialSpeed));
+  let tangentImpulse, held = false;
+  if (brakeLimit > 0 && Math.abs(lockedImpulse * spinPerImpulse - omega) <= brakeLimit) {
+    tangentImpulse = lockedImpulse;
+    omega = 0;
+    held = Math.abs(tangentialSpeed) <= frictionLimit;
+  } else {
+    if (brakeLimit > 0) omega -= Math.max(-brakeLimit, Math.min(brakeLimit, omega));
+    const requestedImpulse = -(tangentialSpeed - omega * radius) / (1 + 1 / Math.max(EPSILON, inertia));
+    tangentImpulse = Math.max(-frictionLimit, Math.min(frictionLimit, requestedImpulse));
+    omega -= tangentImpulse * spinPerImpulse;
+  }
   vx += tx * tangentImpulse;
   vy += ty * tangentImpulse;
-  omega -= tangentImpulse * radius / Math.max(EPSILON, inertia * radius * radius);
   setVelocity(point, vx * dt, vy * dt);
   point.angularVelocity = omega;
   point.spin = (point.spin || 0) + omega * dt;
-  return { normalImpulse, tangentImpulse, slip };
+  return { normalImpulse, tangentImpulse, slip, held, frictionLimit };
 }

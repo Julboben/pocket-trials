@@ -85,6 +85,11 @@ export const XPBD_UPHILL_FORWARD_LEAN_FULL_TILT = 12 * Math.PI / 180;
 export const XPBD_BRAKE_REACTION_SCALE = 1.3;
 export const XPBD_BRAKE_REACTION_LIMIT = 60;
 export const XPBD_BRAKE_RATE = 64;
+// Most wheel spin (rad/s²) a fully held brake removes. Enough to lock a
+// rolling wheel within a few steps and hold it against full tire friction, so
+// the bike skids to a stop, stays parked on slopes, and pivots on a locked
+// front wheel in a stoppie.
+export const XPBD_BRAKE_TORQUE = 720;
 // Brake grip stays moderate. Drive grip is high enough that hitting the gas
 // hooks the tire up instead of spinning it out.
 export const XPBD_CONTACT_LOAD_SCALE = 4.5;

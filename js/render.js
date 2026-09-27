@@ -32,6 +32,10 @@ const SCENERY_SHADOWS = {
   boulder: { width: 24, alpha: 0.15, thickness: 3, lift: 24 },
 };
 const GHOST_ALPHA = 0.38;
+// Front props sit between the rider and the camera, so they are see-through.
+const FRONT_PROP_ALPHA = 0.82;
+// How far each prop's art reaches above its anchor, for culling.
+const PROP_RISE = { tree: 186, pine: 188 };
 
 /** @param {HTMLCanvasElement} canvas */
 export function createRenderer(canvas) {
@@ -177,12 +181,12 @@ export function createRenderer(canvas) {
       const ground = terrainAt(level, prop.x);
       if (!ground.solid && !Number.isFinite(prop.y)) continue;
       const y = Number.isFinite(prop.y) ? prop.y : ground.y;
-      if (!inView(prop.x, 70, y, 90)) continue;
+      if (!inView(prop.x, 70, y, PROP_RISE[prop.type] ?? 90)) continue;
       gameArt.drawProp(
         prop.type,
         prop.x,
         y,
-        layer === "front" ? 1 : 0.82,
+        layer === "front" ? FRONT_PROP_ALPHA : 1,
         propAlignmentSlope(level, prop),
         propGroundOffset(level, prop),
         prop.text,
