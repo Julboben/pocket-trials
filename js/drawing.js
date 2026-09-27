@@ -1,6 +1,7 @@
 import { curveAt, seatedSurfaceAt } from "./terrain.js";
 
 const GROUND_ALIGNED_PROP_SPANS = {
+  bush: [-28, 28],
   fence: [-33, 33],
   rock: [-16, 18],
   boulder: [-22, 22],
@@ -585,10 +586,50 @@ function drawPineCanopy({ pixelRect }) {
   pixelRect(0, -180, 2, 6, "#618b66", 2);
 }
 
+function drawBushCanopy({ pixelRect, drawPixelDisc }) {
+  // Low, broad shrub with overlapping leaf clusters.
+  // Sprite bounds: x -32..32, y -44..0.
+
+  // Connected shaded base.
+  pixelRect(-28, -12, 56, 12, "#477158", 2);
+  pixelRect(-30, -8, 60, 6, "#477158", 2);
+
+  // Irregular outer silhouette.
+  drawPixelDisc(-20, -16, 12, "#477158", 2);
+  drawPixelDisc(18, -16, 12, "#477158", 2);
+  drawPixelDisc(-10, -26, 14, "#477158", 2);
+  drawPixelDisc(10, -28, 14, "#477158", 2);
+
+  // Broad middle-green leaf masses.
+  drawPixelDisc(-20, -18, 10, "#4e785c", 2);
+  drawPixelDisc(-8, -26, 12, "#568061", 2);
+  drawPixelDisc(10, -28, 12, "#568061", 2);
+  drawPixelDisc(20, -18, 10, "#568061", 2);
+
+  // Front foliage overlaps the rear clusters.
+  drawPixelDisc(-10, -12, 10, "#4e785c", 2);
+  drawPixelDisc(6, -14, 12, "#568061", 2);
+
+  // Sunlight on the upper-right surfaces.
+  drawPixelDisc(12, -32, 6, "#618b66", 2);
+  drawPixelDisc(22, -20, 4, "#618b66", 2);
+  drawPixelDisc(4, -18, 6, "#618b66", 2);
+
+  // A few grouped leaf accents, not scattered noise.
+  pixelRect(-14, -30, 6, 2, "#618b66", 2);
+  pixelRect(-18, -26, 4, 2, "#568061", 2);
+  pixelRect(10, -10, 6, 2, "#4e785c", 2);
+  pixelRect(-4, -6, 6, 2, "#477158", 2);
+}
+
 // Local bounds [left, top, right, bottom] of each canopy sprite, in world units.
 const CANOPY_SPRITES = {
   tree: { bounds: [-64, -182, 64, TREE_CANOPY_BOTTOM], draw: drawTreeCanopy },
   pine: { bounds: [-48, -186, 48, PINE_CANOPY_BOTTOM], draw: drawPineCanopy },
+  bush: {
+    bounds: [-32, -44, 32, 0],
+    draw: drawBushCanopy,
+  },
 };
 const canopySprites = new Map();
 
@@ -612,7 +653,13 @@ function canopySprite(type) {
     -top / ART_PIXEL,
   );
   draw(createDrawingTools(context));
-  const sprite = { canvas, left, top, width: right - left, height: bottom - top };
+  const sprite = {
+    canvas,
+    left,
+    top,
+    width: right - left,
+    height: bottom - top,
+  };
   canopySprites.set(type, sprite);
   return sprite;
 }
@@ -622,7 +669,7 @@ function canopySprite(type) {
 const PROP_EXTENTS = {
   tree: [-64, -184, 64],
   pine: [-48, -186, 48],
-  bush: [-24, -32, 24],
+  bush: [-32, -44, 32],
   fence: [-42, -48, 42],
   rock: [-18, -20, 20],
   boulder: [-24, -42, 24],
@@ -633,8 +680,39 @@ const PROP_EXTENTS = {
 
 function propBounds(type, angle, groundOffset, text) {
   let [left, top, right] = PROP_EXTENTS[type] || [-64, -190, 64];
+  if (type === "bush") {
+    // Bound the intact, rotated sprite—not terrain-shifted columns.
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+
+    const corners = [
+      [left, top],
+      [right, top],
+      [left, 0],
+      [right, 0],
+    ];
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    for (const [px, py] of corners) {
+      const rx = px * c - py * s;
+      const ry = px * s + py * c;
+
+      minX = Math.min(minX, rx);
+      minY = Math.min(minY, ry);
+      maxX = Math.max(maxX, rx);
+      maxY = Math.max(maxY, ry);
+    }
+
+    return [minX - 4, minY - 4, maxX + 4, maxY + 4];
+  }
   if (type === "sign") {
-    const label = [...String(text || "")].slice(0, SIGN_MAX_CHARACTERS).join("");
+    const label = [...String(text || "")]
+      .slice(0, SIGN_MAX_CHARACTERS)
+      .join("");
     const half = Math.max(24, pixelTextWidth(label) + 8) / 2 + 2;
     [left, top, right] = [-half, -44, half];
   }
@@ -1196,7 +1274,10 @@ export function createGameArt(ctx) {
     groundOffset = () => 0,
     text = "",
   ) {
-    if (alpha < 1 && drawPropLayer(type, x, y, alpha, slope, groundOffset, text))
+    if (
+      alpha < 1 &&
+      drawPropLayer(type, x, y, alpha, slope, groundOffset, text)
+    )
       return;
     ctx.save();
     ctx.translate(Math.round(x / 2) * 2, Math.round(y / 2) * 2);
@@ -1215,7 +1296,15 @@ export function createGameArt(ctx) {
       rectDownTo(6, trunkTop, 2, "#aa8a60", 2, groundOffset);
 
       // Exposed bark details below the crown.
-      rectAboveGround(-4, trunkTop, 2, -54 - trunkTop, "#856d4f", 2, groundOffset);
+      rectAboveGround(
+        -4,
+        trunkTop,
+        2,
+        -54 - trunkTop,
+        "#856d4f",
+        2,
+        groundOffset,
+      );
       rectAboveGround(2, -44, 2, 10, "#66543f", 2, groundOffset);
       rectAboveGround(-4, -26, 2, 8, "#856d4f", 2, groundOffset);
     } else if (type === "pine") {
@@ -1234,25 +1323,9 @@ export function createGameArt(ctx) {
       rectAboveGround(-4, -22, 2, 8, "#856d4f", 2, groundOffset);
       rectAboveGround(0, -12, 2, 6, "#856d4f", 2, groundOffset);
     } else if (type === "bush") {
-      // Rounded shrub about 44 wide and 30 tall. A shaded skirt follows
-      // the local ground so the foliage never floats on slopes; the
-      // discs stack from dark underneath up to a lit crown.
-
-      // Shaded underside that reaches the terrain column by column.
-      rectDownTo(-22, -8, 44, "#477158", 2, groundOffset);
-
-      // Broad base masses.
-      drawPixelDisc(-12, -12, 10, "#4e785c", 2);
-      drawPixelDisc(12, -12, 10, "#4e785c", 2);
-
-      // Mid-green body overlapping the base.
-      drawPixelDisc(-4, -16, 10, "#568061", 2);
-      drawPixelDisc(4, -16, 10, "#568061", 2);
-
-      // Lit crown with a few chunky highlights.
-      drawPixelDisc(0, -22, 8, "#618b66", 2);
-      pixelRect(-6, -26, 4, 2, "#618b66", 2);
-      pixelRect(4, -22, 4, 2, "#618b66", 2);
+      // Draw the cached shrub intact.
+      // drawProp() already applies the ground-alignment rotation.
+      drawCanopy("bush");
     } else if (type === "fence") {
       // Larger fence: 80 units wide and 46 units tall.
       // Rails sit behind the posts; existing slope rotation is preserved.
