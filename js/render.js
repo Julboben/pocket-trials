@@ -35,7 +35,7 @@ const SCENERY_SHADOWS = {
 const GHOST_ALPHA = 0.38;
 // Where a front prop hides the rider, the hidden part shows as a silhouette.
 const XRAY_COLOR = "#fff3be";
-const XRAY_ALPHA = 0.55;
+const XRAY_ALPHA = 0.25;
 // World units around the bike and rider that the x-ray layer covers.
 const XRAY_REACH = 70;
 // How far each prop's art reaches above its anchor, for culling.
