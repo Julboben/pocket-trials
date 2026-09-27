@@ -335,7 +335,7 @@ function objectY(object, offset = 0) {
 function drawProps(layer) {
   for (const prop of level.props || []) {
     if (prop.layer !== layer) continue;
-    art.drawProp(prop.type, prop.x, objectY(prop), layer === 'front' ? .82 : 1, propAlignmentSlope(level, prop), propGroundOffset(level, prop), prop.text);
+    art.drawProp(prop.type, prop.x, objectY(prop), 1, propAlignmentSlope(level, prop), propGroundOffset(level, prop), prop.text);
   }
 }
 

@@ -5,6 +5,7 @@
 import { RADIUS, TAU, clamp, lerp } from "./config.js";
 import {
   ART_PIXEL,
+  createCanvas,
   createDrawingTools,
   createGameArt,
   propAlignmentSlope,
@@ -32,8 +33,11 @@ const SCENERY_SHADOWS = {
   boulder: { width: 24, alpha: 0.15, thickness: 3, lift: 24 },
 };
 const GHOST_ALPHA = 0.38;
-// Front props sit between the rider and the camera, so they are see-through.
-const FRONT_PROP_ALPHA = 0.82;
+// Where a front prop hides the rider, the hidden part shows as a silhouette.
+const XRAY_COLOR = "#fff3be";
+const XRAY_ALPHA = 0.55;
+// World units around the bike and rider that the x-ray layer covers.
+const XRAY_REACH = 70;
 // How far each prop's art reaches above its anchor, for culling.
 const PROP_RISE = { tree: 186, pine: 188 };
 
@@ -52,6 +56,8 @@ export function createRenderer(canvas) {
     level = null,
     cameraX = 0,
     cameraY = 0;
+  let xrayMask = null,
+    xrayRider = null;
 
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
@@ -170,28 +176,122 @@ export function createRenderer(canvas) {
     }
   }
 
-  function drawProps(layer, full) {
+  // `area` limits drawing to props that can reach a world-space box
+  // { left, top, right, bottom }; returns how many props were drawn.
+  function drawProps(layer, full, art = gameArt, area = null) {
+    let drawn = 0;
     for (const prop of level.props || []) {
       if (
         prop.layer !== layer ||
         (!full && (prop.type === "tree" || prop.type === "pine")) ||
-        !inView(prop.x, 70)
+        !inView(prop.x, 70) ||
+        (area && (prop.x < area.left - 70 || prop.x > area.right + 70))
       )
         continue;
       const ground = terrainAt(level, prop.x);
       if (!ground.solid && !Number.isFinite(prop.y)) continue;
       const y = Number.isFinite(prop.y) ? prop.y : ground.y;
-      if (!inView(prop.x, 70, y, PROP_RISE[prop.type] ?? 90)) continue;
-      gameArt.drawProp(
+      const rise = PROP_RISE[prop.type] ?? 90;
+      if (!inView(prop.x, 70, y, rise)) continue;
+      if (area && (y - rise > area.bottom || y + 70 < area.top)) continue;
+      art.drawProp(
         prop.type,
         prop.x,
         y,
-        layer === "front" ? FRONT_PROP_ALPHA : 1,
+        1,
         propAlignmentSlope(level, prop),
         propGroundOffset(level, prop),
         prop.text,
       );
+      drawn++;
     }
+    return drawn;
+  }
+
+  function xrayCanvas(width, height) {
+    const canvas = createCanvas(width, height);
+    const context = canvas.getContext("2d");
+    return {
+      canvas,
+      context,
+      art: createGameArt(context),
+      tools: createDrawingTools(context),
+    };
+  }
+
+  function fitLayer(layer, width, height) {
+    if (layer.canvas.width < width || layer.canvas.height < height) {
+      layer.canvas.width = Math.max(layer.canvas.width, width);
+      layer.canvas.height = Math.max(layer.canvas.height, height);
+    }
+    layer.context.setTransform(1, 0, 0, 1, 0, 0);
+    layer.context.globalCompositeOperation = "source-over";
+    layer.context.clearRect(0, 0, width, height);
+  }
+
+  // Redraws the bike and rider into a scratch layer, keeps only the pixels a
+  // front prop covers, and lays them over the scene as a flat silhouette.
+  function drawXray(ride, rider, state, full) {
+    const points = ride.ragdoll
+      ? [ride.rear, ride.front, ...ride.ragdoll.list]
+      : [ride.rear, ride.front];
+    const area = {
+      left: Math.min(...points.map((point) => point.x)) - XRAY_REACH,
+      right: Math.max(...points.map((point) => point.x)) + XRAY_REACH,
+      top: Math.min(...points.map((point) => point.y)) - XRAY_REACH,
+      bottom: Math.max(...points.map((point) => point.y)) + XRAY_REACH,
+    };
+    const transform = ctx.getTransform();
+    const x0 = Math.max(0, Math.floor(transform.a * area.left + transform.e));
+    const y0 = Math.max(0, Math.floor(transform.d * area.top + transform.f));
+    const x1 = Math.min(
+      canvas.width,
+      Math.ceil(transform.a * area.right + transform.e),
+    );
+    const y1 = Math.min(
+      canvas.height,
+      Math.ceil(transform.d * area.bottom + transform.f),
+    );
+    if (x1 <= x0 || y1 <= y0) return;
+    const width = x1 - x0,
+      height = y1 - y0;
+    xrayMask ??= xrayCanvas(width, height);
+    xrayRider ??= xrayCanvas(width, height);
+    const place = (layer) => {
+      fitLayer(layer, width, height);
+      layer.context.setTransform(
+        transform.a,
+        0,
+        0,
+        transform.d,
+        transform.e - x0,
+        transform.f - y0,
+      );
+      layer.context.imageSmoothingEnabled = false;
+    };
+
+    place(xrayMask);
+    if (!drawProps("front", full, xrayMask.art, area)) return;
+
+    place(xrayRider);
+    if (hair) hair.draw(xrayRider.tools.pixelPath, currentHairRoot(ride, false));
+    xrayRider.art.drawBike(bikeDrawing(ride, rider, flipVisual, state));
+    if (ride.ragdoll) xrayRider.art.drawRagdoll(ride.ragdoll.points, rider);
+
+    const context = xrayRider.context;
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.globalCompositeOperation = "destination-in";
+    context.drawImage(xrayMask.canvas, 0, 0, width, height, 0, 0, width, height);
+    context.globalCompositeOperation = "source-in";
+    context.fillStyle = XRAY_COLOR;
+    context.fillRect(0, 0, width, height);
+    context.globalCompositeOperation = "source-over";
+
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = XRAY_ALPHA;
+    ctx.drawImage(xrayRider.canvas, 0, 0, width, height, x0, y0, width, height);
+    ctx.restore();
   }
 
   function drawSkidMarks(skidMarks) {
@@ -307,7 +407,11 @@ export function createRenderer(canvas) {
         2,
       );
     }
-    gameArt.drawBike({
+    gameArt.drawBike(bikeDrawing(ride, rider, flip, state, geometry));
+  }
+
+  function bikeDrawing(ride, rider, flip, state, geometry = bikeGeometry(ride)) {
+    return {
       rear: ride.rear,
       front: ride.front,
       ...geometry,
@@ -317,7 +421,7 @@ export function createRenderer(canvas) {
       state,
       leanVisual: ride.leanVisual,
       rider,
-    });
+    };
   }
 
   function drawGhost(ghost, rider) {
@@ -551,6 +655,7 @@ export function createRenderer(canvas) {
     if (debug) drawPhysicsOverlay(ride.vehicle);
     if (ride.ragdoll) gameArt.drawRagdoll(ride.ragdoll.points, rider);
     drawProps("front", full);
+    drawXray(ride, rider, ride.ragdoll ? "ragdoll" : state, full);
     drawParticles(effects.particles, false);
     drawPopups(animationDt);
     effects.prune();
