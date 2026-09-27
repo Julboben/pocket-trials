@@ -259,8 +259,9 @@ When changing physics values, validate at least these cases:
 - [ ] Add import / export of savegames
 - [ ] Add water that you can drive through
 - [ ] Add a sign that you can write on in the editor
+- [ ] A bush prop
 - [ ] Biker customization: choose your bike (the original Pocket Classic bike is already drawn as the `classic` model), and later colors and gear
-- [ ] Highscore leaderboard
+- [ ] Online highscore leaderboard
 - [x] New physics engine with support for overhangs, loops, caves, and fully polygonal ground
 - [ ] Change level into trails
 

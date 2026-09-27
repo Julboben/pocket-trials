@@ -987,14 +987,12 @@ h2 {
   width: min(560px, 100%);
   margin: 13px auto 0;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
-#menu-start,
-#menu-new-game {
-  grid-column: 1 / -1;
-}
 .menu-action {
+  /* Full menu row unless paired up (see .menu-action-half). */
+  grid-column: 1 / -1;
   min-height: 76px;
   padding: 15px 17px;
   display: flex;
@@ -1008,6 +1006,11 @@ h2 {
   color: var(--color-text);
   box-shadow: var(--shadow-pixel);
   text-align: left;
+}
+/* New Game and Load Game share one row; they stack below the 520px breakpoint
+   where .menu-actions collapses to a single column (same as .level-grid). */
+.menu-action-half {
+  grid-column: auto;
 }
 .menu-action:hover,
 .level-card:hover,

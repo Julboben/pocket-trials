@@ -873,16 +873,165 @@ export function createGameArt(ctx) {
     ctx.rotate(propDrawAngle(type, slope));
     ctx.globalAlpha = alpha;
     if (type === "tree") {
-      rectDownTo(-4, -44, 8, "#66543f", 2, groundOffset);
-      drawPixelDisc(-8, -52, 14, "#477158", 2);
-      drawPixelDisc(8, -56, 16, "#568061", 2);
-      drawPixelDisc(0, -70, 12, "#618b66", 2);
+      // Mature deciduous tree: approximately 124 units wide
+      // and 180 units tall, centered over the ground anchor.
+      // The trunk stays upright; its base follows the terrain.
+
+      // Main trunk with a shaded side and a narrow sunlit edge.
+      rectDownTo(-8, -114, 16, "#66543f", 2, groundOffset);
+      rectDownTo(2, -110, 6, "#856d4f", 2, groundOffset);
+      rectDownTo(6, -100, 2, "#aa8a60", 2, groundOffset);
+
+      // Branch structure, drawn behind the foliage.
+      pixelPath(
+        [
+          [-2, -72],
+          [-8, -104],
+          [-28, -128],
+        ],
+        "#66543f",
+        3,
+        2,
+      );
+      pixelPath(
+        [
+          [2, -84],
+          [14, -112],
+          [32, -130],
+        ],
+        "#66543f",
+        3,
+        2,
+      );
+      pixelPath(
+        [
+          [4, -88],
+          [16, -112],
+          [30, -128],
+        ],
+        "#856d4f",
+        1,
+        2,
+      );
+
+      // Dark rear foliage forms a connected, uneven silhouette.
+      // Offset clusters keep the tree organic without shifting
+      // the overall crown away from the trunk.
+      drawPixelDisc(-30, -112, 28, "#477158", 2);
+      drawPixelDisc(30, -112, 30, "#477158", 2);
+      drawPixelDisc(-38, -132, 22, "#477158", 2);
+      drawPixelDisc(38, -136, 22, "#477158", 2);
+      drawPixelDisc(-18, -152, 24, "#477158", 2);
+      drawPixelDisc(14, -154, 24, "#477158", 2);
+      drawPixelDisc(0, -124, 34, "#477158", 2);
+
+      // Main leaf masses overlap the rear silhouette,
+      // leaving shadow pockets along the underside.
+      drawPixelDisc(-30, -132, 24, "#4e785c", 2);
+      drawPixelDisc(-10, -148, 26, "#4e785c", 2);
+      drawPixelDisc(22, -144, 28, "#568061", 2);
+      drawPixelDisc(36, -126, 20, "#568061", 2);
+      drawPixelDisc(2, -124, 28, "#568061", 2);
+      drawPixelDisc(-20, -112, 20, "#4e785c", 2);
+
+      // Smaller sunlit clusters on the upper-right surfaces.
+      // Broad patches read clearly at gameplay zoom.
+      drawPixelDisc(14, -158, 16, "#618b66", 2);
+      drawPixelDisc(34, -144, 12, "#618b66", 2);
+      drawPixelDisc(12, -132, 14, "#618b66", 2);
+
+      // A few chunky leaf accents, rather than scattered noise.
+      pixelRect(-16, -152, 8, 4, "#568061", 2);
+      pixelRect(-22, -148, 6, 4, "#568061", 2);
+      pixelRect(28, -116, 8, 4, "#618b66", 2);
+      pixelRect(22, -112, 6, 4, "#618b66", 2);
+      pixelRect(-10, -104, 8, 4, "#568061", 2);
+
+      // Exposed bark details below the crown.
+      rectAboveGround(-4, -68, 2, 14, "#856d4f", 2, groundOffset);
+      rectAboveGround(2, -44, 2, 10, "#66543f", 2, groundOffset);
+      rectAboveGround(-4, -26, 2, 8, "#856d4f", 2, groundOffset);
     } else if (type === "pine") {
-      rectDownTo(-2, -46, 6, "#66543f", 2, groundOffset);
-      pixelRect(-18, -58, 36, 12, "#477158", 2);
-      pixelRect(-12, -68, 24, 10, "#4e785c", 2);
-      pixelRect(-6, -76, 16, 8, "#568061", 2);
-      pixelRect(-2, -82, 8, 6, "#618b66", 2);
+      // Local x = 0 is the shared trunk / canopy center.
+      // Overall size: 92 units wide, 182 units tall.
+      // Keep the tree upright; only its base follows the terrain.
+
+      // Trunk: centered, with shaded bark and a narrow lit edge.
+      rectDownTo(-6, -100, 12, "#66543f", 2, groundOffset);
+      rectDownTo(2, -100, 4, "#856d4f", 2, groundOffset);
+      rectDownTo(4, -96, 2, "#aa8a60", 2, groundOffset);
+
+      // Subtle bark marks on the exposed lower trunk.
+      rectAboveGround(-4, -22, 2, 8, "#856d4f", 2, groundOffset);
+      rectAboveGround(0, -12, 2, 6, "#856d4f", 2, groundOffset);
+
+      // Broad lower boughs first; smaller tiers overlap them.
+      // Each tier shares EXACTLY the same horizontal center.
+      const tiers = [
+        { top: -112, bottom: -26, halfWidth: 46 },
+        { top: -140, bottom: -66, halfWidth: 34 },
+        { top: -164, bottom: -104, halfWidth: 24 },
+        { top: -182, bottom: -138, halfWidth: 14 },
+      ];
+
+      for (const { top, bottom, halfWidth } of tiers) {
+        const rows = (bottom - top) / 2;
+
+        for (let row = 0; row < rows; row++) {
+          const t = row / (rows - 1);
+
+          // A gently flared outline, not a stack of rectangles.
+          const half = Math.max(
+            2,
+            Math.round((2 + (halfWidth - 2) * Math.pow(t, 1.15)) / 2) * 2,
+          );
+
+          const py = top + row * 2;
+          const underside = row >= rows - 3;
+
+          // Both sides use the same span: [-half, +half].
+          for (let px = -half; px < half; px += 2) {
+            const cellCenter = px + 1;
+            const across = (cellCenter + half) / (half * 2);
+
+            // Small, mirrored notches under the branch skirts.
+            // Skip painting rather than erasing lower branches.
+            const fromCenter = Math.abs(cellCenter);
+            if (
+              row === rows - 1 &&
+              ((fromCenter > half * 0.28 && fromCenter < half * 0.46) ||
+                (fromCenter > half * 0.66 && fromCenter < half * 0.82))
+            ) {
+              continue;
+            }
+
+            let color = "#4e785c";
+
+            // Deep underside and shaded left flank.
+            if (underside || across < 0.24) {
+              color = "#477158";
+            } else if (across > 0.55 && across < 0.9) {
+              color = "#568061";
+            }
+
+            // A few grouped highlights, not random pixel noise.
+            if (
+              !underside &&
+              row > 3 &&
+              row % 9 < 2 &&
+              across > 0.64 &&
+              across < 0.84
+            ) {
+              color = "#618b66";
+            }
+
+            pixelRect(px, py, 2, 2, color, 2);
+          }
+        }
+      }
+
+      // Small highlight on the central leader.
+      pixelRect(0, -180, 2, 6, "#618b66", 2);
     } else if (type === "fence") {
       pixelRect(-22, -26, 4, 26, "#856d4f", 2);
       pixelRect(18, -26, 4, 26, "#856d4f", 2);
