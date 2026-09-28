@@ -31,6 +31,7 @@ const SCENERY_SHADOWS = {
   pine: { width: 14, alpha: 0.15, thickness: 3, lift: 38 },
   crystal: { width: 10, alpha: 0.14, thickness: 3, lift: 28 },
   boulder: { width: 24, alpha: 0.15, thickness: 3, lift: 24 },
+  cactus: { width: 12, alpha: 0.15, thickness: 3, lift: 22 },
 };
 const GHOST_ALPHA = 0.38;
 // Where a front prop hides the rider, the hidden part shows as a silhouette.
@@ -274,14 +275,25 @@ export function createRenderer(canvas) {
     if (!drawProps("front", full, xrayMask.art, area)) return;
 
     place(xrayRider);
-    if (hair) hair.draw(xrayRider.tools.pixelPath, currentHairRoot(ride, false));
+    if (hair)
+      hair.draw(xrayRider.tools.pixelPath, currentHairRoot(ride, false));
     xrayRider.art.drawBike(bikeDrawing(ride, rider, flipVisual, state));
     if (ride.ragdoll) xrayRider.art.drawRagdoll(ride.ragdoll.points, rider);
 
     const context = xrayRider.context;
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.globalCompositeOperation = "destination-in";
-    context.drawImage(xrayMask.canvas, 0, 0, width, height, 0, 0, width, height);
+    context.drawImage(
+      xrayMask.canvas,
+      0,
+      0,
+      width,
+      height,
+      0,
+      0,
+      width,
+      height,
+    );
     context.globalCompositeOperation = "source-in";
     context.fillStyle = XRAY_COLOR;
     context.fillRect(0, 0, width, height);
@@ -410,7 +422,13 @@ export function createRenderer(canvas) {
     gameArt.drawBike(bikeDrawing(ride, rider, flip, state, geometry));
   }
 
-  function bikeDrawing(ride, rider, flip, state, geometry = bikeGeometry(ride)) {
+  function bikeDrawing(
+    ride,
+    rider,
+    flip,
+    state,
+    geometry = bikeGeometry(ride),
+  ) {
     return {
       rear: ride.rear,
       front: ride.front,

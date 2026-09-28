@@ -50,6 +50,12 @@
       "name": "Custom Level"
     },
     {
+      "id": "custom:gravity-fair",
+      "source": "custom",
+      "file": "custom/gravity-fair.json",
+      "name": "Gravity Fair"
+    },
+    {
       "id": "custom:hanging-gardens",
       "source": "custom",
       "file": "custom/hanging-gardens.json",

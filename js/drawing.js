@@ -622,6 +622,103 @@ function drawBushCanopy({ pixelRect, drawPixelDisc }) {
   pixelRect(-4, -6, 6, 2, "#477158", 2);
 }
 
+// Saguaro body (trunk and arms) is cached like the canopies; only the base is
+// drawn live so it seats on the slope. The ground at the trunk never rises
+// above this height.
+const CACTUS_BODY_BOTTOM = -12;
+
+const CACTUS_COLORS = {
+  deep: "#3d6452",
+  shadow: "#477158",
+  mid: "#4e785c",
+  base: "#568061",
+  light: "#618b66",
+  spine: "#b9c4af",
+  petal: "#e8755b",
+  petalLight: "#f1b95d",
+  center: "#f4e9d1",
+};
+
+// Colour of one 2-unit column across a ribbed stem lit from the right.
+// `across` runs from 0 (left edge) to 1 (right edge).
+function cactusStemColor(across, groove) {
+  const c = CACTUS_COLORS;
+  if (across < 0.2) return groove ? c.deep : c.shadow;
+  if (across < 0.5) return groove ? c.shadow : c.mid;
+  if (across < 0.9) return groove ? c.mid : across > 0.6 ? c.light : c.base;
+  return c.base;
+}
+
+// Upright ribbed stem with a rounded crown. `foot` rounds the outer bottom
+// corner where an arm bends into its elbow, and shades its underside.
+function drawCactusStem(
+  { pixelRect },
+  left,
+  right,
+  top,
+  bottom,
+  { foot } = {},
+) {
+  const c = CACTUS_COLORS;
+  const width = right - left;
+  const wide = width >= 16;
+  for (let x = left; x < right; x += 2) {
+    const index = (x - left) / 2;
+    const fromEdge = Math.min(index, (right - 2 - x) / 2);
+    const across = (x - left + 1) / width;
+    const groove = fromEdge > 0 && index % 3 === 0;
+    const start =
+      top + (fromEdge === 0 ? (wide ? 4 : 2) : fromEdge === 1 && wide ? 2 : 0);
+    const end =
+      bottom -
+      (foot && fromEdge === 0 && (foot === "left") === (x === left) ? 2 : 0);
+
+    pixelRect(x, start, 2, end - start, cactusStemColor(across, groove), 2);
+    // Sun on the crown.
+    pixelRect(x, start, 2, 2, across > 0.35 ? c.light : c.base, 2);
+    if (foot) pixelRect(x, end - 2, 2, 2, across < 0.2 ? c.deep : c.shadow, 2);
+
+    // Sparse, staggered spines along the ridges, not scattered noise.
+    if (index % 3 === 1 && fromEdge > 0)
+      for (let y = start + 6 + (index % 2) * 6; y < end - 4; y += 12)
+        pixelRect(x, y, 2, 2, c.spine, 2);
+  }
+}
+
+// Horizontal elbow joining an arm to the trunk: sunlit top, shaded underside.
+function drawCactusLimb({ pixelRect }, left, right, top, bottom) {
+  const c = CACTUS_COLORS;
+  const width = right - left;
+  pixelRect(left, top, width, bottom - top, c.mid, 2);
+  pixelRect(left, top, width, 2, c.light, 2);
+  pixelRect(left, top + 2, width, 2, c.base, 2);
+  pixelRect(left, bottom - 2, width, 2, c.shadow, 2);
+}
+
+// Same cross-shaped blossom as the flowers prop.
+function drawCactusFlower({ pixelRect }, x, y, color) {
+  pixelRect(x - 2, y, 6, 2, color, 2);
+  pixelRect(x, y - 2, 2, 6, color, 2);
+  pixelRect(x, y, 2, 2, CACTUS_COLORS.center, 2);
+}
+
+function drawCactusBody(tools) {
+  const c = CACTUS_COLORS;
+  // Arms first, so the trunk overlaps their inner ends.
+  // Left arm: lower and shorter, on the trunk's shaded side.
+  drawCactusLimb(tools, -24, -8, -44, -36);
+  drawCactusStem(tools, -28, -18, -68, -36, { foot: "left" });
+  // Right arm: higher and taller, facing the sun.
+  drawCactusLimb(tools, 8, 24, -58, -48);
+  drawCactusStem(tools, 18, 30, -82, -48, { foot: "right" });
+
+  // Trunk, centred on x = 0.
+  drawCactusStem(tools, -10, 10, -96, CACTUS_BODY_BOTTOM);
+
+  drawCactusFlower(tools, 0, -98, c.petal);
+  drawCactusFlower(tools, 24, -84, c.petalLight);
+}
+
 // Local bounds [left, top, right, bottom] of each canopy sprite, in world units.
 const CANOPY_SPRITES = {
   tree: { bounds: [-64, -182, 64, TREE_CANOPY_BOTTOM], draw: drawTreeCanopy },
@@ -629,6 +726,10 @@ const CANOPY_SPRITES = {
   bush: {
     bounds: [-32, -44, 32, 0],
     draw: drawBushCanopy,
+  },
+  cactus: {
+    bounds: [-32, -104, 32, CACTUS_BODY_BOTTOM],
+    draw: drawCactusBody,
   },
 };
 const canopySprites = new Map();
@@ -675,6 +776,7 @@ const PROP_EXTENTS = {
   boulder: [-24, -42, 24],
   flowers: [-16, -22, 16],
   stump: [-12, -18, 12],
+  cactus: [-32, -104, 32],
   crystal: [-16, -42, 16],
 };
 
@@ -1451,6 +1553,29 @@ export function createGameArt(ctx) {
       rectAboveGround(-10, -14, 20, 2, "#aa8a60", 2, groundOffset);
       rectAboveGround(-4, -16, 8, 2, "#76573d", 2, groundOffset);
       rectAboveGround(-2, -16, 4, 2, "#c39664", 2, groundOffset);
+    } else if (type === "cactus") {
+      // Saguaro: about 60 units wide and 100 tall, centred on the anchor.
+      // The body is cached; the base follows the terrain column by column.
+      drawCanopy(type);
+
+      // Lower trunk continues the same ribs down to the ground.
+      for (let x = -10; x < 10; x += 2) {
+        const index = (x + 10) / 2;
+        const groove = index > 0 && index < 9 && index % 3 === 0;
+        rectDownTo(
+          x,
+          CACTUS_BODY_BOTTOM,
+          2,
+          cactusStemColor((x + 11) / 20, groove),
+          2,
+          groundOffset,
+        );
+      }
+
+      // A couple of desert pebbles seated on the local ground.
+      rectDownTo(-18, groundOffset(-16) - 4, 4, "#7f8d83", 2, groundOffset);
+      pixelRect(-18, groundOffset(-16) - 4, 2, 2, "#aeb5a7", 2);
+      rectDownTo(12, groundOffset(13) - 2, 4, "#697872", 2, groundOffset);
     } else if (type === "crystal") {
       // Solid shards painted in horizontal bands.
       // Ground clipping keeps their bases seated on uneven terrain.

@@ -334,6 +334,7 @@ export function validateLevel(level) {
         "boulder",
         "flowers",
         "stump",
+        "cactus",
         "crystal",
         "sign",
       ].includes(prop.type)
