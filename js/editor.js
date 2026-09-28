@@ -16,6 +16,7 @@ import {
   edgeCurve, rectangleBlock, normalizeBlocks,
 } from './terrain-geometry.js';
 import { createTerrainRenderer } from './terrain-render.js';
+import { gridSpacing, snapToAngleAndGrid } from './editor-snap.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('editor-canvas');
@@ -59,6 +60,8 @@ let future = [];
 // drag actually moves something, so a plain click never leaves an empty one.
 let dragSnapshot = null;
 let dragOrigin = null;
+let lastDragPointer = null;
+let snapGuide = null;
 const terrainArt = createTerrainRenderer();
 const GAME_ART_KEY = 'pocket-trials-editor-game-art-v1';
 let gameArt = (() => { try { return localStorage.getItem(GAME_ART_KEY) !== '0'; } catch (_) { return true; } })();
@@ -122,7 +125,7 @@ const materialOptions = () => [[BASE_MATERIAL, 'Level base material'], ...Object
 const TOOL_INFO = {
   select: {
     title: 'Select',
-    hint: 'Click a block to move it, or a point on its edge to move just that point; a selected point shows its curve handles. Alt-click an edge or inside a cave to select that whole ring, and Shift-click blocks to select several. Double-click an edge to add a point, Delete removes the selection, and Escape backs out. Empty cave space selects nothing, so a cave never picks the block around it.',
+    hint: 'Click a block to move it, or a point on its edge to move just that point; a selected point shows its curve handles. Alt-click an edge or inside a cave to select that whole ring, and Shift-click blocks to select several. Hold Shift while dragging a point or curve handle to lock it to 15° steps from its neighbour and to the grid. Double-click an edge to add a point, Delete removes the selection, and Escape backs out. Empty cave space selects nothing, so a cave never picks the block around it.',
   },
   pan: { title: 'Pan', hint: 'Drag to move the view. Hold Space or use the middle mouse button to pan with any tool.' },
   block: {
@@ -497,7 +500,7 @@ function drawTerrain() {
 }
 
 function drawGrid(width, height) {
-  const spacing = zoom < .65 ? 100 : 50;
+  const spacing = gridSpacing(zoom);
   const left = Math.floor(cameraX / spacing) * spacing;
   const top = Math.floor(cameraY / spacing) * spacing;
   const right = cameraX + width / zoom;
@@ -627,6 +630,26 @@ function render() {
   drawTerrain();
   drawObjects();
   drawHandles();
+  drawSnapGuide();
+  ctx.restore();
+}
+
+/** While a Shift-drag is snapping, show the line it is locked to and its angle and length. */
+function drawSnapGuide() {
+  if (!snapGuide) return;
+  const { from, to, angle, length } = snapGuide;
+  ctx.save();
+  ctx.setLineDash([6 / zoom, 4 / zoom]);
+  ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y);
+  ctx.strokeStyle = '#fff3be'; ctx.lineWidth = 1.5 / zoom; ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath(); ctx.arc(to.x, to.y, 8 / zoom, 0, Math.PI * 2);
+  ctx.strokeStyle = '#fff3be'; ctx.stroke();
+  ctx.font = `${12 / zoom}px system-ui, sans-serif`;
+  const label = `${Math.round(angle * 10) / 10}\u00b0 \u00b7 ${Math.round(length)}`;
+  const x = to.x + 12 / zoom, y = to.y - 12 / zoom;
+  ctx.lineWidth = 3 / zoom; ctx.strokeStyle = '#17262b'; ctx.strokeText(label, x, y);
+  ctx.fillStyle = '#fff3be'; ctx.fillText(label, x, y);
   ctx.restore();
 }
 
@@ -1425,15 +1448,53 @@ canvas.addEventListener('pointermove', event => {
     return;
   }
   if (!dragging || !selection) return;
+  lastDragPointer = { clientX: event.clientX, clientY: event.clientY };
+  dragSelectionTo(lastDragPointer, event.shiftKey);
+});
+
+/**
+ * The points a Shift-drag measures its angle from: the neighbours of a dragged
+ * point along its ring, or the point a curve handle belongs to.
+ */
+function snapAnchors() {
+  if (selection?.kind !== 'blockPoint' && selection?.kind !== 'blockHandle') return null;
+  const boundary = boundaryAt(selection);
+  const node = boundary?.nodes[selection.index];
+  if (!boundary || !node) return null;
+  if (selection.kind === 'blockHandle') return [node];
+  const count = boundary.nodes.length;
+  return [boundary.nodes[(selection.index + count - 1) % count], boundary.nodes[(selection.index + 1) % count]]
+    .filter(other => other !== node);
+}
+
+/** Move the dragged selection to where the pointer is, snapping points and handles while Shift is held. */
+function dragSelectionTo(pointer, shift) {
   if (dragSnapshot) { pushHistory(dragSnapshot); dragSnapshot = null; }
   // The selection moves by as much as the pointer has, so grabbing a block
   // away from its centre does not make it jump.
-  const point = pointerWorld(event);
+  const point = pointerWorld(pointer);
   const origin = dragOrigin?.position;
-  if (origin) updateSelectedPosition(origin[0] + point.x - dragOrigin.pointer.x, origin[1] + point.y - dragOrigin.pointer.y);
-  else updateSelectedPosition(point.x, point.y);
+  let x = origin ? origin[0] + point.x - dragOrigin.pointer.x : point.x;
+  let y = origin ? origin[1] + point.y - dragOrigin.pointer.y : point.y;
+  snapGuide = null;
+  const anchors = shift ? snapAnchors() : null;
+  if (anchors) {
+    const snapped = snapToAngleAndGrid({ x, y }, anchors, gridSpacing(zoom));
+    x = snapped.x; y = snapped.y;
+    if (snapped.anchor) snapGuide = { from: snapped.anchor, to: { x, y }, angle: snapped.angle, length: snapped.length };
+  }
+  updateSelectedPosition(x, y);
   syncInspector(); render();
-});
+}
+
+// Pressing or releasing Shift mid-drag turns snapping on or off straight away,
+// without waiting for the pointer to move.
+const onShiftChange = event => {
+  if (event.key !== 'Shift' || !dragging || !selection || pendingShape || !lastDragPointer) return;
+  dragSelectionTo(lastDragPointer, event.type === 'keydown');
+};
+window.addEventListener('keydown', onShiftChange);
+window.addEventListener('keyup', onShiftChange);
 canvas.addEventListener('dblclick', event => {
   if (tool !== 'select') return;
   const point = pointerWorld(event);
@@ -1465,7 +1526,10 @@ const endPointer = event => {
     syncInspector(); render();
     return;
   }
+  const hadGuide = snapGuide !== null;
   dragging = false; panning = false; pointerStart = null; dragSnapshot = null; dragOrigin = null;
+  lastDragPointer = null; snapGuide = null;
+  if (hadGuide) render();
 };
 
 /** Drop a Block or Cut drag that is still being drawn, without applying it. */

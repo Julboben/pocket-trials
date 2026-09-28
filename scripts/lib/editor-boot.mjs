@@ -98,6 +98,40 @@ if (kind === 'interact') {
     && current().terrainBlocks[count - 1].regions[0].outer.nodes[0].x === newBefore + 50;
   key('Delete');
   out.multiDeleted = current().terrainBlocks.length === count - 2;
+
+  // Shift-dragging a point locks it to 15 degree steps from a neighbour, and to the grid.
+  toolButton('block').click();
+  drag([100, 100], [300, 300]);
+  const ring = () => current().terrainBlocks.at(-1).regions[0].outer.nodes;
+  const corner = () => ring().reduce((best, node) => Math.hypot(node.x - 300, node.y - 300) < Math.hypot(best.x - 300, best.y - 300) ? node : best);
+  const cornerId = corner().id;
+  const cornerIndex = ring().findIndex(node => node.id === cornerId);
+  const grab = ring()[cornerIndex];
+  const from = { x: grab.x, y: grab.y };
+  fire('pointerdown', world(from.x, from.y));
+  fire('pointermove', { ...world(from.x + 73, from.y + 12), shiftKey: true });
+  const snapped = ring()[cornerIndex];
+  const neighbours = [ring()[(cornerIndex + 3) % 4], ring()[(cornerIndex + 1) % 4]];
+  const stepFrom = neighbour => {
+    const angle = Math.atan2(snapped.y - neighbour.y, snapped.x - neighbour.x) * 180 / Math.PI / 15;
+    return Math.abs(angle - Math.round(angle)) < 1e-6;
+  };
+  out.snapAngle = neighbours.some(stepFrom);
+  out.snapGrid = snapped.x % 50 === 0 || snapped.y % 50 === 0;
+  out.snapMoved = snapped.x !== from.x || snapped.y !== from.y;
+  // Releasing Shift mid-drag gives the pointer its exact position back.
+  for (const handler of windowListeners.get('keyup') || []) handler({ type: 'keyup', key: 'Shift', shiftKey: false, preventDefault() {} });
+  out.releaseExact = ring()[cornerIndex].x === from.x + 73 && ring()[cornerIndex].y === from.y + 12;
+  // Pressing it again snaps again.
+  for (const handler of windowListeners.get('keydown') || []) handler({ type: 'keydown', key: 'Shift', shiftKey: true, preventDefault() {} });
+  out.repressSnaps = ring()[cornerIndex].x === snapped.x && ring()[cornerIndex].y === snapped.y;
+  fire('pointerup');
+  // Without Shift the point goes exactly where the pointer does.
+  const plainFrom = { ...ring()[cornerIndex] };
+  fire('pointerdown', world(plainFrom.x, plainFrom.y));
+  fire('pointermove', world(plainFrom.x + 7, plainFrom.y + 3));
+  fire('pointerup');
+  out.plainExact = ring()[cornerIndex].x === plainFrom.x + 7 && ring()[cornerIndex].y === plainFrom.y + 3;
   out.errors = [];
   process.stdout.write(JSON.stringify(out));
   process.exit(0);

@@ -178,6 +178,12 @@ const reported = (report, label) => {
   check('Shift-click selects several blocks', /2 BLOCKS/.test(report.multiTitle || ''), `("${report.multiTitle}")`);
   check('dragging moves every selected block', report.multiMoved === true);
   check('Delete removes every selected block', report.multiDeleted === true);
+  check('Shift-drag moves a point', report.snapMoved === true);
+  check('Shift-drag locks a point to 15 degree steps from a neighbour', report.snapAngle === true);
+  check('Shift-drag puts a point on a grid line', report.snapGrid === true);
+  check('releasing Shift mid-drag restores the exact position', report.releaseExact === true);
+  check('pressing Shift mid-drag snaps again', report.repressSnaps === true);
+  check('dragging without Shift is not snapped', report.plainExact === true);
 }
 
 console.log(failures ? `\n${failures} failing` : '\nEditor DOM tests passed.');
