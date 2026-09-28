@@ -1,7 +1,7 @@
 {
   "name": "The Orchard",
   "label": "THE ORCHARD / 01",
-  "goal": 2110.180701442906,
+  "goal": 2110.8027309476865,
   "terrain": "grass",
   "description": "Learn the rhythm: build speed on gentle rollers, lean forward on climbs, and settle the bike before each landing.",
   "start": {
@@ -104,7 +104,7 @@
     "silver": 14.5,
     "bronze": 19
   },
-  "finishY": null,
+  "finishY": 266.0827966734379,
   "terrainVersion": 2,
   "terrainBlocks": [
     {

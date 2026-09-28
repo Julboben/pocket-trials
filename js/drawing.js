@@ -474,6 +474,44 @@ export function createDrawingTools(ctx) {
   };
 }
 
+// Start pennant: dark wooden pole with a yellow, red-bordered flag pointing
+// right. (x, y) is the ground point under the pole; `groundOffset(localX)`
+// gives the ground height relative to y, so the pole's base follows the slope.
+export function drawStartPennant(ctx, x, y, groundOffset = () => 0) {
+  const { pixelRect } = createDrawingTools(ctx);
+  const ax = Math.round(x / ART_PIXEL) * ART_PIXEL;
+  const ay = Math.round(y / ART_PIXEL) * ART_PIXEL;
+  const rect = (px, py, w, h, color) =>
+    pixelRect(ax + px, ay + py, w, h, color, ART_PIXEL);
+
+  // Pole: shaded left, lit right; each column reaches down to the ground.
+  for (const [px, color] of [
+    [-2, "#4d3f2f"],
+    [0, "#66543f"],
+    [2, "#856d4f"],
+  ]) {
+    const bottom = groundOffset(px + 1);
+    if (bottom > -100) rect(px, -100, 2, bottom + 100, color);
+  }
+
+  // Pennant with a red border, lit along the top and shaded along the bottom.
+  const TOP = -94,
+    MID = -78,
+    HALF = 16,
+    LENGTH = 40;
+  for (let py = TOP; py < MID + HALF; py += 2) {
+    const d = Math.abs(py + 1 - MID);
+    const outer = Math.round((LENGTH * (1 - d / HALF)) / 2) * 2;
+    if (outer <= 0) continue;
+    rect(4, py, outer, 2, py < MID ? "#d63b2c" : "#a8322a");
+    const inner = d < 10 ? Math.round((28 * (1 - d / 10)) / 2) * 2 : 0;
+    if (inner > 0) rect(8, py, inner, 2, py < MID - 4 ? "#ffe39a" : "#f6cf5a");
+  }
+
+  // Shadow the pennant casts on the pole's lit edge.
+  rect(2, -62, 2, 4, "#66543f");
+}
+
 const APPLE_SPRITE = [
   ".....S.LL..",
   ".....SLL...",
@@ -829,6 +867,13 @@ function canopySprite(type) {
   canopySprites.set(type, sprite);
   return sprite;
 }
+// A sign reading "GO" (or a "start" prop) is drawn as the start pennant.
+const isStartSign = (type, text) =>
+  type === "start" ||
+  (type === "sign" &&
+    String(text || "")
+      .trim()
+      .toUpperCase() === "GO");
 
 // Generous local bounds [left, top, right] of each prop, in world units; the
 // bottom follows the ground under it.
@@ -843,6 +888,7 @@ const PROP_EXTENTS = {
   stump: [-12, -18, 12],
   cactus: [-32, -104, 32],
   crystal: [-16, -42, 16],
+  start: [-6, -102, 48],
 };
 
 function propBounds(type, angle, groundOffset, text) {
@@ -907,6 +953,7 @@ export function createGameArt(ctx) {
     createDrawingTools(ctx);
   const TAU = Math.PI * 2;
   const spikeSprites = new Map();
+  const flowerSprites = new Map();
   const backgroundStrips = new Map();
   const ragdollHelmetSprites = new Map();
   let bikeSprite = null;
@@ -941,27 +988,112 @@ export function createGameArt(ctx) {
     }
   }
 
-  function drawFlag(x, y, unlocked, remaining = 0) {
-    pixelRect(x - 2, y - 108, 4, 108, "#304a42", 2);
-    pixelRect(x - 4, y - 112, 8, 6, "#ed9150", 2);
-    const size = 8;
-    for (let row = 0; row < 3; row++)
-      for (let col = 0; col < 4; col++) {
-        pixelRect(
-          x + 2 + col * size,
-          y - 104 + row * size,
-          size,
-          size,
-          (row + col) % 2 ? (unlocked ? "#28483a" : "#758477") : "#f2e9cf",
-          2,
+  // How far above the ground anchor the flower's centre floats.
+  const FINISH_FLOWER_LIFT = 22;
+  const FLOWER_COLORS = {
+    open: {
+      edge: "#b9c4af",
+      shade: "#e8ecd9",
+      petal: "#fffdf4",
+      ring: "#d9953a",
+      core: "#f4c64e",
+      glint: "#fff0a8",
+    },
+    locked: {
+      edge: "#758477",
+      shade: "#b9c4af",
+      petal: "#d9dccb",
+      ring: "#9c8452",
+      core: "#c9b27a",
+      glint: "#e8dcb0",
+    },
+  };
+
+  // Petals are rendered once per state, snapped to their palette, then rotated
+  // with nearest-neighbour sampling so they stay pixel-sharp.
+  function flowerSprite(locked) {
+    const key = locked ? "locked" : "open";
+    if (flowerSprites.has(key)) return flowerSprites.get(key);
+    const reach = 20;
+    const size = (reach * 2) / ART_PIXEL;
+    const canvas = createCanvas(size, size);
+    const context = canvas.getContext("2d");
+    context.setTransform(
+      1 / ART_PIXEL,
+      0,
+      0,
+      1 / ART_PIXEL,
+      size / 2,
+      size / 2,
+    );
+    const c = FLOWER_COLORS[key];
+    const petals = (distance, along, across, color) => {
+      context.fillStyle = color;
+      for (let i = 0; i < 8; i++) {
+        const angle = (i * TAU) / 8;
+        context.beginPath();
+        context.ellipse(
+          Math.cos(angle) * distance,
+          Math.sin(angle) * distance,
+          along,
+          across,
+          angle,
+          0,
+          TAU,
         );
+        context.fill();
       }
-    const text = unlocked
-      ? "FINISH"
-      : `${remaining} APPLE${remaining === 1 ? "" : "S"}`;
-    const width = pixelTextWidth(text);
-    pixelRect(x - width / 2 - 4, y - 62, width + 8, 16, "#f4e9d1", 2);
-    drawPixelText(text, x, y - 59, "#365345");
+    };
+    petals(9, 8, 4, c.edge); // outline
+    petals(9, 6.5, 3, c.shade); // shaded petal base
+    petals(10, 5, 2, c.petal); // bright petal face
+    quantizeToPalette(context, size, size, [c.edge, c.shade, c.petal]);
+    const sprite = { canvas, reach };
+    flowerSprites.set(key, sprite);
+    return sprite;
+  }
+
+  // Pass your game clock as `time` (seconds) so the flower stops when paused.
+  function drawFlag(x, y, unlocked, remaining = 0, time) {
+    const seconds =
+      time ??
+      (typeof performance !== "undefined" ? performance.now() : Date.now()) /
+        1000;
+    const cx = Math.round(x / ART_PIXEL) * ART_PIXEL;
+    const cy = Math.round((y - FINISH_FLOWER_LIFT) / ART_PIXEL) * ART_PIXEL;
+    const c = FLOWER_COLORS[unlocked ? "open" : "locked"];
+
+    if (unlocked) drawPixelDisc(cx, cy, 24, "#fbf0ce50", ART_PIXEL);
+
+    // Rotating petals (8-fold symmetric, so the angle can wrap every 1/8 turn).
+    const sprite = flowerSprite(!unlocked);
+    const angle = (seconds * (unlocked ? 1.6 : 0.35)) % (TAU / 8);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+    ctx.drawImage(
+      sprite.canvas,
+      -sprite.reach,
+      -sprite.reach,
+      sprite.reach * 2,
+      sprite.reach * 2,
+    );
+    ctx.restore();
+
+    // Centre stays unrotated, so its highlight always faces the sun.
+    drawPixelDisc(cx, cy, 7, c.ring, ART_PIXEL);
+    drawPixelDisc(cx, cy, 5, c.core, ART_PIXEL);
+    pixelRect(cx, cy - 4, 4, 2, c.glint, 2);
+    pixelRect(cx + 2, cy - 2, 2, 2, c.glint, 2);
+
+    if (!unlocked) {
+      const text = `${remaining} APPLE${remaining === 1 ? "" : "S"}`;
+      const width = pixelTextWidth(text) + 8;
+      const top = cy - 48;
+      pixelRect(cx + 1 - width / 2, top, width, 18, "#f4e9d1", 2);
+      drawPixelText(text, cx + 1, top + 4, "#365345");
+    }
   }
 
   function starPath(context, points, outer, inner) {
@@ -1441,6 +1573,7 @@ export function createGameArt(ctx) {
     groundOffset = () => 0,
     text = "",
   ) {
+    if (isStartSign(type, text)) type = "start";
     if (
       alpha < 1 &&
       drawPropLayer(type, x, y, alpha, slope, groundOffset, text)
@@ -1672,6 +1805,9 @@ export function createGameArt(ctx) {
       shard(-8, -26, 6, -2);
       shard(8, -24, 6, 2);
       shard(0, -40, 8, 0);
+    } else if (type === "start") {
+      // Same pennant as the start line, drawn by the shared function.
+      drawStartPennant(ctx, 0, 0, groundOffset);
     } else if (type === "sign") {
       // Upright post carrying a small writable board.
       // The board sizes itself to the prop's `text` (clamped to
