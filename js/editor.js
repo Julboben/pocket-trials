@@ -179,7 +179,7 @@ const materialOptions = () => [
 const TOOL_INFO = {
   select: {
     title: "Select",
-    hint: "Click a block to move it, or a point on its edge to move just that point; a selected point shows its curve handles. Alt-click an edge or inside a cave to select that whole ring, and Shift-click blocks to select several. Hold Shift while dragging a point or curve handle to lock it to 15° steps from its neighbour and to the grid. Double-click an edge to add a point, Delete removes the selection, and Escape backs out. Empty cave space selects nothing, so a cave never picks the block around it.",
+    hint: "Click a block to move it, or a point on its edge to move just that point; a selected point shows its curve handles. Alt-click an edge or inside a cave to select that whole ring, and Shift-click blocks to select several. Hold Shift while dragging a point or curve handle to lock it to 15° steps from its neighbour and to the grid. Double-click an edge to add a point, Delete removes the selection, and Escape backs out. Empty cave space selects nothing, so a cave never picks the block around it. Shortcuts: V B C A S P G F H pick tools, arrows nudge (Shift ×10), Cmd/Ctrl+D duplicates, [ ] change prop type, = − 0 zoom.",
   },
   pan: {
     title: "Pan",
@@ -203,11 +203,11 @@ const TOOL_INFO = {
   },
   apple: {
     title: "Apple",
-    hint: "Click to place an apple exactly where you click. Every apple must be collected to finish.",
+    hint: "Click to place an apple exactly where you click. Every apple must be collected to finish. The tool stays active; Esc returns to Select.",
   },
   spike: {
     title: "Spike",
-    hint: "Click to place a spinning spike. Touching it with the wheels or rider is fatal.",
+    hint: "Click to place a spinning spike. Touching it with the wheels or rider is fatal. The tool stays active; Esc returns to Select.",
     fields: [
       {
         key: "radius",
@@ -227,7 +227,7 @@ const TOOL_INFO = {
   },
   prop: {
     title: "Prop",
-    hint: "Click to place decorative scenery. Props do not collide.",
+    hint: "Click to place decorative scenery. Props do not collide. The tool stays active; Esc returns to Select.",
     fields: [
       { key: "type", label: "Prop", type: "select", options: propTypeOptions },
       {
@@ -269,6 +269,26 @@ const DEFAULT_TOOL_SETTINGS = {
   start: { facing: "1" },
 };
 
+// Single-key tool shortcuts, used while the canvas has focus.
+const TOOL_KEYS = {
+  KeyV: "select",
+  KeyH: "pan",
+  KeyB: "block",
+  KeyC: "cut",
+  KeyA: "apple",
+  KeyS: "spike",
+  KeyP: "prop",
+  KeyG: "start",
+  KeyF: "finish",
+};
+const TOOL_KEY_LABELS = Object.fromEntries(
+  Object.entries(TOOL_KEYS).map(([code, name]) => [name, code.slice(3)]),
+);
+// Tools that place a new object where you click, and show a preview of it.
+const PLACING_TOOLS = new Set(["apple", "spike", "prop"]);
+let hoverPoint = null;
+let lastNudge = 0;
+
 const toolSettings = (() => {
   try {
     const stored = JSON.parse(localStorage.getItem(TOOL_SETTINGS_KEY) || "{}");
@@ -307,7 +327,9 @@ function clampSetting(field, value) {
 
 function renderToolSettings() {
   const info = TOOL_INFO[tool];
-  $("tool-settings-title").textContent = info.title.toUpperCase();
+  const key = TOOL_KEY_LABELS[tool];
+  $("tool-settings-title").textContent =
+    info.title.toUpperCase() + (key ? ` · ${key}` : "");
   $("tool-hint").textContent = info.hint;
   $("tool-settings-fields").replaceChildren(
     ...(info.fields || []).map((field) => {
@@ -353,6 +375,7 @@ function renderToolSettings() {
 }
 
 function setTool(next) {
+  hoverPoint = null;
   tool = next;
   document
     .querySelectorAll("[data-tool]")
@@ -928,6 +951,8 @@ function render() {
   drawProps("back");
   drawTerrain();
   drawObjects();
+  drawPlacementPreview();
+  drawHandles();
   drawHandles();
   drawSnapGuide();
   ctx.restore();
@@ -1532,7 +1557,9 @@ function addAt(point) {
     level.finishY = groundY(point.x);
     selection = { kind: "goal" };
   }
-  setTool("select");
+  // Start and finish are one of a kind, so those go back to Select; every
+  // other tool stays active for the next click.
+  if (tool === "start" || tool === "finish") setTool("select");
   syncInspector();
   render();
 }
@@ -1612,6 +1639,100 @@ function commitShape(kind, points, closed) {
   }
   showStatus("warning", reason || "The cut did not overlap any block.");
   return false;
+}
+
+/** Zoom by a factor, keeping the middle of the view where it is. */
+function zoomAtCenter(factor) {
+  const { width, height } = viewportSize();
+  const centerX = cameraX + width / 2 / zoom;
+  const centerY = cameraY + height / 2 / zoom;
+  zoom = Math.max(0.35, Math.min(2.5, zoom * factor));
+  cameraX = centerX - width / 2 / zoom;
+  cameraY = centerY - height / 2 / zoom;
+  updateZoom();
+}
+
+/** Move the selection with the arrow keys. Held or rapid presses are one undo step. */
+function nudgeSelection(key, big) {
+  const position = selectedPosition();
+  if (!position) return;
+  const step = big ? 10 : 1;
+  const dx = key === "ArrowLeft" ? -step : key === "ArrowRight" ? step : 0;
+  const dy = key === "ArrowUp" ? -step : key === "ArrowDown" ? step : 0;
+  if (!dx && !dy) return;
+  const now = performance.now();
+  if (now - lastNudge > 600) pushHistory();
+  lastNudge = now;
+  updateSelectedPosition(position[0] + dx, position[1] + dy);
+  syncInspector();
+  render();
+}
+
+/** Copy the selected apple, prop or spike just to the right of the original. */
+function duplicateSelection() {
+  const kind = selection?.kind;
+  const list = { apple: level.apples, prop: level.props, spike: level.spikes }[
+    kind
+  ];
+  if (!list) {
+    showStatus("info", "Duplicate works on apples, props and spikes.");
+    return;
+  }
+  const original = list[selection.index];
+  const [x, y] = selectedPosition();
+  pushHistory();
+  // A ground-anchored original gives a ground-anchored copy.
+  list.push({
+    ...structuredClone(original),
+    x: x + 24,
+    y: original.y === null ? null : y,
+  });
+  selection = { kind, index: list.length - 1 };
+  syncInspector();
+  render();
+}
+
+/** Step through prop types: the Prop tool's type, or else the selected prop's. */
+function cyclePropType(direction) {
+  const types = propTypeOptions().map(([value]) => value);
+  const next = (current) =>
+    types[(types.indexOf(current) + direction + types.length) % types.length];
+  if (tool === "prop") {
+    toolSettings.prop.type = next(toolSettings.prop.type);
+    saveToolSettings();
+    renderToolSettings();
+  } else if (selection?.kind === "prop") {
+    const prop = level.props[selection.index];
+    pushHistory();
+    prop.type = next(prop.type);
+    if (prop.type === "sign" && typeof prop.text !== "string") prop.text = "";
+    syncInspector();
+  } else return;
+  render();
+}
+
+/** A faded copy of what the current tool will place, under the cursor. */
+function drawPlacementPreview() {
+  if (!hoverPoint || !PLACING_TOOLS.has(tool)) return;
+  const { x, y } = hoverPoint;
+  if (tool === "prop") {
+    const prop = { x, y, type: toolSettings.prop.type, layer: "back" };
+    art.drawProp(
+      prop.type,
+      x,
+      y,
+      0.5,
+      propAlignmentSlope(level, prop),
+      propGroundOffset(level, prop),
+      "",
+    );
+    return;
+  }
+  ctx.save();
+  ctx.globalAlpha = 0.5;
+  if (tool === "apple") art.drawApple(x, y, { glow: false });
+  else art.drawSpike(x, y, toolSettings.spike.radius);
+  ctx.restore();
 }
 
 function deleteSelection() {
@@ -1924,6 +2045,11 @@ document
   .forEach((button) =>
     button.addEventListener("click", () => setTool(button.dataset.tool)),
   );
+// Hover tooltips naming each tool's shortcut.
+document.querySelectorAll("[data-tool]").forEach((button) => {
+  const key = TOOL_KEY_LABELS[button.dataset.tool];
+  if (key) button.title = `${button.textContent.trim()} (${key})`;
+});
 document
   .querySelectorAll("[data-tab]")
   .forEach((button) =>
@@ -2087,6 +2213,10 @@ canvas.addEventListener("pointermove", (event) => {
     render();
     return;
   }
+  if (PLACING_TOOLS.has(tool) && !dragging) {
+    hoverPoint = pointerWorld(event);
+    render();
+  }
   if (pendingShape) {
     const point = pointerWorld(event);
     const last = pendingShape.points.at(-1);
@@ -2199,7 +2329,6 @@ const endPointer = (event) => {
         "That was too small to be a block. Drag a larger rectangle.",
       );
     }
-    setTool("select");
     syncInspector();
     render();
     return;
@@ -2226,6 +2355,11 @@ function cancelPendingShape() {
 }
 canvas.addEventListener("pointerup", endPointer);
 canvas.addEventListener("pointercancel", endPointer);
+canvas.addEventListener("pointerleave", () => {
+  if (!hoverPoint) return;
+  hoverPoint = null;
+  render();
+});
 
 window.addEventListener("keydown", (event) => {
   if (playtestOpen()) {
@@ -2250,6 +2384,20 @@ window.addEventListener("keydown", (event) => {
   if ((event.metaKey || event.ctrlKey) && event.code === "KeyS") {
     event.preventDefault();
     if (canSave()) saveTrail();
+    return;
+  }
+  if ((event.metaKey || event.ctrlKey) && event.code === "KeyY") {
+    event.preventDefault();
+    redo();
+    return;
+  }
+  if (
+    (event.metaKey || event.ctrlKey) &&
+    event.code === "KeyD" &&
+    document.activeElement === canvas
+  ) {
+    event.preventDefault();
+    duplicateSelection();
     return;
   }
   if (
@@ -2281,8 +2429,37 @@ window.addEventListener("keydown", (event) => {
       return;
     }
   }
-  if (event.key === "Escape" || event.code === "KeyV") setTool("select");
-  if (event.code === "KeyH") setTool("pan");
+  if (event.key === "Escape") {
+    setTool("select");
+    render();
+    return;
+  }
+  if (TOOL_KEYS[event.code] && !event.shiftKey) {
+    setTool(TOOL_KEYS[event.code]);
+    render();
+    return;
+  }
+  if (event.key.startsWith("Arrow")) {
+    event.preventDefault();
+    nudgeSelection(event.key, event.shiftKey);
+    return;
+  }
+  if (event.key === "[" || event.key === "]") {
+    cyclePropType(event.key === "]" ? 1 : -1);
+    return;
+  }
+  if (event.key === "=" || event.key === "+") {
+    zoomAtCenter(1.2);
+    return;
+  }
+  if (event.key === "-") {
+    zoomAtCenter(1 / 1.2);
+    return;
+  }
+  if (event.key === "0") {
+    zoomAtCenter(1 / zoom);
+    return;
+  }
 });
 window.addEventListener("keyup", (event) => {
   if (event.code === "Space") spaceHeld = false;

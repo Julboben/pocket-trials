@@ -1,12 +1,12 @@
 {
   "name": "Rolling Country",
   "label": "ROLLING COUNTRY / 02",
-  "goal": 2828.10546875,
+  "goal": 2857.6612135586133,
   "terrain": "dirt",
   "description": "Momentum is your friend. Carry speed through valleys, ease over crests, and lean forward when the front wheel gets light.",
   "start": {
-    "x": 90,
-    "y": null,
+    "x": 71.36791241817957,
+    "y": 308,
     "facing": 1
   },
   "apples": [
@@ -130,7 +130,7 @@
     "silver": 21,
     "bronze": 28
   },
-  "finishY": 184.70703125,
+  "finishY": 273.65826047839687,
   "terrainVersion": 2,
   "terrainBlocks": [
     {
@@ -143,7 +143,7 @@
             "nodes": [
               {
                 "id": "legacy-ground-n0",
-                "x": 0,
+                "x": -100,
                 "y": 320,
                 "mode": "corner",
                 "in": null,
@@ -1151,7 +1151,7 @@
               },
               {
                 "id": "legacy-ground-n68",
-                "x": 2960,
+                "x": 3000,
                 "y": 318,
                 "mode": "corner",
                 "in": null,
@@ -1159,8 +1159,26 @@
                 "edge": "straight"
               },
               {
+                "id": "n2svh",
+                "x": 3000,
+                "y": -600,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n3enx",
+                "x": 4600,
+                "y": -600,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
                 "id": "legacy-ground-n69",
-                "x": 2960,
+                "x": 4600,
                 "y": 1020,
                 "mode": "corner",
                 "in": null,
@@ -1168,9 +1186,27 @@
                 "edge": "straight"
               },
               {
-                "id": "legacy-ground-n70",
-                "x": 0,
+                "id": "n2bll",
+                "x": -1300,
                 "y": 1020,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n2q4s",
+                "x": -1300,
+                "y": -800,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n1evk",
+                "x": -100,
+                "y": -800,
                 "mode": "corner",
                 "in": null,
                 "out": null,
