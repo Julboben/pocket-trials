@@ -1,0 +1,332 @@
+{
+  "name": "Gravity Fair",
+  "label": "GRAVITY FAIR / EXPERT",
+  "goal": 5850,
+  "terrain": "grass",
+  "description": "Seven rides, one ticket. 1) WARM-UP ROLLERS: pump the bumps; the last crest pops you into a floating apple. 2) THE CATAPULT: the gap lip sits mid-ramp and acts as a kicker, so grab the air apple and land on the downslope. 3) THE BIG WALL: drop into the bowl and power up the 62-degree wall to the summit apple. If you stall, roll back, flip, use the left wall and pump again. Do not overshoot into the killer above. 4) KILLER STEPPING STONES: hop three small islands over a pit lined with spinning killers, one apple per island. 5) THE CRAWLSPACE: rollers under a low rock ceiling with hanging killers; keep the front down. 6) THE BIG SEND: long run-in to a 40-degree kicker over a 160-unit gap; the air apple is just past the lip. If you miss it, the far edge also kicks leftward: flip and jump back. 7) VICTORY HOP: one last small gap to the flag. Not playtested; jump distances, head clearances and medal times are estimates.",
+  "start": {
+    "x": 90,
+    "y": null,
+    "facing": 1
+  },
+  "points": [
+    [0, 400],
+    [220, 400],
+    [360, 360],
+    [500, 400],
+    [640, 345],
+    [780, 400],
+    [920, 335],
+    [1060, 400],
+    [1180, 400],
+    [1360, 280],
+    [1520, 420],
+    [1680, 440],
+    [1800, 390],
+    [1980, 560],
+    [2080, 560],
+    [2340, 250],
+    [2500, 340],
+    [2640, 290],
+    [2760, 620],
+    [3000, 620],
+    [3240, 620],
+    [3460, 370],
+    [3620, 400],
+    [3780, 380],
+    [3940, 410],
+    [4100, 390],
+    [4300, 470],
+    [4520, 250],
+    [4800, 420],
+    [5000, 440],
+    [5160, 370],
+    [5300, 410],
+    [5440, 345],
+    [5580, 390],
+    [5740, 375],
+    [6020, 375]
+  ],
+  "gaps": [
+    [1320, 1460],
+    [4480, 4640],
+    [5440, 5530]
+  ],
+  "platforms": [
+    {
+      "points": [
+        [2700, 300],
+        [2790, 288],
+        [2880, 302]
+      ],
+      "bottom": [
+        [2700, 336],
+        [2790, 324],
+        [2880, 338]
+      ],
+      "material": "brick"
+    },
+    {
+      "points": [
+        [2950, 312],
+        [3040, 300],
+        [3130, 316]
+      ],
+      "bottom": [
+        [2950, 348],
+        [3040, 336],
+        [3130, 352]
+      ],
+      "material": "rock"
+    },
+    {
+      "points": [
+        [3200, 326],
+        [3290, 314],
+        [3380, 334]
+      ],
+      "bottom": [
+        [3200, 362],
+        [3290, 350],
+        [3380, 370]
+      ],
+      "material": "snow"
+    }
+  ],
+  "paths": [
+    {
+      "points": [
+        [3540, 225],
+        [3700, 248],
+        [3860, 240],
+        [4020, 252],
+        [4160, 222]
+      ],
+      "closed": false,
+      "thickness": 28,
+      "material": "rock"
+    }
+  ],
+  "apples": [
+    {
+      "x": 360,
+      "y": null
+    },
+    {
+      "x": 640,
+      "y": null
+    },
+    {
+      "x": 920,
+      "y": 262
+    },
+    {
+      "x": 1350,
+      "y": 245
+    },
+    {
+      "x": 2030,
+      "y": null
+    },
+    {
+      "x": 2340,
+      "y": null
+    },
+    {
+      "x": 2790,
+      "y": 230
+    },
+    {
+      "x": 3040,
+      "y": 242
+    },
+    {
+      "x": 3290,
+      "y": 256
+    },
+    {
+      "x": 3780,
+      "y": null
+    },
+    {
+      "x": 3940,
+      "y": null
+    },
+    {
+      "x": 4515,
+      "y": 212
+    },
+    {
+      "x": 5160,
+      "y": null
+    },
+    {
+      "x": 5700,
+      "y": null
+    }
+  ],
+  "spikes": [
+    {
+      "x": 2380,
+      "y": 120,
+      "radius": 18,
+      "spin": 0.6
+    },
+    {
+      "x": 2800,
+      "y": 592,
+      "radius": 28,
+      "spin": 1
+    },
+    {
+      "x": 2960,
+      "y": 592,
+      "radius": 28,
+      "spin": -1
+    },
+    {
+      "x": 3120,
+      "y": 592,
+      "radius": 28,
+      "spin": 1
+    },
+    {
+      "x": 3270,
+      "y": 583,
+      "radius": 26,
+      "spin": -1
+    },
+    {
+      "x": 3700,
+      "y": 274,
+      "radius": 14,
+      "spin": 0.8
+    },
+    {
+      "x": 4020,
+      "y": 280,
+      "radius": 14,
+      "spin": -0.8
+    },
+    {
+      "x": 4560,
+      "y": 90,
+      "radius": 20,
+      "spin": 0.7
+    }
+  ],
+  "props": [
+    {
+      "x": 170,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 500,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 780,
+      "y": null,
+      "type": "flowers",
+      "layer": "back"
+    },
+    {
+      "x": 1100,
+      "y": null,
+      "type": "rock",
+      "layer": "back"
+    },
+    {
+      "x": 1680,
+      "y": null,
+      "type": "crystal",
+      "layer": "back"
+    },
+    {
+      "x": 2060,
+      "y": null,
+      "type": "stump",
+      "layer": "back"
+    },
+    {
+      "x": 2330,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 2790,
+      "y": 288,
+      "type": "flowers",
+      "layer": "back"
+    },
+    {
+      "x": 3040,
+      "y": 300,
+      "type": "flowers",
+      "layer": "back"
+    },
+    {
+      "x": 3290,
+      "y": 314,
+      "type": "flowers",
+      "layer": "back"
+    },
+    {
+      "x": 3480,
+      "y": null,
+      "type": "rock",
+      "layer": "back"
+    },
+    {
+      "x": 4230,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 4900,
+      "y": null,
+      "type": "crystal",
+      "layer": "back"
+    },
+    {
+      "x": 5100,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 5620,
+      "y": null,
+      "type": "flowers",
+      "layer": "back"
+    },
+    {
+      "x": 5920,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    }
+  ],
+  "weather": {
+    "sun": 0.9,
+    "clouds": 0.35,
+    "rain": 0,
+    "lightning": 0
+  },
+  "medals": {
+    "gold": 34,
+    "silver": 45,
+    "bronze": 65
+  },
+  "fallY": 820,
+  "sky": "#efe8d6",
+  "sun": "#f4b871",
+  "mountain": "#b3c2ab",
+  "spray": ["#6f8b59", "#9c8b68", "#c5b496"]
+}
