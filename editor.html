@@ -110,19 +110,23 @@
                         <section class="tool-group">
                             <h3>TERRAIN</h3>
                             <div class="tool-grid">
-                                <button class="tool" data-tool="ground">
-                                    ＋ <span>Ground</span>
+                                <button class="tool" data-tool="block">
+                                    ▣ <span>Block</span>
                                 </button>
-                                <button class="tool" data-tool="gap">
-                                    ⌁ <span>Gap</span>
-                                </button>
-                                <button class="tool" data-tool="platform">
-                                    ▰ <span>Island</span>
-                                </button>
-                                <button class="tool" data-tool="path">
-                                    ◯ <span>Path / loop</span>
+                                <button class="tool" data-tool="cut">
+                                    ✂ <span>Cut</span>
                                 </button>
                             </div>
+                            <label class="checkbox-row"
+                                >Show game art
+                                <input id="game-art" type="checkbox" checked
+                            /></label>
+                            <p class="tool-hint" id="legacy-terrain-note" hidden>
+                                This trail also has older Ground, Gap, Island and
+                                Path terrain. Use CONVERT TO BLOCKS in the LEVEL
+                                tab to make it editable, or CLEAR LEGACY TERRAIN
+                                once you have rebuilt it with blocks.
+                            </p>
                         </section>
                         <section class="tool-group">
                             <h3>OBJECTS</h3>
@@ -178,6 +182,16 @@
                         <label
                             >Fall Y <input id="fall-y" type="number" step="10"
                         /></label>
+                        <fieldset id="legacy-terrain-actions" hidden>
+                            <legend>OLDER TERRAIN</legend>
+                            <p class="tool-hint" id="legacy-terrain-summary"></p>
+                            <button id="convert-legacy-terrain">
+                                CONVERT TO BLOCKS
+                            </button>
+                            <button class="danger" id="clear-legacy-terrain">
+                                CLEAR LEGACY TERRAIN
+                            </button>
+                        </fieldset>
                         <fieldset>
                             <legend>WEATHER 0–1</legend>
                             <label
@@ -236,9 +250,9 @@
                         aria-label="Editable trail canvas"
                     ></canvas>
                     <div class="canvas-help">
-                        DRAG POINTS OR PLATFORM BODIES · DOUBLE-CLICK AN ISLAND
-                        EDGE OR THE GROUND TO ADD A POINT · TWO-FINGER PAN ·
-                        PINCH TO ZOOM
+                        DRAG BLOCKS OR POINTS · DOUBLE-CLICK A BLOCK EDGE TO ADD
+                        A POINT · DRAG TO DRAW A CUT · TWO-FINGER PAN · PINCH TO
+                        ZOOM
                     </div>
                 </div>
 
@@ -279,6 +293,25 @@
                                 >Closed loop
                                 <input id="selection-closed" type="checkbox"
                             /></label>
+                            <label id="selection-snap-row" hidden
+                                >Snap to ground
+                                <input id="selection-snap" type="checkbox"
+                            /></label>
+                            <label id="selection-node-row" hidden
+                                >Point
+                                <select id="selection-node">
+                                    <option value="corner">Corner</option>
+                                    <option value="smooth">Smooth</option>
+                                    <option value="independent">Independent</option>
+                                </select></label
+                            >
+                            <label id="selection-edge-row" hidden
+                                >Edge
+                                <select id="selection-edge">
+                                    <option value="straight">Straight</option>
+                                    <option value="curve">Curved</option>
+                                </select></label
+                            >
                             <label id="selection-facing-row" hidden
                                 >Facing
                                 <select id="selection-facing">

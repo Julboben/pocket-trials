@@ -95,7 +95,7 @@ export function createRide(level, { seed = 1 } = {}) {
       taken: false,
     })),
     spikes: (level.spikes || []).map((spike) =>
-      normalizeSpike(spike, level.points),
+      normalizeSpike(spike, level.points || null, terrainAt(level, Number(spike?.x) || 0)?.y ?? null),
     ),
     seed,
     random: seededRandom(seed),

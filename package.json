@@ -8,6 +8,6 @@
     "replays": "node scripts/record-replays.mjs",
     "check": "node scripts/check-syntax.mjs",
     "typecheck": "npx -y -p typescript@5 tsc -p jsconfig.json",
-    "test": "node scripts/test-det-math.mjs && node scripts/test-terrain.mjs && node scripts/test-physics.mjs && node scripts/test-vehicle-physics.mjs && node scripts/test-level-schema.mjs && node scripts/test-replays.mjs"
+    "test": "node scripts/test-det-math.mjs && node scripts/test-terrain-geometry.mjs && node scripts/test-terrain-runtime.mjs && node scripts/test-terrain-render.mjs && node scripts/test-terrain-integration.mjs && node scripts/test-terrain-schema.mjs && node scripts/test-terrain-migration.mjs && node scripts/test-editor-terrain.mjs && node scripts/test-editor-gestures.mjs && node scripts/test-editor-dom.mjs && node scripts/test-editor-markup.mjs && node scripts/test-terrain.mjs && node scripts/test-physics.mjs && node scripts/test-vehicle-physics.mjs && node scripts/test-level-schema.mjs && node scripts/test-replays.mjs"
   }
 }

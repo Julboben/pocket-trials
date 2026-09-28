@@ -1,4 +1,4 @@
-import { curveAt, seatedSurfaceAt } from "./terrain.js";
+import { terrainAt } from "./terrain.js";
 
 const GROUND_ALIGNED_PROP_SPANS = {
   bush: [-28, 28],
@@ -7,17 +7,75 @@ const GROUND_ALIGNED_PROP_SPANS = {
   boulder: [-22, 22],
 };
 
+/**
+ * The surface a prop is resting on, at an x.
+ *
+ * The search runs from `referenceY` downwards and takes the highest solid
+ * surface at or below it. That is what makes a prop follow the ground it stands
+ * on rather than a surface above it: a fence on a hillside follows the hillside,
+ * not an island floating over it, and a prop on a cave floor follows that
+ * floor rather than the ceiling.
+ */
+function surfaceAt(level, x, referenceY) {
+  const surface = terrainAt(level, x, referenceY);
+  return surface?.solid ? surface.y : null;
+}
+
+/**
+ * The height a prop stands at: its own y when it has one, otherwise the surface
+ * directly beneath it.
+ */
+function propGroundHeight(level, prop) {
+  if (Number.isFinite(prop.y)) return prop.y;
+  return surfaceAt(level, prop.x, null);
+}
+
+/**
+ * Whether a prop is planted on the terrain or deliberately floating.
+ *
+ * A prop the author dragged onto a surface is planted and follows the slope
+ * under it. A prop left in mid-air keeps a level base, which is what makes a
+ * floating prop read as floating.
+ */
+function isPlanted(level, prop) {
+  if (!Number.isFinite(prop.y)) return true;
+  const below = surfaceAt(level, prop.x, prop.y);
+  if (below === null) return false;
+  return Math.abs(below - prop.y) <= PLANTED_TOLERANCE;
+}
+
+// How close the ground has to be to a hand-placed prop for it to count as
+// resting on it rather than floating. Generous, because a prop is placed by
+// hand and usually sits a few units off the surface it is meant to be on, and
+// because the alternative is a whole hillside of scenery that has silently
+// stopped following the ground.
+const PLANTED_TOLERANCE = 24;
+
+/**
+ * How far above a prop the search for its ground may reach.
+ *
+ * A prop's footprint can straddle a slope, so its uphill end sits higher than
+ * the prop's own anchor. Searching strictly downwards would find nothing there
+ * and the prop would read as flat, so the search starts a little above the prop
+ * and walks down to the surface it stands on.
+ */
+const PROP_SLOPE_WINDOW = 90;
+
+function propSlope(level, prop, reference) {
+  const [left, right] = GROUND_ALIGNED_PROP_SPANS[prop.type];
+  const a = surfaceAt(level, prop.x + left, reference);
+  const b = surfaceAt(level, prop.x + right, reference);
+  if (a === null || b === null) return null;
+  return (b - a) / (right - left);
+}
+
 export function propAlignmentSlope(level, prop) {
-  const span = GROUND_ALIGNED_PROP_SPANS[prop.type];
-  if (!span) return 0;
-  const surface = seatedSurfaceAt(level, prop.x, prop.y);
-  if (!surface) return 0;
-  const points = surface.platform?.points || level.points;
-  const [left, right] = span;
-  return (
-    (curveAt(points, prop.x + right).y - curveAt(points, prop.x + left).y) /
-    (right - left)
-  );
+  if (!GROUND_ALIGNED_PROP_SPANS[prop.type]) return 0;
+  const standing = propGroundHeight(level, prop);
+  if (standing === null) return 0;
+  if (!isPlanted(level, prop)) return 0;
+  const slope = propSlope(level, prop, standing - PROP_SLOPE_WINDOW);
+  return slope === null ? 0 : slope;
 }
 
 export function propDrawAngle(type, slope = 0) {
@@ -60,11 +118,18 @@ export function sunShadowOffset({
 }
 
 export function propGroundOffset(level, prop) {
-  const surface = seatedSurfaceAt(level, prop.x, prop.y);
-  if (!surface) return () => 0;
-  const points = surface.platform?.points || level.points;
-  const originY = Number.isFinite(prop.y) ? prop.y : surface.y;
-  return (localX) => curveAt(points, prop.x + localX).y - originY;
+  const standing = propGroundHeight(level, prop);
+  if (standing === null) return () => 0;
+  const originY = Number.isFinite(prop.y) ? prop.y : standing;
+  // A floating prop keeps a level base. A planted one follows the ground across
+  // its whole width, and its search reaches above its anchor so the uphill end
+  // of a sloping footprint is found.
+  if (!isPlanted(level, prop)) return () => 0;
+  const reference = standing - PROP_SLOPE_WINDOW;
+  return (localX) => {
+    const y = surfaceAt(level, prop.x + localX, reference);
+    return y === null ? 0 : y - originY;
+  };
 }
 
 // World units per art pixel. Gameplay art snaps to this grid; far parallax uses twice it.

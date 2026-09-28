@@ -68,6 +68,12 @@
       "name": "Mind Your Head"
     },
     {
+      "id": "custom:the-orchard-copy",
+      "source": "custom",
+      "file": "custom/the-orchard-copy.json",
+      "name": "The Orchard Copy"
+    },
+    {
       "id": "custom:wrong-way-up",
       "source": "custom",
       "file": "custom/wrong-way-up.json",

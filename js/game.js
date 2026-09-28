@@ -53,11 +53,15 @@ export function startGame() {
     enabled: physicsDebugEnabled,
     step: STEP,
     inspectPoint(point, round) {
-      const ground = terrainAt(session.level, point.x);
+      const ground = terrainAt(session.level, point.x, point.y);
       return {
         groundY: round(ground.y),
         curveSlope: round(ground.slope),
-        segmentSlope: round(terrainSegmentSlopeAt(session.level.points, point.x))
+        // The legacy segment slope only exists while a ground line does; a trail
+        // rebuilt from blocks reports the same slope from the compiled surface.
+        segmentSlope: round(Array.isArray(session.level.points)
+          ? terrainSegmentSlopeAt(session.level.points, point.x)
+          : ground.slope)
       };
     }
   });

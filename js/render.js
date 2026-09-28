@@ -14,6 +14,7 @@ import {
   sunShadowOffset,
 } from "./drawing.js";
 import { terrainAt, groundShadowSamples } from "./terrain.js";
+import { finishHeight } from "./level-schema.js";
 import { createTerrainRenderer } from "./terrain-render.js";
 import { vehicleMetrics } from "./vehicle-physics.js";
 import { ragdollCenter } from "./ragdoll.js";
@@ -41,6 +42,8 @@ const XRAY_ALPHA = 0.25;
 const XRAY_REACH = 70;
 // How far each prop's art reaches above its anchor, for culling.
 const PROP_RISE = { tree: 186, pine: 188 };
+// How far a hair strand may sink into a floor and still be lifted back onto it.
+const HAIR_GROUND_ALLOWANCE = 8;
 
 /** @param {HTMLCanvasElement} canvas */
 export function createRenderer(canvas) {
@@ -365,7 +368,10 @@ export function createRenderer(canvas) {
       root,
       rest,
       back: ride.ragdoll ? null : hairBackSupport(riderPose(ride)),
-      groundAt: (x) => terrainAt(level, x),
+      // The floor under each strand, not the topmost surface: under an
+      // overhang the topmost one is above the rider, and clamping to it drew
+      // the hair as a pole up to the peak.
+      groundAt: (x, y) => terrainAt(level, x, y - HAIR_GROUND_ALLOWANCE),
     });
   }
 
@@ -643,7 +649,7 @@ export function createRenderer(canvas) {
     drawSceneryShadows(ride, now, full);
     drawParticles(effects.particles, true);
     if (inView(level.goal, 65)) {
-      const goalY = terrainAt(level, level.goal).y;
+      const goalY = finishHeight(level);
       if (inView(level.goal, 65, goalY, 115))
         gameArt.drawFlag(
           level.goal,
