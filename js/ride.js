@@ -20,7 +20,8 @@ import {
   terrainCollisionsAt,
   terrainSweepCollision,
 } from "./terrain.js";
-import { normalizeSpike } from "./level-schema.js";
+import { normalizeSpike, finishFlower } from "./level-schema.js";
+import { bikeTouchesFlower } from "./finish.js";
 import { createRagdoll, stepRagdoll } from "./ragdoll.js";
 import { atan2, cos, exp, hypot, sin } from "./det-math.js";
 
@@ -33,7 +34,7 @@ import { atan2, cos, exp, hypot, sin } from "./det-math.js";
  * Bump whenever a change makes old inputs replay differently, so stored
  * ghosts and replay fixtures from older physics are not trusted.
  */
-export const RIDE_VERSION = 1;
+export const RIDE_VERSION = 2;
 
 /** @type {Array<[string, number, number, number]>} name, local x, local y, radius */
 const RIDER_PROBES = [
@@ -43,7 +44,6 @@ const RIDER_PROBES = [
 ];
 // Grace period after spawning before rider probes can crash the bike.
 const SPAWN_GRACE = 0.2;
-const GOAL_REACH = 20;
 
 /** Small deterministic PRNG (mulberry32) so crashes replay identically. */
 export function seededRandom(seed = 1) {
@@ -89,6 +89,7 @@ export function createRide(level, { seed = 1 } = {}) {
     rear,
     front,
     vehicle: createVehicle(rear, front),
+    flower: finishFlower(level),
     apples: level.apples.map((apple) => ({
       x: apple.x,
       y: Number.isFinite(apple.y) ? apple.y : terrainAt(level, apple.x).y - 60,
@@ -393,7 +394,8 @@ export function stepRide(ride, input = {}, hooks = {}) {
     }
   }
 
-  if (mx > level.goal - GOAL_REACH) {
+  // The finish is a flower: the bike has to touch it, from either side.
+  if (bikeTouchesFlower(ride.flower, { rear, front, probes: Object.values(riderContacts) })) {
     if (ride.collected === ride.apples.length) {
       ride.status = "won";
       events.push({ type: "win", time: ride.elapsed, x: mx, y: my });

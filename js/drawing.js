@@ -1,4 +1,5 @@
 import { terrainAt } from "./terrain.js";
+import { FINISH_FLOWER_LIFT } from "./finish.js";
 
 const GROUND_ALIGNED_PROP_SPANS = {
   bush: [-28, 28],
@@ -988,8 +989,6 @@ export function createGameArt(ctx) {
     }
   }
 
-  // How far above the ground anchor the flower's centre floats.
-  const FINISH_FLOWER_LIFT = 22;
   const FLOWER_COLORS = {
     open: {
       edge: "#b9c4af",

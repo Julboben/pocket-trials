@@ -14,7 +14,7 @@
  * @property {string} [label]
  * @property {Point2[]} points ground polyline
  * @property {{ x: number, y?: number | null, facing: 1 | -1 }} start
- * @property {number} goal x coordinate of the finish gate
+ * @property {number} goal x coordinate of the finish flower, which may be on either side of the start
  * @property {number} [fallY]
  * @property {{ x: number, y?: number | null }[]} apples
  * @property {Array<Partial<Spike>>} [spikes]
@@ -80,6 +80,7 @@
  * @property {Wheel} rear
  * @property {Wheel} front
  * @property {Vehicle} vehicle
+ * @property {{ x: number, y: number }} flower centre of the finish flower the bike has to touch
  * @property {{ x: number, y: number, taken: boolean }[]} apples
  * @property {Spike[]} spikes
  * @property {'running' | 'crashed' | 'won'} status

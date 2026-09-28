@@ -13,7 +13,7 @@ import {
   sunLight,
   sunShadowOffset,
 } from "./drawing.js";
-import { terrainAt, groundShadowSamples } from "./terrain.js";
+import { terrainAt, groundShadowSamples, terrainGeometry } from "./terrain.js";
 import { finishHeight } from "./level-schema.js";
 import { createTerrainRenderer } from "./terrain-render.js";
 import { vehicleMetrics } from "./vehicle-physics.js";
@@ -26,6 +26,19 @@ import {
   hairBackSupport,
 } from "./rider-hair.js";
 import { reducedMotion } from "./state.js";
+
+/**
+ * How far left the camera may look. A trail with a ground line starts at x 0
+ * as it always did, but blocks can reach into negative x, and the finish may be
+ * out there, so the camera follows the bike as far as the terrain goes.
+ */
+function cameraLeftLimit(level) {
+  const blocks = terrainGeometry(level);
+  const groundLeft = Array.isArray(level.points) && level.points.length ? level.points[0][0] : Infinity;
+  const left = Math.min(groundLeft, blocks ? blocks.bounds.left : Infinity);
+  if (!Number.isFinite(left)) return 0;
+  return blocks ? Math.min(0, left - 150) : Math.min(0, left);
+}
 
 const SCENERY_SHADOWS = {
   tree: { width: 16, alpha: 0.15, thickness: 3, lift: 36 },
@@ -619,6 +632,7 @@ export function createRenderer(canvas) {
       height: H,
       dt,
       fallY: level.fallY || 620,
+      minX: cameraLeftLimit(level),
     });
     const flipSmoothing = reducedMotion ? 1 : 1 - Math.exp(-18 * dt);
     flipVisual = lerp(flipVisual, ride.facing, flipSmoothing);

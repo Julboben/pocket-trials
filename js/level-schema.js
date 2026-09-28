@@ -3,6 +3,7 @@ import { curveAt, platformUndersideAt, terrainAt, terrainGeometry, invalidateTer
 import { hypot } from "./det-math.js";
 import { SIGN_MAX_CHARACTERS } from "./drawing.js";
 import { RADIUS, WHEELBASE } from "./config.js";
+import { FINISH_FLOWER_LIFT, bikeTouchesFlower } from "./finish.js";
 import {
   normalizeBlocks as normalizeTerrainBlocks, validateBlocks as validateTerrainBlocks,
   regionBounds,
@@ -92,12 +93,17 @@ export function levelTerrainBlocks(level) {
  * "stand on whatever surface is here". That is what lets a finish sit on a
  * platform, or high above a cave, instead of being pinned to the ground line.
  *
- * The run still ends on the finish's x, so an apple past that x can never be
- * collected however high the finish stands.
+ * The finish is a flower that floats a little above that anchor; the run ends
+ * when the bike touches it, wherever the bike comes from.
  */
 export function finishHeight(level) {
   if (Number.isFinite(level?.finishY)) return level.finishY;
   return surfaceBelow(level, level?.goal ?? 0, null)?.y ?? (level?.fallY || 620);
+}
+
+/** The centre of the finish flower, which is what the bike has to touch. */
+export function finishFlower(level) {
+  return { x: level.goal, y: finishHeight(level) - FINISH_FLOWER_LIFT };
 }
 
 /**
@@ -423,6 +429,19 @@ export function medalFor(medals, time) {
   return MEDALS.find((name) => time <= medals[name]) || null;
 }
 
+/**
+ * Would the bike, standing where it starts, already be touching the finish
+ * flower? Then the run would end before the rider could move.
+ */
+function startTouchesFinish(level) {
+  const { x, y, facing } = level.start;
+  const wheelY = Number.isFinite(y) ? y : (terrainAt(level, x, null).y - RADIUS);
+  const rear = { x: x - WHEELBASE / 2, y: wheelY }, front = { x: x + WHEELBASE / 2, y: wheelY };
+  // A rider sits about 43 units above the axles, slightly forward.
+  const probes = [{ x: x + 3 * (facing < 0 ? -1 : 1), y: wheelY - 43, radius: 6 }, { x, y: wheelY - 30, radius: 5 }];
+  return bikeTouchesFlower(finishFlower(level), { rear, front, probes });
+}
+
 export function validateLevel(level) {
   const messages = [];
   const error = (text) => messages.push({ type: "error", text });
@@ -462,16 +481,25 @@ export function validateLevel(level) {
     if (x - previousX < 70 && Math.abs(y - previousY) > 70)
       warning(`Ground segment ${index}–${index + 1} is very steep.`);
   }
-  const finalX = level.points?.at(-1)?.[0] || blocks.reduce(
-    (furthest, block) => Math.max(furthest, ...block.regions.map(region => regionBounds(region).right)), 0);
-  if (level.goal <= 115) {
-    error("The finish must be after the start.");
+  // The finish may sit on either side of the start, so it is checked against
+  // both ends of the terrain rather than against a position to the right.
+  const blockLeft = blocks.length ? Math.min(...blocks.flatMap(block => block.regions.map(region => regionBounds(region).left))) : Infinity;
+  const blockRight = blocks.length ? Math.max(...blocks.flatMap(block => block.regions.map(region => regionBounds(region).right))) : -Infinity;
+  const firstX = Math.min(level.points?.[0]?.[0] ?? Infinity, blockLeft);
+  const finalX = level.points?.at(-1)?.[0] ? Math.max(level.points.at(-1)[0], blockRight) : blockRight;
+  if (Number.isFinite(firstX) && level.goal <= firstX) {
+    error(
+      `The finish at x ${Math.round(level.goal)} is before the start of the terrain (x ${Math.round(firstX)}). Move it onto the trail, or extend the blocks.`,
+    );
   } else if (level.goal >= finalX) {
     // Naming the extent makes this actionable: on a trail built from blocks the
     // old wording referred to a ground point that no longer exists.
     error(
       `The finish at x ${Math.round(level.goal)} is past the end of the terrain (x ${Math.round(finalX)}). Move it onto the trail, or extend the blocks.`,
     );
+  }
+  if (Number.isFinite(level.start?.x) && startTouchesFinish(level)) {
+    error("The finish flower touches the bike at the start, so the trail would end at once. Move the finish away from the start.");
   }
   for (const [index, gap] of (level.gaps || []).entries()) {
     if (gap[1] <= gap[0]) error(`Gap ${index + 1} has an invalid range.`);
@@ -572,14 +600,6 @@ export function validateLevel(level) {
   )
     error("The ground-anchored start position is inside a gap.");
   for (const apple of level.apples || []) {
-    if (apple.x >= level.goal) {
-      // The run ends on the finish's x however high the finish stands, so an
-      // apple beyond it can never be collected. Saying so is more useful than
-      // "at or beyond the finish", which reads as if the apple's height mattered.
-      warning(
-        `Apple at x ${Math.round(apple.x)} is past the finish at x ${Math.round(level.goal)}, so it cannot be collected. Move the finish right, or the apple left.`,
-      );
-    }
     if (
       apple.y === null &&
       (level.gaps || []).some((gap) => apple.x > gap[0] && apple.x < gap[1])
