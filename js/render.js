@@ -34,7 +34,10 @@ import { reducedMotion } from "./state.js";
  */
 function cameraLeftLimit(level) {
   const blocks = terrainGeometry(level);
-  const groundLeft = Array.isArray(level.points) && level.points.length ? level.points[0][0] : Infinity;
+  const groundLeft =
+    Array.isArray(level.points) && level.points.length
+      ? level.points[0][0]
+      : Infinity;
   const left = Math.min(groundLeft, blocks ? blocks.bounds.left : Infinity);
   if (!Number.isFinite(left)) return 0;
   return blocks ? Math.min(0, left - 150) : Math.min(0, left);
@@ -670,6 +673,7 @@ export function createRenderer(canvas) {
           goalY,
           ride.collected === ride.apples.length,
           ride.apples.length - ride.collected,
+          reducedMotion ? 0 : ride.time,
         );
     }
     for (const spike of ride.spikes) {

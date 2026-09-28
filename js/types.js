@@ -15,6 +15,7 @@
  * @property {Point2[]} points ground polyline
  * @property {{ x: number, y?: number | null, facing: 1 | -1 }} start
  * @property {number} goal x coordinate of the finish flower, which may be on either side of the start
+ * @property {number | null} [finishY] height the finish stands at; null means on the surface below it
  * @property {number} [fallY]
  * @property {{ x: number, y?: number | null }[]} apples
  * @property {Array<Partial<Spike>>} [spikes]

@@ -1,11 +1,18 @@
 import { terrainMaterials } from "./materials.js";
-import { curveAt, platformUndersideAt, terrainAt, terrainGeometry, invalidateTerrain } from "./terrain.js";
+import {
+  curveAt,
+  platformUndersideAt,
+  terrainAt,
+  terrainGeometry,
+  invalidateTerrain,
+} from "./terrain.js";
 import { hypot } from "./det-math.js";
 import { SIGN_MAX_CHARACTERS } from "./drawing.js";
 import { RADIUS, WHEELBASE } from "./config.js";
 import { FINISH_FLOWER_LIFT, bikeTouchesFlower } from "./finish.js";
 import {
-  normalizeBlocks as normalizeTerrainBlocks, validateBlocks as validateTerrainBlocks,
+  normalizeBlocks as normalizeTerrainBlocks,
+  validateBlocks as validateTerrainBlocks,
   regionBounds,
 } from "./terrain-geometry.js";
 import { legacyTerrainBlocks } from "./terrain-legacy.js";
@@ -17,24 +24,79 @@ export const TERRAIN_FORMAT_VERSION = 2;
 
 /** Blocks for a brand new level: one rectangular slab to build on. */
 export function createBlankTerrainBlocks(level = {}) {
-  return normalizeTerrainBlocks([{
-    id: "block-1",
-    material: level.terrain || "grass",
-    regions: [{
-      outer: {
-        id: "boundary-1",
-        nodes: [
-          { id: "n1", x: 0, y: 320, mode: "corner", in: null, out: null, edge: "straight" },
-          { id: "n2", x: 420, y: 300, mode: "corner", in: null, out: null, edge: "straight" },
-          { id: "n3", x: 900, y: 336, mode: "corner", in: null, out: null, edge: "straight" },
-          { id: "n4", x: 1400, y: 300, mode: "corner", in: null, out: null, edge: "straight" },
-          { id: "n5", x: 1400, y: 580, mode: "corner", in: null, out: null, edge: "straight" },
-          { id: "n6", x: 0, y: 580, mode: "corner", in: null, out: null, edge: "straight" },
+  return normalizeTerrainBlocks(
+    [
+      {
+        id: "block-1",
+        material: level.terrain || "grass",
+        regions: [
+          {
+            outer: {
+              id: "boundary-1",
+              nodes: [
+                {
+                  id: "n1",
+                  x: 0,
+                  y: 320,
+                  mode: "corner",
+                  in: null,
+                  out: null,
+                  edge: "straight",
+                },
+                {
+                  id: "n2",
+                  x: 420,
+                  y: 300,
+                  mode: "corner",
+                  in: null,
+                  out: null,
+                  edge: "straight",
+                },
+                {
+                  id: "n3",
+                  x: 900,
+                  y: 336,
+                  mode: "corner",
+                  in: null,
+                  out: null,
+                  edge: "straight",
+                },
+                {
+                  id: "n4",
+                  x: 1400,
+                  y: 300,
+                  mode: "corner",
+                  in: null,
+                  out: null,
+                  edge: "straight",
+                },
+                {
+                  id: "n5",
+                  x: 1400,
+                  y: 580,
+                  mode: "corner",
+                  in: null,
+                  out: null,
+                  edge: "straight",
+                },
+                {
+                  id: "n6",
+                  x: 0,
+                  y: 580,
+                  mode: "corner",
+                  in: null,
+                  out: null,
+                  edge: "straight",
+                },
+              ],
+            },
+            inner: [],
+          },
         ],
       },
-      inner: [],
-    }],
-  }], level.terrain || "grass");
+    ],
+    level.terrain || "grass",
+  );
 }
 
 export const cloneLevel = (level) => JSON.parse(JSON.stringify(level));
@@ -82,7 +144,9 @@ export function createBlankLevel(index = 0) {
  * format simply have none, and keep their legacy terrain.
  */
 export function levelTerrainBlocks(level) {
-  return level?.terrainBlocks ? normalizeTerrainBlocks(level.terrainBlocks, level.terrain || "grass") : [];
+  return level?.terrainBlocks
+    ? normalizeTerrainBlocks(level.terrainBlocks, level.terrain || "grass")
+    : [];
 }
 
 /**
@@ -98,7 +162,9 @@ export function levelTerrainBlocks(level) {
  */
 export function finishHeight(level) {
   if (Number.isFinite(level?.finishY)) return level.finishY;
-  return surfaceBelow(level, level?.goal ?? 0, null)?.y ?? (level?.fallY || 620);
+  return (
+    surfaceBelow(level, level?.goal ?? 0, null)?.y ?? (level?.fallY || 620)
+  );
 }
 
 /** The centre of the finish flower, which is what the bike has to touch. */
@@ -116,7 +182,9 @@ export function finishFlower(level) {
 export function hasLegacyTerrain(level) {
   if (!level) return false;
   if (Array.isArray(level.points) && level.points.length >= 2) return true;
-  return ['gaps', 'platforms', 'paths'].some(key => Array.isArray(level[key]) && level[key].length > 0);
+  return ["gaps", "platforms", "paths"].some(
+    (key) => Array.isArray(level[key]) && level[key].length > 0,
+  );
 }
 
 /**
@@ -146,12 +214,20 @@ function cachedLegacyBlocks(level) {
   if (!hasLegacyTerrain(level)) return [];
   const arrays = [level.points, level.gaps, level.platforms, level.paths];
   const key = [
-    level.terrain, level.fallY,
-    ...(level.platforms || []).map(platform => platform.material),
-    ...(level.paths || []).map(path => `${path.material}:${path.thickness}:${path.closed}`),
-  ].join('|');
+    level.terrain,
+    level.fallY,
+    ...(level.platforms || []).map((platform) => platform.material),
+    ...(level.paths || []).map(
+      (path) => `${path.material}:${path.thickness}:${path.closed}`,
+    ),
+  ].join("|");
   const cached = legacyBlockCache.get(level);
-  if (cached && cached.key === key && cached.arrays.every((value, index) => value === arrays[index])) return cached.blocks;
+  if (
+    cached &&
+    cached.key === key &&
+    cached.arrays.every((value, index) => value === arrays[index])
+  )
+    return cached.blocks;
   const blocks = legacyTerrainBlocks(level);
   legacyBlockCache.set(level, { arrays, key, blocks });
   return blocks;
@@ -171,7 +247,7 @@ export function surfaceBelow(level, x, referenceY = null) {
 /** A surface's height at an x, falling back to the level's kill plane. */
 function groundHeight(level, x) {
   const surface = surfaceBelow(level, x, null);
-  return surface ? surface.y : (level.fallY || 620);
+  return surface ? surface.y : level.fallY || 620;
 }
 
 // How far a ground-anchored object may move during migration before it is
@@ -200,31 +276,42 @@ export function migrateLegacyTerrain(level, index = 0) {
   next.terrainVersion = TERRAIN_FORMAT_VERSION;
   const after = normalizeLevel(next, index);
 
-  const heightBefore = x => terrainAt(before, x, null);
-  const heightAfter = x => terrainAt(after, x, null);
-  const same = x => {
-    const a = heightBefore(x), b = heightAfter(x);
-    return a.solid === b.solid && (!a.solid || Math.abs(a.y - b.y) <= MIGRATION_TOLERANCE);
+  const heightBefore = (x) => terrainAt(before, x, null);
+  const heightAfter = (x) => terrainAt(after, x, null);
+  const same = (x) => {
+    const a = heightBefore(x),
+      b = heightAfter(x);
+    return (
+      a.solid === b.solid &&
+      (!a.solid || Math.abs(a.y - b.y) <= MIGRATION_TOLERANCE)
+    );
   };
 
-  after.apples = before.apples.map(apple => {
+  after.apples = before.apples.map((apple) => {
     if (Number.isFinite(apple.y) || same(apple.x)) return { ...apple };
     return { ...apple, y: heightBefore(apple.x).y - 60 };
   });
-  after.props = before.props.map(prop => {
+  after.props = before.props.map((prop) => {
     if (Number.isFinite(prop.y) || same(prop.x)) return { ...prop };
     const ground = heightBefore(prop.x);
     return ground.solid ? { ...prop, y: ground.y } : { ...prop };
   });
   if (!Number.isFinite(before.start.y)) {
-    const wheels = [before.start.x - WHEELBASE / 2, before.start.x + WHEELBASE / 2];
+    const wheels = [
+      before.start.x - WHEELBASE / 2,
+      before.start.x + WHEELBASE / 2,
+    ];
     if (!wheels.every(same)) {
-      after.start = { ...before.start, y: Math.min(...wheels.map(x => heightBefore(x).y)) - RADIUS };
+      after.start = {
+        ...before.start,
+        y: Math.min(...wheels.map((x) => heightBefore(x).y)) - RADIUS,
+      };
     }
   }
-  if (!Number.isFinite(before.finishY) && !same(before.goal)) after.finishY = finishHeight(before);
+  if (!Number.isFinite(before.finishY) && !same(before.goal))
+    after.finishY = finishHeight(before);
   // The legacy spikes were already resolved to explicit heights by normalization.
-  after.spikes = before.spikes.map(spike => ({ ...spike }));
+  after.spikes = before.spikes.map((spike) => ({ ...spike }));
   invalidateTerrain(after);
   return after;
 }
@@ -273,9 +360,11 @@ export function normalizeSpike(spike, groundPoints, groundY = null) {
   const explicit = Number.isFinite(Number(spike?.y)) && spike?.y !== null;
   const surface = explicit
     ? null
-    : (groundY !== null && Number.isFinite(groundY)
+    : groundY !== null && Number.isFinite(groundY)
       ? groundY
-      : groundPoints ? curveAt(groundPoints, x).y : null);
+      : groundPoints
+        ? curveAt(groundPoints, x).y
+        : null;
   const y = explicit ? Number(spike.y) : (surface ?? 620) - radius;
   const spin = Number(spike?.spin);
   return { x, y, radius, spin: Number.isFinite(spin) ? spin : 1 };
@@ -294,9 +383,12 @@ export function normalizeLevel(input, index = 0) {
   // which is what a plain ground finish wants; a number pins it in the air.
   // The null check has to come first: Number(null) is 0, which would silently
   // pin every ground finish to the top of the world.
-  level.finishY = level.finishY === null || level.finishY === undefined
-    ? null
-    : (Number.isFinite(Number(level.finishY)) ? Number(level.finishY) : null);
+  level.finishY =
+    level.finishY === null || level.finishY === undefined
+      ? null
+      : Number.isFinite(Number(level.finishY))
+        ? Number(level.finishY)
+        : null;
   level.fallY = Number(level.fallY) || fallback.fallY;
   level.terrain = terrainMaterials[level.terrain] ? level.terrain : "grass";
   // The block format is additive. A level may carry blocks and legacy terrain at
@@ -306,64 +398,68 @@ export function normalizeLevel(input, index = 0) {
   // rather than being given a default ground line it never had. A level that
   // mentions them at all, even with unusable data, keeps them so the existing
   // recovery behaviour still applies.
-  const usesLegacyTerrain = ['points', 'gaps', 'platforms', 'paths']
-    .some(key => input?.[key] !== undefined);
+  const usesLegacyTerrain = ["points", "gaps", "platforms", "paths"].some(
+    (key) => input?.[key] !== undefined,
+  );
   // The version reflects the format actually in use: a level with no blocks is
   // still a version 1 trail, whether or not it also carries legacy terrain.
-  level.terrainVersion = Array.isArray(level.terrainBlocks) && level.terrainBlocks.length
-    ? TERRAIN_FORMAT_VERSION : 1;
+  level.terrainVersion =
+    Array.isArray(level.terrainBlocks) && level.terrainBlocks.length
+      ? TERRAIN_FORMAT_VERSION
+      : 1;
   level.terrainBlocks = levelTerrainBlocks(level);
   if (!usesLegacyTerrain) {
-    for (const key of ["points", "gaps", "platforms", "paths"]) delete level[key];
+    for (const key of ["points", "gaps", "platforms", "paths"])
+      delete level[key];
   } else {
-  level.points =
-    Array.isArray(level.points) && level.points.length >= 2
-      ? level.points
-          .map((point) => [Number(point[0]), Number(point[1])])
-          .sort((a, b) => a[0] - b[0])
-      : fallback.points;
-  level.gaps = Array.isArray(level.gaps)
-    ? level.gaps.map((gap) =>
-        [Number(gap[0]), Number(gap[1])].sort((a, b) => a - b),
-      )
-    : [];
-  level.platforms = Array.isArray(level.platforms)
-    ? level.platforms
-        .map((platform) => {
-          const sorted = (points) =>
-            (points || [])
-              .map((point) => [Number(point[0]), Number(point[1])])
-              .sort((a, b) => a[0] - b[0]);
-          return {
-            ...platform,
-            points: sorted(platform.points),
-            bottom: sorted(platform.bottom),
-            material: terrainMaterials[platform.material]
-              ? platform.material
-              : level.terrain,
-          };
-        })
-        .filter(
-          (platform) =>
-            platform.points.length >= 2 && platform.bottom.length >= 2,
+    level.points =
+      Array.isArray(level.points) && level.points.length >= 2
+        ? level.points
+            .map((point) => [Number(point[0]), Number(point[1])])
+            .sort((a, b) => a[0] - b[0])
+        : fallback.points;
+    level.gaps = Array.isArray(level.gaps)
+      ? level.gaps.map((gap) =>
+          [Number(gap[0]), Number(gap[1])].sort((a, b) => a - b),
         )
-    : [];
-  level.paths = Array.isArray(level.paths)
-    ? level.paths
-        .map((path) => ({
-          ...path,
-          points: (path.points || []).map((point) => [
-            Number(point[0]),
-            Number(point[1]),
-          ]),
-          closed: Boolean(path.closed),
-          thickness: Math.max(16, Number(path.thickness) || 32),
-          material: terrainMaterials[path.material]
-            ? path.material
-            : level.terrain,
-        }))
-        .filter((path) => path.points.length >= (path.closed ? 3 : 2))
-    : [];
+      : [];
+    level.platforms = Array.isArray(level.platforms)
+      ? level.platforms
+          .map((platform) => {
+            const sorted = (points) =>
+              (points || [])
+                .map((point) => [Number(point[0]), Number(point[1])])
+                .sort((a, b) => a[0] - b[0]);
+            return {
+              ...platform,
+              points: sorted(platform.points),
+              bottom: sorted(platform.bottom),
+              material: terrainMaterials[platform.material]
+                ? platform.material
+                : level.terrain,
+            };
+          })
+          .filter(
+            (platform) =>
+              platform.points.length >= 2 && platform.bottom.length >= 2,
+          )
+      : [];
+    level.paths = Array.isArray(level.paths)
+      ? level.paths
+          .map((path) => ({
+            ...path,
+            points: (path.points || []).map((point) => [
+              Number(point[0]),
+              Number(point[1]),
+            ]),
+            closed: Boolean(path.closed),
+            thickness: Math.max(16, Number(path.thickness) || 32),
+            material: terrainMaterials[path.material]
+              ? path.material
+              : level.terrain,
+          }))
+          .filter((path) => path.points.length >= (path.closed ? 3 : 2))
+      : [];
   }
   const start = level.start || fallback.start;
   level.start = {
@@ -400,11 +496,13 @@ export function normalizeLevel(input, index = 0) {
       }))
     : [];
   level.spikes = Array.isArray(level.spikes)
-    ? level.spikes.map((spike) => normalizeSpike(
-      spike,
-      level.points || null,
-      surfaceBelow(level, Number(spike?.x) || 0, null)?.y ?? null,
-    ))
+    ? level.spikes.map((spike) =>
+        normalizeSpike(
+          spike,
+          level.points || null,
+          surfaceBelow(level, Number(spike?.x) || 0, null)?.y ?? null,
+        ),
+      )
     : [];
   level.weather = { ...fallback.weather, ...(level.weather || {}) };
   const medals = normalizeMedals(level.medals);
@@ -435,10 +533,14 @@ export function medalFor(medals, time) {
  */
 function startTouchesFinish(level) {
   const { x, y, facing } = level.start;
-  const wheelY = Number.isFinite(y) ? y : (terrainAt(level, x, null).y - RADIUS);
-  const rear = { x: x - WHEELBASE / 2, y: wheelY }, front = { x: x + WHEELBASE / 2, y: wheelY };
+  const wheelY = Number.isFinite(y) ? y : terrainAt(level, x, null).y - RADIUS;
+  const rear = { x: x - WHEELBASE / 2, y: wheelY },
+    front = { x: x + WHEELBASE / 2, y: wheelY };
   // A rider sits about 43 units above the axles, slightly forward.
-  const probes = [{ x: x + 3 * (facing < 0 ? -1 : 1), y: wheelY - 43, radius: 6 }, { x, y: wheelY - 30, radius: 5 }];
+  const probes = [
+    { x: x + 3 * (facing < 0 ? -1 : 1), y: wheelY - 43, radius: 6 },
+    { x, y: wheelY - 30, radius: 5 },
+  ];
   return bikeTouchesFlower(finishFlower(level), { rear, front, probes });
 }
 
@@ -458,20 +560,37 @@ export function validateLevel(level) {
   if (compiled) {
     // A block with no surface left on the union's boundary is entirely inside
     // other terrain, which usually means a surrounding block was moved over it.
-    const exposed = new Set(compiled.bodies.filter(body => body.liveCount > 0).map(body => body.blockIndex));
+    const exposed = new Set(
+      compiled.bodies
+        .filter((body) => body.liveCount > 0)
+        .map((body) => body.blockIndex),
+    );
     const offset = compiled.blockCount - blocks.length;
     blocks.forEach((block, index) => {
-      if (!exposed.has(offset + index)) warning(`Block ${index + 1} is completely buried inside other terrain, so it has no effect.`);
+      if (!exposed.has(offset + index))
+        warning(
+          `Block ${index + 1} is completely buried inside other terrain, so it has no effect.`,
+        );
     });
-    const edges = compiled.bodies.reduce((total, body) => total + body.edgeCount, 0);
-    if (edges > 40000) warning(`The terrain is very detailed (${edges} edges after curves are flattened) and may be slow on older devices.`);
+    const edges = compiled.bodies.reduce(
+      (total, body) => total + body.edgeCount,
+      0,
+    );
+    if (edges > 40000)
+      warning(
+        `The terrain is very detailed (${edges} edges after curves are flattened) and may be slow on older devices.`,
+      );
   }
 
   if (!Array.isArray(level.points) && !blocks.length)
     error("A trail needs terrain: either blocks or a ground line.");
   if (Array.isArray(level.points) && level.points.length < 2)
     error("Ground requires at least two control points.");
-  for (let index = 1; Array.isArray(level.points) && index < level.points.length; index++) {
+  for (
+    let index = 1;
+    Array.isArray(level.points) && index < level.points.length;
+    index++
+  ) {
     const [previousX, previousY] = level.points[index - 1];
     const [x, y] = level.points[index];
     if (x <= previousX)
@@ -483,15 +602,31 @@ export function validateLevel(level) {
   }
   // The finish may sit on either side of the start, so it is checked against
   // both ends of the terrain rather than against a position to the right.
-  const blockLeft = blocks.length ? Math.min(...blocks.flatMap(block => block.regions.map(region => regionBounds(region).left))) : Infinity;
-  const blockRight = blocks.length ? Math.max(...blocks.flatMap(block => block.regions.map(region => regionBounds(region).right))) : -Infinity;
+  const blockLeft = blocks.length
+    ? Math.min(
+        ...blocks.flatMap((block) =>
+          block.regions.map((region) => regionBounds(region).left),
+        ),
+      )
+    : Infinity;
+  const blockRight = blocks.length
+    ? Math.max(
+        ...blocks.flatMap((block) =>
+          block.regions.map((region) => regionBounds(region).right),
+        ),
+      )
+    : -Infinity;
   const firstX = Math.min(level.points?.[0]?.[0] ?? Infinity, blockLeft);
-  const finalX = level.points?.at(-1)?.[0] ? Math.max(level.points.at(-1)[0], blockRight) : blockRight;
+  const lastPointX = level.points?.at(-1)?.[0];
+  const finalX = Math.max(
+    Number.isFinite(lastPointX) ? lastPointX : -Infinity,
+    blockRight,
+  );
   if (Number.isFinite(firstX) && level.goal <= firstX) {
     error(
       `The finish at x ${Math.round(level.goal)} is before the start of the terrain (x ${Math.round(firstX)}). Move it onto the trail, or extend the blocks.`,
     );
-  } else if (level.goal >= finalX) {
+  } else if (Number.isFinite(finalX) && level.goal >= finalX) {
     // Naming the extent makes this actionable: on a trail built from blocks the
     // old wording referred to a ground point that no longer exists.
     error(
@@ -499,13 +634,19 @@ export function validateLevel(level) {
     );
   }
   if (Number.isFinite(level.start?.x) && startTouchesFinish(level)) {
-    error("The finish flower touches the bike at the start, so the trail would end at once. Move the finish away from the start.");
+    error(
+      "The finish flower touches the bike at the start, so the trail would end at once. Move the finish away from the start.",
+    );
   }
   for (const [index, gap] of (level.gaps || []).entries()) {
     if (gap[1] <= gap[0]) error(`Gap ${index + 1} has an invalid range.`);
     if (gap[1] - gap[0] > 160)
       warning(`Gap ${index + 1} is wider than 160 units and may be difficult.`);
-    if (level.goal > gap[0] && level.goal < gap[1])
+    if (
+      !Number.isFinite(level.finishY) &&
+      level.goal > gap[0] &&
+      level.goal < gap[1]
+    )
       error(`The finish is inside gap ${index + 1}.`);
   }
   for (const [index, path] of (level.paths || []).entries()) {
@@ -582,7 +723,10 @@ export function validateLevel(level) {
       }
     }
     for (const [x] of [...platform.points, ...platform.bottom]) {
-      if (Array.isArray(level.points) && platformUndersideAt(platform, x) >= curveAt(level.points, x).y - 8) {
+      if (
+        Array.isArray(level.points) &&
+        platformUndersideAt(platform, x) >= curveAt(level.points, x).y - 8
+      ) {
         warning(
           `Platform ${index + 1} comes close to or intersects the ground near x ${Math.round(x)}.`,
         );
@@ -688,13 +832,21 @@ export function validateLevel(level) {
   // open air by an edit. Checked last, so a broken finish or terrain, which
   // usually causes it, is the first thing reported.
   if (compiled) {
-    const noGround = x => !terrainAt(level, x, null).solid;
+    const noGround = (x) => !terrainAt(level, x, null).solid;
     if (level.start?.y === null && noGround(level.start.x))
-      error("The ground-anchored start has no terrain under it. Drag the start onto a block.");
+      error(
+        "The ground-anchored start has no terrain under it. Drag the start onto a block.",
+      );
     for (const apple of level.apples || []) {
       if (apple.y === null && noGround(apple.x))
-        error(`Ground-anchored apple at x ${Math.round(apple.x)} has no terrain under it.`);
+        error(
+          `Ground-anchored apple at x ${Math.round(apple.x)} has no terrain under it.`,
+        );
     }
+    if (!Number.isFinite(level.finishY) && noGround(level.goal))
+      error(
+        "The ground-anchored finish has no terrain under it. Drag it onto a block, or lift it into the air.",
+      );
   }
   if (!messages.length)
     messages.push({ type: "ok", text: "Level data is valid." });
