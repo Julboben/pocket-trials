@@ -13,6 +13,7 @@ import {
   SIGN_MAX_LINES,
   TIMES_OF_DAY,
   DEFAULT_TIME_OF_DAY,
+  BACKDROPS,
 } from "./drawing.js";
 import { RADIUS, WHEELBASE } from "./config.js";
 import { FINISH_FLOWER_LIFT, bikeTouchesFlower } from "./finish.js";
@@ -515,6 +516,9 @@ export function normalizeLevel(input, index = 0) {
   // Noon is the default look; an unrecognised value falls back to it too.
   if (!TIMES_OF_DAY.includes(level.timeOfDay))
     level.timeOfDay = DEFAULT_TIME_OF_DAY;
+  // Hills is the default, so it isn't stored.
+  if (!BACKDROPS.includes(level.backdrop) || level.backdrop === "hills")
+    delete level.backdrop;
   const medals = normalizeMedals(level.medals);
   if (medals) level.medals = medals;
   else delete level.medals;

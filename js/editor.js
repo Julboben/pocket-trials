@@ -1371,6 +1371,7 @@ function syncInspector() {
   $("goal-x").value = Math.round(level.goal);
   $("fall-y").value = Math.round(level.fallY);
   $("time-of-day").value = level.timeOfDay || "noon";
+  $("backdrop").value = level.backdrop || "hills";
   for (const key of ["sun", "clouds", "rain", "lightning"])
     $(`weather-${key}`).value = level.weather?.[key] ?? 0;
   const position = selectedPosition();
@@ -2747,6 +2748,11 @@ bindLevelInput("fall-y", (value) => {
 
 bindLevelInput("time-of-day", (value) => {
   level.timeOfDay = value;
+});
+
+bindLevelInput("backdrop", (value) => {
+  if (value && value !== "hills") level.backdrop = value;
+  else delete level.backdrop;
 });
 for (const key of ["sun", "clouds", "rain", "lightning"]) {
   $(`weather-${key}`).addEventListener("change", (event) => {

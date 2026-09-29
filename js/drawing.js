@@ -114,6 +114,9 @@ const BASE_TIME = {
   light: 1,
   moon: false,
   stars: false,
+  // How backdrop themes are shaded for this time of day.
+  shade: null,
+  shadeAmount: 0,
 };
 
 // The sun always stays on the right, where every prop is lit from. Only its
@@ -133,6 +136,8 @@ const TIME_PRESETS = {
     tint: "#fff3e6",
     sunDrop: 55,
     light: 0.85,
+    shade: "#f0c8a0",
+    shadeAmount: 0.12,
   },
   noon: { ...BASE_TIME, skyTop: "#dde5e0" },
   evening: {
@@ -151,6 +156,8 @@ const TIME_PRESETS = {
     sunDrop: 70,
     sunScale: 1.25,
     light: 0.75,
+    shade: "#806a7c",
+    shadeAmount: 0.42,
   },
   night: {
     ...BASE_TIME,
@@ -169,6 +176,8 @@ const TIME_PRESETS = {
     light: 0.25,
     moon: true,
     stars: true,
+    shade: "#1e2942",
+    shadeAmount: 0.7,
   },
 };
 
@@ -190,6 +199,262 @@ function mixHex(a, b, t) {
       )
       .join("")
   );
+}
+
+export const BACKDROPS = ["hills", "mountains", "forest", "desert"];
+
+// Daylight colours of each theme; the time of day shades them. Hills use the
+// time of day's own hill colours, so they look exactly as before.
+const BACKDROP_COLORS = {
+  mountains: { far: "#a3b1b8", accent: "#eef1ea", near: "#8ea596", tree: "#6c8775" },
+  forest: { far: "#9db2a1", near: "#71907a", tree: "#5a7a63" },
+  desert: { far: "#d0ad88", accent: "#bf9873", near: "#dcc59f", tree: "#8c9c6b" },
+};
+
+function backdropColors(level, time) {
+  const theme = BACKDROP_COLORS[level.backdrop];
+  if (!theme)
+    return {
+      far: time.far,
+      near: time.near,
+      tree: time.tree,
+      trunk: time.trunk,
+      accent: null,
+    };
+  // Shade for the time of day, then fade toward the sky with distance.
+  const grade = (color, haze) =>
+    mixHex(
+      time.shade ? mixHex(color, time.shade, time.shadeAmount) : color,
+      time.sky,
+      haze,
+    );
+  return {
+    far: grade(theme.far, 0.3),
+    accent: theme.accent ? grade(theme.accent, 0.3) : null,
+    near: grade(theme.near, 0.1),
+    tree: grade(theme.tree, 0.1),
+    trunk: null,
+  };
+}
+
+// A fixed 0…1 value per integer, so silhouettes never move between strips.
+const backdropNoise = (n) => {
+  const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return s - Math.floor(s);
+};
+const ridge = (a) => 1 - Math.abs(Math.sin(a));
+const hillShape = (base, amp, frequency) => (x) =>
+  base + Math.sin(x * frequency + 1.7) * amp + Math.sin(x * frequency * 2.1) * 10;
+const groundAt = (shape, x) => Math.round(shape(x) / 4) * 4;
+
+// Calls `place(x, n0, n1)` roughly every `spacing` units across a strip.
+function scatter(left, right, spacing, jitter, place) {
+  for (
+    let i = Math.floor((left - 60) / spacing);
+    i <= Math.ceil((right + 60) / spacing);
+    i++
+  ) {
+    const x = Math.round((i * spacing + (backdropNoise(i) - 0.5) * jitter) / 4) * 4;
+    place(x, backdropNoise(i + 17), backdropNoise(i + 41));
+  }
+}
+
+// A pine silhouette on the 4-unit grid, centred on the column x…x+4, with a
+// saw-toothed edge of three tiers.
+function backdropPine(tools, x, groundY, height, color) {
+  const rows = Math.max(3, Math.round(height / 4));
+  const tierRows = Math.max(2, Math.round(rows / 3));
+  const top = groundY - rows * 4;
+  for (let r = 0; r < rows; r++) {
+    const t = r / (rows - 1);
+    const saw = (r % tierRows) / tierRows;
+    const k = Math.round(t * height * 0.055 + saw * 1.2);
+    tools.pixelRect(x - 4 * k, top + r * 4, 8 * k + 4, 4, color, 4);
+  }
+  tools.pixelRect(x, groundY - 4, 4, 8, color, 4);
+}
+
+// A saguaro silhouette with one low arm on the left and a higher one on the right.
+function backdropCactus(tools, x, groundY, height, color) {
+  const h = Math.round(height / 4) * 4;
+  const q = (f) => Math.max(4, Math.round((h * f) / 4) * 4);
+  tools.pixelRect(x - 4, groundY - h, 12, h + 4, color, 4);
+  const leftArm = groundY - q(0.45);
+  tools.pixelRect(x - 12, leftArm, 8, 4, color, 4);
+  tools.pixelRect(x - 12, leftArm - q(0.3), 4, q(0.3), color, 4);
+  const rightArm = groundY - q(0.62);
+  tools.pixelRect(x + 8, rightArm, 8, 4, color, 4);
+  tools.pixelRect(x + 12, rightArm - q(0.25), 4, q(0.25), color, 4);
+}
+
+/**
+ * The two parallax layers of a theme. Each has a ground `shape(x)`, an
+ * optional `column` hook for per-column detail (snow, rock bands) and an
+ * optional `decorate` for silhouettes. `key` identifies its cached strips.
+ */
+function backdropLayers(theme, c) {
+  const key = (i) =>
+    `${theme}|${i}|${c.far}|${c.near}|${c.tree}|${c.trunk}|${c.accent}`;
+
+  if (theme === "mountains") {
+    const base = 300,
+      amp = 170,
+      f = 0.006;
+    const snowLine = base - amp * 0.74;
+    const near = (x) =>
+      262 + Math.sin(x * 0.013 + 0.5) * 22 + Math.sin(x * 0.031) * 8;
+    return [
+      {
+        key: key(0),
+        color: c.far,
+        parallax: 0.12,
+        shape: (x) =>
+          base -
+          amp * (ridge(x * f) * 0.7 + ridge(x * f * 2.3 + 1.3) * 0.3),
+        column(context, x, y, step) {
+          const cap =
+            Math.round(
+              (snowLine + backdropNoise(Math.floor(x / step)) * 14) / 4,
+            ) * 4;
+          if (y >= cap) return;
+          context.fillStyle = c.accent;
+          context.fillRect(x, y, step, cap - y);
+        },
+      },
+      {
+        key: key(1),
+        color: c.near,
+        parallax: 0.27,
+        shape: near,
+        decorate: (tools, left, right) =>
+          scatter(left, right, 46, 20, (x, n0, n1) => {
+            if (n0 > 0.25)
+              backdropPine(
+                tools,
+                x,
+                groundAt(near, x) + 4,
+                20 + n1 * 24,
+                c.tree,
+              );
+          }),
+      },
+    ];
+  }
+
+  if (theme === "forest") {
+    const cone = (x) => {
+      const p = 36,
+        k = Math.floor(x / p),
+        t = (x - k * p) / p;
+      return (1 - Math.abs(t * 2 - 1)) * (10 + backdropNoise(k) * 16);
+    };
+    const near = (x) => 270 + Math.sin(x * 0.011 + 2) * 12;
+    return [
+      {
+        key: key(0),
+        color: c.far,
+        parallax: 0.15,
+        step: 4,
+        shape: (x) => 238 + Math.sin(x * 0.007) * 16 - cone(x),
+      },
+      {
+        key: key(1),
+        color: c.near,
+        parallax: 0.3,
+        shape: near,
+        decorate: (tools, left, right) =>
+          scatter(left, right, 26, 14, (x, n0, n1) => {
+            if (n0 > 0.1)
+              backdropPine(
+                tools,
+                x,
+                groundAt(near, x) + 4,
+                30 + n1 * 34,
+                c.tree,
+              );
+          }),
+      },
+    ];
+  }
+
+  if (theme === "desert") {
+    // 0 on the plain, 1 on a flat top, with steep sides between.
+    const mesa = (x, f, phase) => {
+      const m = Math.sin(x * f + phase) + Math.sin(x * f * 2.7) * 0.35;
+      return m > 0.6 ? 1 : m > 0.42 ? (m - 0.42) / 0.18 : 0;
+    };
+    const bands = [188, 204, 228];
+    const near = (x) =>
+      278 + Math.sin(x * 0.009) * 14 + Math.sin(x * 0.018 + 1) * 5;
+    return [
+      {
+        key: key(0),
+        color: c.far,
+        parallax: 0.14,
+        shape: (x) => {
+          const lift = Math.max(
+            86 * mesa(x, 0.0045, 0.8),
+            44 * mesa(x + 400, 0.0086, 2.1),
+          );
+          return 262 - lift + (lift ? 0 : Math.sin(x * 0.02) * 5);
+        },
+        // Level rock bands across the mesas, the same height everywhere.
+        column(context, x, y, step) {
+          context.fillStyle = c.accent;
+          for (const band of bands)
+            if (y < band) context.fillRect(x, band, step, 4);
+        },
+      },
+      {
+        key: key(1),
+        color: c.near,
+        parallax: 0.3,
+        shape: near,
+        decorate: (tools, left, right) =>
+          scatter(left, right, 150, 80, (x, n0, n1) => {
+            if (n0 > 0.35)
+              backdropCactus(
+                tools,
+                x,
+                groundAt(near, x) + 4,
+                22 + n1 * 16,
+                c.tree,
+              );
+          }),
+      },
+    ];
+  }
+
+  // Hills: exactly the original layers and round trees.
+  const near = hillShape(247, 24, 0.015);
+  return [
+    {
+      key: key(0),
+      color: c.far,
+      parallax: 0.16,
+      shape: hillShape(201, 37, 0.009),
+    },
+    {
+      key: key(1),
+      color: c.near,
+      parallax: 0.29,
+      shape: near,
+      decorate(tools, left, right) {
+        for (
+          let tree = Math.floor((left - 30) / 100);
+          tree <= Math.ceil((right + 30) / 100);
+          tree++
+        ) {
+          const x = tree * 100;
+          const y = groundAt(near, x);
+          tools.pixelRect(x - 2, y - 28, 4, 28, c.trunk, 4);
+          tools.drawPixelDisc(x, y - 34, 14, c.tree, 4);
+          tools.drawPixelDisc(x - 10, y - 29, 10, c.tree, 4);
+          tools.drawPixelDisc(x + 10, y - 28, 10, c.tree, 4);
+        }
+      },
+    },
+  ];
 }
 
 export function sunLight({
@@ -1576,18 +1841,10 @@ export function createGameArt(ctx) {
     ctx.restore();
   }
 
-  function mountainY(worldX, layer) {
-    return (
-      layer.base +
-      Math.sin(worldX * layer.frequency + 1.7) * layer.amp +
-      Math.sin(worldX * layer.frequency * 2.1) * 10
-    );
-  }
-
   // Parallax layers are static in their own scroll space, so each is cached as
   // 512-unit strips that are blitted at the layer's scroll offset.
-  function backgroundStrip(layer, layerIndex, index, trees) {
-    const key = `${layer.color}|${layer.tree}|${layerIndex}|${index}`;
+  function backgroundStrip(layer, index) {
+    const key = `${layer.key}|${index}`;
     if (backgroundStrips.has(key)) {
       const strip = backgroundStrips.get(key);
       backgroundStrips.delete(key);
@@ -1610,29 +1867,18 @@ export function createGameArt(ctx) {
     );
     const tools = createDrawingTools(context);
     const bottom = BACKGROUND_STRIP_TOP + BACKGROUND_STRIP_HEIGHT;
+    const step = layer.step || 8;
     context.fillStyle = layer.color;
     for (
-      let worldX = left - 8;
+      let worldX = left - step;
       worldX < left + BACKGROUND_STRIP_WIDTH;
-      worldX += 8
+      worldX += step
     ) {
-      const y = Math.round(mountainY(worldX, layer) / 4) * 4;
-      context.fillRect(worldX, y, 8, bottom - y);
+      const y = Math.round(layer.shape(worldX) / 4) * 4;
+      context.fillRect(worldX, y, step, bottom - y);
+      layer.column?.(context, worldX, y, step);
     }
-    if (trees) {
-      for (
-        let tree = Math.floor((left - 30) / 100);
-        tree <= Math.ceil((left + BACKGROUND_STRIP_WIDTH + 30) / 100);
-        tree++
-      ) {
-        const x = tree * 100;
-        const y = Math.round(mountainY(x, layer) / 4) * 4;
-        tools.pixelRect(x - 2, y - 28, 4, 28, layer.trunk, 4);
-        tools.drawPixelDisc(x, y - 34, 14, layer.tree, 4);
-        tools.drawPixelDisc(x - 10, y - 29, 10, layer.tree, 4);
-        tools.drawPixelDisc(x + 10, y - 28, 10, layer.tree, 4);
-      }
-    }
+    layer.decorate?.(tools, left, left + BACKGROUND_STRIP_WIDTH);
     backgroundStrips.set(key, canvas);
     if (backgroundStrips.size > BACKGROUND_STRIP_LIMIT)
       backgroundStrips.delete(backgroundStrips.keys().next().value);
@@ -1798,25 +2044,11 @@ export function createGameArt(ctx) {
     }
 
     if (full) {
-      const layers = [
-        {
-          color: time.far,
-          base: 201,
-          amp: 37,
-          frequency: 0.009,
-          parallax: 0.16,
-        },
-        {
-          color: time.near,
-          tree: time.tree,
-          trunk: time.trunk,
-          base: 247,
-          amp: 24,
-          frequency: 0.015,
-          parallax: 0.29,
-        },
-      ];
-      layers.forEach((layer, layerIndex) => {
+      const theme = BACKDROPS.includes(palette.backdrop)
+        ? palette.backdrop
+        : "hills";
+      const layers = backdropLayers(theme, backdropColors(palette, time));
+      for (const layer of layers) {
         const offsetX = snap(cameraX * layer.parallax);
         const offsetY = snap(cameraY * layer.parallax);
         const first = Math.floor(offsetX / BACKGROUND_STRIP_WIDTH);
@@ -1826,7 +2058,7 @@ export function createGameArt(ctx) {
         if (stripTop < height && below > 0)
           for (let index = first; index <= last; index++) {
             ctx.drawImage(
-              backgroundStrip(layer, layerIndex, index, layerIndex === 1),
+              backgroundStrip(layer, index),
               index * BACKGROUND_STRIP_WIDTH - offsetX,
               stripTop,
               BACKGROUND_STRIP_WIDTH,
@@ -1837,7 +2069,7 @@ export function createGameArt(ctx) {
           ctx.fillStyle = layer.color;
           ctx.fillRect(0, below, width, height - below);
         }
-      });
+      }
     }
     if (storminess > 0) {
       ctx.fillStyle = `rgba(38, 55, 62, ${storminess * 0.2})`;
