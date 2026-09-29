@@ -109,6 +109,24 @@
       "y": 324.70703125,
       "type": "pine",
       "layer": "back"
+    },
+    {
+      "x": -79.98515624999999,
+      "y": 220.22343750000007,
+      "type": "moss",
+      "layer": "front"
+    },
+    {
+      "x": -102.76810895185753,
+      "y": 308.4977837690923,
+      "type": "roots",
+      "layer": "front"
+    },
+    {
+      "x": -91.89319773173918,
+      "y": 129.468881424564,
+      "type": "ledge",
+      "layer": "front"
     }
   ],
   "spikes": [],
@@ -143,19 +161,25 @@
             "nodes": [
               {
                 "id": "legacy-ground-n0",
-                "x": -100,
-                "y": 320,
-                "mode": "corner",
+                "x": -105.58787059302097,
+                "y": 319.86990312550984,
+                "mode": "independent",
                 "in": null,
-                "out": null,
-                "edge": "straight"
+                "out": [
+                  -10,
+                  320
+                ],
+                "edge": "curve"
               },
               {
                 "id": "legacy-ground-n1",
                 "x": 170,
                 "y": 320,
                 "mode": "corner",
-                "in": null,
+                "in": [
+                  80,
+                  320
+                ],
                 "out": [
                   182.5,
                   320
@@ -1196,8 +1220,53 @@
               },
               {
                 "id": "n2q4s",
-                "x": -1300,
-                "y": -800,
+                "x": -1316.0691,
+                "y": -87.5652,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n3r35",
+                "x": -226.45908017615665,
+                "y": 303.21703653285977,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n3hlg",
+                "x": -239.3084064847689,
+                "y": 156.92928599772173,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n1hv5",
+                "x": -228.1878,
+                "y": 144.0247,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n1duo",
+                "x": -250,
+                "y": 35.3432,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n143j",
+                "x": -149.9329,
+                "y": 35.4082,
                 "mode": "corner",
                 "in": null,
                 "out": null,
@@ -1205,8 +1274,41 @@
               },
               {
                 "id": "n1evk",
+                "x": -95.5427,
+                "y": 50,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n1lu3",
+                "x": -95.5427,
+                "y": 150,
+                "mode": "independent",
+                "in": null,
+                "out": [
+                  -113.155,
+                  238.0663
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "n12ix",
+                "x": -76.4922,
+                "y": 221.0973,
+                "mode": "corner",
+                "in": [
+                  -82.8424,
+                  197.3982
+                ],
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "nhvs",
                 "x": -100,
-                "y": -800,
+                "y": 250,
                 "mode": "corner",
                 "in": null,
                 "out": null,

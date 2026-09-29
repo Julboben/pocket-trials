@@ -349,13 +349,19 @@ const TUFT_MAX_RISE = 6;
 
 // Wall faces: how many art-pixel columns in from the air a wall's rim and
 // shading reach, and how steep a face must be to count as a wall rather than a
-// slope (distance to air \u00d7 this must be less than the depth below the floor).
+// slope (distance to air × this must be less than the depth below the floor).
 const WALL_REACH = 6;
 const WALL_STEEPNESS = 2;
 // Strata and pebbles repeat this far apart, so tall faces keep their texture.
 const DETAIL_REPEAT = 120;
 // Ledges: at most one per face in each course of this many art pixels.
-const LEDGE_ROWS = 22;
+const LEDGE_ROWS = 36;
+// Fraction of wall courses that get no ledge; raise it for fewer ledges.
+const LEDGE_CHANCE = 0.85;
+// The first four dirt lines follow the surface; below this depth the layers are
+// flat and set in world space, so they line up on both sides of a wall.
+const SURFACE_STRATA = 130;
+const DEEP_BAND = 44;
 // A cliff edge needs at least this much drop beside it to get a lip.
 const LIP_DROP = 16;
 const SUNLIGHT = [255, 248, 226];
@@ -363,7 +369,7 @@ const SUNLIGHT = [255, 248, 226];
 const mixColor = (a, b, t) =>
   a.map((value, index) => Math.round(value + (b[index] - value) * t));
 
-/** A repeatable 0\u20261 value for two integers, the same in every chunk. */
+/** A repeatable 0…1 value for two integers, the same in every chunk. */
 function hash2(a, b) {
   let h = (Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263)) | 0;
   h = Math.imul(h ^ (h >>> 13), 1274126177);
@@ -572,10 +578,33 @@ export function rasterizeTerrainChunk(
         } else {
           // Strata repeat all the way down; the first four are as before.
           const depth = y - span.top;
-          const band = Math.max(0, Math.round((depth - 27) / 30));
-          if (Math.abs(depth - (27 + band * 30 + wobble[band % 4])) < 1) {
-            color = colors.layers[(band % 4) % colors.layers.length];
-            what = 2;
+          if (depth < SURFACE_STRATA) {
+            // The original four lines, following the surface.
+            const band = Math.max(
+              0,
+              Math.min(3, Math.round((depth - 27) / 30)),
+            );
+            if (Math.abs(depth - (27 + band * 30 + wobble[band])) < 1) {
+              color = colors.layers[band % colors.layers.length];
+              what = 2;
+            }
+          } else {
+            // Deeper down: flat sediment with uneven spacing, waves and gaps.
+            const band = Math.floor(y / DEEP_BAND);
+            const seed = hash2(band, 17);
+            const lineY =
+              band * DEEP_BAND +
+              8 +
+              seed * (DEEP_BAND - 16) +
+              Math.sin(x * (0.008 + seed * 0.02) + band) * 4;
+            const broken = hash2(band, Math.floor(x / 48)) < 0.3;
+            if (!broken && Math.abs(y - lineY) < 1) {
+              color =
+                hash2(band, 3) < 0.5
+                  ? colors.layers[0]
+                  : colors.layers.at(-1);
+              what = 2;
+            }
           }
         }
         // Wall faces: a lit band toward the sun, shade on the far side, and
@@ -627,16 +656,16 @@ export function rasterizeTerrainChunk(
  * keep the fill. Ledges are seeded by world position, so chunks agree.
  */
 function wallShade(colors, reach, lit, faceColumn, y, pixel) {
+  const worldRow = Math.floor(y / pixel);
   if (!colors.brick) {
-    const worldRow = Math.floor(y / pixel);
     const course = Math.floor(worldRow / LEDGE_ROWS);
     const group = Math.floor(faceColumn / 3) * 2 + (lit ? 1 : 0);
-    if (hash2(course, group) > 0.35) {
+    if (hash2(course, group) > LEDGE_CHANCE) {
       const ledgeRow =
         course * LEDGE_ROWS +
         4 +
         Math.floor(hash2(course + 7919, group) * (LEDGE_ROWS - 8));
-      const depth = 2 + Math.floor(hash2(course, group + 104729) * 3);
+      const depth = 3 + Math.floor(hash2(course, group + 104729) * 4);
       if (reach <= depth + 1) {
         // A dark crack, with a sunlit lip above it or a shadow below it.
         if (worldRow === ledgeRow) return colors.crack;
@@ -645,15 +674,19 @@ function wallShade(colors, reach, lit, faceColumn, y, pixel) {
       }
     }
   }
-  if (lit)
-    return reach === 2
-      ? colors.glint
-      : reach <= 4
-        ? colors.lit
-        : reach === 5
-          ? colors.litSoft
-          : null;
-  return reach <= 3 ? colors.shade : colors.shadeDeep;
+  // The band's inner edge steps in and out every few rows, and its last
+  // column is dithered, so it reads as light on rock rather than a stripe.
+  const band = reach + (hash2(worldRow >> 2, faceColumn) < 0.35 ? 1 : 0);
+  const dither = (worldRow + reach) % 2 === 0;
+  if (lit) {
+    if (reach === 2) return colors.glint;
+    if (band <= 4) return colors.lit;
+    if (band === 5 || (band === 6 && dither)) return colors.litSoft;
+    return null;
+  }
+  if (band <= 3) return colors.shade;
+  if (band <= 5 || dither) return colors.shadeDeep;
+  return null;
 }
 
 // Pebbles hang below the floor above them, like the old ground's, and repeat
@@ -695,12 +728,16 @@ function drawPebbles(
           repeat * DETAIL_REPEAT;
         if (cy - ry > span.bottom || cy - ry > worldBottom) break;
         if (cy + ry > span.bottom - 2 || cy + ry < originY) continue;
+        // Deeper repeats skip some pebbles and shift the rest sideways.
+        if (repeat > 0 && hash2(i, repeat) < 0.4) continue;
+        const px =
+          cx + (repeat > 0 ? (hash2(i + 5, repeat) - 0.5) * 20 : 0);
         const colors = materialColors(
-          (terrainBodyAt(compiled, cx, cy) || span.topBody).material,
+          (terrainBodyAt(compiled, px, cy) || span.topBody).material,
         );
         for (
-          let column = Math.floor((cx - rx) / pixel) - column0;
-          column <= Math.ceil((cx + rx) / pixel) - column0;
+          let column = Math.floor((px - rx) / pixel) - column0;
+          column <= Math.ceil((px + rx) / pixel) - column0;
           column++
         ) {
           for (
@@ -708,7 +745,7 @@ function drawPebbles(
             row <= Math.ceil((cy + rx) / pixel) - row0;
             row++
           ) {
-            const dx = (column0 + column + 0.5) * pixel - cx,
+            const dx = (column0 + column + 0.5) * pixel - px,
               dy = (row0 + row + 0.5) * pixel - cy;
             const u = dx * cos + dy * sin,
               v = dy * cos - dx * sin;
