@@ -409,7 +409,8 @@ export function startGame() {
         break;
       }
       case 'goalLocked':
-        overlay.toast(event.missing + (event.missing === 1 ? ' apple remaining! Turn back to collect it.' : ' apples remaining! Turn back to collect them.'));
+        // No direction implied: the missing apples could be anywhere on the trail.
+        overlay.toast(event.missing + (event.missing === 1 ? ' apple left to collect!' : ' apples left to collect!'));
         break;
       case 'win': {
         const mx = (ride.rear.x + ride.front.x) / 2, my = (ride.rear.y + ride.front.y) / 2;
