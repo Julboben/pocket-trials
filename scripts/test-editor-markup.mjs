@@ -10,7 +10,8 @@ let failures = 0;
 const fail = message => { failures++; console.log('FAIL', message); };
 
 const htmlIds = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]));
-const usedIds = new Set([...js.matchAll(/\$\('([^']+)'\)/g)].map(match => match[1]));
+const usedIds = new Set([...js.matchAll(/\$\((?:'([^']+)'|"([^"]+)")\)/g)]
+  .map(match => match[1] || match[2]));
 
 for (const id of usedIds) if (!htmlIds.has(id)) fail(`editor.js uses #${id}, which is not in editor.html`);
 console.log(`ok   ${usedIds.size} element ids all exist`);

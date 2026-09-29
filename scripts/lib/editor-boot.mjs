@@ -67,6 +67,9 @@ if (kind === 'interact') {
 
   // The right-hand piece's top-right corner is in the second region. Dragging
   // it must move that corner and leave the left piece alone.
+  // The tools stay active after a shape, so go back to Select before moving
+  // corners, or the next drag draws another cut instead.
+  toolButton('select').click();
   const before = current().terrainBlocks[0].regions;
   drag([800, 300], [830, 270]);
   const after = current().terrainBlocks[0].regions;
@@ -84,8 +87,10 @@ if (kind === 'interact') {
   out.escapeCancels = JSON.stringify(current().terrainBlocks) === blocksBefore;
 
   // Shift-click builds a multi-selection, and dragging it moves both blocks.
+  // Alt makes a rectangle, since a plain two-point drag is a freehand line.
   toolButton('block').click();
-  drag([1000, 300], [1200, 500]);
+  drag([1000, 300], [1200, 500], { altKey: true });
+  toolButton('select').click();
   const count = current().terrainBlocks.length;
   drag([200, 450], [200, 450]);
   fire('pointerdown', { ...world(1100, 400), shiftKey: true });
@@ -101,7 +106,8 @@ if (kind === 'interact') {
 
   // Shift-dragging a point locks it to 15 degree steps from a neighbour, and to the grid.
   toolButton('block').click();
-  drag([100, 100], [300, 300]);
+  drag([100, 100], [300, 300], { altKey: true });
+  toolButton('select').click();
   const ring = () => current().terrainBlocks.at(-1).regions[0].outer.nodes;
   const corner = () => ring().reduce((best, node) => Math.hypot(node.x - 300, node.y - 300) < Math.hypot(best.x - 300, best.y - 300) ? node : best);
   const cornerId = corner().id;

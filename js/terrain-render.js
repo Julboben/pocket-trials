@@ -809,25 +809,20 @@ function drawCliffLips(
           );
         }
         if (!colors.vegetation) continue;
-        // One strand hanging in the air past the lip, and a shorter one over the face.
+        // A short strand over the face, kept inside the rock so nothing hangs
+        // out into open air past the lip.
         const worldColumn = column0 + column;
-        const strands = [
-          [lipColumn, 1 + Math.floor(hash2(worldColumn, direction) * 4), true],
-          [column, Math.floor(hash2(worldColumn + 31, direction) * 3), false],
-        ];
-        for (const [strandColumn, length, inAir] of strands) {
-          const start = rowAt(top + 4);
-          for (let step = 0; step < length; step++) {
-            const row = start + step;
-            const y = (row0 + row + 0.5) * pixel;
-            if (inAir ? solidIn(beside, y) : y >= span.bottom - pixel) break;
-            put(
-              strandColumn,
-              row,
-              step === length - 1 ? colors.edge : colors.vegetation,
-              3,
-            );
-          }
+        const length = 1 + Math.floor(hash2(worldColumn + 31, direction) * 3);
+        for (let step = 0; step < length; step++) {
+          const row = rowAt(top + 4) + step;
+          const y = (row0 + row + 0.5) * pixel;
+          if (y >= span.bottom - pixel) break;
+          put(
+            column,
+            row,
+            step === length - 1 ? colors.edge : colors.vegetation,
+            3,
+          );
         }
       }
     }
@@ -974,7 +969,7 @@ export function createTerrainRenderer() {
     // or quantizing anything. Ground art reaches up to 12 units above its curve.
     const groundVisible =
       hasGround && groundTop(level, left, right) - 16 <= bottom;
-    return null;
+    if (!paths.length && !platforms.length && !groundVisible) return null;
     const canvas = createCanvas(CHUNK_PIXELS, CHUNK_PIXELS);
     const context = canvas.getContext("2d", { willReadFrequently: true });
     context.setTransform(

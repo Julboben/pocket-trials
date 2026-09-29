@@ -339,12 +339,14 @@ function clampSetting(field, value) {
 // Dropdowns with fewer than three options are shown as a row of buttons. The
 // real <select> stays in the page, hidden, so every existing listener and
 // `.value = ...` keeps working; the buttons just mirror it.
-const selectValue = Object.getOwnPropertyDescriptor(
-  HTMLSelectElement.prototype,
-  "value",
-);
+// Only present in a real browser; without it, selects are left as they are.
+const selectValue =
+  (typeof HTMLSelectElement !== "undefined" &&
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")) ||
+  null;
 
 function segmentSelect(select) {
+  if (!selectValue) return;
   const count = select.options.length;
   if (select.dataset.segmented || count === 0 || count >= 3) return;
   select.dataset.segmented = "1";

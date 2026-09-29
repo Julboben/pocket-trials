@@ -636,11 +636,16 @@ export function validateLevel(level) {
     Number.isFinite(lastPointX) ? lastPointX : -Infinity,
     blockRight,
   );
+  // A finish off the end of the terrain is already reported by the range check
+  // below, so the "no terrain under it" check must not repeat the same problem.
+  let finishOffTerrain = false;
   if (Number.isFinite(firstX) && level.goal <= firstX) {
+    finishOffTerrain = true;
     error(
       `The finish at x ${Math.round(level.goal)} is before the start of the terrain (x ${Math.round(firstX)}). Move it onto the trail, or extend the blocks.`,
     );
   } else if (Number.isFinite(finalX) && level.goal >= finalX) {
+    finishOffTerrain = true;
     // Naming the extent makes this actionable: on a trail built from blocks the
     // old wording referred to a ground point that no longer exists.
     error(
@@ -867,7 +872,11 @@ export function validateLevel(level) {
           `Ground-anchored apple at x ${Math.round(apple.x)} has no terrain under it.`,
         );
     }
-    if (!Number.isFinite(level.finishY) && noGround(level.goal))
+    if (
+      !finishOffTerrain &&
+      !Number.isFinite(level.finishY) &&
+      noGround(level.goal)
+    )
       error(
         "The ground-anchored finish has no terrain under it. Drag it onto a block, or lift it into the air.",
       );

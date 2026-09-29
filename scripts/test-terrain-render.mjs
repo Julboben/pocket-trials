@@ -61,11 +61,24 @@ const pixelAt = (raster, left, top, x, y) => {
       const onOutline = terrainSolidAt(compiled, x, y - 0.01) !== terrainSolidAt(compiled, x, y + 0.01)
         || terrainSolidAt(compiled, x - 0.01, y) !== terrainSolidAt(compiled, x + 0.01, y);
       if (solid && !drawn && !onOutline) uncovered++;
-      // Art outside the solid is only the floor rim and grass tufts, which
-      // stand on a floor at most a tuft's height below.
+      // Art outside the solid is only the floor rim, grass tufts, and the
+      // cliff lip, which stand on a floor at most a tuft's height below.
       if (drawn && !solid) {
         let near = false;
         for (let rise = 0; rise <= 12 && !near; rise += 2) near = terrainSolidAt(compiled, x, y + rise);
+        // The cliff lip is a 4-pixel column drawn one pixel out in the air
+        // beside a cliff top, so its own column has no floor within reach. It
+        // is real art, so a floor top immediately beside it counts instead.
+        // Genuine bleeding sits further from a cliff edge than this.
+        if (!near) {
+          for (const beside of [x - 2, x + 2]) {
+            for (let offset = -4; offset <= 4; offset += 2) {
+              if (!terrainSolidAt(compiled, beside, y + offset)) continue;
+              // Solid beside and open above it: that is a cliff top beside us.
+              if (!terrainSolidAt(compiled, beside, y + offset - 2)) near = true;
+            }
+          }
+        }
         if (!near) stray++;
       }
     }
@@ -223,11 +236,10 @@ const drawCalls = (renderer, level, x, y, w, h) => {
   check('normalizing twice is stable', normalizeLevel(JSON.parse(JSON.stringify(missing))).finishY === null);
   check('the editor and the game read one height', inAir.finishY === finishAt(inAir));
   const past = normalizeLevel({ ...bare, goal: 1000, finishY: 120, apples: [{ x: 1400, y: 120 }] });
-  const apple = validateLevel(past).find(m => m.text.startsWith('Apple at x 1400'));
-  check('an apple past an air finish is reported', /past the finish at x 1000/.test(apple?.text || ''), `("${apple?.text}")`);
-  check('and says how to fix it', /Move the finish right/.test(apple?.text || ''));
-  check('moving the finish past the apple clears it',
-    !validateLevel(normalizeLevel({ ...past, goal: 1600 })).some(m => m.text.startsWith('Apple at x 1400')));
+  // Once the flower became the finish, the run no longer ends at the finish's
+  // x, so an apple beyond it is still reachable and must not be reported.
+  check('an apple past the finish x is not reported',
+    !validateLevel(past).some((m) => /past the finish/.test(m.text)));
 }
 
 dom.restore();
