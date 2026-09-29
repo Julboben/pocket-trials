@@ -1,4 +1,4 @@
-import { terrainAt } from "./terrain.js";
+import { terrainAt, terrainCollisionsAt, terrainGeometry } from "./terrain.js";
 import { FINISH_FLOWER_LIFT } from "./finish.js";
 
 const GROUND_ALIGNED_PROP_SPANS = {
@@ -116,6 +116,51 @@ export function sunShadowOffset({
   const offset = -slant * strength * reach;
   if (!offset) return 0;
   return Math.max(-14, Math.min(14, offset));
+}
+
+// Props that attach to a wall face or cliff edge rather than stand on the ground.
+export const WALL_PROPS = new Set(["vines", "roots", "ledge", "moss"]);
+// Longest vines can hang, in world units.
+export const VINE_MAX = 140;
+const wallFits = new WeakMap();
+
+/**
+ * Which side a wall prop's rock is on (-1 left, 1 right, 0 none found) and,
+ * for vines, how far they can hang before reaching the ground below.
+ * Cached per prop until it moves or the terrain changes.
+ */
+export function propWallFit(level, prop) {
+  if (!WALL_PROPS.has(prop.type)) return null;
+  const geometry = terrainGeometry(level);
+  const cached = wallFits.get(prop);
+  if (cached && cached.x === prop.x && cached.y === prop.y
+    && cached.type === prop.type && cached.geometry === geometry) return cached.fit;
+
+  const y = Number.isFinite(prop.y) ? prop.y : terrainAt(level, prop.x).y;
+  const solidAt = (px, py) => terrainCollisionsAt(level, px, py, 1).length > 0;
+  // Vines sit on a cliff's top corner, so look a little below it for the face.
+  const sampleY = y + (prop.type === "vines" ? 12 : 0);
+  let side = 0;
+  for (const reach of [4, 8, 14, 22]) {
+    const left = solidAt(prop.x - reach, sampleY);
+    const right = solidAt(prop.x + reach, sampleY);
+    if (left !== right) {
+      side = left ? -1 : 1;
+      break;
+    }
+  }
+  let drop = 0;
+  if (prop.type === "vines") {
+    // Measured just out in the air, beside the face.
+    const airX = prop.x - side * 6;
+    for (let d = 8; d <= VINE_MAX; d += 4) {
+      if (solidAt(airX, y + d)) break;
+      drop = d;
+    }
+  }
+  const fit = { side, drop };
+  wallFits.set(prop, { x: prop.x, y: prop.y, type: prop.type, geometry, fit });
+  return fit;
 }
 
 export function propGroundOffset(level, prop) {
@@ -890,6 +935,10 @@ const PROP_EXTENTS = {
   cactus: [-32, -104, 32],
   crystal: [-16, -42, 16],
   start: [-6, -102, 48],
+  vines: [-16, -10, 16],
+  roots: [-32, -16, 32],
+  ledge: [-28, -18, 28],
+  moss: [-18, -18, 18],
 };
 
 function propBounds(type, angle, groundOffset, text) {
@@ -936,6 +985,9 @@ function propBounds(type, angle, groundOffset, text) {
     groundOffset(0),
     groundOffset(right),
   );
+  // Wall props reach below their anchor, so faded ones need a taller box.
+  if (WALL_PROPS.has(type))
+    bottom = Math.max(bottom, type === "vines" ? VINE_MAX + 8 : 28);
   if (angle) {
     const reach = Math.max(-left, -top, right, bottom);
     [left, top, right, bottom] = [-reach, -reach, reach, reach];
@@ -1493,6 +1545,93 @@ export function createGameArt(ctx) {
     }
   }
 
+  const LEAF = { stem: "#3d6452", dark: "#477158", mid: "#568061", light: "#618b66" };
+  const BARK = { dark: "#4d3f2f", base: "#66543f", light: "#856d4f", tip: "#aa8a60" };
+  const STONE = { dark: "#697872", base: "#7f8d83", light: "#8b978c", glint: "#aeb5a7" };
+
+  // A fixed 0…1 value per prop and index, so wall props never flicker.
+  const propNoise = (x, n) => {
+    const s = Math.sin(n * 127.1 + x * 311.7) * 43758.5453;
+    return s - Math.floor(s);
+  };
+
+  // Hanging from a cliff's top corner. `wall.drop` is the free fall below.
+  function drawVines(x, wall) {
+    const length = Math.max(24, Math.min(VINE_MAX, wall?.drop || 56));
+    const lean = (wall?.side || 0) * 2;
+    // Leafy clump over the lip.
+    pixelRect(-10, -4, 20, 4, LEAF.dark, 2);
+    pixelRect(-6, -6, 12, 2, LEAF.mid, 2);
+    pixelRect(0, -6, 4, 2, LEAF.light, 2);
+    [-6, 0, 6].forEach((offset, index) => {
+      const reach = Math.round((length * (0.55 + propNoise(x, index) * 0.45)) / 2) * 2;
+      const sway = (py) => Math.round(Math.sin((py + index * 9) * 0.12) * 1.2) * 2;
+      const stemX = offset + lean;
+      for (let py = 0; py < reach; py += 2) {
+        const sx = stemX + sway(py);
+        pixelRect(sx, py, 2, 2, LEAF.stem, 2);
+        if ((py / 2 + index) % 4 === 0) {
+          const side = Math.floor(py / 8) % 2 ? -2 : 2;
+          pixelRect(sx + side, py, 2, 2, side > 0 ? LEAF.light : LEAF.dark, 2);
+          pixelRect(sx + side, py + 2, 2, 2, LEAF.mid, 2);
+        }
+      }
+      const tipX = stemX + sway(reach);
+      pixelRect(tipX - 2, reach, 6, 2, LEAF.mid, 2);
+      pixelRect(tipX, reach + 2, 2, 2, LEAF.dark, 2);
+    });
+  }
+
+  // Drawn growing toward +x; the caller mirrors it for faces the other way.
+  function drawRoots(x) {
+    pixelRect(-2, -10, 6, 22, BARK.dark, 2);
+    const roots = [
+      { y: -8, reach: 16 + propNoise(x, 1) * 8, droop: 10 },
+      { y: 0, reach: 22 + propNoise(x, 2) * 8, droop: 14 },
+      { y: 8, reach: 12 + propNoise(x, 3) * 6, droop: 8 },
+    ];
+    for (const root of roots) {
+      const points = [
+        [0, root.y],
+        [root.reach * 0.4, root.y - 2],
+        [root.reach * 0.75, root.y + root.droop * 0.4],
+        [root.reach, root.y + root.droop],
+      ];
+      pixelPath(points, BARK.base, 2, 2);
+      pixelPath(points.slice(0, 3).map(([px, py]) => [px, py - 2]), BARK.light, 1, 2);
+      const [tx, ty] = points[3];
+      pixelPath([[tx, ty], [tx + 2, ty + 6]], BARK.tip, 1, 2);
+    }
+  }
+
+  // Rock shelf growing toward +x, lit on top; the caller mirrors it.
+  function drawLedge() {
+    pixelRect(-4, -8, 26, 6, STONE.base, 2);
+    pixelRect(-4, -2, 20, 4, STONE.dark, 2);
+    pixelRect(-4, 2, 12, 2, STONE.dark, 2);
+    pixelRect(-4, 4, 6, 2, STONE.dark, 2);
+    pixelRect(-4, -10, 24, 2, STONE.light, 2);
+    pixelRect(8, -10, 8, 2, STONE.glint, 2);
+    pixelRect(20, -8, 2, 4, STONE.light, 2);
+    pixelRect(4, -6, 4, 2, STONE.dark, 2);
+    // Grass tuft on top.
+    pixelRect(0, -12, 2, 2, LEAF.mid, 2);
+    pixelRect(2, -14, 2, 4, LEAF.light, 2);
+    pixelRect(14, -12, 2, 2, LEAF.mid, 2);
+  }
+
+  // Moss pressed onto the rock side of the anchor.
+  function drawMoss(wall) {
+    const hug = (wall?.side || 0) * 4;
+    const clumps = [[-6, -8, 7], [4, -2, 8], [-2, 8, 6], [6, 12, 4]];
+    for (const [cx, cy, r] of clumps) drawPixelDisc(cx + hug, cy, r, LEAF.dark, 2);
+    for (const [cx, cy, r] of clumps) drawPixelDisc(cx + hug + 2, cy - 2, r - 3, LEAF.mid, 2);
+    pixelRect(4 + hug, -8, 4, 2, LEAF.light, 2);
+    pixelRect(-6 + hug, -14, 4, 2, LEAF.light, 2);
+    for (const [dx, length] of [[-8, 6], [0, 10], [8, 4]])
+      pixelRect(dx + hug, 14, 2, length, LEAF.stem, 2);
+  }
+
   function drawCanopy(type) {
     const sprite = canopySprite(type);
     ctx.imageSmoothingEnabled = false;
@@ -1508,7 +1647,7 @@ export function createGameArt(ctx) {
   // A translucent prop is drawn opaque into a scratch layer on the same device
   // pixel grid and then blended once, so overlapping shapes inside it do not
   // stack up into darker, more solid patches.
-  function drawPropLayer(type, x, y, alpha, slope, groundOffset, text) {
+  function drawPropLayer(type, x, y, alpha, slope, groundOffset, text, wall) {
     const transform = ctx.getTransform();
     if (transform.b || transform.c) return false;
     const [left, top, right, bottom] = propBounds(
@@ -1554,7 +1693,7 @@ export function createGameArt(ctx) {
       transform.e - x0,
       transform.f - y0,
     );
-    art.drawProp(type, x, y, 1, slope, groundOffset, text);
+    art.drawProp(type, x, y, 1, slope, groundOffset, text, wall);
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = alpha;
@@ -1571,11 +1710,12 @@ export function createGameArt(ctx) {
     slope = 0,
     groundOffset = () => 0,
     text = "",
+    wall = null,
   ) {
     if (isStartSign(type, text)) type = "start";
     if (
       alpha < 1 &&
-      drawPropLayer(type, x, y, alpha, slope, groundOffset, text)
+      drawPropLayer(type, x, y, alpha, slope, groundOffset, text, wall)
     )
       return;
     ctx.save();
@@ -1807,6 +1947,15 @@ export function createGameArt(ctx) {
     } else if (type === "start") {
       // Same pennant as the start line, drawn by the shared function.
       drawStartPennant(ctx, 0, 0, groundOffset);
+    } else if (WALL_PROPS.has(type)) {
+      // Grow away from the rock: rock on the right (side 1) means grow left.
+      if (type === "vines") drawVines(x, wall);
+      else if (type === "moss") drawMoss(wall);
+      else {
+        ctx.scale(wall?.side === 1 ? -1 : 1, 1);
+        if (type === "roots") drawRoots(x);
+        else drawLedge();
+      }
     } else if (type === "sign") {
       // Upright post carrying a small writable board.
       // The board sizes itself to the prop's `text` (clamped to

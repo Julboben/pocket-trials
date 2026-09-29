@@ -347,6 +347,29 @@ const RIM_JOIN = 12;
 const TUFT_CLEARANCE = 14;
 const TUFT_MAX_RISE = 6;
 
+// Wall faces: how many art-pixel columns in from the air a wall's rim and
+// shading reach, and how steep a face must be to count as a wall rather than a
+// slope (distance to air \u00d7 this must be less than the depth below the floor).
+const WALL_REACH = 6;
+const WALL_STEEPNESS = 2;
+// Strata and pebbles repeat this far apart, so tall faces keep their texture.
+const DETAIL_REPEAT = 120;
+// Ledges: at most one per face in each course of this many art pixels.
+const LEDGE_ROWS = 22;
+// A cliff edge needs at least this much drop beside it to get a lip.
+const LIP_DROP = 16;
+const SUNLIGHT = [255, 248, 226];
+
+const mixColor = (a, b, t) =>
+  a.map((value, index) => Math.round(value + (b[index] - value) * t));
+
+/** A repeatable 0\u20261 value for two integers, the same in every chunk. */
+function hash2(a, b) {
+  let h = (Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
 const opaque = (color) => compositeColor(color, "#000000");
 const materialColorCache = new Map();
 
@@ -354,17 +377,29 @@ function materialColors(name) {
   const cached = materialColorCache.get(name);
   if (cached) return cached;
   const material = materialFor(name);
+  const fill = opaque(material.fill),
+    edge = opaque(material.edge);
+  const layers = material.layers.map(opaque);
+  const light = layers[0],
+    dark = layers[layers.length - 1];
   const colors = {
-    fill: opaque(material.fill),
-    edge: opaque(material.edge),
+    fill,
+    edge,
     surface: opaque(material.surface),
-    layers: material.layers.map(opaque),
+    layers,
     detail: compositeColor(material.detail, material.fill),
     brick:
       material.pattern === "brick"
         ? compositeColor(BRICK_COLOR, material.fill)
         : null,
     vegetation: material.vegetation ? opaque(material.vegetation) : null,
+    // Wall faces toward the sun (air on the right) and away from it.
+    glint: mixColor(light, SUNLIGHT, 0.3),
+    lit: light,
+    litSoft: mixColor(light, fill, 0.5),
+    shade: dark,
+    shadeDeep: mixColor(fill, dark, 0.5),
+    crack: mixColor(edge, fill, 0.3),
   };
   materialColorCache.set(name, colors);
   return colors;
@@ -450,28 +485,34 @@ export function rasterizeTerrainChunk(
     result.opaque = true;
   };
 
-  // One column either side, so walls and joined rims at the chunk's edges
-  // match the neighbouring chunk exactly.
-  const bodySpans = new Array(width + 2),
-    spans = new Array(width + 2);
-  for (let column = -1; column <= width; column++) {
+  // WALL_REACH columns either side, so walls, joined rims and cliff lips at
+  // the chunk's edges match the neighbouring chunk exactly.
+  const bodySpans = [],
+    spans = [];
+  for (let column = -WALL_REACH; column < width + WALL_REACH; column++) {
     const own = terrainBodySpans(compiled, (column0 + column + 0.5) * pixel);
-    bodySpans[column + 1] = own;
-    spans[column + 1] = mergeSpans(own);
+    bodySpans.push(own);
+    spans.push(mergeSpans(own));
   }
+  const spansAt = (column) => spans[column + WALL_REACH] || [];
+  const bodiesAt = (column) => bodySpans[column + WALL_REACH] || [];
+  // Columns from `column` to the nearest air at `y` in one direction, or 0.
+  const airDistance = (column, y, direction) => {
+    for (let step = 1; step <= WALL_REACH; step++)
+      if (!solidIn(spansAt(column + direction * step), y)) return step;
+    return 0;
+  };
 
   for (let column = 0; column < width; column++) {
     const x = (column0 + column + 0.5) * pixel;
-    const own = bodySpans[column + 1],
-      here = spans[column + 1];
-    const left = spans[column],
-      right = spans[column + 2];
+    const own = bodiesAt(column),
+      here = spansAt(column);
+    const left = spansAt(column - 1),
+      right = spansAt(column + 1);
     if (!here.length) continue;
     const single =
       own.length === 1 ? materialColors(own[0].topBody.material) : null;
-    const strata = [0, 1, 2, 3].map(
-      (i) => 27 + i * 30 + Math.sin(x * 0.022 + i) * 5,
-    );
+    const wobble = [0, 1, 2, 3].map((i) => Math.sin(x * 0.022 + i) * 5);
     let previousBottom = -Infinity;
     for (const span of here) {
       const above = previousBottom;
@@ -529,13 +570,33 @@ export function rasterizeTerrainChunk(
             what = 2;
           }
         } else {
+          // Strata repeat all the way down; the first four are as before.
           const depth = y - span.top;
-          for (let i = 0; i < 4; i++) {
-            if (Math.abs(depth - strata[i]) < 1) {
-              color = colors.layers[i % colors.layers.length];
-              what = 2;
-              break;
-            }
+          const band = Math.max(0, Math.round((depth - 27) / 30));
+          if (Math.abs(depth - (27 + band * 30 + wobble[band % 4])) < 1) {
+            color = colors.layers[(band % 4) % colors.layers.length];
+            what = 2;
+          }
+        }
+        // Wall faces: a lit band toward the sun, shade on the far side, and
+        // the odd ledge. Only steep faces count, so slopes are left alone.
+        const airRight = airDistance(column, y, 1),
+          airLeft = airDistance(column, y, -1);
+        const reach = Math.min(airRight || Infinity, airLeft || Infinity);
+        if (reach !== Infinity && reach * pixel * WALL_STEEPNESS < y - span.top) {
+          const lit = airRight > 0 && (!airLeft || airRight <= airLeft);
+          const faceColumn = column0 + column + (lit ? reach : -reach);
+          const faceColor = wallShade(
+            colors,
+            reach,
+            lit,
+            faceColumn,
+            y,
+            pixel,
+          );
+          if (faceColor) {
+            color = faceColor;
+            what = 3;
           }
         }
         put(column, row, color, what);
@@ -556,11 +617,47 @@ export function rasterizeTerrainChunk(
     kind,
     put,
   );
+  drawCliffLips(spansAt, bodiesAt, width, pixel, column0, row0, rowAt, put);
   drawTufts(compiled, originX, worldRight, pixel, column0, row0, put);
   return result;
 }
 
-// Pebbles hang a fixed depth below the floor above them, like the old ground's.
+/**
+ * The colour of a wall-face pixel `reach` columns in from the air, or null to
+ * keep the fill. Ledges are seeded by world position, so chunks agree.
+ */
+function wallShade(colors, reach, lit, faceColumn, y, pixel) {
+  if (!colors.brick) {
+    const worldRow = Math.floor(y / pixel);
+    const course = Math.floor(worldRow / LEDGE_ROWS);
+    const group = Math.floor(faceColumn / 3) * 2 + (lit ? 1 : 0);
+    if (hash2(course, group) > 0.35) {
+      const ledgeRow =
+        course * LEDGE_ROWS +
+        4 +
+        Math.floor(hash2(course + 7919, group) * (LEDGE_ROWS - 8));
+      const depth = 2 + Math.floor(hash2(course, group + 104729) * 3);
+      if (reach <= depth + 1) {
+        // A dark crack, with a sunlit lip above it or a shadow below it.
+        if (worldRow === ledgeRow) return colors.crack;
+        if (worldRow === ledgeRow - 1 && lit) return colors.glint;
+        if (worldRow === ledgeRow + 1 && !lit) return colors.shadeDeep;
+      }
+    }
+  }
+  if (lit)
+    return reach === 2
+      ? colors.glint
+      : reach <= 4
+        ? colors.lit
+        : reach === 5
+          ? colors.litSoft
+          : null;
+  return reach <= 3 ? colors.shade : colors.shadeDeep;
+}
+
+// Pebbles hang below the floor above them, like the old ground's, and repeat
+// all the way down so a tall face is never left bare.
 function drawPebbles(
   compiled,
   originX,
@@ -583,37 +680,111 @@ function drawPebbles(
     const rx = 2 + (((i % 3) + 3) % 3),
       ry = 1.5;
     if (cx + rx < originX || cx - rx > worldRight) continue;
+    const cos = Math.cos(0.3),
+      sin = Math.sin(0.3);
     for (const span of terrainColumnSpans(compiled, cx)) {
-      const cy = span.top + 16 + (Math.sin(i * 23) + 1) * 34;
-      if (
-        cy + ry > span.bottom - 2 ||
-        cy + ry < originY ||
-        cy - ry > worldBottom
-      )
-        continue;
-      const colors = materialColors(
-        (terrainBodyAt(compiled, cx, cy) || span.topBody).material,
+      const firstRepeat = Math.max(
+        0,
+        Math.floor((originY - span.top - 100) / DETAIL_REPEAT),
       );
-      const cos = Math.cos(0.3),
-        sin = Math.sin(0.3);
-      for (
-        let column = Math.floor((cx - rx) / pixel) - column0;
-        column <= Math.ceil((cx + rx) / pixel) - column0;
-        column++
-      ) {
+      for (let repeat = firstRepeat; ; repeat++) {
+        const cy =
+          span.top +
+          16 +
+          (Math.sin(i * 23 + repeat * 1.7) + 1) * 34 +
+          repeat * DETAIL_REPEAT;
+        if (cy - ry > span.bottom || cy - ry > worldBottom) break;
+        if (cy + ry > span.bottom - 2 || cy + ry < originY) continue;
+        const colors = materialColors(
+          (terrainBodyAt(compiled, cx, cy) || span.topBody).material,
+        );
         for (
-          let row = Math.floor((cy - rx) / pixel) - row0;
-          row <= Math.ceil((cy + rx) / pixel) - row0;
-          row++
+          let column = Math.floor((cx - rx) / pixel) - column0;
+          column <= Math.ceil((cx + rx) / pixel) - column0;
+          column++
         ) {
-          const dx = (column0 + column + 0.5) * pixel - cx,
-            dy = (row0 + row + 0.5) * pixel - cy;
-          const u = dx * cos + dy * sin,
-            v = dy * cos - dx * sin;
-          if ((u / rx) ** 2 + (v / ry) ** 2 > 1) continue;
-          if (column < 0 || column >= width || row < 0) continue;
-          const what = kind[row * width + column];
-          if (what === 1 || what === 2) put(column, row, colors.detail, 2);
+          for (
+            let row = Math.floor((cy - rx) / pixel) - row0;
+            row <= Math.ceil((cy + rx) / pixel) - row0;
+            row++
+          ) {
+            const dx = (column0 + column + 0.5) * pixel - cx,
+              dy = (row0 + row + 0.5) * pixel - cy;
+            const u = dx * cos + dy * sin,
+              v = dy * cos - dx * sin;
+            if ((u / rx) ** 2 + (v / ry) ** 2 > 1) continue;
+            if (column < 0 || column >= width || row < 0) continue;
+            const what = kind[row * width + column];
+            if (what === 1 || what === 2) put(column, row, colors.detail, 2);
+          }
+        }
+      }
+    }
+  }
+}
+
+// At the top of a cliff the rim sticks one art pixel out past the face, and on
+// grassy materials a few strands hang over it. Everything is decided from world
+// geometry and world columns, so a lip split across two chunks still matches.
+function drawCliffLips(
+  spansAt,
+  bodiesAt,
+  width,
+  pixel,
+  column0,
+  row0,
+  rowAt,
+  put,
+) {
+  for (let column = -1; column <= width; column++) {
+    let above = -Infinity;
+    for (const span of spansAt(column)) {
+      const top = span.top,
+        clearance = top - above;
+      above = span.bottom;
+      if (clearance < LIP_DROP) continue;
+      const colors = materialColors(
+        (bodyIn(bodiesAt(column), top + 0.01) || span.topBody).material,
+      );
+      for (const direction of [-1, 1]) {
+        const beside = spansAt(column + direction);
+        // Not a cliff: the ground beside carries on as a slope, or is solid.
+        if (joinedTop(beside, top) !== null) continue;
+        if (
+          [2, LIP_DROP / 2, LIP_DROP].some((drop) => solidIn(beside, top + drop))
+        )
+          continue;
+        const lipColumn = column + direction;
+        for (let row = rowAt(top - 4); row < rowAt(top + 4); row++) {
+          const y = (row0 + row + 0.5) * pixel;
+          if (solidIn(beside, y)) continue;
+          put(
+            lipColumn,
+            row,
+            y < top - 2 || y >= top + 2 ? colors.edge : colors.surface,
+            3,
+          );
+        }
+        if (!colors.vegetation) continue;
+        // One strand hanging in the air past the lip, and a shorter one over the face.
+        const worldColumn = column0 + column;
+        const strands = [
+          [lipColumn, 1 + Math.floor(hash2(worldColumn, direction) * 4), true],
+          [column, Math.floor(hash2(worldColumn + 31, direction) * 3), false],
+        ];
+        for (const [strandColumn, length, inAir] of strands) {
+          const start = rowAt(top + 4);
+          for (let step = 0; step < length; step++) {
+            const row = start + step;
+            const y = (row0 + row + 0.5) * pixel;
+            if (inAir ? solidIn(beside, y) : y >= span.bottom - pixel) break;
+            put(
+              strandColumn,
+              row,
+              step === length - 1 ? colors.edge : colors.vegetation,
+              3,
+            );
+          }
         }
       }
     }

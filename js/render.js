@@ -10,6 +10,7 @@ import {
   createGameArt,
   propAlignmentSlope,
   propGroundOffset,
+  propWallFit,
   sunLight,
   sunShadowOffset,
 } from "./drawing.js";
@@ -58,6 +59,8 @@ const XRAY_ALPHA = 0.25;
 const XRAY_REACH = 70;
 // How far each prop's art reaches above its anchor, for culling.
 const PROP_RISE = { tree: 186, pine: 188 };
+// How far each prop's art hangs below its anchor, for culling.
+const PROP_HANG = { vines: 148, roots: 28, moss: 28, ledge: 12 };
 // How far a hair strand may sink into a floor and still be lifted back onto it.
 const HAIR_GROUND_ALLOWANCE = 8;
 
@@ -212,8 +215,9 @@ export function createRenderer(canvas) {
       if (!ground.solid && !Number.isFinite(prop.y)) continue;
       const y = Number.isFinite(prop.y) ? prop.y : ground.y;
       const rise = PROP_RISE[prop.type] ?? 90;
-      if (!inView(prop.x, 70, y, rise)) continue;
-      if (area && (y - rise > area.bottom || y + 70 < area.top)) continue;
+      const hang = PROP_HANG[prop.type] ?? 0;
+      if (!inView(prop.x, 70, y + hang, rise + hang)) continue;
+      if (area && (y - rise > area.bottom || y + hang + 70 < area.top)) continue;
       art.drawProp(
         prop.type,
         prop.x,
@@ -222,6 +226,7 @@ export function createRenderer(canvas) {
         propAlignmentSlope(level, prop),
         propGroundOffset(level, prop),
         prop.text,
+        propWallFit(level, prop),
       );
       drawn++;
     }

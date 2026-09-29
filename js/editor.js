@@ -21,6 +21,7 @@ import {
   createGameArt,
   propAlignmentSlope,
   propGroundOffset,
+  propWallFit,
 } from "./drawing.js";
 import {
   cloneLevel,
@@ -778,6 +779,7 @@ function drawProps(layer) {
       propAlignmentSlope(level, prop),
       propGroundOffset(level, prop),
       prop.text,
+      propWallFit(level, prop),
     );
   }
 }
@@ -1725,6 +1727,7 @@ function drawPlacementPreview() {
       propAlignmentSlope(level, prop),
       propGroundOffset(level, prop),
       "",
+      propWallFit(level, prop),
     );
     return;
   }
