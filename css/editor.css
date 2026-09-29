@@ -68,6 +68,9 @@ button:hover, .back-game:hover { background: #3a535b; }
 .side-panel input[type="checkbox"] { width: auto; min-height: 0; }
 .side-panel fieldset:not(.tool-settings) { margin: 15px 0 0; padding: 13px; border: 1px solid var(--border); }
 .side-panel fieldset:not(.tool-settings) legend { padding: 0 5px; color: var(--muted); font-size: 8px; font-weight: 900; letter-spacing: 1.5px; }
+.segmented { display: inline-flex; gap: 2px; }
+.segmented button { flex: 1; min-height: 26px; padding: 4px 10px; border-width: 1px; font-size: 8px; }
+.segmented button.active { border-color: var(--accent); background: var(--accent); color: #25372f; }
 .toolbox-footer { padding-top: 12px; }
 .zoom-controls { display: grid; grid-template-columns: 34px 1fr 34px; align-items: center; gap: 5px; text-align: center; font-size: 9px; }
 .zoom-controls button { height: 32px; }

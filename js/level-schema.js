@@ -770,6 +770,10 @@ export function validateLevel(level) {
         "vines",
         "roots",
         "moss",
+        "sapling",
+        "pine-small",
+        "cactus-small",
+        "pebbles",
       ].includes(prop.type)
     )
       warning(`Prop ${index + 1} has an unknown type “${prop.type}”.`);

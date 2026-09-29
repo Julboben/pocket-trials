@@ -336,6 +336,12 @@
                                     <option value="vines">Vines</option>
                                     <option value="roots">Roots</option>
                                     <option value="moss">Moss</option>
+                                    <option value="sapling">Sapling</option>
+                                    <option value="pine-small">Pine (small)</option>
+                                    <option value="cactus-small">
+                                        Cactus (small)
+                                    </option>
+                                    <option value="pebbles">Pebbles</option>
                                 </select></label
                             >
                             <label id="selection-prop-text-row" hidden
@@ -353,9 +359,13 @@
                                     <option value="front">Front</option>
                                 </select></label
                             >
-                            <label id="selection-flip-row" class="checkbox-row"
-                                >Flip <input id="selection-flip" type="checkbox"
-                            /></label>
+                            <label id="selection-flip-row" hidden
+                                >Flip
+                                <select id="selection-flip">
+                                    <option value="false">Normal</option>
+                                    <option value="true">Flipped</option>
+                                </select></label
+                            >
                             <label id="selection-radius-row" hidden
                                 >Radius
                                 <input

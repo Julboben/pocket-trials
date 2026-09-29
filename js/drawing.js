@@ -120,8 +120,8 @@ export function sunShadowOffset({
 
 // Props that attach to a wall face or cliff edge rather than stand on the ground.
 export const WALL_PROPS = new Set(["vines", "roots", "moss"]);
-// Signs would mirror their text, and wall props already face their wall.
-export const canFlip = (type) => type !== "sign" && !WALL_PROPS.has(type);
+// Signs would mirror their text; everything else may be flipped.
+export const canFlip = (type) => type !== "sign";
 // Longest vines can hang, in world units.
 export const VINE_MAX = 140;
 const wallFits = new WeakMap();
@@ -142,16 +142,12 @@ export function propWallFit(level, prop) {
   const solidAt = (px, py) => terrainCollisionsAt(level, px, py, 1).length > 0;
   // Vines sit on a cliff's top corner, so look a little below it for the face.
   const sampleY = y + (prop.type === "vines" ? 12 : 0);
-  let side = 0,
-    material = null;
+  let side = 0;
   for (const reach of [4, 8, 14, 22]) {
     const left = solidAt(prop.x - reach, sampleY);
     const right = solidAt(prop.x + reach, sampleY);
     if (left !== right) {
       side = left ? -1 : 1;
-      material =
-        terrainCollisionsAt(level, prop.x + side * reach, sampleY, 1)[0]
-          ?.material || null;
       break;
     }
   }
@@ -177,7 +173,7 @@ export function propWallFit(level, prop) {
       }
     }
   }
-  const fit = { side, drop, face, material };
+  const fit = { side, drop, face };
   wallFits.set(prop, { x: prop.x, y: prop.y, type: prop.type, geometry, fit });
   return fit;
 }
@@ -790,6 +786,87 @@ function drawBushCanopy({ pixelRect, drawPixelDisc }) {
   pixelRect(-4, -6, 6, 2, "#477158", 2);
 }
 
+// Small props' sprites end at these heights; the part below is drawn live so
+// its base follows the slope.
+const SAPLING_CANOPY_BOTTOM = -30;
+const SMALL_PINE_CANOPY_BOTTOM = -14;
+const SMALL_CACTUS_BOTTOM = -8;
+
+function drawSaplingCanopy({ pixelRect, pixelPath, drawPixelDisc }) {
+  // Upper trunk, hidden behind the crown.
+  pixelRect(-4, -56, 4, SAPLING_CANOPY_BOTTOM + 56, "#66543f", 2);
+  pixelRect(0, -56, 2, SAPLING_CANOPY_BOTTOM + 56, "#856d4f", 2);
+  pixelRect(2, -52, 2, SAPLING_CANOPY_BOTTOM + 52, "#aa8a60", 2);
+  // One young branch, peeking out under the crown.
+  pixelPath([[0, -40], [10, -50]], "#66543f", 2, 2);
+
+  // Dark rear silhouette.
+  drawPixelDisc(-12, -50, 12, "#477158", 2);
+  drawPixelDisc(12, -52, 12, "#477158", 2);
+  drawPixelDisc(0, -60, 14, "#477158", 2);
+  // Main leaf masses.
+  drawPixelDisc(-10, -54, 9, "#4e785c", 2);
+  drawPixelDisc(8, -56, 10, "#568061", 2);
+  drawPixelDisc(0, -62, 10, "#568061", 2);
+  // Sunlit top right.
+  drawPixelDisc(8, -64, 6, "#618b66", 2);
+  drawPixelDisc(14, -54, 4, "#618b66", 2);
+  pixelRect(-14, -48, 6, 2, "#568061", 2);
+}
+
+// The same tiered, shaded bough pattern as the big pine, for any tier list.
+function drawPineTiers({ pixelRect }, tiers) {
+  for (const { top, bottom, halfWidth } of tiers) {
+    const rows = (bottom - top) / 2;
+    for (let row = 0; row < rows; row++) {
+      const t = row / (rows - 1);
+      const half = Math.max(
+        2,
+        Math.round((2 + (halfWidth - 2) * Math.pow(t, 1.15)) / 2) * 2,
+      );
+      const py = top + row * 2;
+      const underside = row >= rows - 3;
+      for (let px = -half; px < half; px += 2) {
+        const cellCenter = px + 1;
+        const across = (cellCenter + half) / (half * 2);
+        const fromCenter = Math.abs(cellCenter);
+        if (
+          row === rows - 1 &&
+          ((fromCenter > half * 0.28 && fromCenter < half * 0.46) ||
+            (fromCenter > half * 0.66 && fromCenter < half * 0.82))
+        )
+          continue;
+        let color = "#4e785c";
+        if (underside || across < 0.24) color = "#477158";
+        else if (across > 0.55 && across < 0.9) color = "#568061";
+        if (!underside && row > 3 && row % 9 < 2 && across > 0.64 && across < 0.84)
+          color = "#618b66";
+        pixelRect(px, py, 2, 2, color, 2);
+      }
+    }
+  }
+}
+
+function drawSmallPineCanopy(tools) {
+  const { pixelRect } = tools;
+  // Upper trunk, hidden behind the boughs.
+  pixelRect(-4, -60, 4, SMALL_PINE_CANOPY_BOTTOM + 60, "#66543f", 2);
+  pixelRect(0, -60, 2, SMALL_PINE_CANOPY_BOTTOM + 60, "#856d4f", 2);
+  pixelRect(2, -60, 2, SMALL_PINE_CANOPY_BOTTOM + 60, "#aa8a60", 2);
+  drawPineTiers(tools, [
+    { top: -56, bottom: -14, halfWidth: 22 },
+    { top: -72, bottom: -40, halfWidth: 16 },
+    { top: -86, bottom: -60, halfWidth: 10 },
+  ]);
+  // Highlight on the leader.
+  pixelRect(0, -84, 2, 4, "#618b66", 2);
+}
+
+function drawSmallCactusBody(tools) {
+  drawCactusStem(tools, -6, 6, -50, SMALL_CACTUS_BOTTOM);
+  drawCactusFlower(tools, 0, -52, CACTUS_COLORS.petalLight);
+}
+
 // Saguaro body (trunk and arms) is cached like the canopies; only the base is
 // drawn live so it seats on the slope. The ground at the trunk never rises
 // above this height.
@@ -899,6 +976,18 @@ const CANOPY_SPRITES = {
     bounds: [-32, -104, 32, CACTUS_BODY_BOTTOM],
     draw: drawCactusBody,
   },
+  sapling: {
+    bounds: [-28, -76, 28, SAPLING_CANOPY_BOTTOM],
+    draw: drawSaplingCanopy,
+  },
+  "pine-small": {
+    bounds: [-24, -88, 24, SMALL_PINE_CANOPY_BOTTOM],
+    draw: drawSmallPineCanopy,
+  },
+  "cactus-small": {
+    bounds: [-8, -56, 8, SMALL_CACTUS_BOTTOM],
+    draw: drawSmallCactusBody,
+  },
 };
 const canopySprites = new Map();
 
@@ -952,6 +1041,10 @@ const PROP_EXTENTS = {
   flowers: [-16, -22, 16],
   stump: [-12, -18, 12],
   cactus: [-32, -104, 32],
+  "cactus-small": [-14, -58, 14],
+  sapling: [-28, -78, 28],
+  "pine-small": [-24, -90, 24],
+  pebbles: [-14, -12, 14],
   crystal: [-16, -42, 16],
   start: [-6, -102, 48],
   vines: [-16, -10, 16],
@@ -1793,6 +1886,48 @@ export function createGameArt(ctx) {
       // Subtle bark marks on the exposed lower trunk.
       rectAboveGround(-4, -22, 2, 8, "#856d4f", 2, groundOffset);
       rectAboveGround(0, -12, 2, 6, "#856d4f", 2, groundOffset);
+    } else if (type === "sapling" || type === "pine-small") {
+      // Young trees: cached crown, thin trunk whose base follows the slope.
+      drawCanopy(type);
+      const trunkTop =
+        type === "sapling"
+          ? SAPLING_CANOPY_BOTTOM
+          : SMALL_PINE_CANOPY_BOTTOM;
+      rectDownTo(-4, trunkTop, 4, "#66543f", 2, groundOffset);
+      rectDownTo(0, trunkTop, 2, "#856d4f", 2, groundOffset);
+      rectDownTo(2, trunkTop, 2, "#aa8a60", 2, groundOffset);
+    } else if (type === "cactus-small") {
+      drawCanopy(type);
+      // Lower stem continues the same ribs down to the ground.
+      for (let x = -6; x < 6; x += 2) {
+        const index = (x + 6) / 2;
+        const groove = index > 0 && index < 5 && index % 3 === 0;
+        rectDownTo(
+          x,
+          SMALL_CACTUS_BOTTOM,
+          2,
+          cactusStemColor((x + 7) / 12, groove),
+          2,
+          groundOffset,
+        );
+      }
+      // One pebble at its foot.
+      rectDownTo(-12, groundOffset(-11) - 4, 4, "#7f8d83", 2, groundOffset);
+      pixelRect(-10, groundOffset(-11) - 4, 2, 2, "#aeb5a7", 2);
+    } else if (type === "pebbles") {
+      // Three small stones, each seated on the ground under it, lit from the right.
+      const stones = [
+        { x: -10, w: 6, h: 4 },
+        { x: -2, w: 8, h: 6 },
+        { x: 8, w: 4, h: 2 },
+      ];
+      for (const s of stones) {
+        const ground = Math.round(groundOffset(s.x + s.w / 2) / 2) * 2;
+        const top = ground - s.h;
+        pixelRect(s.x, top, s.w, s.h, "#7f8d83", 2);
+        if (s.h > 2) pixelRect(s.x, top + 2, 2, s.h - 2, "#697872", 2);
+        pixelRect(s.x + 2, top, s.w - 2, 2, "#aeb5a7", 2);
+      }
     } else if (type === "bush") {
       // Draw the cached shrub intact.
       // drawProp() already applies the ground-alignment rotation.

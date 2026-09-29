@@ -241,7 +241,15 @@ const TOOL_INFO = {
           ["front", "Front"],
         ],
       },
-      { key: "flip", label: "Flip", type: "checkbox" },
+      {
+        key: "flip",
+        label: "Flip",
+        type: "toggle",
+        options: () => [
+          ["false", "Normal"],
+          ["true", "Flipped"],
+        ],
+      },
     ],
   },
   start: {
@@ -328,6 +336,64 @@ function clampSetting(field, value) {
   );
 }
 
+// Dropdowns with fewer than three options are shown as a row of buttons. The
+// real <select> stays in the page, hidden, so every existing listener and
+// `.value = ...` keeps working; the buttons just mirror it.
+const selectValue = Object.getOwnPropertyDescriptor(
+  HTMLSelectElement.prototype,
+  "value",
+);
+
+function segmentSelect(select) {
+  const count = select.options.length;
+  if (select.dataset.segmented || count === 0 || count >= 3) return;
+  select.dataset.segmented = "1";
+  const group = document.createElement("span");
+  group.className = "segmented";
+  group.setAttribute("role", "radiogroup");
+  const buttons = [...select.options].map((option) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = option.textContent;
+    button.dataset.value = option.value;
+    button.setAttribute("role", "radio");
+    button.addEventListener("click", () => {
+      if (select.value !== option.value) {
+        select.value = option.value;
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      // Hand focus back so the canvas shortcuts keep working.
+      canvas.focus({ preventScroll: true });
+    });
+    group.append(button);
+    return button;
+  });
+  const refresh = () => {
+    const current = selectValue.get.call(select);
+    for (const button of buttons) {
+      const active = button.dataset.value === current;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-checked", String(active));
+    }
+  };
+  // Setting the value from code (syncInspector, tool settings) updates the buttons.
+  Object.defineProperty(select, "value", {
+    configurable: true,
+    get: () => selectValue.get.call(select),
+    set: (value) => {
+      selectValue.set.call(select, value);
+      refresh();
+    },
+  });
+  select.style.display = "none";
+  select.after(group);
+  refresh();
+}
+
+function segmentSelects(root) {
+  root.querySelectorAll("select").forEach(segmentSelect);
+}
+
 function renderToolSettings() {
   const info = TOOL_INFO[tool];
   const key = TOOL_KEY_LABELS[tool];
@@ -340,7 +406,7 @@ function renderToolSettings() {
       const label = document.createElement("label");
       label.className = field.type === "checkbox" ? "checkbox-row" : "";
       let input;
-      if (field.type === "select") {
+      if (field.type === "select" || field.type === "toggle") {
         input = document.createElement("select");
         for (const [value, text] of field.options()) {
           const option = document.createElement("option");
@@ -348,7 +414,11 @@ function renderToolSettings() {
           option.textContent = text;
           input.append(option);
         }
-        input.value = String(settings[field.key]);
+        input.value = String(
+          field.type === "toggle"
+            ? Boolean(settings[field.key])
+            : settings[field.key],
+        );
       } else {
         input = document.createElement("input");
         input.type = field.type;
@@ -363,11 +433,13 @@ function renderToolSettings() {
       }
       input.addEventListener("change", () => {
         settings[field.key] =
-          field.type === "checkbox"
-            ? input.checked
-            : field.type === "number"
-              ? clampSetting(field, input.value)
-              : input.value;
+          field.type === "toggle"
+            ? input.value === "true"
+            : field.type === "checkbox"
+              ? input.checked
+              : field.type === "number"
+                ? clampSetting(field, input.value)
+                : input.value;
         if (field.type === "number") input.value = settings[field.key];
         saveToolSettings();
       });
@@ -375,6 +447,7 @@ function renderToolSettings() {
       return label;
     }),
   );
+  segmentSelects($("tool-settings-fields"));
 }
 
 function setTool(next) {
@@ -1333,7 +1406,7 @@ function syncInspector() {
     selection?.kind !== "prop" || level.props[selection.index]?.type !== "sign";
   const selectedProp = selection?.kind === "prop" ? level.props[selection.index] : null;
   $("selection-flip-row").hidden = !selectedProp || !canFlip(selectedProp.type);
-  if (selectedProp) $("selection-flip").checked = Boolean(selectedProp.flip);
+  if (selectedProp) $("selection-flip").value = String(Boolean(selectedProp.flip));
   $("selection-radius-row").hidden = selection?.kind !== "spike";
   $("selection-spin-row").hidden = selection?.kind !== "spike";
   // Only the finish has a meaningful "put it back on the ground" action, since
@@ -2070,6 +2143,10 @@ for (const name of Object.keys(terrainMaterials)) {
   }
 }
 
+// Two-option dropdowns are shown as button rows; this must run after the
+// material dropdowns above are filled, so those stay dropdowns.
+segmentSelects(document);
+
 document
   .querySelectorAll("[data-tool]")
   .forEach((button) =>
@@ -2615,7 +2692,7 @@ $("selection-flip").addEventListener("change", (event) => {
   if (selection?.kind !== "prop") return;
   pushHistory();
   const prop = level.props[selection.index];
-  if (event.target.checked) prop.flip = true;
+  if (event.target.value === "true") prop.flip = true;
   else delete prop.flip;
   syncInspector();
   render();

@@ -50,6 +50,9 @@ const SCENERY_SHADOWS = {
   crystal: { width: 10, alpha: 0.14, thickness: 3, lift: 28 },
   boulder: { width: 24, alpha: 0.15, thickness: 3, lift: 24 },
   cactus: { width: 12, alpha: 0.15, thickness: 3, lift: 22 },
+  "cactus-small": { width: 7, alpha: 0.15, thickness: 3, lift: 12 },
+  sapling: { width: 10, alpha: 0.15, thickness: 3, lift: 20 },
+  "pine-small": { width: 9, alpha: 0.15, thickness: 3, lift: 22 },
 };
 const GHOST_ALPHA = 0.38;
 // Where a front prop hides the rider, the hidden part shows as a silhouette.
@@ -58,7 +61,13 @@ const XRAY_ALPHA = 0.25;
 // World units around the bike and rider that the x-ray layer covers.
 const XRAY_REACH = 70;
 // How far each prop's art reaches above its anchor, for culling.
-const PROP_RISE = { tree: 186, pine: 188 };
+const PROP_RISE = {
+  tree: 186,
+  pine: 188,
+  sapling: 80,
+  "pine-small": 92,
+  "cactus-small": 60,
+};
 // How far each prop's art hangs below its anchor, for culling.
 const PROP_HANG = { vines: 148, roots: 28, moss: 28 };
 // How far a hair strand may sink into a floor and still be lifted back onto it.
