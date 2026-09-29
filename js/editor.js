@@ -2037,21 +2037,38 @@ function download(filename, content, type) {
   setTimeout(() => URL.revokeObjectURL(link.href), 0);
 }
 
-function entryLabel(entry) {
-  if (entry.source === "official") return "OFFICIAL";
-  return entry.storage === "browser" ? "CUSTOM · BROWSER" : "CUSTOM · FILE";
-}
-
+// The trail picker groups its options natively: official trails first, then
+// custom ones split by where they are stored. The group heading says which is
+// which, so each option needs only its name. Option values stay the entry's
+// index in levelEntries, which is what selectEntry() expects.
 function buildPicker() {
-  $("level-picker").replaceChildren(
-    ...levelEntries.map((entry, index) => {
-      const option = document.createElement("option");
-      option.value = index;
-      option.textContent = `${entryLabel(entry)} / ${entry.level.name}`;
-      return option;
-    }),
+  const picker = $("level-picker");
+  const entries = levelEntries.map((entry, index) => ({ entry, index }));
+  const groups = [
+    ["OFFICIAL", (entry) => entry.source === "official"],
+    ["CUSTOM · FILE", (entry) => entry.source === "custom" && entry.storage !== "browser"],
+    ["CUSTOM · BROWSER", (entry) => entry.source === "custom" && entry.storage === "browser"],
+  ];
+  picker.replaceChildren(
+    ...groups
+      .map(([label, matches]) => [
+        label,
+        entries.filter(({ entry }) => matches(entry)),
+      ])
+      .filter(([, items]) => items.length)
+      .map(([label, items]) => {
+        const group = document.createElement("optgroup");
+        group.label = label;
+        for (const { entry, index } of items) {
+          const option = document.createElement("option");
+          option.value = index;
+          option.textContent = entry.level.name;
+          group.append(option);
+        }
+        return group;
+      }),
   );
-  $("level-picker").value = String(levelIndex);
+  picker.value = String(levelIndex);
 }
 
 function currentEntry() {
