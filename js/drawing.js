@@ -158,7 +158,20 @@ export function propWallFit(level, prop) {
       drop = d;
     }
   }
-  const fit = { side, drop };
+  // How far the face is from the anchor, so wall props sit on it wherever you click.
+  let face = 0;
+  if (side) {
+    if (solidAt(prop.x, sampleY)) {
+      // Clicked inside the rock: step out to the surface.
+      for (let d = 2; d <= 22 && solidAt(prop.x - side * d, sampleY); d += 2) face = -side * d;
+    } else {
+      // Clicked in the air: step in until the rock starts.
+      for (let d = 2; d <= 22; d += 2) {
+        if (solidAt(prop.x + side * d, sampleY)) { face = side * (d - 2); break; }
+      }
+    }
+  }
+  const fit = { side, drop, face };
   wallFits.set(prop, { x: prop.x, y: prop.y, type: prop.type, geometry, fit });
   return fit;
 }
@@ -1586,9 +1599,9 @@ export function createGameArt(ctx) {
   function drawRoots(x) {
     pixelRect(-2, -10, 6, 22, BARK.dark, 2);
     const roots = [
-      { y: -8, reach: 16 + propNoise(x, 1) * 8, droop: 10 },
-      { y: 0, reach: 22 + propNoise(x, 2) * 8, droop: 14 },
-      { y: 8, reach: 12 + propNoise(x, 3) * 6, droop: 8 },
+      { y: -8, reach: 16 + propNoise(x, 1) * 8, droop: -4 },
+      { y: 0, reach: 22 + propNoise(x, 2) * 8, droop: 6 },
+      { y: 8, reach: 12 + propNoise(x, 3) * 6, droop: 14 },
     ];
     for (const root of roots) {
       const points = [
@@ -1948,6 +1961,7 @@ export function createGameArt(ctx) {
       // Same pennant as the start line, drawn by the shared function.
       drawStartPennant(ctx, 0, 0, groundOffset);
     } else if (WALL_PROPS.has(type)) {
+      if (type !== "vines") ctx.translate(wall?.face || 0, 0);
       // Grow away from the rock: rock on the right (side 1) means grow left.
       if (type === "vines") drawVines(x, wall);
       else if (type === "moss") drawMoss(wall);
