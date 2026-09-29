@@ -7,7 +7,11 @@ import {
   invalidateTerrain,
 } from "./terrain.js";
 import { hypot } from "./det-math.js";
-import { SIGN_MAX_CHARACTERS } from "./drawing.js";
+import {
+  signLines,
+  SIGN_LINE_CHARACTERS,
+  SIGN_MAX_LINES,
+} from "./drawing.js";
 import { RADIUS, WHEELBASE } from "./config.js";
 import { FINISH_FLOWER_LIFT, bikeTouchesFlower } from "./finish.js";
 import {
@@ -782,11 +786,14 @@ export function validateLevel(level) {
         warning(
           `Sign ${index + 1} needs its text as a string; use “” for a blank sign.`,
         );
-      else if (prop.text.length > SIGN_MAX_CHARACTERS)
+      else if (
+        signLines(prop.text).join("").replace(/\s/g, "").length <
+        prop.text.replace(/\s/g, "").length
+      )
         warning(
-          `Sign ${index + 1} text is longer than ${SIGN_MAX_CHARACTERS} characters and will be cut off.`,
+          `Sign ${index + 1} text doesn't fit in ${SIGN_MAX_LINES} lines of ${SIGN_LINE_CHARACTERS} characters and will be cut off.`,
         );
-      else if (/[^A-Z0-9 →\/.!+:\-×#]/.test(prop.text.toUpperCase()))
+      else if (/[^A-Z0-9 →\/.!+:\-×#']/.test(prop.text.toUpperCase()))
         warning(
           `Sign ${index + 1} text contains characters the pixel font cannot draw.`,
         );

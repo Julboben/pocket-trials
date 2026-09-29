@@ -385,14 +385,61 @@ const GLYPHS = {
   ":": "000010000010000",
   "×": "000101010101000",
   "#": "101111101111101",
+  "'": "010010000000000",
 };
 
 export function pixelTextWidth(text, pixel = ART_PIXEL) {
   return text.length ? (text.length * 4 - 1) * pixel : 0;
 }
 
-// Longest text a sign board can draw; the level schema warns when text exceeds it.
-export const SIGN_MAX_CHARACTERS = 8;
+// Sign boards wrap their text onto up to SIGN_MAX_LINES lines and grow taller.
+export const SIGN_LINE_CHARACTERS = 10;
+export const SIGN_MAX_LINES = 4;
+export const SIGN_MAX_CHARACTERS = SIGN_LINE_CHARACTERS * SIGN_MAX_LINES;
+
+/** A sign's text wrapped at word boundaries; overlong words are split. */
+export function signLines(text) {
+  const words = String(text || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const lines = [];
+  let line = "";
+  for (let word of words) {
+    while (word.length > SIGN_LINE_CHARACTERS) {
+      if (line) {
+        lines.push(line);
+        line = "";
+      }
+      lines.push(word.slice(0, SIGN_LINE_CHARACTERS));
+      word = word.slice(SIGN_LINE_CHARACTERS);
+    }
+    if (!word) continue;
+    if (!line) line = word;
+    else if (line.length + 1 + word.length <= SIGN_LINE_CHARACTERS)
+      line += " " + word;
+    else {
+      lines.push(line);
+      line = word;
+    }
+  }
+  if (line) lines.push(line);
+  return lines.slice(0, SIGN_MAX_LINES);
+}
+
+/**
+ * A sign board's size: `inner` is the cream face's width, `height` the whole
+ * framed board's height. Widths keep the board and text on the pixel grid.
+ */
+export function signBoard(text) {
+  const lines = signLines(text);
+  const widest = Math.max(0, ...lines.map((line) => pixelTextWidth(line)));
+  return {
+    lines,
+    inner: Math.max(22, widest + 8),
+    height: Math.max(1, lines.length) * 12 + 10,
+  };
+}
 
 export function createDrawingTools(ctx) {
   function line(points, color, width) {
@@ -1085,11 +1132,9 @@ function propBounds(type, angle, groundOffset, text, flip = false) {
     return [minX - 4, minY - 4, maxX + 4, maxY + 4];
   }
   if (type === "sign") {
-    const label = [...String(text || "")]
-      .slice(0, SIGN_MAX_CHARACTERS)
-      .join("");
-    const half = Math.max(24, pixelTextWidth(label) + 8) / 2 + 2;
-    [left, top, right] = [-half, -44, half];
+    const { inner, height } = signBoard(text);
+    const half = inner / 2 + 4;
+    [left, top, right] = [-half, -22 - height, half];
   }
   let bottom = Math.max(
     0,
@@ -1727,6 +1772,24 @@ export function createGameArt(ctx) {
       pixelRect(dx + hug, 14, 2, length, LEAF.stem, 2);
   }
 
+  // Framed board lit from the right, growing upward from `bottom`. `x` must be
+  // even; the board and every line centre on x + 1, the middle of the post.
+  function drawBoard(x, bottom, text) {
+    const { lines, inner, height } = signBoard(text);
+    const top = bottom - height;
+    const left = x + 1 - inner / 2;
+    const outer = inner + 4;
+    pixelRect(left - 2, top, outer, height, "#856d4f", 2);
+    pixelRect(left - 2, top, outer, 2, "#aa8a60", 2);
+    pixelRect(left + inner, top, 2, height, "#aa8a60", 2);
+    pixelRect(left - 2, top, 2, height, "#66543f", 2);
+    pixelRect(left - 2, bottom - 2, outer, 2, "#66543f", 2);
+    pixelRect(left, top + 2, inner, height - 4, "#f4e9d1", 2);
+    lines.forEach((line, index) =>
+      drawPixelText(line, x + 1, top + 6 + index * 12, "#365345"),
+    );
+  }
+
   function drawCanopy(type) {
     const sprite = canopySprite(type);
     ctx.imageSmoothingEnabled = false;
@@ -2124,22 +2187,11 @@ export function createGameArt(ctx) {
         drawRoots(x);
       }
     } else if (type === "sign") {
-      // Upright post carrying a small writable board.
-      // The board sizes itself to the prop's `text` (clamped to
-      // SIGN_MAX_CHARACTERS) and uses the same cream board and pixel
-      // font as the finish flag.
-      const label = [...String(text || "")]
-        .slice(0, SIGN_MAX_CHARACTERS)
-        .join("");
-      const width = Math.max(24, pixelTextWidth(label) + 8);
-
-      // Shaped post with a sunlit edge, matching the fence posts.
-      rectDownTo(-2, -24, 4, "#856d4f", 2, groundOffset);
-      rectDownTo(-2, -24, 2, "#aa8a60", 2, groundOffset);
-
-      // Board: cream face with the level's signage green text.
-      pixelRect(-width / 2, -40, width, 16, "#f4e9d1", 2);
-      drawPixelText(label, 0, -37, "#365345");
+      // Post from -2 to +4: shaded left, lit right, following the slope.
+      rectDownTo(-2, -22, 6, "#856d4f", 2, groundOffset);
+      rectDownTo(-2, -22, 2, "#66543f", 2, groundOffset);
+      rectDownTo(2, -22, 2, "#aa8a60", 2, groundOffset);
+      drawBoard(0, -22, text);
     }
     ctx.restore();
   }
