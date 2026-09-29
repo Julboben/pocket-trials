@@ -1030,7 +1030,7 @@ function render() {
   drawTerrain();
   drawObjects();
   drawPlacementPreview();
-  drawHandles();
+  art.drawTimeTint(level, cameraX, cameraY, width / zoom, height / zoom);
   drawHandles();
   drawSnapGuide();
   ctx.restore();
@@ -1370,6 +1370,7 @@ function syncInspector() {
   $("base-material").value = level.terrain;
   $("goal-x").value = Math.round(level.goal);
   $("fall-y").value = Math.round(level.fallY);
+  $("time-of-day").value = level.timeOfDay || "noon";
   for (const key of ["sun", "clouds", "rain", "lightning"])
     $(`weather-${key}`).value = level.weather?.[key] ?? 0;
   const position = selectedPosition();
@@ -2742,6 +2743,10 @@ bindLevelInput("goal-x", (value) => {
 });
 bindLevelInput("fall-y", (value) => {
   level.fallY = Number(value);
+});
+
+bindLevelInput("time-of-day", (value) => {
+  level.timeOfDay = value;
 });
 for (const key of ["sun", "clouds", "rain", "lightning"]) {
   $(`weather-${key}`).addEventListener("change", (event) => {

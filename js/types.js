@@ -25,6 +25,7 @@
  * @property {object[]} [props]
  * @property {string} [terrain] material id
  * @property {{ rain?: number, lightning?: number }} [weather]
+ * @property {'morning' | 'noon' | 'evening' | 'night'} [timeOfDay] sky, light and grade preset; omitted keeps the level's own colours
  * @property {{ gold: number, silver: number, bronze: number }} [medals] target times in seconds
  *
  * @typedef {object} Contact

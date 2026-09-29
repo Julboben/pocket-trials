@@ -92,14 +92,122 @@ const SUN_CLIMB_LIMIT = 600;
 // the first one as the camera climbs.
 const CLOUD_ROW_SPACING = 180;
 
-export function sunLight({ width, cameraX = 0, cameraY = 0, weather = {} }) {
+export const TIMES_OF_DAY = ["noon", "morning", "evening", "night"];
+// The time of day a level gets before one is chosen.
+export const DEFAULT_TIME_OF_DAY = "noon";
+// The colour set every preset starts from and overrides.
+const BASE_TIME = {
+  sky: "#eae9d9",
+  skyTop: "#eae9d9",
+  sun: "#f2c082",
+  crater: null,
+  far: "#b7c8b1",
+  near: "#8ea997",
+  tree: "#78977b",
+  trunk: "#708b78",
+  cloud: "#f8f7e9",
+  stormCloud: "#bdc8c3",
+  tint: null,
+  glow: false,
+  sunDrop: 0,
+  sunScale: 1,
+  light: 1,
+  moon: false,
+  stars: false,
+};
+
+// The sun always stays on the right, where every prop is lit from. Only its
+// height, size and colour change, which also lengthens shadows low in the sky.
+const TIME_PRESETS = {
+  morning: {
+    ...BASE_TIME,
+    skyTop: "#cfdde0",
+    sky: "#f3e2cf",
+    sun: "#f7d9a0",
+    far: "#bcc6b8",
+    near: "#98ab9c",
+    tree: "#83998a",
+    trunk: "#7a9082",
+    cloud: "#fbefe2",
+    stormCloud: "#c9ccc4",
+    tint: "#fff3e6",
+    sunDrop: 55,
+    light: 0.85,
+  },
+  noon: { ...BASE_TIME, skyTop: "#dde5e0" },
+  evening: {
+    ...BASE_TIME,
+    skyTop: "#9fa3c0",
+    sky: "#f0b98e",
+    sun: "#ee8a52",
+    far: "#b49a95",
+    near: "#8f8488",
+    tree: "#7e7580",
+    trunk: "#766d78",
+    cloud: "#f3cdb0",
+    stormCloud: "#b3a9ae",
+    tint: "#f4d2bc",
+    glow: true,
+    sunDrop: 70,
+    sunScale: 1.25,
+    light: 0.75,
+  },
+  night: {
+    ...BASE_TIME,
+    skyTop: "#141d33",
+    sky: "#2b3a5c",
+    sun: "#e6e8d6",
+    crater: "#c3c7b6",
+    far: "#34425f",
+    near: "#2a3650",
+    tree: "#253049",
+    trunk: "#222c43",
+    cloud: "#46557a",
+    stormCloud: "#39456a",
+    tint: "#98a6d4",
+    glow: true,
+    light: 0.25,
+    moon: true,
+    stars: true,
+  },
+};
+
+/** The sky, hill and light colours a level is drawn with. */
+export function timeOfDayPalette(level = {}) {
+  return TIME_PRESETS[level.timeOfDay] || TIME_PRESETS[DEFAULT_TIME_OF_DAY];
+}
+
+function mixHex(a, b, t) {
+  const ca = parseColor(a),
+    cb = parseColor(b);
+  return (
+    "#" +
+    [0, 1, 2]
+      .map((i) =>
+        Math.round(ca[i] + (cb[i] - ca[i]) * t)
+          .toString(16)
+          .padStart(2, "0"),
+      )
+      .join("")
+  );
+}
+
+export function sunLight({
+  width,
+  cameraX = 0,
+  cameraY = 0,
+  weather = {},
+  timeOfDay,
+} = {}) {
+  const time =
+    TIME_PRESETS[timeOfDay] || TIME_PRESETS[DEFAULT_TIME_OF_DAY];
   const sunshine = Math.max(0, Math.min(1, weather.sun ?? 1));
   const cloudiness = Math.max(0, Math.min(1, weather.clouds ?? 0.35));
   return {
     x: width * 0.77 - cameraX * 0.015,
-    y: 85 - Math.max(cameraY, -SUN_CLIMB_LIMIT) * 0.08,
+    y: 85 + time.sunDrop - Math.max(cameraY, -SUN_CLIMB_LIMIT) * 0.08,
     sunshine,
-    strength: sunshine * (1 - cloudiness * 0.55),
+    strength: sunshine * (1 - cloudiness * 0.55) * time.light,
   };
 }
 
@@ -1487,7 +1595,7 @@ export function createGameArt(ctx) {
   // Parallax layers are static in their own scroll space, so each is cached as
   // 512-unit strips that are blitted at the layer's scroll offset.
   function backgroundStrip(layer, layerIndex, index, trees) {
-    const key = `${layer.color}|${layerIndex}|${index}`;
+    const key = `${layer.color}|${layer.tree}|${layerIndex}|${index}`;
     if (backgroundStrips.has(key)) {
       const strip = backgroundStrips.get(key);
       backgroundStrips.delete(key);
@@ -1527,10 +1635,10 @@ export function createGameArt(ctx) {
       ) {
         const x = tree * 100;
         const y = Math.round(mountainY(x, layer) / 4) * 4;
-        tools.pixelRect(x - 2, y - 28, 4, 28, "#708b78", 4);
-        tools.drawPixelDisc(x, y - 34, 14, "#78977b", 4);
-        tools.drawPixelDisc(x - 10, y - 29, 10, "#78977b", 4);
-        tools.drawPixelDisc(x + 10, y - 28, 10, "#78977b", 4);
+        tools.pixelRect(x - 2, y - 28, 4, 28, layer.trunk, 4);
+        tools.drawPixelDisc(x, y - 34, 14, layer.tree, 4);
+        tools.drawPixelDisc(x - 10, y - 29, 10, layer.tree, 4);
+        tools.drawPixelDisc(x + 10, y - 28, 10, layer.tree, 4);
       }
     }
     backgroundStrips.set(key, canvas);
@@ -1572,24 +1680,81 @@ export function createGameArt(ctx) {
     const rain = Math.max(0, Math.min(1, Number(weather.rain) || 0));
     const lightning = Math.max(0, Math.min(1, Number(weather.lightning) || 0));
     const cloudiness = Math.max(0, Math.min(1, weather.clouds ?? 0.35));
-    const light = sunLight({ width, cameraX, cameraY, weather });
+    const time = timeOfDayPalette(palette);
+    const light = sunLight({
+      width,
+      cameraX,
+      cameraY,
+      weather,
+      timeOfDay: palette.timeOfDay,
+    });
     const storminess = Math.max(rain, lightning);
 
-    ctx.fillStyle = palette.sky;
-    ctx.fillRect(0, 0, width, height);
+    // Sky: one colour, or a banded gradient on the 4-unit grid.
+    if (time.skyTop === time.sky) {
+      ctx.fillStyle = time.sky;
+      ctx.fillRect(0, 0, width, height);
+    } else {
+      const bands = 10;
+      const horizon = height * 0.75;
+      for (let i = 0; i < bands; i++) {
+        const top = Math.round(((i * horizon) / bands) / 4) * 4;
+        const bottom =
+          i === bands - 1
+            ? height
+            : Math.round((((i + 1) * horizon) / bands) / 4) * 4;
+        ctx.fillStyle = mixHex(time.skyTop, time.sky, i / (bands - 1));
+        ctx.fillRect(0, top, width, bottom - top);
+      }
+    }
+
+    // Fixed stars; the hills drawn later cover the low ones.
+    if (time.stars) {
+      ctx.save();
+      ctx.globalAlpha = 1 - cloudiness * 0.7;
+      const span = width + 200;
+      const rise = Math.max(cameraY, -SUN_CLIMB_LIMIT) * 0.04;
+      for (let i = 0; i < 70; i++) {
+        const a = Math.sin(i * 91.7) * 43758.5453,
+          b = Math.sin(i * 47.3 + 3) * 24634.6345;
+        const wrapped =
+          (((a - Math.floor(a)) * span - cameraX * 0.01) % span + span) % span;
+        const sx = wrapped - 100;
+        const sy = (b - Math.floor(b)) * height * 0.6 - rise;
+        pixelRect(sx, sy, 2, 2, i % 4 ? "#c9d2e8" : "#fffbe8", 2);
+      }
+      ctx.restore();
+    }
+
     if (light.sunshine > 0) {
       ctx.save();
-      ctx.globalAlpha = light.strength;
-      placed(light.x, light.y, 4, (x, y) =>
-        drawPixelDisc(x, y, 28 + light.sunshine * 8, palette.sun, 4),
-      );
+      if (time.moon) {
+        ctx.globalAlpha = 0.95 * (1 - cloudiness * 0.4);
+        placed(light.x, light.y, 4, (x, y) => {
+          drawPixelDisc(x, y, 22, time.sun, 4);
+          drawPixelDisc(x - 8, y - 4, 6, time.crater, 4);
+          drawPixelDisc(x + 6, y + 8, 4, time.crater, 4);
+        });
+      } else {
+        ctx.globalAlpha = light.strength;
+        placed(light.x, light.y, 4, (x, y) =>
+          drawPixelDisc(
+            x,
+            y,
+            (28 + light.sunshine * 8) * time.sunScale,
+            time.sun,
+            4,
+          ),
+        );
+      }
       ctx.restore();
     }
     if (cloudiness > 0) {
       const spacing = 300 - cloudiness * 190;
       const scale = 0.62 + cloudiness * 0.65;
       const firstCloud = Math.floor((cameraX * 0.07) / spacing) - 1;
-      const cloudColor = storminess > 0.15 ? "#bdc8c3" : "#f8f7e9";
+      const cloudColor =
+        storminess > 0.15 ? time.stormCloud : time.cloud;
       ctx.save();
       ctx.globalAlpha = 0.42 + cloudiness * 0.5;
       const cloudShift = -cameraY * 0.08;
@@ -1643,14 +1808,16 @@ export function createGameArt(ctx) {
     if (full) {
       const layers = [
         {
-          color: palette.mountain,
+          color: time.far,
           base: 201,
           amp: 37,
           frequency: 0.009,
           parallax: 0.16,
         },
         {
-          color: "#8ea997",
+          color: time.near,
+          tree: time.tree,
+          trunk: time.trunk,
           base: 247,
           amp: 24,
           frequency: 0.015,
@@ -1684,6 +1851,27 @@ export function createGameArt(ctx) {
       ctx.fillStyle = `rgba(38, 55, 62, ${storminess * 0.2})`;
       ctx.fillRect(0, 0, width, height);
     }
+  }
+
+  /**
+   * Colour-grades everything already drawn in the box, for the time of day.
+   * Rain softens it so the two never stack too dark. Returns true when bright
+   * gameplay objects (apples, the finish) should be drawn again on top.
+   */
+  function drawTimeTint(palette, x, y, width, height) {
+    const time = timeOfDayPalette(palette);
+    if (!time.tint) return false;
+    const rain = Math.max(
+      0,
+      Math.min(1, Number(palette.weather?.rain) || 0),
+    );
+    ctx.save();
+    ctx.globalCompositeOperation = "multiply";
+    ctx.globalAlpha = 1 - rain * 0.35;
+    ctx.fillStyle = time.tint;
+    ctx.fillRect(x, y, width, height);
+    ctx.restore();
+    return time.glow;
   }
 
   function rectDownTo(x, top, width, color, pixel, groundOffset) {
@@ -2838,6 +3026,7 @@ export function createGameArt(ctx) {
     drawProp,
     drawSpike,
     drawBackground,
+    drawTimeTint,
     drawPixelText,
   };
 }

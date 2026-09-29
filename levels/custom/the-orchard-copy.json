@@ -83,9 +83,6 @@
     "clouds": 0.15
   },
   "fallY": 620,
-  "sky": "#eae9d9",
-  "sun": "#f2c082",
-  "mountain": "#b7c8b1",
   "spray": [
     "#6f8b59",
     "#9c8b68",

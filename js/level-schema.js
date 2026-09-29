@@ -11,6 +11,8 @@ import {
   signLines,
   SIGN_LINE_CHARACTERS,
   SIGN_MAX_LINES,
+  TIMES_OF_DAY,
+  DEFAULT_TIME_OF_DAY,
 } from "./drawing.js";
 import { RADIUS, WHEELBASE } from "./config.js";
 import { FINISH_FLOWER_LIFT, bikeTouchesFlower } from "./finish.js";
@@ -510,6 +512,9 @@ export function normalizeLevel(input, index = 0) {
       )
     : [];
   level.weather = { ...fallback.weather, ...(level.weather || {}) };
+  // Noon is the default look; an unrecognised value falls back to it too.
+  if (!TIMES_OF_DAY.includes(level.timeOfDay))
+    level.timeOfDay = DEFAULT_TIME_OF_DAY;
   const medals = normalizeMedals(level.medals);
   if (medals) level.medals = medals;
   else delete level.medals;

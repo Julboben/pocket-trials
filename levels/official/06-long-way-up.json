@@ -202,9 +202,6 @@
     "clouds": 0.35
   },
   "fallY": 620,
-  "sky": "#e4e7dc",
-  "sun": "#edc486",
-  "mountain": "#a9b9ad",
   "spray": [
     "#717b65",
     "#929477",

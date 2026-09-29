@@ -228,9 +228,6 @@
     "clouds": 0.65
   },
   "fallY": 620,
-  "sky": "#eae9d9",
-  "sun": "#efd69b",
-  "mountain": "#b7c8b1",
   "spray": [
     "#9a805c",
     "#b99d72",
@@ -1509,5 +1506,6 @@
         }
       ]
     }
-  ]
+  ],
+  "timeOfDay": "noon"
 }

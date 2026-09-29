@@ -185,6 +185,7 @@ export function createRenderer(canvas) {
       cameraX,
       cameraY,
       weather: level.weather,
+      timeOfDay: level.timeOfDay,
     });
     for (const prop of level.props || []) {
       const spec = SCENERY_SHADOWS[prop.type];
@@ -426,6 +427,7 @@ export function createRenderer(canvas) {
         cameraX,
         cameraY,
         weather: level.weather,
+        timeOfDay: level.timeOfDay,
       });
       const heightAboveGround = Math.max(0, ground.y - my - RADIUS);
       const shadowAlpha = clamp(0.22 - heightAboveGround / 700, 0.035, 0.22);
@@ -616,6 +618,27 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
+  function drawGoal(ride) {
+    if (!inView(level.goal, 65)) return;
+    const goalY = finishHeight(level);
+    if (inView(level.goal, 65, goalY, 115))
+      gameArt.drawFlag(
+        level.goal,
+        goalY,
+        ride.collected === ride.apples.length,
+        ride.apples.length - ride.collected,
+        reducedMotion ? 0 : ride.time,
+      );
+  }
+
+  function drawApples(ride, now) {
+    for (const apple of ride.apples) {
+      if (apple.taken) continue;
+      const appleY = appleDrawY(apple, now);
+      if (inView(apple.x, 30, appleY)) gameArt.drawApple(apple.x, appleY);
+    }
+  }
+
   /** Where the camera should look: the bike, or the tumbling rider after a crash. */
   function focusOf(ride) {
     return ride.ragdoll
@@ -680,17 +703,7 @@ export function createRenderer(canvas) {
     drawSkidMarks(effects.skidMarks);
     drawSceneryShadows(ride, now, full);
     drawParticles(effects.particles, true);
-    if (inView(level.goal, 65)) {
-      const goalY = finishHeight(level);
-      if (inView(level.goal, 65, goalY, 115))
-        gameArt.drawFlag(
-          level.goal,
-          goalY,
-          ride.collected === ride.apples.length,
-          ride.apples.length - ride.collected,
-          reducedMotion ? 0 : ride.time,
-        );
-    }
+    drawGoal(ride);
     for (const spike of ride.spikes) {
       if (inView(spike.x, spike.radius + 10, spike.y))
         gameArt.drawSpike(
@@ -700,11 +713,7 @@ export function createRenderer(canvas) {
           reducedMotion ? 0 : ride.spikeTime * spike.spin * TAU,
         );
     }
-    for (const apple of ride.apples) {
-      if (apple.taken) continue;
-      const appleY = appleDrawY(apple, now);
-      if (inView(apple.x, 30, appleY)) gameArt.drawApple(apple.x, appleY);
-    }
+    drawApples(ride, now);
     drawGhost(ghost, rider);
     updateHair(ride, rider, animationDt);
     if (hair) hair.draw(pixelPath, currentHairRoot(ride, false));
@@ -714,6 +723,12 @@ export function createRenderer(canvas) {
     drawProps("front", full);
     drawXray(ride, rider, ride.ragdoll ? "ragdoll" : state, full);
     drawParticles(effects.particles, false);
+    // Time-of-day grade over the whole scene; after dark, apples and the
+    // finish are drawn again on top so they stay easy to see.
+    if (gameArt.drawTimeTint(level, cameraX, cameraY, W, H)) {
+      drawGoal(ride);
+      drawApples(ride, now);
+    }
     drawPopups(animationDt);
     effects.prune();
     ctx.restore();

@@ -88,9 +88,6 @@
     "rain": 0.28
   },
   "fallY": 620,
-  "sky": "#eae9d9",
-  "sun": "#f1bb92",
-  "mountain": "#b7c8b1",
   "spray": [
     "#6f7773",
     "#929994",
