@@ -189,7 +189,7 @@ const TOOL_INFO = {
   },
   block: {
     title: "Block",
-    hint: "Drag to draw a new solid block. It can be drawn anywhere, including inside another block's cave, and it is a new independent block.",
+    hint: "Drag an outline to draw a new solid block in that shape. Hold Alt for a rectangle and Shift to snap to the grid; both can be switched mid-drag. It can be drawn anywhere, including inside another block's cave. The tool stays active; Esc returns to Select.",
     fields: [
       {
         key: "material",
@@ -201,7 +201,7 @@ const TOOL_INFO = {
   },
   cut: {
     title: "Cut",
-    hint: "Drag a closed outline over a block to remove that shape from it. Inside solid it makes a cave, across an edge it opens an entrance, and all the way through it splits the block in two. It cuts the selected block, or else the topmost block it touches. Escape cancels.",
+    hint: "Drag an outline over a block to remove that shape from it. Hold Alt for a rectangle and Shift to snap to the grid. Inside solid it makes a cave, across an edge it opens an entrance, and all the way through it splits the block in two. It cuts the selected block, or else the topmost block it touches. Escape cancels.",
   },
   apple: {
     title: "Apple",
@@ -1646,14 +1646,87 @@ function addAt(point) {
   render();
 }
 
+/** Drop points that barely change a freehand outline (Ramer–Douglas–Peucker). */
+function simplifyOutline(points, tolerance) {
+  if (points.length < 4) return points.slice();
+  const keep = new Uint8Array(points.length);
+  keep[0] = keep[points.length - 1] = 1;
+  const stack = [[0, points.length - 1]];
+  while (stack.length) {
+    const [a, b] = stack.pop();
+    const [ax, ay] = points[a],
+      [bx, by] = points[b];
+    const dx = bx - ax,
+      dy = by - ay,
+      lengthSquared = dx * dx + dy * dy;
+    let far = -1,
+      farIndex = -1;
+    for (let i = a + 1; i < b; i++) {
+      const [px, py] = points[i];
+      const t = lengthSquared
+        ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSquared))
+        : 0;
+      const distance = Math.hypot(px - ax - dx * t, py - ay - dy * t);
+      if (distance > far) {
+        far = distance;
+        farIndex = i;
+      }
+    }
+    if (far > tolerance) {
+      keep[farIndex] = 1;
+      stack.push([a, farIndex], [farIndex, b]);
+    }
+  }
+  const out = points.filter((_, index) => keep[index]);
+  // The drawing usually ends back near its start; don't keep both.
+  const [fx, fy] = out[0],
+    [lx, ly] = out.at(-1);
+  if (out.length > 3 && Math.hypot(fx - lx, fy - ly) < tolerance * 3) out.pop();
+  return out;
+}
+
+const signedArea = (points) =>
+  points.reduce((sum, [x, y], index) => {
+    const [nx, ny] = points[(index + 1) % points.length];
+    return sum + x * ny - nx * y;
+  }, 0) / 2;
+
+function snapToGrid([x, y]) {
+  const g = gridSpacing(zoom);
+  return [Math.round(x / g) * g, Math.round(y / g) * g];
+}
+
 /**
- * Commit a drawn shape. A Block drag makes a new rectangular block; a Cut drag
- * removes the drawn outline from whichever block it overlaps.
+ * What a Block or Cut drag will make, from its raw path and the keys held:
+ * Alt draws a rectangle, Shift snaps to the grid.
+ */
+function updateShapePoints(shape) {
+  const snap = shape.shift ? snapToGrid : (point) => point;
+  if (shape.alt) {
+    const [sx, sy] = snap(shape.raw[0]);
+    const [ex, ey] = snap(shape.end);
+    shape.points = [[sx, sy], [ex, sy], [ex, ey], [sx, ey]];
+    return;
+  }
+  const points = [];
+  for (const raw of [...shape.raw, shape.end]) {
+    const point = snap(raw);
+    const last = points.at(-1);
+    if (!last || last[0] !== point[0] || last[1] !== point[1])
+      points.push(point);
+  }
+  // Snapped outlines drop points that only continue a straight grid line.
+  shape.points = shape.shift ? simplifyOutline(points, 0.5) : points;
+}
+
+/**
+ * Commit a drawn shape. A Block drag makes a new block in the drawn shape (or
+ * a rectangle with `rect`); a Cut drag removes the drawn outline from a block.
  *
  * The kind is passed in rather than read from `pendingKind`, because the caller
  * has already cleared that state by the time it gets here.
  */
-function commitShape(kind, points, closed) {
+function commitShape(kind, points, closed, rect = false) {
   if (points.length < 2) return false;
   if (kind === "block") {
     const xs = points.map((value) => value[0]),
@@ -1670,6 +1743,36 @@ function commitShape(kind, points, closed) {
       bottom,
       toolMaterial("block"),
     );
+    if (!rect) {
+      // Freehand: the drawn outline, with the rectangle's ids and winding.
+      const outline = simplifyOutline(points, 3 / zoom);
+      if (outline.length < 3 || Math.abs(signedArea(outline)) < 64)
+        return false;
+      const outer = block.regions[0].outer;
+      const template = outer.nodes[0];
+      if (
+        Math.sign(signedArea(outline)) !==
+        Math.sign(
+          signedArea(
+            outer.nodes.map((node) => [node.x, node.y]),
+          ),
+        )
+      )
+        outline.reverse();
+      block.regions[0].outer = {
+        ...outer,
+        nodes: outline.map(([x, y], index) => ({
+          ...template,
+          id: `${template.id}-${index}`,
+          x,
+          y,
+          mode: "corner",
+          in: null,
+          out: null,
+          edge: "straight",
+        })),
+      };
+    }
     level.terrainBlocks = [
       ...blocks(),
       normalizeBlocks([block], level.terrain)[0],
@@ -1686,7 +1789,10 @@ function commitShape(kind, points, closed) {
   // it overlaps any of them, so a cave can be cut into a block that sits under
   // another one; otherwise it applies to the topmost block it changes, so one
   // stroke never carves through every layer at once.
-  if (!closed || points.length < 3) return false;
+  if (!closed || points.length < 3) {
+    showStatus("warning", "That cut was too small. Drag a larger outline.");
+    return false;
+  }
   const attempt = (blockIndex) => {
     const result = cutBlock(blocks()[blockIndex], points);
     if (result.changed)
@@ -2262,11 +2368,16 @@ canvas.addEventListener("pointerdown", (event) => {
     // Both tools draw a shape: start the drag and show it as it grows.
     pendingKind = tool;
     pendingShape = {
-      points: [[point.x, point.y]],
-      closed: tool === "cut",
+      raw: [[point.x, point.y]],
+      end: [point.x, point.y],
+      points: [],
+      alt: event.altKey,
+      shift: event.shiftKey,
+      closed: true,
       color: tool === "cut" ? "#ff8952" : "#83d1ce",
       fill: tool === "cut" ? "#ff895226" : "#83d1ce26",
     };
+    updateShapePoints(pendingShape);
     dragging = true;
     canvas.setPointerCapture(event.pointerId);
     render();
@@ -2333,12 +2444,14 @@ canvas.addEventListener("pointermove", (event) => {
   }
   if (pendingShape) {
     const point = pointerWorld(event);
-    const last = pendingShape.points.at(-1);
-    // A cut outline follows the pointer, sampled often enough to follow a curve
-    // but coarse enough that a fast drag does not produce thousands of points.
-    if (Math.hypot(point.x - last[0], point.y - last[1]) > 6 / zoom) {
-      pendingShape.points.push([point.x, point.y]);
-    }
+    const last = pendingShape.raw.at(-1);
+    // Sampled often enough to follow a curve, but not thousands of points.
+    if (Math.hypot(point.x - last[0], point.y - last[1]) > 6 / zoom)
+      pendingShape.raw.push([point.x, point.y]);
+    pendingShape.end = [point.x, point.y];
+    pendingShape.alt = event.altKey;
+    pendingShape.shift = event.shiftKey;
+    updateShapePoints(pendingShape);
     render();
     return;
   }
@@ -2411,6 +2524,26 @@ const onShiftChange = (event) => {
 };
 window.addEventListener("keydown", onShiftChange);
 window.addEventListener("keyup", onShiftChange);
+
+// Alt and Shift change a Block or Cut drag straight away, without moving the mouse.
+const onShapeModifier = (event) => {
+  if (!pendingShape || (event.key !== "Alt" && event.key !== "Shift")) return;
+  event.preventDefault();
+  pendingShape.alt = event.altKey;
+  pendingShape.shift = event.shiftKey;
+  updateShapePoints(pendingShape);
+  render();
+};
+window.addEventListener("keydown", onShapeModifier);
+window.addEventListener("keyup", onShapeModifier);
+
+// On Windows a lone Alt press can move focus to the browser's menu bar;
+// keep it on the canvas.
+for (const type of ["keydown", "keyup"])
+  window.addEventListener(type, (event) => {
+    if (event.key === "Alt" && document.activeElement === canvas)
+      event.preventDefault();
+  });
 canvas.addEventListener("dblclick", (event) => {
   if (tool !== "select") return;
   const point = pointerWorld(event);
@@ -2445,11 +2578,12 @@ const endPointer = () => {
     // Only a shape that changed something becomes an undo step, so a missed
     // cut neither leaves an empty step nor clears the redo history.
     const before = snapshot();
-    if (commitShape(kind, shape.points, shape.closed)) pushHistory(before);
+    if (commitShape(kind, shape.points, shape.closed, shape.alt))
+      pushHistory(before);
     else if (kind === "block")
       showStatus(
         "warning",
-        "That was too small to be a block. Drag a larger rectangle.",
+        "That was too small to be a block. Drag a larger shape.",
       );
     syncInspector();
     render();
