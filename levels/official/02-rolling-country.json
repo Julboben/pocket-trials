@@ -1,12 +1,12 @@
 {
   "name": "Rolling Country",
   "label": "ROLLING COUNTRY / 02",
-  "goal": 2857.6612135586133,
+  "goal": 3077.9115921126395,
   "terrain": "dirt",
   "description": "Momentum is your friend. Carry speed through valleys, ease over crests, and lean forward when the front wheel gets light.",
   "start": {
-    "x": 71.36791241817957,
-    "y": 308,
+    "x": 2938.1307520613577,
+    "y": 259.58246827950074,
     "facing": 1
   },
   "apples": [
@@ -63,12 +63,6 @@
       "layer": "back"
     },
     {
-      "x": 2370,
-      "y": null,
-      "type": "tree",
-      "layer": "back"
-    },
-    {
       "x": 2690,
       "y": null,
       "type": "rock",
@@ -121,20 +115,13 @@
       "y": 44.64335414731238,
       "type": "sign",
       "layer": "back",
-      "text": "Don't try"
+      "text": "Logging ahead"
     },
     {
       "x": -192.17570619952895,
       "y": 36.64917046718023,
       "type": "boulder",
       "layer": "back",
-      "flip": true
-    },
-    {
-      "x": -230.5408117366416,
-      "y": 145.98206108621955,
-      "type": "moss",
-      "layer": "front",
       "flip": true
     },
     {
@@ -151,15 +138,87 @@
       "layer": "back"
     },
     {
-      "x": -315.88357720663475,
-      "y": 393.0009529000081,
-      "type": "roots",
+      "x": -295.40061456737027,
+      "y": 262.27731257761843,
+      "type": "pine",
       "layer": "back"
     },
     {
-      "x": -197.61592513410469,
-      "y": 402.9107406775844,
-      "type": "roots",
+      "x": -404.98200999963365,
+      "y": 231.47818132266568,
+      "type": "pine",
+      "layer": "back"
+    },
+    {
+      "x": -598.273413212892,
+      "y": 155.6924783242485,
+      "type": "pine",
+      "layer": "back"
+    },
+    {
+      "x": -477.4248303508818,
+      "y": 209.89472303708135,
+      "type": "pine-small",
+      "layer": "back"
+    },
+    {
+      "x": -778.4632991856217,
+      "y": 102.41180090835252,
+      "type": "pine-small",
+      "layer": "back"
+    },
+    {
+      "x": -235.1360778179028,
+      "y": 139.65493451807413,
+      "type": "moss",
+      "layer": "front"
+    },
+    {
+      "x": 556.0017148268317,
+      "y": 259.48970304810047,
+      "type": "stump",
+      "layer": "back"
+    },
+    {
+      "x": 1292.5731670188077,
+      "y": 262.01433316450596,
+      "type": "stump",
+      "layer": "back"
+    },
+    {
+      "x": 2266.898132875724,
+      "y": 231.8147557880995,
+      "type": "stump",
+      "layer": "back"
+    },
+    {
+      "x": 2866.767021421366,
+      "y": 308.502560374018,
+      "type": "stump",
+      "layer": "back"
+    },
+    {
+      "x": 3434.0340436800598,
+      "y": 159.5899763984595,
+      "type": "pine",
+      "layer": "back"
+    },
+    {
+      "x": 3533.627945363793,
+      "y": 143.55321752756504,
+      "type": "pine",
+      "layer": "back"
+    },
+    {
+      "x": 3694.209193171197,
+      "y": 90.05215750760169,
+      "type": "pine-small",
+      "layer": "back"
+    },
+    {
+      "x": 2420.8995782455727,
+      "y": 296.87827364498696,
+      "type": "pine",
       "layer": "back"
     }
   ],
@@ -182,7 +241,7 @@
     "silver": 21,
     "bronze": 28
   },
-  "finishY": 273.65826047839687,
+  "finishY": 230.49409787336776,
   "terrainVersion": 2,
   "terrainBlocks": [
     {
@@ -1205,9 +1264,36 @@
                 "edge": "straight"
               },
               {
+                "id": "n5z50",
+                "x": 3150,
+                "y": 250,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n5pev",
+                "x": 3150,
+                "y": 121.8695,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n4xqw",
+                "x": 3045.0155,
+                "y": 150,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
                 "id": "nbg6",
-                "x": 3000,
-                "y": -600,
+                "x": 3085.2078,
+                "y": 0,
                 "mode": "corner",
                 "in": null,
                 "out": null,
@@ -1215,8 +1301,35 @@
               },
               {
                 "id": "nbg7",
+                "x": 3200,
+                "y": -114.7922,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n4b9s",
+                "x": 3300,
+                "y": -57.0572,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n4j0h",
+                "x": 3368.8783,
+                "y": 200,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n4oav",
                 "x": 4600,
-                "y": -600,
+                "y": -200,
                 "mode": "corner",
                 "in": null,
                 "out": null,
