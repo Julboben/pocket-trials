@@ -233,11 +233,12 @@ Set a platform material independently with its `material` property. Available pr
 | -------- | ---------------------------------------- |
 | `grass`  | Green surface with soil underneath       |
 | `dirt`   | Warm loose-earth trail                   |
+| `sand`   | Pale warm sand, bare by default          |
 | `rock`   | Grey, hard mountain terrain              |
 | `snow`   | Pale surface and cool subsurface         |
 | `brick`  | Brick pattern with a green rideable edge |
 
-Material definitions live in `terrainMaterials` at the top of `js/levels.js`. Each preset controls fill, internal layers or pattern, edge colors, vegetation, and wheel-spray colors.
+Material definitions live in `terrainMaterials` at the top of `js/materials.js`. Each preset controls fill, internal layers or pattern, edge colors, vegetation, and wheel-spray colors.
 
 ## Apples
 

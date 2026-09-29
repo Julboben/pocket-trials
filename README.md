@@ -255,7 +255,7 @@ When changing physics values, validate at least these cases:
 - [x] Different terrain types (grass, dirt, rock, snow, and brick)
 - [x] Splatter behind the bike when you drive on different terrain
 - [x] Add weather effects (rain, lightning, and procedural ambience)
-- [ ] Add day / night
+- [x] Add day / night
 - [ ] Add import / export of savegames
 - [ ] Add water that you can drive through
 - [x] Add a sign that you can write on in the editor
@@ -263,7 +263,10 @@ When changing physics values, validate at least these cases:
 - [ ] Online highscore leaderboard
 - [x] New physics engine with support for overhangs, loops, caves, and fully polygonal ground
 - [ ] Change the wording levels into trails
-- [ ] Implement Unified Terrain Redesign Plan.md
+- [x] Implement Unified Terrain Redesign Plan.md
+- [ ] Clean up leagcy terrain
+- [ ] Grip. Right now every material has the same grip, because WHEEL_FRICTION is a single value. If you want sand to feel softer or more slippery, per-material grip can be added. It would change how runs replay, though, so you'd need to raise RIDE_VERSION and re-record the replays. Let me know if you want that.
+- [ ] Add background: Coast (a sea horizon with an island) and Canyon (layered cliff walls with rock spires) each only need a new entry in backdropLayers and BACKDROP_COLORS, plus an option in the dropdown.
 
 ## Possible Godot migration
 
