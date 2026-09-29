@@ -2104,6 +2104,7 @@ function openPlaytest() {
     showStatus("error", `Could not start the play test: ${error.message}`);
     return;
   }
+  cancelPendingShape();
   endPointer();
   spaceHeld = false;
   $("playtest-name").textContent = level.name.toUpperCase();
@@ -2243,6 +2244,7 @@ canvas.addEventListener("gestureend", (event) => {
 });
 
 canvas.addEventListener("pointerdown", (event) => {
+  if (event.button === 2) return;
   canvas.focus({ preventScroll: true });
   const point = pointerWorld(event);
   if (event.button === 1 || tool === "pan" || spaceHeld) {
@@ -2312,6 +2314,11 @@ canvas.addEventListener("pointerdown", (event) => {
   render();
 });
 canvas.addEventListener("pointermove", (event) => {
+  // No button held: the release was missed, so end the drag here.
+  if ((dragging || panning) && event.buttons === 0) {
+    endPointer();
+    return;
+  }
   if (panning && pointerStart) {
     cameraX =
       pointerStart.cameraX - (event.clientX - pointerStart.clientX) / zoom;
@@ -2417,30 +2424,8 @@ canvas.addEventListener("dblclick", (event) => {
   }
 });
 
-const endPointer = (event) => {
-  if (pendingShape) {
-    // Commit the drawn shape as one undo step, or drop it if it was too small.
-    // History snapshots the level as it is now, so it has to be pushed before
-    // the shape is applied, the same as every other edit.
-    const shape = pendingShape;
-    const kind = pendingKind;
-    pendingShape = null;
-    pendingKind = null;
-    pushHistory();
-    if (!commitShape(kind, shape.points, shape.closed) && kind === "block") {
-      // Nothing was added, so drop the history entry again rather than leaving
-      // an undo step that changes nothing.
-      history.pop();
-      showStatus(
-        "warning",
-        "That was too small to be a block. Drag a larger rectangle.",
-      );
-    }
-    syncInspector();
-    render();
-    return;
-  }
-  const hadGuide = snapGuide !== null;
+/** Forget everything about the current press, so nothing keeps following the mouse. */
+function resetPointerState() {
   dragging = false;
   panning = false;
   pointerStart = null;
@@ -2448,6 +2433,30 @@ const endPointer = (event) => {
   dragOrigin = null;
   lastDragPointer = null;
   snapGuide = null;
+}
+
+const endPointer = () => {
+  if (pendingShape) {
+    const shape = pendingShape;
+    const kind = pendingKind;
+    pendingShape = null;
+    pendingKind = null;
+    resetPointerState();
+    // Only a shape that changed something becomes an undo step, so a missed
+    // cut neither leaves an empty step nor clears the redo history.
+    const before = snapshot();
+    if (commitShape(kind, shape.points, shape.closed)) pushHistory(before);
+    else if (kind === "block")
+      showStatus(
+        "warning",
+        "That was too small to be a block. Drag a larger rectangle.",
+      );
+    syncInspector();
+    render();
+    return;
+  }
+  const hadGuide = snapGuide !== null;
+  resetPointerState();
   if (hadGuide) render();
 };
 
@@ -2456,12 +2465,15 @@ function cancelPendingShape() {
   if (!pendingShape) return false;
   pendingShape = null;
   pendingKind = null;
-  dragging = false;
+  resetPointerState();
   render();
   return true;
 }
 canvas.addEventListener("pointerup", endPointer);
-canvas.addEventListener("pointercancel", endPointer);
+// A cancelled gesture discards a half-drawn shape instead of applying it.
+canvas.addEventListener("pointercancel", () => {
+  if (!cancelPendingShape()) endPointer();
+});
 canvas.addEventListener("pointerleave", () => {
   if (!hoverPoint) return;
   hoverPoint = null;
