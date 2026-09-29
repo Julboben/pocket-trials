@@ -897,36 +897,72 @@ export function setBoundaryEdge(boundary, index, curved) {
 }
 
 /** 'corner' drops both handles, 'smooth' aligns them, 'independent' frees them. */
+/** 'corner' drops both handles, 'smooth' aligns them, 'independent' frees them. */
 export function setNodeMode(boundary, index, mode) {
   const nodes = boundary.nodes.slice();
+  const count = nodes.length;
+  const nextIndex = (index + 1) % count;
+  const previousIndex = (index - 1 + count) % count;
   const node = nodes[index];
-  const next = nodes[(index + 1) % nodes.length];
-  const previous = nodes[(index - 1 + nodes.length) % nodes.length];
+  const next = nodes[nextIndex];
+  const previous = nodes[previousIndex];
   if (!node || !next || !previous) return boundary;
 
   if (mode === 'corner') {
     nodes[index] = { ...node, mode: 'corner', in: null, out: null };
-  } else {
-    const direction = tangentFor(node, previous, next);
-    if (!direction) return boundary;
-    const length = Math.hypot(next.x - node.x, next.y - node.y) / 3;
-    const opposite = Math.hypot(previous.x - node.x, previous.y - node.y) / 3;
-    const out = node.out || [node.x + direction[0] * length, node.y + direction[1] * length];
-    const inHandle = mode === 'smooth'
-      ? [node.x - direction[0] * length, node.y - direction[1] * length]
-      : (node.in || [node.x - direction[0] * opposite, node.y - direction[1] * opposite]);
-    nodes[index] = { ...node, mode, out, in: inHandle, edge: 'curve' };
+    return { ...boundary, nodes: normalizeRegionBoundaries(nodes) };
   }
+
+  const direction = tangentFor(node, previous, next);
+  if (!direction) return boundary;
+  // Each handle is a third as long as the edge on its side.
+  const outLength = Math.hypot(next.x - node.x, next.y - node.y) / 3;
+  const inLength = Math.hypot(previous.x - node.x, previous.y - node.y) / 3;
+  const freshOut = [
+    node.x + direction[0] * outLength,
+    node.y + direction[1] * outLength,
+  ];
+  const freshIn = [
+    node.x - direction[0] * inLength,
+    node.y - direction[1] * inLength,
+  ];
+  // Smooth always gets fresh, aligned handles; independent keeps any it has.
+  const out = mode === 'smooth' ? freshOut : node.out || freshOut;
+  const inHandle = mode === 'smooth' ? freshIn : node.in || freshIn;
+  nodes[index] = { ...node, mode, out, in: inHandle, edge: 'curve' };
+
+  // An edge only curves when both of its ends have a handle. A neighbour
+  // without one gets a neutral handle pointing straight at this point, so the
+  // curve shows while the neighbour stays a sharp corner.
+  if (!next.in)
+    nodes[nextIndex] = {
+      ...next,
+      in: [next.x + (node.x - next.x) / 3, next.y + (node.y - next.y) / 3],
+    };
+  if (!previous.out)
+    nodes[previousIndex] = {
+      ...previous,
+      edge: 'curve',
+      out: [
+        previous.x + (node.x - previous.x) / 3,
+        previous.y + (node.y - previous.y) / 3,
+      ],
+    };
   return { ...boundary, nodes: normalizeRegionBoundaries(nodes) };
 }
 
+/** The unit direction a smooth point's handles run along: previous → next. */
 function tangentFor(node, previous, next) {
-  const ax = next.x - node.x, ay = next.y - node.y;
-  const bx = previous.x - node.x, by = previous.y - node.y;
-  const sum = [ax + bx, ay + by];
-  if (Math.hypot(sum[0], sum[1]) > 1e-6) return sum;
-  if (Math.hypot(ax, ay) > 1e-6) return [ax, ay];
-  return Math.hypot(bx, by) > 1e-6 ? [bx, by] : null;
+  const candidates = [
+    [next.x - previous.x, next.y - previous.y],
+    [next.x - node.x, next.y - node.y],
+    [node.x - previous.x, node.y - previous.y],
+  ];
+  for (const [x, y] of candidates) {
+    const length = Math.hypot(x, y);
+    if (length > 1e-6) return [x / length, y / length];
+  }
+  return null;
 }
 
 /** Add a whole inner boundary, filling a new empty space inside a region. */

@@ -1494,8 +1494,14 @@ function updateSelectedPosition(x, y) {
     if (!node) return;
     if (kind === "blockHandle") node[selection.side] = [x, y];
     else {
+      const dx = x - node.x,
+        dy = y - node.y;
       node.x = x;
       node.y = y;
+      // Handles are absolute points, so they have to travel with their point
+      // or the curve changes shape as the point is dragged.
+      if (node.in) node.in = [node.in[0] + dx, node.in[1] + dy];
+      if (node.out) node.out = [node.out[0] + dx, node.out[1] + dy];
     }
     if (node.mode === "smooth") realignSmooth(boundary, selection.index);
   } else if (kind === "blockEdge") {
