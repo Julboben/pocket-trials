@@ -60,7 +60,7 @@ const XRAY_REACH = 70;
 // How far each prop's art reaches above its anchor, for culling.
 const PROP_RISE = { tree: 186, pine: 188 };
 // How far each prop's art hangs below its anchor, for culling.
-const PROP_HANG = { vines: 148, roots: 28, moss: 28, ledge: 12 };
+const PROP_HANG = { vines: 148, roots: 28, moss: 28 };
 // How far a hair strand may sink into a floor and still be lifted back onto it.
 const HAIR_GROUND_ALLOWANCE = 8;
 
@@ -227,6 +227,7 @@ export function createRenderer(canvas) {
         propGroundOffset(level, prop),
         prop.text,
         propWallFit(level, prop),
+        prop.flip,
       );
       drawn++;
     }

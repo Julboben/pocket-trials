@@ -119,7 +119,9 @@ export function sunShadowOffset({
 }
 
 // Props that attach to a wall face or cliff edge rather than stand on the ground.
-export const WALL_PROPS = new Set(["vines", "roots", "ledge", "moss"]);
+export const WALL_PROPS = new Set(["vines", "roots", "moss"]);
+// Signs would mirror their text, and wall props already face their wall.
+export const canFlip = (type) => type !== "sign" && !WALL_PROPS.has(type);
 // Longest vines can hang, in world units.
 export const VINE_MAX = 140;
 const wallFits = new WeakMap();
@@ -140,12 +142,16 @@ export function propWallFit(level, prop) {
   const solidAt = (px, py) => terrainCollisionsAt(level, px, py, 1).length > 0;
   // Vines sit on a cliff's top corner, so look a little below it for the face.
   const sampleY = y + (prop.type === "vines" ? 12 : 0);
-  let side = 0;
+  let side = 0,
+    material = null;
   for (const reach of [4, 8, 14, 22]) {
     const left = solidAt(prop.x - reach, sampleY);
     const right = solidAt(prop.x + reach, sampleY);
     if (left !== right) {
       side = left ? -1 : 1;
+      material =
+        terrainCollisionsAt(level, prop.x + side * reach, sampleY, 1)[0]
+          ?.material || null;
       break;
     }
   }
@@ -171,7 +177,7 @@ export function propWallFit(level, prop) {
       }
     }
   }
-  const fit = { side, drop, face };
+  const fit = { side, drop, face, material };
   wallFits.set(prop, { x: prop.x, y: prop.y, type: prop.type, geometry, fit });
   return fit;
 }
@@ -950,12 +956,12 @@ const PROP_EXTENTS = {
   start: [-6, -102, 48],
   vines: [-16, -10, 16],
   roots: [-32, -16, 32],
-  ledge: [-28, -18, 28],
   moss: [-18, -18, 18],
 };
 
-function propBounds(type, angle, groundOffset, text) {
+function propBounds(type, angle, groundOffset, text, flip = false) {
   let [left, top, right] = PROP_EXTENTS[type] || [-64, -190, 64];
+  if (flip) [left, right] = [-right, -left];
   if (type === "bush") {
     // Bound the intact, rotated sprite—not terrain-shifted columns.
     const c = Math.cos(angle);
@@ -1560,7 +1566,6 @@ export function createGameArt(ctx) {
 
   const LEAF = { stem: "#3d6452", dark: "#477158", mid: "#568061", light: "#618b66" };
   const BARK = { dark: "#4d3f2f", base: "#66543f", light: "#856d4f", tip: "#aa8a60" };
-  const STONE = { dark: "#697872", base: "#7f8d83", light: "#8b978c", glint: "#aeb5a7" };
 
   // A fixed 0…1 value per prop and index, so wall props never flicker.
   const propNoise = (x, n) => {
@@ -1617,22 +1622,6 @@ export function createGameArt(ctx) {
     }
   }
 
-  // Rock shelf growing toward +x, lit on top; the caller mirrors it.
-  function drawLedge() {
-    pixelRect(-4, -8, 26, 6, STONE.base, 2);
-    pixelRect(-4, -2, 20, 4, STONE.dark, 2);
-    pixelRect(-4, 2, 12, 2, STONE.dark, 2);
-    pixelRect(-4, 4, 6, 2, STONE.dark, 2);
-    pixelRect(-4, -10, 24, 2, STONE.light, 2);
-    pixelRect(8, -10, 8, 2, STONE.glint, 2);
-    pixelRect(20, -8, 2, 4, STONE.light, 2);
-    pixelRect(4, -6, 4, 2, STONE.dark, 2);
-    // Grass tuft on top.
-    pixelRect(0, -12, 2, 2, LEAF.mid, 2);
-    pixelRect(2, -14, 2, 4, LEAF.light, 2);
-    pixelRect(14, -12, 2, 2, LEAF.mid, 2);
-  }
-
   // Moss pressed onto the rock side of the anchor.
   function drawMoss(wall) {
     const hug = (wall?.side || 0) * 4;
@@ -1660,7 +1649,17 @@ export function createGameArt(ctx) {
   // A translucent prop is drawn opaque into a scratch layer on the same device
   // pixel grid and then blended once, so overlapping shapes inside it do not
   // stack up into darker, more solid patches.
-  function drawPropLayer(type, x, y, alpha, slope, groundOffset, text, wall) {
+  function drawPropLayer(
+    type,
+    x,
+    y,
+    alpha,
+    slope,
+    groundOffset,
+    text,
+    wall,
+    flip,
+  ) {
     const transform = ctx.getTransform();
     if (transform.b || transform.c) return false;
     const [left, top, right, bottom] = propBounds(
@@ -1668,6 +1667,7 @@ export function createGameArt(ctx) {
       propDrawAngle(type, slope),
       groundOffset,
       text,
+      flip,
     );
     const anchorX = Math.round(x / 2) * 2,
       anchorY = Math.round(y / 2) * 2;
@@ -1706,7 +1706,7 @@ export function createGameArt(ctx) {
       transform.e - x0,
       transform.f - y0,
     );
-    art.drawProp(type, x, y, 1, slope, groundOffset, text, wall);
+    art.drawProp(type, x, y, 1, slope, groundOffset, text, wall, flip);
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = alpha;
@@ -1724,16 +1724,35 @@ export function createGameArt(ctx) {
     groundOffset = () => 0,
     text = "",
     wall = null,
+    flip = false,
   ) {
     if (isStartSign(type, text)) type = "start";
+    const mirrored = Boolean(flip) && canFlip(type);
     if (
       alpha < 1 &&
-      drawPropLayer(type, x, y, alpha, slope, groundOffset, text, wall)
+      drawPropLayer(
+        type,
+        x,
+        y,
+        alpha,
+        slope,
+        groundOffset,
+        text,
+        wall,
+        mirrored,
+      )
     )
       return;
     ctx.save();
     ctx.translate(Math.round(x / 2) * 2, Math.round(y / 2) * 2);
     ctx.rotate(propDrawAngle(type, slope));
+    if (mirrored) {
+      // Mirror around the anchor. Ground lookups still use world positions,
+      // so trunks and posts keep following the slope.
+      ctx.scale(-1, 1);
+      const worldGround = groundOffset;
+      groundOffset = (localX) => worldGround(-localX);
+    }
     ctx.globalAlpha = alpha;
     if (type === "tree") {
       // Mature deciduous tree: approximately 124 units wide
@@ -1967,8 +1986,7 @@ export function createGameArt(ctx) {
       else if (type === "moss") drawMoss(wall);
       else {
         ctx.scale(wall?.side === 1 ? -1 : 1, 1);
-        if (type === "roots") drawRoots(x);
-        else drawLedge();
+        drawRoots(x);
       }
     } else if (type === "sign") {
       // Upright post carrying a small writable board.

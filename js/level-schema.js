@@ -493,6 +493,7 @@ export function normalizeLevel(input, index = 0) {
           prop.type === "sign" && typeof prop.text === "string"
             ? prop.text
             : undefined,
+        flip: prop.flip === true ? true : undefined,
       }))
     : [];
   level.spikes = Array.isArray(level.spikes)
@@ -768,7 +769,6 @@ export function validateLevel(level) {
         "sign",
         "vines",
         "roots",
-        "ledge",
         "moss",
       ].includes(prop.type)
     )

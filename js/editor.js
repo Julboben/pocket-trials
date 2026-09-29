@@ -19,6 +19,7 @@ import {
 import {
   createDrawingTools,
   createGameArt,
+  canFlip,
   propAlignmentSlope,
   propGroundOffset,
   propWallFit,
@@ -240,6 +241,7 @@ const TOOL_INFO = {
           ["front", "Front"],
         ],
       },
+      { key: "flip", label: "Flip", type: "checkbox" },
     ],
   },
   start: {
@@ -266,7 +268,7 @@ const TOOL_INFO = {
 const DEFAULT_TOOL_SETTINGS = {
   block: { material: BASE_MATERIAL },
   spike: { radius: SPIKE_RADIUS.default, spin: 1 },
-  prop: { type: "tree", layer: "back" },
+  prop: { type: "tree", layer: "back", flip: false },
   start: { facing: "1" },
 };
 
@@ -780,6 +782,7 @@ function drawProps(layer) {
       propGroundOffset(level, prop),
       prop.text,
       propWallFit(level, prop),
+      prop.flip,
     );
   }
 }
@@ -1328,6 +1331,9 @@ function syncInspector() {
   $("selection-layer-row").hidden = selection?.kind !== "prop";
   $("selection-prop-text-row").hidden =
     selection?.kind !== "prop" || level.props[selection.index]?.type !== "sign";
+  const selectedProp = selection?.kind === "prop" ? level.props[selection.index] : null;
+  $("selection-flip-row").hidden = !selectedProp || !canFlip(selectedProp.type);
+  if (selectedProp) $("selection-flip").checked = Boolean(selectedProp.flip);
   $("selection-radius-row").hidden = selection?.kind !== "spike";
   $("selection-spin-row").hidden = selection?.kind !== "spike";
   // Only the finish has a meaningful "put it back on the ground" action, since
@@ -1543,6 +1549,7 @@ function addAt(point) {
       layer: toolSettings.prop.layer === "front" ? "front" : "back",
     };
     if (prop.type === "sign") prop.text = "";
+    if (toolSettings.prop.flip && canFlip(prop.type)) prop.flip = true;
     level.props.push(prop);
     selection = { kind: "prop", index: level.props.length - 1 };
   } else if (tool === "spike") {
@@ -1728,6 +1735,7 @@ function drawPlacementPreview() {
       propGroundOffset(level, prop),
       "",
       propWallFit(level, prop),
+      toolSettings.prop.flip,
     );
     return;
   }
@@ -1736,6 +1744,25 @@ function drawPlacementPreview() {
   if (tool === "apple") art.drawApple(x, y, { glow: false });
   else art.drawSpike(x, y, toolSettings.spike.radius);
   ctx.restore();
+}
+
+/** Flip the Prop tool's next prop, or else the selected prop. */
+function toggleFlip() {
+  if (tool === "prop") {
+    toolSettings.prop.flip = !toolSettings.prop.flip;
+    saveToolSettings();
+    renderToolSettings();
+  } else if (
+    selection?.kind === "prop" &&
+    canFlip(level.props[selection.index].type)
+  ) {
+    pushHistory();
+    const prop = level.props[selection.index];
+    if (prop.flip) delete prop.flip;
+    else prop.flip = true;
+    syncInspector();
+  } else return;
+  render();
 }
 
 function deleteSelection() {
@@ -2451,6 +2478,10 @@ window.addEventListener("keydown", (event) => {
     cyclePropType(event.key === "]" ? 1 : -1);
     return;
   }
+  if (event.code === "KeyX") {
+    toggleFlip();
+    return;
+  }
   if (event.key === "=" || event.key === "+") {
     zoomAtCenter(1.2);
     return;
@@ -2580,6 +2611,16 @@ $("selection-facing").addEventListener("change", (event) => {
   syncInspector();
   render();
 });
+$("selection-flip").addEventListener("change", (event) => {
+  if (selection?.kind !== "prop") return;
+  pushHistory();
+  const prop = level.props[selection.index];
+  if (event.target.checked) prop.flip = true;
+  else delete prop.flip;
+  syncInspector();
+  render();
+});
+
 $("selection-prop-type").addEventListener("change", (event) => {
   if (selection?.kind !== "prop") return;
   pushHistory();

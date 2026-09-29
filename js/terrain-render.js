@@ -578,29 +578,35 @@ export function rasterizeTerrainChunk(
         } else {
           // Strata repeat all the way down; the first four are as before.
           const depth = y - span.top;
-          if (depth < SURFACE_STRATA) {
-            // The original four lines, following the surface.
-            const band = Math.max(
-              0,
-              Math.min(3, Math.round((depth - 27) / 30)),
-            );
+          const band = Math.round((depth - 27) / 30);
+          // The surface lines thin out with depth and the flat deep layers take
+          // their place, segment by segment, so where columns with very
+          // different tops meet (the foot of a pillar) the join is ragged,
+          // not a straight cut.
+          const keep =
+            1 - Math.max(0, depth - 40) / (SURFACE_STRATA - 40);
+          if (
+            band >= 0 &&
+            band < 4 &&
+            hash2(band, Math.floor(x / 24)) < keep
+          ) {
             if (Math.abs(depth - (27 + band * 30 + wobble[band])) < 1) {
               color = colors.layers[band % colors.layers.length];
               what = 2;
             }
-          } else {
+          } else if (depth > 30) {
             // Deeper down: flat sediment with uneven spacing, waves and gaps.
-            const band = Math.floor(y / DEEP_BAND);
-            const seed = hash2(band, 17);
+            const deep = Math.floor(y / DEEP_BAND);
+            const seed = hash2(deep, 17);
             const lineY =
-              band * DEEP_BAND +
+              deep * DEEP_BAND +
               8 +
               seed * (DEEP_BAND - 16) +
-              Math.sin(x * (0.008 + seed * 0.02) + band) * 4;
-            const broken = hash2(band, Math.floor(x / 48)) < 0.3;
+              Math.sin(x * (0.008 + seed * 0.02) + deep) * 4;
+            const broken = hash2(deep, Math.floor(x / 48)) < 0.3;
             if (!broken && Math.abs(y - lineY) < 1) {
               color =
-                hash2(band, 3) < 0.5
+                hash2(deep, 3) < 0.5
                   ? colors.layers[0]
                   : colors.layers.at(-1);
               what = 2;
