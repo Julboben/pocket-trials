@@ -626,7 +626,6 @@ export function createRenderer(canvas) {
         level.goal,
         goalY,
         ride.collected === ride.apples.length,
-        ride.apples.length - ride.collected,
         reducedMotion ? 0 : ride.time,
       );
   }

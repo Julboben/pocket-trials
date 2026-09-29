@@ -878,7 +878,7 @@ function drawObjects() {
   drawSpikes();
   for (const apple of level.apples)
     art.drawApple(apple.x, objectY(apple, 60), { glow: false });
-  art.drawFlag(level.goal, finishY(), true, 0, 0);
+  art.drawFlag(level.goal, finishY(), true, 0);
   if (selection?.kind === "goal") {
     // The petals the bike has to touch.
     const flower = finishFlower(level);

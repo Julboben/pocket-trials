@@ -1370,7 +1370,7 @@ export function createGameArt(ctx) {
   }
 
   // Pass your game clock as `time` (seconds) so the flower stops when paused.
-  function drawFlag(x, y, unlocked, remaining = 0, time) {
+  function drawFlag(x, y, unlocked, time) {
     const seconds =
       time ??
       (typeof performance !== "undefined" ? performance.now() : Date.now()) /
@@ -1402,14 +1402,6 @@ export function createGameArt(ctx) {
     drawPixelDisc(cx, cy, 5, c.core, ART_PIXEL);
     pixelRect(cx, cy - 4, 4, 2, c.glint, 2);
     pixelRect(cx + 2, cy - 2, 2, 2, c.glint, 2);
-
-    if (!unlocked) {
-      const text = `${remaining} APPLE${remaining === 1 ? "" : "S"}`;
-      const width = pixelTextWidth(text) + 8;
-      const top = cy - 48;
-      pixelRect(cx + 1 - width / 2, top, width, 18, "#f4e9d1", 2);
-      drawPixelText(text, cx + 1, top + 4, "#365345");
-    }
   }
 
   function starPath(context, points, outer, inner) {
