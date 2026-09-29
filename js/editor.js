@@ -2737,7 +2737,17 @@ bindLevelInput("level-name", (value) => {
   level.label = `${value.toUpperCase()} / ${String(levelIndex + 1).padStart(2, "0")}`;
 });
 bindLevelInput("base-material", (value) => {
+  const previous = level.terrain;
+  if (value === previous) return;
   level.terrain = value;
+  // Blocks carry their own material, so the renderer never reads the level's
+  // base. Any block still sitting on the old base follows the change; blocks
+  // deliberately set to something else keep it.
+  const next = blocks().map((block) =>
+    block.material === previous ? { ...block, material: value } : block,
+  );
+  if (next.some((block, index) => block !== blocks()[index]))
+    level.terrainBlocks = next;
 });
 bindLevelInput("goal-x", (value) => {
   level.goal = Number(value);

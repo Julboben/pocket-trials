@@ -155,6 +155,19 @@ const cleared = level => normalizeLevel(clearLegacyTerrain(level));
   assert.deepEqual(after.apples, level.apples, 'objects are untouched by the clear');
 }
 
+// Mirrors the base-material handler in editor.js: the level's base changes and
+// so does every block still sitting on the old base.
+const applyBaseMaterial = (level, value) => {
+  const previous = level.terrain;
+  if (value === previous) return level;
+  const next = level.terrainBlocks.map(block =>
+    block.material === previous ? { ...block, material: value } : block,
+  );
+  if (!next.some((block, index) => block !== level.terrainBlocks[index]))
+    return { ...level, terrain: value };
+  return { ...level, terrain: value, terrainBlocks: next };
+};
+
 // 9. A half-rebuilt level is playable: both kinds of terrain are solid at once.
 {
   const level = normalizeLevel({
@@ -167,6 +180,30 @@ const cleared = level => normalizeLevel(clearLegacyTerrain(level));
   assert.ok(terrainSolidAt(terrain, 1000, 750), 'the legacy ground is still solid');
   assert.deepEqual(normalizeLevel(after2(level)), level, 'and it still normalizes idempotently');
   function after2(value) { return value; }
+}
+
+// 10. Changing the base material repaints the ground blocks that use it.
+{
+  const level = normalizeLevel({
+    ...createBlankLevel(),
+    terrain: 'grass',
+    terrainBlocks: [
+      { ...createBlankTerrainBlocks()[0], id: 'ground', material: 'grass' },
+      { ...createBlankTerrainBlocks()[0], id: 'brickwork', material: 'brick' },
+    ],
+  });
+  assert.equal(level.terrainBlocks[0].material, 'grass', 'the level starts on grass');
+
+  const sandy = normalizeLevel(applyBaseMaterial(level, 'sand'));
+  assert.equal(sandy.terrain, 'sand', 'the base is the new material');
+  assert.equal(sandy.terrainBlocks[0].material, 'sand', 'a block on the old base follows it');
+  assert.equal(sandy.terrainBlocks[1].material, 'brick', 'a block set to brick keeps it');
+  assert.equal(level.terrainBlocks[0].material, 'grass', 'the original level is untouched');
+
+  // A level with no blocks still changes its base, so new blocks pick it up.
+  const bare = normalizeLevel(applyBaseMaterial(normalizeLevel(createBlankLevel()), 'snow'));
+  assert.equal(bare.terrain, 'snow', 'a blockless level still takes the new base');
+  assert.equal((bare.terrainBlocks || []).length, 0, 'and gains no blocks');
 }
 
 console.log('Editor terrain logic tests passed.');
