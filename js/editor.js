@@ -2836,8 +2836,9 @@ $("selection-facing").addEventListener("change", (event) => {
 });
 $("selection-flip").addEventListener("change", (event) => {
   if (selection?.kind !== "prop") return;
-  pushHistory();
   const prop = level.props[selection.index];
+  if (!canFlip(prop.type)) return;
+  pushHistory();
   if (event.target.value === "true") prop.flip = true;
   else delete prop.flip;
   syncInspector();

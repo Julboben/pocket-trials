@@ -143,6 +143,24 @@
       "type": "pine-small",
       "layer": "back",
       "flip": true
+    },
+    {
+      "x": -262.0511834812274,
+      "y": 438.27363287006204,
+      "type": "bush",
+      "layer": "back"
+    },
+    {
+      "x": -315.88357720663475,
+      "y": 393.0009529000081,
+      "type": "roots",
+      "layer": "back"
+    },
+    {
+      "x": -197.61592513410469,
+      "y": 402.9107406775844,
+      "type": "roots",
+      "layer": "back"
     }
   ],
   "spikes": [],
@@ -173,25 +191,13 @@
       "regions": [
         {
           "outer": {
-            "id": "legacy-ground-r0",
+            "id": "bbgp",
             "nodes": [
               {
-                "id": "legacy-ground-n0",
-                "x": -105.5879,
-                "y": 319.8699,
-                "mode": "independent",
-                "in": null,
-                "out": [
-                  -10,
-                  320
-                ],
-                "edge": "curve"
-              },
-              {
-                "id": "legacy-ground-n1",
+                "id": "nbea",
                 "x": 170,
                 "y": 320,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   80,
                   320
@@ -203,10 +209,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n2",
+                "id": "nbeb",
                 "x": 207.5,
                 "y": 312.9706,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   195,
                   317.4134
@@ -218,10 +224,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n3",
+                "id": "nbec",
                 "x": 245,
                 "y": 296,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   232.5,
                   302.2832
@@ -233,10 +239,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n4",
+                "id": "nbed",
                 "x": 282.5,
                 "y": 279.0294,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   270,
                   283.4723
@@ -248,10 +254,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n5",
+                "id": "nbee",
                 "x": 320.0963,
                 "y": 272,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   307.5,
                   272
@@ -263,10 +269,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n6",
+                "id": "nbef",
                 "x": 353.75,
                 "y": 281.3726,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   342.5,
                   275.4487
@@ -278,10 +284,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n7",
+                "id": "nbeg",
                 "x": 387.5,
                 "y": 304,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   376.25,
                   295.6224
@@ -293,10 +299,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n8",
+                "id": "nbeh",
                 "x": 421.25,
                 "y": 326.6274,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   410,
                   320.7036
@@ -308,10 +314,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n9",
+                "id": "nbei",
                 "x": 455,
                 "y": 336,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   443.75,
                   336
@@ -323,10 +329,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n10",
+                "id": "nbej",
                 "x": 493.75,
                 "y": 322.5269,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   480.8333,
                   331.0424
@@ -338,10 +344,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n11",
+                "id": "nbek",
                 "x": 532.5,
                 "y": 290,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   519.5833,
                   302.0428
@@ -353,10 +359,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n12",
+                "id": "nbel",
                 "x": 571.25,
                 "y": 257.4731,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   558.3333,
                   265.9886
@@ -368,10 +374,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n13",
+                "id": "nbem",
                 "x": 610,
                 "y": 244,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   597.0833,
                   244
@@ -383,10 +389,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n14",
+                "id": "nben",
                 "x": 648.75,
                 "y": 256.0086,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   635.8333,
                   248.4187
@@ -398,10 +404,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n15",
+                "id": "nbeo",
                 "x": 687.5,
                 "y": 285,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   674.5833,
                   274.2662
@@ -413,10 +419,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n16",
+                "id": "nbep",
                 "x": 726.25,
                 "y": 313.9914,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   713.3333,
                   306.4015
@@ -428,10 +434,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n17",
+                "id": "nbeq",
                 "x": 765,
                 "y": 326,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   752.0833,
                   326
@@ -443,10 +449,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n18",
+                "id": "nber",
                 "x": 803.75,
                 "y": 318.9706,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   790.8333,
                   323.4134
@@ -458,10 +464,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n19",
+                "id": "nbes",
                 "x": 842.5,
                 "y": 302,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   829.5833,
                   308.2832
@@ -473,10 +479,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n20",
+                "id": "nbet",
                 "x": 881.25,
                 "y": 285.0294,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   868.3333,
                   289.4723
@@ -488,10 +494,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n21",
+                "id": "nbeu",
                 "x": 920,
                 "y": 278,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   907.0833,
                   278
@@ -503,10 +509,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n22",
+                "id": "nbev",
                 "x": 955,
                 "y": 286.6403,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   943.3333,
                   281.1793
@@ -518,10 +524,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n23",
+                "id": "nbew",
                 "x": 990,
                 "y": 307.5,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   978.3333,
                   299.7769
@@ -533,10 +539,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n24",
+                "id": "nbex",
                 "x": 1025,
                 "y": 328.3597,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1013.3333,
                   322.8986
@@ -548,10 +554,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n25",
+                "id": "nbey",
                 "x": 1060,
                 "y": 337,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1048.3333,
                   337
@@ -563,10 +569,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n26",
+                "id": "nbez",
                 "x": 1101.25,
                 "y": 322.0624,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1087.5,
                   331.5036
@@ -578,10 +584,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n27",
+                "id": "nbf0",
                 "x": 1142.5,
                 "y": 286,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1128.75,
                   299.3518
@@ -593,10 +599,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n28",
+                "id": "nbf1",
                 "x": 1183.75,
                 "y": 249.9376,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1170,
                   259.3787
@@ -608,10 +614,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n29",
+                "id": "nbf2",
                 "x": 1225,
                 "y": 235,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1211.25,
                   235
@@ -623,10 +629,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n30",
+                "id": "nbf3",
                 "x": 1266.25,
                 "y": 248.0337,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1252.5,
                   239.7959
@@ -638,10 +644,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n31",
+                "id": "nbf4",
                 "x": 1307.5,
                 "y": 279.5,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1293.75,
                   267.8499
@@ -653,10 +659,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n32",
+                "id": "nbf5",
                 "x": 1348.75,
                 "y": 310.9663,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1335,
                   302.7284
@@ -668,10 +674,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n33",
+                "id": "nbf6",
                 "x": 1390,
                 "y": 324,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1376.25,
                   324
@@ -683,10 +689,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n34",
+                "id": "nbf7",
                 "x": 1428.75,
                 "y": 315.6525,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1415.8333,
                   320.9285
@@ -698,10 +704,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n35",
+                "id": "nbf8",
                 "x": 1467.5,
                 "y": 295.5,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1454.5833,
                   302.9613
@@ -713,10 +719,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n36",
+                "id": "nbf9",
                 "x": 1506.25,
                 "y": 275.3475,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1493.3333,
                   280.6234
@@ -728,10 +734,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n37",
+                "id": "nbfa",
                 "x": 1545,
                 "y": 267,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1532.0833,
                   267
@@ -743,10 +749,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n38",
+                "id": "nbfb",
                 "x": 1581.25,
                 "y": 276.2261,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1569.1667,
                   270.3949
@@ -758,10 +764,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n39",
+                "id": "nbfc",
                 "x": 1617.5,
                 "y": 298.5,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1605.4167,
                   290.2533
@@ -773,10 +779,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n40",
+                "id": "nbfd",
                 "x": 1653.75,
                 "y": 320.7739,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1641.6667,
                   314.9426
@@ -788,10 +794,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n41",
+                "id": "nbfe",
                 "x": 1690,
                 "y": 330,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1677.9167,
                   330
@@ -803,10 +809,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n42",
+                "id": "nbff",
                 "x": 1728.75,
                 "y": 318.1378,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1715.8333,
                   325.6352
@@ -818,10 +824,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n43",
+                "id": "nbfg",
                 "x": 1767.5,
                 "y": 289.5,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1754.5833,
                   300.1029
@@ -833,10 +839,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n44",
+                "id": "nbfh",
                 "x": 1806.25,
                 "y": 260.8622,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1793.3333,
                   268.3595
@@ -848,10 +854,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n45",
+                "id": "nbfi",
                 "x": 1845,
                 "y": 249,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1832.0833,
                   249
@@ -863,10 +869,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n46",
+                "id": "nbfj",
                 "x": 1885,
                 "y": 261.8873,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1871.6667,
                   253.742
@@ -878,10 +884,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n47",
+                "id": "nbfk",
                 "x": 1925,
                 "y": 293,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1911.6667,
                   281.4808
@@ -893,10 +899,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n48",
+                "id": "nbfl",
                 "x": 1965,
                 "y": 324.1127,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1951.6667,
                   315.9674
@@ -908,10 +914,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n49",
+                "id": "nbfm",
                 "x": 2005,
                 "y": 337,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   1991.6667,
                   337
@@ -923,10 +929,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n50",
+                "id": "nbfn",
                 "x": 2043.75,
                 "y": 329.5312,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   2030.8333,
                   334.2518
@@ -938,10 +944,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n51",
+                "id": "nbfo",
                 "x": 2082.5,
                 "y": 311.5,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   2069.5833,
                   318.1759
@@ -953,10 +959,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n52",
+                "id": "nbfp",
                 "x": 2121.25,
                 "y": 293.4688,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   2108.3333,
                   298.1893
@@ -968,10 +974,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n53",
+                "id": "nbfq",
                 "x": 2160,
                 "y": 286,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   2147.0833,
                   286
@@ -983,10 +989,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n54",
+                "id": "nbfr",
                 "x": 2195,
                 "y": 278.5312,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   2183.3333,
                   283.2518
@@ -998,10 +1004,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n55",
+                "id": "nbfs",
                 "x": 2230,
                 "y": 260.5,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   2218.3333,
                   267.1759
@@ -1013,10 +1019,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n56",
+                "id": "nbft",
                 "x": 2265,
                 "y": 242.4688,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   2253.3333,
                   247.1893
@@ -1028,10 +1034,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n57",
+                "id": "nbfu",
                 "x": 2300,
                 "y": 235,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   2288.3333,
                   235
@@ -1043,10 +1049,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n58",
+                "id": "nbfv",
                 "x": 2340,
                 "y": 248.3266,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   2326.6667,
                   239.9037
@@ -1058,10 +1064,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n59",
+                "id": "nbfw",
                 "x": 2380,
                 "y": 280.5,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   2366.6667,
                   268.5881
@@ -1073,10 +1079,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n60",
+                "id": "nbfx",
                 "x": 2420,
                 "y": 312.6734,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   2406.6667,
                   304.2504
@@ -1088,10 +1094,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n61",
+                "id": "nbfy",
                 "x": 2460,
                 "y": 326,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   2446.6667,
                   326
@@ -1103,10 +1109,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n62",
+                "id": "nbfz",
                 "x": 2500,
                 "y": 318.2383,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   2486.6667,
                   323.144
@@ -1118,10 +1124,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n63",
+                "id": "nbg0",
                 "x": 2540,
                 "y": 299.5,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   2526.6667,
                   306.4377
@@ -1133,10 +1139,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n64",
+                "id": "nbg1",
                 "x": 2580,
                 "y": 280.7617,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   2566.6667,
                   285.6674
@@ -1148,10 +1154,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n65",
+                "id": "nbg2",
                 "x": 2620,
                 "y": 273,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   2606.6667,
                   273
@@ -1163,10 +1169,10 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n66",
+                "id": "nbg3",
                 "x": 2690,
                 "y": 295.5,
-                "mode": "corner",
+                "mode": "independent",
                 "in": [
                   2666.6667,
                   283.719
@@ -1178,7 +1184,7 @@
                 "edge": "curve"
               },
               {
-                "id": "legacy-ground-n67",
+                "id": "nbg4",
                 "x": 2760,
                 "y": 318,
                 "mode": "corner",
@@ -1190,7 +1196,7 @@
                 "edge": "straight"
               },
               {
-                "id": "legacy-ground-n68",
+                "id": "nbg5",
                 "x": 3000,
                 "y": 318,
                 "mode": "corner",
@@ -1199,7 +1205,7 @@
                 "edge": "straight"
               },
               {
-                "id": "n2svh",
+                "id": "nbg6",
                 "x": 3000,
                 "y": -600,
                 "mode": "corner",
@@ -1208,7 +1214,7 @@
                 "edge": "straight"
               },
               {
-                "id": "n3enx",
+                "id": "nbg7",
                 "x": 4600,
                 "y": -600,
                 "mode": "corner",
@@ -1217,7 +1223,7 @@
                 "edge": "straight"
               },
               {
-                "id": "legacy-ground-n69",
+                "id": "nbg8",
                 "x": 4600,
                 "y": 1020,
                 "mode": "corner",
@@ -1226,7 +1232,7 @@
                 "edge": "straight"
               },
               {
-                "id": "n2bll",
+                "id": "nbg9",
                 "x": -1300,
                 "y": 1020,
                 "mode": "corner",
@@ -1235,7 +1241,7 @@
                 "edge": "straight"
               },
               {
-                "id": "n2q4s",
+                "id": "nbga",
                 "x": -1316.0691,
                 "y": -87.5652,
                 "mode": "corner",
@@ -1244,7 +1250,7 @@
                 "edge": "straight"
               },
               {
-                "id": "n3r35",
+                "id": "nbgb",
                 "x": -226.4591,
                 "y": 303.217,
                 "mode": "corner",
@@ -1253,7 +1259,7 @@
                 "edge": "straight"
               },
               {
-                "id": "n3hlg",
+                "id": "nbgc",
                 "x": -239.3084,
                 "y": 156.9293,
                 "mode": "corner",
@@ -1262,7 +1268,7 @@
                 "edge": "straight"
               },
               {
-                "id": "n1hv5",
+                "id": "nbgd",
                 "x": -228.1878,
                 "y": 144.0247,
                 "mode": "corner",
@@ -1271,7 +1277,7 @@
                 "edge": "straight"
               },
               {
-                "id": "n1duo",
+                "id": "nbge",
                 "x": -250,
                 "y": 35.3432,
                 "mode": "corner",
@@ -1280,7 +1286,7 @@
                 "edge": "straight"
               },
               {
-                "id": "n143j",
+                "id": "nbgf",
                 "x": -149.9329,
                 "y": 35.4082,
                 "mode": "corner",
@@ -1289,7 +1295,7 @@
                 "edge": "straight"
               },
               {
-                "id": "n1evk",
+                "id": "nbgg",
                 "x": -95.5427,
                 "y": 50,
                 "mode": "corner",
@@ -1298,7 +1304,7 @@
                 "edge": "straight"
               },
               {
-                "id": "n1lu3",
+                "id": "nbgh",
                 "x": -95.5427,
                 "y": 150,
                 "mode": "independent",
@@ -1310,7 +1316,7 @@
                 "edge": "curve"
               },
               {
-                "id": "n12ix",
+                "id": "nbgi",
                 "x": -76.4922,
                 "y": 221.0973,
                 "mode": "corner",
@@ -1322,17 +1328,71 @@
                 "edge": "straight"
               },
               {
-                "id": "nhvs",
+                "id": "nbgj",
                 "x": -100,
                 "y": 250,
                 "mode": "corner",
                 "in": null,
                 "out": null,
                 "edge": "straight"
+              },
+              {
+                "id": "nbgk",
+                "x": -105.5879,
+                "y": 319.8699,
+                "mode": "independent",
+                "in": null,
+                "out": [
+                  -10,
+                  320
+                ],
+                "edge": "curve"
               }
             ]
           },
-          "inner": []
+          "inner": [
+            {
+              "id": "bbgq",
+              "nodes": [
+                {
+                  "id": "nbgl",
+                  "x": -335.7864,
+                  "y": 390.3822,
+                  "mode": "corner",
+                  "in": null,
+                  "out": null,
+                  "edge": "straight"
+                },
+                {
+                  "id": "nbgm",
+                  "x": -263.0906,
+                  "y": 438.2956,
+                  "mode": "corner",
+                  "in": null,
+                  "out": null,
+                  "edge": "straight"
+                },
+                {
+                  "id": "nbgn",
+                  "x": -181.2462,
+                  "y": 402.303,
+                  "mode": "corner",
+                  "in": null,
+                  "out": null,
+                  "edge": "straight"
+                },
+                {
+                  "id": "nbgo",
+                  "x": -246.3155,
+                  "y": 368.0077,
+                  "mode": "corner",
+                  "in": null,
+                  "out": null,
+                  "edge": "straight"
+                }
+              ]
+            }
+          ]
         }
       ]
     }

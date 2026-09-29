@@ -120,8 +120,8 @@ export function sunShadowOffset({
 
 // Props that attach to a wall face or cliff edge rather than stand on the ground.
 export const WALL_PROPS = new Set(["vines", "roots", "moss"]);
-// Signs would mirror their text; everything else may be flipped.
-export const canFlip = (type) => type !== "sign";
+// Signs would mirror their text, and wall props already turn to face the wall.
+export const canFlip = (type) => type !== "sign" && !WALL_PROPS.has(type);
 // Longest vines can hang, in world units.
 export const VINE_MAX = 140;
 const wallFits = new WeakMap();
