@@ -9,104 +9,6 @@
     "y": null,
     "facing": 1
   },
-  "points": [
-    [0, 400],
-    [220, 400],
-    [360, 360],
-    [500, 400],
-    [640, 345],
-    [780, 400],
-    [920, 335],
-    [1060, 400],
-    [1180, 400],
-    [1360, 280],
-    [1520, 420],
-    [1680, 440],
-    [1800, 390],
-    [1980, 560],
-    [2080, 560],
-    [2340, 250],
-    [2500, 340],
-    [2640, 290],
-    [2760, 620],
-    [3000, 620],
-    [3240, 620],
-    [3460, 370],
-    [3620, 400],
-    [3780, 380],
-    [3940, 410],
-    [4100, 390],
-    [4300, 470],
-    [4520, 250],
-    [4800, 420],
-    [5000, 440],
-    [5160, 370],
-    [5300, 410],
-    [5440, 345],
-    [5580, 390],
-    [5740, 375],
-    [6020, 375]
-  ],
-  "gaps": [
-    [1320, 1460],
-    [4480, 4640],
-    [5440, 5530]
-  ],
-  "platforms": [
-    {
-      "points": [
-        [2700, 300],
-        [2790, 288],
-        [2880, 302]
-      ],
-      "bottom": [
-        [2700, 336],
-        [2790, 324],
-        [2880, 338]
-      ],
-      "material": "brick"
-    },
-    {
-      "points": [
-        [2950, 312],
-        [3040, 300],
-        [3130, 316]
-      ],
-      "bottom": [
-        [2950, 348],
-        [3040, 336],
-        [3130, 352]
-      ],
-      "material": "rock"
-    },
-    {
-      "points": [
-        [3200, 326],
-        [3290, 314],
-        [3380, 334]
-      ],
-      "bottom": [
-        [3200, 362],
-        [3290, 350],
-        [3380, 370]
-      ],
-      "material": "snow"
-    }
-  ],
-  "paths": [
-    {
-      "points": [
-        [3540, 225],
-        [3700, 248],
-        [3860, 240],
-        [4020, 252],
-        [4160, 222]
-      ],
-      "closed": false,
-      "thickness": 28,
-      "material": "rock"
-    }
-  ],
   "apples": [
     {
       "x": 360,
@@ -146,11 +48,11 @@
     },
     {
       "x": 3780,
-      "y": null
+      "y": 320
     },
     {
       "x": 3940,
-      "y": null
+      "y": 350
     },
     {
       "x": 4515,
@@ -163,56 +65,6 @@
     {
       "x": 5700,
       "y": null
-    }
-  ],
-  "spikes": [
-    {
-      "x": 2380,
-      "y": 120,
-      "radius": 18,
-      "spin": 0.6
-    },
-    {
-      "x": 2800,
-      "y": 592,
-      "radius": 28,
-      "spin": 1
-    },
-    {
-      "x": 2960,
-      "y": 592,
-      "radius": 28,
-      "spin": -1
-    },
-    {
-      "x": 3120,
-      "y": 592,
-      "radius": 28,
-      "spin": 1
-    },
-    {
-      "x": 3270,
-      "y": 583,
-      "radius": 26,
-      "spin": -1
-    },
-    {
-      "x": 3700,
-      "y": 274,
-      "radius": 14,
-      "spin": 0.8
-    },
-    {
-      "x": 4020,
-      "y": 280,
-      "radius": 14,
-      "spin": -0.8
-    },
-    {
-      "x": 4560,
-      "y": 90,
-      "radius": 20,
-      "spin": 0.7
     }
   ],
   "props": [
@@ -313,17 +165,2030 @@
       "layer": "back"
     }
   ],
+  "spikes": [
+    {
+      "x": 2380,
+      "y": 120,
+      "radius": 18,
+      "spin": 0.6
+    },
+    {
+      "x": 2800,
+      "y": 592,
+      "radius": 28,
+      "spin": 1
+    },
+    {
+      "x": 2960,
+      "y": 592,
+      "radius": 28,
+      "spin": -1
+    },
+    {
+      "x": 3120,
+      "y": 592,
+      "radius": 28,
+      "spin": 1
+    },
+    {
+      "x": 3270,
+      "y": 583,
+      "radius": 26,
+      "spin": -1
+    },
+    {
+      "x": 3700,
+      "y": 274,
+      "radius": 14,
+      "spin": 0.8
+    },
+    {
+      "x": 4020,
+      "y": 280,
+      "radius": 14,
+      "spin": -0.8
+    },
+    {
+      "x": 4560,
+      "y": 90,
+      "radius": 20,
+      "spin": 0.7
+    }
+  ],
   "weather": {
     "sun": 0.9,
     "clouds": 0.35,
     "rain": 0,
     "lightning": 0
   },
+  "fallY": 820,
+  "sky": "#eae9d9",
+  "sun": "#f2c082",
+  "mountain": "#b7c8b1",
+  "spray": [
+    "#6f8b59",
+    "#9c8b68",
+    "#c5b496"
+  ],
   "medals": {
     "gold": 34,
     "silver": 45,
     "bronze": 65
   },
-  "fallY": 820,
-  "spray": ["#6f8b59", "#9c8b68", "#c5b496"]
+  "finishY": null,
+  "terrainVersion": 2,
+  "terrainBlocks": [
+    {
+      "id": "legacy-ground",
+      "material": "grass",
+      "regions": [
+        {
+          "outer": {
+            "id": "legacy-ground-r0",
+            "nodes": [
+              {
+                "id": "legacy-ground-n0",
+                "x": 0,
+                "y": 400,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-ground-n1",
+                "x": 220,
+                "y": 400,
+                "mode": "corner",
+                "in": null,
+                "out": [
+                  243.3333,
+                  400
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n2",
+                "x": 290,
+                "y": 380,
+                "mode": "corner",
+                "in": [
+                  266.6667,
+                  390.472
+                ],
+                "out": [
+                  313.3333,
+                  369.528
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n3",
+                "x": 360,
+                "y": 360,
+                "mode": "corner",
+                "in": [
+                  336.6667,
+                  360
+                ],
+                "out": [
+                  383.3333,
+                  360
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n4",
+                "x": 430,
+                "y": 380,
+                "mode": "corner",
+                "in": [
+                  406.6667,
+                  369.528
+                ],
+                "out": [
+                  453.3333,
+                  390.472
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n5",
+                "x": 500,
+                "y": 400,
+                "mode": "corner",
+                "in": [
+                  476.6667,
+                  400
+                ],
+                "out": [
+                  511.6667,
+                  400
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n6",
+                "x": 535,
+                "y": 391.9454,
+                "mode": "corner",
+                "in": [
+                  523.3333,
+                  397.0362
+                ],
+                "out": [
+                  546.6667,
+                  386.8546
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n7",
+                "x": 570,
+                "y": 372.5,
+                "mode": "corner",
+                "in": [
+                  558.3333,
+                  379.6995
+                ],
+                "out": [
+                  581.6667,
+                  365.3005
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n8",
+                "x": 605,
+                "y": 353.0546,
+                "mode": "corner",
+                "in": [
+                  593.3333,
+                  358.1454
+                ],
+                "out": [
+                  616.6667,
+                  347.9638
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n9",
+                "x": 640,
+                "y": 345,
+                "mode": "corner",
+                "in": [
+                  628.3333,
+                  345
+                ],
+                "out": [
+                  651.6667,
+                  345
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n10",
+                "x": 675,
+                "y": 353.0546,
+                "mode": "corner",
+                "in": [
+                  663.3333,
+                  347.9638
+                ],
+                "out": [
+                  686.6667,
+                  358.1454
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n11",
+                "x": 710,
+                "y": 372.5,
+                "mode": "corner",
+                "in": [
+                  698.3333,
+                  365.3005
+                ],
+                "out": [
+                  721.6667,
+                  379.6995
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n12",
+                "x": 745,
+                "y": 391.9454,
+                "mode": "corner",
+                "in": [
+                  733.3333,
+                  386.8546
+                ],
+                "out": [
+                  756.6667,
+                  397.0362
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n13",
+                "x": 780,
+                "y": 400,
+                "mode": "corner",
+                "in": [
+                  768.3333,
+                  400
+                ],
+                "out": [
+                  791.6667,
+                  400
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n14",
+                "x": 815,
+                "y": 390.481,
+                "mode": "corner",
+                "in": [
+                  803.3333,
+                  396.4974
+                ],
+                "out": [
+                  826.6667,
+                  384.4646
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n15",
+                "x": 850,
+                "y": 367.5,
+                "mode": "corner",
+                "in": [
+                  838.3333,
+                  376.0085
+                ],
+                "out": [
+                  861.6667,
+                  358.9915
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n16",
+                "x": 885,
+                "y": 344.519,
+                "mode": "corner",
+                "in": [
+                  873.3333,
+                  350.5354
+                ],
+                "out": [
+                  896.6667,
+                  338.5026
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n17",
+                "x": 920,
+                "y": 335,
+                "mode": "corner",
+                "in": [
+                  908.3333,
+                  335
+                ],
+                "out": [
+                  931.6667,
+                  335
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n18",
+                "x": 955,
+                "y": 344.519,
+                "mode": "corner",
+                "in": [
+                  943.3333,
+                  338.5026
+                ],
+                "out": [
+                  966.6667,
+                  350.5354
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n19",
+                "x": 990,
+                "y": 367.5,
+                "mode": "corner",
+                "in": [
+                  978.3333,
+                  358.9915
+                ],
+                "out": [
+                  1001.6667,
+                  376.0085
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n20",
+                "x": 1025,
+                "y": 390.481,
+                "mode": "corner",
+                "in": [
+                  1013.3333,
+                  384.4646
+                ],
+                "out": [
+                  1036.6667,
+                  396.4974
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n21",
+                "x": 1060,
+                "y": 400,
+                "mode": "corner",
+                "in": [
+                  1048.3333,
+                  400
+                ],
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-ground-n22",
+                "x": 1180,
+                "y": 400,
+                "mode": "corner",
+                "in": null,
+                "out": [
+                  1191.6667,
+                  400
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n23",
+                "x": 1215,
+                "y": 389.1491,
+                "mode": "corner",
+                "in": [
+                  1203.3333,
+                  396.1567
+                ],
+                "out": [
+                  1226.6667,
+                  382.1416
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n24",
+                "x": 1250,
+                "y": 360.5212,
+                "mode": "corner",
+                "in": [
+                  1238.3333,
+                  372.0017
+                ],
+                "out": [
+                  1273.3333,
+                  337.5602
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n25",
+                "x": 1320,
+                "y": 294.0373,
+                "mode": "corner",
+                "in": [
+                  1296.6667,
+                  309.7436
+                ],
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-ground-n26",
+                "x": 1320,
+                "y": 1220,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-ground-n27",
+                "x": 0,
+                "y": 1220,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              }
+            ]
+          },
+          "inner": []
+        },
+        {
+          "outer": {
+            "id": "legacy-ground-r1",
+            "nodes": [
+              {
+                "id": "legacy-ground-n28",
+                "x": 1460,
+                "y": 376.7878,
+                "mode": "corner",
+                "in": null,
+                "out": [
+                  1470,
+                  389.4861
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n29",
+                "x": 1490,
+                "y": 408.2029,
+                "mode": "corner",
+                "in": [
+                  1480,
+                  400.5669
+                ],
+                "out": [
+                  1500,
+                  415.8389
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n30",
+                "x": 1520,
+                "y": 420,
+                "mode": "corner",
+                "in": [
+                  1510,
+                  420
+                ],
+                "out": [
+                  1573.3333,
+                  420
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n31",
+                "x": 1680,
+                "y": 440,
+                "mode": "corner",
+                "in": [
+                  1626.6667,
+                  440
+                ],
+                "out": [
+                  1690,
+                  440
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n32",
+                "x": 1710,
+                "y": 432.6777,
+                "mode": "corner",
+                "in": [
+                  1700,
+                  437.3057
+                ],
+                "out": [
+                  1720,
+                  428.0497
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n33",
+                "x": 1740,
+                "y": 415,
+                "mode": "corner",
+                "in": [
+                  1730,
+                  421.545
+                ],
+                "out": [
+                  1750,
+                  408.455
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n34",
+                "x": 1770,
+                "y": 397.3223,
+                "mode": "corner",
+                "in": [
+                  1760,
+                  401.9503
+                ],
+                "out": [
+                  1780,
+                  392.6943
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n35",
+                "x": 1800,
+                "y": 390,
+                "mode": "corner",
+                "in": [
+                  1790,
+                  390
+                ],
+                "out": [
+                  1815,
+                  390
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n36",
+                "x": 1845,
+                "y": 414.8959,
+                "mode": "corner",
+                "in": [
+                  1830,
+                  399.1607
+                ],
+                "out": [
+                  1860,
+                  430.6311
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n37",
+                "x": 1890,
+                "y": 475,
+                "mode": "corner",
+                "in": [
+                  1875,
+                  452.7471
+                ],
+                "out": [
+                  1905,
+                  497.2529
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n38",
+                "x": 1935,
+                "y": 535.1041,
+                "mode": "corner",
+                "in": [
+                  1920,
+                  519.3689
+                ],
+                "out": [
+                  1950,
+                  550.8393
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n39",
+                "x": 1980,
+                "y": 560,
+                "mode": "corner",
+                "in": [
+                  1965,
+                  560
+                ],
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-ground-n40",
+                "x": 2080,
+                "y": 560,
+                "mode": "corner",
+                "in": null,
+                "out": [
+                  2101.6667,
+                  560
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n41",
+                "x": 2145,
+                "y": 514.6016,
+                "mode": "corner",
+                "in": [
+                  2123.3333,
+                  543.2952
+                ],
+                "out": [
+                  2166.6667,
+                  485.9079
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n42",
+                "x": 2210,
+                "y": 405,
+                "mode": "corner",
+                "in": [
+                  2188.3333,
+                  445.5789
+                ],
+                "out": [
+                  2231.6667,
+                  364.4211
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n43",
+                "x": 2275,
+                "y": 295.3984,
+                "mode": "corner",
+                "in": [
+                  2253.3333,
+                  324.0921
+                ],
+                "out": [
+                  2296.6667,
+                  266.7048
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n44",
+                "x": 2340,
+                "y": 250,
+                "mode": "corner",
+                "in": [
+                  2318.3333,
+                  250
+                ],
+                "out": [
+                  2353.3333,
+                  250
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n45",
+                "x": 2380,
+                "y": 263.1802,
+                "mode": "corner",
+                "in": [
+                  2366.6667,
+                  254.8498
+                ],
+                "out": [
+                  2393.3333,
+                  271.5106
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n46",
+                "x": 2420,
+                "y": 295,
+                "mode": "corner",
+                "in": [
+                  2406.6667,
+                  283.219
+                ],
+                "out": [
+                  2433.3333,
+                  306.781
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n47",
+                "x": 2460,
+                "y": 326.8198,
+                "mode": "corner",
+                "in": [
+                  2446.6667,
+                  318.4894
+                ],
+                "out": [
+                  2473.3333,
+                  335.1502
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n48",
+                "x": 2500,
+                "y": 340,
+                "mode": "corner",
+                "in": [
+                  2486.6667,
+                  340
+                ],
+                "out": [
+                  2511.6667,
+                  340
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n49",
+                "x": 2535,
+                "y": 332.6777,
+                "mode": "corner",
+                "in": [
+                  2523.3333,
+                  337.3057
+                ],
+                "out": [
+                  2546.6667,
+                  328.0497
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n50",
+                "x": 2570,
+                "y": 315,
+                "mode": "corner",
+                "in": [
+                  2558.3333,
+                  321.545
+                ],
+                "out": [
+                  2581.6667,
+                  308.455
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n51",
+                "x": 2605,
+                "y": 297.3223,
+                "mode": "corner",
+                "in": [
+                  2593.3333,
+                  301.9503
+                ],
+                "out": [
+                  2616.6667,
+                  292.6943
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n52",
+                "x": 2640,
+                "y": 290,
+                "mode": "corner",
+                "in": [
+                  2628.3333,
+                  290
+                ],
+                "out": [
+                  2650,
+                  290
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n53",
+                "x": 2670,
+                "y": 338.3274,
+                "mode": "corner",
+                "in": [
+                  2660,
+                  307.7826
+                ],
+                "out": [
+                  2680,
+                  368.8722
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n54",
+                "x": 2700,
+                "y": 455,
+                "mode": "corner",
+                "in": [
+                  2690,
+                  411.8031
+                ],
+                "out": [
+                  2710,
+                  498.1969
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n55",
+                "x": 2730,
+                "y": 571.6726,
+                "mode": "corner",
+                "in": [
+                  2720,
+                  541.1278
+                ],
+                "out": [
+                  2740,
+                  602.2174
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n56",
+                "x": 2760,
+                "y": 620,
+                "mode": "corner",
+                "in": [
+                  2750,
+                  620
+                ],
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-ground-n57",
+                "x": 3000,
+                "y": 620,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-ground-n58",
+                "x": 3240,
+                "y": 620,
+                "mode": "corner",
+                "in": null,
+                "out": [
+                  3258.3333,
+                  620
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n59",
+                "x": 3295,
+                "y": 583.3883,
+                "mode": "corner",
+                "in": [
+                  3276.6667,
+                  606.5284
+                ],
+                "out": [
+                  3313.3333,
+                  560.2483
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n60",
+                "x": 3350,
+                "y": 495,
+                "mode": "corner",
+                "in": [
+                  3331.6667,
+                  527.7249
+                ],
+                "out": [
+                  3368.3333,
+                  462.2751
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n61",
+                "x": 3405,
+                "y": 406.6117,
+                "mode": "corner",
+                "in": [
+                  3386.6667,
+                  429.7517
+                ],
+                "out": [
+                  3423.3333,
+                  383.4716
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n62",
+                "x": 3460,
+                "y": 370,
+                "mode": "corner",
+                "in": [
+                  3441.6667,
+                  370
+                ],
+                "out": [
+                  3486.6667,
+                  370
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n63",
+                "x": 3540,
+                "y": 385,
+                "mode": "corner",
+                "in": [
+                  3513.3333,
+                  377.146
+                ],
+                "out": [
+                  3566.6667,
+                  392.854
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n64",
+                "x": 3620,
+                "y": 400,
+                "mode": "corner",
+                "in": [
+                  3593.3333,
+                  400
+                ],
+                "out": [
+                  3673.3333,
+                  400
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n65",
+                "x": 3780,
+                "y": 380,
+                "mode": "corner",
+                "in": [
+                  3726.6667,
+                  380
+                ],
+                "out": [
+                  3806.6667,
+                  380
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n66",
+                "x": 3860,
+                "y": 395,
+                "mode": "corner",
+                "in": [
+                  3833.3333,
+                  387.146
+                ],
+                "out": [
+                  3886.6667,
+                  402.854
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n67",
+                "x": 3940,
+                "y": 410,
+                "mode": "corner",
+                "in": [
+                  3913.3333,
+                  410
+                ],
+                "out": [
+                  3993.3333,
+                  410
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n68",
+                "x": 4100,
+                "y": 390,
+                "mode": "corner",
+                "in": [
+                  4046.6667,
+                  390
+                ],
+                "out": [
+                  4116.6667,
+                  390
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n69",
+                "x": 4150,
+                "y": 401.7157,
+                "mode": "corner",
+                "in": [
+                  4133.3333,
+                  394.3109
+                ],
+                "out": [
+                  4166.6667,
+                  409.1205
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n70",
+                "x": 4200,
+                "y": 430,
+                "mode": "corner",
+                "in": [
+                  4183.3333,
+                  419.528
+                ],
+                "out": [
+                  4216.6667,
+                  440.472
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n71",
+                "x": 4250,
+                "y": 458.2843,
+                "mode": "corner",
+                "in": [
+                  4233.3333,
+                  450.8795
+                ],
+                "out": [
+                  4266.6667,
+                  465.6891
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n72",
+                "x": 4300,
+                "y": 470,
+                "mode": "corner",
+                "in": [
+                  4283.3333,
+                  470
+                ],
+                "out": [
+                  4315,
+                  470
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n73",
+                "x": 4345,
+                "y": 448.0595,
+                "mode": "corner",
+                "in": [
+                  4330,
+                  462.1797
+                ],
+                "out": [
+                  4360,
+                  433.9394
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n74",
+                "x": 4390,
+                "y": 390.9906,
+                "mode": "corner",
+                "in": [
+                  4375,
+                  413.5981
+                ],
+                "out": [
+                  4405,
+                  368.3831
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n75",
+                "x": 4435,
+                "y": 321.5589,
+                "mode": "corner",
+                "in": [
+                  4420,
+                  343.6353
+                ],
+                "out": [
+                  4450,
+                  299.4826
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n76",
+                "x": 4480,
+                "y": 267.4621,
+                "mode": "corner",
+                "in": [
+                  4465,
+                  280.2007
+                ],
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-ground-n77",
+                "x": 4480,
+                "y": 1220,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-ground-n78",
+                "x": 1460,
+                "y": 1220,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              }
+            ]
+          },
+          "inner": []
+        },
+        {
+          "outer": {
+            "id": "legacy-ground-r2",
+            "nodes": [
+              {
+                "id": "legacy-ground-n79",
+                "x": 4640,
+                "y": 316.0857,
+                "mode": "corner",
+                "in": null,
+                "out": [
+                  4666.6667,
+                  340.88
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n80",
+                "x": 4720,
+                "y": 387.9966,
+                "mode": "corner",
+                "in": [
+                  4693.3333,
+                  368.1131
+                ],
+                "out": [
+                  4746.6667,
+                  407.8801
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n81",
+                "x": 4800,
+                "y": 420,
+                "mode": "corner",
+                "in": [
+                  4773.3333,
+                  420
+                ],
+                "out": [
+                  4866.6667,
+                  420
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n82",
+                "x": 5000,
+                "y": 440,
+                "mode": "corner",
+                "in": [
+                  4933.3333,
+                  440
+                ],
+                "out": [
+                  5013.3333,
+                  440
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n83",
+                "x": 5040,
+                "y": 429.7487,
+                "mode": "corner",
+                "in": [
+                  5026.6667,
+                  436.2279
+                ],
+                "out": [
+                  5053.3333,
+                  423.2695
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n84",
+                "x": 5080,
+                "y": 405,
+                "mode": "corner",
+                "in": [
+                  5066.6667,
+                  414.163
+                ],
+                "out": [
+                  5093.3333,
+                  395.837
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n85",
+                "x": 5120,
+                "y": 380.2513,
+                "mode": "corner",
+                "in": [
+                  5106.6667,
+                  386.7305
+                ],
+                "out": [
+                  5133.3333,
+                  373.7721
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n86",
+                "x": 5160,
+                "y": 370,
+                "mode": "corner",
+                "in": [
+                  5146.6667,
+                  370
+                ],
+                "out": [
+                  5183.3333,
+                  370
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n87",
+                "x": 5230,
+                "y": 390,
+                "mode": "corner",
+                "in": [
+                  5206.6667,
+                  379.528
+                ],
+                "out": [
+                  5253.3333,
+                  400.472
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n88",
+                "x": 5300,
+                "y": 410,
+                "mode": "corner",
+                "in": [
+                  5276.6667,
+                  410
+                ],
+                "out": [
+                  5311.6667,
+                  410
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n89",
+                "x": 5335,
+                "y": 400.481,
+                "mode": "corner",
+                "in": [
+                  5323.3333,
+                  406.4974
+                ],
+                "out": [
+                  5346.6667,
+                  394.4646
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n90",
+                "x": 5370,
+                "y": 377.5,
+                "mode": "corner",
+                "in": [
+                  5358.3333,
+                  386.0085
+                ],
+                "out": [
+                  5381.6667,
+                  368.9915
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n91",
+                "x": 5405,
+                "y": 354.519,
+                "mode": "corner",
+                "in": [
+                  5393.3333,
+                  360.5354
+                ],
+                "out": [
+                  5416.6667,
+                  348.5026
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n92",
+                "x": 5440,
+                "y": 345,
+                "mode": "corner",
+                "in": [
+                  5428.3333,
+                  345
+                ],
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-ground-n93",
+                "x": 5440,
+                "y": 1220,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-ground-n94",
+                "x": 4640,
+                "y": 1220,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              }
+            ]
+          },
+          "inner": []
+        },
+        {
+          "outer": {
+            "id": "legacy-ground-r3",
+            "nodes": [
+              {
+                "id": "legacy-ground-n95",
+                "x": 5530,
+                "y": 377.2624,
+                "mode": "corner",
+                "in": null,
+                "out": [
+                  5546.6667,
+                  384.844
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n96",
+                "x": 5580,
+                "y": 390,
+                "mode": "corner",
+                "in": [
+                  5563.3333,
+                  390
+                ],
+                "out": [
+                  5633.3333,
+                  390
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-ground-n97",
+                "x": 5740,
+                "y": 375,
+                "mode": "corner",
+                "in": [
+                  5686.6667,
+                  375
+                ],
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-ground-n98",
+                "x": 6020,
+                "y": 375,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-ground-n99",
+                "x": 6020,
+                "y": 1220,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-ground-n100",
+                "x": 5530,
+                "y": 1220,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              }
+            ]
+          },
+          "inner": []
+        }
+      ]
+    },
+    {
+      "id": "legacy-path-0",
+      "material": "rock",
+      "regions": [
+        {
+          "outer": {
+            "id": "legacy-path-0-r0",
+            "nodes": [
+              {
+                "id": "legacy-path-0-n23",
+                "x": 4158,
+                "y": 208.1438,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n22",
+                "x": 4162,
+                "y": 208.1438,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n21",
+                "x": 4167.1605,
+                "y": 210,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n20",
+                "x": 4171.4775,
+                "y": 214,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n19",
+                "x": 4173.8562,
+                "y": 220,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n18",
+                "x": 4173.4137,
+                "y": 226,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n17",
+                "x": 4170,
+                "y": 231.7872,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n16",
+                "x": 4166,
+                "y": 234.643,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n15",
+                "x": 4020,
+                "y": 266,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n14",
+                "x": 3860,
+                "y": 254.0393,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n13",
+                "x": 3698,
+                "y": 261.8564,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n12",
+                "x": 3538,
+                "y": 238.856,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n11",
+                "x": 3534,
+                "y": 237.6445,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n10",
+                "x": 3530,
+                "y": 234.7737,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n9",
+                "x": 3526.9282,
+                "y": 230,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n8",
+                "x": 3526.0358,
+                "y": 226,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n7",
+                "x": 3526.9282,
+                "y": 220,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n6",
+                "x": 3530,
+                "y": 215.2263,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n5",
+                "x": 3534,
+                "y": 212.3555,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n4",
+                "x": 3540,
+                "y": 211,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n3",
+                "x": 3700,
+                "y": 233.8561,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n2",
+                "x": 3860,
+                "y": 226,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n1",
+                "x": 4018,
+                "y": 237.8107,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-path-0-n0",
+                "x": 4150,
+                "y": 209.825,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              }
+            ]
+          },
+          "inner": []
+        }
+      ]
+    },
+    {
+      "id": "legacy-platform-0",
+      "material": "brick",
+      "regions": [
+        {
+          "outer": {
+            "id": "legacy-platform-0-r0",
+            "nodes": [
+              {
+                "id": "legacy-platform-0-n0",
+                "x": 2700,
+                "y": 300,
+                "mode": "corner",
+                "in": null,
+                "out": [
+                  2730,
+                  300
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-platform-0-n1",
+                "x": 2790,
+                "y": 288,
+                "mode": "corner",
+                "in": [
+                  2760,
+                  288
+                ],
+                "out": [
+                  2820,
+                  288
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-platform-0-n2",
+                "x": 2880,
+                "y": 302,
+                "mode": "corner",
+                "in": [
+                  2850,
+                  302
+                ],
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-platform-0-n3",
+                "x": 2880,
+                "y": 338,
+                "mode": "corner",
+                "in": null,
+                "out": [
+                  2850,
+                  338
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-platform-0-n4",
+                "x": 2790,
+                "y": 324,
+                "mode": "corner",
+                "in": [
+                  2820,
+                  324
+                ],
+                "out": [
+                  2760,
+                  324
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-platform-0-n5",
+                "x": 2700,
+                "y": 336,
+                "mode": "corner",
+                "in": [
+                  2730,
+                  336
+                ],
+                "out": null,
+                "edge": "straight"
+              }
+            ]
+          },
+          "inner": []
+        }
+      ]
+    },
+    {
+      "id": "legacy-platform-1",
+      "material": "rock",
+      "regions": [
+        {
+          "outer": {
+            "id": "legacy-platform-1-r0",
+            "nodes": [
+              {
+                "id": "legacy-platform-1-n0",
+                "x": 2950,
+                "y": 312,
+                "mode": "corner",
+                "in": null,
+                "out": [
+                  2980,
+                  312
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-platform-1-n1",
+                "x": 3040,
+                "y": 300,
+                "mode": "corner",
+                "in": [
+                  3010,
+                  300
+                ],
+                "out": [
+                  3070,
+                  300
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-platform-1-n2",
+                "x": 3130,
+                "y": 316,
+                "mode": "corner",
+                "in": [
+                  3100,
+                  316
+                ],
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-platform-1-n3",
+                "x": 3130,
+                "y": 352,
+                "mode": "corner",
+                "in": null,
+                "out": [
+                  3100,
+                  352
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-platform-1-n4",
+                "x": 3040,
+                "y": 336,
+                "mode": "corner",
+                "in": [
+                  3070,
+                  336
+                ],
+                "out": [
+                  3010,
+                  336
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-platform-1-n5",
+                "x": 2950,
+                "y": 348,
+                "mode": "corner",
+                "in": [
+                  2980,
+                  348
+                ],
+                "out": null,
+                "edge": "straight"
+              }
+            ]
+          },
+          "inner": []
+        }
+      ]
+    },
+    {
+      "id": "legacy-platform-2",
+      "material": "snow",
+      "regions": [
+        {
+          "outer": {
+            "id": "legacy-platform-2-r0",
+            "nodes": [
+              {
+                "id": "legacy-platform-2-n0",
+                "x": 3200,
+                "y": 326,
+                "mode": "corner",
+                "in": null,
+                "out": [
+                  3230,
+                  326
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-platform-2-n1",
+                "x": 3290,
+                "y": 314,
+                "mode": "corner",
+                "in": [
+                  3260,
+                  314
+                ],
+                "out": [
+                  3320,
+                  314
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-platform-2-n2",
+                "x": 3380,
+                "y": 334,
+                "mode": "corner",
+                "in": [
+                  3350,
+                  334
+                ],
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "legacy-platform-2-n3",
+                "x": 3380,
+                "y": 370,
+                "mode": "corner",
+                "in": null,
+                "out": [
+                  3350,
+                  370
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-platform-2-n4",
+                "x": 3290,
+                "y": 350,
+                "mode": "corner",
+                "in": [
+                  3320,
+                  350
+                ],
+                "out": [
+                  3260,
+                  350
+                ],
+                "edge": "curve"
+              },
+              {
+                "id": "legacy-platform-2-n5",
+                "x": 3200,
+                "y": 362,
+                "mode": "corner",
+                "in": [
+                  3230,
+                  362
+                ],
+                "out": null,
+                "edge": "straight"
+              }
+            ]
+          },
+          "inner": []
+        }
+      ]
+    }
+  ],
+  "timeOfDay": "noon"
 }
