@@ -260,7 +260,7 @@ When changing physics values, validate at least these cases:
 - [ ] Add water that you can drive through
 - [x] Add a sign that you can write on in the editor
 - [ ] Biker customization: choose your bike (the original Pocket Classic bike is already drawn as the `classic` model), and later colors and gear
-- [ ] Online highscore leaderboard
+- [x] Online highscore leaderboard
 - [x] New physics engine with support for overhangs, loops, caves, and fully polygonal ground
 - [ ] Change the wording levels into trails
 - [x] Implement Unified Terrain Redesign Plan.md
