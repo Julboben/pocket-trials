@@ -122,6 +122,7 @@ The dashboard's Settings view includes:
 - Vibration on landings and crashes (on devices that support it)
 - Ghost of your best run on or off
 - Keyboard bindings
+- Fullscreen mode
 
 The game opens on a dedicated dashboard before any level is loaded or rendered. Settings, level selection, and an illustrated How to Play guide are full dashboard views rather than separate modals. Control instructions are centralized in the guide instead of being repeated around the gameplay interface. It provides three independent savegame slots. The main dashboard shows only the active career, while the Load Game view contains slot selection and deletion. New Game always uses an empty slot; when all slots are occupied, one must be explicitly deleted first. A rider is chosen when a slot is created and is permanently tied to that save.
 
@@ -273,44 +274,6 @@ When changing physics values, validate at least these cases:
 - [x] New physics engine with support for overhangs, loops, caves, and fully polygonal ground
 - [x] Implement Unified Terrain Redesign Plan.md
 - [x] A visual level-building workflow
-
-## Possible Godot migration
-
-If Pocket Trials grows into a larger game, migrating to **Godot 4** is recommended. The browser version should remain available as the handling reference during that rewrite.
-
-A Godot version would benefit from:
-
-- Visual scene and level editing
-- Reusable scenes for bikes, riders, props, apples, and finish gates
-- Physics and collision debugging tools
-- Animation tooling
-- Audio and controller support
-- Easier desktop, mobile, and web exports
-- Cleaner organization as the number of levels and systems grows
-
-The migration would be a rewrite rather than an automatic conversion. Generic rigid-body joints may not reproduce the current feel, so the existing handling values and test cases should be treated as a gameplay specification.
-
-A likely Godot structure would include:
-
-```text
-scenes/
-├── bike/
-├── riders/
-├── levels/
-├── props/
-└── ui/
-
-scripts/
-├── bike_controller.gd
-├── suspension.gd
-├── level_manager.gd
-├── save_manager.gd
-└── settings_manager.gd
-
-resources/
-├── bike_handling.tres
-└── level_data/
-```
 
 ## Inspiration
 
