@@ -90,6 +90,8 @@ for (const file of ['custom/hanging-gardens.json', 'custom/mind-your-head.json',
   if (!files.includes(file)) files.push(file);
 }
 let migrated = 0;
+// Legacy terrain this run actually converted, from shipped levels or fixtures.
+let fixtures = 0;
 for (const [index, file] of files.entries()) {
   let raw;
   try { raw = JSON.parse(readFileSync(new URL(`../levels/${file}`, import.meta.url), 'utf8')); } catch { continue; }
@@ -110,8 +112,6 @@ for (const [index, file] of files.entries()) {
   check(`${file}: converting twice changes nothing`, JSON.stringify(again) === JSON.stringify(after));
   check(`${file}: the converted trail gets its own leaderboard`, levelHash(after) !== levelHash(before));
 }
-check('legacy levels were found to convert', migrated >= 4, `(${migrated})`);
-
 // ---------------------------------------------------------------------------
 // A closed path becomes a solid block in its own material.
 // ---------------------------------------------------------------------------
@@ -120,6 +120,7 @@ check('legacy levels were found to convert', migrated >= 4, `(${migrated})`);
   const raw = legacyLevel({ paths: [{ points: ring, thickness: 16, material: 'rock', closed: true }] });
   const before = normalizeLevel(raw);
   const after = migrateLegacyTerrain(raw);
+  fixtures++;
   check('closed path: it becomes a rock block', after.terrainBlocks.some(block => block.material === 'rock'));
   const drift = contactDrift(before, after);
   check('closed path: wheel contacts do not move', drift.drift <= CONTACT_TOLERANCE, `(worst ${drift.drift.toFixed(2)} at ${drift.x}, ${drift.y})`);
@@ -137,12 +138,20 @@ check('legacy levels were found to convert', migrated >= 4, `(${migrated})`);
   });
   const before = normalizeLevel(raw);
   const after = migrateLegacyTerrain(raw);
+  fixtures++;
   check('island: an apple under it is pinned to its old height', Math.abs(after.apples[0].y - (resting(before, 550).y - 60)) <= 0.5,
     `(${after.apples[0].y})`);
   check('island: an apple on open ground stays anchored', after.apples[1].y === null);
   check('island: a prop under it keeps its old ground', Math.abs(after.props[0].y - resting(before, 600).y) <= 0.5);
   checkObjects('island', before, after);
 }
+
+// Every level in the game has since been converted to blocks by hand, so the
+// catalog above usually contributes nothing. The synthetic fixtures are what
+// keep the migration itself covered; this only guards against the whole file
+// going vacuous, which would let the migration rot unnoticed.
+check('there is still legacy terrain to convert', migrated + fixtures > 0,
+  `(${migrated} shipped, ${fixtures} fixtures)`);
 
 console.log(failures ? `\n${failures} failing` : '\nTerrain migration tests passed.');
 process.exit(failures ? 1 : 0);
