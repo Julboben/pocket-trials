@@ -53,8 +53,26 @@ export function loadStoredState() {
 export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose, onPreferences }) {
   let pendingSaveSlot = 0, selectedNewRider = 'max';
   let deleteArmedSlot = -1, deleteArmTimer = 0, leaderboardTrail = 0;
+  let slotMode = 'load', pendingOverwrite = false, creatorFromSlots = false;
 
   const isOpen = () => !$('menu-screen').hidden;
+
+  /** A ride is only resumable while it still belongs to the active save. */
+  function canResume() {
+    if (!session.gameLoopStarted) return false;
+    if (session.levelSource === 'official' && !session.saveGame) return false;
+    return (session.saveGame?.createdAt ?? null) === session.rideSaveId;
+  }
+
+  function startLevel(index) {
+    session.rideSaveId = session.saveGame?.createdAt ?? null;
+    onStartLevel(index);
+  }
+
+  function startCustom(index) {
+    session.rideSaveId = session.saveGame?.createdAt ?? null;
+    onStartCustom(index);
+  }
 
   function drawPreviewRider(artCtx, rearPoint, frontPoint, leanVisual = 0) {
     const pose = {
@@ -104,28 +122,34 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
     updateDashboard();
   }
 
+  function disarmDelete() {
+    clearTimeout(deleteArmTimer);
+    deleteArmedSlot = -1;
+    document.querySelectorAll('.delete-save.armed').forEach(button => {
+      button.classList.remove('armed');
+      button.textContent = '×';
+      button.setAttribute('aria-label', 'Delete save slot ' + (Number(button.dataset.slot) + 1));
+    });
+  }
+
   function deleteSlot(index, button) {
     if (deleteArmedSlot !== index) {
+      disarmDelete();
       deleteArmedSlot = index;
       button.textContent = 'SURE?';
       button.classList.add('armed');
-      clearTimeout(deleteArmTimer);
-      deleteArmTimer = setTimeout(() => {
-        if (deleteArmedSlot !== index) return;
-        deleteArmedSlot = -1;
-        button.textContent = '×';
-        button.classList.remove('armed');
-      }, 2500);
+      button.setAttribute('aria-label', 'Press again to delete save slot ' + (index + 1));
+      deleteArmTimer = setTimeout(disarmDelete, 3000);
       return;
     }
-    clearTimeout(deleteArmTimer);
-    deleteArmedSlot = -1;
+    disarmDelete();
     deleteSave(index, levels.length);
     session.saveSlots[index] = null;
     if (index === session.activeSaveSlot) {
-      session.saveGame = null; session.unlockedLevel = 0; session.savedLevel = 0; session.rider = 'max';
-    }
-    updateDashboard();
+      const fallback = session.saveSlots.findIndex(Boolean);
+      selectSaveSlot(fallback >= 0 ? fallback : index); // also refreshes the dashboard
+    } else updateDashboard();
+    requestAnimationFrame(() => selectControl($('save-slots').children[index]?.querySelector('.save-slot')));
   }
 
   function buildSaveSlots() {
@@ -135,19 +159,25 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
       row.className = 'save-slot-row';
       const button = document.createElement('button');
       button.className = 'save-slot';
-      button.setAttribute('aria-pressed', String(index === session.activeSaveSlot && occupied));
+      button.setAttribute('aria-pressed', String(slotMode === 'load' && occupied && index === session.activeSaveSlot));
+      const detail = !occupied
+        ? (slotMode === 'new' ? 'Start your new game here' : 'Empty · start a new game')
+        : (slotMode === 'new' ? 'Replace · ' : '') + (save.unlocked + 1) + ' / ' + levels.length + ' trails · ' + levels[save.level].name;
+      const active = occupied && index === session.activeSaveSlot ? ' · ACTIVE' : '';
       button.innerHTML = '<span class="save-avatar ' + (!occupied ? 'empty' : save.rider === 'Maxine' ? 'female' : 'male') + '">' + (!occupied ? '+' : riderSymbolMarkup(save.rider)) + '</span>'
-        + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + '</span><strong>' + (!occupied ? 'EMPTY SLOT' : riderName(save.rider)) + '</strong><small>'
-        + (!occupied ? 'Start a new game' : (save.unlocked + 1) + ' / ' + levels.length + ' trails · ' + levels[save.level].name) + '</small></span>';
+        + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + active + '</span><strong>' + (!occupied ? 'EMPTY SLOT' : riderName(save.rider)) + '</strong><small>' + detail + '</small></span>';
       button.addEventListener('click', () => {
-        if (occupied) { selectSaveSlot(index); showView('home'); } else showSaveCreator(index);
+        if (slotMode === 'load' && occupied) { selectSaveSlot(index); showView('home'); return; }
+        creatorFromSlots = true;
+        showSaveCreator(index, occupied);
       });
       row.append(button);
-      if (occupied) {
+      if (occupied && slotMode === 'load') {
         const remove = document.createElement('button');
         remove.className = 'delete-save';
         remove.type = 'button';
         remove.textContent = '×';
+        remove.dataset.slot = String(index);
         remove.setAttribute('aria-label', 'Delete save slot ' + (index + 1));
         remove.addEventListener('click', () => deleteSlot(index, remove));
         row.append(remove);
@@ -155,6 +185,22 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
       return row;
     });
     $('save-slots').replaceChildren(...rows);
+  }
+
+  function showSlots(mode) {
+    slotMode = mode;
+    $('slot-view-title').textContent = mode === 'new' ? 'New game' : 'Load game';
+    $('load-game-help').textContent = mode === 'new'
+      ? 'Pick a slot for your new rider. Choosing a used slot replaces that savegame.'
+      : 'Select a savegame to make it active. Empty slots can be used for a new game.';
+    buildSaveSlots();
+    showView('load');
+  }
+
+  function goBack() {
+    if (!$('menu-save-view').hidden && creatorFromSlots) { showSlots(slotMode); return; }
+    updateDashboard();
+    showView('home');
   }
 
   function drawHowToPlayIllustrations() {
@@ -223,8 +269,19 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
     $('active-save-rider').textContent = hasSave ? riderName(session.rider) : '';
     $('active-save-progress').textContent = hasSave ? (session.unlockedLevel + 1) + ' / ' + levels.length + ' trails · ' + levels[session.savedLevel].name : '';
     $('menu-start').hidden = !hasSave;
-    $('menu-new-game').classList.toggle('menu-action-primary', !hasSave);
     $('menu-levels').disabled = !hasSave && customLevelEntries.length === 0;
+    const usedSlots = session.saveSlots.filter(Boolean).length;
+    const slotCount = session.saveSlots.length;
+    $('menu-load-game').disabled = usedSlots === 0;
+    $('menu-load-game-detail').textContent = usedSlots ? `${usedSlots} of ${slotCount} slots used` : 'No savegames yet';
+    $('menu-new-game-detail').textContent = usedSlots === slotCount ? 'All slots full · replace one' : 'Create a rider in an empty slot';
+    const resumable = canResume();
+    $('menu-resume').hidden = !resumable;
+    $('menu-new-game').classList.toggle('menu-action-primary', !hasSave && !resumable);
+    if (resumable) {
+      $('menu-resume-detail').textContent = 'Back to ' + (session.level?.name ?? 'the trail')
+        + (session.stateBeforeMenu === 'paused' ? ' · paused' : '');
+    }
     buildSaveSlots();
     drawBackground();
     drawHowToPlayIllustrations();
@@ -255,6 +312,7 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
   }
 
   function showView(view) {
+    disarmDelete();
     $('menu-home').hidden = view !== 'home';
     $('menu-load-view').hidden = view !== 'load';
     $('menu-level-view').hidden = view !== 'levels';
@@ -273,7 +331,7 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
     $('menu-screen').hidden = false;
     updateDashboard();
     showView('home');
-    requestAnimationFrame(() => selectControl($(session.saveGame ? 'menu-start' : 'menu-new-game')));
+    requestAnimationFrame(() => selectControl($(canResume() ? 'menu-resume' : session.saveGame ? 'menu-start' : 'menu-new-game')));
   }
 
   function close() { $('menu-screen').hidden = true; }
@@ -326,7 +384,7 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
         status: locked ? 'LOCKED' : (index === session.savedLevel ? 'CURRENT TRAIL' : 'UNLOCKED'),
         best: readBest(session.activeSaveSlot, index, levels.length),
         locked,
-        onSelect: () => onStartLevel(index)
+        onSelect: () => startLevel(index)
       }));
     });
     if (customLevelEntries.length) {
@@ -337,7 +395,7 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
         status: entry.storage === 'browser' ? 'CUSTOM · SAVED IN BROWSER' : 'CUSTOM TRAIL',
         best: readLeaderboard(trailKey(entry))[0]?.time ?? null,
         custom: true,
-        onSelect: () => onStartCustom(index)
+        onSelect: () => startCustom(index)
       })));
     }
     $('menu-level-grid').replaceChildren(...cards);
@@ -399,10 +457,16 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
     return session.gameLoopStarted ? session.levelIndex : session.savedLevel;
   }
 
-  function showSaveCreator(slotIndex = session.activeSaveSlot) {
+  function showSaveCreator(slotIndex = session.activeSaveSlot, overwrite = false) {
     pendingSaveSlot = slotIndex;
-    $('new-save-slot-label').textContent = 'SAVE SLOT ' + (pendingSaveSlot + 1);
-    $('create-save').textContent = 'Create Save & Ride →';
+    pendingOverwrite = overwrite;
+    const existing = session.saveSlots[slotIndex];
+    $('new-save-slot-label').textContent = 'SAVE SLOT ' + (slotIndex + 1);
+    $('save-warning').textContent = overwrite && existing
+      ? `This replaces ${riderName(existing.rider)} (${existing.unlocked + 1} / ${levels.length} trails) in slot ${slotIndex + 1}. That save's progress and best times are lost; leaderboard runs stay.`
+      : 'Your rider is permanently tied to this savegame. Each slot keeps its own progression and best times.';
+    $('save-warning').classList.toggle('danger', overwrite);
+    $('create-save').textContent = overwrite ? 'Replace Save & Ride →' : 'Create Save & Ride →';
     showView('save');
   }
 
@@ -477,7 +541,7 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
       const selected = $('menu-screen').querySelector('.menu-selected');
       if (selected instanceof HTMLButtonElement) selected.click();
     } else if (action === 'cancel') {
-      if ($('menu-home').hidden) { sounds.menuBack(); updateDashboard(); showView('home'); } else onClose();
+      if ($('menu-home').hidden) { sounds.menuBack(); goBack(); } else onClose();
     }
   }
 
@@ -517,24 +581,17 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
     const button = event.target.closest('button');
     if (!button) return;
     if (button.matches('[data-menu-back]')) sounds.menuBack();
-    else if (button.id === 'create-save' || button.id === 'menu-start') sounds.menuConfirm();
+    else if (button.id === 'create-save' || button.id === 'menu-start' || button.id === 'menu-resume') sounds.menuConfirm();
     else sounds.menuSelect();
   });
-  $('menu-start').addEventListener('click', () => onStartLevel(session.savedLevel));
+  $('menu-start').addEventListener('click', () => startLevel(session.savedLevel));
+  $('menu-resume').addEventListener('click', () => onClose());
   $('menu-new-game').addEventListener('click', () => {
-    const emptySlot = session.saveSlots.findIndex(save => !save);
-    if (emptySlot < 0) {
-      $('load-game-help').textContent = 'All three slots are occupied. Delete a savegame before starting a new one.';
-      showView('load');
-      return;
-    }
-    showSaveCreator(emptySlot);
+    // First-time players go straight to the rider screen; otherwise pick a slot.
+    if (session.saveSlots.every(save => !save)) { creatorFromSlots = false; showSaveCreator(0); }
+    else showSlots('new');
   });
-  $('menu-load-game').addEventListener('click', () => {
-    $('load-game-help').textContent = 'Select a savegame to make it active. Empty slots can be used for a new game.';
-    buildSaveSlots();
-    showView('load');
-  });
+  $('menu-load-game').addEventListener('click', () => showSlots('load'));
   $('menu-levels').addEventListener('click', () => { buildLevelCards(); showView('levels'); });
   $('import-trail').addEventListener('click', () => $('import-trail-file').click());
   $('import-trail-file').addEventListener('change', async event => {
@@ -560,24 +617,23 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
   });
   $('leaderboard-prev').addEventListener('click', () => stepLeaderboard(-1));
   $('leaderboard-next').addEventListener('click', () => stepLeaderboard(1));
-  document.querySelectorAll('[data-menu-back]').forEach(button => button.addEventListener('click', () => {
-    updateDashboard();
-    showView('home');
-  }));
+  document.querySelectorAll('[data-menu-back]').forEach(button => button.addEventListener('click', goBack));
   document.querySelectorAll('[data-rider]').forEach(button => button.addEventListener('click', () => {
     selectedNewRider = button.dataset.rider;
     document.querySelectorAll('[data-rider]').forEach(choice => choice.setAttribute('aria-pressed', String(choice === button)));
   }));
   $('create-save').addEventListener('click', () => {
+    if (pendingOverwrite) deleteSave(pendingSaveSlot, levels.length);
     const save = createSave(pendingSaveSlot, selectedNewRider, levels.length);
-    if (!save) { showView('load'); return; }
+    if (!save) { showSlots('load'); return; }
+    pendingOverwrite = false;
     session.saveGame = save;
     session.activeSaveSlot = pendingSaveSlot;
     saveActiveSlot(session.activeSaveSlot);
     session.saveSlots[session.activeSaveSlot] = save;
     session.rider = save.rider;
     session.unlockedLevel = 0; session.savedLevel = 0;
-    onStartLevel(0);
+    startLevel(0);
   });
   document.querySelectorAll('[data-setting]').forEach(button => {
     button.addEventListener('click', () => {
@@ -592,6 +648,25 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
     onPreferences();
   });
   $('setting-volume').addEventListener('change', () => { savePreferences(session.preferences); sounds.menuMove(); });
+  $('setting-haptics-group').hidden = !('vibrate' in navigator);
 
-  return { open, close, isOpen, updateDashboard, drawBackground, syncSettings, handlePad, showView };
+  let resetArmed = false, resetTimer = 0;
+  $('reset-settings').addEventListener('click', event => {
+    const button = event.currentTarget;
+    if (!resetArmed) {
+      resetArmed = true;
+      button.textContent = 'CLICK AGAIN TO RESET';
+      resetTimer = setTimeout(() => { resetArmed = false; button.textContent = 'RESET ALL SETTINGS'; }, 2500);
+      return;
+    }
+    clearTimeout(resetTimer);
+    resetArmed = false;
+    button.textContent = 'RESET ALL SETTINGS';
+    session.preferences = sanitizePreferences({});
+    persistPreferences();
+    drawBackground();
+  });
+
+  const back = () => { if ($('menu-home').hidden) { goBack(); return true; } return false; };
+  return { open, close, isOpen, updateDashboard, drawBackground, syncSettings, handlePad, showView, canResume, back };
 }

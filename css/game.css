@@ -644,6 +644,28 @@ h2 {
   background: var(--color-surface);
   box-shadow: var(--shadow-pixel);
 }
+/* .setting-group is display:grid, which would beat the hidden attribute. */
+.setting-group[hidden] {
+  display: none;
+}
+
+.settings-section {
+  margin: 12px 0 0;
+  color: var(--color-green);
+  font-size: 9px;
+  font-weight: 950;
+  letter-spacing: 1.5px;
+}
+
+.settings-section:first-child {
+  margin-top: 0;
+}
+
+.settings-reset {
+  justify-self: start;
+  margin-top: 6px;
+}
+
 .setting-group legend {
   float: left;
   width: 145px;
@@ -768,15 +790,7 @@ h2 {
   width: min(560px, 100%);
   margin-inline: auto;
 }
-.dashboard-fullscreen {
-  position: absolute;
-  z-index: 3;
-  top: 14px;
-  right: 14px;
-  width: 32px;
-  height: 32px;
-  background: #182321d9;
-}
+
 .menu-hero {
   width: min(560px, 100%);
   display: grid;
@@ -865,7 +879,7 @@ h2 {
 .save-slot {
   width: 100%;
   min-height: 88px;
-  padding: 13px 48px 13px 13px;
+  padding: 13px 60px 13px 13px;
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
@@ -883,8 +897,8 @@ h2 {
   position: absolute;
   top: 50%;
   right: 12px;
-  min-width: 27px;
-  height: 27px;
+  min-width: 34px;
+  height: 34px;
   padding: 0 6px;
   transform: translateY(-50%);
   border: 1px solid #704b47;
@@ -900,7 +914,7 @@ h2 {
   color: #fff0e8;
 }
 .delete-save.armed {
-  font-size: 7px;
+  font-size: 8px;
   letter-spacing: 0.4px;
 }
 .load-game-help {
@@ -1007,8 +1021,7 @@ h2 {
   box-shadow: var(--shadow-pixel);
   text-align: left;
 }
-/* New Game and Load Game share one row; they stack below the 520px breakpoint
-   where .menu-actions collapses to a single column (same as .level-grid). */
+/* Buttons marked .menu-action-half sit side by side; the rest span the row. */
 .menu-action-half {
   grid-column: auto;
 }
@@ -1016,6 +1029,16 @@ h2 {
 .level-card:hover,
 .rider-card:hover {
   background: var(--color-surface-hover);
+}
+
+.menu-action-minor {
+  min-height: 54px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.menu-action-minor:hover {
+  background: var(--color-surface);
 }
 .menu-selected {
   outline: 2px solid var(--color-green);
@@ -1287,6 +1310,10 @@ h2 {
   font-size: 10px;
   line-height: 1.6;
 }
+
+.save-warning.danger {
+  color: #ef815f;
+}
 .rider-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1412,10 +1439,7 @@ kbd {
     aspect-ratio: 380 / 410;
     border-radius: var(--radius-pixel);
   }
-  #fullscreen,
-  .dashboard-fullscreen {
-    display: none !important;
-  }
+
   .game-actions {
     z-index: 8;
     top: calc(10px + env(safe-area-inset-top, 0px));
@@ -1517,7 +1541,6 @@ kbd {
     letter-spacing: -2px;
   }
 
-  .menu-actions,
   .level-grid {
     grid-template-columns: 1fr;
   }

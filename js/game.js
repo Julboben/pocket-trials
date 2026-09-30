@@ -117,24 +117,54 @@ export function startGame() {
   const fullscreenElement = () => document.fullscreenElement || document.webkitFullscreenElement;
   const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
 
+  // True only while an in-game action (F, Settings) is turning fullscreen off.
+  let fullscreenExitRequested = false;
+
   function toggleFullscreen() {
     if (!menu.isOpen()) sounds.menuSelect();
-    const action = fullscreenElement()
+    const leaving = Boolean(fullscreenElement());
+    const action = leaving
       ? (document.exitFullscreen?.bind(document) || document.webkitExitFullscreen?.bind(document))
       : (game.requestFullscreen?.bind(game) || game.webkitRequestFullscreen?.bind(game));
     if (!action) return;
+    fullscreenExitRequested = leaving;
     const result = action();
-    if (result?.catch) result.catch(() => {});
+    if (result?.catch) result.catch(() => { fullscreenExitRequested = false; });
+  }
+
+  function syncFullscreenSetting() {
+    const on = Boolean(fullscreenElement());
+    document.querySelectorAll('[data-fullscreen]').forEach(button => {
+      button.setAttribute('aria-pressed', String((button.dataset.fullscreen === 'on') === on));
+    });
+  }
+
+  function setEscapeLock(on) {
+    // Keyboard Lock API (Chromium only). Without it, Esc always exits fullscreen.
+    const keyboard = /** @type {any} */ (navigator).keyboard;
+    if (!keyboard?.lock) return;
+    if (on) keyboard.lock(['Escape']).catch(() => {});
+    else keyboard.unlock();
   }
 
   function handleFullscreenChange() {
-    const label = fullscreenElement() ? 'Exit fullscreen' : 'Enter fullscreen';
-    $('fullscreen').setAttribute('aria-label', label);
-    $('menu-fullscreen').setAttribute('aria-label', label);
+    const on = Boolean(fullscreenElement());
+    syncFullscreenSetting();
+    setEscapeLock(on);
+    if (!on) {
+      const requested = fullscreenExitRequested;
+      fullscreenExitRequested = false;
+      // Esc (or the browser's own UI) left fullscreen: treat it like Esc in-game.
+      if (!requested && !menu.isOpen() && session.gameLoopStarted) {
+        // A playtest ride only pauses; showMainMenu() would exit to the editor.
+        if (session.levelSource === 'playtest') pauseGame();
+        else { sounds.escape(); showMainMenu(); }
+      }
+    }
     // Phones play better sideways; locking only works while fullscreen.
     if (coarsePointer && screen.orientation) {
       try {
-        if (fullscreenElement()) screen.orientation.lock?.('landscape').catch(() => {});
+        if (on) screen.orientation.lock?.('landscape').catch(() => {});
         else screen.orientation.unlock?.();
       } catch (_) {}
     }
@@ -267,7 +297,7 @@ export function startGame() {
   }
 
   function closeMainMenu() {
-    if (!session.gameLoopStarted || (!session.saveGame && session.levelSource === 'official')) return;
+    if (!menu.canResume()) return;
     menu.close();
     game.classList.remove('menu-open');
     focusGame();
@@ -301,6 +331,7 @@ export function startGame() {
     else if (action === 'pause') { if (state === 'running' || state === 'paused') togglePause(); }
     else if (action === 'menu') { sounds.menuBack(); showMainMenu(); }
     else if (action === 'flip') { if (state === 'running') flipDirection(); }
+    else if (action === 'fullscreen') toggleFullscreen();
     else if (action === 'confirm' || action === 'cancel') {
       if (state === 'paused') resumeGame();
       else if (state === 'won' && action === 'confirm') $('primary').click();
@@ -505,8 +536,10 @@ export function startGame() {
     if (input.capturing) { input.keyDown(event); return; }
     if (event.code === 'Escape') {
       event.preventDefault();
+      // With the keyboard lock held, Esc can repeat; one press must be one action.
+      if (event.repeat) return;
       sounds.escape();
-      if (menu.isOpen()) closeMainMenu();
+      if (menu.isOpen()) { if (!menu.back()) closeMainMenu(); }
       else if (session.state === 'paused') resumeGame();
       else showMainMenu();
       return;
@@ -516,6 +549,7 @@ export function startGame() {
   });
   // Auto-pause fires when focus leaves the game, so resuming must not need it.
   document.addEventListener('keydown', event => {
+    if (event.repeat) return;
     if (game.contains(/** @type {Node} */ (event.target)) || session.state !== 'paused') return;
     if (session.preferences.bindings.pause.includes(event.code) || event.code === 'Escape') { event.preventDefault(); resumeGame(); }
   });
@@ -540,11 +574,13 @@ export function startGame() {
   $('secondary').addEventListener('click', startFresh);
   $('restart').addEventListener('click', startFresh);
   $('menu').addEventListener('click', () => { sounds.menuBack(); showMainMenu(); });
-  $('menu-fullscreen').addEventListener('click', toggleFullscreen);
-  $('fullscreen').addEventListener('click', toggleFullscreen);
+  document.querySelectorAll('[data-fullscreen]').forEach(button => button.addEventListener('click', () => {
+    const wantOn = button.dataset.fullscreen === 'on';
+    if (wantOn !== Boolean(fullscreenElement())) toggleFullscreen();
+  }));
   const fullscreenSupported = Boolean(document.fullscreenEnabled || document.webkitFullscreenEnabled || game.webkitRequestFullscreen);
-  $('fullscreen').hidden = !fullscreenSupported;
-  $('menu-fullscreen').hidden = !fullscreenSupported;
+  $('setting-fullscreen-group').hidden = !fullscreenSupported;
+  syncFullscreenSetting();
   document.addEventListener('fullscreenchange', handleFullscreenChange);
   document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
   window.addEventListener('resize', () => { renderer.resize(); menu.drawBackground(); });

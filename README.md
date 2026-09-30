@@ -56,7 +56,7 @@ A local server is required because the game uses native JavaScript modules and f
 | Restart trail                    | `R`                                       | Compact restart button in the game viewport |
 | Pause / resume                   | `P`                                       | Pause button                                |
 | Open / close the main menu       | `Escape`                                  | In-game menu button                         |
-| Toggle fullscreen                | Fullscreen button                         | Fullscreen button                           |
+| Toggle fullscreen                | `F` (remappable)                         | Fullscreen On/Off in Settings               |
 | Navigate dashboard controls      | Arrow keys or `W` / `A` / `S` / `D`       | Tap a menu item                             |
 | Activate the focused menu action | `Enter` or `Space`                        | Tap a menu item                             |
 
@@ -264,7 +264,7 @@ When changing physics values, validate at least these cases:
 - [x] New physics engine with support for overhangs, loops, caves, and fully polygonal ground
 - [ ] Change the wording levels into trails
 - [x] Implement Unified Terrain Redesign Plan.md
-- [ ] Clean up leagcy terrain
+- [ ] Clean up legacy terrain
 - [ ] Grip. Right now every material has the same grip, because WHEEL_FRICTION is a single value. If you want sand to feel softer or more slippery, per-material grip can be added. It would change how runs replay, though, so you'd need to raise RIDE_VERSION and re-record the replays. Let me know if you want that.
 - [ ] Add background: Coast (a sea horizon with an island) and Canyon (layered cliff walls with rock spires) each only need a new entry in backdropLayers and BACKDROP_COLORS, plus an option in the dropdown.
 

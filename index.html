@@ -73,21 +73,6 @@
               <path d="M4 6h16M4 12h16M4 18h16"></path>
             </svg>
           </button>
-          <button
-            class="icon-button"
-            id="fullscreen"
-            aria-label="Enter fullscreen"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              aria-hidden="true"
-            >
-              <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path>
-            </svg>
-          </button>
           <button class="icon-button" id="restart" aria-label="Restart trail">
             <svg
               viewBox="0 0 24 24"
@@ -209,21 +194,6 @@
           id="menu-background"
           aria-hidden="true"
         ></canvas>
-        <button
-          class="icon-button dashboard-fullscreen"
-          id="menu-fullscreen"
-          aria-label="Enter fullscreen"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            aria-hidden="true"
-          >
-            <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path>
-          </svg>
-        </button>
         <div class="menu-scroll" id="menu-scroll">
         <div class="menu-dashboard">
           <div class="menu-hero">
@@ -236,6 +206,10 @@
 
           <div class="menu-view" id="menu-home">
             <div class="menu-actions">
+              <button class="menu-action menu-action-primary" id="menu-resume" hidden>
+                <span>RESUME RIDE</span
+                ><small id="menu-resume-detail">Back to the trail</small>
+              </button>
               <button class="menu-action continue-save" id="menu-start">
                 <span class="active-rider-art" aria-hidden="true"
                   ><canvas
@@ -256,26 +230,25 @@
               </button>
               <button class="menu-action menu-action-half" id="menu-new-game">
                 <span>NEW GAME</span
-                ><small>Create a rider in an empty slot</small>
+                ><small id="menu-new-game-detail">Create a rider in an empty slot</small>
               </button>
               <button class="menu-action menu-action-half" id="menu-load-game">
-                <span>LOAD GAME</span><small>Choose or delete a savegame</small>
+                <span>LOAD GAME</span
+                ><small id="menu-load-game-detail">Choose or delete a savegame</small>
               </button>
-              <button class="menu-action" id="menu-levels">
+              <button class="menu-action menu-action-half" id="menu-levels">
                 <span>LEVELS</span><small>Browse unlocked trails</small>
               </button>
-              <button class="menu-action" id="menu-leaderboard">
-                <span>LEADERBOARD</span
-                ><small>Fastest runs on every trail</small>
+              <button class="menu-action menu-action-half" id="menu-leaderboard">
+                <span>LEADERBOARD</span><small>Fastest runs on every trail</small>
               </button>
-              <button class="menu-action" id="menu-settings">
-                <span>SETTINGS</span><small>Audio, controls, and scenery</small>
+              <button class="menu-action menu-action-half" id="menu-settings">
+                <span>SETTINGS</span><small>Display, audio, and controls</small>
               </button>
-              <button class="menu-action" id="menu-how-to">
-                <span>HOW TO PLAY</span
-                ><small>Controls, balance, and objectives</small>
+              <button class="menu-action menu-action-half" id="menu-how-to">
+                <span>HOW TO PLAY</span><small>Controls, balance, and objectives</small>
               </button>
-              <button class="menu-action" id="menu-editor">
+              <button class="menu-action menu-action-minor" id="menu-editor">
                 <span>LEVEL EDITOR</span
                 ><small>Build and export custom trails</small>
               </button>
@@ -286,7 +259,7 @@
             <div class="menu-view-head">
               <div>
                 <span class="save-label">SAVEGAMES</span>
-                <h3>Load game</h3>
+                <h3 id="slot-view-title">Load game</h3>
               </div>
               <button class="menu-back" data-menu-back>← BACK</button>
             </div>
@@ -523,6 +496,14 @@
               <button class="menu-back" data-menu-back>← BACK</button>
             </div>
             <div class="dashboard-settings">
+              <h4 class="settings-section">DISPLAY</h4>
+              <fieldset class="setting-group" id="setting-fullscreen-group">
+                <legend>FULLSCREEN</legend>
+                <div class="setting-options" style="--options: 2">
+                  <button type="button" class="setting-option" data-fullscreen="on">On</button>
+                  <button type="button" class="setting-option" data-fullscreen="off">Off</button>
+                </div>
+              </fieldset>
               <fieldset class="setting-group">
                 <legend>SCENERY</legend>
                 <div class="setting-options" style="--options: 2">
@@ -541,6 +522,27 @@
                     data-value="reduced"
                   >
                     Reduced
+                  </button>
+                </div>
+              </fieldset>
+              <fieldset class="setting-group">
+                <legend>SCREEN SHAKE</legend>
+                <div class="setting-options" style="--options: 2">
+                  <button
+                    type="button"
+                    class="setting-option"
+                    data-setting="shake"
+                    data-value="on"
+                  >
+                    On
+                  </button>
+                  <button
+                    type="button"
+                    class="setting-option"
+                    data-setting="shake"
+                    data-value="off"
+                  >
+                    Off
                   </button>
                 </div>
               </fieldset>
@@ -565,6 +567,8 @@
                   </button>
                 </div>
               </fieldset>
+
+              <h4 class="settings-section">AUDIO</h4>
               <fieldset class="setting-group">
                 <legend>SOUND EFFECTS</legend>
                 <div class="setting-options" style="--options: 2">
@@ -602,28 +606,9 @@
                   >
                 </div>
               </fieldset>
-              <fieldset class="setting-group">
-                <legend>SCREEN SHAKE</legend>
-                <div class="setting-options" style="--options: 2">
-                  <button
-                    type="button"
-                    class="setting-option"
-                    data-setting="shake"
-                    data-value="on"
-                  >
-                    On
-                  </button>
-                  <button
-                    type="button"
-                    class="setting-option"
-                    data-setting="shake"
-                    data-value="off"
-                  >
-                    Off
-                  </button>
-                </div>
-              </fieldset>
-              <fieldset class="setting-group">
+
+              <h4 class="settings-section">GAMEPLAY</h4>
+              <fieldset class="setting-group" id="setting-haptics-group">
                 <legend>VIBRATION</legend>
                 <div class="setting-options" style="--options: 2">
                   <button
@@ -665,6 +650,7 @@
                   </button>
                 </div>
               </fieldset>
+              <h4 class="settings-section">CONTROLS</h4>
               <fieldset class="setting-group setting-keys">
                 <legend>KEYS</legend>
                 <div class="key-bindings" id="key-bindings"></div>
@@ -673,6 +659,8 @@
                   · Y restart · Start pause
                 </p>
               </fieldset>
+
+              <button type="button" class="menu-back settings-reset" id="reset-settings">RESET ALL SETTINGS</button>
             </div>
           </div>
         </div>

@@ -19,7 +19,8 @@ export const DEFAULT_BINDINGS = {
   forward: ['ArrowRight', 'KeyD'],
   flip: ['Space'],
   restart: ['KeyR'],
-  pause: ['KeyP']
+  pause: ['KeyP'],
+  fullscreen: ['KeyF']
 };
 
 export const DEFAULT_PREFERENCES = {
@@ -45,9 +46,12 @@ export function sanitizePreferences(preferences) {
   const volume = Number(next.volume);
   next.volume = Number.isFinite(volume) ? Math.max(0, Math.min(100, Math.round(volume))) : DEFAULT_PREFERENCES.volume;
   const bindings = {};
+  const used = new Set();
   for (const [action, codes] of Object.entries(DEFAULT_BINDINGS)) {
     const stored = next.bindings?.[action];
-    bindings[action] = Array.isArray(stored) && stored.every(code => typeof code === 'string') ? stored.slice(0, 2) : [...codes];
+    const valid = Array.isArray(stored) && stored.every(code => typeof code === 'string');
+    bindings[action] = valid ? stored.slice(0, 2) : codes.filter(code => !used.has(code));
+    bindings[action].forEach(code => used.add(code));
   }
   next.bindings = bindings;
   return next;
@@ -68,7 +72,9 @@ export const session = {
   activeSaveSlot: 0,
   preferences: sanitizePreferences({}),
   /** @type {Ride | null} */ ride: null,
-  gameLoopStarted: false
+  gameLoopStarted: false,
+  /** Save the current ride belongs to, so a slot switch can't resume it. */
+  /** @type {number | null} */ rideSaveId: null
 };
 
 export const officialTrailIds = officialLevelEntries.map(entry => entry.id);
