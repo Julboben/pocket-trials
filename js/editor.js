@@ -116,6 +116,8 @@ let gameArt = (() => {
 // shape before committing it.
 let pendingShape = null;
 let pendingKind = null;
+// The Select tool's selection box while it is being dragged.
+let marquee = null;
 
 function loadLevelData(index) {
   const stored = levelEntries[index]?.level;
@@ -181,7 +183,7 @@ const materialOptions = () => [
 const TOOL_INFO = {
   select: {
     title: "Select",
-    hint: "Click a block to move it, or a point on its edge to move just that point; a selected point shows its curve handles. Alt-click an edge or inside a cave to select that whole ring, and Shift-click blocks to select several. Hold Shift while dragging a point or curve handle to lock it to 15° steps from its neighbour and to the grid. Double-click an edge to add a point, Delete removes the selection, and Escape backs out. Empty cave space selects nothing, so a cave never picks the block around it. Shortcuts: V B C A S P G F H pick tools, arrows nudge (Shift ×10), Cmd/Ctrl+D duplicates, [ ] change prop type, = − 0 zoom.",
+    hint: "Click a block to move it, or a point on its edge to move just that point; a selected point shows its curve handles. Alt-click an edge or inside a cave to select that whole ring, and Shift-click blocks to select several. Hold Shift while dragging a point or curve handle to lock it to 15° steps from its neighbour and to the grid. Double-click an edge to add a point, Delete removes the selection, and Escape backs out. Empty cave space selects nothing, so a cave never picks the block around it. Shortcuts: V B C A S P G F H pick tools, arrows nudge (Shift ×10), Cmd/Ctrl+D duplicates, [ ] change prop type, = − 0 zoom. Drag from empty space (or Cmd/Ctrl-drag anywhere) to box-select points, apples, props and spikes; Shift adds to the selection, and Delete removes them all.",
   },
   pan: {
     title: "Pan",
@@ -913,6 +915,10 @@ function drawObjects() {
 }
 
 function isSelected(kind, index, platformIndex) {
+  if (selection?.kind === "items")
+    return selection.items.some(
+      (item) => item.type === kind && item.index === index,
+    );
   return (
     selection?.kind === kind &&
     selection.index === index &&
@@ -932,6 +938,17 @@ function isActiveNode(blockIndex, boundaryIndex, nodeIndex) {
 
 /** Is this particular node or handle the current selection? */
 function isBlockPart(blockIndex, boundaryIndex, nodeIndex, side = null) {
+  if (selection?.kind === "items")
+    return (
+      side === null &&
+      selection.items.some(
+        (item) =>
+          item.type === "point" &&
+          item.blockIndex === blockIndex &&
+          item.boundaryIndex === boundaryIndex &&
+          item.index === nodeIndex,
+      )
+    );
   if (
     selection?.kind !== "blockPoint" &&
     selection?.kind !== "blockHandle" &&
@@ -1035,6 +1052,7 @@ function render() {
   art.drawTimeTint(level, cameraX, cameraY, width / zoom, height / zoom);
   drawHandles();
   drawSnapGuide();
+  drawMarquee();
   ctx.restore();
 }
 
@@ -1261,6 +1279,7 @@ function edgeHit(node, next, point) {
 
 function selectedPosition() {
   if (!selection) return null;
+  if (selection.kind === "items") return itemsCentre(selection.items);
   if (
     selection.kind === "blockPoint" ||
     selection.kind === "blockHandle" ||
@@ -1382,7 +1401,9 @@ function syncInspector() {
     ? "NOTHING SELECTED"
     : selection.kind === "blocks"
       ? `${selection.blockIndices.length} BLOCKS`
-      : selection.kind.replace(/([A-Z])/g, " $1").toUpperCase();
+      : selection.kind === "items"
+        ? `${selection.items.length} ITEMS`
+        : selection.kind.replace(/([A-Z])/g, " $1").toUpperCase();
   $("selection-empty").hidden = Boolean(selection);
   if (position) {
     $("selection-x").value = Math.round(position[0]);
@@ -1489,6 +1510,10 @@ function replaceBlock(index, block) {
 function updateSelectedPosition(x, y) {
   if (!selection) return;
   const kind = selection.kind;
+  if (kind === "items") {
+    moveItems(x, y);
+    return;
+  }
   if (kind === "blockPoint" || kind === "blockHandle") {
     const boundary = boundaryAt(selection);
     if (!boundary) return;
@@ -1867,25 +1892,23 @@ function nudgeSelection(key, big) {
 }
 
 /** Copy the selected apple, prop or spike just to the right of the original. */
+/** Copy the selected apples, props and spikes just to the right of the originals. */
 function duplicateSelection() {
-  const kind = selection?.kind;
-  const list = { apple: level.apples, prop: level.props, spike: level.spikes }[
-    kind
-  ];
-  if (!list) {
+  const lists = OBJECT_LISTS();
+  const objects = selectionItems().filter((item) => lists[item.type]);
+  if (!objects.length) {
     showStatus("info", "Duplicate works on apples, props and spikes.");
     return;
   }
-  const original = list[selection.index];
-  const [x, y] = selectedPosition();
   pushHistory();
   // A ground-anchored original gives a ground-anchored copy.
-  list.push({
-    ...structuredClone(original),
-    x: x + 24,
-    y: original.y === null ? null : y,
+  const copies = objects.map(({ type, index }) => {
+    const list = lists[type];
+    const original = list[index];
+    list.push({ ...structuredClone(original), x: original.x + 24 });
+    return { type, index: list.length - 1 };
   });
-  selection = { kind, index: list.length - 1 };
+  selection = makeSelection(copies);
   syncInspector();
   render();
 }
@@ -1954,9 +1977,214 @@ function toggleFlip() {
   render();
 }
 
+// ---- Mixed selection: block points, apples, props and spikes -------------
+
+const OBJECT_LISTS = () => ({
+  apple: level.apples,
+  prop: level.props,
+  spike: level.spikes,
+});
+
+function sameItem(a, b) {
+  if (a.type !== b.type || a.index !== b.index) return false;
+  return (
+    a.type !== "point" ||
+    (a.blockIndex === b.blockIndex && a.boundaryIndex === b.boundaryIndex)
+  );
+}
+
+/** The selectable item a hit refers to, or null (blocks, edges, start, finish). */
+function itemFromHit(hit) {
+  if (!hit) return null;
+  if (hit.kind === "blockPoint") {
+    const { blockIndex, regionIndex, boundaryIndex, index } = hit;
+    return { type: "point", blockIndex, regionIndex, boundaryIndex, index };
+  }
+  return OBJECT_LISTS()[hit.kind] ? { type: hit.kind, index: hit.index } : null;
+}
+
+/** The current selection as a list of items. */
+function selectionItems() {
+  if (selection?.kind === "items") return selection.items.slice();
+  const item = itemFromHit(selection);
+  return item ? [item] : [];
+}
+
+/** A selection for a list of items: nothing, the item itself, or a group. */
+function makeSelection(items) {
+  if (!items.length) return null;
+  if (items.length > 1) return { kind: "items", items };
+  const [item] = items;
+  if (item.type === "point") {
+    const { blockIndex, regionIndex, boundaryIndex, index } = item;
+    return { kind: "blockPoint", blockIndex, regionIndex, boundaryIndex, index };
+  }
+  return { kind: item.type, index: item.index };
+}
+
+function itemPosition(item) {
+  if (item.type === "point") {
+    const node = boundaryAt(item)?.nodes[item.index];
+    return node ? [node.x, node.y] : null;
+  }
+  const object = OBJECT_LISTS()[item.type][item.index];
+  if (!object) return null;
+  if (item.type === "spike") return [object.x, object.y];
+  return [object.x, objectY(object, item.type === "apple" ? 60 : 0)];
+}
+
+function itemsCentre(items) {
+  const positions = items.map(itemPosition).filter(Boolean);
+  if (!positions.length) return null;
+  return [
+    positions.reduce((sum, [x]) => sum + x, 0) / positions.length,
+    positions.reduce((sum, [, y]) => sum + y, 0) / positions.length,
+  ];
+}
+
+/** Move the whole group so its centre lands on (x, y). */
+function moveItems(x, y) {
+  const items = selection.items;
+  const centre = itemsCentre(items);
+  if (!centre) return;
+  const dx = x - centre[0],
+    dy = y - centre[1];
+  // Every object's height is read before any point moves, so a ground-anchored
+  // object doesn't jump when the ground under it moves in the same drag.
+  const before = items.map(itemPosition);
+  items.forEach((item, i) => {
+    if (item.type === "point") {
+      const node = boundaryAt(item)?.nodes[item.index];
+      if (!node) return;
+      node.x += dx;
+      node.y += dy;
+      if (node.in) node.in = [node.in[0] + dx, node.in[1] + dy];
+      if (node.out) node.out = [node.out[0] + dx, node.out[1] + dy];
+      return;
+    }
+    const object = OBJECT_LISTS()[item.type][item.index];
+    if (!object || !before[i]) return;
+    // Like dragging one on its own, this fixes a ground-anchored object's height.
+    object.x = before[i][0] + dx;
+    object.y = before[i][1] + dy;
+  });
+}
+
+/** Every point, apple, prop and spike inside the box between two world points. */
+function itemsInBox(from, to) {
+  const left = Math.min(from.x, to.x),
+    right = Math.max(from.x, to.x);
+  const top = Math.min(from.y, to.y),
+    bottom = Math.max(from.y, to.y);
+  const inside = ([x, y]) =>
+    x >= left && x <= right && y >= top && y <= bottom;
+  const found = [];
+  for (const [blockIndex, block] of blocks().entries()) {
+    boundaryEntries(block).forEach(
+      ({ boundary, regionIndex }, boundaryIndex) => {
+        boundary.nodes.forEach((node, index) => {
+          if (inside([node.x, node.y]))
+            found.push({
+              type: "point",
+              blockIndex,
+              regionIndex,
+              boundaryIndex,
+              index,
+            });
+        });
+      },
+    );
+  }
+  for (const [type, list] of Object.entries(OBJECT_LISTS())) {
+    list.forEach((_, index) => {
+      const item = { type, index };
+      const position = itemPosition(item);
+      if (position && inside(position)) found.push(item);
+    });
+  }
+  return found;
+}
+
+function finishMarquee() {
+  const items = [...marquee.base];
+  for (const item of itemsInBox(marquee.from, marquee.to))
+    if (!items.some((other) => sameItem(other, item))) items.push(item);
+  selection = makeSelection(items);
+}
+
+/**
+ * Delete a group. Objects go highest index first, so earlier indices stay
+ * valid. A ring left with fewer than three points is removed whole: a cave
+ * fills in, and an outer ring takes its solid with it.
+ */
+function deleteItems(items) {
+  for (const [type, list] of Object.entries(OBJECT_LISTS())) {
+    const indices = items
+      .filter((item) => item.type === type)
+      .map((item) => item.index);
+    for (const index of indices.sort((a, b) => b - a)) list.splice(index, 1);
+  }
+  const byBlock = new Map();
+  for (const point of items.filter((item) => item.type === "point")) {
+    if (!byBlock.has(point.blockIndex))
+      byBlock.set(point.blockIndex, new Map());
+    const rings = byBlock.get(point.blockIndex);
+    if (!rings.has(point.boundaryIndex))
+      rings.set(point.boundaryIndex, []);
+    rings.get(point.boundaryIndex).push(point.index);
+  }
+  const emptied = new Set();
+  for (const [blockIndex, rings] of byBlock) {
+    let block = blocks()[blockIndex];
+    if (!block) continue;
+    // Highest ring first, so removing one never shifts the index of the next.
+    for (const boundaryIndex of [...rings.keys()].sort((a, b) => b - a)) {
+      const boundary = boundariesOf(block)[boundaryIndex];
+      if (!boundary) continue;
+      const indices = rings.get(boundaryIndex);
+      block =
+        boundary.nodes.length - indices.length < 3
+          ? withBoundary(block, boundaryIndex, null)
+          : withBoundary(block, boundaryIndex, {
+              ...removeBoundaryNodes(boundary, indices),
+              id: boundary.id,
+            });
+    }
+    if (block.regions.length) replaceBlock(blockIndex, block);
+    else emptied.add(blockIndex);
+  }
+  if (emptied.size)
+    level.terrainBlocks = blocks().filter(
+      (_, index) => !emptied.has(index),
+    );
+}
+
+function drawMarquee() {
+  if (!marquee) return;
+  const x = Math.min(marquee.from.x, marquee.to.x),
+    y = Math.min(marquee.from.y, marquee.to.y);
+  const w = Math.abs(marquee.to.x - marquee.from.x),
+    h = Math.abs(marquee.to.y - marquee.from.y);
+  ctx.fillStyle = "#fff3be22";
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = "#fff3be";
+  ctx.lineWidth = 1.5 / zoom;
+  ctx.setLineDash([6 / zoom, 4 / zoom]);
+  ctx.strokeRect(x, y, w, h);
+  ctx.setLineDash([]);
+}
+
 function deleteSelection() {
   if (!selection || ["goal", "start"].includes(selection.kind)) return;
   const kind = selection.kind;
+  if (kind === "items") {
+    pushHistory();
+    deleteItems(selection.items);
+    selection = null;
+    syncInspector();
+    render();
+    return;
+  }
   if (kind === "blockHandle") {
     // Deleting a curve handle straightens that side of the point.
     const boundary = boundaryAt(selection);
@@ -2415,7 +2643,31 @@ canvas.addEventListener("pointerdown", (event) => {
     return;
   }
   const hit = hitTest(point, { wholeBoundary: event.altKey });
-  if (
+  const hitItem = itemFromHit(hit);
+  // Dragging from empty space (or anywhere with Cmd/Ctrl) draws a selection box.
+  if (!event.altKey && (!hit || event.metaKey || event.ctrlKey)) {
+    marquee = {
+      from: point,
+      to: point,
+      base: event.shiftKey ? selectionItems() : [],
+    };
+    if (!event.shiftKey) selection = null;
+    canvas.setPointerCapture(event.pointerId);
+    syncInspector();
+    render();
+    return;
+  }
+  if (event.shiftKey && hitItem) {
+    // Shift-click adds a point, apple, prop or spike, or takes it back out.
+    const items = selectionItems();
+    const at = items.findIndex((item) => sameItem(item, hitItem));
+    if (at >= 0) items.splice(at, 1);
+    else items.push(hitItem);
+    selection = makeSelection(items);
+    syncInspector();
+    render();
+    return;
+  } else if (
     event.shiftKey &&
     (hit?.kind === "block" || hit?.kind === "blockBoundary")
   ) {
@@ -2431,6 +2683,12 @@ canvas.addEventListener("pointerdown", (event) => {
         : indices.length
           ? { kind: "block", blockIndex: indices[0], regionIndex: 0 }
           : null;
+  } else if (
+    hitItem &&
+    selection?.kind === "items" &&
+    selection.items.some((item) => sameItem(item, hitItem))
+  ) {
+    // Pressing an item that's part of the group drags the whole group.
   } else if (
     !(
       hit?.kind === "block" &&
@@ -2453,7 +2711,7 @@ canvas.addEventListener("pointerdown", (event) => {
 });
 canvas.addEventListener("pointermove", (event) => {
   // No button held: the release was missed, so end the drag here.
-  if ((dragging || panning) && event.buttons === 0) {
+  if ((dragging || panning || marquee) && event.buttons === 0) {
     endPointer();
     return;
   }
@@ -2479,6 +2737,11 @@ canvas.addEventListener("pointermove", (event) => {
     pendingShape.alt = event.altKey;
     pendingShape.shift = event.shiftKey;
     updateShapePoints(pendingShape);
+    render();
+    return;
+  }
+  if (marquee) {
+    marquee.to = pointerWorld(event);
     render();
     return;
   }
@@ -2593,6 +2856,7 @@ function resetPointerState() {
   dragOrigin = null;
   lastDragPointer = null;
   snapGuide = null;
+  marquee = null;
 }
 
 const endPointer = () => {
@@ -2616,6 +2880,13 @@ const endPointer = () => {
     render();
     return;
   }
+  if (marquee) {
+    finishMarquee();
+    resetPointerState();
+    syncInspector();
+    render();
+    return;
+  }
   const hadGuide = snapGuide !== null;
   resetPointerState();
   if (hadGuide) render();
@@ -2623,7 +2894,7 @@ const endPointer = () => {
 
 /** Drop a Block or Cut drag that is still being drawn, without applying it. */
 function cancelPendingShape() {
-  if (!pendingShape) return false;
+  if (!pendingShape && !marquee) return false;
   pendingShape = null;
   pendingKind = null;
   resetPointerState();
