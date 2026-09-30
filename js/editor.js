@@ -51,6 +51,7 @@ import {
   edgeCurve,
   rectangleBlock,
   normalizeBlocks,
+  nextId,
 } from "./terrain-geometry.js";
 import { createTerrainRenderer } from "./terrain-render.js";
 import { gridSpacing, snapToAngleAndGrid } from "./editor-snap.js";
@@ -118,6 +119,8 @@ let pendingShape = null;
 let pendingKind = null;
 // The Select tool's selection box while it is being dragged.
 let marquee = null;
+// An Alt press that becomes a duplicate once the mouse moves.
+let altPress = null;
 
 function loadLevelData(index) {
   const stored = levelEntries[index]?.level;
@@ -183,7 +186,7 @@ const materialOptions = () => [
 const TOOL_INFO = {
   select: {
     title: "Select",
-    hint: "Click a block to move it, or a point on its edge to move just that point; a selected point shows its curve handles. Alt-click an edge or inside a cave to select that whole ring, and Shift-click blocks to select several. Hold Shift while dragging a point or curve handle to lock it to 15° steps from its neighbour and to the grid. Double-click an edge to add a point, Delete removes the selection, and Escape backs out. Empty cave space selects nothing, so a cave never picks the block around it. Shortcuts: V B C A S P G F H pick tools, arrows nudge (Shift ×10), Cmd/Ctrl+D duplicates, [ ] change prop type, = − 0 zoom. Drag from empty space (or Cmd/Ctrl-drag anywhere) to box-select points, apples, props and spikes; Shift adds to the selection, and Delete removes them all.",
+    hint: "Click a block to move it, or a point on its edge to move just that point; a selected point shows its curve handles. Alt-click an edge or inside a cave to select that whole ring, and Shift-click blocks to select several. Hold Shift while dragging a point or curve handle to lock it to 15° steps from its neighbour and to the grid. Double-click an edge to add a point, Delete removes the selection, and Escape backs out. Empty cave space selects nothing, so a cave never picks the block around it. Shortcuts: V B C A S P G F H pick tools, arrows nudge (Shift ×10), Alt-drag duplicates what you drag (Alt-click still selects a whole ring), [ ] change prop type, = − 0 zoom, Home returns to the start. Drag from empty space (or Cmd/Ctrl-drag anywhere) to box-select points, apples, props and spikes; Shift adds to the selection, and Delete removes them all.",
   },
   pan: {
     title: "Pan",
@@ -477,12 +480,29 @@ function setTab(name) {
   $("panel-level").hidden = name !== "level";
 }
 
+// The editor opens on the start, placed a little below the middle so the
+// ground and the sky above it are both in view.
+let focusPending = true;
+function focusOnStart() {
+  const { width, height } = viewportSize();
+  if (!width || !height) return false;
+  syncTerrain();
+  const startY = Number.isFinite(level.start.y)
+    ? level.start.y
+    : groundY(level.start.x) - 12;
+  cameraX = level.start.x - width / 2 / zoom;
+  cameraY = startY - (height * 0.6) / zoom;
+  focusPending = false;
+  return true;
+}
+
 function resize() {
   const bounds = canvas.getBoundingClientRect();
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = Math.max(1, Math.round(bounds.width * dpr));
   canvas.height = Math.max(1, Math.round(bounds.height * dpr));
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (focusPending) focusOnStart();
   render();
 }
 
@@ -1891,26 +1911,107 @@ function nudgeSelection(key, big) {
   render();
 }
 
-/** Copy the selected apple, prop or spike just to the right of the original. */
-/** Copy the selected apples, props and spikes just to the right of the originals. */
-function duplicateSelection() {
-  const lists = OBJECT_LISTS();
-  const objects = selectionItems().filter((item) => lists[item.type]);
-  if (!objects.length) {
-    showStatus("info", "Duplicate works on apples, props and spikes.");
-    return;
-  }
-  pushHistory();
-  // A ground-anchored original gives a ground-anchored copy.
-  const copies = objects.map(({ type, index }) => {
-    const list = lists[type];
-    const original = list[index];
-    list.push({ ...structuredClone(original), x: original.x + 24 });
-    return { type, index: list.length - 1 };
+/** A copy of a block with fresh ids, so it's fully independent of the original. */
+function freshBlockCopy(block) {
+  const strip = (boundary) => ({
+    nodes: boundary.nodes.map(({ id, ...node }) => structuredClone(node)),
   });
-  selection = makeSelection(copies);
-  syncInspector();
-  render();
+  return normalizeBlocks(
+    [
+      {
+        material: block.material,
+        regions: block.regions.map((region) => ({
+          outer: strip(region.outer),
+          inner: region.inner.map(strip),
+        })),
+      },
+    ],
+    level.terrain,
+  )[0];
+}
+
+function duplicateBlocks(indices) {
+  const copies = indices
+    .map((index) => freshBlockCopy(blocks()[index]))
+    .filter(Boolean);
+  const first = blocks().length;
+  level.terrainBlocks = [...blocks(), ...copies];
+  const added = copies.map((_, i) => first + i);
+  return added.length > 1
+    ? { kind: "blocks", blockIndices: added }
+    : { kind: "block", blockIndex: added[0], regionIndex: 0 };
+}
+
+/**
+ * Copy apples, props, spikes and block points in place. A copied point is
+ * inserted right after its original, as a corner.
+ */
+function duplicateItems(items) {
+  const lists = OBJECT_LISTS();
+  const copies = [];
+  for (const item of items) {
+    const list = lists[item.type];
+    if (!list?.[item.index]) continue;
+    list.push(structuredClone(list[item.index]));
+    copies.push({ type: item.type, index: list.length - 1 });
+  }
+  // Points, one ring at a time.
+  const rings = new Map();
+  for (const point of items.filter((item) => item.type === "point")) {
+    const key = `${point.blockIndex}:${point.boundaryIndex}`;
+    if (!rings.has(key)) rings.set(key, { ...point, indices: [] });
+    rings.get(key).indices.push(point.index);
+  }
+  for (const ring of rings.values()) {
+    const boundary = boundaryAt(ring);
+    if (!boundary) continue;
+    const nodes = boundary.nodes.slice();
+    const sorted = [...new Set(ring.indices)].sort((a, b) => a - b);
+    // Highest first, so each insertion leaves the lower indices where they are.
+    for (const index of [...sorted].reverse())
+      nodes.splice(index + 1, 0, {
+        ...structuredClone(nodes[index]),
+        id: nextId("n"),
+        mode: "corner",
+        in: null,
+      });
+    replaceBoundary(ring.blockIndex, ring.boundaryIndex, { ...boundary, nodes });
+    // Each copy moves down by one for every selected point before it.
+    sorted.forEach((index, order) =>
+      copies.push({
+        type: "point",
+        blockIndex: ring.blockIndex,
+        regionIndex: ring.regionIndex,
+        boundaryIndex: ring.boundaryIndex,
+        index: index + 1 + order,
+      }),
+    );
+  }
+  return makeSelection(copies);
+}
+
+/** Duplicate what an Alt-drag started on, and return the copy's selection. */
+function duplicateTarget(hit) {
+  if (!hit) return null;
+  const item = itemFromHit(hit);
+  // Alt-dragging part of a group copies the whole group.
+  if (
+    item &&
+    selection?.kind === "items" &&
+    selection.items.some((other) => sameItem(other, item))
+  )
+    return duplicateItems(selection.items);
+  const onBlock = hit.kind === "block" || hit.kind === "blockEdge";
+  if (
+    onBlock &&
+    selection?.kind === "blocks" &&
+    selection.blockIndices.includes(hit.blockIndex)
+  )
+    return duplicateBlocks(selection.blockIndices);
+  if (onBlock) return duplicateBlocks([hit.blockIndex]);
+  if (item) return duplicateItems([item]);
+  // Start, finish, curve handles and older islands aren't duplicated.
+  return null;
 }
 
 /** Step through prop types: the Prop tool's type, or else the selected prop's. */
@@ -2390,8 +2491,8 @@ function selectEntry(index) {
   selection = null;
   history = [];
   future = [];
-  cameraX = 0;
-  cameraY = 0;
+  focusPending = true;
+  focusOnStart();
   rememberTrail();
   buildPicker();
   updateTrailControls();
@@ -2642,6 +2743,23 @@ canvas.addEventListener("pointerdown", (event) => {
     addAt(point);
     return;
   }
+  // Alt-press: a drag duplicates what's under the cursor; a plain click
+  // (decided on release) still selects the whole ring.
+  if (
+    event.altKey &&
+    !event.shiftKey &&
+    !event.metaKey &&
+    !event.ctrlKey
+  ) {
+    altPress = {
+      point,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      hit: hitTest(point),
+    };
+    canvas.setPointerCapture(event.pointerId);
+    return;
+  }
   const hit = hitTest(point, { wholeBoundary: event.altKey });
   const hitItem = itemFromHit(hit);
   // Dragging from empty space (or anywhere with Cmd/Ctrl) draws a selection box.
@@ -2711,7 +2829,7 @@ canvas.addEventListener("pointerdown", (event) => {
 });
 canvas.addEventListener("pointermove", (event) => {
   // No button held: the release was missed, so end the drag here.
-  if ((dragging || panning || marquee) && event.buttons === 0) {
+  if ((dragging || panning || marquee || altPress) && event.buttons === 0) {
     endPointer();
     return;
   }
@@ -2743,6 +2861,29 @@ canvas.addEventListener("pointermove", (event) => {
   if (marquee) {
     marquee.to = pointerWorld(event);
     render();
+    return;
+  }
+  if (altPress) {
+    // Wait for a real drag, so an Alt-click stays a click.
+    if (
+      Math.hypot(
+        event.clientX - altPress.clientX,
+        event.clientY - altPress.clientY,
+      ) < 4
+    )
+      return;
+    const press = altPress;
+    altPress = null;
+    // One undo step covers both the copy and the move.
+    const before = snapshot();
+    const copy = duplicateTarget(press.hit);
+    if (!copy) return;
+    selection = copy;
+    dragSnapshot = before;
+    dragOrigin = { pointer: press.point, position: selectedPosition() };
+    dragging = true;
+    lastDragPointer = { clientX: event.clientX, clientY: event.clientY };
+    dragSelectionTo(lastDragPointer, event.shiftKey);
     return;
   }
   if (!dragging || !selection) return;
@@ -2857,6 +2998,7 @@ function resetPointerState() {
   lastDragPointer = null;
   snapGuide = null;
   marquee = null;
+  altPress = null;
 }
 
 const endPointer = () => {
@@ -2882,6 +3024,14 @@ const endPointer = () => {
   }
   if (marquee) {
     finishMarquee();
+    resetPointerState();
+    syncInspector();
+    render();
+    return;
+  }
+  if (altPress) {
+    // Alt-click without a drag keeps its old meaning: select the whole ring.
+    selection = hitTest(altPress.point, { wholeBoundary: true });
     resetPointerState();
     syncInspector();
     render();
@@ -2942,15 +3092,7 @@ window.addEventListener("keydown", (event) => {
     redo();
     return;
   }
-  if (
-    (event.metaKey || event.ctrlKey) &&
-    event.code === "KeyD" &&
-    document.activeElement === canvas
-  ) {
-    event.preventDefault();
-    duplicateSelection();
-    return;
-  }
+
   if (
     (event.key === "Delete" || event.key === "Backspace") &&
     document.activeElement === canvas
@@ -3013,6 +3155,11 @@ window.addEventListener("keydown", (event) => {
   }
   if (event.key === "0") {
     zoomAtCenter(1 / zoom);
+    return;
+  }
+  if (event.key === "Home") {
+    focusOnStart();
+    render();
     return;
   }
 });
@@ -3253,25 +3400,36 @@ $("save-draft").addEventListener("click", () => {
   localStorage.setItem(DRAFT_PREFIX + currentEntry().id, JSON.stringify(level));
   flash($("save-draft"), "SAVED");
 });
-$("export-json").addEventListener("click", () =>
+$("export-json").addEventListener("click", () => {
+  const errors = validateLevel(level).filter(
+    (message) => message.type === "error",
+  );
+  if (errors.length && !refuse("exporting", errors)) return;
   download(
     `${level.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.json`,
     JSON.stringify(level, null, 2) + "\n",
     "application/json",
-  ),
-);
-$("export-js").addEventListener("click", () =>
+  );
+});
+
+$("export-js").addEventListener("click", () => {
+  const errors = validateLevel(level).filter(
+    (message) => message.type === "error",
+  );
+  if (errors.length && !refuse("exporting", errors)) return;
   download(
     `${level.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.js`,
     levelToModule(level),
     "text/javascript",
-  ),
-);
+  );
+});
 $("import-json").addEventListener("click", () => {
   try {
     pushHistory();
     level = normalizeLevel(JSON.parse($("level-json").value), levelIndex);
     selection = null;
+    focusPending = true;
+    focusOnStart();
     syncInspector();
     render();
   } catch (error) {

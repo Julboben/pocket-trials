@@ -1887,6 +1887,56 @@
           "inner": []
         }
       ]
+    },
+    {
+      "id": "b14us",
+      "material": "brick",
+      "regions": [
+        {
+          "outer": {
+            "id": "b14ut",
+            "nodes": [
+              {
+                "id": "n14uu",
+                "x": -334.0095,
+                "y": -424.1348,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n14uv",
+                "x": -317.8804,
+                "y": -423.7713,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n14uw",
+                "x": -317.3113,
+                "y": -401.3091,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n14ux",
+                "x": -333.7218,
+                "y": -400.9486,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              }
+            ]
+          },
+          "inner": []
+        }
+      ]
     }
   ],
   "timeOfDay": "noon",

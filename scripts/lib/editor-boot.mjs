@@ -36,7 +36,11 @@ globalThis.addEventListener = (type, handler) => {
 await import('../../js/editor.js');
 
 const fire = (type, extra = {}) => canvas.dispatch(type, { pointerId: 1, button: 0, clientX: 0, clientY: 0, ...extra });
-const world = (x, y) => ({ clientX: x, clientY: y });
+// The editor opens centred on the start, so a screen position is only a world
+// position once the camera is subtracted. The interact checks measure it first.
+let cameraX = 0,
+  cameraY = 0;
+const world = (x, y) => ({ clientX: x - cameraX, clientY: y - cameraY });
 const key = (keyName, extra = {}) => {
   document.activeElement = canvas;
   for (const handler of windowListeners.get('keydown') || []) handler({ key: keyName, code: '', preventDefault() {}, ...extra });
@@ -52,6 +56,17 @@ const drag = (from, to, extra = {}) => {
 // Precise interactions on a plain slab, reported on their own because the
 // generic gestures below scramble the level.
 if (kind === 'interact') {
+  // Find the camera: an apple placed at screen 0,0 lands at the camera's world
+  // position (zoom is 1). The placement is undone, so it leaves no trace.
+  toolButton('apple').click();
+  fire('pointerdown', { clientX: 0, clientY: 0 });
+  fire('pointerup');
+  const probe = current().apples.at(-1);
+  cameraX = probe.x;
+  cameraY = probe.y;
+  document.getElementById('undo').click();
+  toolButton('select').click();
+
   const out = {};
   const undo = document.getElementById('undo');
   fire('pointerdown', world(400, 450));

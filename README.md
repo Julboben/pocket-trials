@@ -264,6 +264,7 @@ When changing physics values, validate at least these cases:
 - [ ] Improved rider animation
 - [ ] Additional bikes and cosmetic customization
 - [ ] Grip. Right now every material has the same grip, because WHEEL_FRICTION is a single value. If you want sand to feel softer or more slippery, per-material grip can be added. It would change how runs replay, though, so you'd need to raise RIDE_VERSION and re-record the replays. Let me know if you want that.
+- [ ] Map called Meteor Crater - you drive down a crater and then up again.
 - [x] Sound Effects
 - [x] Different terrain types (grass, dirt, rock, snow, and brick)
 - [x] Splatter behind the bike when you drive on different terrain
