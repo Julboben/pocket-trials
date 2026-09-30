@@ -25,7 +25,7 @@
  * @property {object[]} [props]
  * @property {string} [terrain] material id
  * @property {{ rain?: number, lightning?: number }} [weather]
- * @property {'hills' | 'mountains' | 'forest' | 'desert'} [backdrop] parallax background theme; omitted means hills
+ * @property {'hills' | 'mountains' | 'forest' | 'desert' | 'city'} [backdrop] parallax background theme; omitted means hills
  * @property {'morning' | 'noon' | 'evening' | 'night'} [timeOfDay] sky, light and grade preset; omitted keeps the level's own colours
  * @property {{ gold: number, silver: number, bronze: number }} [medals] target times in seconds
  *

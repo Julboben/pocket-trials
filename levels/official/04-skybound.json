@@ -23,8 +23,8 @@
       "y": 226.74158940509966
     },
     {
-      "x": 2080,
-      "y": null
+      "x": 2089.6297770862143,
+      "y": 188.32851230120968
     },
     {
       "x": 2703.6769174779947,
@@ -1595,6 +1595,92 @@
                 "id": "n84sm",
                 "x": 1617.4548,
                 "y": 413.2286,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              }
+            ]
+          },
+          "inner": []
+        }
+      ]
+    },
+    {
+      "id": "b1md",
+      "material": "sand",
+      "regions": [
+        {
+          "outer": {
+            "id": "b1mc",
+            "nodes": [
+              {
+                "id": "n1m8",
+                "x": 1928.6039,
+                "y": 66.3003,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n38tb",
+                "x": 2224.5469,
+                "y": 68.7257,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n1rk7",
+                "x": 2245.9999,
+                "y": 85.2722,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n1r5y",
+                "x": 2130.9307,
+                "y": 111.0616,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n1m9",
+                "x": 2121.3709,
+                "y": 124.2102,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n1ma",
+                "x": 2090.6071,
+                "y": 150.5531,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n49bs",
+                "x": 2051.735,
+                "y": 104.9739,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n1mb",
+                "x": 1951.4611,
+                "y": 79.1955,
                 "mode": "corner",
                 "in": null,
                 "out": null,

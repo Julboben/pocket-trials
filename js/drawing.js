@@ -201,7 +201,7 @@ function mixHex(a, b, t) {
   );
 }
 
-export const BACKDROPS = ["hills", "mountains", "forest", "desert"];
+export const BACKDROPS = ["hills", "mountains", "forest", "desert", "city"];
 
 // Daylight colours of each theme; the time of day shades them. Hills use the
 // time of day's own hill colours, so they look exactly as before.
@@ -209,6 +209,7 @@ const BACKDROP_COLORS = {
   mountains: { far: "#a3b1b8", accent: "#eef1ea", near: "#8ea596", tree: "#6c8775" },
   forest: { far: "#9db2a1", near: "#71907a", tree: "#5a7a63" },
   desert: { far: "#d0ad88", accent: "#bf9873", near: "#dcc59f", tree: "#8c9c6b" },
+  city: { far: "#9eaab0", near: "#7d8c90", tree: "#6f7d82", window: "#b9c7ca" },
 };
 
 function backdropColors(level, time) {
@@ -230,10 +231,16 @@ function backdropColors(level, time) {
     );
   return {
     far: grade(theme.far, 0.3),
+    // Faces turned away from the sun (mountains).
+    farShade: grade(mixHex(theme.far, "#4f5d66", 0.22), 0.3),
     accent: theme.accent ? grade(theme.accent, 0.3) : null,
+    accentShade: theme.accent ? grade(mixHex(theme.accent, "#9aa8b4", 0.35), 0.3) : null,
     near: grade(theme.near, 0.1),
     tree: grade(theme.tree, 0.1),
     trunk: null,
+    // City windows: glass by day, and lit at evening and night.
+    window: theme.window ? grade(theme.window, 0.1) : null,
+    lit: theme.window && time.glow ? "#ffeaa8" : null,
   };
 }
 
@@ -242,7 +249,6 @@ const backdropNoise = (n) => {
   const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
   return s - Math.floor(s);
 };
-const ridge = (a) => 1 - Math.abs(Math.sin(a));
 const hillShape = (base, amp, frequency) => (x) =>
   base + Math.sin(x * frequency + 1.7) * amp + Math.sin(x * frequency * 2.1) * 10;
 const groundAt = (shape, x) => Math.round(shape(x) / 4) * 4;
@@ -294,13 +300,32 @@ function backdropCactus(tools, x, groundY, height, color) {
  */
 function backdropLayers(theme, c) {
   const key = (i) =>
-    `${theme}|${i}|${c.far}|${c.near}|${c.tree}|${c.trunk}|${c.accent}`;
+    `${theme}|${i}|${c.far}|${c.farShade}|${c.near}|${c.tree}|${c.trunk}|${c.accent}|${c.window}|${c.lit}`;
 
   if (theme === "mountains") {
     const base = 300,
-      amp = 170,
-      f = 0.006;
-    const snowLine = base - amp * 0.74;
+      spacing = 210;
+    // Separate peaks, each with its own height and width, fixed per index.
+    const peakAt = (k) => ({
+      c: k * spacing + (backdropNoise(k) - 0.5) * 90,
+      h: 90 + backdropNoise(k + 7) * 80,
+      w: 110 + backdropNoise(k + 13) * 70,
+    });
+    // The peak that shapes this x, and how high above the base it lifts it.
+    const mountainAt = (x) => {
+      const k0 = Math.floor(x / spacing);
+      let peak = null,
+        lift = 0;
+      for (let k = k0 - 2; k <= k0 + 2; k++) {
+        const p = peakAt(k);
+        const l = p.h * (1 - Math.abs(x - p.c) / p.w);
+        if (l > lift) {
+          lift = l;
+          peak = p;
+        }
+      }
+      return { peak, lift };
+    };
     const near = (x) =>
       262 + Math.sin(x * 0.013 + 0.5) * 22 + Math.sin(x * 0.031) * 8;
     return [
@@ -308,17 +333,24 @@ function backdropLayers(theme, c) {
         key: key(0),
         color: c.far,
         parallax: 0.12,
-        shape: (x) =>
-          base -
-          amp * (ridge(x * f) * 0.7 + ridge(x * f * 2.3 + 1.3) * 0.3),
+        shape: (x) => base - mountainAt(x).lift,
         column(context, x, y, step) {
-          const cap =
-            Math.round(
-              (snowLine + backdropNoise(Math.floor(x / step)) * 14) / 4,
-            ) * 4;
-          if (y >= cap) return;
-          context.fillStyle = c.accent;
-          context.fillRect(x, y, step, cap - y);
+          const { peak } = mountainAt(x);
+          if (!peak) return;
+          // The sun is on the right, so faces left of a summit are in shade.
+          const shaded = x < peak.c;
+          if (shaded) {
+            context.fillStyle = c.farShade;
+            context.fillRect(x, y, step, 400);
+          }
+          // Each peak's cap reaches about a quarter of the way down from its summit.
+          const summit = base - peak.h;
+          const jag =
+            (backdropNoise(Math.floor(x / step) * 3 + 1) - 0.5) * 8;
+          const snowLine = Math.round((summit + peak.h * 0.28 + jag) / 4) * 4;
+          if (y >= snowLine) return;
+          context.fillStyle = shaded ? c.accentShade : c.accent;
+          context.fillRect(x, y, step, snowLine - y);
         },
       },
       {
@@ -337,6 +369,99 @@ function backdropLayers(theme, c) {
                 c.tree,
               );
           }),
+      },
+    ];
+  }
+
+  if (theme === "city") {
+    const farSlot = 36,
+      nearSlot = 52,
+      farBase = 292,
+      nearBase = 304;
+    const q = (value) => Math.round(value / 4) * 4;
+    // Mostly mid-height towers, with the odd very tall one.
+    const farHeight = (k) => {
+      const n = backdropNoise(k * 3 + 5);
+      return q(40 + n * n * 140);
+    };
+    const nearHeight = (k) => q(28 + backdropNoise(k * 5 + 2) * 64);
+    const far = (x) => {
+      const k = Math.floor(x / farSlot),
+        local = x - k * farSlot;
+      const h = farHeight(k);
+      // Tall towers step in at the top.
+      const setback = h > 110 && (local < 8 || local >= farSlot - 8) ? 12 : 0;
+      return farBase - h + setback;
+    };
+    const near = (x) => {
+      const k = Math.floor(x / nearSlot),
+        local = x - k * nearSlot;
+      // A narrow alley between buildings.
+      if (local < 4 || local >= nearSlot - 4) return nearBase;
+      return nearBase - nearHeight(k);
+    };
+    return [
+      {
+        key: key(0),
+        color: c.far,
+        parallax: 0.14,
+        step: 4,
+        shape: far,
+        // After dark, a few windows glow on the distant towers.
+        column(context, x, y, step) {
+          if (!c.lit) return;
+          const k = Math.floor(x / farSlot),
+            local = x - k * farSlot;
+          if (
+            local < 8 ||
+            local >= farSlot - 8 ||
+            (local - 8) % 8 >= 4
+          )
+            return;
+          context.fillStyle = c.lit;
+          for (let wy = y + 12; wy <= farBase - 12; wy += 16)
+            if (backdropNoise(k * 97 + local * 13 + wy) > 0.82)
+              context.fillRect(x, wy, step, 4);
+        },
+        decorate(tools, left, right) {
+          // Antennas on the tallest towers.
+          for (
+            let k = Math.floor(left / farSlot) - 1;
+            k <= Math.ceil(right / farSlot);
+            k++
+          ) {
+            const h = farHeight(k);
+            if (h < 130) continue;
+            const x = k * farSlot + farSlot / 2 - 2;
+            tools.pixelRect(x, farBase - h - 20, 4, 20, c.far, 4);
+          }
+        },
+      },
+      {
+        key: key(1),
+        color: c.near,
+        parallax: 0.3,
+        step: 4,
+        shape: near,
+        column(context, x, y, step) {
+          const k = Math.floor(x / nearSlot),
+            local = x - k * nearSlot;
+          if (
+            local < 8 ||
+            local >= nearSlot - 8 ||
+            (local - 8) % 8 >= 4
+          )
+            return;
+          for (let wy = y + 8; wy <= nearBase - 12; wy += 12) {
+            const on =
+              c.lit &&
+              backdropNoise(
+                k * 131 + Math.floor(local / 8) * 17 + wy,
+              ) > 0.45;
+            context.fillStyle = on ? c.lit : c.window;
+            context.fillRect(x, wy, step, 4);
+          }
+        },
       },
     ];
   }
