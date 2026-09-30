@@ -64,9 +64,10 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
   });
 
   // Typing a name must not reach the game's key handlers (W/A/S/D, R, Esc).
+  // Escape is left alone so it still closes the menu.
   const nameInput = $('new-save-name');
   for (const type of ['keydown', 'keyup', 'keypress']) {
-    nameInput.addEventListener(type, event => event.stopPropagation());
+    nameInput.addEventListener(type, event => { if (event.key !== 'Escape') event.stopPropagation(); });
   }
   nameInput.addEventListener('keydown', event => {
     if (event.key === 'Enter') { event.preventDefault(); $('create-save').click(); }
