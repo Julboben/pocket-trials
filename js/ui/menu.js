@@ -5,8 +5,9 @@ import { createDrawingTools, createGameArt } from '../drawing.js';
 import { createRiderHair, hairRoot, hairRestDirection, hairBackSupport } from '../rider-hair.js';
 import {
   loadSaveSlots, loadActiveSlot, saveActiveSlot, createSave, deleteSave, readBest,
-  readLeaderboard, LEADERBOARD_SIZE, loadPreferences, savePreferences
+  readLeaderboard, LEADERBOARD_SIZE, loadPreferences, savePreferences, cleanRiderName
 } from '../storage.js';
+import { ONLINE_LEADERBOARD_EVENT } from '../online-leaderboard.js';
 import { normalizeLevel, validateLevel, medalFor } from '../level-schema.js';
 import { ACTION_LABELS, keyLabel } from '../input.js';
 import {
@@ -56,6 +57,21 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
   let slotMode = 'load', pendingOverwrite = false, creatorFromSlots = false;
 
   const isOpen = () => !$('menu-screen').hidden;
+
+  // Fresh world results rebuild the board while the menu is on screen.
+  window.addEventListener(ONLINE_LEADERBOARD_EVENT, () => {
+    if (isOpen()) buildLeaderboard();
+  });
+
+  // Typing a name must not reach the game's key handlers (W/A/S/D, R, Esc).
+  const nameInput = $('new-save-name');
+  for (const type of ['keydown', 'keyup', 'keypress']) {
+    nameInput.addEventListener(type, event => event.stopPropagation());
+  }
+  nameInput.addEventListener('keydown', event => {
+    if (event.key === 'Enter') { event.preventDefault(); $('create-save').click(); }
+  });
+  nameInput.addEventListener('input', () => nameInput.classList.remove('invalid'));
 
   /** A ride is only resumable while it still belongs to the active save. */
   function canResume() {
@@ -165,7 +181,7 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
         : (slotMode === 'new' ? 'Replace · ' : '') + (save.unlocked + 1) + ' / ' + levels.length + ' trails · ' + levels[save.level].name;
       const active = occupied && index === session.activeSaveSlot ? ' · ACTIVE' : '';
       button.innerHTML = '<span class="save-avatar ' + (!occupied ? 'empty' : save.rider === 'Maxine' ? 'female' : 'male') + '">' + (!occupied ? '+' : riderSymbolMarkup(save.rider)) + '</span>'
-        + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + active + '</span><strong>' + (!occupied ? 'EMPTY SLOT' : riderName(save.rider)) + '</strong><small>' + detail + '</small></span>';
+        + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + active + '</span><strong>' + (!occupied ? 'EMPTY SLOT' : (save.name || riderName(save.rider))) + '</strong><small>' + detail + '</small></span>';
       button.addEventListener('click', () => {
         if (slotMode === 'load' && occupied) { selectSaveSlot(index); showView('home'); return; }
         creatorFromSlots = true;
@@ -414,7 +430,10 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
       row.append(rankLabel, empty);
       return row;
     }
-    const mine = Boolean(session.saveGame && run.saveId && run.saveId === session.saveGame.createdAt);
+    const mine = Boolean(session.saveGame && (
+      (run.saveId && run.saveId === session.saveGame.createdAt) ||
+      (run.name && run.name === session.saveGame.name)
+    ));
     row.classList.toggle('mine', mine);
     const avatar = document.createElement('span');
     avatar.className = 'save-avatar ' + (run.rider === 'Maxine' ? 'female' : 'male');
@@ -422,10 +441,10 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
     const copy = document.createElement('span');
     copy.className = 'leaderboard-copy';
     const name = document.createElement('strong');
-    name.textContent = riderName(run.rider) + (mine ? ' · YOU' : '');
+    name.textContent = (run.name || riderName(run.rider)) + (mine ? ' · YOU' : '');
     const detail = document.createElement('small');
     const date = run.date ? new Date(run.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }).toUpperCase() : 'CAREER BEST';
-    detail.textContent = (run.slot === null ? 'NO SAVE' : 'SLOT ' + (run.slot + 1)) + ' · ' + date;
+    detail.textContent = (run.name && run.slot === null ? 'ONLINE' : run.slot === null ? 'NO SAVE' : 'SLOT ' + (run.slot + 1)) + ' · ' + date;
     copy.append(name, detail);
     const time = document.createElement('span');
     time.className = 'leaderboard-time';
@@ -463,10 +482,12 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
     const existing = session.saveSlots[slotIndex];
     $('new-save-slot-label').textContent = 'SAVE SLOT ' + (slotIndex + 1);
     $('save-warning').textContent = overwrite && existing
-      ? `This replaces ${riderName(existing.rider)} (${existing.unlocked + 1} / ${levels.length} trails) in slot ${slotIndex + 1}. That save's progress and best times are lost; leaderboard runs stay.`
+      ? `This replaces ${existing.name || riderName(existing.rider)} (${existing.unlocked + 1} / ${levels.length} trails) in slot ${slotIndex + 1}. That save's progress and best times are lost; leaderboard runs stay.`
       : 'Your rider is permanently tied to this savegame. Each slot keeps its own progression and best times.';
     $('save-warning').classList.toggle('danger', overwrite);
     $('create-save').textContent = overwrite ? 'Replace Save & Ride →' : 'Create Save & Ride →';
+    $('new-save-name').value = '';
+    $('new-save-name').classList.remove('invalid');
     showView('save');
   }
 
@@ -623,8 +644,15 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
     document.querySelectorAll('[data-rider]').forEach(choice => choice.setAttribute('aria-pressed', String(choice === button)));
   }));
   $('create-save').addEventListener('click', () => {
+    // Checked before the overwrite delete, so a blank name never wipes a save.
+    const name = cleanRiderName($('new-save-name').value);
+    if (!name) {
+      $('new-save-name').classList.add('invalid');
+      $('new-save-name').focus();
+      return;
+    }
     if (pendingOverwrite) deleteSave(pendingSaveSlot, levels.length);
-    const save = createSave(pendingSaveSlot, selectedNewRider, levels.length);
+    const save = createSave(pendingSaveSlot, selectedNewRider, levels.length, name);
     if (!save) { showSlots('load'); return; }
     pendingOverwrite = false;
     session.saveGame = save;

@@ -1596,3 +1596,12 @@ kbd {
     animation: none !important;
   }
 }
+
+.save-name-field { display: grid; gap: 6px; margin: 14px 0 6px; }
+.save-name-field input {
+  font: inherit; font-size: 1.1rem; padding: 10px 12px;
+  border: 2px solid rgba(0, 0, 0, .2); border-radius: 10px;
+  background: #fff; color: #222;
+}
+.save-name-field input:focus { outline: none; border-color: currentColor; }
+.save-name-field input.invalid { border-color: #e5484d; }
