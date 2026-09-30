@@ -10,8 +10,9 @@ import { encodeInputs, decodeInputs } from './replay-codec.js';
 import { medalFor, normalizeLevel } from './level-schema.js';
 import {
   readBest, saveBest, readLeaderboard, recordLeaderboardRun, readGhost, saveGhost,
-  saveProgress as persistProgress
+  nameSave, saveProgress as persistProgress
 } from './storage.js';
+import { submitOnlineRun } from './online-leaderboard.js';
 import { createInput, keyLabel } from './input.js';
 import { createCamera } from './camera.js';
 import { createEffects } from './effects.js';
@@ -360,6 +361,21 @@ export function startGame() {
     setState('won');
   }
 
+  // The active save's leaderboard identity. Saves made before names existed are
+  // asked once and updated; runs without a savegame stay local-only.
+  function onlineIdentity() {
+    const save = session.saveGame;
+    if (!save) return null;
+    if (!save.name || !save.playerId) {
+      const typed = window.prompt('Pick a name for the online leaderboard (max 16 characters):', save.name || '');
+      const updated = nameSave(session.activeSaveSlot, typed, levels.length);
+      if (!updated) return null;
+      save.name = updated.name;          // session.saveGame is the same object as the slot entry
+      save.playerId = updated.playerId;
+    }
+    return { name: save.name, playerId: save.playerId };
+  }
+
   function finishRun(ride) {
     if (session.levelSource === 'playtest') { finishPlaytestRun(ride); return; }
     const entry = currentTrailEntry();
@@ -371,7 +387,8 @@ export function startGame() {
       ? (saveGame ? readBest(session.activeSaveSlot, session.levelIndex, levels.length) : null)
       : readLeaderboard(key)[0]?.time ?? null;
     const rank = recordLeaderboardRun(key, {
-      time, rider: session.rider, slot: saveGame ? session.activeSaveSlot : null, saveId: saveGame?.createdAt
+      time, rider: session.rider, name: saveGame?.name,
+      slot: saveGame ? session.activeSaveSlot : null, saveId: saveGame?.createdAt
     });
     if (official) {
       session.unlockedLevel = Math.max(session.unlockedLevel, Math.min(session.levelIndex + 1, levels.length - 1));
@@ -393,6 +410,15 @@ export function startGame() {
       primaryLabel: official && !last ? 'Next Trail →' : 'Play Again →',
       restartKey: keyLabel(session.preferences.bindings.restart[0] || 'KeyR')
     });
+    // Only a run the player actually rode is sent to the world board.
+    if (official && session.state === 'running') {
+      const identity = onlineIdentity();
+      if (identity) {
+        submitOnlineRun(key, { time, rider: session.rider, ...identity }).then(result => {
+          if (result?.rank) overlay.toast(`WORLD RANK #${result.rank} OF ${result.total}`, 4000);
+        });
+      }
+    }
     setState('won');
     vibrate([20, 40, 20, 40, 60]);
   }

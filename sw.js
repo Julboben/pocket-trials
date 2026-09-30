@@ -1,6 +1,6 @@
 // Network-first service worker: online loads always get the latest files,
 // and everything fetched is kept so the game also starts offline.
-const CACHE = 'pocket-trials-815bd609';
+const CACHE = 'pocket-trials-44599333';
 const CORE = [
   './',
   './css/editor.css',
@@ -25,6 +25,7 @@ const CORE = [
   './js/levels.js',
   './js/main.js',
   './js/materials.js',
+  './js/online-leaderboard.js',
   './js/physics-debug.js',
   './js/physics.js',
   './js/ragdoll.js',

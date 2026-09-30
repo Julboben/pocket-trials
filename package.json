@@ -2,6 +2,9 @@
   "name": "pocket-trials",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.0"
+  },
   "scripts": {
     "levels": "node scripts/generate-level-catalog.mjs",
     "sw": "node scripts/generate-sw-core.mjs",

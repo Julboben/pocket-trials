@@ -1,4 +1,5 @@
 import { clamp } from './config.js';
+import { cachedOnlineBoard, refreshOnlineBoard } from './online-leaderboard.js';
 
 const SETTINGS_KEY = 'pocket-trials-settings-v1';
 const SAVE_SLOTS_KEY = 'pocket-trials-saves-v2';
@@ -6,6 +7,19 @@ const ACTIVE_SLOT_KEY = 'pocket-trials-active-slot-v1';
 const LEADERBOARD_KEY = 'pocket-trials-leaderboard-v1';
 const SLOT_COUNT = 3;
 export const LEADERBOARD_SIZE = 10;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Letters, digits, space, _ . -  (max 16). Same rule as the server, and safe for innerHTML. */
+export const cleanRiderName = raw => String(raw ?? '')
+  .replace(/[^\p{L}\p{N} _.\-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 16);
+
+// crypto.randomUUID only exists on https/localhost, so fall back for LAN testing.
+const newPlayerId = () => globalThis.crypto?.randomUUID?.() ??
+  'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 3 | 8)).toString(16);
+  });
 
 // Parsed copies of each key. localStorage is only read on first use and after
 // another tab writes, and every change is written through immediately.
@@ -41,7 +55,11 @@ function normalizeSave(save, levelCount) {
     const value = Number(save.bestTimes?.[index]);
     return Number.isFinite(value) && value > 0 ? value : null;
   });
-  return { rider: save.rider, createdAt: Number(save.createdAt) || Date.now(), level, unlocked, bestTimes };
+  return {
+    rider: save.rider, createdAt: Number(save.createdAt) || Date.now(), level, unlocked, bestTimes,
+    name: cleanRiderName(save.name) || null,
+    playerId: typeof save.playerId === 'string' && UUID_RE.test(save.playerId) ? save.playerId : null
+  };
 }
 
 function slots(levelCount) {
@@ -86,7 +104,7 @@ export function saveActiveSlot(slotIndex) {
   writeJson(ACTIVE_SLOT_KEY, clamp(slotIndex, 0, SLOT_COUNT - 1));
 }
 
-export function createSave(slotIndex, rider, levelCount) {
+export function createSave(slotIndex, rider, levelCount, name = '') {
   const next = [...slots(levelCount)];
   const index = clamp(slotIndex, 0, SLOT_COUNT - 1);
   if (next[index]) return null;
@@ -95,7 +113,9 @@ export function createSave(slotIndex, rider, levelCount) {
     createdAt: Date.now(),
     level: 0,
     unlocked: 0,
-    bestTimes: Array(levelCount).fill(null)
+    bestTimes: Array(levelCount).fill(null),
+    name: cleanRiderName(name) || null,
+    playerId: newPlayerId()
   };
   next[index] = save;
   persistSlots(levelCount, next);
@@ -134,6 +154,19 @@ export function saveBest(slotIndex, levelIndex, elapsed, levelCount) {
   updateSave(slotIndex, levelCount, save => { save.bestTimes[levelIndex] = elapsed; });
 }
 
+/** Sets a save's leaderboard name (and gives old saves a playerId). */
+export function nameSave(slotIndex, name, levelCount) {
+  const clean = cleanRiderName(name);
+  if (!clean) return null;
+  let result = null;
+  updateSave(slotIndex, levelCount, save => {
+    save.name = clean;
+    save.playerId = save.playerId || newPlayerId();
+    result = { name: save.name, playerId: save.playerId };
+  });
+  return result;
+}
+
 function normalizeRun(run) {
   const time = Number(run?.time);
   if (!Number.isFinite(time) || time <= 0) return null;
@@ -141,6 +174,7 @@ function normalizeRun(run) {
   return {
     time,
     rider: run.rider === 'Maxine' ? 'Maxine' : 'max',
+    name: cleanRiderName(run.name) || null,
     slot: Number.isInteger(slot) && slot >= 0 && slot < SLOT_COUNT ? slot : null,
     saveId: Number(run.saveId) || null,
     date: Number(run.date) || null
@@ -159,7 +193,10 @@ function loadLeaderboards() {
 }
 
 export function readLeaderboard(trailId) {
-  const runs = loadLeaderboards()[trailId];
+  refreshOnlineBoard(trailId);                    // background fetch, throttled to every 30s
+  const online = cachedOnlineBoard(trailId);
+  if (online) return online.slice(0, LEADERBOARD_SIZE);
+  const runs = loadLeaderboards()[trailId];       // fallback: local board
   return Array.isArray(runs) ? rankRuns(runs) : [];
 }
 

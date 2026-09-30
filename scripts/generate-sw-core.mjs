@@ -17,7 +17,7 @@ const sw = readFileSync(swPath, 'utf8');
 // the catalog) and the service worker itself.
 const included = /\.(js|css|html|webmanifest)$|^icons\/.*\.svg$/;
 // Top-level folders and files that are never served to players.
-const skipTop = new Set(['sw.js', 'scripts', 'levels', 'tests', 'node_modules', 'dist', 'coverage']);
+const skipTop = new Set(['sw.js', 'scripts', 'levels', 'tests', 'node_modules', 'dist', 'coverage', 'netlify']);
 
 function walk(dir, out = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -35,8 +35,13 @@ function walk(dir, out = []) {
 const byPath = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 const files = ['./', ...walk(root).sort(byPath)];
 
-// A new cache name whenever the list changes, so clients drop the old precache.
-const digest = createHash('sha256').update(files.join('\n')).digest('hex');
+// A new cache name whenever the list or any file's content changes, so clients
+// drop the old precache. Line endings are normalised so every OS gets the same hash.
+const hash = createHash('sha256').update(files.join('\n'));
+for (const file of files.slice(1)) {
+  hash.update('\n' + readFileSync(join(root, file.slice(2)), 'utf8').replaceAll('\r\n', '\n'));
+}
+const digest = hash.digest('hex');
 const cache = `pocket-trials-${digest.slice(0, 8)}`;
 
 const block = [
