@@ -30,7 +30,6 @@ const CHUNK_PIXELS = CHUNK_SIZE / ART_PIXEL;
 const CHUNK_LIMIT = 48;
 const CHUNK_MARGIN = 24;
 const BRICK_COLOR = "#4e2e2a99";
-const SIGN_COLORS = ["#6d7862", "#e8e4ce", "#3c5e4b"];
 
 const materialFor = (name) => terrainMaterials[name] || terrainMaterials.grass;
 
@@ -48,7 +47,9 @@ function levelPalette(level) {
     ...(level.platforms || []).map((platform) => platform.material),
     ...(level.paths || []).map((path) => path.material),
   ]);
-  const colors = [...SIGN_COLORS];
+  // Only real material colours: any entry that is not one lets a blended edge
+  // pixel snap to a shade that belongs to nothing on the level.
+  const colors = [];
   for (const name of names) {
     const material = materialFor(name);
     colors.push(
