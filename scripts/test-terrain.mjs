@@ -11,6 +11,7 @@ import {
   pointInPlatform,
 } from "../js/terrain.js";
 import { sunLight, sunShadowOffset } from "../js/drawing.js";
+import { normalizeLevel } from "../js/level-schema.js";
 import {
   propAlignmentSlope,
   propDrawAngle,
@@ -338,13 +339,21 @@ assert.ok(
   "boulders rotate to the ground angle",
 );
 
-const rolling = JSON.parse(
-  readFileSync(
-    new URL("../levels/official/02-rolling-country.json", import.meta.url),
+const rolling = normalizeLevel(
+  JSON.parse(
+    readFileSync(
+      new URL("../levels/official/02-rolling-country.json", import.meta.url),
+    ),
   ),
 );
-const rollingFence = rolling.props.find((prop) => prop.type === "fence");
-const rollingTree = rolling.props.find((prop) => prop.type === "tree");
+// The fence the level really has, and upright props planted on the same
+// hillside, so the checks don't depend on which scenery the level carries.
+// The ground-anchored fence is the one past x 1000; the other has a fixed y.
+const rollingFence = rolling.props.find(
+  (prop) => prop.type === "fence" && prop.x > 1000,
+);
+assert.ok(rollingFence, "rolling country still has a fence to test with");
+const rollingTree = { ...rollingFence, type: "tree", flip: undefined };
 assert.ok(
   Math.abs(propAlignmentSlope(rolling, rollingFence)) > 0.2,
   "rolling-country fences sit on the hillside",

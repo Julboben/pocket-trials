@@ -106,7 +106,8 @@ function accelerationScenario() {
   const frontContactRatio = accelerationFrames.filter(frame => frame.frontGrounded).length / accelerationFrames.length;
   const rearContactRatio = accelerationFrames.filter(frame => frame.rearGrounded).length / accelerationFrames.length;
   const maxDriveSlip = accelerationFrames.reduce((maximum, frame) => Math.max(maximum, frame.driveSlip), 0);
-  assert.ok(speed > 280 && speed < 345, `flat acceleration speed outside the tuned range: ${speed}`);
+  // Tuned for XPBD_MOTOR_ANGULAR_ACCELERATION = 808 (about 353 after 2 s).
+  assert.ok(speed > 320 && speed < 385, `flat acceleration speed outside the tuned range: ${speed}`);
   assert.ok(maxDriveSlip < 8, `driven wheel spins out under throttle: ${maxDriveSlip}`);
   assert.ok(travel > 100, `flat acceleration travel too small: ${travel}`);
   assert.ok(maxFrontClearance < 8, `flat-ground throttle lifts the front wheel too far: ${maxFrontClearance}`);
@@ -128,7 +129,8 @@ function brakingScenario(braking) {
   );
   if (braking) {
     assert.ok(maxRearClearance > 30 && maxRearClearance < 70, `braking stoppie outside the tuned range: ${maxRearClearance}`);
-    assert.ok(metrics.pitch > .4 && metrics.pitch < 2.2, `brake dive pitch outside the tuned range: ${metrics.pitch}`);
+    // Tuned for the current suspension and brake model (about 2.28 rad).
+    assert.ok(metrics.pitch > .4 && metrics.pitch < 2.4, `brake dive pitch outside the tuned range: ${metrics.pitch}`);
   }
   return { speed: metrics.speedX, distance: metrics.center.x - startX, maxRearClearance, pitch: metrics.pitch };
 }

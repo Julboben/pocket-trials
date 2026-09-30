@@ -27,7 +27,7 @@ import {
 // each chunk pixel to exactly one buffer pixel.
 const CHUNK_SIZE = 512;
 const CHUNK_PIXELS = CHUNK_SIZE / ART_PIXEL;
-const CHUNK_LIMIT = 48;
+const CHUNK_LIMIT = 96;
 const CHUNK_MARGIN = 24;
 const BRICK_COLOR = "#4e2e2a99";
 

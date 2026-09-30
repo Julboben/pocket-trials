@@ -306,12 +306,77 @@ weather: {
 
 Any property may be omitted. This supports clear skies, sunny skies with scattered clouds, overcast weather, rain without lightning, lightning without rain, and full storms.
 
+## Time of day and backdrop
+
+```js
+timeOfDay: 'evening',
+backdrop: 'desert'
+```
+
+Both are optional, and each is independent of the other.
+
+`timeOfDay` picks the sky, sun, hill and light colours, and the grade over the whole scene. Valid values are `morning`, `noon`, `evening` and `night`; anything else, or no value, falls back to `noon`. Evening and night also light the finish and the city windows.
+
+`backdrop` picks the shapes of the two parallax layers behind the terrain. Valid values are `hills`, `mountains`, `forest`, `desert` and `city`; anything else, or no value, means `hills`, and `hills` is not stored.
+
+The theme sets the shapes and the time of day sets the colours, so all combinations work.
+
+## Blocks: `terrainBlocks`
+
+`terrainBlocks` is the editable terrain: a list of blocks, each a material and one or more regions, where each region is a closed outer boundary and any number of holes.
+
+```js
+terrainBlocks: [
+  {
+    id: 'ground',
+    material: 'sand',
+    regions: [
+      { outer: boundary, inner: [hole, ...] }
+    ]
+  }
+]
+```
+
+- `id`: the block's identity, used for invalidation. Any stable string.
+- `material`: one of the terrain materials. It drives the fill, strata, edge, surface and spray.
+- `regions`: the shapes that are solid. A region is `outer` plus `inner` holes; a block with two regions is two separate pieces that share a material.
+
+A **boundary** is a ring of nodes, and each node has:
+
+- `id`, `x`, `y`.
+- `mode`: `corner`, `smooth`, or `independent`. A `smooth` node bends the edge between its neighbours; a `corner` keeps it angular.
+- `in` and `out`: the curve handles for the edges either side, or `null` for straight ones.
+- `edge`: `straight` or `curve`.
+
+Node and boundary ids only need to be unique within the level, and hand-written coordinates are fine. Normalization fills in anything missing, so a minimal block only needs its `outer` nodes.
+
+`points`, `gaps`, `platforms` and `paths` are the older terrain format. They still load and can be mixed with blocks, and the editor's **CONVERT TO BLOCKS** turns them into blocks. Once a level is fully on blocks the older fields are not needed.
+
+## Props: `flip` and wall props
+
+Props sit under `props`, alongside the `terrainBlocks` terrain.
+
+Every prop may carry `flip: true`, which mirrors it left to right. It is omitted when the prop is not flipped. Signs cannot be flipped, because their text would come out mirrored.
+
+Three props attach to a wall rather than standing on the ground, and grow toward the open air:
+
+| Prop | Place it | It draws |
+| --- | --- | --- |
+| `vines` | Just past the top corner of a cliff | Leafy strands hanging down the face, as far as the drop to the floor below allows |
+| `roots` | On a wall face | Twisted roots growing out of the rock and drooping down |
+| `moss` | On a wall face | Moss clumps pressed against the rock, with a few drips |
+
+They find the rock by sampling up to 22 units either side, so they can be clicked slightly into the rock or slightly into the air. They are decoration only — nothing collides with them.
+
+Sign text wraps at word boundaries onto up to 4 lines of 10 characters, and the board grows taller to fit, staying on its post. Anything longer is cut off, and the editor warns.
+
 ## Other fields
 
 - `fallY`: vertical position at which the bike is considered lost. Increase it for deep gaps or trails that descend far. It also sets how low the camera can look.
-- `sky`, `sun`, and `mountain`: level palette colors.
 - `spray`: fallback wheel-particle colors. Material-specific spray takes priority.
 - `description`: design notes for the trail. It is not currently shown during gameplay.
+
+`sky`, `sun` and `mountain` are no longer read: the background comes from `timeOfDay` and `backdrop`. They are ignored and can be removed.
 
 ## Medals
 

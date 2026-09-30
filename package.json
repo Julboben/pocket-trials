@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "levels": "node scripts/generate-level-catalog.mjs",
+    "sw": "node scripts/generate-sw-core.mjs",
+    "sw:check": "node scripts/generate-sw-core.mjs --check",
     "dev": "node scripts/dev.mjs",
     "replays": "node scripts/record-replays.mjs",
     "check": "node scripts/check-syntax.mjs",

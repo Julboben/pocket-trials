@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
 
 jobs:
@@ -19,6 +19,8 @@ jobs:
         run: |
           npm run levels
           git diff --exit-code levels/catalog.json
+      - name: Service worker precache is up to date
+        run: npm run sw:check
       - name: Type check
         run: npm run typecheck
       - name: Tests

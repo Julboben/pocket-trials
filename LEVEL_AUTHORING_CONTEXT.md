@@ -341,9 +341,12 @@ Any property may be omitted. This supports clear skies, sunny skies with scatter
 ## Other fields
 
 - `fallY`: vertical position at which the bike is considered lost. Increase it for deep gaps or trails that descend far. It also sets how low the camera can look.
-- `sky`, `sun`, and `mountain`: level palette colors.
 - `spray`: fallback wheel-particle colors. Material-specific spray takes priority.
 - `description`: design notes for the trail. It is not currently shown during gameplay.
+
+`sky`, `sun` and `mountain` are no longer read: the background comes from `timeOfDay` and `backdrop`. They are ignored and can be removed.
+
+`timeOfDay` is `morning`, `noon`, `evening` or `night`, defaulting to `noon`. `backdrop` is `hills`, `mountains`, `forest`, `desert` or `city`, defaulting to `hills`. See `LEVEL_FORMAT.md` for `terrainBlocks`, `flip` and the wall props.
 
 ## Medals
 
