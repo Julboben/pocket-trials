@@ -1,6 +1,11 @@
 import { lerp, TERRAIN_SAMPLE_SPACING } from './config.js';
 import { sweepCircleSegment } from './physics.js';
 import { cos, hypot, sin } from './det-math.js';
+import {
+  compileTerrain, terrainContacts, terrainSweep, terrainSurfaceBelow, terrainSurfaces,
+  terrainShadowSamples,
+} from './terrain-runtime.js';
+import { levelTerrain } from './level-schema.js';
 
 // First index > 0 whose x is at or beyond `x`, or -1. Points are x-sorted.
 function segmentEndIndex(points, x) {
@@ -39,6 +44,12 @@ function insideGap(level, x) {
 }
 
 export function terrainSurfacesAt(level, x) {
+  const blocks = blockGeometry(level);
+  if (blocks) return terrainSurfaces(blocks, x).map(surface => ({
+    y: surface.y, slope: surface.slope, solid: true, material: surface.material, platform: null,
+    entering: surface.entering, blockId: surface.blockId,
+  }));
+  if (!hasGroundLine(level)) return [];
   const surfaces = [];
   if (!insideGap(level, x)) {
     const base = curveAt(level.points, x);
@@ -57,9 +68,46 @@ export function terrainSurfacesAt(level, x) {
 
 const platformPolygons = new WeakMap();
 const terrainGeometryCache = new WeakMap();
+const blockGeometryCache = new WeakMap();
 
+const hasGroundLine = level => Array.isArray(level?.points) && level.points.length >= 2;
+
+/**
+ * Forget a level's compiled terrain. Anything that edits a level's geometry in
+ * place must call this before the next query; the game never edits a level
+ * while it is being ridden, so it only matters to the editor.
+ */
 export function invalidateTerrain(level) {
   terrainGeometryCache.delete(level);
+  blockGeometryCache.delete(level);
+  for (const platform of level?.platforms || []) platformPolygons.delete(platform);
+}
+
+/**
+ * The compiled unified terrain for a level that has blocks.
+ *
+ * A level may still carry legacy ground, gaps, platforms and paths while its
+ * terrain is being rebuilt, so the compiled set is the level's blocks *and* its
+ * legacy terrain resolved into the same solid shapes. That is what lets a
+ * half-rebuilt level ride correctly and what makes a cave in a block and the
+ * old ground under it behave as one world.
+ *
+ * Compiled once per level and reused by physics, queries, and rendering until
+ * the level is invalidated. Returns null for a level with no blocks, so
+ * callers fall back to the legacy path unchanged.
+ */
+function blockGeometry(level) {
+  if (!level || !Array.isArray(level.terrainBlocks) || !level.terrainBlocks.length) return null;
+  const cached = blockGeometryCache.get(level);
+  if (cached) return cached;
+  const compiled = compileTerrain({ terrainBlocks: levelTerrain(level) });
+  blockGeometryCache.set(level, compiled);
+  return compiled;
+}
+
+/** The compiled block geometry of a level, or null for a legacy-only level. */
+export function terrainGeometry(level) {
+  return blockGeometry(level);
 }
 
 export function pathSegments(path) {
@@ -332,6 +380,9 @@ function circlePathContact(body, x, y, radius) {
 }
 
 export function terrainCollisionsAt(level, x, y, radius) {
+  const blocks = blockGeometry(level);
+  if (blocks) return terrainContacts(blocks, x, y, radius);
+  if (!hasGroundLine(level)) return [];
   const contacts = [];
   for (const body of collisionGeometry(level)) {
     const contact = body.segments ? circlePathContact(body, x, y, radius) : circlePolygonContact(body, x, y, radius);
@@ -341,6 +392,9 @@ export function terrainCollisionsAt(level, x, y, radius) {
 }
 
 export function terrainSweepCollision(level, fromX, fromY, toX, toY, radius) {
+  const blocks = blockGeometry(level);
+  if (blocks) return terrainSweep(blocks, fromX, fromY, toX, toY, radius);
+  if (!hasGroundLine(level)) return null;
   let earliest = null, earliestBody = null, earliestIndex = -1;
   const motionX = toX - fromX, motionY = toY - fromY;
   for (const body of collisionGeometry(level)) {
@@ -388,6 +442,15 @@ export function terrainSweepCollision(level, fromX, fromY, toX, toY, radius) {
 }
 
 export function terrainAt(level, x, referenceY = null) {
+  const blocks = blockGeometry(level);
+  if (blocks) {
+    const surface = terrainSurfaceBelow(blocks, x, referenceY);
+    // With no reference the query wants the topmost surface at that x, which is
+    // what a start position or a ground-anchored prop settles onto.
+    if (surface) return { y: surface.y, slope: surface.slope, solid: true, material: surface.material, platform: null };
+    return { y: level.fallY || 620, slope: 0, solid: false, material: level.terrain || 'grass', platform: null };
+  }
+  if (!hasGroundLine(level)) return { y: level?.fallY || 620, slope: 0, solid: false, material: level?.terrain || 'grass', platform: null };
   if (referenceY === null) {
     const base = curveAt(level.points, x);
     return { y: base.y, slope: base.slope, solid: !insideGap(level, x), material: level.terrain || 'grass', platform: null };
@@ -424,6 +487,8 @@ function surfaceCurve(level, surface) {
 }
 
 export function groundShadowSamples(level, x, referenceY, width, step = 2, center = x) {
+  const blocks = blockGeometry(level);
+  if (blocks) return terrainShadowSamples(blocks, x, referenceY, width, step, center);
   const surface = terrainAt(level, x, referenceY);
   if (!surface.solid || !(width > 0)) return [];
   const { points, contains } = surfaceCurve(level, surface);

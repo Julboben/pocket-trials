@@ -325,8 +325,5 @@
     "bronze": 65
   },
   "fallY": 820,
-  "sky": "#efe8d6",
-  "sun": "#f4b871",
-  "mountain": "#b3c2ab",
   "spray": ["#6f8b59", "#9c8b68", "#c5b496"]
 }

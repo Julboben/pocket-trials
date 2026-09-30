@@ -9,7 +9,8 @@ const CORE = [
   './js/replay-codec.js', './js/level-hash.js', './js/types.js', './js/det-math.js', './js/config.js', './js/levels.js',
   './js/materials.js', './js/audio.js', './js/physics.js', './js/physics-debug.js', './js/vehicle-physics.js',
   './js/rider-hair.js', './js/drawing.js', './js/terrain.js', './js/terrain-render.js', './js/storage.js',
-  './js/level-schema.js', './js/editor.js'
+  './js/terrain-geometry.js', './js/terrain-runtime.js', './js/terrain-legacy.js',
+  './js/level-schema.js', './js/editor.js', './js/editor-snap.js'
 ];
 
 self.addEventListener('install', event => {

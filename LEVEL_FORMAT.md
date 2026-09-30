@@ -127,17 +127,7 @@ The editor's **Start** tool places an explicit start position. Select the start 
 
 ## Finish: `goal`
 
-`goal` is the horizontal position of the finish flag:
-
-```js
-goal: 1800;
-```
-
-It should be:
-
-- Beyond every required apple.
-- Before the final terrain point.
-- On solid base terrain rather than inside a gap.
+The finish is a flower at (goal, finishY), floating 22 units above that point. finishY: null means it stands on the surface below. The run ends when the bike or rider touches the flower, from any side, once every apple is collected. The finish may be left or right of the start.
 
 ## Gaps: `gaps`
 
@@ -243,11 +233,12 @@ Set a platform material independently with its `material` property. Available pr
 | -------- | ---------------------------------------- |
 | `grass`  | Green surface with soil underneath       |
 | `dirt`   | Warm loose-earth trail                   |
+| `sand`   | Pale warm sand, bare by default          |
 | `rock`   | Grey, hard mountain terrain              |
 | `snow`   | Pale surface and cool subsurface         |
 | `brick`  | Brick pattern with a green rideable edge |
 
-Material definitions live in `terrainMaterials` at the top of `js/levels.js`. Each preset controls fill, internal layers or pattern, edge colors, vegetation, and wheel-spray colors.
+Material definitions live in `terrainMaterials` at the top of `js/materials.js`. Each preset controls fill, internal layers or pattern, edge colors, vegetation, and wheel-spray colors.
 
 ## Apples
 

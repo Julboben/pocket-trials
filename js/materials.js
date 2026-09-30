@@ -9,6 +9,11 @@ export const terrainMaterials = {
     edge: '#654735', surface: '#9c714f', vegetation: null,
     spray: ['#886044','#ad825e','#d0a47b']
   },
+  sand: {
+    fill: '#d8c08e', layers: ['#e6d2a3', '#c2a674'], detail: '#a98e6166',
+    edge: '#8f7550', surface: '#e9d8a8', vegetation: null,
+    spray: ['#c9b07e','#dcc59a','#eddcb5']
+  },
   rock: {
     fill: '#727a78', layers: ['#89918d', '#606866'], detail: '#4d565466',
     edge: '#3f4d4b', surface: '#9aa49e', vegetation: null,

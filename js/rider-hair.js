@@ -152,11 +152,16 @@ export function createRiderHair(root, rest) {
     }
     if (!groundAt) return;
     for (const point of points) {
-      const ground = groundAt(point.x);
-      if (ground.solid && point.y > ground.y - 2) {
-        point.y = ground.y - 2;
-        point.px = lerp(point.px, point.x, .5);
-      }
+      const ground = groundAt(point.x, point.y);
+      if (!ground.solid || point.y <= ground.y - 2) continue;
+      // Moving the point alone leaves its previous position behind, and the next
+      // step reads that gap as velocity. On ground that steps by hundreds of
+      // units between neighbouring points, that flings the hair into a streak,
+      // so the previous position travels with the point.
+      const from = point.y;
+      point.y = ground.y - 2;
+      point.py = lerp(point.py, from, .5);
+      point.px = lerp(point.px, point.x, .5);
     }
   }
 

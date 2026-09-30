@@ -53,11 +53,15 @@ export function startGame() {
     enabled: physicsDebugEnabled,
     step: STEP,
     inspectPoint(point, round) {
-      const ground = terrainAt(session.level, point.x);
+      const ground = terrainAt(session.level, point.x, point.y);
       return {
         groundY: round(ground.y),
         curveSlope: round(ground.slope),
-        segmentSlope: round(terrainSegmentSlopeAt(session.level.points, point.x))
+        // The legacy segment slope only exists while a ground line does; a trail
+        // rebuilt from blocks reports the same slope from the compiled surface.
+        segmentSlope: round(Array.isArray(session.level.points)
+          ? terrainSegmentSlopeAt(session.level.points, point.x)
+          : ground.slope)
       };
     }
   });
@@ -405,7 +409,8 @@ export function startGame() {
         break;
       }
       case 'goalLocked':
-        overlay.toast(event.missing + (event.missing === 1 ? ' apple remaining! Turn back to collect it.' : ' apples remaining! Turn back to collect them.'));
+        // No direction implied: the missing apples could be anywhere on the trail.
+        overlay.toast(event.missing + (event.missing === 1 ? ' apple left to collect!' : ' apples left to collect!'));
         break;
       case 'win': {
         const mx = (ride.rear.x + ride.front.x) / 2, my = (ride.rear.y + ride.front.y) / 2;

@@ -654,9 +654,6 @@
     "lightning": 0
   },
   "fallY": 760,
-  "sky": "#dde5df",
-  "sun": "#edc58f",
-  "mountain": "#9aafa5",
   "spray": [
     "#626b69",
     "#858e8a",

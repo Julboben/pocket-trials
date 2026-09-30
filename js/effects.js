@@ -93,7 +93,7 @@ export function createEffects() {
       const life = .28 + Math.random() * .32;
       particles.push({
         x: (wheel.contact?.pointX ?? wheel.x) - direction * (RADIUS - 2),
-        y: (wheel.contact?.pointY ?? terrainAt(level, wheel.x).y) - 2,
+        y: (wheel.contact?.pointY ?? terrainAt(level, wheel.x, wheel.y).y) - 2,
         vx: speed * .12 - direction * (35 + Math.random() * (braking ? 95 : 65)),
         vy: -(25 + Math.random() * (braking ? 90 : 55)),
         life, max: life, color, size: Math.random() < .7 ? 2 : 4, drag: 2.5, splatter: true
@@ -123,7 +123,9 @@ export function createEffects() {
       if (p.drag) p.vx *= Math.exp(-p.drag * dt);
       p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 210 * dt;
       if (p.splatter) {
-        const ground = terrainAt(level, p.x);
+        // The floor under the particle, so spray in a cave lands on the cave
+        // floor instead of jumping onto the rock above it.
+        const ground = terrainAt(level, p.x, p.y - 6);
         if (ground.solid && p.y > ground.y - 1) {
           p.y = ground.y - 1;
           p.vx *= .45; p.vy = -Math.abs(p.vy) * .16;
