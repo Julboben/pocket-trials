@@ -171,7 +171,7 @@ export function startGame() {
 
   function applyPreferences() {
     const { preferences } = session;
-    session.rider = session.saveGame?.rider || 'max';
+    session.rider = session.saveGame?.rider || 'male';
     const controlsHidden = preferences.controls === 'hide';
     $('control-area').hidden = controlsHidden;
     game.classList.toggle('controls-hidden', controlsHidden);

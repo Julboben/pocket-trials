@@ -380,7 +380,7 @@ export function createRenderer(canvas) {
   }
 
   function updateHair(ride, rider, dt) {
-    if (rider !== "Maxine") {
+    if (rider !== "female") {
       hair = null;
       return;
     }

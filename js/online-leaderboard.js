@@ -19,7 +19,7 @@ function toRuns(runs) {
   return (Array.isArray(runs) ? runs : [])
     .map(r => ({
       time: Number(r.time),
-      rider: r.rider === 'Maxine' ? 'Maxine' : 'max',
+      rider: r.rider === 'female' ? 'female' : 'male',
       name: cleanName(r.name) || null,
       slot: null, saveId: null,
       date: Number(r.date) || null,

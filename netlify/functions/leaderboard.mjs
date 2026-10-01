@@ -6,7 +6,7 @@ const TOP = 10;
 const TRAIL_RE = /^(official:)?[a-z0-9][a-z0-9-]{0,55}$/;   // official trails only; custom 'trail:<hash>' stays local
 const NAME_RE = /^[\p{L}\p{N} _.\-]{1,16}$/u;       // safe to put in innerHTML
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const RIDERS = new Set(['max', 'Maxine']);
+const RIDERS = new Set(['male', 'female']);
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -39,7 +39,7 @@ export default async (req) => {
       const trail = String(body.trail ?? '');
       const playerId = String(body.playerId ?? '');
       const name = String(body.name ?? '').trim().replace(/\s+/g, ' ');
-      const rider = RIDERS.has(body.rider) ? body.rider : 'max';
+      const rider = RIDERS.has(body.rider) ? body.rider : 'male';
       const timeMs = Math.round(Number(body.time) * 1000);
 
       if (!TRAIL_RE.test(trail) || !UUID_RE.test(playerId) || !NAME_RE.test(name)) {

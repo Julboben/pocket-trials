@@ -64,7 +64,7 @@ export const session = {
   trail: trails[0],
   /** @type {'official' | 'custom' | 'playtest'} */ trailSource: 'official',
   customTrailIndex: -1,
-  rider: 'max',
+  rider: 'male',
   unlockedTrail: 0,
   savedTrail: 0,
   /** @type {any} */ saveGame: null,

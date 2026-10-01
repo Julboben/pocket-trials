@@ -48,7 +48,7 @@ const emptySlots = () => Array(SLOT_COUNT).fill(null);
 const cloneSave = save => save && { ...save, bestTimes: [...save.bestTimes] };
 
 function normalizeSave(save, trailCount) {
-  if (!save || !['max', 'Maxine'].includes(save.rider)) return null;
+  if (!save || !['male', 'female'].includes(save.rider)) return null;
   const unlocked = clamp(Number(save.unlocked) || 0, 0, trailCount - 1);
   const trail = clamp(Number(save.trail) || 0, 0, unlocked);
   const bestTimes = Array.from({ length: trailCount }, (_, index) => {
@@ -109,7 +109,7 @@ export function createSave(slotIndex, rider, trailCount, name = '') {
   const index = clamp(slotIndex, 0, SLOT_COUNT - 1);
   if (next[index]) return null;
   const save = {
-    rider: rider === 'Maxine' ? 'Maxine' : 'max',
+    rider: rider === 'female' ? 'female' : 'male',
     createdAt: Date.now(),
     trail: 0,
     unlocked: 0,
@@ -173,7 +173,7 @@ function normalizeRun(run) {
   const slot = run.slot === null || run.slot === undefined ? null : Number(run.slot);
   return {
     time,
-    rider: run.rider === 'Maxine' ? 'Maxine' : 'max',
+    rider: run.rider === 'female' ? 'female' : 'male',
     name: cleanRiderName(run.name) || null,
     slot: Number.isInteger(slot) && slot >= 0 && slot < SLOT_COUNT ? slot : null,
     saveId: Number(run.saveId) || null,

@@ -22,7 +22,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Results screen with rank, personal best, flips, and gold/silver/bronze medal targets
 - The run timer starts on your first input
 - Installable as an offline-capable web app
-- Two selectable riders: Max and Maxine
+- Two rider styles and a custom rider name
 - Elasto Mania-style pixel dirt bike, with the original Pocket Classic bike kept for future biker customization
 - Layered foreground and background scenery
 - Terrain-colored wheel spray, brake lights, and fading ground skid marks

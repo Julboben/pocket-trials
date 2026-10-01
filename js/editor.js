@@ -810,7 +810,7 @@ function drawObjects() {
     length: 50,
     facing: trail.start.facing,
     flipVisual: trail.start.facing,
-    rider: "max",
+    rider: "male",
   });
   ctx.restore();
 }

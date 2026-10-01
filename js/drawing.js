@@ -704,7 +704,7 @@ export function createCanvas(width, height) {
 }
 
 export const RIDER_PALETTES = {
-  max: {
+  male: {
     jacket: "#e8e5d9",
     jacketLight: "#fff8e7",
     jacketShade: "#b5bcae",
@@ -723,7 +723,7 @@ export const RIDER_PALETTES = {
     visor: "#234844",
     visorLight: "#83bcb6",
   },
-  Maxine: {
+  female: {
     jacket: "#d86f82",
     jacketLight: "#ef9aa8",
     jacketShade: "#a94f69",
@@ -744,7 +744,7 @@ export const RIDER_PALETTES = {
   },
 };
 export const riderPalette = (rider) =>
-  RIDER_PALETTES[rider] || RIDER_PALETTES.max;
+  RIDER_PALETTES[rider] || RIDER_PALETTES.male;
 
 // Selectable bike models drawn by createGameArt().drawBike. Every model keeps
 // the same seat, peg, and handlebar positions so any rider fits any bike.
@@ -2924,7 +2924,7 @@ export function createGameArt(ctx) {
     brakePressure = 0,
     state = "ready",
     leanVisual = 0,
-    rider = "max",
+    rider = "male",
     bike = DEFAULT_BIKE,
   }) {
     const model = BIKES[bike] || BIKES[DEFAULT_BIKE];

@@ -15,10 +15,10 @@ import {
   leaderboardTrails, trailKey, trailMarker, timeText
 } from '../state.js';
 
-const riderName = rider => rider === 'Maxine' ? 'MAXINE' : 'MAX';
+const riderName = name => name || 'RIDER';
 
 export function riderSymbolMarkup(selectedRider) {
-  return selectedRider === 'Maxine'
+  return selectedRider === 'female'
     ? '<svg class="rider-symbol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="5"></circle><path d="M12 13v8M8.5 18h7"></path></svg>'
     : '<svg class="rider-symbol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="15" r="5"></circle><path d="M13 11 20 4M15 4h5v5"></path></svg>';
 }
@@ -39,7 +39,7 @@ export function loadStoredState() {
   }
   session.unlockedTrail = session.saveGame?.unlocked || 0;
   session.savedTrail = session.saveGame?.trail || 0;
-  session.rider = session.saveGame?.rider || 'max';
+  session.rider = session.saveGame?.rider || 'male';
 }
 
 /**
@@ -52,7 +52,7 @@ export function loadStoredState() {
  * }} hooks
  */
 export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose, onPreferences }) {
-  let pendingSaveSlot = 0, selectedNewRider = 'max';
+  let pendingSaveSlot = 0, selectedNewRider = 'male';
   let deleteArmedSlot = -1, deleteArmTimer = 0, leaderboardTrail = 0;
   let slotMode = 'load', pendingOverwrite = false, creatorFromSlots = false;
 
@@ -97,7 +97,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
       front: { x: frontPoint[0], y: frontPoint[1], spin: 0, compression: 0 },
       facing: 1, flipVisual: 1, leanVisual
     };
-    if (session.rider === 'Maxine') {
+    if (session.rider === 'female') {
       const root = hairRoot(pose, true), rest = hairRestDirection(pose);
       const previewHair = createRiderHair(root, rest);
       previewHair.settle(1.5, { root, rest, back: hairBackSupport(pose) });
@@ -135,7 +135,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     session.saveGame = session.saveSlots[session.activeSaveSlot];
     session.unlockedTrail = session.saveGame?.unlocked || 0;
     session.savedTrail = session.saveGame?.trail || 0;
-    session.rider = session.saveGame?.rider || 'max';
+    session.rider = session.saveGame?.rider || 'male';
     updateDashboard();
   }
 
@@ -181,8 +181,8 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
         ? (slotMode === 'new' ? 'Start your new game here' : 'Empty · start a new game')
         : (slotMode === 'new' ? 'Replace · ' : '') + (save.unlocked + 1) + ' / ' + trails.length + ' trails · ' + trails[save.trail].name;
       const active = occupied && index === session.activeSaveSlot ? ' · ACTIVE' : '';
-      button.innerHTML = '<span class="save-avatar ' + (!occupied ? 'empty' : save.rider === 'Maxine' ? 'female' : 'male') + '">' + (!occupied ? '+' : riderSymbolMarkup(save.rider)) + '</span>'
-        + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + active + '</span><strong>' + (!occupied ? 'EMPTY SLOT' : (save.name || riderName(save.rider))) + '</strong><small>' + detail + '</small></span>';
+      button.innerHTML = '<span class="save-avatar ' + (!occupied ? 'empty' : save.rider) + '">' + (!occupied ? '+' : riderSymbolMarkup(save.rider)) + '</span>'
+        + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + active + '</span><strong>' + (!occupied ? 'EMPTY SLOT' : riderName(save.name)) + '</strong><small>' + detail + '</small></span>';
       button.addEventListener('click', () => {
         if (slotMode === 'load' && occupied) { selectSaveSlot(index); showView('home'); return; }
         creatorFromSlots = true;
@@ -283,7 +283,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     const hasSave = Boolean(session.saveGame);
     drawActiveSaveIllustration();
     $('active-save-slot').textContent = 'SLOT ' + (session.activeSaveSlot + 1);
-    $('active-save-rider').textContent = hasSave ? riderName(session.rider) : '';
+    $('active-save-rider').textContent = hasSave ? riderName(session.saveGame?.name) : '';
     $('active-save-progress').textContent = hasSave ? (session.unlockedTrail + 1) + ' / ' + trails.length + ' trails · ' + trails[session.savedTrail].name : '';
     $('menu-start').hidden = !hasSave;
     $('menu-trails').disabled = !hasSave && customTrailEntries.length === 0;
@@ -437,12 +437,12 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     ));
     row.classList.toggle('mine', mine);
     const avatar = document.createElement('span');
-    avatar.className = 'save-avatar ' + (run.rider === 'Maxine' ? 'female' : 'male');
+    avatar.className = 'save-avatar ' + run.rider;
     avatar.innerHTML = riderSymbolMarkup(run.rider);
     const copy = document.createElement('span');
     copy.className = 'leaderboard-copy';
     const name = document.createElement('strong');
-    name.textContent = (run.name || riderName(run.rider)) + (mine ? ' · YOU' : '');
+    name.textContent = riderName(run.name) + (mine ? ' · YOU' : '');
     const detail = document.createElement('small');
     const date = run.date ? new Date(run.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }).toUpperCase() : 'CAREER BEST';
     detail.textContent = (run.name && run.slot === null ? 'ONLINE' : run.slot === null ? 'NO SAVE' : 'SLOT ' + (run.slot + 1)) + ' · ' + date;
@@ -483,7 +483,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     const existing = session.saveSlots[slotIndex];
     $('new-save-slot-label').textContent = 'SAVE SLOT ' + (slotIndex + 1);
     $('save-warning').textContent = overwrite && existing
-      ? `This replaces ${existing.name || riderName(existing.rider)} (${existing.unlocked + 1} / ${trails.length} trails) in slot ${slotIndex + 1}. That save's progress and best times are lost; leaderboard runs stay.`
+      ? `This replaces ${riderName(existing.name)} (${existing.unlocked + 1} / ${trails.length} trails) in slot ${slotIndex + 1}. That save's progress and best times are lost; leaderboard runs stay.`
       : 'Your rider is permanently tied to this savegame. Each slot keeps its own progression and best times.';
     $('save-warning').classList.toggle('danger', overwrite);
     $('create-save').textContent = overwrite ? 'Replace Save & Ride →' : 'Create Save & Ride →';

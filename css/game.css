@@ -741,6 +741,7 @@ h2 {
 .menu-screen[hidden],
 .menu-view[hidden],
 .menu-action[hidden],
+.menu-action.continue-save[hidden],
 .icon-button[hidden] {
   display: none;
 }
