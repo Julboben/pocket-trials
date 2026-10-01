@@ -172,9 +172,7 @@ export function startGame() {
   function applyPreferences() {
     const { preferences } = session;
     session.rider = session.saveGame?.rider || 'male';
-    const controlsHidden = preferences.controls === 'hide';
-    $('control-area').hidden = controlsHidden;
-    game.classList.toggle('controls-hidden', controlsHidden);
+    $('control-area').hidden = preferences.controls === 'hide';
     sounds.setEnabled(preferences.sound === 'on');
     sounds.setVolume(preferences.volume / 100);
     input.setBindings(preferences.bindings);

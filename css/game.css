@@ -75,6 +75,9 @@ select:focus-visible {
 .game {
   position: relative;
   width: min(1440px, 100%);
+  height: clamp(560px, calc(100vh - 58px), 920px);
+  display: flex;
+  flex-direction: column;
   padding: 0;
   overflow: hidden;
   background: var(--color-shell);
@@ -113,7 +116,8 @@ select:focus-visible {
 
 .viewport {
   position: relative;
-  height: clamp(500px, calc(100vh - 190px), 820px);
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: hidden;
   border: 0;
   border-radius: var(--radius-pixel);
@@ -500,7 +504,7 @@ h2 {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.setting-keys {
+.setting-group.setting-keys {
   align-items: start;
 }
 .key-bindings {
@@ -543,10 +547,6 @@ h2 {
 .key-reset {
   grid-column: 1 / -1;
   justify-self: start;
-}
-
-.game.controls-hidden .viewport {
-  height: clamp(560px, calc(100vh - 58px), 920px);
 }
 
 .control-area {
@@ -666,10 +666,7 @@ h2 {
   margin-top: 6px;
 }
 
-.setting-group legend {
-  float: left;
-  width: 145px;
-  padding: 0;
+.setting-label {
   color: #aeb7b3;
   font-size: 9px;
   font-weight: 850;
@@ -829,6 +826,20 @@ h2 {
   font-size: clamp(32px, 6vw, 54px);
   letter-spacing: -3px;
   text-transform: uppercase;
+}
+.beta-tag {
+  display: inline-block;
+  margin-left: 0.45em;
+  padding: 4px 7px 3px;
+  vertical-align: 0.9em;
+  border-radius: var(--radius-pixel);
+  background: var(--color-accent);
+  color: #241710;
+  box-shadow: var(--shadow-pixel);
+  font-size: 11px;
+  letter-spacing: 1px;
+  line-height: 1;
+  transform: rotate(-8deg);
 }
 
 .menu-logo {
@@ -1449,12 +1460,14 @@ kbd {
   }
   .game {
     width: 100%;
+    height: auto;
     min-width: 0;
     max-width: 100vw;
     padding: 0;
     border-radius: 20px;
   }
   .viewport {
+    flex: none;
     width: 100%;
     min-width: 0;
     height: auto;
@@ -1588,10 +1601,6 @@ kbd {
   .setting-group {
     grid-template-columns: 1fr;
     gap: 9px;
-  }
-  .setting-group legend {
-    float: none;
-    width: 100%;
   }
 }
 

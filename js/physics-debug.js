@@ -156,9 +156,9 @@ export function createPhysicsDebugger({ enabled, step, inspectPoint }) {
       lastAlert = performance.now();
       spikes.push(frame);
       if (spikes.length > 20) spikes.shift();
-      console.warn('[Pocket Trials] Sudden physics acceleration detected.');
+      console.warn('[Hjulben] Sudden physics acceleration detected.');
       console.table(frame.contacts);
-      console.log('[Pocket Trials] Copyable spike JSON:\n' + JSON.stringify(frame, null, 2));
+      console.log('[Hjulben] Copyable spike JSON:\n' + JSON.stringify(frame, null, 2));
     }
     frame = null;
   }
@@ -178,26 +178,26 @@ export function createPhysicsDebugger({ enabled, step, inspectPoint }) {
     stopReplay() { replayInputs = []; replayIndex = 0; },
     dump() {
       const trace = frames.slice(-120);
-      console.log('[Pocket Trials] Physics trace', trace);
+      console.log('[Hjulben] Physics trace', trace);
       return trace;
     },
     dumpSpike() {
       const spike = spikes.at(-1) || null;
-      console.log('[Pocket Trials] Latest spike JSON:\n' + JSON.stringify(spike, null, 2));
+      console.log('[Hjulben] Latest spike JSON:\n' + JSON.stringify(spike, null, 2));
       return spike;
     },
     async copy() {
       await navigator.clipboard.writeText(JSON.stringify(frames.slice(-120), null, 2));
-      console.log('[Pocket Trials] Copied the latest physics trace.');
+      console.log('[Hjulben] Copied the latest physics trace.');
     },
     async copySpike() {
       await navigator.clipboard.writeText(JSON.stringify(spikes.at(-1) || null, null, 2));
-      console.log('[Pocket Trials] Copied the latest sudden-acceleration frame.');
+      console.log('[Hjulben] Copied the latest sudden-acceleration frame.');
     }
   };
 
   globalThis.pocketTrialsPhysicsDebug = publicApi;
-  if (enabled) console.info('[Pocket Trials] Physics tracing enabled. Reproduce a spike, then run pocketTrialsPhysicsDebug.dumpSpike() or copySpike().');
+  if (enabled) console.info('[Hjulben] Physics tracing enabled. Reproduce a spike, then run pocketTrialsPhysicsDebug.dumpSpike() or copySpike().');
 
   return { begin, recordInput, nextReplayInput, capture, setIteration, recordConstraint, recordContactsResolved, recordContact, recordDynamics, recordTraction, finish };
 }

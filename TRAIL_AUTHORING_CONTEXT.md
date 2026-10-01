@@ -1,6 +1,6 @@
-# Pocket Trials: trail authoring context
+# Hjulben: trail authoring context
 
-This document gives you everything you need to create trails for Pocket Trials, a 2D side-scrolling bike trials game. It bundles the trail format spec, the validation code, the list of materials, and three official trails as examples.
+This document gives you everything you need to create trails for Hjulben, a 2D side-scrolling bike trials game. It bundles the trail format spec, the validation code, the list of materials, and three official trails as examples.
 
 ## Your task
 
@@ -29,7 +29,7 @@ Create new trails as a single JSON file each, following the format below.
 Trail format specification.
 
 ````markdown
-# Pocket Trials trail format
+# Hjulben trail format
 
 All trails use the same JSON schema. Shipped career trails live in `trails/official/`, while locally authored standalone trails live in `trails/custom/`. The editor's JSON export can be placed directly in `trails/custom/`.
 

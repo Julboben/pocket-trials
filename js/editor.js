@@ -100,9 +100,9 @@ const terrainArt = createTerrainRenderer();
 const GAME_ART_KEY = "pocket-trials-editor-game-art-v1";
 let gameArt = (() => {
   try {
-    return localStorage.getItem(GAME_ART_KEY) !== "0";
+    return localStorage.getItem(GAME_ART_KEY) === "1";
   } catch (_) {
-    return true;
+    return false;
   }
 })();
 // The Block or Cut drag currently in progress, drawn live so the author sees the

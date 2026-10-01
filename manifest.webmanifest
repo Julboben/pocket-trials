@@ -1,6 +1,6 @@
 {
-  "name": "Pocket Trials",
-  "short_name": "Trials",
+  "name": "Hjulben",
+  "short_name": "Hjulben",
   "description": "A pixel-art motorcycle trials game. Balance, collect every apple and reach the flag.",
   "start_url": "./index.html",
   "scope": "./",

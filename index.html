@@ -1,7 +1,7 @@
 <html
   data-type="html"
   data-identifier="4154825f-50c6-4a6f-97bb-8b1ab631f51b"
-  data-title="Pocket Trials"
+  data-title="Hjulben"
   data-version="1"
   width="600"
   height="740"
@@ -18,7 +18,7 @@
       name="description"
       content="A pixel-art motorcycle trials game. Balance, collect every apple and reach the flag."
     />
-    <title>Pocket Trials</title>
+    <title>Hjulben</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icons/icon-maskable.svg" />
@@ -30,7 +30,7 @@
       id="game"
       data-booting
       tabindex="0"
-      aria-label="Pocket Trials motorcycle game"
+      aria-label="Hjulben motorcycle game"
     >
       <div class="viewport">
         <canvas
@@ -201,7 +201,7 @@
             <div class="menu-logo" aria-hidden="true">↗</div>
             <div>
               <div class="modal-badge">MOMENTUM · BALANCE · CONTROL</div>
-              <h2 id="menu-title">Pocket Trials</h2>
+              <h2 id="menu-title">Hjulben<span class="beta-tag">BETA</span></h2>
             </div>
           </div>
 
@@ -502,15 +502,15 @@
             </div>
             <div class="dashboard-settings">
               <h4 class="settings-section">DISPLAY</h4>
-              <fieldset class="setting-group" id="setting-fullscreen-group">
-                <legend>FULLSCREEN</legend>
+              <div class="setting-group" role="group" aria-labelledby="setting-label-1" id="setting-fullscreen-group">
+                <span class="setting-label" id="setting-label-1">FULLSCREEN</span>
                 <div class="setting-options" style="--options: 2">
                   <button type="button" class="setting-option" data-fullscreen="on">On</button>
                   <button type="button" class="setting-option" data-fullscreen="off">Off</button>
                 </div>
-              </fieldset>
-              <fieldset class="setting-group">
-                <legend>SCENERY</legend>
+              </div>
+              <div class="setting-group" role="group" aria-labelledby="setting-label-2">
+                <span class="setting-label" id="setting-label-2">SCENERY</span>
                 <div class="setting-options" style="--options: 2">
                   <button
                     type="button"
@@ -529,9 +529,9 @@
                     Reduced
                   </button>
                 </div>
-              </fieldset>
-              <fieldset class="setting-group">
-                <legend>SCREEN SHAKE</legend>
+              </div>
+              <div class="setting-group" role="group" aria-labelledby="setting-label-3">
+                <span class="setting-label" id="setting-label-3">SCREEN SHAKE</span>
                 <div class="setting-options" style="--options: 2">
                   <button
                     type="button"
@@ -550,9 +550,9 @@
                     Off
                   </button>
                 </div>
-              </fieldset>
-              <fieldset class="setting-group">
-                <legend>ON-SCREEN CONTROLS</legend>
+              </div>
+              <div class="setting-group" role="group" aria-labelledby="setting-label-4">
+                <span class="setting-label" id="setting-label-4">ON-SCREEN CONTROLS</span>
                 <div class="setting-options" style="--options: 2">
                   <button
                     type="button"
@@ -571,11 +571,11 @@
                     Hide
                   </button>
                 </div>
-              </fieldset>
+              </div>
 
               <h4 class="settings-section">AUDIO</h4>
-              <fieldset class="setting-group">
-                <legend>SOUND EFFECTS</legend>
+              <div class="setting-group" role="group" aria-labelledby="setting-label-5">
+                <span class="setting-label" id="setting-label-5">SOUND EFFECTS</span>
                 <div class="setting-options" style="--options: 2">
                   <button
                     type="button"
@@ -594,9 +594,9 @@
                     Off
                   </button>
                 </div>
-              </fieldset>
-              <fieldset class="setting-group">
-                <legend>VOLUME</legend>
+              </div>
+              <div class="setting-group" role="group" aria-labelledby="setting-label-6">
+                <span class="setting-label" id="setting-label-6">VOLUME</span>
                 <div class="setting-range">
                   <input
                     type="range"
@@ -610,11 +610,11 @@
                     >80</output
                   >
                 </div>
-              </fieldset>
+              </div>
 
               <h4 class="settings-section">GAMEPLAY</h4>
-              <fieldset class="setting-group" id="setting-haptics-group">
-                <legend>VIBRATION</legend>
+              <div class="setting-group" role="group" aria-labelledby="setting-label-7" id="setting-haptics-group">
+                <span class="setting-label" id="setting-label-7">VIBRATION</span>
                 <div class="setting-options" style="--options: 2">
                   <button
                     type="button"
@@ -633,9 +633,9 @@
                     Off
                   </button>
                 </div>
-              </fieldset>
-              <fieldset class="setting-group">
-                <legend>GHOST OF BEST RUN</legend>
+              </div>
+              <div class="setting-group" role="group" aria-labelledby="setting-label-8">
+                <span class="setting-label" id="setting-label-8">GHOST OF BEST RUN</span>
                 <div class="setting-options" style="--options: 2">
                   <button
                     type="button"
@@ -654,16 +654,16 @@
                     Hide
                   </button>
                 </div>
-              </fieldset>
+              </div>
               <h4 class="settings-section">CONTROLS</h4>
-              <fieldset class="setting-group setting-keys">
-                <legend>KEYS</legend>
+              <div class="setting-group setting-keys" role="group" aria-labelledby="setting-label-9">
+                <span class="setting-label" id="setting-label-9">KEYS</span>
                 <div class="key-bindings" id="key-bindings"></div>
                 <p class="setting-note" id="gamepad-note">
                   Gamepad: RT/A gas · LT/X brake · stick or d-pad lean · B turn
                   · Y restart · Start pause
                 </p>
-              </fieldset>
+              </div>
 
               <button type="button" class="menu-back settings-reset" id="reset-settings">RESET ALL SETTINGS</button>
             </div>
@@ -673,6 +673,6 @@
       </section>
     </main>
     <script type="module" src="./js/main.js"></script>
-    <noscript>Pocket Trials needs JavaScript.</noscript>
+    <noscript>Hjulben needs JavaScript.</noscript>
   </body>
 </html>
