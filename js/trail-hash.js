@@ -5,11 +5,9 @@ import { TERRAIN_COMPILER_VERSION } from './terrain-runtime.js';
 // or re-importing a trail keeps its leaderboard, while any edit that changes
 // the ride starts a fresh one.
 //
-// Trails without blocks must hash exactly as they did before blocks existed so
-// their leaderboards survive, so block-only fields join the hash only when set.
-// Block trails also hash the terrain compiler version: a compiler change alters
-// what the wheels touch, so old replays and scores must not carry over.
-const GAMEPLAY_KEYS = ['points', 'gaps', 'platforms', 'paths', 'start', 'goal', 'fallY', 'apples', 'spikes', 'terrain'];
+// The terrain compiler version is hashed too: a compiler change alters what the
+// wheels touch, so old replays and scores must not carry over.
+const GAMEPLAY_KEYS = ['terrainBlocks', 'start', 'goal', 'fallY', 'apples', 'spikes', 'terrain'];
 
 function canonical(value) {
   if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
@@ -21,14 +19,11 @@ function canonical(value) {
 }
 
 /** FNV-1a over the canonical gameplay fields, as 8 hex digits. */
-export function levelHash(level) {
+export function trailHash(trail) {
   /** @type {Record<string, unknown>} */
-  const fields = Object.fromEntries(GAMEPLAY_KEYS.map(key => [key, level?.[key]]));
-  if (Array.isArray(level?.terrainBlocks) && level.terrainBlocks.length) {
-    fields.terrainBlocks = level.terrainBlocks;
-    fields.terrainCompiler = TERRAIN_COMPILER_VERSION;
-  }
-  if (Number.isFinite(level?.finishY)) fields.finishY = level.finishY;
+  const fields = Object.fromEntries(GAMEPLAY_KEYS.map(key => [key, trail?.[key]]));
+  fields.terrainCompiler = TERRAIN_COMPILER_VERSION;
+  if (Number.isFinite(trail?.finishY)) fields.finishY = trail.finishY;
   const text = canonical(fields);
   let hash = 0x811c9dc5;
   for (let index = 0; index < text.length; index++) {

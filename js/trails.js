@@ -6,12 +6,12 @@ async function loadJson(url, description) {
   return response.json();
 }
 
-async function loadLevelEntries() {
-  const catalog = await loadJson(new URL('../levels/catalog.json', import.meta.url), 'level catalog');
-  if (catalog.schemaVersion !== 1 || !Array.isArray(catalog.levels)) throw new Error('Unsupported level catalog format.');
-  return Promise.all(catalog.levels.map(async entry => ({
+async function loadTrailEntries() {
+  const catalog = await loadJson(new URL('../trails/catalog.json', import.meta.url), 'trail catalog');
+  if (catalog.schemaVersion !== 1 || !Array.isArray(catalog.trails)) throw new Error('Unsupported trail catalog format.');
+  return Promise.all(catalog.trails.map(async entry => ({
     ...entry,
-    level: await loadJson(new URL(`../levels/${entry.file}`, import.meta.url), `level ${entry.file}`)
+    trail: await loadJson(new URL(`../trails/${entry.file}`, import.meta.url), `trail ${entry.file}`)
   })));
 }
 
@@ -20,29 +20,29 @@ function showLoadError(error) {
   message.setAttribute('role', 'alert');
   message.style.cssText = 'position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:24px;'
     + 'background:#0f1a1c;color:#f6f3e8;font:600 14px/1.6 ui-monospace,monospace;text-align:center;';
-  message.textContent = `Could not load the trails: ${error.message}. Start the game with "npm run dev" so the level files can be fetched.`;
+  message.textContent = `Could not load the trails: ${error.message}. Start the game with "npm run dev" so the trail files can be fetched.`;
   document.body.append(message);
 }
 
 let loadedEntries;
 try {
-  loadedEntries = await loadLevelEntries();
+  loadedEntries = await loadTrailEntries();
 } catch (error) {
   showLoadError(error);
   throw error;
 }
 
-const BROWSER_LEVELS_KEY = 'pocket-trials-browser-levels-v1';
+const BROWSER_TRAILS_KEY = 'pocket-trials-browser-trails-v1';
 
 // The editor hands the trail being edited to the game (index.html?playtest=1) through this key.
-export const PLAYTEST_LEVEL_KEY = 'pocket-trials-playtest-v1';
+export const PLAYTEST_TRAIL_KEY = 'pocket-trials-playtest-v1';
 export const PLAYTEST_EXIT_MESSAGE = 'pocket-trials-playtest-exit';
 
-export function readPlaytestLevel() {
+export function readPlaytestTrail() {
   if (new URLSearchParams(window.location.search).get('playtest') !== '1') return null;
   try {
-    const level = JSON.parse(localStorage.getItem(PLAYTEST_LEVEL_KEY) || 'null');
-    return typeof level?.name === 'string' ? level : null;
+    const trail = JSON.parse(localStorage.getItem(PLAYTEST_TRAIL_KEY) || 'null');
+    return typeof trail?.name === 'string' ? trail : null;
   } catch (_) {
     return null;
   }
@@ -50,19 +50,19 @@ export function readPlaytestLevel() {
 
 function readBrowserLibrary() {
   try {
-    const stored = JSON.parse(localStorage.getItem(BROWSER_LEVELS_KEY) || '[]');
-    return Array.isArray(stored) ? stored.filter(item => item?.key && typeof item.level?.name === 'string') : [];
+    const stored = JSON.parse(localStorage.getItem(BROWSER_TRAILS_KEY) || '[]');
+    return Array.isArray(stored) ? stored.filter(item => item?.key && typeof item.trail?.name === 'string') : [];
   } catch (_) {
     return [];
   }
 }
 
 function writeBrowserLibrary(library) {
-  localStorage.setItem(BROWSER_LEVELS_KEY, JSON.stringify(library));
+  localStorage.setItem(BROWSER_TRAILS_KEY, JSON.stringify(library));
 }
 
-function browserEntry({ key, level }) {
-  return { id: `browser:${key}`, source: 'custom', storage: 'browser', key, file: null, name: level.name, level };
+function browserEntry({ key, trail }) {
+  return { id: `browser:${key}`, source: 'custom', storage: 'browser', key, file: null, name: trail.name, trail };
 }
 
 export function slugify(name) {
@@ -70,52 +70,52 @@ export function slugify(name) {
 }
 
 // Browser trails live in localStorage so they work on a static deployment without a server.
-export const levelEntries = [...loadedEntries, ...readBrowserLibrary().map(browserEntry)];
+export const trailEntries = [...loadedEntries, ...readBrowserLibrary().map(browserEntry)];
 
-export const officialLevelEntries = levelEntries.filter(entry => entry.source === 'official');
-export const customLevelEntries = levelEntries.filter(entry => entry.source === 'custom');
-export const officialLevels = officialLevelEntries.map(entry => entry.level);
+export const officialTrailEntries = trailEntries.filter(entry => entry.source === 'official');
+export const customTrailEntries = trailEntries.filter(entry => entry.source === 'custom');
+export const officialTrails = officialTrailEntries.map(entry => entry.trail);
 
 // Career systems use only the official sequence.
-export const levels = officialLevels;
+export const trails = officialTrails;
 
-export function registerLevelEntry(entry) {
-  const existing = levelEntries.find(candidate => candidate.id === entry.id);
+export function registerTrailEntry(entry) {
+  const existing = trailEntries.find(candidate => candidate.id === entry.id);
   if (existing) {
     Object.assign(existing, entry);
     return existing;
   }
-  levelEntries.push(entry);
-  if (entry.source === 'custom') customLevelEntries.push(entry);
+  trailEntries.push(entry);
+  if (entry.source === 'custom') customTrailEntries.push(entry);
   return entry;
 }
 
-export function saveBrowserLevel(level, key = null) {
+export function saveBrowserTrail(trail, key = null) {
   const library = readBrowserLibrary();
   let storageKey = key;
   if (!storageKey) {
-    const base = slugify(level.name);
+    const base = slugify(trail.name);
     const taken = new Set(library.map(item => item.key));
     storageKey = base;
     for (let suffix = 2; taken.has(storageKey); suffix++) storageKey = `${base}-${suffix}`;
   }
-  const stored = { key: storageKey, level: JSON.parse(JSON.stringify(level)) };
+  const stored = { key: storageKey, trail: JSON.parse(JSON.stringify(trail)) };
   const index = library.findIndex(item => item.key === storageKey);
   if (index >= 0) library[index] = stored; else library.push(stored);
   writeBrowserLibrary(library);
-  return registerLevelEntry(browserEntry(stored));
+  return registerTrailEntry(browserEntry(stored));
 }
 
-export function removeLevelEntry(id) {
-  for (const list of [levelEntries, customLevelEntries]) {
+export function removeTrailEntry(id) {
+  for (const list of [trailEntries, customTrailEntries]) {
     const index = list.findIndex(entry => entry.id === id);
     if (index >= 0) list.splice(index, 1);
   }
 }
 
-export function deleteBrowserLevel(key) {
+export function deleteBrowserTrail(key) {
   writeBrowserLibrary(readBrowserLibrary().filter(item => item.key !== key));
-  removeLevelEntry(`browser:${key}`);
+  removeTrailEntry(`browser:${key}`);
 }
 
 let devServerCheck = null;
@@ -130,7 +130,7 @@ export function detectDevServer() {
 }
 
 async function devRequest(method, file, body) {
-  const response = await fetch(new URL(`../api/levels/${file}`, import.meta.url), {
+  const response = await fetch(new URL(`../api/trails/${file}`, import.meta.url), {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined
@@ -140,19 +140,19 @@ async function devRequest(method, file, body) {
   return result;
 }
 
-export async function saveLevelFile(file, level) {
-  const { entry } = await devRequest('PUT', file, level);
-  return registerLevelEntry({ ...entry, level: JSON.parse(JSON.stringify(level)) });
+export async function saveTrailFile(file, trail) {
+  const { entry } = await devRequest('PUT', file, trail);
+  return registerTrailEntry({ ...entry, trail: JSON.parse(JSON.stringify(trail)) });
 }
 
-export async function deleteLevelFile(file) {
+export async function deleteTrailFile(file) {
   const { entry } = await devRequest('DELETE', file);
-  removeLevelEntry(entry.id);
+  removeTrailEntry(entry.id);
 }
 
 export function uniqueCustomFile(name) {
   const base = slugify(name);
-  const taken = new Set(levelEntries.map(entry => entry.file));
+  const taken = new Set(trailEntries.map(entry => entry.file));
   let file = `custom/${base}.json`;
   for (let suffix = 2; taken.has(file); suffix++) file = `custom/${base}-${suffix}.json`;
   return file;

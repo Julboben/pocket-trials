@@ -1,10 +1,10 @@
-# Pocket Trials level format
+# Pocket Trials trail format
 
-All trails use the same JSON schema. Shipped career trails live in `levels/official/`, while locally authored standalone trails live in `levels/custom/`. The editor's JSON export can be placed directly in `levels/custom/`.
+All trails use the same JSON schema. Shipped career trails live in `trails/official/`, while locally authored standalone trails live in `trails/custom/`. The editor's JSON export can be placed directly in `trails/custom/`.
 
-`npm run dev` watches both folders and regenerates `levels/catalog.json` whenever a JSON file changes. The browser loads that catalog through `js/levels.js`, so new files appear after the next page refresh. Trails saved or imported in the browser outside dev mode are kept in localStorage and listed alongside the file-based custom trails.
+`npm run dev` watches both folders and regenerates `trails/catalog.json` whenever a JSON file changes. The browser loads that catalog through `js/trails.js`, so new files appear after the next page refresh. Trails saved or imported in the browser outside dev mode are kept in localStorage and listed alongside the file-based custom trails.
 
-A level cannot declare itself official inside its JSON. The generated catalog assigns source from the containing folder: official trails participate in career progression and official best times; custom trails are clearly labeled and never alter career progress.
+A trail cannot declare itself official inside its JSON. The generated catalog assigns source from the containing folder: official trails participate in career progression and official best times; custom trails are clearly labeled and never alter career progress.
 
 The world uses Canvas coordinates:
 
@@ -25,47 +25,54 @@ The world uses Canvas coordinates:
   terrain: 'grass',
   start: { x: 90, y: null, facing: 1 },
 
-  points: [
-    [0, 320],
-    [180, 320],
-    [340, 260],
-    [520, 330],
-    [760, 280],
-    [1950, 280]
-  ],
-
-  gaps: [
-    [780, 900]
-  ],
-
-  platforms: [
+  terrainBlocks: [
     {
-      points: [[1050, 220], [1210, 185], [1380, 215]],
-      bottom: [[1070, 260], [1210, 250], [1360, 250]],
-      material: 'brick'
-    }
-  ],
-
-  paths: [
+      id: 'ground',
+      material: 'grass',
+      regions: [{
+        outer: { nodes: [
+          { x: 0, y: 320 },
+          { x: 180, y: 320, out: [260, 320] },
+          { x: 340, y: 260, in: [280, 260], out: [400, 260], mode: 'smooth' },
+          { x: 520, y: 330, in: [460, 330] },
+          { x: 780, y: 280 },
+          { x: 780, y: 700 },
+          { x: 0, y: 700 }
+        ] },
+        inner: []
+      }]
+    },
     {
-      points: [[1500, 300], [1600, 180], [1710, 100], [1800, 220], [1740, 340]],
-      closed: true,
-      thickness: 28,
-      material: 'dirt'
+      id: 'far-side',
+      material: 'grass',
+      regions: [{
+        outer: { nodes: [{ x: 900, y: 290 }, { x: 1950, y: 290 }, { x: 1950, y: 700 }, { x: 900, y: 700 }] },
+        inner: [
+          { nodes: [{ x: 1300, y: 400 }, { x: 1600, y: 400 }, { x: 1600, y: 520 }, { x: 1300, y: 520 }] }
+        ]
+      }]
+    },
+    {
+      id: 'ledge',
+      material: 'brick',
+      regions: [{
+        outer: { nodes: [{ x: 1050, y: 200 }, { x: 1380, y: 200 }, { x: 1360, y: 240 }, { x: 1070, y: 240 }] },
+        inner: []
+      }]
     }
   ],
 
   apples: [
     { x: 300, y: null },
-    { x: 700, y: 190 },
-    { x: 1100, y: null },
-    { x: 1450, y: 150 },
+    { x: 840, y: 190 },
+    { x: 1200, y: null },
+    { x: 1450, y: 470 },
     { x: 1700, y: null }
   ],
 
   props: [
     { x: 250, y: null, type: 'tree', layer: 'back' },
-    { x: 650, y: 245, type: 'rock', layer: 'front' }
+    { x: 650, y: null, type: 'rock', layer: 'front' }
   ],
 
   spikes: [
@@ -79,37 +86,54 @@ The world uses Canvas coordinates:
     lightning: 0.35
   },
 
-  fallY: 580,
-  sky: '#e6e5d7',
-  sun: '#e9aa78',
-  mountain: '#aebdb0',
+  fallY: 800,
   spray: ['#846d55', '#aa8b68', '#c8aa82']
 }
 ```
 
-## Main terrain: `points`
+The example has rolling ground, a gap between x 780 and 900, a far side with a cave in it, and a brick ledge floating above the far side.
 
-`points` defines the continuous ground surface:
+## Terrain: `terrainBlocks`
+
+`terrainBlocks` is the trail's terrain: a list of blocks, each a material and one or more regions, where each region is a closed outer boundary and any number of caves.
 
 ```js
-points: [
-  [0, 320],
-  [200, 320],
-  [360, 250],
-  [520, 330],
-];
+terrainBlocks: [
+  {
+    id: 'ground',
+    material: 'sand',
+    regions: [
+      { outer: boundary, inner: [cave, ...] }
+    ]
+  }
+]
 ```
 
-The renderer creates a smooth cosine curve between consecutive points. Every point must have a larger `x` value than the point before it.
+- `id`: the block's identity, used for invalidation. Any stable string.
+- `material`: one of the terrain materials. It drives the fill, strata, edge, surface and spray.
+- `regions`: the shapes that are solid. A region is `outer` plus `inner` caves; a block with two regions is two separate pieces that share a material.
 
-- Increase the horizontal distance between points for broad, gentle hills.
-- Reduce the horizontal distance for sharper transitions.
-- Reduce `y` to create a hill or ramp.
-- Increase `y` to create a valley or drop.
-- Keep the opening section relatively flat so both wheels spawn safely.
-- Keep a final point beyond `goal`, otherwise the finish can sit at the edge of the terrain.
+A **boundary** is a ring of nodes. Do not repeat the first node at the end. Each node has:
 
-As a starting guideline, horizontal spans of `140–190` are forgiving. Spans below roughly `100` combined with large height changes can create abrupt or difficult geometry.
+- `id`, `x`, `y`.
+- `mode`: `corner`, `smooth`, or `independent`. A `smooth` node keeps its two handles in line, so the surface bends through it; a `corner` keeps it angular.
+- `in` and `out`: the curve handles for the edges either side, as absolute `[x, y]` world positions, or `null` for straight ones. An edge is curved when the node before it has an `out` handle or the node after it has an `in` handle.
+- `edge`: `straight` or `curve`, describing the edge leaving the node. Normalization reconciles it with the handles.
+
+Node and boundary ids only need to be unique within the trail, and hand-written coordinates are fine. Normalization fills in anything missing, so a minimal block only needs its `outer` nodes. A trail needs at least one block.
+
+Blocks are drawn and collide in list order, and later blocks win where they overlap. Every edge collides: tops, undersides, walls, and corners, so blocks can be any shape, including overhangs, vertical faces, and loops.
+
+Authoring guidelines:
+
+- **Ground**: one wide block whose top edge is the route and whose bottom sits well below it. Keep the opening section relatively flat so both wheels spawn safely, and keep terrain beyond `goal`.
+- **Slopes**: broad curved edges ride well. Spans of `140–190` units per hill are forgiving; short spans with large height changes create abrupt geometry.
+- **Gaps**: a break between two blocks. The walls either side are solid, so a rider who falls in can hit the cliff face. Start around `80–100` units wide for introductory jumps; wider gaps need a clear launch ramp and a landing below the takeoff height.
+- **Ledges and islands**: a separate block above the ground. Leave at least one wheel diameter between it and the ground, and more when the rider is expected to pass underneath.
+- **Caves**: an `inner` boundary inside a region. The cave is open space with a solid roof and floor.
+- **Loops**: a block whose region has a cave, ridden around its inside. Leave generous room in tight bends; very tight radii are hard to ride cleanly.
+
+Validation reports blocks that enclose no area, cross themselves, or are buried under other blocks, and objects that are left over open air.
 
 ## Start: `start`
 
@@ -120,104 +144,14 @@ start: { x: 90, y: null, facing: 1 }
 ```
 
 - `x` is the horizontal midpoint between the wheels.
-- `y` is the wheel-axle height. Use `null` to place both wheels automatically on the base terrain, or a number for an explicit airborne or platform-height start.
+- `y` is the wheel-axle height. Use `null` to place both wheels automatically on the topmost surface at `x`, or a number for an explicit airborne, ledge, or cave start.
 - `facing` is `1` for right and `-1` for left.
 
-The editor's **Start** tool places an explicit start position. Select the start marker to move it or change its facing in the inspector. A level always has one start, so it cannot be deleted.
+The editor's **Start** tool places an explicit start position. Select the start marker to move it or change its facing in the inspector. A trail always has one start, so it cannot be deleted.
 
 ## Finish: `goal`
 
 The finish is a flower at (goal, finishY), floating 22 units above that point. finishY: null means it stands on the surface below. The run ends when the bike or rider touches the flower, from any side, once every apple is collected. The finish may be left or right of the start.
-
-## Gaps: `gaps`
-
-Each gap removes a section of the main terrain:
-
-```js
-gaps: [
-  [780, 900],
-  [1420, 1550],
-];
-```
-
-The two values are the left and right edges. Gap edges have solid vertical walls and solid corner collision. A rider can ride off the upper lip normally, but can collide with the cliff face after falling into the gap.
-
-For introductory jumps, start around `80–100` units wide. Wider gaps should have a clear downhill approach or launch ramp and a forgiving landing below the takeoff height.
-
-## Elevated platforms: `platforms`
-
-Platforms are independent solid terrain bodies above the main ground:
-
-```js
-platforms: [
-  {
-    points: [
-      [1050, 220],
-      [1210, 185],
-      [1380, 215],
-    ],
-    bottom: [
-      [1070, 260],
-      [1210, 250],
-      [1360, 250],
-    ],
-    material: "brick",
-  },
-];
-```
-
-`points` is the top edge and `bottom` is the underside. Both need at least two points ordered by x.
-
-Each platform supports collision on:
-
-- Its curved top
-- Both side walls
-- Its underside
-- Its corner points
-
-A level can contain any number of platforms, including multiple platforms over the same base-ground region. Platform points follow the same coordinate and smoothing rules as main terrain points.
-
-### Underside: `bottom`
-
-- `bottom` uses the same smoothing as `points`.
-- The first and last top points are the top corners; the first and last bottom points are the bottom corners. Side walls connect them, so corners at different x values produce slanted walls.
-- The underside must stay at least 4 units below the top. Validation reports an error when it crosses.
-  In the editor, the **Island** tool's **Starting thickness** sets the depth of new islands. Double-click an island's top or underside to add a point to that edge, or pick the **Island** tool while an island is selected and click to add points; press `Escape` to return to **Select**. Each edge keeps at least two points.
-
-Keep at least one wheel diameter of visual separation between a platform and the ground. Larger clearances are preferable when the player is expected to pass underneath.
-
-## Authored paths, loops, and overhangs: `paths`
-
-`paths` defines solid ribbons in authored traversal order. Unlike base `points` and platform points, path points are never sorted by x, so a path can be vertical, double back, or close into a loop:
-
-```js
-paths: [
-  {
-    points: [
-      [900, 310],
-      [1040, 190],
-      [1120, 80],
-      [1230, 170],
-      [1190, 310],
-      [1040, 370],
-    ],
-    closed: true,
-    thickness: 28,
-    material: "dirt",
-  },
-];
-```
-
-- `points` describes the centerline of the ribbon and requires at least two points, or three for a closed path.
-- `closed: true` connects the last point back to the first. Do not repeat the first point at the end.
-- `thickness` is the full solid width and must be at least 16.
-- Open paths have solid rounded endpoints; closed paths leave their center empty.
-- Rendering and collision use the same ordered line segments, thickness, joins, and end caps.
-- `gaps` apply only to base terrain. Use multiple open paths when a path needs a break.
-- Objects with `y: null` still anchor to the base heightfield. Give starts, apples, and props an explicit `y` when placing them near a path.
-- Leave generous room in tight bends. A centerline radius smaller than roughly the path thickness plus one wheel radius can be difficult or impossible to ride cleanly.
-
-The editor's **Path / loop** tool creates an open path. Select a path or one of its points to move it, edit its material and thickness, or toggle **Closed loop**. Path points move freely in both axes and retain authored order.
 
 ## Terrain materials
 
@@ -227,7 +161,7 @@ Set the base material with:
 terrain: "grass";
 ```
 
-Set a platform material independently with its `material` property. Available presets are:
+The base material is the default for new blocks; each block sets its own with its `material` property. Available presets are:
 
 | Material | Intended character                       |
 | -------- | ---------------------------------------- |
@@ -251,7 +185,7 @@ apples: [
 ];
 ```
 
-A numeric `y` is the apple's center and allows it to be placed freely in the world, including over gaps or platforms. `y: null` anchors the apple 60 units above the base terrain; do not put a ground-anchored apple inside a gap. The editor's **Apple** tool always places an apple at the exact clicked position.
+A numeric `y` is the apple's center and allows it to be placed freely in the world, including over gaps, on ledges, or in caves. `y: null` anchors the apple 60 units above the topmost surface at `x`; do not put a ground-anchored apple over a gap. The editor's **Apple** tool always places an apple at the exact clicked position.
 
 ## Props
 
@@ -263,7 +197,7 @@ props: [
 ];
 ```
 
-Available prop types are `tree`, `pine`, `bush`, `fence`, `rock`, `boulder`, `flowers`, `stump`, `cactus`, `crystal`, and `sign`. `y: null` anchors a prop to the base terrain; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front`: `back`-layer props are drawn behind the terrain as well as the gameplay, while `front`-layer props are drawn in front of the gameplay.
+Available prop types are `tree`, `pine`, `bush`, `fence`, `rock`, `boulder`, `flowers`, `stump`, `cactus`, `crystal`, and `sign`. `y: null` anchors a prop to the topmost surface at `x`; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front`: `back`-layer props are drawn behind the terrain as well as the gameplay, while `front`-layer props are drawn in front of the gameplay.
 
 A `sign` prop carries an optional `text` string that is drawn on its board with the game's pixel font. Text is limited to 8 characters; supported characters are `A`–`Z`, `0`–`9`, space, and `→` `/` `.` `!` `+` `-` `:` `×`. Anything else draws as `#`, and longer text is cut off.
 
@@ -280,7 +214,7 @@ spikes: [
 ];
 ```
 
-- `x` and `y` are the center of the spike in world space. A missing or `null` `y` rests the spike on the base terrain.
+- `x` and `y` are the center of the spike in world space. A missing or `null` `y` rests the spike on the topmost surface at `x`.
 - `radius` is the distance from the center to the spike tips, between `8` and `64` (default `18`). Only the inner 80% is lethal, so grazing a tip is forgiven.
 - `spin` is rotations per second. Positive values spin clockwise, negative values spin counter-clockwise, and `0` keeps the spike still. Spin is purely visual and does not change the hit area.
 
@@ -321,37 +255,6 @@ Both are optional, and each is independent of the other.
 
 The theme sets the shapes and the time of day sets the colours, so all combinations work.
 
-## Blocks: `terrainBlocks`
-
-`terrainBlocks` is the editable terrain: a list of blocks, each a material and one or more regions, where each region is a closed outer boundary and any number of holes.
-
-```js
-terrainBlocks: [
-  {
-    id: 'ground',
-    material: 'sand',
-    regions: [
-      { outer: boundary, inner: [hole, ...] }
-    ]
-  }
-]
-```
-
-- `id`: the block's identity, used for invalidation. Any stable string.
-- `material`: one of the terrain materials. It drives the fill, strata, edge, surface and spray.
-- `regions`: the shapes that are solid. A region is `outer` plus `inner` holes; a block with two regions is two separate pieces that share a material.
-
-A **boundary** is a ring of nodes, and each node has:
-
-- `id`, `x`, `y`.
-- `mode`: `corner`, `smooth`, or `independent`. A `smooth` node bends the edge between its neighbours; a `corner` keeps it angular.
-- `in` and `out`: the curve handles for the edges either side, or `null` for straight ones.
-- `edge`: `straight` or `curve`.
-
-Node and boundary ids only need to be unique within the level, and hand-written coordinates are fine. Normalization fills in anything missing, so a minimal block only needs its `outer` nodes.
-
-`points`, `gaps`, `platforms` and `paths` are the older terrain format. They still load and can be mixed with blocks, and the editor's **CONVERT TO BLOCKS** turns them into blocks. Once a level is fully on blocks the older fields are not needed.
-
 ## Props: `flip` and wall props
 
 Props sit under `props`, alongside the `terrainBlocks` terrain.
@@ -384,35 +287,32 @@ Sign text wraps at word boundaries onto up to 4 lines of 10 characters, and the 
 medals: { gold: 11, silver: 14.5, bronze: 19 }
 ```
 
-These optional target times are in seconds. The results screen and level cards award the best medal whose time the run beats or matches. Times must be positive and ordered `gold ≤ silver ≤ bronze`. Any medal can be left out, and an invalid `medals` object is dropped during normalization. The official trails' gold times are based on the replay bot's finishing times in `tests/replays/`.
+These optional target times are in seconds. The results screen and trail cards award the best medal whose time the run beats or matches. Times must be positive and ordered `gold ≤ silver ≤ bronze`. Any medal can be left out, and an invalid `medals` object is dropped during normalization. The official trails' gold times are based on the replay bot's finishing times in `tests/replays/`.
 
 ## Recommended authoring workflow
 
-1. Build the base route with `points` and no gaps.
+1. Build the base route as one ground block, with no gaps.
 2. Ride it in both directions and verify every slope is recoverable.
-3. Add gaps one at a time, beginning around `80–100` units wide.
-4. Add elevated platforms and authored paths; test tops, undersides, walls, corners, and path caps in both directions.
+3. Cut gaps one at a time, beginning around `80–100` units wide.
+4. Add ledges, caves, and loops; test tops, undersides, walls, and corners in both directions.
 5. Place apples only after the route is stable.
 6. Add props, materials, and weather last so they do not hide gameplay problems.
 7. Test at low speed, full speed, and after imperfect landings—not only with an ideal run.
 
 ## Visual editor
 
-Open `editor.html` or choose **Level Editor** from the game dashboard. Individual points can be dragged to reshape a platform. Clicking and dragging inside a platform's filled body moves the complete platform while preserving its shape. The inspector edits its material.
+Open `editor.html` or choose **Trail Editor** from the game dashboard. The **Block** tool draws a new block, and the **Cut** tool carves caves, entrances, and gaps out of existing blocks. Drag a block's points and curve handles to reshape it, or drag inside its filled body to move it whole. Double-click an edge to add a point. The inspector edits a block's material, whether an edge is straight or curved, and whether a point is a corner or smooth.
 
 The **Apple**, **Start**, and **Prop** tools place those objects at the exact clicked world position. Select an object to move it numerically or by dragging; the inspector also changes start direction and prop type/layer. Apples and props can be removed, while the required start and finish markers can only be moved.
 
 ## Suggested future format improvement
 
-Platforms could eventually receive stable IDs so objects can attach to a surface:
+Blocks already have stable ids, so objects could eventually attach to a block's surface:
 
 ```js
-platforms: [
-  { id: 'upper-route', points: [[1050, 220], [1380, 215]], bottom: [[1050, 270], [1380, 265]], material: 'brick' }
-],
-collectibles: [
-  { x: 1200, surface: 'upper-route', offset: 60 }
+apples: [
+  { x: 1200, surface: 'ledge', offset: 60 }
 ]
 ```
 
-That would let apples and props follow an elevated surface automatically after its shape changes. Explicit world-space placement already works, but it intentionally remains fixed when nearby terrain is edited.
+That would let apples and props follow a block automatically after its shape changes. Explicit world-space placement already works, but it intentionally remains fixed when nearby terrain is edited.
