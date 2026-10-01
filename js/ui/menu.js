@@ -12,7 +12,7 @@ import { normalizeTrail, validateTrail, medalFor } from '../trail-schema.js';
 import { ACTION_LABELS, keyLabel } from '../input.js';
 import {
   $, session, DEFAULT_BINDINGS, DEFAULT_PREFERENCES, sanitizePreferences,
-  leaderboardTrails, trailKey, trailMarker, timeText
+  leaderboardTrails, trailKey, trailMarker, runTimeText
 } from '../state.js';
 
 // Runs made without a savegame have no name.
@@ -381,7 +381,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     copy.append(name, detail);
     const bestLabel = document.createElement('span');
     bestLabel.className = 'trail-best';
-    bestLabel.textContent = best === null ? '—' : timeText(best);
+    bestLabel.textContent = best === null ? '—' : runTimeText(best);
     const medal = best === null ? null : medalFor(trail.medals, best);
     if (medal) {
       bestLabel.dataset.medal = medal;
@@ -450,7 +450,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     copy.append(name, detail);
     const time = document.createElement('span');
     time.className = 'leaderboard-time';
-    time.textContent = timeText(run.time);
+    time.textContent = runTimeText(run.time);
     row.append(rankLabel, avatar, copy, time);
     return row;
   }

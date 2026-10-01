@@ -99,6 +99,12 @@ export function timeText(seconds) {
   return Math.floor(tenths / 600) + ':' + String(Math.floor(tenths / 10) % 60).padStart(2, '0') + '.' + (tenths % 10);
 }
 
+/** A finished run's time to the millisecond, e.g. 1:04.517. */
+export function runTimeText(seconds) {
+  const ms = Math.round(seconds * 1000);
+  return Math.floor(ms / 60000) + ':' + String(Math.floor(ms / 1000) % 60).padStart(2, '0') + '.' + String(ms % 1000).padStart(3, '0');
+}
+
 export function deltaText(seconds) {
   const sign = seconds < 0 ? '−' : '+';
   return sign + Math.abs(seconds).toFixed(2);

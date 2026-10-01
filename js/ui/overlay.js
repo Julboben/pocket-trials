@@ -1,6 +1,6 @@
 // @ts-check
 // In-game DOM: HUD pills, toast, pause screen and the results screen.
-import { $, timeText, deltaText } from "../state.js";
+import { $, timeText, runTimeText, deltaText } from "../state.js";
 import { MEDALS } from "../trail-schema.js";
 
 export function createOverlay() {
@@ -115,7 +115,7 @@ export function createOverlay() {
     $("overlay-title").textContent =
       record && previousBest !== null ? "New Best!" : "Goal Reached!";
     $("results").hidden = false;
-    $("results-time").textContent = timeText(time);
+    $("results-time").textContent = runTimeText(time);
     const delta = $("results-delta");
     delta.textContent =
       previousBest === null ? "FIRST FINISH" : deltaText(time - previousBest);
@@ -130,7 +130,7 @@ export function createOverlay() {
         : "NO MEDAL"
       : "";
     $("results-rank").textContent = rank ? "#" + rank : "—";
-    $("results-best").textContent = timeText(record ? time : previousBest);
+    $("results-best").textContent = runTimeText(record ? time : previousBest);
     $("results-flips").textContent = String(result.flips);
     const targets = medals
       ? MEDALS.map((name) => {
@@ -169,7 +169,7 @@ export function createOverlay() {
     requestAnimationFrame(() => $("primary").focus({ preventScroll: true }));
     announce(
       "Trail complete in " +
-        timeText(time) +
+        runTimeText(time) +
         ". All " +
         result.apples +
         " apples collected." +
