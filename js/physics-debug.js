@@ -33,7 +33,7 @@ export function createPhysicsDebugger({ enabled, step, inspectPoint }) {
     if (!enabled || metadata.state !== 'running') return;
     frame = {
       time: round(metadata.time),
-      level: metadata.level,
+      trail: metadata.trail,
       source: metadata.source,
       facing: metadata.facing,
       throttle: round(metadata.throttle),
@@ -92,8 +92,7 @@ export function createPhysicsDebugger({ enabled, step, inspectPoint }) {
       penetration: round(contact.penetration),
       nx: round(contact.nx),
       ny: round(contact.ny),
-      curveSlope: round(contact.slope),
-      segmentSlope: round(contact.segmentSlope),
+      slope: round(contact.slope),
       correctionX: round(point.x - beforeX),
       correctionY: round(point.y - beforeY),
       velocityBeforeX: round(beforeVx / step),

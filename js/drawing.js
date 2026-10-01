@@ -17,8 +17,8 @@ const GROUND_ALIGNED_PROP_SPANS = {
  * not an island floating over it, and a prop on a cave floor follows that
  * floor rather than the ceiling.
  */
-function surfaceAt(level, x, referenceY) {
-  const surface = terrainAt(level, x, referenceY);
+function surfaceAt(trail, x, referenceY) {
+  const surface = terrainAt(trail, x, referenceY);
   return surface?.solid ? surface.y : null;
 }
 
@@ -26,21 +26,21 @@ function surfaceAt(level, x, referenceY) {
  * The height a prop stands at: its own y when it has one, otherwise the surface
  * directly beneath it.
  */
-function propGroundHeight(level, prop) {
+function propGroundHeight(trail, prop) {
   if (Number.isFinite(prop.y)) return prop.y;
-  return surfaceAt(level, prop.x, null);
+  return surfaceAt(trail, prop.x, null);
 }
 
 /**
  * Whether a prop is planted on the terrain or deliberately floating.
  *
  * A prop the author dragged onto a surface is planted and follows the slope
- * under it. A prop left in mid-air keeps a level base, which is what makes a
+ * under it. A prop left in mid-air keeps a trail base, which is what makes a
  * floating prop read as floating.
  */
-function isPlanted(level, prop) {
+function isPlanted(trail, prop) {
   if (!Number.isFinite(prop.y)) return true;
-  const below = surfaceAt(level, prop.x, prop.y);
+  const below = surfaceAt(trail, prop.x, prop.y);
   if (below === null) return false;
   return Math.abs(below - prop.y) <= PLANTED_TOLERANCE;
 }
@@ -62,20 +62,20 @@ const PLANTED_TOLERANCE = 24;
  */
 const PROP_SLOPE_WINDOW = 90;
 
-function propSlope(level, prop, reference) {
+function propSlope(trail, prop, reference) {
   const [left, right] = GROUND_ALIGNED_PROP_SPANS[prop.type];
-  const a = surfaceAt(level, prop.x + left, reference);
-  const b = surfaceAt(level, prop.x + right, reference);
+  const a = surfaceAt(trail, prop.x + left, reference);
+  const b = surfaceAt(trail, prop.x + right, reference);
   if (a === null || b === null) return null;
   return (b - a) / (right - left);
 }
 
-export function propAlignmentSlope(level, prop) {
+export function propAlignmentSlope(trail, prop) {
   if (!GROUND_ALIGNED_PROP_SPANS[prop.type]) return 0;
-  const standing = propGroundHeight(level, prop);
+  const standing = propGroundHeight(trail, prop);
   if (standing === null) return 0;
-  if (!isPlanted(level, prop)) return 0;
-  const slope = propSlope(level, prop, standing - PROP_SLOPE_WINDOW);
+  if (!isPlanted(trail, prop)) return 0;
+  const slope = propSlope(trail, prop, standing - PROP_SLOPE_WINDOW);
   return slope === null ? 0 : slope;
 }
 
@@ -86,14 +86,14 @@ export function propDrawAngle(type, slope = 0) {
 }
 
 // How far the camera can climb while the sun still sinks a little in the sky;
-// above that it holds its place so it stays in view on tall levels.
+// above that it holds its place so it stays in view on tall trails.
 const SUN_CLIMB_LIMIT = 600;
 // Vertical spacing, in cloud-parallax space, of the cloud rows repeated above
 // the first one as the camera climbs.
 const CLOUD_ROW_SPACING = 180;
 
 export const TIMES_OF_DAY = ["noon", "morning", "evening", "night"];
-// The time of day a level gets before one is chosen.
+// The time of day a trail gets before one is chosen.
 export const DEFAULT_TIME_OF_DAY = "noon";
 // The colour set every preset starts from and overrides.
 const BASE_TIME = {
@@ -181,9 +181,9 @@ const TIME_PRESETS = {
   },
 };
 
-/** The sky, hill and light colours a level is drawn with. */
-export function timeOfDayPalette(level = {}) {
-  return TIME_PRESETS[level.timeOfDay] || TIME_PRESETS[DEFAULT_TIME_OF_DAY];
+/** The sky, hill and light colours a trail is drawn with. */
+export function timeOfDayPalette(trail = {}) {
+  return TIME_PRESETS[trail.timeOfDay] || TIME_PRESETS[DEFAULT_TIME_OF_DAY];
 }
 
 function mixHex(a, b, t) {
@@ -212,8 +212,8 @@ const BACKDROP_COLORS = {
   city: { far: "#9eaab0", near: "#7d8c90", tree: "#6f7d82", window: "#b9c7ca" },
 };
 
-function backdropColors(level, time) {
-  const theme = BACKDROP_COLORS[level.backdrop];
+function backdropColors(trail, time) {
+  const theme = BACKDROP_COLORS[trail.backdrop];
   if (!theme)
     return {
       far: time.far,
@@ -629,15 +629,15 @@ const wallFits = new WeakMap();
  * for vines, how far they can hang before reaching the ground below.
  * Cached per prop until it moves or the terrain changes.
  */
-export function propWallFit(level, prop) {
+export function propWallFit(trail, prop) {
   if (!WALL_PROPS.has(prop.type)) return null;
-  const geometry = terrainGeometry(level);
+  const geometry = terrainGeometry(trail);
   const cached = wallFits.get(prop);
   if (cached && cached.x === prop.x && cached.y === prop.y
     && cached.type === prop.type && cached.geometry === geometry) return cached.fit;
 
-  const y = Number.isFinite(prop.y) ? prop.y : terrainAt(level, prop.x).y;
-  const solidAt = (px, py) => terrainCollisionsAt(level, px, py, 1).length > 0;
+  const y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
+  const solidAt = (px, py) => terrainCollisionsAt(trail, px, py, 1).length > 0;
   // Vines sit on a cliff's top corner, so look a little below it for the face.
   const sampleY = y + (prop.type === "vines" ? 12 : 0);
   let side = 0;
@@ -676,17 +676,17 @@ export function propWallFit(level, prop) {
   return fit;
 }
 
-export function propGroundOffset(level, prop) {
-  const standing = propGroundHeight(level, prop);
+export function propGroundOffset(trail, prop) {
+  const standing = propGroundHeight(trail, prop);
   if (standing === null) return () => 0;
   const originY = Number.isFinite(prop.y) ? prop.y : standing;
-  // A floating prop keeps a level base. A planted one follows the ground across
+  // A floating prop keeps a trail base. A planted one follows the ground across
   // its whole width, and its search reaches above its anchor so the uphill end
   // of a sloping footprint is found.
-  if (!isPlanted(level, prop)) return () => 0;
+  if (!isPlanted(trail, prop)) return () => 0;
   const reference = standing - PROP_SLOPE_WINDOW;
   return (localX) => {
-    const y = surfaceAt(level, prop.x + localX, reference);
+    const y = surfaceAt(trail, prop.x + localX, reference);
     return y === null ? 0 : y - originY;
   };
 }

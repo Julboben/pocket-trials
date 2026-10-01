@@ -1,7 +1,7 @@
-// Unified terrain geometry: the authoritative editable model, the curve tools the
+// Terrain geometry: the authoritative editable model, the curve tools the
 // editor drives, and the deterministic compilation the runtime consumes.
 //
-// The editable model is deliberately small. A level holds a flat list of
+// The editable model is deliberately small. A trail holds a flat list of
 // `terrainBlocks`; each block owns a material and one or more solid regions; each
 // region owns one closed outer boundary and any number of closed inner boundaries
 // (empty spaces). Nesting is purely geometric — a block inside another block's
@@ -18,7 +18,7 @@
 export const CURVE_TOLERANCE = 0.2;
 
 // Recursion limit for adaptive subdivision, so a pathological handle placement
-// cannot stall a frame. 8 levels is 256 segments for one edge.
+// cannot stall a frame. 8 trails is 256 segments for one edge.
 export const MAX_SUBDIVISION = 8;
 
 // Geometry is normalized to this many decimals before it is compared or saved.
@@ -49,7 +49,7 @@ const SIDE_PROBE = 1e-3;
 let idCounter = 0;
 
 // Stable, collision-resistant enough for a per-document identifier. Ids only
-// need to be unique inside one level, and they are regenerated deterministically
+// need to be unique inside one trail, and they are regenerated deterministically
 // by normalizeBlock when a file omits them.
 export function nextId(prefix) {
   idCounter += 1;
@@ -790,7 +790,7 @@ function survivingCurve(edge) {
 }
 
 // ---------------------------------------------------------------------------
-// Block level operations
+// Block trail operations
 // ---------------------------------------------------------------------------
 
 /**
@@ -1048,7 +1048,7 @@ function ringEdges(points, ring) {
 /**
  * Visit every pair of edges whose bounding boxes overlap, sweeping in x, and
  * stop as soon as `crosses` says yes. Validation runs on every edit, so this
- * keeps a large converted ground line from costing a quadratic scan per frame.
+ * keeps a long, finely sampled block from costing a quadratic scan per frame.
  */
 function anyPair(edges, crosses) {
   const sorted = edges.slice().sort((a, b) => a.left - b.left);
@@ -1123,7 +1123,7 @@ export function validateBlock(block) {
     if (boundariesOverlap(region)) error(`${label} has boundaries that cross each other.`);
   });
   // Whether a block is buried under other blocks depends on the combined
-  // terrain, so it is reported by level validation from the compiled union.
+  // terrain, so it is reported by trail validation from the compiled union.
   return messages;
 }
 

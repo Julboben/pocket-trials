@@ -31,7 +31,7 @@ for (const code of [...js.matchAll(/setTool\('([^']+)'\)/g)].map(match => match[
 }
 
 // The new inspector controls must be wired up in both files.
-for (const id of ['selection-edge', 'selection-node', 'clear-legacy-terrain', 'legacy-terrain-actions', 'legacy-terrain-note', 'legacy-terrain-summary']) {
+for (const id of ['selection-edge', 'selection-node']) {
   if (!htmlIds.has(id)) fail(`#${id} is missing from editor.html`);
   if (!usedIds.has(id)) fail(`#${id} is never referenced by editor.js`);
 }

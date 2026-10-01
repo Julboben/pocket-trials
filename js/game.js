@@ -1,13 +1,13 @@
 // The game loop and state machine: loads trails, steps the ride at a fixed
 // rate, turns ride events into sound, effects and UI, and saves results.
 import { STEP, MAX_STEPS_PER_FRAME, clamp } from './config.js';
-import { levels, customLevelEntries, readPlaytestLevel, PLAYTEST_EXIT_MESSAGE } from './levels.js';
+import { trails, customTrailEntries, readPlaytestTrail, PLAYTEST_EXIT_MESSAGE } from './trails.js';
 import { createAudio } from './audio.js';
 import { createPhysicsDebugger } from './physics-debug.js';
-import { terrainAt, terrainSegmentSlopeAt } from './terrain.js';
+import { terrainAt } from './terrain.js';
 import { createRide, stepRide, bikeSpeed, interpolateRide, RIDE_VERSION } from './ride.js';
 import { encodeInputs, decodeInputs } from './replay-codec.js';
-import { medalFor, normalizeLevel } from './level-schema.js';
+import { medalFor, normalizeTrail } from './trail-schema.js';
 import {
   readBest, saveBest, readLeaderboard, recordLeaderboardRun, readGhost, saveGhost,
   nameSave, saveProgress as persistProgress
@@ -33,7 +33,7 @@ export function startGame() {
   const overlay = createOverlay();
   const sounds = createAudio(() => {
     const ride = session.ride;
-    return { state: session.state, rear: ride?.rear, front: ride?.front, throttle: ride?.throttle ?? 0, brakePressure: ride?.brakePressure ?? 0, weather: session.level?.weather };
+    return { state: session.state, rear: ride?.rear, front: ride?.front, throttle: ride?.throttle ?? 0, brakePressure: ride?.brakePressure ?? 0, weather: session.trail?.weather };
   });
   const input = createInput({
     element: game,
@@ -43,8 +43,8 @@ export function startGame() {
   });
   const menu = createMenu({
     sounds, input,
-    onStartLevel: index => startSelectedLevel(() => loadLevel(index)),
-    onStartCustom: index => startSelectedLevel(() => loadCustomLevel(index), false),
+    onStartTrail: index => startSelectedTrail(() => loadTrail(index)),
+    onStartCustom: index => startSelectedTrail(() => loadCustomTrail(index), false),
     onClose: closeMainMenu,
     onPreferences: applyPreferences
   });
@@ -54,15 +54,10 @@ export function startGame() {
     enabled: physicsDebugEnabled,
     step: STEP,
     inspectPoint(point, round) {
-      const ground = terrainAt(session.level, point.x, point.y);
+      const ground = terrainAt(session.trail, point.x, point.y);
       return {
         groundY: round(ground.y),
-        curveSlope: round(ground.slope),
-        // The legacy segment slope only exists while a ground line does; a trail
-        // rebuilt from blocks reports the same slope from the compiled surface.
-        segmentSlope: round(Array.isArray(session.level.points)
-          ? terrainSegmentSlopeAt(session.level.points, point.x)
-          : ground.slope)
+        slope: round(ground.slope)
       };
     }
   });
@@ -90,8 +85,8 @@ export function startGame() {
   /** @type {{ ride: any, inputs: any[], index: number, data: any } | null} */
   let ghost = null;
   let wakeLock = null;
-  const playtestData = readPlaytestLevel();
-  const playtestLevel = playtestData ? normalizeLevel(playtestData) : null;
+  const playtestData = readPlaytestTrail();
+  const playtestTrail = playtestData ? normalizeTrail(playtestData) : null;
   /** Best play-test run; kept in memory so edited trails never reach saved ghosts or leaderboards. */
   let playtestBest = null;
 
@@ -158,7 +153,7 @@ export function startGame() {
       // Esc (or the browser's own UI) left fullscreen: treat it like Esc in-game.
       if (!requested && !menu.isOpen() && session.gameLoopStarted) {
         // A playtest ride only pauses; showMainMenu() would exit to the editor.
-        if (session.levelSource === 'playtest') pauseGame();
+        if (session.trailSource === 'playtest') pauseGame();
         else { sounds.escape(); showMainMenu(); }
       }
     }
@@ -188,30 +183,30 @@ export function startGame() {
 
   function saveProgress() {
     const { saveGame } = session;
-    if (!saveGame || session.levelSource !== 'official') return;
-    session.savedLevel = session.levelIndex;
-    saveGame.level = session.levelIndex;
-    saveGame.unlocked = session.unlockedLevel;
+    if (!saveGame || session.trailSource !== 'official') return;
+    session.savedTrail = session.trailIndex;
+    saveGame.trail = session.trailIndex;
+    saveGame.unlocked = session.unlockedTrail;
     session.saveSlots[session.activeSaveSlot] = saveGame;
-    persistProgress(session.activeSaveSlot, session.levelIndex, session.unlockedLevel, levels.length);
+    persistProgress(session.activeSaveSlot, session.trailIndex, session.unlockedTrail, trails.length);
   }
 
   // --- Trails ----------------------------------------------------------------
 
-  function loadGhost(level) {
+  function loadGhost(trail) {
     ghost = null;
     if (session.preferences.ghost !== 'on') return;
-    const data = session.levelSource === 'playtest' ? playtestBest : readGhost(trailKey(currentTrailEntry()));
+    const data = session.trailSource === 'playtest' ? playtestBest : readGhost(trailKey(currentTrailEntry()));
     if (!data || data.physics !== RIDE_VERSION) return;
     const inputs = decodeInputs(data.inputs);
-    const ride = createRide(level, { seed: data.seed });
+    const ride = createRide(trail, { seed: data.seed });
     // Play the idle lead-in now so the ghost sets off with the player.
     for (let index = 0; index < data.startStep && index < inputs.length; index++) stepRide(ride, inputs[index]);
     ghost = { ride, inputs, index: data.startStep, data };
   }
 
-  function initializeLevel(trail, marker) {
-    session.level = trail;
+  function initializeTrail(trail, marker) {
+    session.trail = trail;
     const ride = createRide(trail, { seed: (Math.random() * 2 ** 31) >>> 0 });
     session.ride = ride;
     recorded = []; startStep = 0; flips = 0;
@@ -226,23 +221,23 @@ export function startGame() {
     overlay.setTimer(0);
   }
 
-  function loadLevel(index) {
-    index = clamp(index, 0, session.unlockedLevel);
-    session.levelSource = 'official'; session.customLevelIndex = -1; session.levelIndex = index;
-    initializeLevel(levels[index], String(index + 1).padStart(2, '0'));
+  function loadTrail(index) {
+    index = clamp(index, 0, session.unlockedTrail);
+    session.trailSource = 'official'; session.customTrailIndex = -1; session.trailIndex = index;
+    initializeTrail(trails[index], String(index + 1).padStart(2, '0'));
     saveProgress();
   }
 
-  function loadCustomLevel(index) {
-    const entry = customLevelEntries[index];
+  function loadCustomTrail(index) {
+    const entry = customTrailEntries[index];
     if (!entry) return;
-    session.levelSource = 'custom'; session.customLevelIndex = index;
-    initializeLevel(entry.level, `C${String(index + 1).padStart(2, '0')}`);
+    session.trailSource = 'custom'; session.customTrailIndex = index;
+    initializeTrail(entry.trail, `C${String(index + 1).padStart(2, '0')}`);
   }
 
-  function loadPlaytestLevel() {
-    session.levelSource = 'playtest'; session.customLevelIndex = -1;
-    initializeLevel(playtestLevel, 'TEST');
+  function loadPlaytestTrail() {
+    session.trailSource = 'playtest'; session.customTrailIndex = -1;
+    initializeTrail(playtestTrail, 'TEST');
   }
 
   function exitPlaytest() {
@@ -265,9 +260,9 @@ export function startGame() {
   const focusGame = () => game.focus({ preventScroll: true });
 
   function startFresh() {
-    if (session.levelSource === 'playtest') loadPlaytestLevel();
-    else if (session.levelSource === 'custom') loadCustomLevel(session.customLevelIndex);
-    else loadLevel(session.levelIndex);
+    if (session.trailSource === 'playtest') loadPlaytestTrail();
+    else if (session.trailSource === 'custom') loadCustomTrail(session.customTrailIndex);
+    else loadTrail(session.trailIndex);
     setState('running'); focusGame();
   }
 
@@ -287,7 +282,7 @@ export function startGame() {
   }
 
   function showMainMenu() {
-    if (session.levelSource === 'playtest') { exitPlaytest(); return; }
+    if (session.trailSource === 'playtest') { exitPlaytest(); return; }
     if (session.state !== 'menu') session.stateBeforeMenu = session.state;
     session.state = 'menu';
     input.clear();
@@ -311,7 +306,7 @@ export function startGame() {
     } else setState(previous === 'paused' ? 'paused' : 'running');
   }
 
-  function startSelectedLevel(load, requiresSave = true) {
+  function startSelectedTrail(load, requiresSave = true) {
     if (requiresSave && !session.saveGame) return;
     menu.close();
     game.classList.remove('menu-open');
@@ -348,7 +343,7 @@ export function startGame() {
     if (previousBest === null || time < previousBest) {
       playtestBest = { time, splits: ride.splits.slice(), startStep, seed: ride.seed, inputs: encodeInputs(recorded), physics: RIDE_VERSION };
     }
-    const medals = session.level.medals;
+    const medals = session.trail.medals;
     overlay.showResults({
       official: false, time, previousBest, rank: null, medals, medal: medalFor(medals, time), flips,
       apples: ride.apples.length,
@@ -368,7 +363,7 @@ export function startGame() {
     if (!save) return null;
     if (!save.name || !save.playerId) {
       const typed = window.prompt('Pick a name for the online leaderboard (max 16 characters):', save.name || '');
-      const updated = nameSave(session.activeSaveSlot, typed, levels.length);
+      const updated = nameSave(session.activeSaveSlot, typed, trails.length);
       if (!updated) return null;
       save.name = updated.name;          // session.saveGame is the same object as the slot entry
       save.playerId = updated.playerId;
@@ -377,33 +372,33 @@ export function startGame() {
   }
 
   function finishRun(ride) {
-    if (session.levelSource === 'playtest') { finishPlaytestRun(ride); return; }
+    if (session.trailSource === 'playtest') { finishPlaytestRun(ride); return; }
     const entry = currentTrailEntry();
     const key = trailKey(entry);
     const time = ride.elapsed;
-    const official = session.levelSource === 'official';
+    const official = session.trailSource === 'official';
     const { saveGame } = session;
     const previousBest = official
-      ? (saveGame ? readBest(session.activeSaveSlot, session.levelIndex, levels.length) : null)
+      ? (saveGame ? readBest(session.activeSaveSlot, session.trailIndex, trails.length) : null)
       : readLeaderboard(key)[0]?.time ?? null;
     const rank = recordLeaderboardRun(key, {
       time, rider: session.rider, name: saveGame?.name,
       slot: saveGame ? session.activeSaveSlot : null, saveId: saveGame?.createdAt
     });
     if (official) {
-      session.unlockedLevel = Math.max(session.unlockedLevel, Math.min(session.levelIndex + 1, levels.length - 1));
+      session.unlockedTrail = Math.max(session.unlockedTrail, Math.min(session.trailIndex + 1, trails.length - 1));
       saveProgress();
       if (saveGame && (previousBest === null || time < previousBest)) {
-        saveBest(session.activeSaveSlot, session.levelIndex, time, levels.length);
-        saveGame.bestTimes[session.levelIndex] = time;
+        saveBest(session.activeSaveSlot, session.trailIndex, time, trails.length);
+        saveGame.bestTimes[session.trailIndex] = time;
       }
     }
     const storedGhost = readGhost(key);
     if (!storedGhost || storedGhost.physics !== RIDE_VERSION || time < storedGhost.time) {
       saveGhost(key, { time, splits: ride.splits.slice(), startStep, seed: ride.seed, inputs: encodeInputs(recorded), physics: RIDE_VERSION });
     }
-    const medals = session.level.medals;
-    const last = session.levelIndex === levels.length - 1;
+    const medals = session.trail.medals;
+    const last = session.trailIndex === trails.length - 1;
     overlay.showResults({
       official, time, previousBest, rank, medals, medal: medalFor(medals, time), flips,
       apples: ride.apples.length,
@@ -484,7 +479,7 @@ export function startGame() {
     const thunder = effects.stepWeather();
     if (thunder) sounds.thunder(thunder.intensity, thunder.distance);
     landingSoundCooldown = Math.max(0, landingSoundCooldown - STEP);
-    physicsDebug.begin({ state: session.state, time: ride.elapsed, level: session.level.name, source: session.levelSource, facing: ride.facing, throttle: ride.throttle }, ride.rear, ride.front);
+    physicsDebug.begin({ state: session.state, time: ride.elapsed, trail: session.trail.name, source: session.trailSource, facing: ride.facing, throttle: ride.throttle }, ride.rear, ride.front);
 
     // Holding restart keeps the bike on the start line with the clock stopped.
     const holding = input.held('restart');
@@ -592,8 +587,8 @@ export function startGame() {
   });
 
   $('primary').addEventListener('click', () => {
-    if (session.state === 'won' && session.levelSource === 'official') {
-      loadLevel((session.levelIndex + 1) % levels.length);
+    if (session.state === 'won' && session.trailSource === 'official') {
+      loadTrail((session.trailIndex + 1) % trails.length);
       setState('running'); focusGame();
     } else startFresh();
   });
@@ -621,9 +616,9 @@ export function startGame() {
   applyPreferences();
   handleFullscreenChange();
   renderer.resize();
-  if (playtestLevel) {
+  if (playtestTrail) {
     $('menu').setAttribute('aria-label', 'Back to the editor');
-    startSelectedLevel(loadPlaytestLevel, false);
+    startSelectedTrail(loadPlaytestTrail, false);
   } else showMainMenu();
   requestAnimationFrame(frame);
 }

@@ -1,14 +1,14 @@
 // Boots the real editor against a stub DOM, drives a set of gestures, and
 // writes a JSON report to stdout.
 //
-// It runs as its own process because levels.js caches the level catalog at
-// import time: two boots in one process would silently share a level, so the
-// parent starts one child per level shape.
+// It runs as its own process because trails.js caches the trail catalog at
+// import time: two boots in one process would silently share a trail, so the
+// parent starts one child per trail shape.
 import { buildDom, createContextStub, installGlobals } from './editor-harness.mjs';
-import { loadLevelShape } from './editor-fixture.mjs';
+import { loadTrailShape } from './editor-fixture.mjs';
 
-const kind = process.env.TSC_ENV_LEVEL || 'legacy';
-const { html, level } = loadLevelShape(kind);
+const kind = process.env.TSC_ENV_TRAIL || 'blocks';
+const { html, trail } = loadTrailShape(kind);
 
 // buildDom installs the globals and parses the markup, so elements it created
 // keep their markup state, such as the playtest dialog starting hidden.
@@ -20,11 +20,11 @@ const canvas = dom.element('editor-canvas');
 const context = createContextStub();
 canvas.getContext = () => context;
 dom.element('canvas-wrap');
-dom.element('level-picker');
+dom.element('trail-picker');
 
 globalThis.fetch = async url => (String(url).includes('catalog.json')
-  ? { ok: true, json: async () => ({ schemaVersion: 1, levels: [{ id: 't1', file: 'custom/t1.json', name: 'Test' }] }) }
-  : { ok: true, json: async () => level });
+  ? { ok: true, json: async () => ({ schemaVersion: 1, trails: [{ id: 't1', file: 'custom/t1.json', name: 'Test' }] }) }
+  : { ok: true, json: async () => trail });
 
 // Window listeners are recorded so keyboard shortcuts can be driven.
 const windowListeners = new Map();
@@ -45,7 +45,7 @@ const key = (keyName, extra = {}) => {
   document.activeElement = canvas;
   for (const handler of windowListeners.get('keydown') || []) handler({ key: keyName, code: '', preventDefault() {}, ...extra });
 };
-const current = () => JSON.parse(document.getElementById('level-json').value);
+const current = () => JSON.parse(document.getElementById('trail-json').value);
 const toolButton = name => [...document.querySelectorAll('[data-tool]')].find(button => button.dataset.tool === name);
 const drag = (from, to, extra = {}) => {
   fire('pointerdown', { ...world(...from), ...extra });
@@ -54,7 +54,7 @@ const drag = (from, to, extra = {}) => {
 };
 
 // Precise interactions on a plain slab, reported on their own because the
-// generic gestures below scramble the level.
+// generic gestures below scramble the trail.
 if (kind === 'interact') {
   // Find the camera: an apple placed at screen 0,0 lands at the camera's world
   // position (zoom is 1). The placement is undone, so it leaves no trace.
@@ -158,7 +158,7 @@ if (kind === 'interact') {
   process.exit(0);
 }
 
-const report = { loaded: JSON.parse(document.getElementById('level-json').value), errors: [] };
+const report = { loaded: JSON.parse(document.getElementById('trail-json').value), errors: [] };
 
 // A drag, so the editor actually renders rather than returning early. Game art
 // is on by default: the terrain comes from the game's rasteriser.
@@ -223,47 +223,11 @@ run('camera', () => {
 });
 run('pinch', () => { fire('wheel', { deltaX: 0, deltaY: -10, deltaMode: 0, ctrlKey: true }); });
 
-// The CLEAR LEGACY TERRAIN affordance: whether it is offered for this level,
-// and whether pressing it actually removes the older terrain.
-{
-  const actions = document.getElementById('legacy-terrain-actions');
-  const button = document.getElementById('clear-legacy-terrain');
-  report.clearOffered = actions.hidden === false;
-  report.clearSummary = document.getElementById('legacy-terrain-summary').textContent;
-  // The predicate is checked directly: it gates this button, and it once
-  // returned an array length rather than a boolean.
-  const { hasLegacyTerrain } = await import('../../js/level-schema.js');
-  const editorLevel = JSON.parse(document.getElementById('level-json').value);
-  report.hasLegacy = hasLegacyTerrain(editorLevel);
-  report.hasLegacyType = typeof report.hasLegacy;
-  if (report.clearOffered) {
-    // confirm() is a browser dialog the stub does not have.
-    let confirmed = false;
-    globalThis.confirm = () => confirmed;
-    const before = JSON.parse(document.getElementById('level-json').value);
-    report.blocksBefore = before.terrainBlocks.length;
-    button.click();
-    report.refusedWithoutConfirm = Array.isArray(JSON.parse(document.getElementById('level-json').value).points);
-    confirmed = true;
-    button.click();
-    const after = JSON.parse(document.getElementById('level-json').value);
-    report.pointsAfter = after.points;
-    report.blocksAfter = after.terrainBlocks.length;
-    report.clearedOffered = document.getElementById('legacy-terrain-actions').hidden === true;
-    context.calls.length = 0;
-    fire('pointerdown', world(300, 200));
-    fire('pointermove', world(420, 300));
-    fire('pointerup');
-    report.rendersAfterClear = context.calls.length > 0;
-  }
-}
-
-// A refusal has to be visible, and it has to say what is wrong. A trail whose
-// finish sits past the end of its terrain is the case that arises when the
-// older ground is cleared before the blocks reach the old finish.
-if (process.env.TSC_ENV_LEVEL === 'badgoal') {
+// A refusal has to be visible, and it has to say what is wrong, here for a
+// trail whose finish sits past the end of its terrain.
+if (process.env.TSC_ENV_TRAIL === 'badgoal') {
   const button = document.getElementById('play-test');
-  const before = document.getElementById('level-json').value.length;
+  const before = document.getElementById('trail-json').value.length;
   button.click();
   const items = [...document.getElementById('validation-list').children].map(node => node.textContent);
   report.refused = items.some(text => text.includes('before play testing'));
@@ -274,7 +238,7 @@ if (process.env.TSC_ENV_LEVEL === 'badgoal') {
   report.refusalCounted = /\b1 validation error\b/.test(report.refusalText);
   report.buttonFlash = button.textContent;
   report.playtestClosed = document.getElementById('playtest').hidden === true;
-  report.jsonUnchanged = document.getElementById('level-json').value.length === before;
+  report.jsonUnchanged = document.getElementById('trail-json').value.length === before;
 }
 
 process.stdout.write(JSON.stringify(report));

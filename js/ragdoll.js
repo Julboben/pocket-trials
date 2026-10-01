@@ -197,7 +197,7 @@ function enforceHinge(points, hinge) {
   }
 }
 
-export function stepRagdoll(ragdoll, level) {
+export function stepRagdoll(ragdoll, trail) {
   for (const p of ragdoll.list) {
     const vx = (p.x - p.ox) * 0.996,
       vy = (p.y - p.oy) * 0.996;
@@ -221,7 +221,7 @@ export function stepRagdoll(ragdoll, level) {
     }
     for (const hinge of ragdoll.hinges) enforceHinge(ragdoll.points, hinge);
     for (const p of ragdoll.list)
-      collideFreePoint(level, p, iteration === 0, RAGDOLL_CONTACT);
+      collideFreePoint(trail, p, iteration === 0, RAGDOLL_CONTACT);
   }
 }
 

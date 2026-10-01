@@ -1,4 +1,4 @@
-// Shift-drag snapping for the level editor: a dragged point is locked to
+// Shift-drag snapping for the trail editor: a dragged point is locked to
 // fixed angle steps around a neighbouring point, and to the grid.
 
 export const SNAP_ANGLE_STEP = 15;

@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Pocket Trials Level Editor</title>
+        <title>Pocket Trials Trail Editor</title>
         <link rel="stylesheet" href="./css/editor.css" />
     </head>
     <body>
@@ -14,7 +14,7 @@
                 >
                 <label
                     >TRAIL
-                    <select id="level-picker"></select
+                    <select id="trail-picker"></select
                 ></label>
                 <div class="trail-actions">
                     <button id="new-trail" title="Create a new custom trail">
@@ -73,12 +73,12 @@
                         <button
                             class="side-tab"
                             role="tab"
-                            id="tab-level"
+                            id="tab-trail"
                             aria-selected="false"
-                            aria-controls="panel-level"
-                            data-tab="level"
+                            aria-controls="panel-trail"
+                            data-tab="trail"
                         >
-                            LEVEL
+                            TRAIL
                         </button>
                     </div>
 
@@ -121,12 +121,6 @@
                                 >Show game art
                                 <input id="game-art" type="checkbox" checked
                             /></label>
-                            <p class="tool-hint" id="legacy-terrain-note" hidden>
-                                This trail also has older Ground, Gap, Island and
-                                Path terrain. Use CONVERT TO BLOCKS in the LEVEL
-                                tab to make it editable, or CLEAR LEGACY TERRAIN
-                                once you have rebuilt it with blocks.
-                            </p>
                         </section>
                         <section class="tool-group">
                             <h3>OBJECTS</h3>
@@ -163,13 +157,13 @@
 
                     <div
                         class="side-panel"
-                        id="panel-level"
+                        id="panel-trail"
                         role="tabpanel"
-                        aria-labelledby="tab-level"
+                        aria-labelledby="tab-trail"
                         hidden
                     >
                         <label
-                            >Name <input id="level-name" type="text"
+                            >Name <input id="trail-name" type="text"
                         /></label>
                         <label
                             >Base material
@@ -182,16 +176,6 @@
                         <label
                             >Fall Y <input id="fall-y" type="number" step="10"
                         /></label>
-                        <fieldset id="legacy-terrain-actions" hidden>
-                            <legend>OLDER TERRAIN</legend>
-                            <p class="tool-hint" id="legacy-terrain-summary"></p>
-                            <button id="convert-legacy-terrain">
-                                CONVERT TO BLOCKS
-                            </button>
-                            <button class="danger" id="clear-legacy-terrain">
-                                CLEAR LEGACY TERRAIN
-                            </button>
-                        </fieldset>
                         <fieldset>
                             <legend>TIME OF DAY</legend>
                             <label
@@ -285,7 +269,7 @@
                     </div>
                     <p class="tool-hint" id="selection-empty">
                         Select an object on the canvas to edit it. Trail-wide
-                        settings are in the LEVEL tab.
+                        settings are in the TRAIL tab.
                     </p>
 
                     <div id="selection-fields" hidden>
@@ -303,18 +287,6 @@
                                 >Material
                                 <select id="selection-material"></select
                             ></label>
-                            <label id="selection-thickness-row" hidden
-                                >Thickness
-                                <input
-                                    id="selection-thickness"
-                                    type="number"
-                                    min="16"
-                                    step="2"
-                            /></label>
-                            <label id="selection-closed-row" hidden
-                                >Closed loop
-                                <input id="selection-closed" type="checkbox"
-                            /></label>
                             <label id="selection-snap-row" hidden
                                 >Snap to ground
                                 <input id="selection-snap" type="checkbox"
@@ -424,7 +396,7 @@
                     </section>
                     <details class="json-panel">
                         <summary>JSON IMPORT / EXPORT</summary>
-                        <textarea id="level-json" spellcheck="false"></textarea
+                        <textarea id="trail-json" spellcheck="false"></textarea
                         ><button id="import-json">IMPORT JSON</button>
                     </details>
                 </aside>

@@ -1,21 +1,16 @@
 import {
-  levelEntries,
+  trailEntries,
   terrainMaterials,
   detectDevServer,
-  saveLevelFile,
-  deleteLevelFile,
+  saveTrailFile,
+  deleteTrailFile,
   uniqueCustomFile,
-  saveBrowserLevel,
-  deleteBrowserLevel,
-  PLAYTEST_LEVEL_KEY,
+  saveBrowserTrail,
+  deleteBrowserTrail,
+  PLAYTEST_TRAIL_KEY,
   PLAYTEST_EXIT_MESSAGE,
-} from "./levels.js";
-import {
-  curveAt,
-  platformPolygon,
-  pointInPlatform,
-  invalidateTerrain,
-} from "./terrain.js";
+} from "./trails.js";
+import { invalidateTerrain } from "./terrain.js";
 import {
   createDrawingTools,
   createGameArt,
@@ -25,19 +20,16 @@ import {
   propWallFit,
 } from "./drawing.js";
 import {
-  cloneLevel,
-  createBlankLevel,
-  normalizeLevel,
-  validateLevel,
-  levelToModule,
+  cloneTrail,
+  createBlankTrail,
+  normalizeTrail,
+  validateTrail,
+  trailToModule,
   SPIKE_RADIUS,
-  clearLegacyTerrain,
   surfaceBelow,
-  hasLegacyTerrain,
   finishHeight,
-  migrateLegacyTerrain,
   finishFlower,
-} from "./level-schema.js";
+} from "./trail-schema.js";
 import { FINISH_FLOWER_RADIUS } from "./finish.js";
 import {
   cutBlock,
@@ -67,7 +59,7 @@ const CURRENT_TRAIL_KEY = "pocket-trials-editor-current-v1";
 
 function storedTrailIndex() {
   try {
-    const index = levelEntries.findIndex(
+    const index = trailEntries.findIndex(
       (entry) => entry.id === localStorage.getItem(CURRENT_TRAIL_KEY),
     );
     return Math.max(0, index);
@@ -78,13 +70,13 @@ function storedTrailIndex() {
 
 function rememberTrail() {
   try {
-    localStorage.setItem(CURRENT_TRAIL_KEY, levelEntries[levelIndex].id);
+    localStorage.setItem(CURRENT_TRAIL_KEY, trailEntries[trailIndex].id);
   } catch (_) {}
 }
 
 let devServer = false;
-let levelIndex = storedTrailIndex();
-let level = loadLevelData(levelIndex);
+let trailIndex = storedTrailIndex();
+let trail = loadTrailData(trailIndex);
 let tool = "select";
 let selection = null;
 let cameraX = 0;
@@ -98,7 +90,7 @@ let gestureStartZoom = 1;
 let gestureAnchor = null;
 let history = [];
 let future = [];
-// The level as it was when a drag began. It becomes an undo step only once the
+// The trail as it was when a drag began. It becomes an undo step only once the
 // drag actually moves something, so a plain click never leaves an empty one.
 let dragSnapshot = null;
 let dragOrigin = null;
@@ -122,20 +114,20 @@ let marquee = null;
 // An Alt press that becomes a duplicate once the mouse moves.
 let altPress = null;
 
-function loadLevelData(index) {
-  const stored = levelEntries[index]?.level;
+function loadTrailData(index) {
+  const stored = trailEntries[index]?.trail;
   try {
     const draft = JSON.parse(
-      localStorage.getItem(DRAFT_PREFIX + levelEntries[index].id) || "null",
+      localStorage.getItem(DRAFT_PREFIX + trailEntries[index].id) || "null",
     );
-    return normalizeLevel(draft || stored || createBlankLevel(index), index);
+    return normalizeTrail(draft || stored || createBlankTrail(index), index);
   } catch (_) {
-    return normalizeLevel(stored || createBlankLevel(index), index);
+    return normalizeTrail(stored || createBlankTrail(index), index);
   }
 }
 
 function snapshot() {
-  return JSON.stringify(level);
+  return JSON.stringify(trail);
 }
 
 function pushHistory(state = snapshot()) {
@@ -146,7 +138,7 @@ function pushHistory(state = snapshot()) {
 }
 
 function restore(serialized) {
-  level = normalizeLevel(JSON.parse(serialized), levelIndex);
+  trail = normalizeTrail(JSON.parse(serialized), trailIndex);
   selection = null;
   syncInspector();
   render();
@@ -179,7 +171,7 @@ const propTypeOptions = () =>
     option.textContent,
   ]);
 const materialOptions = () => [
-  [BASE_MATERIAL, "Level base material"],
+  [BASE_MATERIAL, "Trail base material"],
   ...Object.keys(terrainMaterials).map((name) => [name, name.toUpperCase()]),
 ];
 
@@ -328,7 +320,7 @@ function saveToolSettings() {
 function toolMaterial(name) {
   const material = toolSettings[name]?.material;
   return !material || material === BASE_MATERIAL || !terrainMaterials[material]
-    ? level.terrain
+    ? trail.terrain
     : material;
 }
 
@@ -477,7 +469,7 @@ function setTab(name) {
     button.setAttribute("aria-selected", String(active));
   });
   $("panel-tools").hidden = name !== "tools";
-  $("panel-level").hidden = name !== "level";
+  $("panel-trail").hidden = name !== "trail";
 }
 
 // The editor opens on the start, placed a little below the middle so the
@@ -487,10 +479,10 @@ function focusOnStart() {
   const { width, height } = viewportSize();
   if (!width || !height) return false;
   syncTerrain();
-  const startY = Number.isFinite(level.start.y)
-    ? level.start.y
-    : groundY(level.start.x) - 12;
-  cameraX = level.start.x - width / 2 / zoom;
+  const startY = Number.isFinite(trail.start.y)
+    ? trail.start.y
+    : groundY(trail.start.x) - 12;
+  cameraX = trail.start.x - width / 2 / zoom;
   cameraY = startY - (height * 0.6) / zoom;
   focusPending = false;
   return true;
@@ -519,40 +511,10 @@ function pointerWorld(event) {
   };
 }
 
-function baseRanges() {
-  const ranges = [];
-  const start = cameraX - 50;
-  const end = cameraX + viewportSize().width / zoom + 50;
-  // A trail that has been cleared of its older terrain has no ground line at
-  // all, so there is nothing to draw between the gaps.
-  if (!Array.isArray(level.points) || level.points.length < 2) return ranges;
-  let cursor = start;
-  for (const gap of level.gaps || []) {
-    if (gap[1] <= cursor || gap[0] >= end) continue;
-    if (gap[0] > cursor) ranges.push([cursor, Math.min(gap[0], end)]);
-    cursor = Math.max(cursor, gap[1]);
-  }
-  if (cursor < end) ranges.push([cursor, end]);
-  return ranges;
-}
-
-function drawSurfaceTop(points, color, width = 3) {
-  const start = points[0][0],
-    end = points.at(-1)[0];
-  ctx.beginPath();
-  ctx.moveTo(start, curveAt(points, start).y);
-  for (let x = start + 4; x < end; x += 4) ctx.lineTo(x, curveAt(points, x).y);
-  ctx.lineTo(end, curveAt(points, end).y);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = width;
-  ctx.lineJoin = "round";
-  ctx.stroke();
-}
-
 /** The blocks being edited, normalized so every node and handle is well formed. */
 function blocks() {
-  if (!level.terrainBlocks) level.terrainBlocks = [];
-  return level.terrainBlocks;
+  if (!trail.terrainBlocks) trail.terrainBlocks = [];
+  return trail.terrainBlocks;
 }
 
 /** A boundary as one canvas path, following its curves. */
@@ -633,7 +595,7 @@ function replaceBoundary(blockIndex, boundaryIndex, replacement) {
  * The editor edits blocks in place while dragging, so the compiled terrain the
  * renderer, surface queries and validation share has to be told. A cheap
  * fingerprint of everything that shapes the terrain is compared each time it
- * is needed, and the level is invalidated only when it has really changed.
+ * is needed, and the trail is invalidated only when it has really changed.
  */
 let terrainFingerprint = null;
 function syncTerrain() {
@@ -645,8 +607,8 @@ function syncTerrain() {
     for (let index = 0; index < value.length; index++)
       mix(value.charCodeAt(index));
   };
-  text(String(level.terrain));
-  mix(level.fallY || 0);
+  text(String(trail.terrain));
+  mix(trail.fallY || 0);
   for (const block of blocks()) {
     text(String(block.material));
     mix(block.regions.length);
@@ -670,13 +632,10 @@ function syncTerrain() {
       }
     }
   }
-  for (const key of ["points", "gaps", "platforms", "paths"])
-    mix(Array.isArray(level[key]) ? level[key].length : -1);
-  for (const platform of level.platforms || []) text(String(platform.material));
   const fingerprint = `${hash}:${blocks().length}`;
   if (fingerprint !== terrainFingerprint) {
     terrainFingerprint = fingerprint;
-    invalidateTerrain(level);
+    invalidateTerrain(trail);
   }
 }
 
@@ -737,88 +696,13 @@ function drawPendingShape(shape) {
   }
 }
 
-function drawLegacyTerrain() {
-  // Everything below needs a ground line. A trail that has been cleared of its
-  // older terrain, and is described entirely by blocks, has none, so there is
-  // nothing to draw here at all.
-  if (!hasLegacyTerrain(level)) return;
-  const material = terrainMaterials[level.terrain] || terrainMaterials.grass;
-  const bottom = cameraY + viewportSize().height / zoom + 100;
-  const points = level.points;
-  for (const [start, end] of baseRanges()) {
-    ctx.beginPath();
-    ctx.moveTo(start, bottom);
-    ctx.lineTo(start, curveAt(points, start).y);
-    for (let x = start + 5; x < end; x += 5)
-      ctx.lineTo(x, curveAt(points, x).y);
-    ctx.lineTo(end, curveAt(points, end).y);
-    ctx.lineTo(end, bottom);
-    ctx.closePath();
-    ctx.fillStyle = material.fill;
-    ctx.fill();
-  }
-  for (const [start, end] of baseRanges())
-    drawSurfaceTop(
-      [
-        [start, curveAt(points, start).y],
-        ...points.filter((point) => point[0] > start && point[0] < end),
-        [end, curveAt(points, end).y],
-      ],
-      material.surface,
-      5,
-    );
-
-  for (const path of level.paths || []) {
-    const pathMaterial = terrainMaterials[path.material] || material;
-    ctx.beginPath();
-    path.points.forEach((point, index) =>
-      index ? ctx.lineTo(...point) : ctx.moveTo(...point),
-    );
-    if (path.closed) ctx.closePath();
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.strokeStyle = pathMaterial.edge;
-    ctx.lineWidth = path.thickness + 7;
-    ctx.stroke();
-    ctx.strokeStyle = pathMaterial.surface;
-    ctx.lineWidth = path.thickness + 3;
-    ctx.stroke();
-    ctx.strokeStyle = pathMaterial.fill;
-    ctx.lineWidth = path.thickness;
-    ctx.stroke();
-  }
-
-  for (const platform of level.platforms || []) {
-    const platformMaterial = terrainMaterials[platform.material] || material;
-    const polygon = platformPolygon(platform);
-    ctx.beginPath();
-    polygon.forEach((point, index) =>
-      index ? ctx.lineTo(...point) : ctx.moveTo(...point),
-    );
-    ctx.closePath();
-    ctx.fillStyle = platformMaterial.fill;
-    ctx.fill();
-    ctx.strokeStyle = platformMaterial.edge;
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    drawSurfaceTop(platform.points, platformMaterial.surface, 5);
-  }
-}
-
 function drawTerrain() {
   if (gameArt) {
     // The game's own renderer, fed the same compiled terrain the game rides.
     const { width, height } = viewportSize();
     ctx.save();
     ctx.imageSmoothingEnabled = false;
-    terrainArt.draw(ctx, level, cameraX, cameraY, width / zoom, height / zoom);
-    ctx.restore();
-  } else {
-    // Legacy terrain is shown dimmed while a trail still carries it, so it is
-    // obvious what the new blocks are being rebuilt over.
-    ctx.save();
-    if (hasLegacyTerrain(level)) ctx.globalAlpha = 0.45;
-    drawLegacyTerrain();
+    terrainArt.draw(ctx, trail, cameraX, cameraY, width / zoom, height / zoom);
     ctx.restore();
   }
   drawBlocks();
@@ -849,13 +733,10 @@ function objectY(object, offset = 0) {
   return Number.isFinite(object.y) ? object.y : groundY(object.x) - offset;
 }
 
-/**
- * The ground height at an x, across both the new blocks and any legacy terrain.
- * Using one source means objects sit correctly while a trail is half rebuilt.
- */
+/** The ground height at an x: the topmost surface at or below `referenceY`. */
 function groundY(x, referenceY = null) {
-  const surface = surfaceBelow(level, x, referenceY);
-  return surface ? surface.y : level.fallY || 620;
+  const surface = surfaceBelow(trail, x, referenceY);
+  return surface ? surface.y : trail.fallY || 620;
 }
 
 /**
@@ -864,28 +745,28 @@ function groundY(x, referenceY = null) {
  * editor put it.
  */
 function finishY() {
-  return finishHeight(level);
+  return finishHeight(trail);
 }
 
 function drawProps(layer) {
-  for (const prop of level.props || []) {
+  for (const prop of trail.props || []) {
     if (prop.layer !== layer) continue;
     art.drawProp(
       prop.type,
       prop.x,
       objectY(prop),
       1,
-      propAlignmentSlope(level, prop),
-      propGroundOffset(level, prop),
+      propAlignmentSlope(trail, prop),
+      propGroundOffset(trail, prop),
       prop.text,
-      propWallFit(level, prop),
+      propWallFit(trail, prop),
       prop.flip,
     );
   }
 }
 
 function drawSpikes() {
-  for (const [index, spike] of level.spikes.entries()) {
+  for (const [index, spike] of trail.spikes.entries()) {
     art.drawSpike(spike.x, spike.y, spike.radius);
     if (!isSelected("spike", index)) continue;
     ctx.beginPath();
@@ -900,12 +781,12 @@ function drawSpikes() {
 
 function drawObjects() {
   drawSpikes();
-  for (const apple of level.apples)
+  for (const apple of trail.apples)
     art.drawApple(apple.x, objectY(apple, 60), { glow: false });
-  art.drawFlag(level.goal, finishY(), true, 0);
+  art.drawFlag(trail.goal, finishY(), true, 0);
   if (selection?.kind === "goal") {
     // The petals the bike has to touch.
-    const flower = finishFlower(level);
+    const flower = finishFlower(trail);
     ctx.beginPath();
     ctx.arc(flower.x, flower.y, FINISH_FLOWER_RADIUS, 0, Math.PI * 2);
     ctx.strokeStyle = "#fff3be";
@@ -915,35 +796,31 @@ function drawObjects() {
     ctx.setLineDash([]);
   }
   drawProps("front");
-  const startY = Number.isFinite(level.start.y)
-    ? level.start.y
-    : groundY(level.start.x) - 12;
+  const startY = Number.isFinite(trail.start.y)
+    ? trail.start.y
+    : groundY(trail.start.x) - 12;
   ctx.save();
   ctx.globalAlpha = 0.72;
   art.drawBike({
-    rear: { x: level.start.x - 25, y: startY, spin: 0, compression: 0 },
-    front: { x: level.start.x + 25, y: startY, spin: 0, compression: 0 },
-    mx: level.start.x,
+    rear: { x: trail.start.x - 25, y: startY, spin: 0, compression: 0 },
+    front: { x: trail.start.x + 25, y: startY, spin: 0, compression: 0 },
+    mx: trail.start.x,
     my: startY,
     angle: 0,
     length: 50,
-    facing: level.start.facing,
-    flipVisual: level.start.facing,
+    facing: trail.start.facing,
+    flipVisual: trail.start.facing,
     rider: "max",
   });
   ctx.restore();
 }
 
-function isSelected(kind, index, platformIndex) {
+function isSelected(kind, index) {
   if (selection?.kind === "items")
     return selection.items.some(
       (item) => item.type === kind && item.index === index,
     );
-  return (
-    selection?.kind === kind &&
-    selection.index === index &&
-    selection.platformIndex === platformIndex
-  );
+  return selection?.kind === kind && selection.index === index;
 }
 
 /** Is this the node whose curve handles are showing: the selected point, or the owner of the selected handle? */
@@ -1027,7 +904,7 @@ function drawHandles() {
       });
     });
   }
-  level.apples.forEach((apple, index) =>
+  trail.apples.forEach((apple, index) =>
     drawHandle(
       apple.x,
       objectY(apple, 60),
@@ -1035,17 +912,17 @@ function drawHandles() {
       "#ef8150",
     ),
   );
-  level.props.forEach((prop, index) =>
+  trail.props.forEach((prop, index) =>
     drawHandle(prop.x, objectY(prop), isSelected("prop", index), "#83d1ce"),
   );
-  level.spikes.forEach((spike, index) =>
+  trail.spikes.forEach((spike, index) =>
     drawHandle(spike.x, spike.y, isSelected("spike", index), "#e65e56"),
   );
-  const startY = Number.isFinite(level.start.y)
-    ? level.start.y
-    : groundY(level.start.x) - 12;
-  drawHandle(level.start.x, startY, selection?.kind === "start", "#c6dfa9");
-  drawHandle(level.goal, finishY(), selection?.kind === "goal", "#c6dfa9");
+  const startY = Number.isFinite(trail.start.y)
+    ? trail.start.y
+    : groundY(trail.start.x) - 12;
+  drawHandle(trail.start.x, startY, selection?.kind === "start", "#c6dfa9");
+  drawHandle(trail.goal, finishY(), selection?.kind === "goal", "#c6dfa9");
 }
 
 function render() {
@@ -1056,7 +933,7 @@ function render() {
   art.drawBackground({
     width,
     height,
-    palette: level,
+    palette: trail,
     cameraX,
     cameraY,
     full: true,
@@ -1069,7 +946,7 @@ function render() {
   drawTerrain();
   drawObjects();
   drawPlacementPreview();
-  art.drawTimeTint(level, cameraX, cameraY, width / zoom, height / zoom);
+  art.drawTimeTint(trail, cameraX, cameraY, width / zoom, height / zoom);
   drawHandles();
   drawSnapGuide();
   drawMarquee();
@@ -1169,25 +1046,25 @@ function hitTest(point, { wholeBoundary = false } = {}) {
   }
   if (wholeBoundary) return best?.selection || ringAt(point);
 
-  level.apples.forEach((apple, index) =>
+  trail.apples.forEach((apple, index) =>
     consider({ kind: "apple", index }, apple.x, objectY(apple, 60), 1),
   );
-  level.props.forEach((prop, index) =>
+  trail.props.forEach((prop, index) =>
     consider({ kind: "prop", index }, prop.x, objectY(prop), 1),
   );
-  level.spikes.forEach((spike, index) =>
+  trail.spikes.forEach((spike, index) =>
     consider({ kind: "spike", index }, spike.x, spike.y, 1),
   );
-  const startY = Number.isFinite(level.start.y)
-    ? level.start.y
-    : groundY(level.start.x) - 12;
-  consider({ kind: "start" }, level.start.x, startY, 1);
-  consider({ kind: "goal" }, level.goal, finishY(), 1);
+  const startY = Number.isFinite(trail.start.y)
+    ? trail.start.y
+    : groundY(trail.start.x) - 12;
+  consider({ kind: "start" }, trail.start.x, startY, 1);
+  consider({ kind: "goal" }, trail.goal, finishY(), 1);
   if (best) return best.selection;
 
   // Bodies: a spike's own disc, then the topmost solid block under the cursor.
-  for (let index = level.spikes.length - 1; index >= 0; index--) {
-    const spike = level.spikes[index];
+  for (let index = trail.spikes.length - 1; index >= 0; index--) {
+    const spike = trail.spikes[index];
     if (Math.hypot(point.x - spike.x, point.y - spike.y) <= spike.radius)
       return { kind: "spike", index };
   }
@@ -1197,16 +1074,6 @@ function hitTest(point, { wholeBoundary = false } = {}) {
       pointInRegion(region, point.x, point.y),
     );
     if (regionIndex >= 0) return { kind: "block", blockIndex, regionIndex };
-  }
-  if (hasLegacyTerrain(level) && Array.isArray(level.points)) {
-    for (
-      let platformIndex = (level.platforms || []).length - 1;
-      platformIndex >= 0;
-      platformIndex--
-    ) {
-      if (pointInPlatform(level.platforms[platformIndex], point.x, point.y))
-        return { kind: "legacyPlatform", platformIndex };
-    }
   }
   return null;
 }
@@ -1354,34 +1221,26 @@ function selectedPosition() {
       nodes.reduce((sum, node) => sum + node.y, 0) / nodes.length,
     ];
   }
-  if (selection.kind === "legacyPlatform") {
-    const platform = level.platforms[selection.platformIndex];
-    const points = [...platform.points, ...platform.bottom];
-    return [
-      points.reduce((sum, point) => sum + point[0], 0) / points.length,
-      points.reduce((sum, point) => sum + point[1], 0) / points.length,
-    ];
-  }
   if (selection.kind === "apple") {
-    const apple = level.apples[selection.index];
+    const apple = trail.apples[selection.index];
     return [apple.x, objectY(apple, 60)];
   }
   if (selection.kind === "prop") {
-    const prop = level.props[selection.index];
+    const prop = trail.props[selection.index];
     return [prop.x, objectY(prop)];
   }
   if (selection.kind === "spike") {
-    const spike = level.spikes[selection.index];
+    const spike = trail.spikes[selection.index];
     return [spike.x, spike.y];
   }
   if (selection.kind === "start")
     return [
-      level.start.x,
-      Number.isFinite(level.start.y)
-        ? level.start.y
-        : groundY(level.start.x) - 12,
+      trail.start.x,
+      Number.isFinite(trail.start.y)
+        ? trail.start.y
+        : groundY(trail.start.x) - 12,
     ];
-  if (selection.kind === "goal") return [level.goal, finishY()];
+  if (selection.kind === "goal") return [trail.goal, finishY()];
   return null;
 }
 
@@ -1407,14 +1266,14 @@ function boundaryAt(target) {
 
 function syncInspector() {
   syncTerrain();
-  $("level-name").value = level.name;
-  $("base-material").value = level.terrain;
-  $("goal-x").value = Math.round(level.goal);
-  $("fall-y").value = Math.round(level.fallY);
-  $("time-of-day").value = level.timeOfDay || "noon";
-  $("backdrop").value = level.backdrop || "hills";
+  $("trail-name").value = trail.name;
+  $("base-material").value = trail.terrain;
+  $("goal-x").value = Math.round(trail.goal);
+  $("fall-y").value = Math.round(trail.fallY);
+  $("time-of-day").value = trail.timeOfDay || "noon";
+  $("backdrop").value = trail.backdrop || "hills";
   for (const key of ["sun", "clouds", "rain", "lightning"])
-    $(`weather-${key}`).value = level.weather?.[key] ?? 0;
+    $(`weather-${key}`).value = trail.weather?.[key] ?? 0;
   const position = selectedPosition();
   $("selection-fields").hidden = !selection;
   $("selection-title").textContent = !selection
@@ -1429,15 +1288,11 @@ function syncInspector() {
     $("selection-x").value = Math.round(position[0]);
     $("selection-y").value = Math.round(position[1]);
   }
-  const platformIndex = selection?.platformIndex;
-  const hasPlatform = Number.isInteger(platformIndex);
   const isBlock = BLOCK_KINDS.includes(selection?.kind);
   // The finish can be moved in y, so its Y row is shown. Every other object
   // with a fixed height is left as it was.
   $("selection-y-row").hidden = !selection;
-  $("selection-material-row").hidden = !isBlock && !hasPlatform;
-  $("selection-thickness-row").hidden = true;
-  $("selection-closed-row").hidden = true;
+  $("selection-material-row").hidden = !isBlock;
   $("selection-edge-row").hidden = !["blockPoint", "blockEdge"].includes(
     selection?.kind,
   );
@@ -1448,8 +1303,8 @@ function syncInspector() {
   $("selection-prop-type-row").hidden = selection?.kind !== "prop";
   $("selection-layer-row").hidden = selection?.kind !== "prop";
   $("selection-prop-text-row").hidden =
-    selection?.kind !== "prop" || level.props[selection.index]?.type !== "sign";
-  const selectedProp = selection?.kind === "prop" ? level.props[selection.index] : null;
+    selection?.kind !== "prop" || trail.props[selection.index]?.type !== "sign";
+  const selectedProp = selection?.kind === "prop" ? trail.props[selection.index] : null;
   $("selection-flip-row").hidden = !selectedProp || !canFlip(selectedProp.type);
   if (selectedProp) $("selection-flip").value = String(Boolean(selectedProp.flip));
   $("selection-radius-row").hidden = selection?.kind !== "spike";
@@ -1457,12 +1312,12 @@ function syncInspector() {
   // Only the finish has a meaningful "put it back on the ground" action, since
   // every other object is either placed by hand or already ground-anchored.
   $("selection-snap-row").hidden = selection?.kind !== "goal";
-  $("selection-snap").checked = !Number.isFinite(level.finishY);
+  $("selection-snap").checked = !Number.isFinite(trail.finishY);
   $("delete-selection").hidden =
     !selection || ["start", "goal"].includes(selection.kind);
   if (isBlock) {
     $("selection-material").value =
-      blocks()[selectedBlocks()[0]]?.material || level.terrain;
+      blocks()[selectedBlocks()[0]]?.material || trail.terrain;
     const boundary = boundaryAt(selection);
     const node = boundary?.nodes[selection.index];
     if (node && selection.kind !== "blockHandle") {
@@ -1474,41 +1329,20 @@ function syncInspector() {
         : "straight";
       $("selection-node").value = node.mode;
     }
-  } else if (hasPlatform) {
-    $("selection-material").value = level.platforms[platformIndex].material;
   }
   if (selection?.kind === "start")
-    $("selection-facing").value = String(level.start.facing);
+    $("selection-facing").value = String(trail.start.facing);
   if (selection?.kind === "prop") {
-    $("selection-prop-type").value = level.props[selection.index].type;
-    $("selection-layer").value = level.props[selection.index].layer;
-    $("selection-prop-text").value = level.props[selection.index].text || "";
+    $("selection-prop-type").value = trail.props[selection.index].type;
+    $("selection-layer").value = trail.props[selection.index].layer;
+    $("selection-prop-text").value = trail.props[selection.index].text || "";
   }
   if (selection?.kind === "spike") {
-    $("selection-radius").value = level.spikes[selection.index].radius;
-    $("selection-spin").value = level.spikes[selection.index].spin;
+    $("selection-radius").value = trail.spikes[selection.index].radius;
+    $("selection-spin").value = trail.spikes[selection.index].spin;
   }
-  $("level-json").value = JSON.stringify(level, null, 2);
-  // Surface the older terrain when a trail still carries it, so it is never a
-  // surprise when saving and the blocks are all that remain afterwards.
-  const legacy = hasLegacyTerrain(level);
-  $("legacy-terrain-actions").hidden = !legacy;
-  $("legacy-terrain-note").hidden = !legacy;
-  if (legacy) {
-    // The counts are listed whenever the fields are present at all, matching
-    // hasLegacyTerrain, so a two-point ground line is still reported rather
-    // than leaving the panel saying "Still present: ."
-    const count = (value) => (Array.isArray(value) ? value.length : 0);
-    const parts = [];
-    if (count(level.points) >= 2)
-      parts.push(`${count(level.points)} ground points`);
-    if (count(level.gaps)) parts.push(`${count(level.gaps)} gaps`);
-    if (count(level.platforms)) parts.push(`${count(level.platforms)} islands`);
-    if (count(level.paths)) parts.push(`${count(level.paths)} paths`);
-    $("legacy-terrain-summary").textContent =
-      `Still present: ${parts.join(", ") || "older terrain"}. It rides like blocks, but its points can only be edited once it is converted.`;
-  }
-  const messages = validateLevel(level);
+  $("trail-json").value = JSON.stringify(trail, null, 2);
+  const messages = validateTrail(trail);
   $("validation-list").replaceChildren(
     ...messages.map((message) => {
       const item = document.createElement("li");
@@ -1524,7 +1358,7 @@ function syncInspector() {
 function replaceBlock(index, block) {
   const next = blocks().slice();
   next[index] = block;
-  level.terrainBlocks = next;
+  trail.terrainBlocks = next;
 }
 
 function updateSelectedPosition(x, y) {
@@ -1603,24 +1437,24 @@ function updateSelectedPosition(x, y) {
       })),
     });
   } else if (kind === "apple") {
-    level.apples[selection.index].x = x;
-    level.apples[selection.index].y = y;
+    trail.apples[selection.index].x = x;
+    trail.apples[selection.index].y = y;
   } else if (kind === "prop") {
-    level.props[selection.index].x = x;
-    level.props[selection.index].y = y;
+    trail.props[selection.index].x = x;
+    trail.props[selection.index].y = y;
   } else if (kind === "spike") {
-    level.spikes[selection.index].x = x;
-    level.spikes[selection.index].y = y;
+    trail.spikes[selection.index].x = x;
+    trail.spikes[selection.index].y = y;
   } else if (kind === "start") {
-    level.start.x = x;
-    level.start.y = y;
+    trail.start.x = x;
+    trail.start.y = y;
   } else if (kind === "goal") {
     // The finish is a point: it can be moved in y as well as x, so a flag can
-    // stand on a platform or hang above a cave instead of being pinned to the
+    // stand on a floating block or hang above a cave instead of being pinned to the
     // surface. Dragging it sets an explicit height, which the inspector can
     // clear to send it back to the ground.
-    level.goal = x;
-    level.finishY = y;
+    trail.goal = x;
+    trail.finishY = y;
   }
 }
 
@@ -1660,10 +1494,10 @@ function insertBlockNode(boundaryIndex, nodeIndex, t, blockIndex) {
 function addAt(point) {
   pushHistory();
   if (tool === "apple") {
-    level.apples.push({ x: point.x, y: point.y });
-    selection = { kind: "apple", index: level.apples.length - 1 };
+    trail.apples.push({ x: point.x, y: point.y });
+    selection = { kind: "apple", index: trail.apples.length - 1 };
   } else if (tool === "start") {
-    level.start = {
+    trail.start = {
       x: point.x,
       y: point.y,
       facing: Number(toolSettings.start.facing) < 0 ? -1 : 1,
@@ -1678,20 +1512,20 @@ function addAt(point) {
     };
     if (prop.type === "sign") prop.text = "";
     if (toolSettings.prop.flip && canFlip(prop.type)) prop.flip = true;
-    level.props.push(prop);
-    selection = { kind: "prop", index: level.props.length - 1 };
+    trail.props.push(prop);
+    selection = { kind: "prop", index: trail.props.length - 1 };
   } else if (tool === "spike") {
-    level.spikes.push({
+    trail.spikes.push({
       x: point.x,
       y: point.y,
       radius: toolSettings.spike.radius,
       spin: toolSettings.spike.spin,
     });
-    selection = { kind: "spike", index: level.spikes.length - 1 };
+    selection = { kind: "spike", index: trail.spikes.length - 1 };
   } else if (tool === "finish") {
     // Placed on the surface at the clicked x, ready to be dragged up or down.
-    level.goal = point.x;
-    level.finishY = groundY(point.x);
+    trail.goal = point.x;
+    trail.finishY = groundY(point.x);
     selection = { kind: "goal" };
   }
   // Start and finish are one of a kind, so those go back to Select; every
@@ -1828,13 +1662,13 @@ function commitShape(kind, points, closed, rect = false) {
         })),
       };
     }
-    level.terrainBlocks = [
+    trail.terrainBlocks = [
       ...blocks(),
-      normalizeBlocks([block], level.terrain)[0],
+      normalizeBlocks([block], trail.terrain)[0],
     ];
     selection = {
       kind: "block",
-      blockIndex: level.terrainBlocks.length - 1,
+      blockIndex: trail.terrainBlocks.length - 1,
       regionIndex: 0,
     };
     return true;
@@ -1853,7 +1687,7 @@ function commitShape(kind, points, closed, rect = false) {
     if (result.changed)
       replaceBlock(
         blockIndex,
-        normalizeBlocks([result.block], level.terrain)[0],
+        normalizeBlocks([result.block], trail.terrain)[0],
       );
     return result;
   };
@@ -1926,7 +1760,7 @@ function freshBlockCopy(block) {
         })),
       },
     ],
-    level.terrain,
+    trail.terrain,
   )[0];
 }
 
@@ -1935,7 +1769,7 @@ function duplicateBlocks(indices) {
     .map((index) => freshBlockCopy(blocks()[index]))
     .filter(Boolean);
   const first = blocks().length;
-  level.terrainBlocks = [...blocks(), ...copies];
+  trail.terrainBlocks = [...blocks(), ...copies];
   const added = copies.map((_, i) => first + i);
   return added.length > 1
     ? { kind: "blocks", blockIndices: added }
@@ -2010,7 +1844,7 @@ function duplicateTarget(hit) {
     return duplicateBlocks(selection.blockIndices);
   if (onBlock) return duplicateBlocks([hit.blockIndex]);
   if (item) return duplicateItems([item]);
-  // Start, finish, curve handles and older islands aren't duplicated.
+  // Start, finish and curve handles aren't duplicated.
   return null;
 }
 
@@ -2024,7 +1858,7 @@ function cyclePropType(direction) {
     saveToolSettings();
     renderToolSettings();
   } else if (selection?.kind === "prop") {
-    const prop = level.props[selection.index];
+    const prop = trail.props[selection.index];
     pushHistory();
     prop.type = next(prop.type);
     if (prop.type === "sign" && typeof prop.text !== "string") prop.text = "";
@@ -2044,10 +1878,10 @@ function drawPlacementPreview() {
       x,
       y,
       0.5,
-      propAlignmentSlope(level, prop),
-      propGroundOffset(level, prop),
+      propAlignmentSlope(trail, prop),
+      propGroundOffset(trail, prop),
       "",
-      propWallFit(level, prop),
+      propWallFit(trail, prop),
       toolSettings.prop.flip,
     );
     return;
@@ -2067,10 +1901,10 @@ function toggleFlip() {
     renderToolSettings();
   } else if (
     selection?.kind === "prop" &&
-    canFlip(level.props[selection.index].type)
+    canFlip(trail.props[selection.index].type)
   ) {
     pushHistory();
-    const prop = level.props[selection.index];
+    const prop = trail.props[selection.index];
     if (prop.flip) delete prop.flip;
     else prop.flip = true;
     syncInspector();
@@ -2081,9 +1915,9 @@ function toggleFlip() {
 // ---- Mixed selection: block points, apples, props and spikes -------------
 
 const OBJECT_LISTS = () => ({
-  apple: level.apples,
-  prop: level.props,
-  spike: level.spikes,
+  apple: trail.apples,
+  prop: trail.props,
+  spike: trail.spikes,
 });
 
 function sameItem(a, b) {
@@ -2255,7 +2089,7 @@ function deleteItems(items) {
     else emptied.add(blockIndex);
   }
   if (emptied.size)
-    level.terrainBlocks = blocks().filter(
+    trail.terrainBlocks = blocks().filter(
       (_, index) => !emptied.has(index),
     );
 }
@@ -2335,7 +2169,7 @@ function deleteSelection() {
         regionIndex: 0,
       };
     } else {
-      level.terrainBlocks = blocks().filter(
+      trail.terrainBlocks = blocks().filter(
         (_, index) => index !== selection.blockIndex,
       );
       selection = null;
@@ -2343,23 +2177,19 @@ function deleteSelection() {
   } else if (kind === "block" || kind === "blocks") {
     pushHistory();
     const removed = new Set(selectedBlocks());
-    level.terrainBlocks = blocks().filter((_, index) => !removed.has(index));
-    selection = null;
-  } else if (kind === "legacyPlatform") {
-    pushHistory();
-    level.platforms.splice(selection.platformIndex, 1);
+    trail.terrainBlocks = blocks().filter((_, index) => !removed.has(index));
     selection = null;
   } else if (kind === "apple") {
     pushHistory();
-    level.apples.splice(selection.index, 1);
+    trail.apples.splice(selection.index, 1);
     selection = null;
   } else if (kind === "prop") {
     pushHistory();
-    level.props.splice(selection.index, 1);
+    trail.props.splice(selection.index, 1);
     selection = null;
   } else if (kind === "spike") {
     pushHistory();
-    level.spikes.splice(selection.index, 1);
+    trail.spikes.splice(selection.index, 1);
     selection = null;
   } else return;
   syncInspector();
@@ -2377,10 +2207,10 @@ function download(filename, content, type) {
 // The trail picker groups its options natively: official trails first, then
 // custom ones split by where they are stored. The group heading says which is
 // which, so each option needs only its name. Option values stay the entry's
-// index in levelEntries, which is what selectEntry() expects.
+// index in trailEntries, which is what selectEntry() expects.
 function buildPicker() {
-  const picker = $("level-picker");
-  const entries = levelEntries.map((entry, index) => ({ entry, index }));
+  const picker = $("trail-picker");
+  const entries = trailEntries.map((entry, index) => ({ entry, index }));
   const groups = [
     ["OFFICIAL", (entry) => entry.source === "official"],
     ["CUSTOM · FILE", (entry) => entry.source === "custom" && entry.storage !== "browser"],
@@ -2399,17 +2229,17 @@ function buildPicker() {
         for (const { entry, index } of items) {
           const option = document.createElement("option");
           option.value = index;
-          option.textContent = entry.level.name;
+          option.textContent = entry.trail.name;
           group.append(option);
         }
         return group;
       }),
   );
-  picker.value = String(levelIndex);
+  picker.value = String(trailIndex);
 }
 
 function currentEntry() {
-  return levelEntries[levelIndex];
+  return trailEntries[trailIndex];
 }
 
 function canSave(entry = currentEntry()) {
@@ -2425,7 +2255,7 @@ function updateTrailControls() {
     entry?.storage === "browser"
       ? "Saved in this browser"
       : devServer
-        ? `Dev server · levels/${entry?.file}`
+        ? `Dev server · trails/${entry?.file}`
         : "Read-only here · duplicate or export to keep changes";
 }
 
@@ -2458,7 +2288,7 @@ function flash(button, text) {
  */
 function refuse(action, errors) {
   const reasons = errors.map((message) => message.text);
-  const first = reasons[0] || "the level does not validate";
+  const first = reasons[0] || "the trail does not validate";
   const extra = reasons.length > 1 ? ` (+${reasons.length - 1} more)` : "";
   const text = `Fix ${reasons.length || "the"} validation error${reasons.length === 1 ? "" : "s"} before ${action}: ${first}${extra}`;
   showStatus("error", text);
@@ -2486,8 +2316,8 @@ function showStatus(type, text) {
 }
 
 function selectEntry(index) {
-  levelIndex = index;
-  level = loadLevelData(levelIndex);
+  trailIndex = index;
+  trail = loadTrailData(trailIndex);
   selection = null;
   history = [];
   future = [];
@@ -2501,19 +2331,19 @@ function selectEntry(index) {
 }
 
 async function persist(entry, data) {
-  if (entry.storage === "browser") return saveBrowserLevel(data, entry.key);
-  return saveLevelFile(entry.file, data);
+  if (entry.storage === "browser") return saveBrowserTrail(data, entry.key);
+  return saveTrailFile(entry.file, data);
 }
 
 async function saveTrail() {
   const entry = currentEntry();
   if (!canSave(entry)) return;
-  const errors = validateLevel(level).filter(
+  const errors = validateTrail(trail).filter(
     (message) => message.type === "error",
   );
   if (errors.length && !refuse("saving", errors)) return;
   try {
-    await persist(entry, level);
+    await persist(entry, trail);
     localStorage.removeItem(DRAFT_PREFIX + entry.id);
     buildPicker();
     updateTrailControls();
@@ -2523,13 +2353,13 @@ async function saveTrail() {
   }
 }
 
-// Dev creates a file in levels/custom; otherwise the trail is stored in this browser.
+// Dev creates a file in trails/custom; otherwise the trail is stored in this browser.
 async function createCustomTrail(data) {
   try {
     const entry = devServer
-      ? await saveLevelFile(uniqueCustomFile(data.name), data)
-      : saveBrowserLevel(data);
-    selectEntry(levelEntries.indexOf(entry));
+      ? await saveTrailFile(uniqueCustomFile(data.name), data)
+      : saveBrowserTrail(data);
+    selectEntry(trailEntries.indexOf(entry));
   } catch (error) {
     showStatus("error", `Could not create the trail: ${error.message}`);
   }
@@ -2539,12 +2369,12 @@ async function deleteTrail() {
   const entry = currentEntry();
   if (
     entry?.source !== "custom" ||
-    !window.confirm(`Delete “${entry.level.name}”? This cannot be undone.`)
+    !window.confirm(`Delete “${entry.trail.name}”? This cannot be undone.`)
   )
     return;
   try {
-    if (entry.storage === "browser") deleteBrowserLevel(entry.key);
-    else await deleteLevelFile(entry.file);
+    if (entry.storage === "browser") deleteBrowserTrail(entry.key);
+    else await deleteTrailFile(entry.file);
     localStorage.removeItem(DRAFT_PREFIX + entry.id);
     selectEntry(0);
   } catch (error) {
@@ -2556,12 +2386,12 @@ const playtestFrame = /** @type {HTMLIFrameElement} */ ($("playtest-frame"));
 const playtestOpen = () => !$("playtest").hidden;
 
 function openPlaytest() {
-  const errors = validateLevel(level).filter(
+  const errors = validateTrail(trail).filter(
     (message) => message.type === "error",
   );
   if (errors.length && !refuse("play testing", errors)) return;
   try {
-    localStorage.setItem(PLAYTEST_LEVEL_KEY, JSON.stringify(level));
+    localStorage.setItem(PLAYTEST_TRAIL_KEY, JSON.stringify(trail));
   } catch (error) {
     showStatus("error", `Could not start the play test: ${error.message}`);
     return;
@@ -2569,7 +2399,7 @@ function openPlaytest() {
   cancelPendingShape();
   endPointer();
   spaceHeld = false;
-  $("playtest-name").textContent = level.name.toUpperCase();
+  $("playtest-name").textContent = trail.name.toUpperCase();
   $("playtest").hidden = false;
   playtestFrame.src = "./index.html?playtest=1";
   playtestFrame.focus();
@@ -2625,23 +2455,19 @@ document
   .forEach((button) =>
     button.addEventListener("click", () => setTab(button.dataset.tab)),
   );
-$("level-picker").addEventListener("change", (event) =>
+$("trail-picker").addEventListener("change", (event) =>
   selectEntry(Number(event.target.value)),
 );
 $("save-trail").addEventListener("click", saveTrail);
-// A new trail starts as blocks: the familiar starter ground, already converted.
 $("new-trail").addEventListener("click", () =>
   createCustomTrail(
-    migrateLegacyTerrain(
-      createBlankLevel(levelEntries.length),
-      levelEntries.length,
-    ),
+    normalizeTrail(createBlankTrail(trailEntries.length), trailEntries.length),
   ),
 );
 $("duplicate-trail").addEventListener("click", () => {
-  const copy = cloneLevel(level);
-  copy.name = `${level.name} Copy`;
-  copy.label = `${copy.name.toUpperCase()} / ${String(levelEntries.length + 1).padStart(2, "0")}`;
+  const copy = cloneTrail(trail);
+  copy.name = `${trail.name} Copy`;
+  copy.label = `${copy.name.toUpperCase()} / ${String(trailEntries.length + 1).padStart(2, "0")}`;
   createCustomTrail(copy);
 });
 $("delete-trail").addEventListener("click", deleteTrail);
@@ -3167,7 +2993,7 @@ window.addEventListener("keyup", (event) => {
   if (event.code === "Space") spaceHeld = false;
 });
 
-function bindLevelInput(id, apply) {
+function bindTrailInput(id, apply) {
   $(id).addEventListener("change", (event) => {
     pushHistory();
     apply(event.target.value);
@@ -3175,47 +3001,47 @@ function bindLevelInput(id, apply) {
     render();
   });
 }
-bindLevelInput("level-name", (value) => {
-  level.name = value;
-  level.label = `${value.toUpperCase()} / ${String(levelIndex + 1).padStart(2, "0")}`;
+bindTrailInput("trail-name", (value) => {
+  trail.name = value;
+  trail.label = `${value.toUpperCase()} / ${String(trailIndex + 1).padStart(2, "0")}`;
 });
-bindLevelInput("base-material", (value) => {
-  const previous = level.terrain;
+bindTrailInput("base-material", (value) => {
+  const previous = trail.terrain;
   if (value === previous) return;
-  level.terrain = value;
-  // Blocks carry their own material, so the renderer never reads the level's
+  trail.terrain = value;
+  // Blocks carry their own material, so the renderer never reads the trail's
   // base. Any block still sitting on the old base follows the change; blocks
   // deliberately set to something else keep it.
   const next = blocks().map((block) =>
     block.material === previous ? { ...block, material: value } : block,
   );
   if (next.some((block, index) => block !== blocks()[index]))
-    level.terrainBlocks = next;
+    trail.terrainBlocks = next;
 });
-bindLevelInput("goal-x", (value) => {
-  level.goal = Number(value);
+bindTrailInput("goal-x", (value) => {
+  trail.goal = Number(value);
 });
-bindLevelInput("fall-y", (value) => {
-  level.fallY = Number(value);
-});
-
-bindLevelInput("time-of-day", (value) => {
-  level.timeOfDay = value;
+bindTrailInput("fall-y", (value) => {
+  trail.fallY = Number(value);
 });
 
-bindLevelInput("backdrop", (value) => {
-  if (value && value !== "hills") level.backdrop = value;
-  else delete level.backdrop;
+bindTrailInput("time-of-day", (value) => {
+  trail.timeOfDay = value;
+});
+
+bindTrailInput("backdrop", (value) => {
+  if (value && value !== "hills") trail.backdrop = value;
+  else delete trail.backdrop;
 });
 for (const key of ["sun", "clouds", "rain", "lightning"]) {
   $(`weather-${key}`).addEventListener("change", (event) => {
     pushHistory();
-    level.weather[key] = Number(event.target.value);
+    trail.weather[key] = Number(event.target.value);
     syncInspector();
     render();
   });
   $(`weather-${key}`).addEventListener("input", (event) => {
-    level.weather[key] = Number(event.target.value);
+    trail.weather[key] = Number(event.target.value);
     render();
   });
 }
@@ -3240,7 +3066,7 @@ $("selection-snap").addEventListener("change", (event) => {
   pushHistory();
   // Unchecked pins the finish in the air at its current height; checked sends
   // it back to whatever surface is under the finish.
-  level.finishY = event.target.checked ? null : finishY();
+  trail.finishY = event.target.checked ? null : finishY();
   syncInspector();
   render();
 });
@@ -3252,11 +3078,6 @@ $("selection-material").addEventListener("change", (event) => {
     pushHistory();
     for (const index of chosen)
       replaceBlock(index, { ...blocks()[index], material });
-  } else if (Number.isInteger(selection?.platformIndex)) {
-    const platform = level.platforms[selection.platformIndex];
-    if (!platform) return;
-    pushHistory();
-    platform.material = material;
   }
   syncInspector();
   render();
@@ -3294,13 +3115,13 @@ $("selection-node").addEventListener("change", (event) => {
 $("selection-facing").addEventListener("change", (event) => {
   if (selection?.kind !== "start") return;
   pushHistory();
-  level.start.facing = Number(event.target.value) < 0 ? -1 : 1;
+  trail.start.facing = Number(event.target.value) < 0 ? -1 : 1;
   syncInspector();
   render();
 });
 $("selection-flip").addEventListener("change", (event) => {
   if (selection?.kind !== "prop") return;
-  const prop = level.props[selection.index];
+  const prop = trail.props[selection.index];
   if (!canFlip(prop.type)) return;
   pushHistory();
   if (event.target.value === "true") prop.flip = true;
@@ -3312,7 +3133,7 @@ $("selection-flip").addEventListener("change", (event) => {
 $("selection-prop-type").addEventListener("change", (event) => {
   if (selection?.kind !== "prop") return;
   pushHistory();
-  const prop = level.props[selection.index];
+  const prop = trail.props[selection.index];
   prop.type = event.target.value;
   if (prop.type === "sign" && typeof prop.text !== "string") prop.text = "";
   syncInspector();
@@ -3321,7 +3142,7 @@ $("selection-prop-type").addEventListener("change", (event) => {
 $("selection-layer").addEventListener("change", (event) => {
   if (selection?.kind !== "prop") return;
   pushHistory();
-  level.props[selection.index].layer =
+  trail.props[selection.index].layer =
     event.target.value === "front" ? "front" : "back";
   syncInspector();
   render();
@@ -3336,14 +3157,14 @@ $("selection-prop-text").addEventListener("input", (event) => {
     pushHistory();
     propTextPending = false;
   }
-  level.props[selection.index].text = event.target.value;
+  trail.props[selection.index].text = event.target.value;
   render();
 });
 $("selection-prop-text").addEventListener("change", () => syncInspector());
 $("selection-radius").addEventListener("change", (event) => {
   if (selection?.kind !== "spike") return;
   pushHistory();
-  level.spikes[selection.index].radius = Math.max(
+  trail.spikes[selection.index].radius = Math.max(
     SPIKE_RADIUS.min,
     Math.min(
       SPIKE_RADIUS.max,
@@ -3357,37 +3178,11 @@ $("selection-spin").addEventListener("change", (event) => {
   if (selection?.kind !== "spike") return;
   pushHistory();
   const spin = Number(event.target.value);
-  level.spikes[selection.index].spin = Number.isFinite(spin) ? spin : 0;
+  trail.spikes[selection.index].spin = Number.isFinite(spin) ? spin : 0;
   syncInspector();
   render();
 });
 $("delete-selection").addEventListener("click", deleteSelection);
-$("clear-legacy-terrain").addEventListener("click", () => {
-  if (
-    !confirm(
-      "Remove the older ground, gaps, islands and paths from this trail? The blocks you have built are kept. This can be undone.",
-    )
-  )
-    return;
-  pushHistory();
-  level = clearLegacyTerrain(level);
-  invalidateTerrain(level);
-  selection = null;
-  syncInspector();
-  render();
-});
-$("convert-legacy-terrain").addEventListener("click", () => {
-  // Undoable, and nothing the rider touches moves, so no confirmation is needed.
-  pushHistory();
-  level = migrateLegacyTerrain(level, levelIndex);
-  selection = null;
-  syncInspector();
-  render();
-  showStatus(
-    "info",
-    "The older terrain is now ordinary blocks. Every object that stood on it is where it was.",
-  );
-});
 $("game-art").checked = gameArt;
 $("game-art").addEventListener("change", (event) => {
   gameArt = event.target.checked;
@@ -3397,36 +3192,36 @@ $("game-art").addEventListener("change", (event) => {
   render();
 });
 $("save-draft").addEventListener("click", () => {
-  localStorage.setItem(DRAFT_PREFIX + currentEntry().id, JSON.stringify(level));
+  localStorage.setItem(DRAFT_PREFIX + currentEntry().id, JSON.stringify(trail));
   flash($("save-draft"), "SAVED");
 });
 $("export-json").addEventListener("click", () => {
-  const errors = validateLevel(level).filter(
+  const errors = validateTrail(trail).filter(
     (message) => message.type === "error",
   );
   if (errors.length && !refuse("exporting", errors)) return;
   download(
-    `${level.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.json`,
-    JSON.stringify(level, null, 2) + "\n",
+    `${trail.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.json`,
+    JSON.stringify(trail, null, 2) + "\n",
     "application/json",
   );
 });
 
 $("export-js").addEventListener("click", () => {
-  const errors = validateLevel(level).filter(
+  const errors = validateTrail(trail).filter(
     (message) => message.type === "error",
   );
   if (errors.length && !refuse("exporting", errors)) return;
   download(
-    `${level.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.js`,
-    levelToModule(level),
+    `${trail.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.js`,
+    trailToModule(trail),
     "text/javascript",
   );
 });
 $("import-json").addEventListener("click", () => {
   try {
     pushHistory();
-    level = normalizeLevel(JSON.parse($("level-json").value), levelIndex);
+    trail = normalizeTrail(JSON.parse($("trail-json").value), trailIndex);
     selection = null;
     focusPending = true;
     focusOnStart();

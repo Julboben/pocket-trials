@@ -58,7 +58,7 @@ check('the kind is captured before the state is cleared',
   captureAt >= 0 && clearAt > captureAt && callAt > clearAt);
 
 // 3. The undo point is taken before the shape is applied, so undo returns to
-// the level as it was.
+// the trail as it was.
 const snapshotAt = release.indexOf('snapshot()');
 check('the undo point is taken before the commit', snapshotAt >= 0 && snapshotAt < callAt);
 

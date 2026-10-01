@@ -1,5 +1,5 @@
-// Inline terrain fixtures for the runtime, render and migration tests, so
-// they never depend on a level file somebody is still editing in the editor.
+// Inline terrain fixtures for the terrain, runtime and render tests, so
+// they never depend on a trail file somebody is still editing in the editor.
 import { normalizeBlocks } from '../../js/terrain-geometry.js';
 
 /** The hand-drawn hook from the orchard copy: a spiral with a pocket under its peak. */
@@ -24,19 +24,7 @@ const base = () => ({
   start: { x: 90, y: null, facing: 1 }, apples: [], props: [], spikes: [], weather: { sun: 1, clouds: 0 },
 });
 
-/** A trail made only of blocks, with no legacy ground line. */
-export function blockLevel(blocks, extra = {}) {
+/** A trail made of the given blocks. */
+export function blockTrail(blocks, extra = {}) {
   return { ...base(), finishY: null, terrainBlocks: blocks, ...extra };
-}
-
-/** A legacy trail: rolling ground with a gap, an island and a path. */
-export function legacyLevel(extra = {}) {
-  return {
-    ...base(),
-    points: [[0, 320], [300, 320], [600, 280], [900, 340], [1200, 300], [1600, 320]],
-    gaps: [[1000, 1080]],
-    platforms: [{ points: [[400, 120], [550, 100], [700, 130]], bottom: [[400, 150], [550, 130], [700, 160]], material: 'dirt' }],
-    paths: [{ points: [[1250, 150], [1400, 110], [1500, 160]], thickness: 24, material: 'rock' }],
-    ...extra,
-  };
 }

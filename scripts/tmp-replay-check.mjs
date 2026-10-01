@@ -1,13 +1,13 @@
 // Temporary: which replay diverges, and where.
-import { readJson, loadCatalogLevels, repoRoot } from "./lib/levels.mjs";
+import { readJson, loadCatalogTrails, repoRoot } from "./lib/trails.mjs";
 import { createRide, stepRide } from "../js/ride.js";
 import { decodeInputs } from "../js/replay-codec.js";
 
-for (const entry of loadCatalogLevels("official")) {
+for (const entry of loadCatalogTrails("official")) {
   const path = "tests/replays/" + entry.file.split("/").pop();
   const replay = readJson(path);
   const inputs = decodeInputs(replay.inputs);
-  const ride = createRide(entry.level, { seed: replay.seed });
+  const ride = createRide(entry.trail, { seed: replay.seed });
   let crashedAt = null;
   for (const [i, input] of inputs.entries()) {
     stepRide(ride, input);

@@ -47,35 +47,35 @@ function writeJson(key, value) {
 const emptySlots = () => Array(SLOT_COUNT).fill(null);
 const cloneSave = save => save && { ...save, bestTimes: [...save.bestTimes] };
 
-function normalizeSave(save, levelCount) {
+function normalizeSave(save, trailCount) {
   if (!save || !['max', 'Maxine'].includes(save.rider)) return null;
-  const unlocked = clamp(Number(save.unlocked) || 0, 0, levelCount - 1);
-  const level = clamp(Number(save.level) || 0, 0, unlocked);
-  const bestTimes = Array.from({ length: levelCount }, (_, index) => {
+  const unlocked = clamp(Number(save.unlocked) || 0, 0, trailCount - 1);
+  const trail = clamp(Number(save.trail) || 0, 0, unlocked);
+  const bestTimes = Array.from({ length: trailCount }, (_, index) => {
     const value = Number(save.bestTimes?.[index]);
     return Number.isFinite(value) && value > 0 ? value : null;
   });
   return {
-    rider: save.rider, createdAt: Number(save.createdAt) || Date.now(), level, unlocked, bestTimes,
+    rider: save.rider, createdAt: Number(save.createdAt) || Date.now(), trail, unlocked, bestTimes,
     name: cleanRiderName(save.name) || null,
     playerId: typeof save.playerId === 'string' && UUID_RE.test(save.playerId) ? save.playerId : null
   };
 }
 
-function slots(levelCount) {
+function slots(trailCount) {
   const stored = readJson(SAVE_SLOTS_KEY, null);
-  if (stored?.levelCount === levelCount && Array.isArray(stored.slots)) return stored.slots;
+  if (stored?.trailCount === trailCount && Array.isArray(stored.slots)) return stored.slots;
   const normalized = Array.isArray(stored)
-    ? emptySlots().map((_, index) => normalizeSave(stored[index], levelCount))
+    ? emptySlots().map((_, index) => normalizeSave(stored[index], trailCount))
     : Array.isArray(stored?.slots)
-      ? emptySlots().map((_, index) => normalizeSave(stored.slots[index], levelCount))
+      ? emptySlots().map((_, index) => normalizeSave(stored.slots[index], trailCount))
       : emptySlots();
-  cache.set(SAVE_SLOTS_KEY, { levelCount, slots: normalized });
+  cache.set(SAVE_SLOTS_KEY, { trailCount, slots: normalized });
   return normalized;
 }
 
-function persistSlots(levelCount, next) {
-  cache.set(SAVE_SLOTS_KEY, { levelCount, slots: next });
+function persistSlots(trailCount, next) {
+  cache.set(SAVE_SLOTS_KEY, { trailCount, slots: next });
   try { localStorage.setItem(SAVE_SLOTS_KEY, JSON.stringify(next)); } catch (_) {}
 }
 
@@ -92,8 +92,8 @@ export function loadPreferences(defaults) {
   return merged;
 }
 
-export function loadSaveSlots(levelCount) {
-  return slots(levelCount).map(cloneSave);
+export function loadSaveSlots(trailCount) {
+  return slots(trailCount).map(cloneSave);
 }
 
 export function loadActiveSlot() {
@@ -104,62 +104,62 @@ export function saveActiveSlot(slotIndex) {
   writeJson(ACTIVE_SLOT_KEY, clamp(slotIndex, 0, SLOT_COUNT - 1));
 }
 
-export function createSave(slotIndex, rider, levelCount, name = '') {
-  const next = [...slots(levelCount)];
+export function createSave(slotIndex, rider, trailCount, name = '') {
+  const next = [...slots(trailCount)];
   const index = clamp(slotIndex, 0, SLOT_COUNT - 1);
   if (next[index]) return null;
   const save = {
     rider: rider === 'Maxine' ? 'Maxine' : 'max',
     createdAt: Date.now(),
-    level: 0,
+    trail: 0,
     unlocked: 0,
-    bestTimes: Array(levelCount).fill(null),
+    bestTimes: Array(trailCount).fill(null),
     name: cleanRiderName(name) || null,
     playerId: newPlayerId()
   };
   next[index] = save;
-  persistSlots(levelCount, next);
+  persistSlots(trailCount, next);
   saveActiveSlot(index);
   return cloneSave(save);
 }
 
-export function deleteSave(slotIndex, levelCount) {
-  const next = [...slots(levelCount)];
+export function deleteSave(slotIndex, trailCount) {
+  const next = [...slots(trailCount)];
   next[clamp(slotIndex, 0, SLOT_COUNT - 1)] = null;
-  persistSlots(levelCount, next);
+  persistSlots(trailCount, next);
 }
 
-function updateSave(slotIndex, levelCount, change) {
-  const next = [...slots(levelCount)];
+function updateSave(slotIndex, trailCount, change) {
+  const next = [...slots(trailCount)];
   const save = cloneSave(next[slotIndex]);
   if (!save) return;
   change(save);
   next[slotIndex] = save;
-  persistSlots(levelCount, next);
+  persistSlots(trailCount, next);
 }
 
-export function saveProgress(slotIndex, levelIndex, unlockedLevel, levelCount) {
-  updateSave(slotIndex, levelCount, save => {
-    save.level = clamp(levelIndex, 0, unlockedLevel);
-    save.unlocked = clamp(unlockedLevel, 0, levelCount - 1);
+export function saveProgress(slotIndex, trailIndex, unlockedTrail, trailCount) {
+  updateSave(slotIndex, trailCount, save => {
+    save.trail = clamp(trailIndex, 0, unlockedTrail);
+    save.unlocked = clamp(unlockedTrail, 0, trailCount - 1);
   });
 }
 
-export function readBest(slotIndex, levelIndex, levelCount) {
-  const value = Number(slots(levelCount)[slotIndex]?.bestTimes?.[levelIndex]);
+export function readBest(slotIndex, trailIndex, trailCount) {
+  const value = Number(slots(trailCount)[slotIndex]?.bestTimes?.[trailIndex]);
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
-export function saveBest(slotIndex, levelIndex, elapsed, levelCount) {
-  updateSave(slotIndex, levelCount, save => { save.bestTimes[levelIndex] = elapsed; });
+export function saveBest(slotIndex, trailIndex, elapsed, trailCount) {
+  updateSave(slotIndex, trailCount, save => { save.bestTimes[trailIndex] = elapsed; });
 }
 
 /** Sets a save's leaderboard name (and gives old saves a playerId). */
-export function nameSave(slotIndex, name, levelCount) {
+export function nameSave(slotIndex, name, trailCount) {
   const clean = cleanRiderName(name);
   if (!clean) return null;
   let result = null;
-  updateSave(slotIndex, levelCount, save => {
+  updateSave(slotIndex, trailCount, save => {
     save.name = clean;
     save.playerId = save.playerId || newPlayerId();
     result = { name: save.name, playerId: save.playerId };

@@ -2,25 +2,60 @@ import assert from 'node:assert/strict';
 import {
   STEP, RADIUS, WHEELBASE, SUSPENSION_REST_LENGTH, SUSPENSION_TRAVEL, XPBD_RIDER_MAX_AIR_SPIN
 } from '../js/config.js';
-import { curveAt } from '../js/terrain.js';
+import { terrainAt } from '../js/terrain.js';
+import { polygonBlock } from './lib/terrain-fixtures.mjs';
 import { createSimulation as createVehicleSimulation, createVehicle, vehicleMetrics } from '../js/vehicle-physics.js';
 
-const flatLevel = (y = 320) => ({
-  name: 'test', points: [[0, y], [1400, y]], gaps: [], platforms: [], paths: [], terrain: 'grass', fallY: y + 500
+// The scenarios were tuned on cosine-eased ground lines, so each line is
+// sampled densely into a single ground block that keeps that shape.
+function easedY(points, x) {
+  if (x <= points[0][0]) return points[0][1];
+  const end = points.findIndex(point => point[0] >= x);
+  if (end < 0) return points.at(-1)[1];
+  const [x0, y0] = points[end - 1], [x1, y1] = points[end];
+  return y0 + (y1 - y0) * (1 - Math.cos((x - x0) / (x1 - x0) * Math.PI)) / 2;
+}
+function groundBlock(points, id = 'ground') {
+  const left = points[0][0], right = points.at(-1)[0];
+  const bottom = Math.max(...points.map(point => point[1])) + 600;
+  const surface = [];
+  for (let x = left; x < right; x += 4) surface.push([x, easedY(points, x)]);
+  surface.push([right, points.at(-1)[1]]);
+  return polygonBlock([...surface, [right, bottom], [left, bottom]], 'grass', id);
+}
+// A band of the given thickness along a polyline, mitred at its joins.
+function bandBlock(points, thickness, id = 'band') {
+  const half = thickness / 2;
+  const normals = points.slice(1).map((point, index) => {
+    const dx = point[0] - points[index][0], dy = point[1] - points[index][1];
+    const length = Math.hypot(dx, dy);
+    return [dy / length, -dx / length];
+  });
+  const offset = sign => points.map(([x, y], index) => {
+    const a = normals[Math.max(0, index - 1)], b = normals[Math.min(normals.length - 1, index)];
+    const scale = half / (1 + a[0] * b[0] + a[1] * b[1]);
+    return [x + sign * (a[0] + b[0]) * scale, y + sign * (a[1] + b[1]) * scale];
+  });
+  return polygonBlock([...offset(1), ...offset(-1).reverse()], 'grass', id);
+}
+const groundTrail = (points, extra = {}) => ({
+  name: 'test', terrain: 'grass', fallY: Math.max(...points.map(point => point[1])) + 500,
+  terrainBlocks: [groundBlock(points)], ...extra
 });
+const flatTrail = (y = 320) => groundTrail([[0, y], [1400, y]]);
 
-function createSimulation(level, { x = 180, y = null, facing = 1 } = {}) {
+function createSimulation(trail, { x = 180, y = null, facing = 1 } = {}) {
   const wheel = wheelX => {
-    const wheelY = y ?? curveAt(level.points, wheelX).y - RADIUS;
+    const wheelY = y ?? terrainAt(trail, wheelX).y - RADIUS;
     return {
       x: wheelX, y: wheelY, ox: wheelX, oy: wheelY, inverseMass: 1,
-      grounded: y === null, contact: null, material: level.terrain,
+      grounded: y === null, contact: null, material: trail.terrain,
       spin: 0, angularVelocity: 0, compression: 0, impactSpeed: 0
     };
   };
   const rear = wheel(x - WHEELBASE / 2), front = wheel(x + WHEELBASE / 2);
   const vehicle = createVehicle(rear, front);
-  const simulation = createVehicleSimulation({ vehicle, level, facing });
+  const simulation = createVehicleSimulation({ vehicle, trail, facing });
   simulation.frames = [];
   return simulation;
 }
@@ -86,7 +121,7 @@ function run(simulation, count, controls) {
 }
 
 function accelerationScenario() {
-  const simulation = createSimulation(flatLevel());
+  const simulation = createSimulation(flatTrail());
   run(simulation, 120, {});
   const startX = vehicleMetrics(simulation.vehicle).center.x;
   const firstResult = simulation.step({ throttle: 1 });
@@ -117,7 +152,7 @@ function accelerationScenario() {
 }
 
 function brakingScenario(braking) {
-  const simulation = createSimulation(flatLevel());
+  const simulation = createSimulation(flatTrail());
   run(simulation, 120, {});
   run(simulation, 240, { throttle: true });
   const startX = vehicleMetrics(simulation.vehicle).center.x;
@@ -139,8 +174,8 @@ function brakingScenario(braking) {
 function brakeHoldScenario() {
   const creepOn = degrees => {
     const drop = Math.tan(degrees * Math.PI / 180) * 1200;
-    const level = { ...flatLevel(), points: [[0, 320], [1400, 320 + drop]], fallY: 320 + drop + 500 };
-    const simulation = createSimulation(level, { x: 400 });
+    const trail = groundTrail([[0, 320], [1400, 320 + drop]], { fallY: 320 + drop + 500 });
+    const simulation = createSimulation(trail, { x: 400 });
     run(simulation, 240, { brake: true });
     const startX = vehicleMetrics(simulation.vehicle).center.x;
     run(simulation, 480, { brake: true });
@@ -152,7 +187,7 @@ function brakeHoldScenario() {
 }
 
 function controlResponseScenario() {
-  const simulation = createSimulation(flatLevel());
+  const simulation = createSimulation(flatTrail());
   run(simulation, 120, {});
   let result;
   for (let frame = 0; frame < 30; frame++) result = simulation.step({ throttle: 1, lean: 1 });
@@ -166,7 +201,7 @@ function controlResponseScenario() {
 
 function leanScenario() {
   const exercise = lean => {
-    const simulation = createSimulation(flatLevel(), { x: 220 });
+    const simulation = createSimulation(flatTrail(), { x: 220 });
     run(simulation, 120, {});
     const initialPitch = vehicleMetrics(simulation.vehicle).pitch;
     run(simulation, 90, { lean });
@@ -198,7 +233,7 @@ function leanScenario() {
 }
 
 function airScenario() {
-  const simulation = createSimulation(flatLevel(800), { x: 300, y: 250 });
+  const simulation = createSimulation(flatTrail(800), { x: 300, y: 250 });
   simulation.vehicle.rear.grounded = false; simulation.vehicle.front.grounded = false;
   const initialPitch = vehicleMetrics(simulation.vehicle).pitch;
   run(simulation, 60, { lean: 1 });
@@ -208,10 +243,10 @@ function airScenario() {
 }
 
 function mirroredHillScenario() {
-  const rightLevel = { ...flatLevel(), points: [[0, 320], [250, 320], [550, 220], [1000, 220]] };
-  const leftLevel = { ...flatLevel(), points: [[0, 220], [450, 220], [750, 320], [1000, 320]] };
-  const right = createSimulation(rightLevel, { x: 150, facing: 1 });
-  const left = createSimulation(leftLevel, { x: 850, facing: -1 });
+  const rightTrail = groundTrail([[0, 320], [250, 320], [550, 220], [1000, 220]]);
+  const leftTrail = groundTrail([[0, 220], [450, 220], [750, 320], [1000, 320]]);
+  const right = createSimulation(rightTrail, { x: 150, facing: 1 });
+  const left = createSimulation(leftTrail, { x: 850, facing: -1 });
   run(right, 120, {}); run(left, 120, {});
   run(right, 300, { throttle: true, lean: .4 });
   run(left, 300, { throttle: true, lean: -.4 });
@@ -226,8 +261,8 @@ function mirroredHillScenario() {
 }
 
 function uphillThrottleScenario(lean = 0) {
-  const level = { ...flatLevel(), points: [[0, 320], [250, 320], [550, 220], [1000, 220]] };
-  const simulation = createSimulation(level, { x: 150 });
+  const trail = groundTrail([[0, 320], [250, 320], [550, 220], [1000, 220]]);
+  const simulation = createSimulation(trail, { x: 150 });
   run(simulation, 120, {});
   run(simulation, 300, { throttle: true, lean });
   const metrics = vehicleMetrics(simulation.vehicle);
@@ -236,7 +271,7 @@ function uphillThrottleScenario(lean = 0) {
   const averageUphillSpeed = slopeFrames.reduce((sum, frame) => sum + frame.speedX, 0) / Math.max(1, slopeFrames.length);
   const topFrame = inputFrames.findIndex(frame => frame.center.x >= 550);
   const maxFrontClearance = slopeFrames.reduce(
-    (maximum, frame) => Math.max(maximum, curveAt(level.points, frame.frontX).y - RADIUS - frame.frontY),
+    (maximum, frame) => Math.max(maximum, terrainAt(trail, frame.frontX).y - RADIUS - frame.frontY),
     0
   );
   assert.ok(metrics.center.x - 150 > 340, `uphill progress too small: ${metrics.center.x - 150}`);
@@ -252,11 +287,8 @@ function uphillThrottleScenario(lean = 0) {
 }
 
 function crestReleaseScenario() {
-  const level = {
-    ...flatLevel(),
-    points: [[0, 320], [220, 320], [400, 230], [580, 320], [1200, 320]]
-  };
-  const simulation = createSimulation(level, { x: 100 });
+  const trail = groundTrail([[0, 320], [220, 320], [400, 230], [580, 320], [1200, 320]]);
+  const simulation = createSimulation(trail, { x: 100 });
   run(simulation, 120, {});
   run(simulation, 300, { throttle: true });
   const airborneFrames = simulation.frames.filter(frame => !frame.rearGrounded && !frame.frontGrounded).length;
@@ -265,8 +297,8 @@ function crestReleaseScenario() {
 }
 
 function valleyScenario() {
-  const level = { ...flatLevel(), points: [[0, 260], [300, 260], [500, 330], [700, 260], [1000, 260]] };
-  const simulation = createSimulation(level, { x: 350 });
+  const trail = groundTrail([[0, 260], [300, 260], [500, 330], [700, 260], [1000, 260]]);
+  const simulation = createSimulation(trail, { x: 350 });
   run(simulation, 1200, {});
   const early = simulation.frames.slice(240, 480).reduce((max, frame) => Math.max(max, Math.abs(frame.center.x - 500)), 0);
   const late = simulation.frames.slice(-240).reduce((max, frame) => Math.max(max, Math.abs(frame.center.x - 500)), 0);
@@ -289,8 +321,8 @@ function rotateVehicle(vehicle, angle, centerX, centerY) {
 }
 
 function landingScenario() {
-  const level = flatLevel(400);
-  const simulation = createSimulation(level, { x: 300, y: 350 });
+  const trail = flatTrail(400);
+  const simulation = createSimulation(trail, { x: 300, y: 350 });
   rotateVehicle(simulation.vehicle, .4, 300, 350);
   let firstContact = null, firstWheel = null, bothContact = null, maxUpwardSpeed = 0;
   let minimumRearSuspension = Infinity, minimumFrontSuspension = Infinity;
@@ -328,7 +360,7 @@ function landingScenario() {
 }
 
 function flipKeepsTiresRollingScenario() {
-  const simulation = createSimulation(flatLevel(), { x: 300 });
+  const simulation = createSimulation(flatTrail(), { x: 300 });
   run(simulation, 120, { throttle: true });
   step(simulation, { flip: true, throttle: true });
   const sameSign = (rear, front) => Math.sign(rear.angularVelocity) === Math.sign(front.angularVelocity) && rear.angularVelocity !== 0;
@@ -345,7 +377,7 @@ function determinismAndFlipScenario() {
     flip: frame === 120
   }));
   const runInputs = () => {
-    const simulation = createSimulation(flatLevel(), { x: 300 });
+    const simulation = createSimulation(flatTrail(), { x: 300 });
     for (const input of inputs) step(simulation, input);
     return {
       facing: simulation.facing,
@@ -363,7 +395,7 @@ function determinismAndFlipScenario() {
 
 function landingSagScenario() {
   const sinkFrom = drop => {
-    const simulation = createSimulation(flatLevel());
+    const simulation = createSimulation(flatTrail());
     run(simulation, 240, {});
     const rest = vehicleMetrics(simulation.vehicle);
     const restLength = (rest.rearSuspensionLength + rest.frontSuspensionLength) / 2;
@@ -386,7 +418,7 @@ function landingSagScenario() {
 
 function heldLeanScenario() {
   const exercise = controls => {
-    const simulation = createSimulation(flatLevel(), { x: 300 });
+    const simulation = createSimulation(flatTrail(), { x: 300 });
     run(simulation, 120, {});
     let previous = vehicleMetrics(simulation.vehicle).pitch, turned = 0, lateTurn = 0;
     for (let index = 0; index < 480; index++) {
@@ -406,8 +438,8 @@ function heldLeanScenario() {
 }
 
 function droppedSimulation(height, tiltDegrees) {
-  const level = flatLevel();
-  const simulation = createSimulation(level, { x: 300, y: 320 - RADIUS - height });
+  const trail = flatTrail();
+  const simulation = createSimulation(trail, { x: 300, y: 320 - RADIUS - height });
   const points = [simulation.vehicle.rear, simulation.vehicle.front, ...Object.values(simulation.vehicle.chassis)];
   const cx = 300, cy = 320 - RADIUS - height, angle = tiltDegrees * Math.PI / 180;
   for (const point of points) {
@@ -420,7 +452,7 @@ function droppedSimulation(height, tiltDegrees) {
 }
 
 function steadyAirSpinScenario() {
-  const simulation = createSimulation(flatLevel(3000), { x: 300, y: 100 });
+  const simulation = createSimulation(flatTrail(3000), { x: 300, y: 100 });
   const rates = [];
   let previous = vehicleMetrics(simulation.vehicle).pitch;
   for (let index = 1; index <= 180; index++) {
@@ -437,7 +469,7 @@ function steadyAirSpinScenario() {
 
 function airLeanKeepsMomentumScenario() {
   const flight = lean => {
-    const simulation = createSimulation(flatLevel(3000), { x: 300, y: 100 });
+    const simulation = createSimulation(flatTrail(3000), { x: 300, y: 100 });
     const points = [simulation.vehicle.rear, simulation.vehicle.front, ...Object.values(simulation.vehicle.chassis)];
     for (const point of points) { point.ox = point.x - 300 * STEP; point.oy = point.y + 400 * STEP; }
     run(simulation, 120, { lean });
@@ -471,8 +503,8 @@ function singleWheelLandingScenario() {
 
 function steepClimbForwardLeanScenario() {
   const rise = Math.tan(40 * Math.PI / 180) * 300;
-  const level = { ...flatLevel(600), points: [[0, 600], [250, 600], [550, 600 - rise], [1400, 600 - rise]] };
-  const simulation = createSimulation(level, { x: 150 });
+  const trail = groundTrail([[0, 600], [250, 600], [550, 600 - rise], [1400, 600 - rise]]);
+  const simulation = createSimulation(trail, { x: 150 });
   run(simulation, 120, {});
   let maxRearLift = 0, minRelativePitch = Infinity;
   for (let index = 0; index < 420; index++) {
@@ -480,7 +512,7 @@ function steepClimbForwardLeanScenario() {
     const middle = (rear.x + front.x) / 2;
     step(simulation, { throttle: true, lean: middle > 250 ? 1 : 0 });
     if (middle < 290 || middle > 510) continue;
-    maxRearLift = Math.max(maxRearLift, curveAt(level.points, rear.x).y - RADIUS - rear.y);
+    maxRearLift = Math.max(maxRearLift, terrainAt(trail, rear.x).y - RADIUS - rear.y);
     minRelativePitch = Math.min(minRelativePitch, -vehicleMetrics(simulation.vehicle).pitch * 180 / Math.PI - 40);
   }
   const progress = vehicleMetrics(simulation.vehicle).center.x - 150;
@@ -493,8 +525,8 @@ function steepClimbForwardLeanScenario() {
 // steep hill without leaning forward lifts the front until the bike loops.
 function steepClimbLoopScenario() {
   const rise = Math.tan(45 * Math.PI / 180) * 300;
-  const level = { ...flatLevel(600), points: [[0, 600], [250, 600], [550, 600 - rise], [1400, 600 - rise]] };
-  const simulation = createSimulation(level, { x: 150 });
+  const trail = groundTrail([[0, 600], [250, 600], [550, 600 - rise], [1400, 600 - rise]]);
+  const simulation = createSimulation(trail, { x: 150 });
   run(simulation, 120, {});
   let maxNoseUp = -Infinity;
   for (let index = 0; index < 600; index++) {
@@ -509,10 +541,10 @@ function steepClimbLoopScenario() {
 // Leaning forward cannot hold the nose down on a near-vertical face.
 function steepWallScenario() {
   const height = 600, base = 300;
-  const level = { ...flatLevel(800), points: [[0, 800], [base, 800], [base + height / Math.tan(78 * Math.PI / 180), 800 - height], [1400, 800 - height]] };
+  const trail = groundTrail([[0, 800], [base, 800], [base + height / Math.tan(78 * Math.PI / 180), 800 - height], [1400, 800 - height]]);
   let highest = 0;
   for (const lean of [0, .5, 1]) {
-    const simulation = createSimulation(level, { x: 200 });
+    const simulation = createSimulation(trail, { x: 200 });
     run(simulation, 60, {});
     // Without the rider's crash check a looped bike keeps sliding on its back,
     // so only count height while it is still the right way up.
@@ -530,11 +562,14 @@ function steepWallScenario() {
 // Coasting off a 65° slope onto a 14° one hits the front wheel almost head on.
 // The bike must ride it out on its wheels instead of vaulting into a tumble.
 function sharpBendScenario() {
-  const level = {
-    ...flatLevel(1400),
-    paths: [{ points: [[-41, 53], [268, 731], [962, 905], [1400, 905]], closed: false, thickness: 28, material: 'grass' }]
+  const trail = {
+    ...flatTrail(1400),
+    terrainBlocks: [
+      groundBlock([[0, 1400], [1400, 1400]]),
+      bandBlock([[-41, 53], [268, 731], [962, 905], [1400, 905]], 28),
+    ],
   };
-  const simulation = createSimulation(level, { x: 56, y: 71 });
+  const simulation = createSimulation(trail, { x: 56, y: 71 });
   let maxTilt = 0;
   run(simulation, 480, () => {
     maxTilt = Math.max(maxTilt, Math.abs(vehicleMetrics(simulation.vehicle).pitch));

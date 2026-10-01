@@ -1,32 +1,27 @@
 // Shared JSDoc types for `// @ts-check`. This module has no runtime exports.
 
 /**
- * @typedef {[number, number]} Point2
- *
  * @typedef {object} Spike
  * @property {number} x
  * @property {number} y
  * @property {number} radius
  * @property {number} spin turns per second
  *
- * @typedef {object} Level
+ * @typedef {object} Trail
  * @property {string} name
  * @property {string} [label]
- * @property {Point2[]} points ground polyline
+ * @property {object[]} terrainBlocks solid terrain; see terrain-geometry.js
  * @property {{ x: number, y?: number | null, facing: 1 | -1 }} start
  * @property {number} goal x coordinate of the finish flower, which may be on either side of the start
  * @property {number | null} [finishY] height the finish stands at; null means on the surface below it
  * @property {number} [fallY]
  * @property {{ x: number, y?: number | null }[]} apples
  * @property {Array<Partial<Spike>>} [spikes]
- * @property {Array<{ from: number, to: number }>} [gaps]
- * @property {object[]} [platforms]
- * @property {object[]} [paths]
  * @property {object[]} [props]
  * @property {string} [terrain] material id
  * @property {{ rain?: number, lightning?: number }} [weather]
  * @property {'hills' | 'mountains' | 'forest' | 'desert' | 'city'} [backdrop] parallax background theme; omitted means hills
- * @property {'morning' | 'noon' | 'evening' | 'night'} [timeOfDay] sky, light and grade preset; omitted keeps the level's own colours
+ * @property {'morning' | 'noon' | 'evening' | 'night'} [timeOfDay] sky, light and grade preset; omitted keeps the trail's own colours
  * @property {{ gold: number, silver: number, bronze: number }} [medals] target times in seconds
  *
  * @typedef {object} Contact
@@ -79,7 +74,7 @@
  *   | { type: 'win', time: number, x: number, y: number }} RideEvent
  *
  * @typedef {object} Ride
- * @property {Level} level
+ * @property {Trail} trail
  * @property {Wheel} rear
  * @property {Wheel} front
  * @property {Vehicle} vehicle

@@ -33,7 +33,7 @@ const SEAM_PROBE = 0.05;
 const SPLIT_EPSILON = 1e-7;
 
 // Bumped whenever the compiled collision shape changes for the same input. It
-// is folded into the gameplay identity of every level that has blocks, so a
+// is folded into the gameplay identity of every trail that has blocks, so a
 // compiler change can never reuse an old leaderboard.
 export const TERRAIN_COMPILER_VERSION = 2;
 
@@ -53,13 +53,13 @@ export const TERRAIN_COMPILER_VERSION = 2;
  */
 
 /**
- * Compile a level's blocks into collision and query geometry. Deterministic:
+ * Compile a trail's blocks into collision and query geometry. Deterministic:
  * the same blocks in the same order always produce the same compiled result.
  *
- * @param {{ terrainBlocks?: object[] }} level
+ * @param {{ terrainBlocks?: object[] }} trail
  */
-export function compileTerrain(level) {
-  const blocks = Array.isArray(level?.terrainBlocks) ? level.terrainBlocks : [];
+export function compileTerrain(trail) {
+  const blocks = Array.isArray(trail?.terrainBlocks) ? trail.terrainBlocks : [];
   /** @type {TerrainBody[]} */
   const bodies = [];
   blocks.forEach((block, blockIndex) => {
@@ -494,7 +494,6 @@ function makeContact(nearest, x, y, radius, inside) {
     kind: 'block',
     material: nearest.body.material,
     blockId: nearest.body.blockId,
-    platform: null,
     y: nearest.nearestY,
     slope: Math.abs(nearest.dx) > .0001 ? nearest.dy / nearest.dx : 0,
     solid: true,
@@ -513,8 +512,8 @@ function makeContact(nearest, x, y, radius, inside) {
  * A centre inside the union is pushed out through the nearest live piece of
  * boundary, whichever block owns it, so a wheel inside two overlapping blocks
  * leaves through the real surface rather than through a buried seam. A centre
- * in open space gets one contact per block it touches, as the legacy ground
- * and islands did, so a wheel in a corner feels both faces.
+ * in open space gets one contact per block it touches, so a wheel in a corner
+ * feels both faces.
  */
 export function terrainContacts(compiled, x, y, radius) {
   const near = bodiesNear(compiled, x - radius, x + radius, y - radius, y + radius);
@@ -568,7 +567,6 @@ export function terrainSweep(compiled, fromX, fromY, toX, toY, radius) {
     kind: 'block',
     material: earliestBody.material,
     blockId: earliestBody.blockId,
-    platform: null,
     slope: Math.abs(dx) > .0001 ? dy / dx : 0,
     tangentX: dx / length,
     tangentY: dy / length,

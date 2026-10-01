@@ -3,7 +3,7 @@
 import { execFileSync } from 'node:child_process';
 import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { repoRoot } from './lib/levels.mjs';
+import { repoRoot } from './lib/trails.mjs';
 
 const roots = ['js', 'scripts', 'sw.js'];
 const files = [];

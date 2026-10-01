@@ -1,6 +1,6 @@
 // Network-first service worker: online loads always get the latest files,
 // and everything fetched is kept so the game also starts offline.
-const CACHE = 'pocket-trials-44599333';
+const CACHE = 'pocket-trials-5fd92552';
 const CORE = [
   './',
   './css/editor.css',
@@ -20,9 +20,6 @@ const CORE = [
   './js/finish.js',
   './js/game.js',
   './js/input.js',
-  './js/level-hash.js',
-  './js/level-schema.js',
-  './js/levels.js',
   './js/main.js',
   './js/materials.js',
   './js/online-leaderboard.js',
@@ -36,10 +33,12 @@ const CORE = [
   './js/state.js',
   './js/storage.js',
   './js/terrain-geometry.js',
-  './js/terrain-legacy.js',
   './js/terrain-render.js',
   './js/terrain-runtime.js',
   './js/terrain.js',
+  './js/trail-hash.js',
+  './js/trail-schema.js',
+  './js/trails.js',
   './js/types.js',
   './js/ui/menu.js',
   './js/ui/overlay.js',
@@ -58,12 +57,12 @@ self.addEventListener('install', event => {
       .filter(Boolean);
     if (failed.length) console.warn('[sw] could not precache:', failed);
     try {
-      const catalog = await (await fetch('./levels/catalog.json')).json();
+      const catalog = await (await fetch('./trails/catalog.json')).json();
       await Promise.allSettled(
-        catalog.levels.map(entry => cache.add('./levels/' + entry.file)),
+        catalog.trails.map(entry => cache.add('./trails/' + entry.file)),
       );
     } catch (error) {
-      console.warn('[sw] could not precache the level catalog:', error);
+      console.warn('[sw] could not precache the trail catalog:', error);
     }
     await self.skipWaiting();
   })());

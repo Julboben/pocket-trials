@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "levels": [
+  "trails": [
     {
       "id": "official:01-the-orchard",
       "source": "official",
@@ -44,10 +44,10 @@
       "name": "Elastic Summit"
     },
     {
-      "id": "custom:00-custom-level",
+      "id": "custom:00-custom-trail",
       "source": "custom",
-      "file": "custom/00-custom-level.json",
-      "name": "Custom Level"
+      "file": "custom/00-custom-trail.json",
+      "name": "Custom Trail"
     },
     {
       "id": "custom:gravity-fair",

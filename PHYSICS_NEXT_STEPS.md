@@ -5,7 +5,7 @@ The staged physics roadmap is implemented in `js/vehicle-physics.js`: a physical
 ## Implemented foundation
 
 - Fixed 120 Hz simulation
-- Circle-versus-polygon edge and endpoint collision for ground, gap walls, and platforms
+- Circle-versus-polygon edge and corner collision against compiled terrain blocks
 - Swept circle-versus-segment collision before static overlap correction for wheels and ragdoll points, plus swept rider crash probes
 - Inverse-mass XPBD constraints whose multipliers reset once per substep
 - Separate constraint compliance and velocity damping
@@ -13,24 +13,24 @@ The staged physics roadmap is implemented in `js/vehicle-physics.js`: a physical
 - Independent suspension links with compliance, damping, and travel limits
 - Wheel angular velocity driven by throttle and braking
 - Contact-point slip converted into coupled linear/angular friction impulses
-- Ordered thick paths for loops and overhangs, shared by rendering, collision, validation, and editor handles
+- Block terrain for loops, caves, and overhangs, with one compiled geometry shared by rendering, collision, validation, and the editor
 - Opt-in physics traces with `?physicsDebug=1`
 
-## Authored path format
+## Terrain format
 
-The original `points` field remains an x-ordered heightfield, preserving all official trails. A separate `paths` array supports repeated x coordinates, vertical segments, movement back along x, overhangs, and closed loops. Each path is a solid rounded ribbon described by ordered centerline points, `thickness`, `material`, and `closed`.
+Terrain is a list of `terrainBlocks`. Each block has one or more solid regions, each with an outer boundary and optional cave boundaries, built from straight or curved edges. That supports overhangs, vertical faces, movement back along x, and closed loops.
 
-See [`LEVEL_FORMAT.md`](./LEVEL_FORMAT.md) for the complete schema and editor workflow.
+See [`TRAIL_FORMAT.md`](./TRAIL_FORMAT.md) for the complete schema and editor workflow.
 
 ## Validation completed
 
 The automated suite covers:
 
 - Gap openings and cliff walls
+- Floating block tops, sides, corners, and undersides
 - Steep polygon contacts
-- Fast circle sweeps against thin segments and authored paths
-- Closed-loop outer contact and empty centers
-- Open path caps and decreasing-x overhangs
+- Fast circle sweeps into blocks
+- Caves, nested blocks, and overhangs
 - Predicted-position XPBD correction
 - Inverse-mass XPBD correction
 - Center-of-mass preservation in the distance velocity projection
@@ -57,7 +57,7 @@ Physics constants are centralized in `js/config.js`, but feel tuning requires br
 
 - Sharp crests and valleys
 - Both sides of every gap
-- Platform tops, corners, sides, and undersides
+- Floating block tops, corners, sides, and undersides
 - Low-speed approaches and maximum-speed impacts
 - Rider/head, chassis, and ragdoll contacts
 - Full loops with enough approach speed and appropriately broad radii

@@ -23,14 +23,14 @@ export function createEffects() {
   /** @type {any[]} */ const particles = [];
   /** @type {any[]} */ const skidMarks = [];
   const weather = { time: 0, nextLightning: Infinity, flash: 0, x: .5, distance: .5 };
-  let level = null, sprayAccumulator = 0, skidAccumulator = 0;
+  let trail = null, sprayAccumulator = 0, skidAccumulator = 0;
 
-  function reset(nextLevel) {
-    level = nextLevel;
+  function reset(nextTrail) {
+    trail = nextTrail;
     particles.length = 0; skidMarks.length = 0;
     sprayAccumulator = 0; skidAccumulator = 0;
     weather.time = 0; weather.flash = 0; weather.x = .5; weather.distance = .5;
-    weather.nextLightning = level.weather?.lightning ? 2.5 + Math.random() * 4 : Infinity;
+    weather.nextLightning = trail.weather?.lightning ? 2.5 + Math.random() * 4 : Infinity;
   }
 
   function burst(x, y, color, count = 12) {
@@ -44,7 +44,7 @@ export function createEffects() {
   function dustPuff(wheel, impactSpeed) {
     const x = wheel.contact?.pointX ?? wheel.x;
     const y = (wheel.contact?.pointY ?? wheel.y + RADIUS) - 2;
-    const spray = terrainMaterials[wheel.material]?.spray || level.spray || ['#c5b496'];
+    const spray = terrainMaterials[wheel.material]?.spray || trail.spray || ['#c5b496'];
     const count = Math.round(clamp(impactSpeed / 40, 3, 9));
     for (let index = 0; index < count; index++) {
       const side = index % 2 ? 1 : -1;
@@ -66,7 +66,7 @@ export function createEffects() {
     const direction = Math.sign(speed || ride.facing);
     for (const wheel of [ride.rear, ride.front]) {
       if (!wheel.grounded) continue;
-      const ground = wheel.contact || terrainAt(level, wheel.x, wheel.y - RADIUS);
+      const ground = wheel.contact || terrainAt(trail, wheel.x, wheel.y - RADIUS);
       const length = clamp(magnitude * .035 * ride.brakePressure, 3, 10);
       skidMarks.push({
         x: ground.pointX ?? wheel.x, y: (ground.pointY ?? ground.y) - 1, slope: ground.slope,
@@ -88,12 +88,12 @@ export function createEffects() {
     while (sprayAccumulator >= 1) {
       sprayAccumulator--;
       const direction = Math.sign(speed || ride.facing);
-      const spray = terrainMaterials[wheel.material]?.spray || level.spray;
+      const spray = terrainMaterials[wheel.material]?.spray || trail.spray;
       const color = spray[Math.floor(Math.random() * spray.length)];
       const life = .28 + Math.random() * .32;
       particles.push({
         x: (wheel.contact?.pointX ?? wheel.x) - direction * (RADIUS - 2),
-        y: (wheel.contact?.pointY ?? terrainAt(level, wheel.x, wheel.y).y) - 2,
+        y: (wheel.contact?.pointY ?? terrainAt(trail, wheel.x, wheel.y).y) - 2,
         vx: speed * .12 - direction * (35 + Math.random() * (braking ? 95 : 65)),
         vy: -(25 + Math.random() * (braking ? 90 : 55)),
         life, max: life, color, size: Math.random() < .7 ? 2 : 4, drag: 2.5, splatter: true
@@ -105,7 +105,7 @@ export function createEffects() {
   function stepWeather() {
     weather.time += STEP;
     weather.flash = Math.max(0, weather.flash - STEP * 4.5);
-    const intensity = clamp(Number(level.weather?.lightning) || 0, 0, 1);
+    const intensity = clamp(Number(trail.weather?.lightning) || 0, 0, 1);
     if (!intensity || weather.time < weather.nextLightning) return null;
     weather.distance = Math.pow(Math.random(), .75);
     const proximity = 1 - weather.distance;
@@ -125,7 +125,7 @@ export function createEffects() {
       if (p.splatter) {
         // The floor under the particle, so spray in a cave lands on the cave
         // floor instead of jumping onto the rock above it.
-        const ground = terrainAt(level, p.x, p.y - 6);
+        const ground = terrainAt(trail, p.x, p.y - 6);
         if (ground.solid && p.y > ground.y - 1) {
           p.y = ground.y - 1;
           p.vx *= .45; p.vy = -Math.abs(p.vy) * .16;

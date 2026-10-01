@@ -1,0 +1,1517 @@
+# Pocket Trials: trail authoring context
+
+This document gives you everything you need to create trails for Pocket Trials, a 2D side-scrolling bike trials game. It bundles the trail format spec, the validation code, the list of materials, and three official trails as examples.
+
+## Your task
+
+Create new trails as a single JSON file each, following the format below.
+
+- Read the spec first, then check your output against `validateTrail` in `js/trail-schema.js`. If the spec and the code disagree, follow the code.
+- Coordinates use the Canvas convention: `x` increases to the right and `y` increases **downward**, so a smaller `y` means higher terrain.
+- Only use material names defined in `js/materials.js`.
+- Output plain JSON (no comments, no trailing commas). The file will be saved in `trails/custom/`.
+- You cannot playtest. Keep gaps, slopes and jumps conservative (start gaps around 80–100 units wide) and treat medal times as rough estimates.
+
+## Contents
+
+1. `TRAIL_FORMAT.md`: trail format specification
+2. `js/trail-schema.js`: Schema, normalization and validation rules (the code is authoritative if it disagrees with the spec)
+3. `js/materials.js`: Valid terrain materials
+4. `trails/custom/README.md`: Where custom trail files go and how they are loaded
+5. `trails/official/01-the-orchard.json`: Example trail: easy
+6. `trails/official/04-skybound.json`: Example trail: medium
+7. `trails/official/07-elastic-summit.json`: Example trail: advanced
+
+---
+
+## `TRAIL_FORMAT.md`
+
+Trail format specification.
+
+````markdown
+# Pocket Trials trail format
+
+All trails use the same JSON schema. Shipped career trails live in `trails/official/`, while locally authored standalone trails live in `trails/custom/`. The editor's JSON export can be placed directly in `trails/custom/`.
+
+`npm run dev` watches both folders and regenerates `trails/catalog.json` whenever a JSON file changes. The browser loads that catalog through `js/trails.js`, so new files appear after the next page refresh. Trails saved or imported in the browser outside dev mode are kept in localStorage and listed alongside the file-based custom trails.
+
+A trail cannot declare itself official inside its JSON. The generated catalog assigns source from the containing folder: official trails participate in career progression and official best times; custom trails are clearly labeled and never alter career progress.
+
+The world uses Canvas coordinates:
+
+- `x` increases to the right.
+- `y` increases downward.
+- A smaller `y` value therefore means higher terrain.
+- Distances are expressed in world-space pixels.
+- There is no height limit. `y` may go as far negative as you like, and the camera follows the rider all the way up. Downward, the camera stops a little below `fallY`.
+- With the default start at `x = 90`, the bike's wheels begin near `x = 65` and `x = 115`.
+
+## Complete example
+
+```js
+{
+  name: 'Example Trail',
+  label: 'EXAMPLE TRAIL / 08',
+  goal: 1800,
+  terrain: 'grass',
+  start: { x: 90, y: null, facing: 1 },
+
+  terrainBlocks: [
+    {
+      id: 'ground',
+      material: 'grass',
+      regions: [{
+        outer: { nodes: [
+          { x: 0, y: 320 },
+          { x: 180, y: 320, out: [260, 320] },
+          { x: 340, y: 260, in: [280, 260], out: [400, 260], mode: 'smooth' },
+          { x: 520, y: 330, in: [460, 330] },
+          { x: 780, y: 280 },
+          { x: 780, y: 700 },
+          { x: 0, y: 700 }
+        ] },
+        inner: []
+      }]
+    },
+    {
+      id: 'far-side',
+      material: 'grass',
+      regions: [{
+        outer: { nodes: [{ x: 900, y: 290 }, { x: 1950, y: 290 }, { x: 1950, y: 700 }, { x: 900, y: 700 }] },
+        inner: [
+          { nodes: [{ x: 1300, y: 400 }, { x: 1600, y: 400 }, { x: 1600, y: 520 }, { x: 1300, y: 520 }] }
+        ]
+      }]
+    },
+    {
+      id: 'ledge',
+      material: 'brick',
+      regions: [{
+        outer: { nodes: [{ x: 1050, y: 200 }, { x: 1380, y: 200 }, { x: 1360, y: 240 }, { x: 1070, y: 240 }] },
+        inner: []
+      }]
+    }
+  ],
+
+  apples: [
+    { x: 300, y: null },
+    { x: 840, y: 190 },
+    { x: 1200, y: null },
+    { x: 1450, y: 470 },
+    { x: 1700, y: null }
+  ],
+
+  props: [
+    { x: 250, y: null, type: 'tree', layer: 'back' },
+    { x: 650, y: null, type: 'rock', layer: 'front' }
+  ],
+
+  spikes: [
+    { x: 1250, y: 150, radius: 18, spin: 1 }
+  ],
+
+  weather: {
+    sun: 0.25,
+    clouds: 0.9,
+    rain: 0.5,
+    lightning: 0.35
+  },
+
+  fallY: 800,
+  spray: ['#846d55', '#aa8b68', '#c8aa82']
+}
+```
+
+The example has rolling ground, a gap between x 780 and 900, a far side with a cave in it, and a brick ledge floating above the far side.
+
+## Terrain: `terrainBlocks`
+
+`terrainBlocks` is the trail's terrain: a list of blocks, each a material and one or more regions, where each region is a closed outer boundary and any number of caves.
+
+```js
+terrainBlocks: [
+  {
+    id: 'ground',
+    material: 'sand',
+    regions: [
+      { outer: boundary, inner: [cave, ...] }
+    ]
+  }
+]
+```
+
+- `id`: the block's identity, used for invalidation. Any stable string.
+- `material`: one of the terrain materials. It drives the fill, strata, edge, surface and spray.
+- `regions`: the shapes that are solid. A region is `outer` plus `inner` caves; a block with two regions is two separate pieces that share a material.
+
+A **boundary** is a ring of nodes. Do not repeat the first node at the end. Each node has:
+
+- `id`, `x`, `y`.
+- `mode`: `corner`, `smooth`, or `independent`. A `smooth` node keeps its two handles in line, so the surface bends through it; a `corner` keeps it angular.
+- `in` and `out`: the curve handles for the edges either side, as absolute `[x, y]` world positions, or `null` for straight ones. An edge is curved when the node before it has an `out` handle or the node after it has an `in` handle.
+- `edge`: `straight` or `curve`, describing the edge leaving the node. Normalization reconciles it with the handles.
+
+Node and boundary ids only need to be unique within the trail, and hand-written coordinates are fine. Normalization fills in anything missing, so a minimal block only needs its `outer` nodes. A trail needs at least one block.
+
+Blocks are drawn and collide in list order, and later blocks win where they overlap. Every edge collides: tops, undersides, walls, and corners, so blocks can be any shape, including overhangs, vertical faces, and loops.
+
+Authoring guidelines:
+
+- **Ground**: one wide block whose top edge is the route and whose bottom sits well below it. Keep the opening section relatively flat so both wheels spawn safely, and keep terrain beyond `goal`.
+- **Slopes**: broad curved edges ride well. Spans of `140–190` units per hill are forgiving; short spans with large height changes create abrupt geometry.
+- **Gaps**: a break between two blocks. The walls either side are solid, so a rider who falls in can hit the cliff face. Start around `80–100` units wide for introductory jumps; wider gaps need a clear launch ramp and a landing below the takeoff height.
+- **Ledges and islands**: a separate block above the ground. Leave at least one wheel diameter between it and the ground, and more when the rider is expected to pass underneath.
+- **Caves**: an `inner` boundary inside a region. The cave is open space with a solid roof and floor.
+- **Loops**: a block whose region has a cave, ridden around its inside. Leave generous room in tight bends; very tight radii are hard to ride cleanly.
+
+Validation reports blocks that enclose no area, cross themselves, or are buried under other blocks, and objects that are left over open air.
+
+## Start: `start`
+
+`start` controls the bike's initial midpoint and riding direction:
+
+```js
+start: { x: 90, y: null, facing: 1 }
+```
+
+- `x` is the horizontal midpoint between the wheels.
+- `y` is the wheel-axle height. Use `null` to place both wheels automatically on the topmost surface at `x`, or a number for an explicit airborne, ledge, or cave start.
+- `facing` is `1` for right and `-1` for left.
+
+The editor's **Start** tool places an explicit start position. Select the start marker to move it or change its facing in the inspector. A trail always has one start, so it cannot be deleted.
+
+## Finish: `goal`
+
+The finish is a flower at (goal, finishY), floating 22 units above that point. finishY: null means it stands on the surface below. The run ends when the bike or rider touches the flower, from any side, once every apple is collected. The finish may be left or right of the start.
+
+## Terrain materials
+
+Set the base material with:
+
+```js
+terrain: "grass";
+```
+
+The base material is the default for new blocks; each block sets its own with its `material` property. Available presets are:
+
+| Material | Intended character                       |
+| -------- | ---------------------------------------- |
+| `grass`  | Green surface with soil underneath       |
+| `dirt`   | Warm loose-earth trail                   |
+| `sand`   | Pale warm sand, bare by default          |
+| `rock`   | Grey, hard mountain terrain              |
+| `snow`   | Pale surface and cool subsurface         |
+| `brick`  | Brick pattern with a green rideable edge |
+
+Material definitions live in `terrainMaterials` at the top of `js/materials.js`. Each preset controls fill, internal layers or pattern, edge colors, vegetation, and wheel-spray colors.
+
+## Apples
+
+Each apple has a horizontal and optional vertical position:
+
+```js
+apples: [
+  { x: 300, y: null },
+  { x: 700, y: 190 },
+];
+```
+
+A numeric `y` is the apple's center and allows it to be placed freely in the world, including over gaps, on ledges, or in caves. `y: null` anchors the apple 60 units above the topmost surface at `x`; do not put a ground-anchored apple over a gap. The editor's **Apple** tool always places an apple at the exact clicked position.
+
+## Props
+
+```js
+props: [
+  { x: 250, y: null, type: "tree", layer: "back" },
+  { x: 650, y: 245, type: "rock", layer: "front" },
+  { x: 900, y: null, type: "sign", layer: "front", text: "SLOW →" },
+];
+```
+
+Available prop types are `tree`, `pine`, `bush`, `fence`, `rock`, `boulder`, `flowers`, `stump`, `cactus`, `crystal`, and `sign`. `y: null` anchors a prop to the topmost surface at `x`; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front`: `back`-layer props are drawn behind the terrain as well as the gameplay, while `front`-layer props are drawn in front of the gameplay.
+
+A `sign` prop carries an optional `text` string that is drawn on its board with the game's pixel font. Text is limited to 8 characters; supported characters are `A`–`Z`, `0`–`9`, space, and `→` `/` `.` `!` `+` `-` `:` `×`. Anything else draws as `#`, and longer text is cut off.
+
+Use the editor's **Prop** tool to place a prop. Select it to drag it, edit its type and layer in the inspector — plus its text, for signs — or remove it with **Delete Selection**, `Delete`, or `Backspace`.
+
+## Spikes
+
+Spikes are spinning spiked balls, similar to the killers in Elasto Mania. Touching one with either wheel or the rider's body ends the run.
+
+```js
+spikes: [
+  { x: 820, y: 240, radius: 18, spin: 1 },
+  { x: 1300, y: 150, radius: 30, spin: -0.5 },
+];
+```
+
+- `x` and `y` are the center of the spike in world space. A missing or `null` `y` rests the spike on the topmost surface at `x`.
+- `radius` is the distance from the center to the spike tips, between `8` and `64` (default `18`). Only the inner 80% is lethal, so grazing a tip is forgiven.
+- `spin` is rotations per second. Positive values spin clockwise, negative values spin counter-clockwise, and `0` keeps the spike still. Spin is purely visual and does not change the hit area.
+
+Spikes float freely and do not collide with terrain. Use the editor's **Spike** tool to place one at the clicked position; the inspector edits its radius and spin, and the selected spike shows its lethal area as a dashed circle. Leave at least one bike length of clearance around the start position.
+
+## Weather
+
+Weather values are independent and range from `0` to `1`:
+
+```js
+weather: {
+  sun: 0.8,
+  clouds: 0.25,
+  rain: 0.4,
+  lightning: 0.2
+}
+```
+
+- `sun`: sun size and visibility.
+- `clouds`: cloud quantity, size, and opacity.
+- `rain`: rain density, screen tint, and ambient rain volume.
+- `lightning`: strike frequency, flash strength, and thunder strength.
+
+Any property may be omitted. This supports clear skies, sunny skies with scattered clouds, overcast weather, rain without lightning, lightning without rain, and full storms.
+
+## Time of day and backdrop
+
+```js
+timeOfDay: 'evening',
+backdrop: 'desert'
+```
+
+Both are optional, and each is independent of the other.
+
+`timeOfDay` picks the sky, sun, hill and light colours, and the grade over the whole scene. Valid values are `morning`, `noon`, `evening` and `night`; anything else, or no value, falls back to `noon`. Evening and night also light the finish and the city windows.
+
+`backdrop` picks the shapes of the two parallax layers behind the terrain. Valid values are `hills`, `mountains`, `forest`, `desert` and `city`; anything else, or no value, means `hills`, and `hills` is not stored.
+
+The theme sets the shapes and the time of day sets the colours, so all combinations work.
+
+## Props: `flip` and wall props
+
+Props sit under `props`, alongside the `terrainBlocks` terrain.
+
+Every prop may carry `flip: true`, which mirrors it left to right. It is omitted when the prop is not flipped. Signs cannot be flipped, because their text would come out mirrored.
+
+Three props attach to a wall rather than standing on the ground, and grow toward the open air:
+
+| Prop | Place it | It draws |
+| --- | --- | --- |
+| `vines` | Just past the top corner of a cliff | Leafy strands hanging down the face, as far as the drop to the floor below allows |
+| `roots` | On a wall face | Twisted roots growing out of the rock and drooping down |
+| `moss` | On a wall face | Moss clumps pressed against the rock, with a few drips |
+
+They find the rock by sampling up to 22 units either side, so they can be clicked slightly into the rock or slightly into the air. They are decoration only — nothing collides with them.
+
+Sign text wraps at word boundaries onto up to 4 lines of 10 characters, and the board grows taller to fit, staying on its post. Anything longer is cut off, and the editor warns.
+
+## Other fields
+
+- `fallY`: vertical position at which the bike is considered lost. Increase it for deep gaps or trails that descend far. It also sets how low the camera can look.
+- `spray`: fallback wheel-particle colors. Material-specific spray takes priority.
+- `description`: design notes for the trail. It is not currently shown during gameplay.
+
+`sky`, `sun` and `mountain` are no longer read: the background comes from `timeOfDay` and `backdrop`. They are ignored and can be removed.
+
+## Medals
+
+```js
+medals: { gold: 11, silver: 14.5, bronze: 19 }
+```
+
+These optional target times are in seconds. The results screen and trail cards award the best medal whose time the run beats or matches. Times must be positive and ordered `gold ≤ silver ≤ bronze`. Any medal can be left out, and an invalid `medals` object is dropped during normalization. The official trails' gold times are based on the replay bot's finishing times in `tests/replays/`.
+
+## Recommended authoring workflow
+
+1. Build the base route as one ground block, with no gaps.
+2. Ride it in both directions and verify every slope is recoverable.
+3. Cut gaps one at a time, beginning around `80–100` units wide.
+4. Add ledges, caves, and loops; test tops, undersides, walls, and corners in both directions.
+5. Place apples only after the route is stable.
+6. Add props, materials, and weather last so they do not hide gameplay problems.
+7. Test at low speed, full speed, and after imperfect landings—not only with an ideal run.
+
+## Visual editor
+
+Open `editor.html` or choose **Trail Editor** from the game dashboard. The **Block** tool draws a new block, and the **Cut** tool carves caves, entrances, and gaps out of existing blocks. Drag a block's points and curve handles to reshape it, or drag inside its filled body to move it whole. Double-click an edge to add a point. The inspector edits a block's material, whether an edge is straight or curved, and whether a point is a corner or smooth.
+
+The **Apple**, **Start**, and **Prop** tools place those objects at the exact clicked world position. Select an object to move it numerically or by dragging; the inspector also changes start direction and prop type/layer. Apples and props can be removed, while the required start and finish markers can only be moved.
+
+## Suggested future format improvement
+
+Blocks already have stable ids, so objects could eventually attach to a block's surface:
+
+```js
+apples: [
+  { x: 1200, surface: 'ledge', offset: 60 }
+]
+```
+
+That would let apples and props follow a block automatically after its shape changes. Explicit world-space placement already works, but it intentionally remains fixed when nearby terrain is edited.
+````
+
+---
+
+## `js/trail-schema.js`
+
+Schema, normalization and validation rules (the code is authoritative if it disagrees with the spec).
+
+```js
+import { terrainMaterials } from "./materials.js";
+import { terrainAt, terrainGeometry } from "./terrain.js";
+import { hypot } from "./det-math.js";
+import {
+  signLines,
+  SIGN_LINE_CHARACTERS,
+  SIGN_MAX_LINES,
+  TIMES_OF_DAY,
+  DEFAULT_TIME_OF_DAY,
+  BACKDROPS,
+} from "./drawing.js";
+import { RADIUS, WHEELBASE } from "./config.js";
+import { FINISH_FLOWER_LIFT, bikeTouchesFlower } from "./finish.js";
+import {
+  normalizeBlocks as normalizeTerrainBlocks,
+  validateBlocks as validateTerrainBlocks,
+  regionBounds,
+} from "./terrain-geometry.js";
+/** Blocks for a brand new trail: one rectangular slab to build on. */
+export function createBlankTerrainBlocks(trail = {}) {
+  return normalizeTerrainBlocks(
+    [
+      {
+        id: "block-1",
+        material: trail.terrain || "grass",
+        regions: [
+          {
+            outer: {
+              id: "boundary-1",
+              nodes: [
+                {
+                  id: "n1",
+                  x: 0,
+                  y: 320,
+                  mode: "corner",
+                  in: null,
+                  out: null,
+                  edge: "straight",
+                },
+                {
+                  id: "n2",
+                  x: 420,
+                  y: 300,
+                  mode: "corner",
+                  in: null,
+                  out: null,
+                  edge: "straight",
+                },
+                {
+                  id: "n3",
+                  x: 900,
+                  y: 336,
+                  mode: "corner",
+                  in: null,
+                  out: null,
+                  edge: "straight",
+                },
+                {
+                  id: "n4",
+                  x: 1400,
+                  y: 300,
+                  mode: "corner",
+                  in: null,
+                  out: null,
+                  edge: "straight",
+                },
+                {
+                  id: "n5",
+                  x: 1400,
+                  y: 580,
+                  mode: "corner",
+                  in: null,
+                  out: null,
+                  edge: "straight",
+                },
+                {
+                  id: "n6",
+                  x: 0,
+                  y: 580,
+                  mode: "corner",
+                  in: null,
+                  out: null,
+                  edge: "straight",
+                },
+              ],
+            },
+            inner: [],
+          },
+        ],
+      },
+    ],
+    trail.terrain || "grass",
+  );
+}
+
+export const cloneTrail = (trail) => JSON.parse(JSON.stringify(trail));
+
+export function createBlankTrail(index = 0) {
+  const number = String(index + 1).padStart(2, "0");
+  return {
+    name: "New Trail",
+    label: `NEW TRAIL / ${number}`,
+    goal: 1200,
+    terrain: "grass",
+    description: "",
+    start: { x: 90, y: null, facing: 1 },
+    terrainBlocks: createBlankTerrainBlocks(),
+    apples: [
+      { x: 260, y: null },
+      { x: 470, y: null },
+      { x: 710, y: null },
+      { x: 930, y: null },
+      { x: 1100, y: null },
+    ],
+    props: [],
+    spikes: [],
+    weather: { sun: 1, clouds: 0.2 },
+    fallY: 620,
+    sky: "#eae9d9",
+    sun: "#f2c082",
+    mountain: "#b7c8b1",
+    spray: ["#6f8b59", "#9c8b68", "#c5b496"],
+  };
+}
+
+/** The terrain blocks on a trail, normalized. */
+export function trailTerrainBlocks(trail) {
+  return normalizeTerrainBlocks(trail?.terrainBlocks, trail?.terrain || "grass") || [];
+}
+
+/**
+ * Where the finish stands, in world units.
+ *
+ * A finish is a point, not just an x. `trail.finishY` holds an explicit height
+ * once the author has placed it somewhere other than the ground, and null means
+ * "stand on whatever surface is here". That is what lets a finish sit on a
+ * floating block, or high above a cave, instead of being pinned to the ground.
+ *
+ * The finish is a flower that floats a little above that anchor; the run ends
+ * when the bike touches it, wherever the bike comes from.
+ */
+export function finishHeight(trail) {
+  if (Number.isFinite(trail?.finishY)) return trail.finishY;
+  return (
+    surfaceBelow(trail, trail?.goal ?? 0, null)?.y ?? (trail?.fallY || 620)
+  );
+}
+
+/** The centre of the finish flower, which is what the bike has to touch. */
+export function finishFlower(trail) {
+  return { x: trail.goal, y: finishHeight(trail) - FINISH_FLOWER_LIFT };
+}
+
+/**
+ * The topmost solid surface at or below `referenceY`. This is the single
+ * answer to "where does something at this x rest". It reads the trail's
+ * cached geometry, so it is cheap to call per object.
+ */
+export function surfaceBelow(trail, x, referenceY = null) {
+  const surface = terrainAt(trail, x, referenceY);
+  return surface?.solid ? surface : null;
+}
+
+/** A surface's height at an x, falling back to the trail's kill plane. */
+function groundHeight(trail, x) {
+  const surface = surfaceBelow(trail, x, null);
+  return surface ? surface.y : trail.fallY || 620;
+}
+
+export const SPIKE_RADIUS = { min: 8, max: 64, default: 18 };
+/**
+ * Normalize a spike. `groundY` is the surface height at the spike's x, used
+ * when the spike has no y of its own.
+ */
+export function normalizeSpike(spike, groundY = null) {
+  const radius = Math.max(
+    SPIKE_RADIUS.min,
+    Math.min(SPIKE_RADIUS.max, Number(spike?.radius) || SPIKE_RADIUS.default),
+  );
+  const x = Number(spike?.x) || 0;
+  const explicit = Number.isFinite(Number(spike?.y)) && spike?.y !== null;
+  const surface = !explicit && Number.isFinite(groundY) ? groundY : 620;
+  const y = explicit ? Number(spike.y) : surface - radius;
+  const spin = Number(spike?.spin);
+  return { x, y, radius, spin: Number.isFinite(spin) ? spin : 1 };
+}
+
+export function normalizeTrail(input, index = 0) {
+  const fallback = createBlankTrail(index);
+  const trail = { ...fallback, ...cloneTrail(input || {}) };
+  trail.name = String(trail.name || fallback.name);
+  trail.label = String(
+    trail.label ||
+      `${trail.name.toUpperCase()} / ${String(index + 1).padStart(2, "0")}`,
+  );
+  trail.goal = Number(trail.goal) || fallback.goal;
+  // The finish is a point. A null finishY means it stands on the surface below,
+  // which is what a plain ground finish wants; a number pins it in the air.
+  // The null check has to come first: Number(null) is 0, which would silently
+  // pin every ground finish to the top of the world.
+  trail.finishY =
+    trail.finishY === null || trail.finishY === undefined
+      ? null
+      : Number.isFinite(Number(trail.finishY))
+        ? Number(trail.finishY)
+        : null;
+  trail.fallY = Number(trail.fallY) || fallback.fallY;
+  trail.terrain = terrainMaterials[trail.terrain] ? trail.terrain : "grass";
+  // Terrain comes from the input only: a trail without blocks has no terrain,
+  // which validation reports, rather than silently getting the blank slab.
+  trail.terrainBlocks =
+    normalizeTerrainBlocks(input?.terrainBlocks, trail.terrain) || [];
+  const start = trail.start || fallback.start;
+  trail.start = {
+    x: Number(start.x) || 90,
+    y:
+      start.y === null || start.y === undefined
+        ? null
+        : Number.isFinite(Number(start.y))
+          ? Number(start.y)
+          : null,
+    facing: Number(start.facing) < 0 ? -1 : 1,
+  };
+  trail.apples = Array.isArray(trail.apples)
+    ? trail.apples.map((apple) => ({
+        x: Number(apple.x) || 0,
+        y: apple.y === null ? null : Number(apple.y),
+      }))
+    : [];
+  trail.props = Array.isArray(trail.props)
+    ? trail.props.map((prop) => ({
+        x: Number(prop.x) || 0,
+        y:
+          prop.y === null || prop.y === undefined
+            ? null
+            : Number.isFinite(Number(prop.y))
+              ? Number(prop.y)
+              : null,
+        type: String(prop.type || "tree"),
+        layer: prop.layer === "front" ? "front" : "back",
+        text:
+          prop.type === "sign" && typeof prop.text === "string"
+            ? prop.text
+            : undefined,
+        flip: prop.flip === true ? true : undefined,
+      }))
+    : [];
+  trail.spikes = Array.isArray(trail.spikes)
+    ? trail.spikes.map((spike) =>
+        normalizeSpike(
+          spike,
+          surfaceBelow(trail, Number(spike?.x) || 0, null)?.y ?? null,
+        ),
+      )
+    : [];
+  trail.weather = { ...fallback.weather, ...(trail.weather || {}) };
+  // Noon is the default look; an unrecognised value falls back to it too.
+  if (!TIMES_OF_DAY.includes(trail.timeOfDay))
+    trail.timeOfDay = DEFAULT_TIME_OF_DAY;
+  // Hills is the default, so it isn't stored.
+  if (!BACKDROPS.includes(trail.backdrop) || trail.backdrop === "hills")
+    delete trail.backdrop;
+  const medals = normalizeMedals(trail.medals);
+  if (medals) trail.medals = medals;
+  else delete trail.medals;
+  return trail;
+}
+
+export const MEDALS = ["gold", "silver", "bronze"];
+
+/** Target times in seconds; invalid or incomplete tables are dropped. */
+export function normalizeMedals(medals) {
+  if (!medals || typeof medals !== "object") return null;
+  const times = MEDALS.map((name) => Number(medals[name]));
+  if (!times.every((time) => Number.isFinite(time) && time > 0)) return null;
+  return { gold: times[0], silver: times[1], bronze: times[2] };
+}
+
+/** @returns {'gold' | 'silver' | 'bronze' | null} */
+export function medalFor(medals, time) {
+  if (!medals) return null;
+  return MEDALS.find((name) => time <= medals[name]) || null;
+}
+
+/**
+ * Would the bike, standing where it starts, already be touching the finish
+ * flower? Then the run would end before the rider could move.
+ */
+function startTouchesFinish(trail) {
+  const { x, y, facing } = trail.start;
+  const wheelY = Number.isFinite(y) ? y : terrainAt(trail, x, null).y - RADIUS;
+  const rear = { x: x - WHEELBASE / 2, y: wheelY },
+    front = { x: x + WHEELBASE / 2, y: wheelY };
+  // A rider sits about 43 units above the axles, slightly forward.
+  const probes = [
+    { x: x + 3 * (facing < 0 ? -1 : 1), y: wheelY - 43, radius: 6 },
+    { x, y: wheelY - 30, radius: 5 },
+  ];
+  return bikeTouchesFlower(finishFlower(trail), { rear, front, probes });
+}
+
+export function validateTrail(trail) {
+  const messages = [];
+  const error = (text) => messages.push({ type: "error", text });
+  const warning = (text) => messages.push({ type: "warning", text });
+  if (!trail.name.trim()) error("The trail needs a name.");
+  if (!terrainMaterials[trail.terrain])
+    error(`Unknown base material “${trail.terrain}”.`);
+
+  // Block geometry is validated first, and against the trail's other blocks so
+  // a fully buried block is reported.
+  const blocks = trailTerrainBlocks(trail);
+  for (const message of validateTerrainBlocks(blocks)) messages.push(message);
+  const compiled = blocks.length ? terrainGeometry(trail) : null;
+  if (compiled) {
+    // A block with no surface left on the union's boundary is entirely inside
+    // other terrain, which usually means a surrounding block was moved over it.
+    const exposed = new Set(
+      compiled.bodies
+        .filter((body) => body.liveCount > 0)
+        .map((body) => body.blockIndex),
+    );
+    blocks.forEach((block, index) => {
+      if (!exposed.has(index))
+        warning(
+          `Block ${index + 1} is completely buried inside other terrain, so it has no effect.`,
+        );
+    });
+    const edges = compiled.bodies.reduce(
+      (total, body) => total + body.edgeCount,
+      0,
+    );
+    if (edges > 40000)
+      warning(
+        `The terrain is very detailed (${edges} edges after curves are flattened) and may be slow on older devices.`,
+      );
+  }
+
+  if (!blocks.length) error("A trail needs terrain: add at least one block.");
+  // The finish may sit on either side of the start, so it is checked against
+  // both ends of the terrain rather than against a position to the right.
+  const firstX = blocks.length
+    ? Math.min(
+        ...blocks.flatMap((block) =>
+          block.regions.map((region) => regionBounds(region).left),
+        ),
+      )
+    : Infinity;
+  const finalX = blocks.length
+    ? Math.max(
+        ...blocks.flatMap((block) =>
+          block.regions.map((region) => regionBounds(region).right),
+        ),
+      )
+    : -Infinity;
+  // A finish off the end of the terrain is already reported by the range check
+  // below, so the "no terrain under it" check must not repeat the same problem.
+  let finishOffTerrain = false;
+  if (Number.isFinite(firstX) && trail.goal <= firstX) {
+    finishOffTerrain = true;
+    error(
+      `The finish at x ${Math.round(trail.goal)} is before the start of the terrain (x ${Math.round(firstX)}). Move it onto the trail, or extend the blocks.`,
+    );
+  } else if (Number.isFinite(finalX) && trail.goal >= finalX) {
+    finishOffTerrain = true;
+    error(
+      `The finish at x ${Math.round(trail.goal)} is past the end of the terrain (x ${Math.round(finalX)}). Move it onto the trail, or extend the blocks.`,
+    );
+  }
+  if (Number.isFinite(trail.start?.x) && startTouchesFinish(trail)) {
+    error(
+      "The finish flower touches the bike at the start, so the trail would end at once. Move the finish away from the start.",
+    );
+  }
+  if (!Number.isFinite(trail.start?.x))
+    error("The trail needs a valid start position.");
+  for (const [index, prop] of (trail.props || []).entries()) {
+    if (
+      ![
+        "tree",
+        "pine",
+        "bush",
+        "fence",
+        "rock",
+        "boulder",
+        "flowers",
+        "stump",
+        "cactus",
+        "crystal",
+        "sign",
+        "vines",
+        "roots",
+        "moss",
+        "sapling",
+        "pine-small",
+        "cactus-small",
+        "pebbles",
+      ].includes(prop.type)
+    )
+      warning(`Prop ${index + 1} has an unknown type “${prop.type}”.`);
+    if (prop.type === "sign") {
+      if (typeof prop.text !== "string")
+        warning(
+          `Sign ${index + 1} needs its text as a string; use “” for a blank sign.`,
+        );
+      else if (
+        signLines(prop.text).join("").replace(/\s/g, "").length <
+        prop.text.replace(/\s/g, "").length
+      )
+        warning(
+          `Sign ${index + 1} text doesn't fit in ${SIGN_MAX_LINES} lines of ${SIGN_LINE_CHARACTERS} characters and will be cut off.`,
+        );
+      else if (/[^A-Z0-9 →\/.!+:\-×#']/.test(prop.text.toUpperCase()))
+        warning(
+          `Sign ${index + 1} text contains characters the pixel font cannot draw.`,
+        );
+    }
+  }
+  for (const [index, spike] of (trail.spikes || []).entries()) {
+    if (!Number.isFinite(spike.x) || !Number.isFinite(spike.y))
+      error(`Spike ${index + 1} must have finite coordinates.`);
+    if (!(spike.radius >= SPIKE_RADIUS.min && spike.radius <= SPIKE_RADIUS.max))
+      error(
+        `Spike ${index + 1} radius must be between ${SPIKE_RADIUS.min} and ${SPIKE_RADIUS.max}.`,
+      );
+    const startY = Number.isFinite(trail.start?.y)
+      ? trail.start.y
+      : groundHeight(trail, trail.start.x) - 12;
+    if (hypot(spike.x - trail.start.x, spike.y - startY) < spike.radius + 70)
+      warning(`Spike ${index + 1} is very close to the start position.`);
+    for (const apple of trail.apples || []) {
+      const appleY = Number.isFinite(apple.y)
+        ? apple.y
+        : groundHeight(trail, apple.x) - 60;
+      if (hypot(spike.x - apple.x, spike.y - appleY) < spike.radius + 10)
+        warning(
+          `Spike ${index + 1} overlaps the apple at x ${Math.round(apple.x)}.`,
+        );
+    }
+  }
+  if (trail.medals !== undefined) {
+    const times = MEDALS.map((name) => Number(trail.medals?.[name]));
+    if (!times.every((time) => Number.isFinite(time) && time > 0))
+      error(
+        "Medal times need positive gold, silver and bronze values in seconds.",
+      );
+    else if (!(times[0] <= times[1] && times[1] <= times[2]))
+      error("Medal times must get slower from gold to silver to bronze.");
+  }
+  for (const key of ["sun", "clouds", "rain", "lightning"]) {
+    const value = trail.weather?.[key];
+    if (
+      value !== undefined &&
+      (!Number.isFinite(Number(value)) || value < 0 || value > 1)
+    )
+      error(`Weather.${key} must be between 0 and 1.`);
+  }
+  // An object resting on "whatever is here" can be left over open air by an
+  // edit. Checked last, so a broken finish or terrain, which
+  // usually causes it, is the first thing reported.
+  if (compiled) {
+    const noGround = (x) => !terrainAt(trail, x, null).solid;
+    if (trail.start?.y === null && noGround(trail.start.x))
+      error(
+        "The ground-anchored start has no terrain under it. Drag the start onto a block.",
+      );
+    for (const apple of trail.apples || []) {
+      if (apple.y === null && noGround(apple.x))
+        error(
+          `Ground-anchored apple at x ${Math.round(apple.x)} has no terrain under it.`,
+        );
+    }
+    if (
+      !finishOffTerrain &&
+      !Number.isFinite(trail.finishY) &&
+      noGround(trail.goal)
+    )
+      error(
+        "The ground-anchored finish has no terrain under it. Drag it onto a block, or lift it into the air.",
+      );
+  }
+  if (!messages.length)
+    messages.push({ type: "ok", text: "Trail data is valid." });
+  return messages;
+}
+
+export function trailToModule(trail) {
+  return `export default ${JSON.stringify(trail, null, 2)};\n`;
+}
+```
+
+---
+
+## `js/materials.js`
+
+Valid terrain materials.
+
+```js
+export const terrainMaterials = {
+  grass: {
+    fill: '#c5b496', layers: ['#d3c2a2', '#b7a687'], detail: '#ac9c806e',
+    edge: '#375d4d', surface: '#6f8b59', vegetation: '#628455',
+    spray: ['#6f8b59','#9c8b68','#c5b496']
+  },
+  dirt: {
+    fill: '#ad825e', layers: ['#c69a70', '#906b50'], detail: '#76543f66',
+    edge: '#654735', surface: '#9c714f', vegetation: null,
+    spray: ['#886044','#ad825e','#d0a47b']
+  },
+  sand: {
+    fill: '#d8c08e', layers: ['#e6d2a3', '#c2a674'], detail: '#a98e6166',
+    edge: '#8f7550', surface: '#e9d8a8', vegetation: null,
+    spray: ['#c9b07e','#dcc59a','#eddcb5']
+  },
+  rock: {
+    fill: '#727a78', layers: ['#89918d', '#606866'], detail: '#4d565466',
+    edge: '#3f4d4b', surface: '#9aa49e', vegetation: null,
+    spray: ['#626b69','#858e8a','#aeb5ad']
+  },
+  snow: {
+    fill: '#aebbc0', layers: ['#cbd5d6', '#929fa5'], detail: '#74838a55',
+    edge: '#687a7e', surface: '#eef3ed', vegetation: null,
+    spray: ['#d8e2df','#edf2eb','#aebcc0']
+  },
+  brick: {
+    fill: '#8d493d', layers: ['#a65a49', '#71392f'], detail: '#492b29aa', pattern: 'brick',
+    edge: '#433534', surface: '#74a35a', vegetation: null,
+    spray: ['#754239','#9a5748','#bd7961']
+  }
+};
+```
+
+---
+
+## `trails/custom/README.md`
+
+Where custom trail files go and how they are loaded.
+
+```markdown
+# Custom Trails
+
+Drop your own trail files into this folder to play them locally.
+
+## Adding a trail
+
+With `npm run dev` running, click **New** or **Duplicate** in the **Trail Editor**. The trail is written here directly, and **Save** keeps it up to date. Refresh the game to see it under **CUSTOM TRAILS**.
+
+You can also add a file by hand:
+
+1. Build a trail in the **Trail Editor** and click **Export JSON**.
+2. Save the exported file here, e.g. `trails/custom/my-trail.json`.
+3. With `npm run dev` running, the catalog regenerates automatically. Without the dev server, run `npm run trails` once to rebuild `trails/catalog.json`.
+
+Trails created or imported without the dev server, for example on a deployed copy, are stored in the browser instead of this folder.
+
+## Rules
+
+- Only `.json` files are picked up. Files load in natural filename order, so a numeric prefix like `01-` controls ordering.
+- Each file needs a string `name`; everything else follows the same schema as the official trails. See [`TRAIL_FORMAT.md`](../../TRAIL_FORMAT.md).
+- The trail ID is `custom:<filename>`, so renaming a file makes it a different trail.
+- Custom trails are labeled as custom and never affect career progression or official best times. A trail can't mark itself as official; the folder decides.
+
+## Git
+
+The contents of this folder are git-ignored (except this README), so your trails stay local to your machine.
+```
+
+---
+
+## `trails/official/01-the-orchard.json`
+
+Example trail: easy.
+
+```json
+{
+  "name": "The Orchard",
+  "label": "THE ORCHARD / 01",
+  "goal": 2109.276035710421,
+  "terrain": "grass",
+  "description": "Learn the rhythm: build speed on gentle rollers, lean forward on climbs, and settle the bike before each landing.",
+  "start": {"x": 271.93445286745373, "y": 303.45703530867854, "facing": 1},
+  "apples": [
+    {"x": 611.6796875, "y": 214.42578125},
+    {"x": 1216.37890625, "y": 273.9140625},
+    {"x": 1664.3576591387484, "y": 210.44266827177432}
+  ],
+  "props": [
+    {"x": 368.576464994405, "y": 321.0662943927564, "type": "fence", "layer": "back"},
+    {"x": 520, "y": null, "type": "tree", "layer": "back"},
+    {"x": 838.39453125, "y": 308.875, "type": "flowers", "layer": "front"},
+    {"x": 1180, "y": null, "type": "stump", "layer": "front"},
+    {"x": 1450, "y": null, "type": "fence", "layer": "back"},
+    {"x": 1882.58984375, "y": 307.52734375, "type": "tree", "layer": "back"},
+    {"x": 2197.7332321394247, "y": 305.54584909876735, "type": "flowers", "layer": "front"},
+    {"x": 1294.5859375, "y": 306.875, "type": "tree", "layer": "back"},
+    {"x": 979.3562354280114, "y": 285.58516928913934, "type": "tree", "layer": "back"},
+    {"x": 1797.4921875, "y": 315.48828125, "type": "bush", "layer": "back"}
+  ],
+  "spikes": [],
+  "weather": {"sun": 1, "clouds": 0.15},
+  "fallY": 620,
+  "sky": "#eae9d9",
+  "sun": "#f2c082",
+  "mountain": "#b7c8b1",
+  "spray": ["#6f8b59","#9c8b68","#c5b496"],
+  "medals": {"gold": 11, "silver": 14.5, "bronze": 19},
+  "finishY": 290.1897147270387,
+  "terrainBlocks": [
+    {
+      "id": "ground",
+      "material": "grass",
+      "regions": [
+        {
+          "outer": {
+            "id": "ground-r0",
+            "nodes": [
+              {"id": "ground-n0", "x": -999.6709, "y": 274.1753, "mode": "corner", "in": null, "out": [23.7547,-528.5126], "edge": "curve"},
+              {"id": "ground-n1", "x": -149.4275, "y": 46.3533, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n3", "x": -22.3608, "y": 26.2846, "mode": "corner", "in": [28.9665,-152.5091], "out": [105.3291,6.2527], "edge": "curve"},
+              {"id": "ground-n4", "x": 35.1666, "y": 226.9364, "mode": "corner", "in": [14.0759,147.9608], "out": [35.5596,329.562], "edge": "curve"},
+              {"id": "ground-n6", "x": 180.3291, "y": 320, "mode": "corner", "in": [172.8291,320], "out": [271.9958,320], "edge": "curve"},
+              {"id": "ground-n7", "x": 455.3291, "y": 322, "mode": "corner", "in": [363.6624,322], "out": [481.1624,322], "edge": "curve"},
+              {"id": "ground-n8", "x": 532.8291, "y": 299, "mode": "corner", "in": [506.9958,311.0428], "out": [558.6624,286.9572], "edge": "curve"},
+              {"id": "ground-n9", "x": 610.3291, "y": 276, "mode": "corner", "in": [584.4958,276], "out": [635.3291,276], "edge": "curve"},
+              {"id": "ground-n10", "x": 685.3291, "y": 298, "mode": "corner", "in": [660.3291,286.4808], "out": [710.3291,309.5192], "edge": "curve"},
+              {"id": "ground-n11", "x": 760.3291, "y": 320, "mode": "corner", "in": [735.3291,320], "out": [813.6624,320], "edge": "curve"},
+              {"id": "ground-n12", "x": 920.3291, "y": 300, "mode": "corner", "in": [866.9958,300], "out": [943.6624,300], "edge": "curve"},
+              {"id": "ground-n13", "x": 990.3291, "y": 278.5, "mode": "corner", "in": [966.9958,289.7574], "out": [1013.6624,267.2426], "edge": "curve"},
+              {"id": "ground-n14", "x": 1060.3291, "y": 257, "mode": "corner", "in": [1036.9958,257], "out": [1073.2458,257], "edge": "curve"},
+              {"id": "ground-n15", "x": 1099.0791, "y": 266.6655, "mode": "corner", "in": [1086.1624,260.5565], "out": [1111.9958,272.7744], "edge": "curve"},
+              {"id": "ground-n16", "x": 1137.8291, "y": 290, "mode": "corner", "in": [1124.9124,281.3606], "out": [1150.7458,298.6394], "edge": "curve"},
+              {"id": "ground-n17", "x": 1176.5791, "y": 313.3345, "mode": "corner", "in": [1163.6624,307.2256], "out": [1189.4958,319.4435], "edge": "curve"},
+              {"id": "ground-n18", "x": 1215.3291, "y": 323, "mode": "corner", "in": [1202.4124,323], "out": [1241.9958,323], "edge": "curve"},
+              {"id": "ground-n19", "x": 1295.3291, "y": 304.5, "mode": "corner", "in": [1268.6624,314.1866], "out": [1321.9958,294.8134], "edge": "curve"},
+              {"id": "ground-n20", "x": 1375.3291, "y": 286, "mode": "corner", "in": [1348.6624,286], "out": [1398.6624,286], "edge": "curve"},
+              {"id": "ground-n21", "x": 1445.3291, "y": 303.5, "mode": "corner", "in": [1421.9958,294.337], "out": [1468.6624,312.663], "edge": "curve"},
+              {"id": "ground-n22", "x": 1515.3291, "y": 321, "mode": "corner", "in": [1491.9958,321], "out": [1527.8291,321], "edge": "curve"},
+              {"id": "ground-n23", "x": 1552.8291, "y": 313.0919, "mode": "corner", "in": [1540.3291,318.0901], "out": [1565.3291,308.0936], "edge": "curve"},
+              {"id": "ground-n24", "x": 1590.3291, "y": 294, "mode": "corner", "in": [1577.8291,301.0686], "out": [1602.8291,286.9314], "edge": "curve"},
+              {"id": "ground-n25", "x": 1627.8291, "y": 274.9081, "mode": "corner", "in": [1615.3291,279.9064], "out": [1640.3291,269.9099], "edge": "curve"},
+              {"id": "ground-n26", "x": 1665.3291, "y": 267, "mode": "corner", "in": [1652.8291,267], "out": [1677.8291,267], "edge": "curve"},
+              {"id": "ground-n27", "x": 1702.8291, "y": 274.4688, "mode": "corner", "in": [1690.3291,269.7482], "out": [1715.3291,279.1893], "edge": "curve"},
+              {"id": "ground-n28", "x": 1740.3291, "y": 292.5, "mode": "corner", "in": [1727.8291,285.8241], "out": [1752.8291,299.1759], "edge": "curve"},
+              {"id": "ground-n29", "x": 1777.8291, "y": 310.5312, "mode": "corner", "in": [1765.3291,305.8107], "out": [1790.3291,315.2518], "edge": "curve"},
+              {"id": "ground-n30", "x": 1815.3291, "y": 318, "mode": "corner", "in": [1802.8291,318], "out": [1863.6624,318], "edge": "curve"},
+              {"id": "ground-n31", "x": 1960.3291, "y": 294, "mode": "corner", "in": [1911.9958,294], "out": [1985.3291,294], "edge": "curve"},
+              {"id": "ground-n32", "x": 2035.3291, "y": 310, "mode": "corner", "in": [2010.3291,301.6224], "out": [2060.3291,318.3776], "edge": "curve"},
+              {"id": "ground-n33", "x": 2110.3291, "y": 326, "mode": "corner", "in": [2085.3291,326], "out": [2155.3291,326], "edge": "curve"},
+              {"id": "ground-n34", "x": 2245.3291, "y": 304, "mode": "corner", "in": [2200.3291,304], "out": [2254.6463,304], "edge": "curve"},
+              {"id": "ground-n35", "x": 2273.2808, "y": 272.3393, "mode": "corner", "in": [2263.9636,293.1745], "out": [2282.598,251.5042], "edge": "curve"},
+              {"id": "ground-n36", "x": 2283.193514580325, "y": 199.06086683521983, "mode": "corner", "in": [2301.708931258052,231.81428014719472], "out": null, "edge": "straight"},
+              {"id": "ground-n37", "x": 2252.7948176028663, "y": 156.8342734340054, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n39", "x": 2463.2709, "y": 197.2642, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n40", "x": 3419.9443, "y": 300, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n41", "x": 3419.9443, "y": 1200, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n42", "x": -999.6709, "y": 1200, "mode": "corner", "in": null, "out": null, "edge": "straight"}
+            ]
+          },
+          "inner": []
+        }
+      ]
+    }
+  ],
+  "timeOfDay": "noon"
+}
+```
+
+---
+
+## `trails/official/04-skybound.json`
+
+Example trail: medium.
+
+```json
+{
+  "name": "Skybound",
+  "label": "SKYBOUND / 04",
+  "goal": 3244.3685535694976,
+  "terrain": "sand",
+  "description": "Commit to the jumps. Build speed before each lip, stay calm in the air, and line both wheels up with the far-side slope.",
+  "start": {"x": 126.00276453217202, "y": 262.99729187990346, "facing": 1},
+  "apples": [
+    {"x": 345, "y": null},
+    {"x": 790, "y": null},
+    {"x": 1308.3045666609205, "y": 226.74158940509966},
+    {"x": 2089.6297770862143, "y": 188.32851230120968},
+    {"x": 2703.6769174779947, "y": 214.1939658210648}
+  ],
+  "props": [
+    {"x": 1080.1013401210357, "y": 287.4422187213786, "type": "fence", "layer": "back"},
+    {"x": 590, "y": null, "type": "flowers", "layer": "front"},
+    {"x": 860, "y": null, "type": "rock", "layer": "front"},
+    {"x": 1590.8927063457136, "y": 554.989748762136, "type": "crystal", "layer": "back"},
+    {"x": 1880, "y": null, "type": "fence", "layer": "back"},
+    {"x": 2760, "y": null, "type": "rock", "layer": "front"},
+    {"x": 424.11976333581566, "y": 304.32379051363966, "type": "cactus", "layer": "back"},
+    {"x": -416.41615427121815, "y": 266.3899771357226, "type": "cactus", "layer": "back"},
+    {"x": -142.8650251020236, "y": -15.626548874635716, "type": "bush", "layer": "back"},
+    {"x": -28.3511942802254, "y": 36.376909787029376, "type": "cactus-small", "layer": "back"},
+    {"x": -109.77243309877252, "y": -32.57397243058415, "type": "pebbles", "layer": "back"},
+    {"x": -65.90427750936448, "y": 82.83646353449254, "type": "moss", "layer": "back"},
+    {"x": 1421.750921816678, "y": 290.47669319465797, "type": "cactus", "layer": "back"},
+    {"x": -7.515044670102725, "y": 191.00134116833698, "type": "boulder", "layer": "back"},
+    {"x": -244.92376462062384, "y": 298.0628047784519, "type": "boulder", "layer": "back"},
+    {"x": 2796.288359231452, "y": 288.9653919550044, "type": "cactus-small", "layer": "back"},
+    {"x": 1367.8436579044856, "y": 292.559728871435, "type": "cactus-small", "layer": "back"},
+    {"x": 3232.2215292191077, "y": 140.95897178611412, "type": "pebbles", "layer": "back"},
+    {"x": 3538.506973554784, "y": 296.28030280705275, "type": "cactus", "layer": "back"},
+    {"x": 2706.047430066766, "y": 226.49705286627722, "type": "pebbles", "layer": "back"},
+    {"x": 3373.2397555160396, "y": 301.77235900994003, "type": "boulder", "layer": "back"},
+    {"x": 3325.538167823019, "y": 179.91340945656748, "type": "rock", "layer": "back"},
+    {"x": 941.1822246982472, "y": 317.19558907761575, "type": "boulder", "layer": "back"}
+  ],
+  "spikes": [],
+  "weather": {"sun": 0.82, "clouds": 0.24},
+  "fallY": 560,
+  "sky": "#eae9d9",
+  "sun": "#f2c082",
+  "mountain": "#b7c8b1",
+  "spray": ["#8d806b","#b4a58a","#d2c3a2"],
+  "medals": {"gold": 14.5, "silver": 19, "bronze": 25},
+  "finishY": 131.62977237070947,
+  "terrainBlocks": [
+    {
+      "id": "ground",
+      "material": "sand",
+      "regions": [
+        {
+          "outer": {
+            "id": "ground-r0",
+            "nodes": [
+              {"id": "ground-n0", "x": 12.3583, "y": 211.8005, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "nlkr", "x": 23.0803, "y": 235.8109, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n4b5m", "x": 41.0268, "y": 260.5542, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n4kqx", "x": 51.3519, "y": 300, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n1", "x": 200, "y": 300, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n3", "x": 350, "y": 286, "mode": "corner", "in": [321.6667,286], "out": [375,286], "edge": "curve"},
+              {"id": "ground-n4", "x": 425, "y": 304, "mode": "corner", "in": [400,294.5752], "out": [450,313.4248], "edge": "curve"},
+              {"id": "ground-n5", "x": 500, "y": 322, "mode": "corner", "in": [475,322], "out": [513.3333,322], "edge": "curve"},
+              {"id": "ground-n6", "x": 540, "y": 314.3848, "mode": "independent", "in": [526.6667,319.1979], "out": [553.3333,308.2565], "edge": "curve"},
+              {"id": "ground-n7", "x": 580, "y": 296, "mode": "corner", "in": [566.6667,302.8068], "out": [593.3333,289.1932], "edge": "curve"},
+              {"id": "ground-n8", "x": 620, "y": 277.6152, "mode": "corner", "in": [606.6667,282.4283], "out": [633.3333,272.8021], "edge": "curve"},
+              {"id": "ground-n9", "x": 660, "y": 270, "mode": "corner", "in": [646.6667,270], "out": [683.3333,270], "edge": "curve"},
+              {"id": "ground-n10", "x": 730, "y": 292.5, "mode": "corner", "in": [706.6667,280.719], "out": [753.3333,304.281], "edge": "curve"},
+              {"id": "ground-n11", "x": 800, "y": 315, "mode": "corner", "in": [776.6667,315], "out": [812.5,315], "edge": "curve"},
+              {"id": "ground-n12", "x": 837.5, "y": 304.7487, "mode": "corner", "in": [825,311.2279], "out": [850,298.2695], "edge": "curve"},
+              {"id": "ground-n13", "x": 875, "y": 280, "mode": "corner", "in": [862.5,289.163], "out": [887.5,270.837], "edge": "curve"},
+              {"id": "ground-n14", "x": 912.5, "y": 255.2513, "mode": "corner", "in": [900,261.7305], "out": [925,248.7721], "edge": "curve"},
+              {"id": "ground-n15", "x": 950, "y": 245, "mode": "corner", "in": [937.5,245], "out": null, "edge": "straight"},
+              {"id": "n2ei4", "x": 937.1706, "y": 276.0703, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ndn0", "x": 936.876, "y": 314.5119, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "nof7", "x": 963.7952, "y": 343.6516, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n6dl3", "x": 985.0494, "y": 497.6646, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n16", "x": 950, "y": 1000, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n17", "x": -800, "y": 1000, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n5smq", "x": -800, "y": 262.1607, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n8prf", "x": -600, "y": 262.1607, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n81ff", "x": -582.8177, "y": 274.5476, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n7j7u", "x": -444.6804, "y": 286.0401, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n6r1t", "x": -435.4691, "y": 265.4417, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n68cc", "x": -396.6237, "y": 262.1607, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n63gm", "x": -337.0499, "y": 282.2438, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n594p", "x": -238.0849, "y": 290.6547, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n9fes", "x": -238.2377, "y": 250.8839, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "nas5b", "x": -225.7629, "y": 244.638, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n2u3d", "x": -229.0597, "y": 202.337, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ndf1", "x": -215.2305, "y": 194.7371, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n53dl", "x": -221.7761, "y": 104.2035, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n4dg8", "x": -199.0145, "y": 88.657, "mode": "corner", "in": [-189.3808,125.016], "out": null, "edge": "straight"},
+              {"id": "n195j", "x": -199.9219, "y": -14.9627, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n1rsp", "x": -178.6853, "y": -22.9646, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n2046", "x": -81.0224, "y": -22.9646, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n3y0d", "x": -69.8365, "y": -10.4576, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ndqna", "x": -71.4789, "y": 21.6645, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n9b74", "x": -68.7424, "y": 86.6202, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "nc2ng", "x": -59.4374, "y": 88.5321, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n2xt0", "x": -49.8113, "y": 55.8581, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n2ug0", "x": -54.4152, "y": 27.5542, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n1vyw", "x": -17.6276, "y": 35.9698, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "nc3xh", "x": -6.6327, "y": 46.8427, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "nbjhp", "x": -13.4286, "y": 69.1587, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n1w65", "x": -16.1296, "y": 114.1283, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "naqj5", "x": -18.4955, "y": 156.4074, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "naz76", "x": -8.0858, "y": 177.3662, "mode": "smooth", "in": [-53.8861,231.7398], "out": [36.0874,124.9243], "edge": "curve"},
+              {"id": "nbf8c", "x": 14.5792, "y": 180.9523, "mode": "corner", "in": null, "out": null, "edge": "straight"}
+            ]
+          },
+          "inner": []
+        },
+        {
+          "outer": {
+            "id": "ground-r1",
+            "nodes": [
+              {"id": "ground-n18", "x": 994.5375, "y": 272.9825, "mode": "corner", "in": null, "out": [1064.1958,306.9177], "edge": "curve"},
+              {"id": "ground-n19", "x": 1127.5, "y": 275, "mode": "corner", "in": [1100,283.9012], "out": [1155,266.0988], "edge": "curve"},
+              {"id": "ground-n20", "x": 1210, "y": 258, "mode": "corner", "in": [1182.5,258], "out": [1236.6667,258], "edge": "curve"},
+              {"id": "ground-n21", "x": 1290, "y": 275, "mode": "corner", "in": [1263.3333,266.0988], "out": [1316.6667,283.9012], "edge": "curve"},
+              {"id": "ground-n22", "x": 1370, "y": 292, "mode": "corner", "in": [1343.3333,292], "out": null, "edge": "straight"},
+              {"id": "ground-n23", "x": 1605.006, "y": 314.573, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "nnttq", "x": 1563.9741, "y": 591.0101, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n24", "x": 1673.5626, "y": 1000, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n25", "x": 1003.2216, "y": 1000, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n29vn", "x": 994.9052, "y": 514.9179, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "nn8vs", "x": 1003.2216, "y": 485.9273, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n1vws", "x": 992.434, "y": 415.2835, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n26iw", "x": 980.2442, "y": 370.8309, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n15o3", "x": 972.2664, "y": 293.705, "mode": "corner", "in": null, "out": null, "edge": "straight"}
+            ]
+          },
+          "inner": []
+        },
+        {
+          "outer": {
+            "id": "ground-r2",
+            "nodes": [
+              {"id": "ground-n26", "x": 1615.5519, "y": 342.8167, "mode": "corner", "in": null, "out": [1663.3333,332], "edge": "curve"},
+              {"id": "ground-n27", "x": 1690, "y": 322.0416, "mode": "corner", "in": [1676.6667,328.3357], "out": [1703.3333,315.7475], "edge": "curve"},
+              {"id": "ground-n28", "x": 1730, "y": 298, "mode": "corner", "in": [1716.6667,306.9012], "out": [1743.3333,289.0988], "edge": "curve"},
+              {"id": "ground-n29", "x": 1770, "y": 273.9584, "mode": "corner", "in": [1756.6667,280.2525], "out": [1783.3333,267.6643], "edge": "curve"},
+              {"id": "ground-n30", "x": 1810, "y": 264, "mode": "corner", "in": [1796.6667,264], "out": [1821.6667,264], "edge": "curve"},
+              {"id": "ground-n31", "x": 1845, "y": 271.9081, "mode": "corner", "in": [1833.3333,266.9099], "out": [1856.6667,276.9064], "edge": "curve"},
+              {"id": "ground-n32", "x": 1880, "y": 291, "mode": "corner", "in": [1868.3333,283.9314], "out": [1891.6667,298.0686], "edge": "curve"},
+              {"id": "ground-n33", "x": 1915, "y": 310.0919, "mode": "corner", "in": [1903.3333,305.0936], "out": [1926.6667,315.0901], "edge": "curve"},
+              {"id": "ground-n34", "x": 1950, "y": 318, "mode": "corner", "in": [1938.3333,318], "out": [1961.6667,318], "edge": "curve"},
+              {"id": "ground-n35", "x": 1985, "y": 305.1127, "mode": "corner", "in": [1973.3333,313.258], "out": [1996.6667,296.9674], "edge": "curve"},
+              {"id": "ground-n36", "x": 2020, "y": 274, "mode": "corner", "in": [2008.3333,285.5192], "out": [2031.6667,262.4808], "edge": "curve"},
+              {"id": "ground-n37", "x": 2055, "y": 242.8873, "mode": "corner", "in": [2043.3333,251.0326], "out": [2066.6667,234.742], "edge": "curve"},
+              {"id": "ground-n38", "x": 2090, "y": 230, "mode": "corner", "in": [2078.3333,230], "out": [2101.25,230], "edge": "curve"},
+              {"id": "ground-n39", "x": 2123.75, "y": 240.3977, "mode": "corner", "in": [2112.5,233.8259], "out": [2135,246.9695], "edge": "curve"},
+              {"id": "ground-n40", "x": 2157.5, "y": 265.5, "mode": "corner", "in": [2146.25,256.2061], "out": [2168.75,274.7939], "edge": "curve"},
+              {"id": "ground-n41", "x": 2191.25, "y": 290.6023, "mode": "corner", "in": [2180,284.0305], "out": [2202.5,297.1741], "edge": "curve"},
+              {"id": "ground-n42", "x": 2225, "y": 301, "mode": "corner", "in": [2213.75,301], "out": [2250.8333,301], "edge": "curve"},
+              {"id": "ground-n43", "x": 2302.5, "y": 284, "mode": "corner", "in": [2276.6667,292.9012], "out": [2328.3333,275.0988], "edge": "curve"},
+              {"id": "ground-n44", "x": 2380, "y": 267, "mode": "corner", "in": [2354.1667,267], "out": [2391.6667,267], "edge": "curve"},
+              {"id": "ground-n45", "x": 2415, "y": 275.3475, "mode": "corner", "in": [2403.3333,270.0715], "out": [2426.6667,280.6234], "edge": "curve"},
+              {"id": "ground-n46", "x": 2450, "y": 295.5, "mode": "corner", "in": [2438.3333,288.0387], "out": [2461.6667,302.9613], "edge": "curve"},
+              {"id": "ground-n47", "x": 2485, "y": 315.6525, "mode": "corner", "in": [2473.3333,310.3766], "out": [2496.6667,320.9285], "edge": "curve"},
+              {"id": "ground-n48", "x": 2520, "y": 324, "mode": "corner", "in": [2508.3333,324], "out": [2533.3333,324], "edge": "curve"},
+              {"id": "ground-n49", "x": 2569.5852, "y": 297.7794, "mode": "corner", "in": [2546.6667,319.5813], "out": [2573.3333,304.4015], "edge": "curve"},
+              {"id": "ground-n50", "x": 2578.6737, "y": 279.6379, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n51", "x": 2650.1665, "y": 272.4059, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n52", "x": 2657.6683, "y": 246.7313, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n53", "x": 2736.48, "y": 249.8157, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n54", "x": 2752.5, "y": 274.5, "mode": "corner", "in": [2740.4167,265.9915], "out": [2764.5833,283.0085], "edge": "curve"},
+              {"id": "ground-n55", "x": 2788.75, "y": 297.481, "mode": "corner", "in": [2776.6667,291.4646], "out": [2800.8333,303.4974], "edge": "curve"},
+              {"id": "ground-n56", "x": 2825, "y": 307, "mode": "corner", "in": [2812.9167,307], "out": [2847.5,307], "edge": "curve"},
+              {"id": "ground-n57", "x": 2892.5, "y": 293.5, "mode": "corner", "in": [2870,300.5686], "out": [2915,286.4314], "edge": "curve"},
+              {"id": "ground-n58", "x": 2960, "y": 280, "mode": "corner", "in": [2937.5,280], "out": null, "edge": "straight"},
+              {"id": "np9of", "x": 3029.2065, "y": 253.5963, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "npqgw", "x": 3032.9047, "y": 234.4995, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "nqga7", "x": 3071.5221, "y": 223.7039, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "nqp2t", "x": 3111.8946, "y": 219.9043, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "nr98u", "x": 3120.4537, "y": 200.6295, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "nrs77", "x": 3201.6106, "y": 180.5255, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "nsxsq", "x": 3204.7101, "y": 161.9053, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "nt917", "x": 3279.1073, "y": 165.3995, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ntn5s", "x": 3279.4855, "y": 190.4409, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "nuq4k", "x": 3303.1204, "y": 196.1935, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "nux0n", "x": 3310.9083, "y": 174.528, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "nva7o", "x": 3343.4778, "y": 181.4029, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "nvlud", "x": 3360.7323, "y": 299.1291, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n10lh5", "x": 3589.2715, "y": 299.1291, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n59", "x": 3564.5, "y": 6.3289, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n11w7l", "x": 3723.0335, "y": -70.2897, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n12bpv", "x": 3793.6579, "y": 259.8748, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n12p80", "x": 4500, "y": 400.2158, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n60", "x": 4500, "y": 1000, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n61", "x": 1698.1012, "y": 1000, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n8qjz", "x": 1580.2243, "y": 560.0776, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n84sm", "x": 1617.4548, "y": 413.2286, "mode": "corner", "in": null, "out": null, "edge": "straight"}
+            ]
+          },
+          "inner": []
+        }
+      ]
+    },
+    {
+      "id": "b1md",
+      "material": "sand",
+      "regions": [
+        {
+          "outer": {
+            "id": "b1mc",
+            "nodes": [
+              {"id": "n1m8", "x": 1928.6039, "y": 66.3003, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n38tb", "x": 2224.5469, "y": 68.7257, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n1rk7", "x": 2245.9999, "y": 85.2722, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n1r5y", "x": 2130.9307, "y": 111.0616, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n1m9", "x": 2121.3709, "y": 124.2102, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n1ma", "x": 2090.6071, "y": 150.5531, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n49bs", "x": 2051.735, "y": 104.9739, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "n1mb", "x": 1951.4611, "y": 79.1955, "mode": "corner", "in": null, "out": null, "edge": "straight"}
+            ]
+          },
+          "inner": []
+        }
+      ]
+    }
+  ],
+  "timeOfDay": "noon",
+  "backdrop": "desert"
+}
+```
+
+---
+
+## `trails/official/07-elastic-summit.json`
+
+Example trail: advanced.
+
+```json
+{
+  "name": "Elastic Summit",
+  "label": "ELASTIC SUMMIT / 07",
+  "goal": 4080,
+  "terrain": "rock",
+  "description": "The final exam: rolling speed, precise braking, steep climbs, controlled airtime, and enough patience to finish in one piece.",
+  "start": {"x": 90, "y": null, "facing": 1},
+  "apples": [
+    {"x": 330, "y": null},
+    {"x": 1232.6953125, "y": 288.32421875},
+    {"x": 2280, "y": null},
+    {"x": 3496.45703125, "y": 254.47265625},
+    {"x": 3671.96875, "y": 128.35546875}
+  ],
+  "props": [
+    {"x": 235, "y": null, "type": "fence", "layer": "back"},
+    {"x": 565, "y": null, "type": "rock", "layer": "front"},
+    {"x": 885, "y": 298.48564429030813, "type": "tree", "layer": "back"},
+    {"x": 1290, "y": 319.056160213863, "type": "flowers", "layer": "front"},
+    {"x": 1799.046875, "y": 332.80859375, "type": "crystal", "layer": "back"},
+    {"x": 2200, "y": null, "type": "stump", "layer": "front"},
+    {"x": 2505, "y": null, "type": "fence", "layer": "back"},
+    {"x": 2960, "y": null, "type": "crystal", "layer": "back"},
+    {"x": 3400, "y": 315.82226850822667, "type": "tree", "layer": "back"},
+    {"x": 3830, "y": null, "type": "rock", "layer": "front"}
+  ],
+  "spikes": [],
+  "weather": {"sun": 0, "clouds": 1, "rain": 0.72, "lightning": 0.65},
+  "fallY": 570,
+  "sky": "#eae9d9",
+  "sun": "#f2c082",
+  "mountain": "#b7c8b1",
+  "spray": ["#6d6c62","#928675","#b9a68c"],
+  "finishY": null,
+  "terrainBlocks": [
+    {
+      "id": "ground",
+      "material": "rock",
+      "regions": [
+        {
+          "outer": {
+            "id": "ground-r0",
+            "nodes": [
+              {"id": "ground-n0", "x": 0, "y": 320, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n1", "x": 180, "y": 320, "mode": "corner", "in": null, "out": [192.9167,320], "edge": "curve"},
+              {"id": "ground-n2", "x": 218.75, "y": 312.3848, "mode": "corner", "in": [205.8333,317.1979], "out": [231.6667,307.5717], "edge": "curve"},
+              {"id": "ground-n3", "x": 257.5, "y": 294, "mode": "corner", "in": [244.5833,300.8068], "out": [270.4167,287.1932], "edge": "curve"},
+              {"id": "ground-n4", "x": 296.25, "y": 275.6152, "mode": "corner", "in": [283.3333,280.4283], "out": [309.1667,270.8021], "edge": "curve"},
+              {"id": "ground-n5", "x": 335, "y": 268, "mode": "corner", "in": [322.0833,268], "out": [346.6667,268], "edge": "curve"},
+              {"id": "ground-n6", "x": 370, "y": 278.2513, "mode": "corner", "in": [358.3333,271.7721], "out": [381.6667,284.7305], "edge": "curve"},
+              {"id": "ground-n7", "x": 405, "y": 303, "mode": "corner", "in": [393.3333,293.837], "out": [416.6667,312.163], "edge": "curve"},
+              {"id": "ground-n8", "x": 440, "y": 327.7487, "mode": "corner", "in": [428.3333,321.2695], "out": [451.6667,334.2279], "edge": "curve"},
+              {"id": "ground-n9", "x": 475, "y": 338, "mode": "corner", "in": [463.3333,338], "out": [489.1667,338], "edge": "curve"},
+              {"id": "ground-n10", "x": 517.5, "y": 321.8909, "mode": "corner", "in": [503.3333,332.0725], "out": [531.6667,311.7093], "edge": "curve"},
+              {"id": "ground-n11", "x": 560, "y": 283, "mode": "corner", "in": [545.8333,297.399], "out": [574.1667,268.601], "edge": "curve"},
+              {"id": "ground-n12", "x": 602.5, "y": 244.1091, "mode": "corner", "in": [588.3333,254.2907], "out": [616.6667,233.9275], "edge": "curve"},
+              {"id": "ground-n13", "x": 645, "y": 228, "mode": "corner", "in": [630.8333,228], "out": [657.5,228], "edge": "curve"},
+              {"id": "ground-n14", "x": 682.5, "y": 242.3518, "mode": "corner", "in": [670,233.2809], "out": [695,251.4227], "edge": "curve"},
+              {"id": "ground-n15", "x": 720, "y": 277, "mode": "corner", "in": [707.5,264.1718], "out": [732.5,289.8282], "edge": "curve"},
+              {"id": "ground-n16", "x": 757.5, "y": 311.6482, "mode": "corner", "in": [745,302.5773], "out": [770,320.7191], "edge": "curve"},
+              {"id": "ground-n17", "x": 795, "y": 326, "mode": "corner", "in": [782.5,326], "out": [820.8333,326], "edge": "curve"},
+              {"id": "ground-n18", "x": 872.5, "y": 304, "mode": "corner", "in": [846.6667,315.5192], "out": [898.3333,292.4808], "edge": "curve"},
+              {"id": "ground-n19", "x": 950, "y": 282, "mode": "corner", "in": [924.1667,282], "out": [961.6667,282], "edge": "curve"},
+              {"id": "ground-n20", "x": 985, "y": 269.2591, "mode": "corner", "in": [973.3333,277.3119], "out": [996.6667,261.2064], "edge": "curve"},
+              {"id": "ground-n21", "x": 1020, "y": 238.5, "mode": "corner", "in": [1008.3333,249.8883], "out": [1031.6667,227.1117], "edge": "curve"},
+              {"id": "ground-n22", "x": 1055, "y": 207.7409, "mode": "corner", "in": [1043.3333,215.7936], "out": [1066.6667,199.6881], "edge": "curve"},
+              {"id": "ground-n23", "x": 1090, "y": 195, "mode": "corner", "in": [1078.3333,195], "out": [1102.0833,195], "edge": "curve"},
+              {"id": "ground-n24", "x": 1126.25, "y": 216.5277, "mode": "corner", "in": [1114.1667,202.9213], "out": [1138.3333,230.134], "edge": "curve"},
+              {"id": "ground-n25", "x": 1162.5, "y": 268.5, "mode": "corner", "in": [1150.4167,249.2577], "out": [1174.5833,287.7423], "edge": "curve"},
+              {"id": "ground-n26", "x": 1198.75, "y": 320.4723, "mode": "corner", "in": [1186.6667,306.866], "out": [1210.8333,334.0787], "edge": "curve"},
+              {"id": "ground-n27", "x": 1235, "y": 342, "mode": "corner", "in": [1222.9167,342], "out": [1247.9167,342], "edge": "curve"},
+              {"id": "ground-n28", "x": 1273.75, "y": 329.9914, "mode": "corner", "in": [1260.8333,337.5813], "out": [1286.6667,322.4015], "edge": "curve"},
+              {"id": "ground-n29", "x": 1312.5, "y": 301, "mode": "corner", "in": [1299.5833,311.7338], "out": [1325.4167,290.2662], "edge": "curve"},
+              {"id": "ground-n30", "x": 1351.25, "y": 272.0086, "mode": "corner", "in": [1338.3333,279.5985], "out": [1364.1667,264.4187], "edge": "curve"},
+              {"id": "ground-n31", "x": 1390, "y": 260, "mode": "corner", "in": [1377.0833,260], "out": [1403.1195,260], "edge": "curve"},
+              {"id": "ground-n32", "x": 1429.3584, "y": 248.4456, "mode": "corner", "in": [1416.2389,255.7484], "out": [1442.4779,241.1427], "edge": "curve"},
+              {"id": "ground-n33", "x": 1468.7168, "y": 220.5508, "mode": "corner", "in": [1455.5973,230.8786], "out": [1481.8363,210.223], "edge": "curve"},
+              {"id": "ground-n34", "x": 1508.0752, "y": 192.656, "mode": "corner", "in": [1494.9557,199.9588], "out": [1521.1947,185.3531], "edge": "curve"},
+              {"id": "ground-n35", "x": 1547.4336, "y": 181.1016, "mode": "corner", "in": [1534.3141,181.1016], "out": [1565.4388,181.1016], "edge": "curve"},
+              {"id": "ground-n36", "x": 1601.4492, "y": 194.3158, "mode": "corner", "in": [1583.444,185.7803], "out": [1619.4544,202.8513], "edge": "curve"},
+              {"id": "ground-n37", "x": 1655.4648, "y": 229.2066, "mode": "corner", "in": [1637.4596,215.2051], "out": null, "edge": "straight"},
+              {"id": "ground-n38", "x": 1655.4648, "y": 970, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n39", "x": 0, "y": 970, "mode": "corner", "in": null, "out": null, "edge": "straight"}
+            ]
+          },
+          "inner": []
+        },
+        {
+          "outer": {
+            "id": "ground-r1",
+            "nodes": [
+              {"id": "ground-n40", "x": 1689.168, "y": 256.6, "mode": "corner", "in": null, "out": [1711.9824,275.4979], "edge": "curve"},
+              {"id": "ground-n41", "x": 1757.6113, "y": 307.2625, "mode": "corner", "in": [1734.7969,294.0786], "out": [1780.4258,320.4464], "edge": "curve"},
+              {"id": "ground-n42", "x": 1826.0547, "y": 328.082, "mode": "corner", "in": [1803.2402,328.082], "out": [1839.7168,328.082], "edge": "curve"},
+              {"id": "ground-n43", "x": 1867.041, "y": 316.0614, "mode": "corner", "in": [1853.3789,323.6589], "out": [1880.7031,308.4639], "edge": "curve"},
+              {"id": "ground-n44", "x": 1908.0273, "y": 287.041, "mode": "corner", "in": [1894.3652,297.7855], "out": [1921.6895,276.2965], "edge": "curve"},
+              {"id": "ground-n45", "x": 1949.0137, "y": 258.0206, "mode": "corner", "in": [1935.3516,265.6182], "out": [1962.6758,250.4231], "edge": "curve"},
+              {"id": "ground-n46", "x": 1990, "y": 246, "mode": "corner", "in": [1976.3379,246], "out": [2001.6667,246], "edge": "curve"},
+              {"id": "ground-n47", "x": 2025, "y": 257.5693, "mode": "corner", "in": [2013.3333,250.257], "out": [2036.6667,264.8815], "edge": "curve"},
+              {"id": "ground-n48", "x": 2060, "y": 285.5, "mode": "corner", "in": [2048.3333,275.1589], "out": [2071.6667,295.8411], "edge": "curve"},
+              {"id": "ground-n49", "x": 2095, "y": 313.4307, "mode": "corner", "in": [2083.3333,306.1185], "out": [2106.6667,320.743], "edge": "curve"},
+              {"id": "ground-n50", "x": 2130, "y": 325, "mode": "corner", "in": [2118.3333,325], "out": [2143.3333,325], "edge": "curve"},
+              {"id": "ground-n51", "x": 2170, "y": 307.4264, "mode": "corner", "in": [2156.6667,318.5336], "out": [2183.3333,296.3192], "edge": "curve"},
+              {"id": "ground-n52", "x": 2210, "y": 265, "mode": "corner", "in": [2196.6667,280.708], "out": [2223.3333,249.292], "edge": "curve"},
+              {"id": "ground-n53", "x": 2250, "y": 222.5736, "mode": "corner", "in": [2236.6667,233.6808], "out": [2263.3333,211.4664], "edge": "curve"},
+              {"id": "ground-n54", "x": 2290, "y": 205, "mode": "corner", "in": [2276.6667,205], "out": [2302.5,205], "edge": "curve"},
+              {"id": "ground-n55", "x": 2327.5, "y": 225.649, "mode": "corner", "in": [2315,212.598], "out": [2340,238.6999], "edge": "curve"},
+              {"id": "ground-n56", "x": 2365, "y": 275.5, "mode": "corner", "in": [2352.5,257.0431], "out": [2377.5,293.9569], "edge": "curve"},
+              {"id": "ground-n57", "x": 2402.5, "y": 325.351, "mode": "corner", "in": [2390,312.3001], "out": [2415,338.402], "edge": "curve"},
+              {"id": "ground-n58", "x": 2440, "y": 346, "mode": "corner", "in": [2427.5,346], "out": [2452.5,346], "edge": "curve"},
+              {"id": "ground-n59", "x": 2477.5, "y": 335.6023, "mode": "corner", "in": [2465,342.1741], "out": [2490,329.0305], "edge": "curve"},
+              {"id": "ground-n60", "x": 2515, "y": 310.5, "mode": "corner", "in": [2502.5,319.7939], "out": [2527.5,301.2061], "edge": "curve"},
+              {"id": "ground-n61", "x": 2552.5, "y": 285.3977, "mode": "corner", "in": [2540,291.9695], "out": [2565,278.8259], "edge": "curve"},
+              {"id": "ground-n62", "x": 2590, "y": 275, "mode": "corner", "in": [2577.5,275], "out": [2610.8503,275], "edge": "curve"},
+              {"id": "ground-n63", "x": 2652.5508, "y": 274.4152, "mode": "corner", "in": [2631.7005,274.7889], "out": null, "edge": "straight"},
+              {"id": "ground-n64", "x": 2652.5508, "y": 970, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n65", "x": 1689.168, "y": 970, "mode": "corner", "in": null, "out": null, "edge": "straight"}
+            ]
+          },
+          "inner": []
+        },
+        {
+          "outer": {
+            "id": "ground-r2",
+            "nodes": [
+              {"id": "ground-n66", "x": 2890, "y": 269.4351, "mode": "corner", "in": null, "out": [2915,267.91], "edge": "curve"},
+              {"id": "ground-n67", "x": 2965, "y": 259.3481, "mode": "corner", "in": [2940,263.4395], "out": [2990,255.2566], "edge": "curve"},
+              {"id": "ground-n68", "x": 3040, "y": 252, "mode": "corner", "in": [3015,252], "out": [3051.6667,252], "edge": "curve"},
+              {"id": "ground-n69", "x": 3075, "y": 240.8701, "mode": "corner", "in": [3063.3333,247.9046], "out": [3086.6667,233.8355], "edge": "curve"},
+              {"id": "ground-n70", "x": 3110, "y": 214, "mode": "corner", "in": [3098.3333,223.9484], "out": [3121.6667,204.0516], "edge": "curve"},
+              {"id": "ground-n71", "x": 3145, "y": 187.1299, "mode": "corner", "in": [3133.3333,194.1645], "out": [3156.6667,180.0954], "edge": "curve"},
+              {"id": "ground-n72", "x": 3180, "y": 176, "mode": "corner", "in": [3168.3333,176], "out": [3192.5,176], "edge": "curve"},
+              {"id": "ground-n73", "x": 3217.5, "y": 200.0172, "mode": "corner", "in": [3205,184.8374], "out": [3230,215.1971], "edge": "curve"},
+              {"id": "ground-n74", "x": 3255, "y": 258, "mode": "corner", "in": [3242.5,236.5325], "out": [3267.5,279.4675], "edge": "curve"},
+              {"id": "ground-n75", "x": 3292.5, "y": 315.9828, "mode": "corner", "in": [3280,300.8029], "out": [3305,331.1626], "edge": "curve"},
+              {"id": "ground-n76", "x": 3330, "y": 340, "mode": "corner", "in": [3317.5,340], "out": [3342.5,340], "edge": "curve"},
+              {"id": "ground-n77", "x": 3367.5, "y": 332.0919, "mode": "corner", "in": [3355,337.0901], "out": [3380,327.0936], "edge": "curve"},
+              {"id": "ground-n78", "x": 3405, "y": 313, "mode": "corner", "in": [3392.5,320.0686], "out": [3417.5,305.9314], "edge": "curve"},
+              {"id": "ground-n79", "x": 3442.5, "y": 293.9081, "mode": "corner", "in": [3430,298.9064], "out": [3455,288.9099], "edge": "curve"},
+              {"id": "ground-n80", "x": 3480, "y": 286, "mode": "corner", "in": [3467.5,286], "out": [3537.3763,286], "edge": "curve"},
+              {"id": "ground-n81", "x": 3652.1289, "y": 283.8008, "mode": "corner", "in": [3594.7526,283.8008], "out": [3670.1074,283.8008], "edge": "curve"},
+              {"id": "ground-n82", "x": 3706.0645, "y": 304.9004, "mode": "corner", "in": [3688.0859,293.8527], "out": [3724.043,315.9481], "edge": "curve"},
+              {"id": "ground-n83", "x": 3760, "y": 326, "mode": "corner", "in": [3742.0215,326], "out": [3772.5,326], "edge": "curve"},
+              {"id": "ground-n84", "x": 3797.5, "y": 316.6274, "mode": "corner", "in": [3785,322.5513], "out": [3810,310.7036], "edge": "curve"},
+              {"id": "ground-n85", "x": 3835, "y": 294, "mode": "corner", "in": [3822.5,302.3776], "out": [3847.5,285.6224], "edge": "curve"},
+              {"id": "ground-n86", "x": 3872.5, "y": 271.3726, "mode": "corner", "in": [3860,277.2964], "out": [3885,265.4487], "edge": "curve"},
+              {"id": "ground-n87", "x": 3910, "y": 262, "mode": "corner", "in": [3897.5,262], "out": null, "edge": "straight"},
+              {"id": "ground-n88", "x": 4200, "y": 262, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n89", "x": 4200, "y": 970, "mode": "corner", "in": null, "out": null, "edge": "straight"},
+              {"id": "ground-n90", "x": 2890, "y": 970, "mode": "corner", "in": null, "out": null, "edge": "straight"}
+            ]
+          },
+          "inner": []
+        }
+      ]
+    },
+    {
+      "id": "ledge-0",
+      "material": "brick",
+      "regions": [
+        {
+          "outer": {
+            "id": "ledge-0-r0",
+            "nodes": [
+              {"id": "ledge-0-n0", "x": 1159.7695, "y": 86.9518, "mode": "corner", "in": null, "out": [1183.1029,86.9518], "edge": "curve"},
+              {"id": "ledge-0-n1", "x": 1229.7695, "y": 70.9518, "mode": "corner", "in": [1206.4362,79.3294], "out": [1253.1029,62.5742], "edge": "curve"},
+              {"id": "ledge-0-n2", "x": 1299.7695, "y": 54.9518, "mode": "corner", "in": [1276.4362,54.9518], "out": [1328.1029,54.9518], "edge": "curve"},
+              {"id": "ledge-0-n3", "x": 1384.7695, "y": 67.9518, "mode": "corner", "in": [1356.4362,61.145], "out": [1413.1029,74.7586], "edge": "curve"},
+              {"id": "ledge-0-n4", "x": 1469.7695, "y": 80.9518, "mode": "corner", "in": [1441.4362,80.9518], "out": null, "edge": "straight"},
+              {"id": "ledge-0-n5", "x": 1469.7695, "y": 132.9518, "mode": "corner", "in": null, "out": [1441.4362,132.9518], "edge": "curve"},
+              {"id": "ledge-0-n6", "x": 1384.7695, "y": 119.9518, "mode": "corner", "in": [1413.1029,126.7586], "out": [1356.4362,113.145], "edge": "curve"},
+              {"id": "ledge-0-n7", "x": 1299.7695, "y": 106.9518, "mode": "corner", "in": [1328.1029,106.9518], "out": [1276.4362,106.9518], "edge": "curve"},
+              {"id": "ledge-0-n8", "x": 1229.7695, "y": 122.9518, "mode": "corner", "in": [1253.1029,114.5742], "out": [1206.4362,131.3294], "edge": "curve"},
+              {"id": "ledge-0-n9", "x": 1159.7695, "y": 138.9518, "mode": "corner", "in": [1183.1029,138.9518], "out": null, "edge": "straight"}
+            ]
+          },
+          "inner": []
+        }
+      ]
+    },
+    {
+      "id": "ledge-1",
+      "material": "grass",
+      "regions": [
+        {
+          "outer": {
+            "id": "ledge-1-r0",
+            "nodes": [
+              {"id": "ledge-1-n0", "x": 2672.3372, "y": 280.0065, "mode": "corner", "in": null, "out": [2731.6115,280.0065], "edge": "curve"},
+              {"id": "ledge-1-n1", "x": 2850.1602, "y": 269.9648, "mode": "corner", "in": [2790.8859,269.9648], "out": null, "edge": "straight"},
+              {"id": "ledge-1-n2", "x": 2863.1445, "y": 326.6836, "mode": "corner", "in": null, "out": [2829.4036,326.6836], "edge": "curve"},
+              {"id": "ledge-1-n3", "x": 2761.9219, "y": 339.2891, "mode": "corner", "in": [2795.6628,339.2891], "out": [2732.0603,339.2891], "edge": "curve"},
+              {"id": "ledge-1-n4", "x": 2672.3372, "y": 338.0065, "mode": "corner", "in": [2702.1988,338.0065], "out": null, "edge": "straight"}
+            ]
+          },
+          "inner": []
+        }
+      ]
+    },
+    {
+      "id": "ledge-2",
+      "material": "snow",
+      "regions": [
+        {
+          "outer": {
+            "id": "ledge-2-r0",
+            "nodes": [
+              {"id": "ledge-2-n0", "x": 3283.6849, "y": 163.6536, "mode": "corner", "in": null, "out": [3308.6849,163.6536], "edge": "curve"},
+              {"id": "ledge-2-n1", "x": 3358.6849, "y": 148.6536, "mode": "corner", "in": [3333.6849,156.5076], "out": [3383.6849,140.7997], "edge": "curve"},
+              {"id": "ledge-2-n2", "x": 3433.6849, "y": 133.6536, "mode": "corner", "in": [3408.6849,133.6536], "out": [3449.3241,133.6536], "edge": "curve"},
+              {"id": "ledge-2-n3", "x": 3480.6025, "y": 140.485, "mode": "corner", "in": [3464.9633,136.1673], "out": [3496.2418,144.8026], "edge": "curve"},
+              {"id": "ledge-2-n4", "x": 3527.5202, "y": 156.9772, "mode": "corner", "in": [3511.881,150.8711], "out": [3543.1594,163.0833], "edge": "curve"},
+              {"id": "ledge-2-n5", "x": 3574.4378, "y": 173.4695, "mode": "corner", "in": [3558.7986,169.1518], "out": [3590.077,177.7871], "edge": "curve"},
+              {"id": "ledge-2-n6", "x": 3621.3555, "y": 180.3008, "mode": "corner", "in": [3605.7163,180.3008], "out": null, "edge": "straight"},
+              {"id": "ledge-2-n7", "x": 3728.9805, "y": 212.0547, "mode": "corner", "in": null, "out": [3630.5486,212.0547], "edge": "curve"},
+              {"id": "ledge-2-n8", "x": 3433.6849, "y": 187.6536, "mode": "corner", "in": [3532.1168,187.6536], "out": [3408.7791,187.6536], "edge": "curve"},
+              {"id": "ledge-2-n9", "x": 3358.9674, "y": 203.4616, "mode": "corner", "in": [3383.8733,195.1846], "out": [3334.0616,211.7386], "edge": "curve"},
+              {"id": "ledge-2-n10", "x": 3284.25, "y": 219.2695, "mode": "corner", "in": [3309.1558,219.2695], "out": null, "edge": "straight"}
+            ]
+          },
+          "inner": []
+        }
+      ]
+    },
+    {
+      "id": "ledge-3",
+      "material": "grass",
+      "regions": [
+        {
+          "outer": {
+            "id": "ledge-3-r0",
+            "nodes": [
+              {"id": "ledge-3-n0", "x": 743.71, "y": 156.1607, "mode": "corner", "in": null, "out": [777.0434,156.1607], "edge": "curve"},
+              {"id": "ledge-3-n1", "x": 843.71, "y": 131.1607, "mode": "corner", "in": [810.3767,131.1607], "out": [877.0434,131.1607], "edge": "curve"},
+              {"id": "ledge-3-n2", "x": 943.71, "y": 156.1607, "mode": "corner", "in": [910.3767,156.1607], "out": null, "edge": "straight"},
+              {"id": "ledge-3-n3", "x": 943.71, "y": 204.1607, "mode": "corner", "in": null, "out": [910.3767,204.1607], "edge": "curve"},
+              {"id": "ledge-3-n4", "x": 843.71, "y": 179.1607, "mode": "corner", "in": [877.0434,179.1607], "out": [810.3767,179.1607], "edge": "curve"},
+              {"id": "ledge-3-n5", "x": 743.71, "y": 204.1607, "mode": "corner", "in": [777.0434,204.1607], "out": null, "edge": "straight"}
+            ]
+          },
+          "inner": []
+        }
+      ]
+    }
+  ],
+  "timeOfDay": "night"
+}
+```

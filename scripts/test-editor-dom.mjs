@@ -1,4 +1,4 @@
-// Drives the real editor module against a stub DOM, one child process per level
+// Drives the real editor module against a stub DOM, one child process per trail
 // shape.
 //
 // This exists because the bugs it catches were invisible to everything else. A
@@ -7,10 +7,9 @@
 // reimplements the editor's logic only verifies the copy. Importing the real
 // module is the only way to see them.
 //
-// The child runs per level shape because levels.js caches the catalog at import
-// time, so two boots in one process would silently share a level.
+// The child runs per trail shape because trails.js caches the catalog at import
+// time, so two boots in one process would silently share a trail.
 import { spawn } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const bootPath = fileURLToPath(new URL('./lib/editor-boot.mjs', import.meta.url));
@@ -23,7 +22,7 @@ const check = (label, condition) => {
 
 const boot = kind => new Promise((resolve, reject) => {
   const child = spawn(process.execPath, [bootPath], {
-    env: { ...process.env, TSC_ENV_LEVEL: kind },
+    env: { ...process.env, TSC_ENV_TRAIL: kind },
     stdio: ['ignore', 'pipe', 'inherit'],
   });
   let out = '';
@@ -43,13 +42,12 @@ const reported = (report, label) => {
 };
 
 // ---------------------------------------------------------------------------
-// A trail that still carries the older terrain, with blocks on top of it.
+// A block trail: drawing and the generic gestures.
 // ---------------------------------------------------------------------------
 {
-  const report = await boot('legacy');
+  const report = await boot('blocks');
 
-  check('the editor loads a level with both kinds of terrain',
-    report.loaded.terrainBlocks.length === 1 && Array.isArray(report.loaded.points));
+  check('the editor loads a block trail', report.loaded.terrainBlocks.length === 1);
 
   // The block must really be drawn, or nothing below proves anything.
   check('game art draws the terrain with the game renderer', report.gameArt);
@@ -64,91 +62,7 @@ const reported = (report, label) => {
   for (const label of ['block', 'cut', 'select', 'frames', 'camera', 'pinch']) {
     reported(report, label);
   }
-}
-
-// ---------------------------------------------------------------------------
-// A trail whose older terrain has been cleared: no ground line at all. Drawing
-// the legacy ground in that state used to crash, and only a genuinely cleared
-// level reaches it.
-// ---------------------------------------------------------------------------
-{
-  const report = await boot('blocks');
-  check('the cleared trail really has no ground line', report.loaded.points === undefined);
-  check('the cleared trail still has its blocks', report.loaded.terrainBlocks.length === 1);
-  check('a block-only trail still draws its block', report.evenodd && report.gameArt);
-  check('a block-only trail raises no errors at all', report.errors.length === 0);
-  for (const error of report.errors) console.log('     ' + error);
-}
-
-// The legacy drawing path must be skipped outright on a cleared trail. Asserted
-// from the source, because baseRanges() also guards on the missing ground line
-// and so the path can never actually be reached by a bad draw call: removing the
-// guard changes nothing observable at runtime, but it is the guard that says a
-// cleared trail has no legacy terrain to draw.
-{
-  const source = readFileSync(new URL('../js/editor.js', import.meta.url), 'utf8');
-  const legacy = source.slice(source.indexOf('function drawLegacyTerrain'), source.indexOf('function drawTerrain'));
-  check('the legacy draw path bails out on a cleared trail', /if \(!hasLegacyTerrain\(level\)\) return;/.test(legacy));
-  const ranges = source.slice(source.indexOf('function baseRanges'), source.indexOf('function drawSurfaceTop'));
-  check('the ground ranges tolerate a missing ground line', /!Array\.isArray\(level\.points\)/.test(ranges));
-}
-
-// ---------------------------------------------------------------------------
-// CLEAR LEGACY TERRAIN, offered for whichever level is open.
-// ---------------------------------------------------------------------------
-{
-  const legacy = await boot('legacy');
-  check('CLEAR LEGACY TERRAIN is offered for a level that has it', legacy.clearOffered === true,
-    `(offered: ${legacy.clearOffered})`);
-  check('it says what is still present', /\d+ ground points/.test(legacy.clearSummary || ''),
-    `("${legacy.clearSummary}")`);
-  check('it refuses without confirmation', legacy.refusedWithoutConfirm === true);
-  check('confirming removes the ground line', legacy.pointsAfter === undefined);
-  check('confirming keeps the blocks', legacy.blocksAfter === legacy.blocksBefore,
-    `(${legacy.blocksBefore} -> ${legacy.blocksAfter})`);
-  check('the offer disappears once cleared', legacy.clearedOffered === true);
-  check('the level still renders after clearing', legacy.rendersAfterClear);
-}
-// A cleared trail is a block-only level, so the offer must be hidden. The
-// predicate is also checked directly, because it gates the button and once
-// returned an array length instead of a boolean.
-{
-  const blocks = await boot('blocks');
-  check('CLEAR LEGACY TERRAIN is not offered for a cleared level', blocks.clearOffered === false,
-    `(offered: ${blocks.clearOffered})`);
-  check('the predicate is a plain boolean', blocks.hasLegacy === false,
-    `(returned ${JSON.stringify(blocks.hasLegacy)})`);
-  check('a cleared level reports no legacy terrain', blocks.hasLegacyType === 'boolean',
-    `(type ${blocks.hasLegacyType})`);
-
-  // A two-point ground line is the smallest valid legacy terrain, and is the
-  // case a predicate written to ignore short ground lines gets wrong.
-  const bare = await boot('bare');
-  check('CLEAR LEGACY TERRAIN is offered for a two-point ground line', bare.clearOffered === true,
-    `(offered: ${bare.clearOffered})`);
-  check('a two-point ground line is reported as legacy terrain', bare.hasLegacy === true,
-    `(returned ${JSON.stringify(bare.hasLegacy)})`);
-  check('the predicate stays a boolean on short ground', bare.hasLegacyType === 'boolean',
-    `(type ${bare.hasLegacyType})`);
-  check('it names the ground points it found', /\d+ ground points/.test(bare.clearSummary || ''),
-    `("${bare.clearSummary}")`);
-
-  // Islands and paths are legacy terrain too, with no ground line at all. A
-  // predicate that only looked for a ground line missed these entirely.
-  const island = await boot('island');
-  check('CLEAR LEGACY TERRAIN is offered for islands and paths only', island.clearOffered === true,
-    `(offered: ${island.clearOffered})`);
-  check('islands are reported', /island/.test(island.clearSummary || ''), `("${island.clearSummary}")`);
-  check('paths are reported', /path/.test(island.clearSummary || ''), `("${island.clearSummary}")`);
-
-  // A ground line with a gap: the old predicate returned the gap count, so the
-  // offer was gated on a number rather than a boolean.
-  const gapped = await boot('gapped');
-  check('a gapped ground line is reported as a boolean', gapped.hasLegacyType === 'boolean',
-    `(type ${gapped.hasLegacyType})`);
-  check('a gapped ground line offers the clear', gapped.hasLegacy === true,
-    `(returned ${JSON.stringify(gapped.hasLegacy)})`);
-  check('gaps are named in the summary', /gap/.test(gapped.clearSummary || ''), `("${gapped.clearSummary}")`);
+  check('a block trail raises no errors at all', report.errors.length === 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -156,13 +70,13 @@ const reported = (report, label) => {
 // ---------------------------------------------------------------------------
 {
   const report = await boot('badgoal');
-  check('play testing is refused when the level does not validate', report.refused === true);
+  check('play testing is refused when the trail does not validate', report.refused === true);
   check('the refusal names the actual problem', report.refusalNamed === true, `("${report.refusalText}")`);
   check('the refusal counts the errors', report.refusalCounted === true, `("${report.refusalText}")`);
   check('the refusal is the first thing in the list', report.refusalIsFirst === true);
   check('the play-test button says how many errors', /\d+ ERROR/.test(report.buttonFlash || ''), `("${report.buttonFlash}")`);
   check('the playtest panel did not open', report.playtestClosed === true);
-  check('the level itself was not modified', report.jsonUnchanged === true);
+  check('the trail itself was not modified', report.jsonUnchanged === true);
 }
 
 // ---------------------------------------------------------------------------

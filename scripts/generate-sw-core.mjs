@@ -13,11 +13,11 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const swPath = join(root, 'sw.js');
 const sw = readFileSync(swPath, 'utf8');
 
-// Everything the two pages can request, besides the level files (cached from
+// Everything the two pages can request, besides the trail files (cached from
 // the catalog) and the service worker itself.
 const included = /\.(js|css|html|webmanifest)$|^icons\/.*\.svg$/;
 // Top-level folders and files that are never served to players.
-const skipTop = new Set(['sw.js', 'scripts', 'levels', 'tests', 'node_modules', 'dist', 'coverage', 'netlify']);
+const skipTop = new Set(['sw.js', 'scripts', 'trails', 'tests', 'node_modules', 'dist', 'coverage', 'netlify']);
 
 function walk(dir, out = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {

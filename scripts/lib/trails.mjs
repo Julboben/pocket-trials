@@ -8,10 +8,10 @@ export function readJson(path) {
 }
 
 // Loads trails exactly as the browser does: raw JSON from the catalog.
-export function loadCatalogLevels(source = 'official') {
-  return readJson('levels/catalog.json').levels
+export function loadCatalogTrails(source = 'official') {
+  return readJson('trails/catalog.json').trails
     .filter(entry => entry.source === source)
-    .map(entry => ({ ...entry, level: readJson('levels/' + entry.file) }));
+    .map(entry => ({ ...entry, trail: readJson('trails/' + entry.file) }));
 }
 
 export const repoRoot = root;
