@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
 
 jobs:
@@ -15,10 +15,12 @@ jobs:
           node-version: 24
       - name: Syntax check
         run: npm run check
-      - name: Level catalog is up to date
+      - name: Trail catalog is up to date
         run: |
-          npm run levels
-          git diff --exit-code levels/catalog.json
+          npm run trails
+          git diff --exit-code trails/catalog.json
+      - name: Service worker precache is up to date
+        run: npm run sw:check
       - name: Type check
         run: npm run typecheck
       - name: Tests

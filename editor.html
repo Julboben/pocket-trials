@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Pocket Trials Level Editor</title>
+        <title>Pocket Trials Trail Editor</title>
         <link rel="stylesheet" href="./css/editor.css" />
     </head>
     <body>
@@ -14,7 +14,7 @@
                 >
                 <label
                     >TRAIL
-                    <select id="level-picker"></select
+                    <select id="trail-picker"></select
                 ></label>
                 <div class="trail-actions">
                     <button id="new-trail" title="Create a new custom trail">
@@ -73,12 +73,12 @@
                         <button
                             class="side-tab"
                             role="tab"
-                            id="tab-level"
+                            id="tab-trail"
                             aria-selected="false"
-                            aria-controls="panel-level"
-                            data-tab="level"
+                            aria-controls="panel-trail"
+                            data-tab="trail"
                         >
-                            LEVEL
+                            TRAIL
                         </button>
                     </div>
 
@@ -110,19 +110,17 @@
                         <section class="tool-group">
                             <h3>TERRAIN</h3>
                             <div class="tool-grid">
-                                <button class="tool" data-tool="ground">
-                                    ＋ <span>Ground</span>
+                                <button class="tool" data-tool="block">
+                                    ▣ <span>Block</span>
                                 </button>
-                                <button class="tool" data-tool="gap">
-                                    ⌁ <span>Gap</span>
-                                </button>
-                                <button class="tool" data-tool="platform">
-                                    ▰ <span>Island</span>
-                                </button>
-                                <button class="tool" data-tool="path">
-                                    ◯ <span>Path / loop</span>
+                                <button class="tool" data-tool="cut">
+                                    ✂ <span>Cut</span>
                                 </button>
                             </div>
+                            <label class="checkbox-row"
+                                >Show game art
+                                <input id="game-art" type="checkbox" checked
+                            /></label>
                         </section>
                         <section class="tool-group">
                             <h3>OBJECTS</h3>
@@ -159,13 +157,13 @@
 
                     <div
                         class="side-panel"
-                        id="panel-level"
+                        id="panel-trail"
                         role="tabpanel"
-                        aria-labelledby="tab-level"
+                        aria-labelledby="tab-trail"
                         hidden
                     >
                         <label
-                            >Name <input id="level-name" type="text"
+                            >Name <input id="trail-name" type="text"
                         /></label>
                         <label
                             >Base material
@@ -178,6 +176,28 @@
                         <label
                             >Fall Y <input id="fall-y" type="number" step="10"
                         /></label>
+                        <fieldset>
+                            <legend>TIME OF DAY</legend>
+                            <label
+                                >Time of day
+                                <select id="time-of-day">
+                                    <option value="morning">Morning</option>
+                                    <option value="noon">Noon</option>
+                                    <option value="evening">Evening</option>
+                                    <option value="night">Night</option>
+                                </select></label
+                            >
+                            <label
+                                >Backdrop
+                                <select id="backdrop">
+                                    <option value="hills">Hills</option>
+                                    <option value="mountains">Mountains</option>
+                                    <option value="forest">Forest</option>
+                                    <option value="desert">Desert</option>
+                                    <option value="city">City</option>
+                                </select></label
+                            >
+                        </fieldset>
                         <fieldset>
                             <legend>WEATHER 0–1</legend>
                             <label
@@ -236,9 +256,9 @@
                         aria-label="Editable trail canvas"
                     ></canvas>
                     <div class="canvas-help">
-                        DRAG POINTS OR PLATFORM BODIES · DOUBLE-CLICK AN ISLAND
-                        EDGE OR THE GROUND TO ADD A POINT · TWO-FINGER PAN ·
-                        PINCH TO ZOOM
+                        DRAG BLOCKS OR POINTS · DOUBLE-CLICK A BLOCK EDGE TO ADD
+                        A POINT · DRAG TO DRAW A CUT · TWO-FINGER PAN · PINCH TO
+                        ZOOM
                     </div>
                 </div>
 
@@ -249,7 +269,7 @@
                     </div>
                     <p class="tool-hint" id="selection-empty">
                         Select an object on the canvas to edit it. Trail-wide
-                        settings are in the LEVEL tab.
+                        settings are in the TRAIL tab.
                     </p>
 
                     <div id="selection-fields" hidden>
@@ -267,18 +287,25 @@
                                 >Material
                                 <select id="selection-material"></select
                             ></label>
-                            <label id="selection-thickness-row" hidden
-                                >Thickness
-                                <input
-                                    id="selection-thickness"
-                                    type="number"
-                                    min="16"
-                                    step="2"
+                            <label id="selection-snap-row" hidden
+                                >Snap to ground
+                                <input id="selection-snap" type="checkbox"
                             /></label>
-                            <label id="selection-closed-row" hidden
-                                >Closed loop
-                                <input id="selection-closed" type="checkbox"
-                            /></label>
+                            <label id="selection-node-row" hidden
+                                >Point
+                                <select id="selection-node">
+                                    <option value="corner">Corner</option>
+                                    <option value="smooth">Smooth</option>
+                                    <option value="independent">Independent</option>
+                                </select></label
+                            >
+                            <label id="selection-edge-row" hidden
+                                >Edge
+                                <select id="selection-edge">
+                                    <option value="straight">Straight</option>
+                                    <option value="curve">Curved</option>
+                                </select></label
+                            >
                             <label id="selection-facing-row" hidden
                                 >Facing
                                 <select id="selection-facing">
@@ -289,16 +316,34 @@
                             <label id="selection-prop-type-row" hidden
                                 >Prop
                                 <select id="selection-prop-type">
-                                    <option value="tree">Tree</option>
-                                    <option value="pine">Pine</option>
-                                    <option value="bush">Bush</option>
-                                    <option value="fence">Fence</option>
-                                    <option value="rock">Rock</option>
-                                    <option value="boulder">Boulder</option>
-                                    <option value="flowers">Flowers</option>
-                                    <option value="stump">Stump</option>
-                                    <option value="crystal">Crystal</option>
-                                    <option value="sign">Sign</option>
+                                    <optgroup label="Trees">
+                                        <option value="tree">Tree</option>
+                                        <option value="pine">Pine</option>
+                                        <option value="sapling">Sapling</option>
+                                        <option value="pine-small">Pine (small)</option>
+                                    </optgroup>
+                                    <optgroup label="Undergrowth">
+                                        <option value="bush">Bush</option>
+                                        <option value="flowers">Flowers</option>
+                                        <option value="stump">Stump</option>
+                                        <option value="cactus">Cactus</option>
+                                        <option value="cactus-small">Cactus (small)</option>
+                                    </optgroup>
+                                    <optgroup label="Rock and desert">
+                                        <option value="rock">Rock</option>
+                                        <option value="boulder">Boulder</option>
+                                        <option value="crystal">Crystal</option>
+                                        <option value="pebbles">Pebbles</option>
+                                    </optgroup>
+                                    <optgroup label="Built">
+                                        <option value="fence">Fence</option>
+                                        <option value="sign">Sign</option>
+                                    </optgroup>
+                                    <optgroup label="Walls">
+                                        <option value="vines">Vines</option>
+                                        <option value="roots">Roots</option>
+                                        <option value="moss">Moss</option>
+                                    </optgroup>
                                 </select></label
                             >
                             <label id="selection-prop-text-row" hidden
@@ -306,15 +351,21 @@
                                 <input
                                     id="selection-prop-text"
                                     type="text"
-                                    maxlength="8"
+                                    maxlength="40"
                                     autocomplete="off"
-                                /></label
-                            >
+                            /></label>
                             <label id="selection-layer-row" hidden
                                 >Layer
                                 <select id="selection-layer">
                                     <option value="back">Back</option>
                                     <option value="front">Front</option>
+                                </select></label
+                            >
+                            <label id="selection-flip-row" hidden
+                                >Flip
+                                <select id="selection-flip">
+                                    <option value="false">Normal</option>
+                                    <option value="true">Flipped</option>
                                 </select></label
                             >
                             <label id="selection-radius-row" hidden
@@ -345,7 +396,7 @@
                     </section>
                     <details class="json-panel">
                         <summary>JSON IMPORT / EXPORT</summary>
-                        <textarea id="level-json" spellcheck="false"></textarea
+                        <textarea id="trail-json" spellcheck="false"></textarea
                         ><button id="import-json">IMPORT JSON</button>
                     </details>
                 </aside>

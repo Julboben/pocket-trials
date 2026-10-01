@@ -3,323 +3,126 @@ import { readFileSync } from "node:fs";
 import {
   terrainCollisionsAt,
   terrainSweepCollision,
-  pathSegments,
   seatedSurfaceAt,
-  curveAt,
+  terrainAt,
   groundShadowSamples,
-  platformUndersideAt,
-  pointInPlatform,
 } from "../js/terrain.js";
 import { sunLight, sunShadowOffset } from "../js/drawing.js";
+import { normalizeTrail } from "../js/trail-schema.js";
 import {
   propAlignmentSlope,
   propDrawAngle,
   propGroundOffset,
 } from "../js/drawing.js";
+import { polygonBlock, rectangle, blockTrail } from "./lib/terrain-fixtures.mjs";
 
-const flatGapLevel = {
-  points: [
-    [0, 100],
-    [300, 100],
-  ],
-  gaps: [[100, 200]],
-  platforms: [],
-  terrain: "grass",
-  fallY: 300,
-};
+const trailOf = (blocks, extra = {}) => normalizeTrail(blockTrail(blocks, extra));
 const radius = 12;
 
+// Two slabs with a gap between them.
+const flatGapTrail = trailOf(
+  [rectangle(0, 100, 100, 300, "grass", "left"), rectangle(200, 100, 300, 300, "grass", "right")],
+  { fallY: 400, goal: 280, start: { x: 40, y: null, facing: 1 } },
+);
 assert.equal(
-  terrainCollisionsAt(flatGapLevel, 150, 90, radius).length,
+  terrainCollisionsAt(flatGapTrail, 150, 90, radius).length,
   0,
-  "unified terrain geometry leaves the gap open",
+  "the gap between two blocks stays open",
 );
 assert.ok(
-  terrainCollisionsAt(flatGapLevel, 104, 130, radius).some(
-    (contact) => contact.kind === "ground",
-  ),
-  "unified terrain geometry includes the left gap wall",
+  terrainCollisionsAt(flatGapTrail, 104, 130, radius).length > 0,
+  "the left gap wall collides",
 );
 assert.ok(
-  terrainCollisionsAt(flatGapLevel, 196, 130, radius).some(
-    (contact) => contact.kind === "ground",
-  ),
-  "unified terrain geometry includes the right gap wall",
+  terrainCollisionsAt(flatGapTrail, 196, 130, radius).length > 0,
+  "the right gap wall collides",
 );
 
-const platformLevel = {
-  points: [
-    [0, 500],
-    [400, 500],
-  ],
-  gaps: [],
-  terrain: "grass",
-  fallY: 700,
-  platforms: [
-    {
-      points: [
-        [100, 200],
-        [240, 200],
-      ],
-      bottom: [
-        [100, 240],
-        [240, 240],
-      ],
-      material: "rock",
-    },
-  ],
-};
+// A floating block above a slab.
+const islandTrail = trailOf(
+  [rectangle(0, 500, 400, 700, "grass", "ground"), rectangle(100, 200, 240, 240, "rock", "island")],
+  { fallY: 900, goal: 380 },
+);
+const hits = (x, y, test) => terrainCollisionsAt(islandTrail, x, y, radius).some(test);
+assert.ok(hits(170, 192, (c) => c.ny < 0), "a floating block's top collides");
+assert.ok(hits(92, 220, (c) => c.nx < 0), "a floating block's side collides");
+assert.ok(hits(170, 248, (c) => c.ny > 0), "a floating block's underside collides");
+assert.ok(hits(94, 194, () => true), "a floating block's corner collides");
 assert.ok(
-  terrainCollisionsAt(platformLevel, 170, 190, radius).some(
-    (contact) => contact.kind === "platform" && contact.ny < 0,
-  ),
-  "platform top must collide",
-);
-assert.ok(
-  terrainCollisionsAt(platformLevel, 90, 220, radius).some(
-    (contact) => contact.kind === "platform" && contact.nx < 0,
-  ),
-  "platform side must collide",
-);
-assert.ok(
-  terrainCollisionsAt(platformLevel, 170, 248, radius).some(
-    (contact) => contact.kind === "platform" && contact.ny > 0,
-  ),
-  "platform underside must collide",
-);
-assert.ok(
-  terrainCollisionsAt(platformLevel, 94, 194, radius).some(
-    (contact) => contact.kind === "platform",
-  ),
-  "platform corner must collide",
-);
-assert.ok(
-  terrainSweepCollision(platformLevel, 170, 100, 170, 280, radius)?.kind ===
-    "platform",
-  "maximum-speed approach must sweep into a platform",
-);
-
-const shapedLevel = {
-  points: [
-    [0, 500],
-    [400, 500],
-  ],
-  gaps: [],
-  terrain: "grass",
-  fallY: 700,
-  platforms: [
-    {
-      points: [
-        [100, 200],
-        [240, 200],
-      ],
-      bottom: [
-        [120, 210],
-        [170, 260],
-        [220, 210],
-      ],
-      material: "rock",
-    },
-  ],
-};
-assert.equal(
-  platformUndersideAt(shapedLevel.platforms[0], 170),
-  260,
-  "bottom points define the underside",
-);
-assert.ok(
-  pointInPlatform(shapedLevel.platforms[0], 170, 250),
-  "the deep middle of a shaped underside is solid",
-);
-assert.ok(
-  !pointInPlatform(shapedLevel.platforms[0], 125, 230),
-  "area outside the tapered underside is open",
-);
-assert.ok(
-  terrainCollisionsAt(shapedLevel, 170, 268, radius).some(
-    (contact) => contact.kind === "platform" && contact.ny > 0,
-  ),
-  "shaped underside must collide",
-);
-
-const tracedLevel = {
-  points: [
-    [920, 300],
-    [1148.5430174715298, 246.67341209254306],
-    [1158.5430174715298, 343.0070624265984],
-    [1367.8132433826686, 409.877498201282],
-  ],
-  gaps: [],
-  platforms: [],
-  terrain: "grass",
-  fallY: 620,
-};
-
-for (const [x, y] of [
-  [1148.536, 258.237],
-  [1149.694, 267.09],
-  [1136.074, 277.169],
-  [1124.068, 286.557],
-]) {
-  const contact = terrainCollisionsAt(tracedLevel, x, y, radius)[0];
-  assert.ok(contact, "the steep terrain must remain collidable");
-  assert.ok(
-    contact.nx > 0.9,
-    "steep contact must push primarily sideways along the actual terrain boundary",
-  );
-  assert.ok(
-    Math.abs(contact.ny * contact.penetration) < 3,
-    "steep contact must not snap the wheel upward",
-  );
-}
-
-const pathLevel = {
-  ...flatGapLevel,
-  points: [
-    [0, 500],
-    [300, 500],
-  ],
-  fallY: 700,
-  gaps: [],
-  paths: [
-    {
-      points: [
-        [40, 200],
-        [100, 140],
-        [160, 200],
-        [100, 260],
-      ],
-      closed: true,
-      thickness: 20,
-      material: "rock",
-    },
-  ],
-};
-assert.equal(
-  pathSegments(pathLevel.paths[0]).length,
-  4,
-  "closed paths connect their final point to their first",
-);
-assert.ok(
-  terrainCollisionsAt(pathLevel, 100, 128, 4).some(
-    (contact) => contact.kind === "path",
-  ),
-  "closed path outer boundary must collide",
+  terrainSweepCollision(islandTrail, 170, 100, 170, 280, radius),
+  "a fast approach sweeps into a floating block",
 );
 assert.equal(
-  terrainCollisionsAt(pathLevel, 100, 200, 4).filter(
-    (contact) => contact.kind === "path",
-  ).length,
-  0,
-  "closed path center remains empty",
-);
-assert.ok(
-  terrainSweepCollision(pathLevel, 100, 100, 100, 180, 4)?.kind === "path",
-  "sweep must stop a fast circle at a thin authored path",
+  terrainAt(islandTrail, 170, 300).y,
+  500,
+  "the surface below the floating block is the ground",
 );
 
-const overhangLevel = {
-  ...flatGapLevel,
-  points: [
-    [0, 500],
-    [300, 500],
-  ],
-  fallY: 700,
-  paths: [
-    {
-      points: [
-        [250, 180],
-        [210, 130],
-        [250, 80],
-      ],
-      closed: false,
-      thickness: 16,
-      material: "grass",
-    },
-  ],
-};
-assert.ok(
-  terrainCollisionsAt(overhangLevel, 208, 130, 6).some(
-    (contact) => contact.kind === "path",
-  ),
-  "paths may move backward along x",
+// A steep wall pushes sideways rather than snapping the wheel up.
+const steepTrail = trailOf(
+  [polygonBlock([[0, 400], [200, 400], [220, 100], [400, 100], [400, 600], [0, 600]], "grass", "steep")],
+  { fallY: 800, goal: 380 },
 );
+const [steep] = terrainCollisionsAt(steepTrail, 202, 300, 8);
+assert.ok(steep, "the steep terrain remains collidable");
 assert.ok(
-  terrainCollisionsAt(overhangLevel, 250, 70, 6).some(
-    (contact) => contact.kind === "path",
-  ),
-  "open path endpoints have solid caps",
+  Math.abs(steep.nx) > Math.abs(steep.ny),
+  "a steep contact pushes primarily sideways",
 );
+assert.ok(steep.ny > -0.5, "a steep contact does not snap the wheel upward");
 
-const hillLevel = {
-  points: [
-    [0, 100],
-    [200, 300],
+// A hill with a gap and a floating rock shelf above it, for prop seating.
+const hillTrail = trailOf(
+  [
+    polygonBlock([[0, 100], [140, 240], [140, 500], [0, 500]], "grass", "hill-left"),
+    polygonBlock([[180, 280], [200, 300], [200, 500], [180, 500]], "grass", "hill-right"),
+    polygonBlock([[40, 40], [160, 80], [160, 110], [40, 70]], "rock", "shelf"),
   ],
-  gaps: [[140, 180]],
-  platforms: [
-    {
-      points: [
-        [40, 40],
-        [160, 80],
-      ],
-      bottom: [
-        [40, 70],
-        [160, 110],
-      ],
-      material: "rock",
-    },
-  ],
-  terrain: "grass",
-  fallY: 500,
-};
-const hillMid = curveAt(hillLevel.points, 100);
-assert.ok(
-  Math.abs(seatedSurfaceAt(hillLevel, 100, null).slope - hillMid.slope) < 1e-9,
-  "ground-anchored props sit on the base curve",
+  { fallY: 500, goal: 190, start: { x: 20, y: null, facing: 1 } },
 );
+const hillMid = terrainAt(hillTrail, 100, 200);
+assert.ok(Math.abs(hillMid.slope - 1) < 1e-9, "the hill slopes down at 45 degrees");
 assert.equal(
-  seatedSurfaceAt(hillLevel, 160, null),
+  seatedSurfaceAt(hillTrail, 160, null),
   null,
   "ground-anchored props inside a gap have no surface",
 );
 assert.equal(
-  seatedSurfaceAt(hillLevel, 100, hillMid.y - 40),
+  seatedSurfaceAt(hillTrail, 100, hillMid.y - 40),
   null,
   "a prop floating above the hill stays unseated",
 );
 assert.equal(
-  seatedSurfaceAt(hillLevel, 100, hillMid.y)?.y,
+  seatedSurfaceAt(hillTrail, 100, hillMid.y)?.y,
   hillMid.y,
   "a prop resting on the hill uses that surface",
 );
-const platformY = curveAt(hillLevel.platforms[0].points, 80).y;
-assert.equal(
-  seatedSurfaceAt(hillLevel, 80, platformY).platform,
-  hillLevel.platforms[0],
-  "a prop resting on a platform uses that platform",
+const shelfY = terrainAt(hillTrail, 80).y;
+assert.ok(
+  Math.abs(seatedSurfaceAt(hillTrail, 80, shelfY).y - shelfY) < 1e-9,
+  "a prop resting on the shelf uses the shelf",
 );
 
-const fence = { x: 100, y: null, type: "fence" };
-const tree = { x: 100, y: null, type: "tree" };
-const pine = { x: 100, y: null, type: "pine" };
-const flowers = { x: 80, y: platformY, type: "flowers" };
-const rock = { x: 80, y: platformY, type: "rock" };
-const boulder = { x: 80, y: platformY, type: "boulder" };
-assert.equal(propAlignmentSlope(hillLevel, tree), 0, "trees stay upright");
-assert.equal(propAlignmentSlope(hillLevel, pine), 0, "pines stay upright");
-assert.equal(propAlignmentSlope(hillLevel, flowers), 0, "flowers stay upright");
+const fence = { x: 100, y: hillMid.y, type: "fence" };
+const tree = { x: 100, y: hillMid.y, type: "tree" };
+const pine = { x: 100, y: hillMid.y, type: "pine" };
+const flowers = { x: 80, y: shelfY, type: "flowers" };
+const rock = { x: 80, y: shelfY, type: "rock" };
+const boulder = { x: 80, y: shelfY, type: "boulder" };
+assert.equal(propAlignmentSlope(hillTrail, tree), 0, "trees stay upright");
+assert.equal(propAlignmentSlope(hillTrail, pine), 0, "pines stay upright");
+assert.equal(propAlignmentSlope(hillTrail, flowers), 0, "flowers stay upright");
 assert.ok(
-  propAlignmentSlope(hillLevel, fence) > 0.5,
+  propAlignmentSlope(hillTrail, fence) > 0.5,
   "fences follow the hill under their footprint",
 );
 assert.ok(
-  propAlignmentSlope(hillLevel, rock) > 0.3,
-  "rocks follow the platform under their footprint",
+  propAlignmentSlope(hillTrail, rock) > 0.3,
+  "rocks follow the shelf under their footprint",
 );
 assert.ok(
-  propAlignmentSlope(hillLevel, boulder) > 0.3,
-  "boulders follow the platform under their footprint",
+  propAlignmentSlope(hillTrail, boulder) > 0.3,
+  "boulders follow the shelf under their footprint",
 );
 assert.equal(
   propDrawAngle("tree", 1),
@@ -338,13 +141,21 @@ assert.ok(
   "boulders rotate to the ground angle",
 );
 
-const rolling = JSON.parse(
-  readFileSync(
-    new URL("../levels/official/02-rolling-country.json", import.meta.url),
+const rolling = normalizeTrail(
+  JSON.parse(
+    readFileSync(
+      new URL("../trails/official/02-rolling-country.json", import.meta.url),
+    ),
   ),
 );
-const rollingFence = rolling.props.find((prop) => prop.type === "fence");
-const rollingTree = rolling.props.find((prop) => prop.type === "tree");
+// The fence the trail really has, and upright props planted on the same
+// hillside, so the checks don't depend on which scenery the trail carries.
+// The ground-anchored fence is the one past x 1000; the other has a fixed y.
+const rollingFence = rolling.props.find(
+  (prop) => prop.type === "fence" && prop.x > 1000,
+);
+assert.ok(rollingFence, "rolling country still has a fence to test with");
+const rollingTree = { ...rollingFence, type: "tree", flip: undefined };
 assert.ok(
   Math.abs(propAlignmentSlope(rolling, rollingFence)) > 0.2,
   "rolling-country fences sit on the hillside",
@@ -355,10 +166,10 @@ assert.equal(
   "rolling-country trees stay upright on the hillside",
 );
 
-const treeBase = propGroundOffset(hillLevel, tree);
-const pineBase = propGroundOffset(hillLevel, pine);
-const flowerBase = propGroundOffset(hillLevel, flowers);
-const floatingTree = propGroundOffset(hillLevel, {
+const treeBase = propGroundOffset(hillTrail, tree);
+const pineBase = propGroundOffset(hillTrail, pine);
+const flowerBase = propGroundOffset(hillTrail, flowers);
+const floatingTree = propGroundOffset(hillTrail, {
   x: 100,
   y: hillMid.y - 40,
   type: "tree",
@@ -376,23 +187,19 @@ assert.ok(
   flowerBase(6) > flowerBase(-6),
   "each flower is planted on the slope under it",
 );
-assert.equal(floatingTree(8), 0, "a floating prop keeps a level base");
+assert.equal(floatingTree(8), 0, "a floating prop keeps a trail base");
 assert.ok(
   propGroundOffset(rolling, rollingTree)(6) !== 0,
   "rolling-country trees meet the hillside at the trunk",
 );
 
-const crest = {
-  points: [
-    [0, 200],
-    [100, 100],
-    [200, 200],
+const crest = trailOf(
+  [
+    polygonBlock([[0, 200], [20, 180], [20, 400], [0, 400]], "grass", "crest-left"),
+    polygonBlock([[40, 160], [100, 100], [200, 200], [200, 400], [40, 400]], "grass", "crest"),
   ],
-  gaps: [[20, 40]],
-  platforms: [],
-  terrain: "grass",
-  fallY: 400,
-};
+  { fallY: 500, goal: 190, start: { x: 120, y: null, facing: 1 } },
+);
 const crestShadow = groundShadowSamples(crest, 100, 80, 30).flat();
 const crestCenter = crestShadow.find((sample) => sample.x === 100);
 const crestEdge = crestShadow.find((sample) => sample.x === 70);
@@ -401,7 +208,7 @@ assert.ok(
   crestEdge.y > crestCenter.y,
   "the shadow drops with the ground on either side of a hilltop",
 );
-const gapShadow = groundShadowSamples(crest, 50, 100, 40);
+const gapShadow = groundShadowSamples(crest, 30, 150, 40);
 assert.equal(
   gapShadow.flat().some((sample) => sample.x > 20 && sample.x < 40),
   false,
@@ -414,7 +221,7 @@ assert.equal(
 );
 
 const slopeShadow = groundShadowSamples(
-  hillLevel,
+  hillTrail,
   100,
   hillMid.y - 20,
   24,
@@ -474,7 +281,7 @@ assert.equal(
   "a hidden sun leaves the shadow centered",
 );
 
-const [buried] = terrainCollisionsAt(flatGapLevel, 60, 140, 4);
+const [buried] = terrainCollisionsAt(flatGapTrail, 60, 140, 4);
 assert.ok(buried, "a point buried far below the surface still collides");
 assert.ok(
   Math.abs(buried.nx) < 1e-9 && Math.abs(buried.ny + 1) < 1e-9,
@@ -485,4 +292,4 @@ assert.ok(
   "a buried point reports its full depth",
 );
 
-console.log("Terrain polygon, path, and sweep collision tests passed.");
+console.log("Terrain collision, seating and shadow tests passed.");

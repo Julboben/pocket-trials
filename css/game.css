@@ -470,16 +470,16 @@ h2 {
   letter-spacing: 0.5px;
 }
 
-.level-best[data-medal="gold"] {
+.trail-best[data-medal="gold"] {
   color: #f1c75b;
 }
-.level-best[data-medal="silver"] {
+.trail-best[data-medal="silver"] {
   color: #c9d2d0;
 }
-.level-best[data-medal="bronze"] {
+.trail-best[data-medal="bronze"] {
   color: #d9955f;
 }
-.level-best[data-medal]::after {
+.trail-best[data-medal]::after {
   content: " ●";
 }
 
@@ -644,6 +644,28 @@ h2 {
   background: var(--color-surface);
   box-shadow: var(--shadow-pixel);
 }
+/* .setting-group is display:grid, which would beat the hidden attribute. */
+.setting-group[hidden] {
+  display: none;
+}
+
+.settings-section {
+  margin: 12px 0 0;
+  color: var(--color-green);
+  font-size: 9px;
+  font-weight: 950;
+  letter-spacing: 1.5px;
+}
+
+.settings-section:first-child {
+  margin-top: 0;
+}
+
+.settings-reset {
+  justify-self: start;
+  margin-top: 6px;
+}
+
 .setting-group legend {
   float: left;
   width: 145px;
@@ -719,6 +741,7 @@ h2 {
 .menu-screen[hidden],
 .menu-view[hidden],
 .menu-action[hidden],
+.menu-action.continue-save[hidden],
 .icon-button[hidden] {
   display: none;
 }
@@ -768,15 +791,7 @@ h2 {
   width: min(560px, 100%);
   margin-inline: auto;
 }
-.dashboard-fullscreen {
-  position: absolute;
-  z-index: 3;
-  top: 14px;
-  right: 14px;
-  width: 32px;
-  height: 32px;
-  background: #182321d9;
-}
+
 .menu-hero {
   width: min(560px, 100%);
   display: grid;
@@ -865,7 +880,7 @@ h2 {
 .save-slot {
   width: 100%;
   min-height: 88px;
-  padding: 13px 48px 13px 13px;
+  padding: 13px 60px 13px 13px;
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
@@ -883,8 +898,8 @@ h2 {
   position: absolute;
   top: 50%;
   right: 12px;
-  min-width: 27px;
-  height: 27px;
+  min-width: 34px;
+  height: 34px;
   padding: 0 6px;
   transform: translateY(-50%);
   border: 1px solid #704b47;
@@ -900,7 +915,7 @@ h2 {
   color: #fff0e8;
 }
 .delete-save.armed {
-  font-size: 7px;
+  font-size: 8px;
   letter-spacing: 0.4px;
 }
 .load-game-help {
@@ -1007,15 +1022,24 @@ h2 {
   box-shadow: var(--shadow-pixel);
   text-align: left;
 }
-/* New Game and Load Game share one row; they stack below the 520px breakpoint
-   where .menu-actions collapses to a single column (same as .level-grid). */
+/* Buttons marked .menu-action-half sit side by side; the rest span the row. */
 .menu-action-half {
   grid-column: auto;
 }
 .menu-action:hover,
-.level-card:hover,
+.trail-card:hover,
 .rider-card:hover {
   background: var(--color-surface-hover);
+}
+
+.menu-action-minor {
+  min-height: 54px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.menu-action-minor:hover {
+  background: var(--color-surface);
 }
 .menu-selected {
   outline: 2px solid var(--color-green);
@@ -1062,27 +1086,27 @@ h2 {
   font-size: 9px;
   font-weight: 850;
 }
-.level-grid {
+.trail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
-.level-import {
+.trail-import {
   margin-top: 14px;
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
 }
-.level-import-status {
+.trail-import-status {
   margin: 0;
   color: var(--color-text-muted);
   font-size: 8px;
 }
-.level-import-status.error {
+.trail-import-status.error {
   color: #f0a08c;
 }
-.level-section-title {
+.trail-section-title {
   grid-column: 1 / -1;
   margin-top: 8px;
   padding: 9px 2px 4px;
@@ -1092,20 +1116,20 @@ h2 {
   gap: 12px;
   border-bottom: 1px solid var(--color-border);
 }
-.level-section-title:first-child {
+.trail-section-title:first-child {
   margin-top: 0;
 }
-.level-section-title strong {
+.trail-section-title strong {
   color: var(--color-green);
   font-size: 10px;
   letter-spacing: 1.4px;
 }
-.level-section-title small {
+.trail-section-title small {
   color: var(--color-text-muted);
   font-size: 7px;
   text-align: right;
 }
-.level-card {
+.trail-card {
   min-height: 70px;
   padding: 13px;
   display: grid;
@@ -1117,33 +1141,33 @@ h2 {
   color: var(--color-text);
   text-align: left;
 }
-.level-card:disabled {
+.trail-card:disabled {
   cursor: not-allowed;
   opacity: 0.42;
 }
-.custom-level-card {
+.custom-trail-card {
   border-color: #718f7f;
   background: #29433c;
 }
-.custom-level-card .level-number,
-.custom-level-card .level-best {
+.custom-trail-card .trail-number,
+.custom-trail-card .trail-best {
   color: var(--color-green);
 }
-.level-number {
+.trail-number {
   color: var(--color-accent);
   font-size: 17px;
   font-weight: 950;
 }
-.level-copy {
+.trail-copy {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-.level-copy strong {
+.trail-copy strong {
   font-size: 10px;
 }
-.level-copy small,
-.level-best {
+.trail-copy small,
+.trail-best {
   color: var(--color-text-muted);
   font-size: 8px;
 }
@@ -1165,7 +1189,7 @@ h2 {
   background: #29433c;
   box-shadow: var(--shadow-pixel);
 }
-.leaderboard-trail-copy .level-copy small {
+.leaderboard-trail-copy .trail-copy small {
   color: #a9bbb4;
 }
 .leaderboard-step {
@@ -1286,6 +1310,10 @@ h2 {
   color: var(--color-text-muted);
   font-size: 10px;
   line-height: 1.6;
+}
+
+.save-warning.danger {
+  color: #ef815f;
 }
 .rider-grid {
   display: grid;
@@ -1412,10 +1440,7 @@ kbd {
     aspect-ratio: 380 / 410;
     border-radius: var(--radius-pixel);
   }
-  #fullscreen,
-  .dashboard-fullscreen {
-    display: none !important;
-  }
+
   .game-actions {
     z-index: 8;
     top: calc(10px + env(safe-area-inset-top, 0px));
@@ -1517,8 +1542,7 @@ kbd {
     letter-spacing: -2px;
   }
 
-  .menu-actions,
-  .level-grid {
+  .trail-grid {
     grid-template-columns: 1fr;
   }
   .menu-action.continue-save {
@@ -1573,3 +1597,12 @@ kbd {
     animation: none !important;
   }
 }
+
+.save-name-field { display: grid; gap: 6px; margin: 14px 0 6px; }
+.save-name-field input {
+  font: inherit; font-size: 1.1rem; padding: 10px 12px;
+  border: 2px solid rgba(0, 0, 0, .2); border-radius: 10px;
+  background: #fff; color: #222;
+}
+.save-name-field input:focus { outline: none; border-color: currentColor; }
+.save-name-field input.invalid { border-color: #e5484d; }

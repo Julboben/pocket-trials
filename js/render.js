@@ -10,10 +10,12 @@ import {
   createGameArt,
   propAlignmentSlope,
   propGroundOffset,
+  propWallFit,
   sunLight,
   sunShadowOffset,
 } from "./drawing.js";
-import { terrainAt, groundShadowSamples } from "./terrain.js";
+import { terrainAt, groundShadowSamples, terrainGeometry } from "./terrain.js";
+import { finishHeight } from "./trail-schema.js";
 import { createTerrainRenderer } from "./terrain-render.js";
 import { vehicleMetrics } from "./vehicle-physics.js";
 import { ragdollCenter } from "./ragdoll.js";
@@ -26,11 +28,25 @@ import {
 } from "./rider-hair.js";
 import { reducedMotion } from "./state.js";
 
+/**
+ * How far left the camera may look. Blocks can reach into negative x, and the
+ * finish may be out there, so the camera follows the bike as far as the
+ * terrain goes.
+ */
+function cameraLeftLimit(trail) {
+  const blocks = terrainGeometry(trail);
+  return blocks ? Math.min(0, blocks.bounds.left - 150) : 0;
+}
+
 const SCENERY_SHADOWS = {
   tree: { width: 16, alpha: 0.15, thickness: 3, lift: 36 },
   pine: { width: 14, alpha: 0.15, thickness: 3, lift: 38 },
   crystal: { width: 10, alpha: 0.14, thickness: 3, lift: 28 },
   boulder: { width: 24, alpha: 0.15, thickness: 3, lift: 24 },
+  cactus: { width: 12, alpha: 0.15, thickness: 3, lift: 22 },
+  "cactus-small": { width: 7, alpha: 0.15, thickness: 3, lift: 12 },
+  sapling: { width: 10, alpha: 0.15, thickness: 3, lift: 20 },
+  "pine-small": { width: 9, alpha: 0.15, thickness: 3, lift: 22 },
 };
 const GHOST_ALPHA = 0.38;
 // Where a front prop hides the rider, the hidden part shows as a silhouette.
@@ -39,7 +55,17 @@ const XRAY_ALPHA = 0.25;
 // World units around the bike and rider that the x-ray layer covers.
 const XRAY_REACH = 70;
 // How far each prop's art reaches above its anchor, for culling.
-const PROP_RISE = { tree: 186, pine: 188 };
+const PROP_RISE = {
+  tree: 186,
+  pine: 188,
+  sapling: 80,
+  "pine-small": 92,
+  "cactus-small": 60,
+};
+// How far each prop's art hangs below its anchor, for culling.
+const PROP_HANG = { vines: 148, roots: 28, moss: 28 };
+// How far a hair strand may sink into a floor and still be lifted back onto it.
+const HAIR_GROUND_ALLOWANCE = 8;
 
 /** @param {HTMLCanvasElement} canvas */
 export function createRenderer(canvas) {
@@ -53,7 +79,7 @@ export function createRenderer(canvas) {
     pixelScale = 1;
   let hair = null,
     flipVisual = 1,
-    level = null,
+    trail = null,
     cameraX = 0,
     cameraY = 0;
   let xrayMask = null,
@@ -81,8 +107,8 @@ export function createRenderer(canvas) {
     H = Math.ceil(deviceHeight / pixelScale) * ART_PIXEL;
   }
 
-  function reset(nextLevel, facing) {
-    level = nextLevel;
+  function reset(nextTrail, facing) {
+    trail = nextTrail;
     hair = null;
     flipVisual = facing;
     popups.length = 0;
@@ -125,7 +151,7 @@ export function createRenderer(canvas) {
     light,
     { width, alpha, thickness, lift = 0 },
   ) {
-    const ground = terrainAt(level, x, y);
+    const ground = terrainAt(trail, x, y);
     if (!ground.solid) return;
     const height = Math.max(0, ground.y - y) + lift;
     const offset = sunShadowOffset({
@@ -138,7 +164,7 @@ export function createRenderer(canvas) {
     });
     const center = x + offset;
     drawShadowBlob(
-      groundShadowSamples(level, x, y, width, 2, center).flat(),
+      groundShadowSamples(trail, x, y, width, 2, center).flat(),
       center,
       width,
       alpha,
@@ -152,12 +178,13 @@ export function createRenderer(canvas) {
       width: W,
       cameraX,
       cameraY,
-      weather: level.weather,
+      weather: trail.weather,
+      timeOfDay: trail.timeOfDay,
     });
-    for (const prop of level.props || []) {
+    for (const prop of trail.props || []) {
       const spec = SCENERY_SHADOWS[prop.type];
       if (!spec || !inView(prop.x, 80)) continue;
-      const ground = terrainAt(level, prop.x);
+      const ground = terrainAt(trail, prop.x);
       if (!ground.solid && !Number.isFinite(prop.y)) continue;
       drawSceneryShadow(
         prop.x,
@@ -180,7 +207,7 @@ export function createRenderer(canvas) {
   // { left, top, right, bottom }; returns how many props were drawn.
   function drawProps(layer, full, art = gameArt, area = null) {
     let drawn = 0;
-    for (const prop of level.props || []) {
+    for (const prop of trail.props || []) {
       if (
         prop.layer !== layer ||
         (!full && (prop.type === "tree" || prop.type === "pine")) ||
@@ -188,20 +215,23 @@ export function createRenderer(canvas) {
         (area && (prop.x < area.left - 70 || prop.x > area.right + 70))
       )
         continue;
-      const ground = terrainAt(level, prop.x);
+      const ground = terrainAt(trail, prop.x);
       if (!ground.solid && !Number.isFinite(prop.y)) continue;
       const y = Number.isFinite(prop.y) ? prop.y : ground.y;
       const rise = PROP_RISE[prop.type] ?? 90;
-      if (!inView(prop.x, 70, y, rise)) continue;
-      if (area && (y - rise > area.bottom || y + 70 < area.top)) continue;
+      const hang = PROP_HANG[prop.type] ?? 0;
+      if (!inView(prop.x, 70, y + hang, rise + hang)) continue;
+      if (area && (y - rise > area.bottom || y + hang + 70 < area.top)) continue;
       art.drawProp(
         prop.type,
         prop.x,
         y,
         1,
-        propAlignmentSlope(level, prop),
-        propGroundOffset(level, prop),
+        propAlignmentSlope(trail, prop),
+        propGroundOffset(trail, prop),
         prop.text,
+        propWallFit(trail, prop),
+        prop.flip,
       );
       drawn++;
     }
@@ -274,14 +304,25 @@ export function createRenderer(canvas) {
     if (!drawProps("front", full, xrayMask.art, area)) return;
 
     place(xrayRider);
-    if (hair) hair.draw(xrayRider.tools.pixelPath, currentHairRoot(ride, false));
+    if (hair)
+      hair.draw(xrayRider.tools.pixelPath, currentHairRoot(ride, false));
     xrayRider.art.drawBike(bikeDrawing(ride, rider, flipVisual, state));
     if (ride.ragdoll) xrayRider.art.drawRagdoll(ride.ragdoll.points, rider);
 
     const context = xrayRider.context;
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.globalCompositeOperation = "destination-in";
-    context.drawImage(xrayMask.canvas, 0, 0, width, height, 0, 0, width, height);
+    context.drawImage(
+      xrayMask.canvas,
+      0,
+      0,
+      width,
+      height,
+      0,
+      0,
+      width,
+      height,
+    );
     context.globalCompositeOperation = "source-in";
     context.fillStyle = XRAY_COLOR;
     context.fillRect(0, 0, width, height);
@@ -339,7 +380,7 @@ export function createRenderer(canvas) {
   }
 
   function updateHair(ride, rider, dt) {
-    if (rider !== "Maxine") {
+    if (rider !== "female") {
       hair = null;
       return;
     }
@@ -353,7 +394,10 @@ export function createRenderer(canvas) {
       root,
       rest,
       back: ride.ragdoll ? null : hairBackSupport(riderPose(ride)),
-      groundAt: (x) => terrainAt(level, x),
+      // The floor under each strand, not the topmost surface: under an
+      // overhang the topmost one is above the rider, and clamping to it drew
+      // the hair as a pole up to the peak.
+      groundAt: (x, y) => terrainAt(trail, x, y - HAIR_GROUND_ALLOWANCE),
     });
   }
 
@@ -370,13 +414,14 @@ export function createRenderer(canvas) {
   function drawBike(ride, rider, flip, state) {
     const geometry = bikeGeometry(ride);
     const { mx, my } = geometry;
-    const ground = terrainAt(level, mx, my);
+    const ground = terrainAt(trail, mx, my);
     if (ground.solid) {
       const light = sunLight({
         width: W,
         cameraX,
         cameraY,
-        weather: level.weather,
+        weather: trail.weather,
+        timeOfDay: trail.timeOfDay,
       });
       const heightAboveGround = Math.max(0, ground.y - my - RADIUS);
       const shadowAlpha = clamp(0.22 - heightAboveGround / 700, 0.035, 0.22);
@@ -391,7 +436,7 @@ export function createRenderer(canvas) {
       });
       const center = mx + offset;
       const samples = groundShadowSamples(
-        level,
+        trail,
         mx,
         my,
         shadowWidth,
@@ -410,7 +455,13 @@ export function createRenderer(canvas) {
     gameArt.drawBike(bikeDrawing(ride, rider, flip, state, geometry));
   }
 
-  function bikeDrawing(ride, rider, flip, state, geometry = bikeGeometry(ride)) {
+  function bikeDrawing(
+    ride,
+    rider,
+    flip,
+    state,
+    geometry = bikeGeometry(ride),
+  ) {
     return {
       rear: ride.rear,
       front: ride.front,
@@ -466,7 +517,7 @@ export function createRenderer(canvas) {
   }
 
   function drawWeather(weather) {
-    const rainIntensity = clamp(Number(level.weather?.rain) || 0, 0, 1);
+    const rainIntensity = clamp(Number(trail.weather?.rain) || 0, 0, 1);
     if (!rainIntensity && weather.flash <= 0) return;
     ctx.save();
     if (rainIntensity) {
@@ -561,6 +612,26 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
+  function drawGoal(ride) {
+    if (!inView(trail.goal, 65)) return;
+    const goalY = finishHeight(trail);
+    if (inView(trail.goal, 65, goalY, 115))
+      gameArt.drawFlag(
+        trail.goal,
+        goalY,
+        ride.collected === ride.apples.length,
+        reducedMotion ? 0 : ride.time,
+      );
+  }
+
+  function drawApples(ride, now) {
+    for (const apple of ride.apples) {
+      if (apple.taken) continue;
+      const appleY = appleDrawY(apple, now);
+      if (inView(apple.x, 30, appleY)) gameArt.drawApple(apple.x, appleY);
+    }
+  }
+
   /** Where the camera should look: the bike, or the tumbling rider after a crash. */
   function focusOf(ride) {
     return ride.ragdoll
@@ -594,7 +665,8 @@ export function createRenderer(canvas) {
       width: W,
       height: H,
       dt,
-      fallY: level.fallY || 620,
+      fallY: trail.fallY || 620,
+      minX: cameraLeftLimit(trail),
     });
     const flipSmoothing = reducedMotion ? 1 : 1 - Math.exp(-18 * dt);
     flipVisual = lerp(flipVisual, ride.facing, flipSmoothing);
@@ -610,7 +682,7 @@ export function createRenderer(canvas) {
     gameArt.drawBackground({
       width: W,
       height: H,
-      palette: level,
+      palette: trail,
       cameraX,
       cameraY,
       full,
@@ -620,20 +692,11 @@ export function createRenderer(canvas) {
     ctx.translate(-cameraX, -cameraY);
     effects.update(animationDt);
     drawProps("back", full);
-    terrainRenderer.draw(ctx, level, cameraX, cameraY, W, H);
+    terrainRenderer.draw(ctx, trail, cameraX, cameraY, W, H);
     drawSkidMarks(effects.skidMarks);
     drawSceneryShadows(ride, now, full);
     drawParticles(effects.particles, true);
-    if (inView(level.goal, 65)) {
-      const goalY = terrainAt(level, level.goal).y;
-      if (inView(level.goal, 65, goalY, 115))
-        gameArt.drawFlag(
-          level.goal,
-          goalY,
-          ride.collected === ride.apples.length,
-          ride.apples.length - ride.collected,
-        );
-    }
+    drawGoal(ride);
     for (const spike of ride.spikes) {
       if (inView(spike.x, spike.radius + 10, spike.y))
         gameArt.drawSpike(
@@ -643,11 +706,7 @@ export function createRenderer(canvas) {
           reducedMotion ? 0 : ride.spikeTime * spike.spin * TAU,
         );
     }
-    for (const apple of ride.apples) {
-      if (apple.taken) continue;
-      const appleY = appleDrawY(apple, now);
-      if (inView(apple.x, 30, appleY)) gameArt.drawApple(apple.x, appleY);
-    }
+    drawApples(ride, now);
     drawGhost(ghost, rider);
     updateHair(ride, rider, animationDt);
     if (hair) hair.draw(pixelPath, currentHairRoot(ride, false));
@@ -657,6 +716,12 @@ export function createRenderer(canvas) {
     drawProps("front", full);
     drawXray(ride, rider, ride.ragdoll ? "ragdoll" : state, full);
     drawParticles(effects.particles, false);
+    // Time-of-day grade over the whole scene; after dark, apples and the
+    // finish are drawn again on top so they stay easy to see.
+    if (gameArt.drawTimeTint(trail, cameraX, cameraY, W, H)) {
+      drawGoal(ride);
+      drawApples(ride, now);
+    }
     drawPopups(animationDt);
     effects.prune();
     ctx.restore();

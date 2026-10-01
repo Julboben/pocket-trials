@@ -73,21 +73,6 @@
               <path d="M4 6h16M4 12h16M4 18h16"></path>
             </svg>
           </button>
-          <button
-            class="icon-button"
-            id="fullscreen"
-            aria-label="Enter fullscreen"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              aria-hidden="true"
-            >
-              <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path>
-            </svg>
-          </button>
           <button class="icon-button" id="restart" aria-label="Restart trail">
             <svg
               viewBox="0 0 24 24"
@@ -209,21 +194,6 @@
           id="menu-background"
           aria-hidden="true"
         ></canvas>
-        <button
-          class="icon-button dashboard-fullscreen"
-          id="menu-fullscreen"
-          aria-label="Enter fullscreen"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            aria-hidden="true"
-          >
-            <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path>
-          </svg>
-        </button>
         <div class="menu-scroll" id="menu-scroll">
         <div class="menu-dashboard">
           <div class="menu-hero">
@@ -236,6 +206,10 @@
 
           <div class="menu-view" id="menu-home">
             <div class="menu-actions">
+              <button class="menu-action menu-action-primary" id="menu-resume" hidden>
+                <span>RESUME RIDE</span
+                ><small id="menu-resume-detail">Back to the trail</small>
+              </button>
               <button class="menu-action continue-save" id="menu-start">
                 <span class="active-rider-art" aria-hidden="true"
                   ><canvas
@@ -247,7 +221,7 @@
                 <span class="continue-save-copy"
                   ><span class="save-label"
                     >CONTINUE · <b id="active-save-slot">SLOT 1</b></span
-                  ><strong id="active-save-rider">MAX</strong
+                  ><strong id="active-save-rider"></strong
                   ><small id="active-save-progress"
                     >1 / 7 trails · The Orchard</small
                   ></span
@@ -256,27 +230,26 @@
               </button>
               <button class="menu-action menu-action-half" id="menu-new-game">
                 <span>NEW GAME</span
-                ><small>Create a rider in an empty slot</small>
+                ><small id="menu-new-game-detail">Create a rider in an empty slot</small>
               </button>
               <button class="menu-action menu-action-half" id="menu-load-game">
-                <span>LOAD GAME</span><small>Choose or delete a savegame</small>
+                <span>LOAD GAME</span
+                ><small id="menu-load-game-detail">Choose or delete a savegame</small>
               </button>
-              <button class="menu-action" id="menu-levels">
-                <span>LEVELS</span><small>Browse unlocked trails</small>
+              <button class="menu-action menu-action-half" id="menu-trails">
+                <span>TRAILS</span><small>Browse unlocked trails</small>
               </button>
-              <button class="menu-action" id="menu-leaderboard">
-                <span>LEADERBOARD</span
-                ><small>Fastest runs on every trail</small>
+              <button class="menu-action menu-action-half" id="menu-leaderboard">
+                <span>LEADERBOARD</span><small>Fastest runs on every trail</small>
               </button>
-              <button class="menu-action" id="menu-settings">
-                <span>SETTINGS</span><small>Audio, controls, and scenery</small>
+              <button class="menu-action menu-action-half" id="menu-settings">
+                <span>SETTINGS</span><small>Display, audio, and controls</small>
               </button>
-              <button class="menu-action" id="menu-how-to">
-                <span>HOW TO PLAY</span
-                ><small>Controls, balance, and objectives</small>
+              <button class="menu-action menu-action-half" id="menu-how-to">
+                <span>HOW TO PLAY</span><small>Controls, balance, and objectives</small>
               </button>
-              <button class="menu-action" id="menu-editor">
-                <span>LEVEL EDITOR</span
+              <button class="menu-action menu-action-minor" id="menu-editor">
+                <span>TRAIL EDITOR</span
                 ><small>Build and export custom trails</small>
               </button>
             </div>
@@ -286,7 +259,7 @@
             <div class="menu-view-head">
               <div>
                 <span class="save-label">SAVEGAMES</span>
-                <h3>Load game</h3>
+                <h3 id="slot-view-title">Load game</h3>
               </div>
               <button class="menu-back" data-menu-back>← BACK</button>
             </div>
@@ -301,16 +274,16 @@
             ></div>
           </div>
 
-          <div class="menu-view" id="menu-level-view" hidden>
+          <div class="menu-view" id="menu-trail-view" hidden>
             <div class="menu-view-head">
               <div>
                 <span class="save-label">TRAIL SELECT</span>
-                <h3>Choose a level</h3>
+                <h3>Choose a trail</h3>
               </div>
               <button class="menu-back" data-menu-back>← BACK</button>
             </div>
-            <div class="level-grid" id="menu-level-grid"></div>
-            <div class="level-import">
+            <div class="trail-grid" id="menu-trail-grid"></div>
+            <div class="trail-import">
               <button type="button" class="menu-back" id="import-trail">
                 ＋ IMPORT TRAIL (.JSON)
               </button>
@@ -321,7 +294,7 @@
                 hidden
               />
               <p
-                class="level-import-status"
+                class="trail-import-status"
                 id="import-trail-status"
                 role="status"
               ></p>
@@ -346,10 +319,10 @@
                 ←
               </button>
               <div class="leaderboard-trail-copy" aria-live="polite">
-                <span class="level-number" id="leaderboard-trail-number"
+                <span class="trail-number" id="leaderboard-trail-number"
                   >01</span
                 >
-                <span class="level-copy"
+                <span class="trail-copy"
                   ><strong id="leaderboard-trail-name">THE ORCHARD</strong
                   ><small id="leaderboard-trail-meta"
                     >OFFICIAL TRAIL</small
@@ -391,7 +364,7 @@
               its own progression and best times.
             </p>
             <div class="rider-grid">
-              <button class="rider-card" data-rider="max" aria-pressed="true">
+              <button class="rider-card" data-rider="male" aria-pressed="true">
                 <span class="rider-portrait male"
                   ><svg
                     class="rider-symbol"
@@ -405,11 +378,11 @@
                   >
                     <circle cx="9" cy="15" r="5"></circle>
                     <path d="M13 11 20 4M15 4h5v5"></path></svg></span
-                ><strong>MAX</strong><small>Classic orange helmet</small>
+                ><strong>MALE</strong><small>Orange helmet and white jacket</small>
               </button>
               <button
                 class="rider-card"
-                data-rider="Maxine"
+                data-rider="female"
                 aria-pressed="false"
               >
                 <span class="rider-portrait female"
@@ -424,10 +397,15 @@
                   >
                     <circle cx="12" cy="8" r="5"></circle>
                     <path d="M12 13v8M8.5 18h7"></path></svg></span
-                ><strong>MAXINE</strong
+                ><strong>FEMALE</strong
                 ><small>Teal helmet and pink jacket</small>
               </button>
             </div>
+            <label class="save-name-field" for="new-save-name">
+              <span class="save-label">RIDER NAME · SHOWN ON THE ONLINE LEADERBOARD</span>
+              <input id="new-save-name" type="text" maxlength="16" autocomplete="nickname"
+                     spellcheck="false" placeholder="Your name" required>
+            </label>
             <button class="primary create-save-button" id="create-save">
               Create Save &amp; Ride →
             </button>
@@ -523,6 +501,14 @@
               <button class="menu-back" data-menu-back>← BACK</button>
             </div>
             <div class="dashboard-settings">
+              <h4 class="settings-section">DISPLAY</h4>
+              <fieldset class="setting-group" id="setting-fullscreen-group">
+                <legend>FULLSCREEN</legend>
+                <div class="setting-options" style="--options: 2">
+                  <button type="button" class="setting-option" data-fullscreen="on">On</button>
+                  <button type="button" class="setting-option" data-fullscreen="off">Off</button>
+                </div>
+              </fieldset>
               <fieldset class="setting-group">
                 <legend>SCENERY</legend>
                 <div class="setting-options" style="--options: 2">
@@ -541,6 +527,27 @@
                     data-value="reduced"
                   >
                     Reduced
+                  </button>
+                </div>
+              </fieldset>
+              <fieldset class="setting-group">
+                <legend>SCREEN SHAKE</legend>
+                <div class="setting-options" style="--options: 2">
+                  <button
+                    type="button"
+                    class="setting-option"
+                    data-setting="shake"
+                    data-value="on"
+                  >
+                    On
+                  </button>
+                  <button
+                    type="button"
+                    class="setting-option"
+                    data-setting="shake"
+                    data-value="off"
+                  >
+                    Off
                   </button>
                 </div>
               </fieldset>
@@ -565,6 +572,8 @@
                   </button>
                 </div>
               </fieldset>
+
+              <h4 class="settings-section">AUDIO</h4>
               <fieldset class="setting-group">
                 <legend>SOUND EFFECTS</legend>
                 <div class="setting-options" style="--options: 2">
@@ -602,28 +611,9 @@
                   >
                 </div>
               </fieldset>
-              <fieldset class="setting-group">
-                <legend>SCREEN SHAKE</legend>
-                <div class="setting-options" style="--options: 2">
-                  <button
-                    type="button"
-                    class="setting-option"
-                    data-setting="shake"
-                    data-value="on"
-                  >
-                    On
-                  </button>
-                  <button
-                    type="button"
-                    class="setting-option"
-                    data-setting="shake"
-                    data-value="off"
-                  >
-                    Off
-                  </button>
-                </div>
-              </fieldset>
-              <fieldset class="setting-group">
+
+              <h4 class="settings-section">GAMEPLAY</h4>
+              <fieldset class="setting-group" id="setting-haptics-group">
                 <legend>VIBRATION</legend>
                 <div class="setting-options" style="--options: 2">
                   <button
@@ -665,6 +655,7 @@
                   </button>
                 </div>
               </fieldset>
+              <h4 class="settings-section">CONTROLS</h4>
               <fieldset class="setting-group setting-keys">
                 <legend>KEYS</legend>
                 <div class="key-bindings" id="key-bindings"></div>
@@ -673,6 +664,8 @@
                   · Y restart · Start pause
                 </p>
               </fieldset>
+
+              <button type="button" class="menu-back settings-reset" id="reset-settings">RESET ALL SETTINGS</button>
             </div>
           </div>
         </div>

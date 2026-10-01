@@ -1,4 +1,5 @@
-import { curveAt, seatedSurfaceAt } from "./terrain.js";
+import { terrainAt, terrainCollisionsAt, terrainGeometry } from "./terrain.js";
+import { FINISH_FLOWER_LIFT } from "./finish.js";
 
 const GROUND_ALIGNED_PROP_SPANS = {
   bush: [-28, 28],
@@ -7,17 +8,75 @@ const GROUND_ALIGNED_PROP_SPANS = {
   boulder: [-22, 22],
 };
 
-export function propAlignmentSlope(level, prop) {
-  const span = GROUND_ALIGNED_PROP_SPANS[prop.type];
-  if (!span) return 0;
-  const surface = seatedSurfaceAt(level, prop.x, prop.y);
-  if (!surface) return 0;
-  const points = surface.platform?.points || level.points;
-  const [left, right] = span;
-  return (
-    (curveAt(points, prop.x + right).y - curveAt(points, prop.x + left).y) /
-    (right - left)
-  );
+/**
+ * The surface a prop is resting on, at an x.
+ *
+ * The search runs from `referenceY` downwards and takes the highest solid
+ * surface at or below it. That is what makes a prop follow the ground it stands
+ * on rather than a surface above it: a fence on a hillside follows the hillside,
+ * not an island floating over it, and a prop on a cave floor follows that
+ * floor rather than the ceiling.
+ */
+function surfaceAt(trail, x, referenceY) {
+  const surface = terrainAt(trail, x, referenceY);
+  return surface?.solid ? surface.y : null;
+}
+
+/**
+ * The height a prop stands at: its own y when it has one, otherwise the surface
+ * directly beneath it.
+ */
+function propGroundHeight(trail, prop) {
+  if (Number.isFinite(prop.y)) return prop.y;
+  return surfaceAt(trail, prop.x, null);
+}
+
+/**
+ * Whether a prop is planted on the terrain or deliberately floating.
+ *
+ * A prop the author dragged onto a surface is planted and follows the slope
+ * under it. A prop left in mid-air keeps a trail base, which is what makes a
+ * floating prop read as floating.
+ */
+function isPlanted(trail, prop) {
+  if (!Number.isFinite(prop.y)) return true;
+  const below = surfaceAt(trail, prop.x, prop.y);
+  if (below === null) return false;
+  return Math.abs(below - prop.y) <= PLANTED_TOLERANCE;
+}
+
+// How close the ground has to be to a hand-placed prop for it to count as
+// resting on it rather than floating. Generous, because a prop is placed by
+// hand and usually sits a few units off the surface it is meant to be on, and
+// because the alternative is a whole hillside of scenery that has silently
+// stopped following the ground.
+const PLANTED_TOLERANCE = 24;
+
+/**
+ * How far above a prop the search for its ground may reach.
+ *
+ * A prop's footprint can straddle a slope, so its uphill end sits higher than
+ * the prop's own anchor. Searching strictly downwards would find nothing there
+ * and the prop would read as flat, so the search starts a little above the prop
+ * and walks down to the surface it stands on.
+ */
+const PROP_SLOPE_WINDOW = 90;
+
+function propSlope(trail, prop, reference) {
+  const [left, right] = GROUND_ALIGNED_PROP_SPANS[prop.type];
+  const a = surfaceAt(trail, prop.x + left, reference);
+  const b = surfaceAt(trail, prop.x + right, reference);
+  if (a === null || b === null) return null;
+  return (b - a) / (right - left);
+}
+
+export function propAlignmentSlope(trail, prop) {
+  if (!GROUND_ALIGNED_PROP_SPANS[prop.type]) return 0;
+  const standing = propGroundHeight(trail, prop);
+  if (standing === null) return 0;
+  if (!isPlanted(trail, prop)) return 0;
+  const slope = propSlope(trail, prop, standing - PROP_SLOPE_WINDOW);
+  return slope === null ? 0 : slope;
 }
 
 export function propDrawAngle(type, slope = 0) {
@@ -27,20 +86,518 @@ export function propDrawAngle(type, slope = 0) {
 }
 
 // How far the camera can climb while the sun still sinks a little in the sky;
-// above that it holds its place so it stays in view on tall levels.
+// above that it holds its place so it stays in view on tall trails.
 const SUN_CLIMB_LIMIT = 600;
 // Vertical spacing, in cloud-parallax space, of the cloud rows repeated above
 // the first one as the camera climbs.
 const CLOUD_ROW_SPACING = 180;
 
-export function sunLight({ width, cameraX = 0, cameraY = 0, weather = {} }) {
+export const TIMES_OF_DAY = ["noon", "morning", "evening", "night"];
+// The time of day a trail gets before one is chosen.
+export const DEFAULT_TIME_OF_DAY = "noon";
+// The colour set every preset starts from and overrides.
+const BASE_TIME = {
+  sky: "#eae9d9",
+  skyTop: "#eae9d9",
+  sun: "#f2c082",
+  crater: null,
+  far: "#b7c8b1",
+  near: "#8ea997",
+  tree: "#78977b",
+  trunk: "#708b78",
+  cloud: "#f8f7e9",
+  stormCloud: "#bdc8c3",
+  tint: null,
+  glow: false,
+  sunDrop: 0,
+  sunScale: 1,
+  light: 1,
+  moon: false,
+  stars: false,
+  // How backdrop themes are shaded for this time of day.
+  shade: null,
+  shadeAmount: 0,
+};
+
+// The sun always stays on the right, where every prop is lit from. Only its
+// height, size and colour change, which also lengthens shadows low in the sky.
+const TIME_PRESETS = {
+  morning: {
+    ...BASE_TIME,
+    skyTop: "#cfdde0",
+    sky: "#f3e2cf",
+    sun: "#f7d9a0",
+    far: "#bcc6b8",
+    near: "#98ab9c",
+    tree: "#83998a",
+    trunk: "#7a9082",
+    cloud: "#fbefe2",
+    stormCloud: "#c9ccc4",
+    tint: "#fff3e6",
+    sunDrop: 55,
+    light: 0.85,
+    shade: "#f0c8a0",
+    shadeAmount: 0.12,
+  },
+  noon: { ...BASE_TIME, skyTop: "#dde5e0" },
+  evening: {
+    ...BASE_TIME,
+    skyTop: "#9fa3c0",
+    sky: "#f0b98e",
+    sun: "#ee8a52",
+    far: "#b49a95",
+    near: "#8f8488",
+    tree: "#7e7580",
+    trunk: "#766d78",
+    cloud: "#f3cdb0",
+    stormCloud: "#b3a9ae",
+    tint: "#f4d2bc",
+    glow: true,
+    sunDrop: 70,
+    sunScale: 1.25,
+    light: 0.75,
+    shade: "#806a7c",
+    shadeAmount: 0.42,
+  },
+  night: {
+    ...BASE_TIME,
+    skyTop: "#141d33",
+    sky: "#2b3a5c",
+    sun: "#e6e8d6",
+    crater: "#c3c7b6",
+    far: "#34425f",
+    near: "#2a3650",
+    tree: "#253049",
+    trunk: "#222c43",
+    cloud: "#46557a",
+    stormCloud: "#39456a",
+    tint: "#98a6d4",
+    glow: true,
+    light: 0.25,
+    moon: true,
+    stars: true,
+    shade: "#1e2942",
+    shadeAmount: 0.7,
+  },
+};
+
+/** The sky, hill and light colours a trail is drawn with. */
+export function timeOfDayPalette(trail = {}) {
+  return TIME_PRESETS[trail.timeOfDay] || TIME_PRESETS[DEFAULT_TIME_OF_DAY];
+}
+
+function mixHex(a, b, t) {
+  const ca = parseColor(a),
+    cb = parseColor(b);
+  return (
+    "#" +
+    [0, 1, 2]
+      .map((i) =>
+        Math.round(ca[i] + (cb[i] - ca[i]) * t)
+          .toString(16)
+          .padStart(2, "0"),
+      )
+      .join("")
+  );
+}
+
+export const BACKDROPS = ["hills", "mountains", "forest", "desert", "city"];
+
+// Daylight colours of each theme; the time of day shades them. Hills use the
+// time of day's own hill colours, so they look exactly as before.
+const BACKDROP_COLORS = {
+  mountains: { far: "#a3b1b8", accent: "#eef1ea", near: "#8ea596", tree: "#6c8775" },
+  forest: { far: "#9db2a1", near: "#71907a", tree: "#5a7a63" },
+  desert: { far: "#d0ad88", accent: "#bf9873", near: "#dcc59f", tree: "#8c9c6b" },
+  city: { far: "#9eaab0", near: "#7d8c90", tree: "#6f7d82", window: "#b9c7ca" },
+};
+
+function backdropColors(trail, time) {
+  const theme = BACKDROP_COLORS[trail.backdrop];
+  if (!theme)
+    return {
+      far: time.far,
+      near: time.near,
+      tree: time.tree,
+      trunk: time.trunk,
+      accent: null,
+    };
+  // Shade for the time of day, then fade toward the sky with distance.
+  const grade = (color, haze) =>
+    mixHex(
+      time.shade ? mixHex(color, time.shade, time.shadeAmount) : color,
+      time.sky,
+      haze,
+    );
+  return {
+    far: grade(theme.far, 0.3),
+    // Faces turned away from the sun (mountains).
+    farShade: grade(mixHex(theme.far, "#4f5d66", 0.22), 0.3),
+    accent: theme.accent ? grade(theme.accent, 0.3) : null,
+    accentShade: theme.accent ? grade(mixHex(theme.accent, "#9aa8b4", 0.35), 0.3) : null,
+    near: grade(theme.near, 0.1),
+    tree: grade(theme.tree, 0.1),
+    trunk: null,
+    // City windows: glass by day, and lit at evening and night.
+    window: theme.window ? grade(theme.window, 0.1) : null,
+    lit: theme.window && time.glow ? "#ffeaa8" : null,
+  };
+}
+
+// A fixed 0…1 value per integer, so silhouettes never move between strips.
+const backdropNoise = (n) => {
+  const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return s - Math.floor(s);
+};
+const hillShape = (base, amp, frequency) => (x) =>
+  base + Math.sin(x * frequency + 1.7) * amp + Math.sin(x * frequency * 2.1) * 10;
+const groundAt = (shape, x) => Math.round(shape(x) / 4) * 4;
+
+// Calls `place(x, n0, n1)` roughly every `spacing` units across a strip.
+function scatter(left, right, spacing, jitter, place) {
+  for (
+    let i = Math.floor((left - 60) / spacing);
+    i <= Math.ceil((right + 60) / spacing);
+    i++
+  ) {
+    const x = Math.round((i * spacing + (backdropNoise(i) - 0.5) * jitter) / 4) * 4;
+    place(x, backdropNoise(i + 17), backdropNoise(i + 41));
+  }
+}
+
+// A pine silhouette on the 4-unit grid, centred on the column x…x+4, with a
+// saw-toothed edge of three tiers.
+function backdropPine(tools, x, groundY, height, color) {
+  const rows = Math.max(3, Math.round(height / 4));
+  const tierRows = Math.max(2, Math.round(rows / 3));
+  const top = groundY - rows * 4;
+  for (let r = 0; r < rows; r++) {
+    const t = r / (rows - 1);
+    const saw = (r % tierRows) / tierRows;
+    const k = Math.round(t * height * 0.055 + saw * 1.2);
+    tools.pixelRect(x - 4 * k, top + r * 4, 8 * k + 4, 4, color, 4);
+  }
+  tools.pixelRect(x, groundY - 4, 4, 8, color, 4);
+}
+
+// A saguaro silhouette with one low arm on the left and a higher one on the right.
+function backdropCactus(tools, x, groundY, height, color) {
+  const h = Math.round(height / 4) * 4;
+  const q = (f) => Math.max(4, Math.round((h * f) / 4) * 4);
+  tools.pixelRect(x - 4, groundY - h, 12, h + 4, color, 4);
+  const leftArm = groundY - q(0.45);
+  tools.pixelRect(x - 12, leftArm, 8, 4, color, 4);
+  tools.pixelRect(x - 12, leftArm - q(0.3), 4, q(0.3), color, 4);
+  const rightArm = groundY - q(0.62);
+  tools.pixelRect(x + 8, rightArm, 8, 4, color, 4);
+  tools.pixelRect(x + 12, rightArm - q(0.25), 4, q(0.25), color, 4);
+}
+
+/**
+ * The two parallax layers of a theme. Each has a ground `shape(x)`, an
+ * optional `column` hook for per-column detail (snow, rock bands) and an
+ * optional `decorate` for silhouettes. `key` identifies its cached strips.
+ */
+function backdropLayers(theme, c) {
+  const key = (i) =>
+    `${theme}|${i}|${c.far}|${c.farShade}|${c.near}|${c.tree}|${c.trunk}|${c.accent}|${c.window}|${c.lit}`;
+
+  if (theme === "mountains") {
+    const base = 300,
+      spacing = 210;
+    // Separate peaks, each with its own height and width, fixed per index.
+    const peakAt = (k) => ({
+      c: k * spacing + (backdropNoise(k) - 0.5) * 90,
+      h: 90 + backdropNoise(k + 7) * 80,
+      w: 110 + backdropNoise(k + 13) * 70,
+    });
+    // The peak that shapes this x, and how high above the base it lifts it.
+    const mountainAt = (x) => {
+      const k0 = Math.floor(x / spacing);
+      let peak = null,
+        lift = 0;
+      for (let k = k0 - 2; k <= k0 + 2; k++) {
+        const p = peakAt(k);
+        const l = p.h * (1 - Math.abs(x - p.c) / p.w);
+        if (l > lift) {
+          lift = l;
+          peak = p;
+        }
+      }
+      return { peak, lift };
+    };
+    const near = (x) =>
+      262 + Math.sin(x * 0.013 + 0.5) * 22 + Math.sin(x * 0.031) * 8;
+    return [
+      {
+        key: key(0),
+        color: c.far,
+        parallax: 0.12,
+        shape: (x) => base - mountainAt(x).lift,
+        column(context, x, y, step) {
+          const { peak } = mountainAt(x);
+          if (!peak) return;
+          // The sun is on the right, so faces left of a summit are in shade.
+          const shaded = x < peak.c;
+          if (shaded) {
+            context.fillStyle = c.farShade;
+            context.fillRect(x, y, step, 400);
+          }
+          // Each peak's cap reaches about a quarter of the way down from its summit.
+          const summit = base - peak.h;
+          const jag =
+            (backdropNoise(Math.floor(x / step) * 3 + 1) - 0.5) * 8;
+          const snowLine = Math.round((summit + peak.h * 0.28 + jag) / 4) * 4;
+          if (y >= snowLine) return;
+          context.fillStyle = shaded ? c.accentShade : c.accent;
+          context.fillRect(x, y, step, snowLine - y);
+        },
+      },
+      {
+        key: key(1),
+        color: c.near,
+        parallax: 0.27,
+        shape: near,
+        decorate: (tools, left, right) =>
+          scatter(left, right, 46, 20, (x, n0, n1) => {
+            if (n0 > 0.25)
+              backdropPine(
+                tools,
+                x,
+                groundAt(near, x) + 4,
+                20 + n1 * 24,
+                c.tree,
+              );
+          }),
+      },
+    ];
+  }
+
+  if (theme === "city") {
+    const farSlot = 36,
+      nearSlot = 52,
+      farBase = 292,
+      nearBase = 304;
+    const q = (value) => Math.round(value / 4) * 4;
+    // Mostly mid-height towers, with the odd very tall one.
+    const farHeight = (k) => {
+      const n = backdropNoise(k * 3 + 5);
+      return q(40 + n * n * 140);
+    };
+    const nearHeight = (k) => q(28 + backdropNoise(k * 5 + 2) * 64);
+    const far = (x) => {
+      const k = Math.floor(x / farSlot),
+        local = x - k * farSlot;
+      const h = farHeight(k);
+      // Tall towers step in at the top.
+      const setback = h > 110 && (local < 8 || local >= farSlot - 8) ? 12 : 0;
+      return farBase - h + setback;
+    };
+    const near = (x) => {
+      const k = Math.floor(x / nearSlot),
+        local = x - k * nearSlot;
+      // A narrow alley between buildings.
+      if (local < 4 || local >= nearSlot - 4) return nearBase;
+      return nearBase - nearHeight(k);
+    };
+    return [
+      {
+        key: key(0),
+        color: c.far,
+        parallax: 0.14,
+        step: 4,
+        shape: far,
+        // After dark, a few windows glow on the distant towers.
+        column(context, x, y, step) {
+          if (!c.lit) return;
+          const k = Math.floor(x / farSlot),
+            local = x - k * farSlot;
+          if (
+            local < 8 ||
+            local >= farSlot - 8 ||
+            (local - 8) % 8 >= 4
+          )
+            return;
+          context.fillStyle = c.lit;
+          for (let wy = y + 12; wy <= farBase - 12; wy += 16)
+            if (backdropNoise(k * 97 + local * 13 + wy) > 0.82)
+              context.fillRect(x, wy, step, 4);
+        },
+        decorate(tools, left, right) {
+          // Antennas on the tallest towers.
+          for (
+            let k = Math.floor(left / farSlot) - 1;
+            k <= Math.ceil(right / farSlot);
+            k++
+          ) {
+            const h = farHeight(k);
+            if (h < 130) continue;
+            const x = k * farSlot + farSlot / 2 - 2;
+            tools.pixelRect(x, farBase - h - 20, 4, 20, c.far, 4);
+          }
+        },
+      },
+      {
+        key: key(1),
+        color: c.near,
+        parallax: 0.3,
+        step: 4,
+        shape: near,
+        column(context, x, y, step) {
+          const k = Math.floor(x / nearSlot),
+            local = x - k * nearSlot;
+          if (
+            local < 8 ||
+            local >= nearSlot - 8 ||
+            (local - 8) % 8 >= 4
+          )
+            return;
+          for (let wy = y + 8; wy <= nearBase - 12; wy += 12) {
+            const on =
+              c.lit &&
+              backdropNoise(
+                k * 131 + Math.floor(local / 8) * 17 + wy,
+              ) > 0.45;
+            context.fillStyle = on ? c.lit : c.window;
+            context.fillRect(x, wy, step, 4);
+          }
+        },
+      },
+    ];
+  }
+
+  if (theme === "forest") {
+    const cone = (x) => {
+      const p = 36,
+        k = Math.floor(x / p),
+        t = (x - k * p) / p;
+      return (1 - Math.abs(t * 2 - 1)) * (10 + backdropNoise(k) * 16);
+    };
+    const near = (x) => 270 + Math.sin(x * 0.011 + 2) * 12;
+    return [
+      {
+        key: key(0),
+        color: c.far,
+        parallax: 0.15,
+        step: 4,
+        shape: (x) => 238 + Math.sin(x * 0.007) * 16 - cone(x),
+      },
+      {
+        key: key(1),
+        color: c.near,
+        parallax: 0.3,
+        shape: near,
+        decorate: (tools, left, right) =>
+          scatter(left, right, 26, 14, (x, n0, n1) => {
+            if (n0 > 0.1)
+              backdropPine(
+                tools,
+                x,
+                groundAt(near, x) + 4,
+                30 + n1 * 34,
+                c.tree,
+              );
+          }),
+      },
+    ];
+  }
+
+  if (theme === "desert") {
+    // 0 on the plain, 1 on a flat top, with steep sides between.
+    const mesa = (x, f, phase) => {
+      const m = Math.sin(x * f + phase) + Math.sin(x * f * 2.7) * 0.35;
+      return m > 0.6 ? 1 : m > 0.42 ? (m - 0.42) / 0.18 : 0;
+    };
+    const bands = [188, 204, 228];
+    const near = (x) =>
+      278 + Math.sin(x * 0.009) * 14 + Math.sin(x * 0.018 + 1) * 5;
+    return [
+      {
+        key: key(0),
+        color: c.far,
+        parallax: 0.14,
+        shape: (x) => {
+          const lift = Math.max(
+            86 * mesa(x, 0.0045, 0.8),
+            44 * mesa(x + 400, 0.0086, 2.1),
+          );
+          return 262 - lift + (lift ? 0 : Math.sin(x * 0.02) * 5);
+        },
+        // Level rock bands across the mesas, the same height everywhere.
+        column(context, x, y, step) {
+          context.fillStyle = c.accent;
+          for (const band of bands)
+            if (y < band) context.fillRect(x, band, step, 4);
+        },
+      },
+      {
+        key: key(1),
+        color: c.near,
+        parallax: 0.3,
+        shape: near,
+        decorate: (tools, left, right) =>
+          scatter(left, right, 150, 80, (x, n0, n1) => {
+            if (n0 > 0.35)
+              backdropCactus(
+                tools,
+                x,
+                groundAt(near, x) + 4,
+                22 + n1 * 16,
+                c.tree,
+              );
+          }),
+      },
+    ];
+  }
+
+  // Hills: exactly the original layers and round trees.
+  const near = hillShape(247, 24, 0.015);
+  return [
+    {
+      key: key(0),
+      color: c.far,
+      parallax: 0.16,
+      shape: hillShape(201, 37, 0.009),
+    },
+    {
+      key: key(1),
+      color: c.near,
+      parallax: 0.29,
+      shape: near,
+      decorate(tools, left, right) {
+        for (
+          let tree = Math.floor((left - 30) / 100);
+          tree <= Math.ceil((right + 30) / 100);
+          tree++
+        ) {
+          const x = tree * 100;
+          const y = groundAt(near, x);
+          tools.pixelRect(x - 2, y - 28, 4, 28, c.trunk, 4);
+          tools.drawPixelDisc(x, y - 34, 14, c.tree, 4);
+          tools.drawPixelDisc(x - 10, y - 29, 10, c.tree, 4);
+          tools.drawPixelDisc(x + 10, y - 28, 10, c.tree, 4);
+        }
+      },
+    },
+  ];
+}
+
+export function sunLight({
+  width,
+  cameraX = 0,
+  cameraY = 0,
+  weather = {},
+  timeOfDay,
+} = {}) {
+  const time =
+    TIME_PRESETS[timeOfDay] || TIME_PRESETS[DEFAULT_TIME_OF_DAY];
   const sunshine = Math.max(0, Math.min(1, weather.sun ?? 1));
   const cloudiness = Math.max(0, Math.min(1, weather.clouds ?? 0.35));
   return {
     x: width * 0.77 - cameraX * 0.015,
-    y: 85 - Math.max(cameraY, -SUN_CLIMB_LIMIT) * 0.08,
+    y: 85 + time.sunDrop - Math.max(cameraY, -SUN_CLIMB_LIMIT) * 0.08,
     sunshine,
-    strength: sunshine * (1 - cloudiness * 0.55),
+    strength: sunshine * (1 - cloudiness * 0.55) * time.light,
   };
 }
 
@@ -59,12 +616,79 @@ export function sunShadowOffset({
   return Math.max(-14, Math.min(14, offset));
 }
 
-export function propGroundOffset(level, prop) {
-  const surface = seatedSurfaceAt(level, prop.x, prop.y);
-  if (!surface) return () => 0;
-  const points = surface.platform?.points || level.points;
-  const originY = Number.isFinite(prop.y) ? prop.y : surface.y;
-  return (localX) => curveAt(points, prop.x + localX).y - originY;
+// Props that attach to a wall face or cliff edge rather than stand on the ground.
+export const WALL_PROPS = new Set(["vines", "roots", "moss"]);
+// Signs would mirror their text, and wall props already turn to face the wall.
+export const canFlip = (type) => type !== "sign" && !WALL_PROPS.has(type);
+// Longest vines can hang, in world units.
+export const VINE_MAX = 140;
+const wallFits = new WeakMap();
+
+/**
+ * Which side a wall prop's rock is on (-1 left, 1 right, 0 none found) and,
+ * for vines, how far they can hang before reaching the ground below.
+ * Cached per prop until it moves or the terrain changes.
+ */
+export function propWallFit(trail, prop) {
+  if (!WALL_PROPS.has(prop.type)) return null;
+  const geometry = terrainGeometry(trail);
+  const cached = wallFits.get(prop);
+  if (cached && cached.x === prop.x && cached.y === prop.y
+    && cached.type === prop.type && cached.geometry === geometry) return cached.fit;
+
+  const y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
+  const solidAt = (px, py) => terrainCollisionsAt(trail, px, py, 1).length > 0;
+  // Vines sit on a cliff's top corner, so look a little below it for the face.
+  const sampleY = y + (prop.type === "vines" ? 12 : 0);
+  let side = 0;
+  for (const reach of [4, 8, 14, 22]) {
+    const left = solidAt(prop.x - reach, sampleY);
+    const right = solidAt(prop.x + reach, sampleY);
+    if (left !== right) {
+      side = left ? -1 : 1;
+      break;
+    }
+  }
+  let drop = 0;
+  if (prop.type === "vines") {
+    // Measured just out in the air, beside the face.
+    const airX = prop.x - side * 6;
+    for (let d = 8; d <= VINE_MAX; d += 4) {
+      if (solidAt(airX, y + d)) break;
+      drop = d;
+    }
+  }
+  // How far the face is from the anchor, so wall props sit on it wherever you click.
+  let face = 0;
+  if (side) {
+    if (solidAt(prop.x, sampleY)) {
+      // Clicked inside the rock: step out to the surface.
+      for (let d = 2; d <= 22 && solidAt(prop.x - side * d, sampleY); d += 2) face = -side * d;
+    } else {
+      // Clicked in the air: step in until the rock starts.
+      for (let d = 2; d <= 22; d += 2) {
+        if (solidAt(prop.x + side * d, sampleY)) { face = side * (d - 2); break; }
+      }
+    }
+  }
+  const fit = { side, drop, face };
+  wallFits.set(prop, { x: prop.x, y: prop.y, type: prop.type, geometry, fit });
+  return fit;
+}
+
+export function propGroundOffset(trail, prop) {
+  const standing = propGroundHeight(trail, prop);
+  if (standing === null) return () => 0;
+  const originY = Number.isFinite(prop.y) ? prop.y : standing;
+  // A floating prop keeps a trail base. A planted one follows the ground across
+  // its whole width, and its search reaches above its anchor so the uphill end
+  // of a sloping footprint is found.
+  if (!isPlanted(trail, prop)) return () => 0;
+  const reference = standing - PROP_SLOPE_WINDOW;
+  return (localX) => {
+    const y = surfaceAt(trail, prop.x + localX, reference);
+    return y === null ? 0 : y - originY;
+  };
 }
 
 // World units per art pixel. Gameplay art snaps to this grid; far parallax uses twice it.
@@ -80,7 +704,7 @@ export function createCanvas(width, height) {
 }
 
 export const RIDER_PALETTES = {
-  max: {
+  male: {
     jacket: "#e8e5d9",
     jacketLight: "#fff8e7",
     jacketShade: "#b5bcae",
@@ -99,7 +723,7 @@ export const RIDER_PALETTES = {
     visor: "#234844",
     visorLight: "#83bcb6",
   },
-  Maxine: {
+  female: {
     jacket: "#d86f82",
     jacketLight: "#ef9aa8",
     jacketShade: "#a94f69",
@@ -120,7 +744,7 @@ export const RIDER_PALETTES = {
   },
 };
 export const riderPalette = (rider) =>
-  RIDER_PALETTES[rider] || RIDER_PALETTES.max;
+  RIDER_PALETTES[rider] || RIDER_PALETTES.male;
 
 // Selectable bike models drawn by createGameArt().drawBike. Every model keeps
 // the same seat, peg, and handlebar positions so any rider fits any bike.
@@ -259,14 +883,61 @@ const GLYPHS = {
   ":": "000010000010000",
   "×": "000101010101000",
   "#": "101111101111101",
+  "'": "010010000000000",
 };
 
 export function pixelTextWidth(text, pixel = ART_PIXEL) {
   return text.length ? (text.length * 4 - 1) * pixel : 0;
 }
 
-// Longest text a sign board can draw; the level schema warns when text exceeds it.
-export const SIGN_MAX_CHARACTERS = 8;
+// Sign boards wrap their text onto up to SIGN_MAX_LINES lines and grow taller.
+export const SIGN_LINE_CHARACTERS = 10;
+export const SIGN_MAX_LINES = 4;
+export const SIGN_MAX_CHARACTERS = SIGN_LINE_CHARACTERS * SIGN_MAX_LINES;
+
+/** A sign's text wrapped at word boundaries; overlong words are split. */
+export function signLines(text) {
+  const words = String(text || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const lines = [];
+  let line = "";
+  for (let word of words) {
+    while (word.length > SIGN_LINE_CHARACTERS) {
+      if (line) {
+        lines.push(line);
+        line = "";
+      }
+      lines.push(word.slice(0, SIGN_LINE_CHARACTERS));
+      word = word.slice(SIGN_LINE_CHARACTERS);
+    }
+    if (!word) continue;
+    if (!line) line = word;
+    else if (line.length + 1 + word.length <= SIGN_LINE_CHARACTERS)
+      line += " " + word;
+    else {
+      lines.push(line);
+      line = word;
+    }
+  }
+  if (line) lines.push(line);
+  return lines.slice(0, SIGN_MAX_LINES);
+}
+
+/**
+ * A sign board's size: `inner` is the cream face's width, `height` the whole
+ * framed board's height. Widths keep the board and text on the pixel grid.
+ */
+export function signBoard(text) {
+  const lines = signLines(text);
+  const widest = Math.max(0, ...lines.map((line) => pixelTextWidth(line)));
+  return {
+    lines,
+    inner: Math.max(22, widest + 8),
+    height: Math.max(1, lines.length) * 12 + 10,
+  };
+}
 
 export function createDrawingTools(ctx) {
   function line(points, color, width) {
@@ -407,6 +1078,44 @@ export function createDrawingTools(ctx) {
     drawPixelSpring,
     drawPixelText,
   };
+}
+
+// Start pennant: dark wooden pole with a yellow, red-bordered flag pointing
+// right. (x, y) is the ground point under the pole; `groundOffset(localX)`
+// gives the ground height relative to y, so the pole's base follows the slope.
+export function drawStartPennant(ctx, x, y, groundOffset = () => 0) {
+  const { pixelRect } = createDrawingTools(ctx);
+  const ax = Math.round(x / ART_PIXEL) * ART_PIXEL;
+  const ay = Math.round(y / ART_PIXEL) * ART_PIXEL;
+  const rect = (px, py, w, h, color) =>
+    pixelRect(ax + px, ay + py, w, h, color, ART_PIXEL);
+
+  // Pole: shaded left, lit right; each column reaches down to the ground.
+  for (const [px, color] of [
+    [-2, "#4d3f2f"],
+    [0, "#66543f"],
+    [2, "#856d4f"],
+  ]) {
+    const bottom = groundOffset(px + 1);
+    if (bottom > -100) rect(px, -100, 2, bottom + 100, color);
+  }
+
+  // Pennant with a red border, lit along the top and shaded along the bottom.
+  const TOP = -94,
+    MID = -78,
+    HALF = 16,
+    LENGTH = 40;
+  for (let py = TOP; py < MID + HALF; py += 2) {
+    const d = Math.abs(py + 1 - MID);
+    const outer = Math.round((LENGTH * (1 - d / HALF)) / 2) * 2;
+    if (outer <= 0) continue;
+    rect(4, py, outer, 2, py < MID ? "#d63b2c" : "#a8322a");
+    const inner = d < 10 ? Math.round((28 * (1 - d / 10)) / 2) * 2 : 0;
+    if (inner > 0) rect(8, py, inner, 2, py < MID - 4 ? "#ffe39a" : "#f6cf5a");
+  }
+
+  // Shadow the pennant casts on the pole's lit edge.
+  rect(2, -62, 2, 4, "#66543f");
 }
 
 const APPLE_SPRITE = [
@@ -622,6 +1331,184 @@ function drawBushCanopy({ pixelRect, drawPixelDisc }) {
   pixelRect(-4, -6, 6, 2, "#477158", 2);
 }
 
+// Small props' sprites end at these heights; the part below is drawn live so
+// its base follows the slope.
+const SAPLING_CANOPY_BOTTOM = -30;
+const SMALL_PINE_CANOPY_BOTTOM = -14;
+const SMALL_CACTUS_BOTTOM = -8;
+
+function drawSaplingCanopy({ pixelRect, pixelPath, drawPixelDisc }) {
+  // Upper trunk, hidden behind the crown.
+  pixelRect(-4, -56, 4, SAPLING_CANOPY_BOTTOM + 56, "#66543f", 2);
+  pixelRect(0, -56, 2, SAPLING_CANOPY_BOTTOM + 56, "#856d4f", 2);
+  pixelRect(2, -52, 2, SAPLING_CANOPY_BOTTOM + 52, "#aa8a60", 2);
+  // One young branch, peeking out under the crown.
+  pixelPath([[0, -40], [10, -50]], "#66543f", 2, 2);
+
+  // Dark rear silhouette.
+  drawPixelDisc(-12, -50, 12, "#477158", 2);
+  drawPixelDisc(12, -52, 12, "#477158", 2);
+  drawPixelDisc(0, -60, 14, "#477158", 2);
+  // Main leaf masses.
+  drawPixelDisc(-10, -54, 9, "#4e785c", 2);
+  drawPixelDisc(8, -56, 10, "#568061", 2);
+  drawPixelDisc(0, -62, 10, "#568061", 2);
+  // Sunlit top right.
+  drawPixelDisc(8, -64, 6, "#618b66", 2);
+  drawPixelDisc(14, -54, 4, "#618b66", 2);
+  pixelRect(-14, -48, 6, 2, "#568061", 2);
+}
+
+// The same tiered, shaded bough pattern as the big pine, for any tier list.
+function drawPineTiers({ pixelRect }, tiers) {
+  for (const { top, bottom, halfWidth } of tiers) {
+    const rows = (bottom - top) / 2;
+    for (let row = 0; row < rows; row++) {
+      const t = row / (rows - 1);
+      const half = Math.max(
+        2,
+        Math.round((2 + (halfWidth - 2) * Math.pow(t, 1.15)) / 2) * 2,
+      );
+      const py = top + row * 2;
+      const underside = row >= rows - 3;
+      for (let px = -half; px < half; px += 2) {
+        const cellCenter = px + 1;
+        const across = (cellCenter + half) / (half * 2);
+        const fromCenter = Math.abs(cellCenter);
+        if (
+          row === rows - 1 &&
+          ((fromCenter > half * 0.28 && fromCenter < half * 0.46) ||
+            (fromCenter > half * 0.66 && fromCenter < half * 0.82))
+        )
+          continue;
+        let color = "#4e785c";
+        if (underside || across < 0.24) color = "#477158";
+        else if (across > 0.55 && across < 0.9) color = "#568061";
+        if (!underside && row > 3 && row % 9 < 2 && across > 0.64 && across < 0.84)
+          color = "#618b66";
+        pixelRect(px, py, 2, 2, color, 2);
+      }
+    }
+  }
+}
+
+function drawSmallPineCanopy(tools) {
+  const { pixelRect } = tools;
+  // Upper trunk, hidden behind the boughs.
+  pixelRect(-4, -60, 4, SMALL_PINE_CANOPY_BOTTOM + 60, "#66543f", 2);
+  pixelRect(0, -60, 2, SMALL_PINE_CANOPY_BOTTOM + 60, "#856d4f", 2);
+  pixelRect(2, -60, 2, SMALL_PINE_CANOPY_BOTTOM + 60, "#aa8a60", 2);
+  drawPineTiers(tools, [
+    { top: -56, bottom: -14, halfWidth: 22 },
+    { top: -72, bottom: -40, halfWidth: 16 },
+    { top: -86, bottom: -60, halfWidth: 10 },
+  ]);
+  // Highlight on the leader.
+  pixelRect(0, -84, 2, 4, "#618b66", 2);
+}
+
+function drawSmallCactusBody(tools) {
+  drawCactusStem(tools, -6, 6, -50, SMALL_CACTUS_BOTTOM);
+  drawCactusFlower(tools, 0, -52, CACTUS_COLORS.petalLight);
+}
+
+// Saguaro body (trunk and arms) is cached like the canopies; only the base is
+// drawn live so it seats on the slope. The ground at the trunk never rises
+// above this height.
+const CACTUS_BODY_BOTTOM = -12;
+
+const CACTUS_COLORS = {
+  deep: "#3d6452",
+  shadow: "#477158",
+  mid: "#4e785c",
+  base: "#568061",
+  light: "#618b66",
+  spine: "#b9c4af",
+  petal: "#e8755b",
+  petalLight: "#f1b95d",
+  center: "#f4e9d1",
+};
+
+// Colour of one 2-unit column across a ribbed stem lit from the right.
+// `across` runs from 0 (left edge) to 1 (right edge).
+function cactusStemColor(across, groove) {
+  const c = CACTUS_COLORS;
+  if (across < 0.2) return groove ? c.deep : c.shadow;
+  if (across < 0.5) return groove ? c.shadow : c.mid;
+  if (across < 0.9) return groove ? c.mid : across > 0.6 ? c.light : c.base;
+  return c.base;
+}
+
+// Upright ribbed stem with a rounded crown. `foot` rounds the outer bottom
+// corner where an arm bends into its elbow, and shades its underside.
+function drawCactusStem(
+  { pixelRect },
+  left,
+  right,
+  top,
+  bottom,
+  { foot } = {},
+) {
+  const c = CACTUS_COLORS;
+  const width = right - left;
+  const wide = width >= 16;
+  for (let x = left; x < right; x += 2) {
+    const index = (x - left) / 2;
+    const fromEdge = Math.min(index, (right - 2 - x) / 2);
+    const across = (x - left + 1) / width;
+    const groove = fromEdge > 0 && index % 3 === 0;
+    const start =
+      top + (fromEdge === 0 ? (wide ? 4 : 2) : fromEdge === 1 && wide ? 2 : 0);
+    const end =
+      bottom -
+      (foot && fromEdge === 0 && (foot === "left") === (x === left) ? 2 : 0);
+
+    pixelRect(x, start, 2, end - start, cactusStemColor(across, groove), 2);
+    // Sun on the crown.
+    pixelRect(x, start, 2, 2, across > 0.35 ? c.light : c.base, 2);
+    if (foot) pixelRect(x, end - 2, 2, 2, across < 0.2 ? c.deep : c.shadow, 2);
+
+    // Sparse, staggered spines along the ridges, not scattered noise.
+    if (index % 3 === 1 && fromEdge > 0)
+      for (let y = start + 6 + (index % 2) * 6; y < end - 4; y += 12)
+        pixelRect(x, y, 2, 2, c.spine, 2);
+  }
+}
+
+// Horizontal elbow joining an arm to the trunk: sunlit top, shaded underside.
+function drawCactusLimb({ pixelRect }, left, right, top, bottom) {
+  const c = CACTUS_COLORS;
+  const width = right - left;
+  pixelRect(left, top, width, bottom - top, c.mid, 2);
+  pixelRect(left, top, width, 2, c.light, 2);
+  pixelRect(left, top + 2, width, 2, c.base, 2);
+  pixelRect(left, bottom - 2, width, 2, c.shadow, 2);
+}
+
+// Same cross-shaped blossom as the flowers prop.
+function drawCactusFlower({ pixelRect }, x, y, color) {
+  pixelRect(x - 2, y, 6, 2, color, 2);
+  pixelRect(x, y - 2, 2, 6, color, 2);
+  pixelRect(x, y, 2, 2, CACTUS_COLORS.center, 2);
+}
+
+function drawCactusBody(tools) {
+  const c = CACTUS_COLORS;
+  // Arms first, so the trunk overlaps their inner ends.
+  // Left arm: lower and shorter, on the trunk's shaded side.
+  drawCactusLimb(tools, -24, -8, -44, -36);
+  drawCactusStem(tools, -28, -18, -68, -36, { foot: "left" });
+  // Right arm: higher and taller, facing the sun.
+  drawCactusLimb(tools, 8, 24, -58, -48);
+  drawCactusStem(tools, 18, 30, -82, -48, { foot: "right" });
+
+  // Trunk, centred on x = 0.
+  drawCactusStem(tools, -10, 10, -96, CACTUS_BODY_BOTTOM);
+
+  drawCactusFlower(tools, 0, -98, c.petal);
+  drawCactusFlower(tools, 24, -84, c.petalLight);
+}
+
 // Local bounds [left, top, right, bottom] of each canopy sprite, in world units.
 const CANOPY_SPRITES = {
   tree: { bounds: [-64, -182, 64, TREE_CANOPY_BOTTOM], draw: drawTreeCanopy },
@@ -629,6 +1516,22 @@ const CANOPY_SPRITES = {
   bush: {
     bounds: [-32, -44, 32, 0],
     draw: drawBushCanopy,
+  },
+  cactus: {
+    bounds: [-32, -104, 32, CACTUS_BODY_BOTTOM],
+    draw: drawCactusBody,
+  },
+  sapling: {
+    bounds: [-28, -76, 28, SAPLING_CANOPY_BOTTOM],
+    draw: drawSaplingCanopy,
+  },
+  "pine-small": {
+    bounds: [-24, -88, 24, SMALL_PINE_CANOPY_BOTTOM],
+    draw: drawSmallPineCanopy,
+  },
+  "cactus-small": {
+    bounds: [-8, -56, 8, SMALL_CACTUS_BOTTOM],
+    draw: drawSmallCactusBody,
   },
 };
 const canopySprites = new Map();
@@ -663,6 +1566,13 @@ function canopySprite(type) {
   canopySprites.set(type, sprite);
   return sprite;
 }
+// A sign reading "GO" (or a "start" prop) is drawn as the start pennant.
+const isStartSign = (type, text) =>
+  type === "start" ||
+  (type === "sign" &&
+    String(text || "")
+      .trim()
+      .toUpperCase() === "GO");
 
 // Generous local bounds [left, top, right] of each prop, in world units; the
 // bottom follows the ground under it.
@@ -675,11 +1585,21 @@ const PROP_EXTENTS = {
   boulder: [-24, -42, 24],
   flowers: [-16, -22, 16],
   stump: [-12, -18, 12],
+  cactus: [-32, -104, 32],
+  "cactus-small": [-14, -58, 14],
+  sapling: [-28, -78, 28],
+  "pine-small": [-24, -90, 24],
+  pebbles: [-14, -12, 14],
   crystal: [-16, -42, 16],
+  start: [-6, -102, 48],
+  vines: [-16, -10, 16],
+  roots: [-32, -16, 32],
+  moss: [-18, -18, 18],
 };
 
-function propBounds(type, angle, groundOffset, text) {
+function propBounds(type, angle, groundOffset, text, flip = false) {
   let [left, top, right] = PROP_EXTENTS[type] || [-64, -190, 64];
+  if (flip) [left, right] = [-right, -left];
   if (type === "bush") {
     // Bound the intact, rotated sprite—not terrain-shifted columns.
     const c = Math.cos(angle);
@@ -710,11 +1630,9 @@ function propBounds(type, angle, groundOffset, text) {
     return [minX - 4, minY - 4, maxX + 4, maxY + 4];
   }
   if (type === "sign") {
-    const label = [...String(text || "")]
-      .slice(0, SIGN_MAX_CHARACTERS)
-      .join("");
-    const half = Math.max(24, pixelTextWidth(label) + 8) / 2 + 2;
-    [left, top, right] = [-half, -44, half];
+    const { inner, height } = signBoard(text);
+    const half = inner / 2 + 4;
+    [left, top, right] = [-half, -22 - height, half];
   }
   let bottom = Math.max(
     0,
@@ -722,6 +1640,9 @@ function propBounds(type, angle, groundOffset, text) {
     groundOffset(0),
     groundOffset(right),
   );
+  // Wall props reach below their anchor, so faded ones need a taller box.
+  if (WALL_PROPS.has(type))
+    bottom = Math.max(bottom, type === "vines" ? VINE_MAX + 8 : 28);
   if (angle) {
     const reach = Math.max(-left, -top, right, bottom);
     [left, top, right, bottom] = [-reach, -reach, reach, reach];
@@ -740,6 +1661,7 @@ export function createGameArt(ctx) {
     createDrawingTools(ctx);
   const TAU = Math.PI * 2;
   const spikeSprites = new Map();
+  const flowerSprites = new Map();
   const backgroundStrips = new Map();
   const ragdollHelmetSprites = new Map();
   let bikeSprite = null;
@@ -774,27 +1696,102 @@ export function createGameArt(ctx) {
     }
   }
 
-  function drawFlag(x, y, unlocked, remaining = 0) {
-    pixelRect(x - 2, y - 108, 4, 108, "#304a42", 2);
-    pixelRect(x - 4, y - 112, 8, 6, "#ed9150", 2);
-    const size = 8;
-    for (let row = 0; row < 3; row++)
-      for (let col = 0; col < 4; col++) {
-        pixelRect(
-          x + 2 + col * size,
-          y - 104 + row * size,
-          size,
-          size,
-          (row + col) % 2 ? (unlocked ? "#28483a" : "#758477") : "#f2e9cf",
-          2,
+  const FLOWER_COLORS = {
+    open: {
+      edge: "#b9c4af",
+      shade: "#e8ecd9",
+      petal: "#fffdf4",
+      ring: "#d9953a",
+      core: "#f4c64e",
+      glint: "#fff0a8",
+    },
+    locked: {
+      edge: "#758477",
+      shade: "#b9c4af",
+      petal: "#d9dccb",
+      ring: "#9c8452",
+      core: "#c9b27a",
+      glint: "#e8dcb0",
+    },
+  };
+
+  // Petals are rendered once per state, snapped to their palette, then rotated
+  // with nearest-neighbour sampling so they stay pixel-sharp.
+  function flowerSprite(locked) {
+    const key = locked ? "locked" : "open";
+    if (flowerSprites.has(key)) return flowerSprites.get(key);
+    const reach = 20;
+    const size = (reach * 2) / ART_PIXEL;
+    const canvas = createCanvas(size, size);
+    const context = canvas.getContext("2d");
+    context.setTransform(
+      1 / ART_PIXEL,
+      0,
+      0,
+      1 / ART_PIXEL,
+      size / 2,
+      size / 2,
+    );
+    const c = FLOWER_COLORS[key];
+    const petals = (distance, along, across, color) => {
+      context.fillStyle = color;
+      for (let i = 0; i < 8; i++) {
+        const angle = (i * TAU) / 8;
+        context.beginPath();
+        context.ellipse(
+          Math.cos(angle) * distance,
+          Math.sin(angle) * distance,
+          along,
+          across,
+          angle,
+          0,
+          TAU,
         );
+        context.fill();
       }
-    const text = unlocked
-      ? "FINISH"
-      : `${remaining} APPLE${remaining === 1 ? "" : "S"}`;
-    const width = pixelTextWidth(text);
-    pixelRect(x - width / 2 - 4, y - 62, width + 8, 16, "#f4e9d1", 2);
-    drawPixelText(text, x, y - 59, "#365345");
+    };
+    petals(9, 8, 4, c.edge); // outline
+    petals(9, 6.5, 3, c.shade); // shaded petal base
+    petals(10, 5, 2, c.petal); // bright petal face
+    quantizeToPalette(context, size, size, [c.edge, c.shade, c.petal]);
+    const sprite = { canvas, reach };
+    flowerSprites.set(key, sprite);
+    return sprite;
+  }
+
+  // Pass your game clock as `time` (seconds) so the flower stops when paused.
+  function drawFlag(x, y, unlocked, time) {
+    const seconds =
+      time ??
+      (typeof performance !== "undefined" ? performance.now() : Date.now()) /
+        1000;
+    const cx = Math.round(x / ART_PIXEL) * ART_PIXEL;
+    const cy = Math.round((y - FINISH_FLOWER_LIFT) / ART_PIXEL) * ART_PIXEL;
+    const c = FLOWER_COLORS[unlocked ? "open" : "locked"];
+
+    if (unlocked) drawPixelDisc(cx, cy, 24, "#fbf0ce50", ART_PIXEL);
+
+    // Rotating petals (8-fold symmetric, so the angle can wrap every 1/8 turn).
+    const sprite = flowerSprite(!unlocked);
+    const angle = (seconds * (unlocked ? 1.6 : 0.35)) % (TAU / 8);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+    ctx.drawImage(
+      sprite.canvas,
+      -sprite.reach,
+      -sprite.reach,
+      sprite.reach * 2,
+      sprite.reach * 2,
+    );
+    ctx.restore();
+
+    // Centre stays unrotated, so its highlight always faces the sun.
+    drawPixelDisc(cx, cy, 7, c.ring, ART_PIXEL);
+    drawPixelDisc(cx, cy, 5, c.core, ART_PIXEL);
+    pixelRect(cx, cy - 4, 4, 2, c.glint, 2);
+    pixelRect(cx + 2, cy - 2, 2, 2, c.glint, 2);
   }
 
   function starPath(context, points, outer, inner) {
@@ -969,18 +1966,10 @@ export function createGameArt(ctx) {
     ctx.restore();
   }
 
-  function mountainY(worldX, layer) {
-    return (
-      layer.base +
-      Math.sin(worldX * layer.frequency + 1.7) * layer.amp +
-      Math.sin(worldX * layer.frequency * 2.1) * 10
-    );
-  }
-
   // Parallax layers are static in their own scroll space, so each is cached as
   // 512-unit strips that are blitted at the layer's scroll offset.
-  function backgroundStrip(layer, layerIndex, index, trees) {
-    const key = `${layer.color}|${layerIndex}|${index}`;
+  function backgroundStrip(layer, index) {
+    const key = `${layer.key}|${index}`;
     if (backgroundStrips.has(key)) {
       const strip = backgroundStrips.get(key);
       backgroundStrips.delete(key);
@@ -1003,29 +1992,18 @@ export function createGameArt(ctx) {
     );
     const tools = createDrawingTools(context);
     const bottom = BACKGROUND_STRIP_TOP + BACKGROUND_STRIP_HEIGHT;
+    const step = layer.step || 8;
     context.fillStyle = layer.color;
     for (
-      let worldX = left - 8;
+      let worldX = left - step;
       worldX < left + BACKGROUND_STRIP_WIDTH;
-      worldX += 8
+      worldX += step
     ) {
-      const y = Math.round(mountainY(worldX, layer) / 4) * 4;
-      context.fillRect(worldX, y, 8, bottom - y);
+      const y = Math.round(layer.shape(worldX) / 4) * 4;
+      context.fillRect(worldX, y, step, bottom - y);
+      layer.column?.(context, worldX, y, step);
     }
-    if (trees) {
-      for (
-        let tree = Math.floor((left - 30) / 100);
-        tree <= Math.ceil((left + BACKGROUND_STRIP_WIDTH + 30) / 100);
-        tree++
-      ) {
-        const x = tree * 100;
-        const y = Math.round(mountainY(x, layer) / 4) * 4;
-        tools.pixelRect(x - 2, y - 28, 4, 28, "#708b78", 4);
-        tools.drawPixelDisc(x, y - 34, 14, "#78977b", 4);
-        tools.drawPixelDisc(x - 10, y - 29, 10, "#78977b", 4);
-        tools.drawPixelDisc(x + 10, y - 28, 10, "#78977b", 4);
-      }
-    }
+    layer.decorate?.(tools, left, left + BACKGROUND_STRIP_WIDTH);
     backgroundStrips.set(key, canvas);
     if (backgroundStrips.size > BACKGROUND_STRIP_LIMIT)
       backgroundStrips.delete(backgroundStrips.keys().next().value);
@@ -1065,24 +2043,81 @@ export function createGameArt(ctx) {
     const rain = Math.max(0, Math.min(1, Number(weather.rain) || 0));
     const lightning = Math.max(0, Math.min(1, Number(weather.lightning) || 0));
     const cloudiness = Math.max(0, Math.min(1, weather.clouds ?? 0.35));
-    const light = sunLight({ width, cameraX, cameraY, weather });
+    const time = timeOfDayPalette(palette);
+    const light = sunLight({
+      width,
+      cameraX,
+      cameraY,
+      weather,
+      timeOfDay: palette.timeOfDay,
+    });
     const storminess = Math.max(rain, lightning);
 
-    ctx.fillStyle = palette.sky;
-    ctx.fillRect(0, 0, width, height);
+    // Sky: one colour, or a banded gradient on the 4-unit grid.
+    if (time.skyTop === time.sky) {
+      ctx.fillStyle = time.sky;
+      ctx.fillRect(0, 0, width, height);
+    } else {
+      const bands = 10;
+      const horizon = height * 0.75;
+      for (let i = 0; i < bands; i++) {
+        const top = Math.round(((i * horizon) / bands) / 4) * 4;
+        const bottom =
+          i === bands - 1
+            ? height
+            : Math.round((((i + 1) * horizon) / bands) / 4) * 4;
+        ctx.fillStyle = mixHex(time.skyTop, time.sky, i / (bands - 1));
+        ctx.fillRect(0, top, width, bottom - top);
+      }
+    }
+
+    // Fixed stars; the hills drawn later cover the low ones.
+    if (time.stars) {
+      ctx.save();
+      ctx.globalAlpha = 1 - cloudiness * 0.7;
+      const span = width + 200;
+      const rise = Math.max(cameraY, -SUN_CLIMB_LIMIT) * 0.04;
+      for (let i = 0; i < 70; i++) {
+        const a = Math.sin(i * 91.7) * 43758.5453,
+          b = Math.sin(i * 47.3 + 3) * 24634.6345;
+        const wrapped =
+          (((a - Math.floor(a)) * span - cameraX * 0.01) % span + span) % span;
+        const sx = wrapped - 100;
+        const sy = (b - Math.floor(b)) * height * 0.6 - rise;
+        pixelRect(sx, sy, 2, 2, i % 4 ? "#c9d2e8" : "#fffbe8", 2);
+      }
+      ctx.restore();
+    }
+
     if (light.sunshine > 0) {
       ctx.save();
-      ctx.globalAlpha = light.strength;
-      placed(light.x, light.y, 4, (x, y) =>
-        drawPixelDisc(x, y, 28 + light.sunshine * 8, palette.sun, 4),
-      );
+      if (time.moon) {
+        ctx.globalAlpha = 0.95 * (1 - cloudiness * 0.4);
+        placed(light.x, light.y, 4, (x, y) => {
+          drawPixelDisc(x, y, 22, time.sun, 4);
+          drawPixelDisc(x - 8, y - 4, 6, time.crater, 4);
+          drawPixelDisc(x + 6, y + 8, 4, time.crater, 4);
+        });
+      } else {
+        ctx.globalAlpha = light.strength;
+        placed(light.x, light.y, 4, (x, y) =>
+          drawPixelDisc(
+            x,
+            y,
+            (28 + light.sunshine * 8) * time.sunScale,
+            time.sun,
+            4,
+          ),
+        );
+      }
       ctx.restore();
     }
     if (cloudiness > 0) {
       const spacing = 300 - cloudiness * 190;
       const scale = 0.62 + cloudiness * 0.65;
       const firstCloud = Math.floor((cameraX * 0.07) / spacing) - 1;
-      const cloudColor = storminess > 0.15 ? "#bdc8c3" : "#f8f7e9";
+      const cloudColor =
+        storminess > 0.15 ? time.stormCloud : time.cloud;
       ctx.save();
       ctx.globalAlpha = 0.42 + cloudiness * 0.5;
       const cloudShift = -cameraY * 0.08;
@@ -1134,23 +2169,11 @@ export function createGameArt(ctx) {
     }
 
     if (full) {
-      const layers = [
-        {
-          color: palette.mountain,
-          base: 201,
-          amp: 37,
-          frequency: 0.009,
-          parallax: 0.16,
-        },
-        {
-          color: "#8ea997",
-          base: 247,
-          amp: 24,
-          frequency: 0.015,
-          parallax: 0.29,
-        },
-      ];
-      layers.forEach((layer, layerIndex) => {
+      const theme = BACKDROPS.includes(palette.backdrop)
+        ? palette.backdrop
+        : "hills";
+      const layers = backdropLayers(theme, backdropColors(palette, time));
+      for (const layer of layers) {
         const offsetX = snap(cameraX * layer.parallax);
         const offsetY = snap(cameraY * layer.parallax);
         const first = Math.floor(offsetX / BACKGROUND_STRIP_WIDTH);
@@ -1160,7 +2183,7 @@ export function createGameArt(ctx) {
         if (stripTop < height && below > 0)
           for (let index = first; index <= last; index++) {
             ctx.drawImage(
-              backgroundStrip(layer, layerIndex, index, layerIndex === 1),
+              backgroundStrip(layer, index),
               index * BACKGROUND_STRIP_WIDTH - offsetX,
               stripTop,
               BACKGROUND_STRIP_WIDTH,
@@ -1171,12 +2194,33 @@ export function createGameArt(ctx) {
           ctx.fillStyle = layer.color;
           ctx.fillRect(0, below, width, height - below);
         }
-      });
+      }
     }
     if (storminess > 0) {
       ctx.fillStyle = `rgba(38, 55, 62, ${storminess * 0.2})`;
       ctx.fillRect(0, 0, width, height);
     }
+  }
+
+  /**
+   * Colour-grades everything already drawn in the box, for the time of day.
+   * Rain softens it so the two never stack too dark. Returns true when bright
+   * gameplay objects (apples, the finish) should be drawn again on top.
+   */
+  function drawTimeTint(palette, x, y, width, height) {
+    const time = timeOfDayPalette(palette);
+    if (!time.tint) return false;
+    const rain = Math.max(
+      0,
+      Math.min(1, Number(palette.weather?.rain) || 0),
+    );
+    ctx.save();
+    ctx.globalCompositeOperation = "multiply";
+    ctx.globalAlpha = 1 - rain * 0.35;
+    ctx.fillStyle = time.tint;
+    ctx.fillRect(x, y, width, height);
+    ctx.restore();
+    return time.glow;
   }
 
   function rectDownTo(x, top, width, color, pixel, groundOffset) {
@@ -1195,6 +2239,94 @@ export function createGameArt(ctx) {
     }
   }
 
+  const LEAF = { stem: "#3d6452", dark: "#477158", mid: "#568061", light: "#618b66" };
+  const BARK = { dark: "#4d3f2f", base: "#66543f", light: "#856d4f", tip: "#aa8a60" };
+
+  // A fixed 0…1 value per prop and index, so wall props never flicker.
+  const propNoise = (x, n) => {
+    const s = Math.sin(n * 127.1 + x * 311.7) * 43758.5453;
+    return s - Math.floor(s);
+  };
+
+  // Hanging from a cliff's top corner. `wall.drop` is the free fall below.
+  function drawVines(x, wall) {
+    const length = Math.max(24, Math.min(VINE_MAX, wall?.drop || 56));
+    const lean = (wall?.side || 0) * 2;
+    // Leafy clump over the lip.
+    pixelRect(-10, -4, 20, 4, LEAF.dark, 2);
+    pixelRect(-6, -6, 12, 2, LEAF.mid, 2);
+    pixelRect(0, -6, 4, 2, LEAF.light, 2);
+    [-6, 0, 6].forEach((offset, index) => {
+      const reach = Math.round((length * (0.55 + propNoise(x, index) * 0.45)) / 2) * 2;
+      const sway = (py) => Math.round(Math.sin((py + index * 9) * 0.12) * 1.2) * 2;
+      const stemX = offset + lean;
+      for (let py = 0; py < reach; py += 2) {
+        const sx = stemX + sway(py);
+        pixelRect(sx, py, 2, 2, LEAF.stem, 2);
+        if ((py / 2 + index) % 4 === 0) {
+          const side = Math.floor(py / 8) % 2 ? -2 : 2;
+          pixelRect(sx + side, py, 2, 2, side > 0 ? LEAF.light : LEAF.dark, 2);
+          pixelRect(sx + side, py + 2, 2, 2, LEAF.mid, 2);
+        }
+      }
+      const tipX = stemX + sway(reach);
+      pixelRect(tipX - 2, reach, 6, 2, LEAF.mid, 2);
+      pixelRect(tipX, reach + 2, 2, 2, LEAF.dark, 2);
+    });
+  }
+
+  // Drawn growing toward +x; the caller mirrors it for faces the other way.
+  function drawRoots(x) {
+    pixelRect(-2, -10, 6, 22, BARK.dark, 2);
+    const roots = [
+      { y: -8, reach: 16 + propNoise(x, 1) * 8, droop: -4 },
+      { y: 0, reach: 22 + propNoise(x, 2) * 8, droop: 6 },
+      { y: 8, reach: 12 + propNoise(x, 3) * 6, droop: 14 },
+    ];
+    for (const root of roots) {
+      const points = [
+        [0, root.y],
+        [root.reach * 0.4, root.y - 2],
+        [root.reach * 0.75, root.y + root.droop * 0.4],
+        [root.reach, root.y + root.droop],
+      ];
+      pixelPath(points, BARK.base, 2, 2);
+      pixelPath(points.slice(0, 3).map(([px, py]) => [px, py - 2]), BARK.light, 1, 2);
+      const [tx, ty] = points[3];
+      pixelPath([[tx, ty], [tx + 2, ty + 6]], BARK.tip, 1, 2);
+    }
+  }
+
+  // Moss pressed onto the rock side of the anchor.
+  function drawMoss(wall) {
+    const hug = (wall?.side || 0) * 4;
+    const clumps = [[-6, -8, 7], [4, -2, 8], [-2, 8, 6], [6, 12, 4]];
+    for (const [cx, cy, r] of clumps) drawPixelDisc(cx + hug, cy, r, LEAF.dark, 2);
+    for (const [cx, cy, r] of clumps) drawPixelDisc(cx + hug + 2, cy - 2, r - 3, LEAF.mid, 2);
+    pixelRect(4 + hug, -8, 4, 2, LEAF.light, 2);
+    pixelRect(-6 + hug, -14, 4, 2, LEAF.light, 2);
+    for (const [dx, length] of [[-8, 6], [0, 10], [8, 4]])
+      pixelRect(dx + hug, 14, 2, length, LEAF.stem, 2);
+  }
+
+  // Framed board lit from the right, growing upward from `bottom`. `x` must be
+  // even; the board and every line centre on x + 1, the middle of the post.
+  function drawBoard(x, bottom, text) {
+    const { lines, inner, height } = signBoard(text);
+    const top = bottom - height;
+    const left = x + 1 - inner / 2;
+    const outer = inner + 4;
+    pixelRect(left - 2, top, outer, height, "#856d4f", 2);
+    pixelRect(left - 2, top, outer, 2, "#aa8a60", 2);
+    pixelRect(left + inner, top, 2, height, "#aa8a60", 2);
+    pixelRect(left - 2, top, 2, height, "#66543f", 2);
+    pixelRect(left - 2, bottom - 2, outer, 2, "#66543f", 2);
+    pixelRect(left, top + 2, inner, height - 4, "#f4e9d1", 2);
+    lines.forEach((line, index) =>
+      drawPixelText(line, x + 1, top + 6 + index * 12, "#365345"),
+    );
+  }
+
   function drawCanopy(type) {
     const sprite = canopySprite(type);
     ctx.imageSmoothingEnabled = false;
@@ -1210,7 +2342,17 @@ export function createGameArt(ctx) {
   // A translucent prop is drawn opaque into a scratch layer on the same device
   // pixel grid and then blended once, so overlapping shapes inside it do not
   // stack up into darker, more solid patches.
-  function drawPropLayer(type, x, y, alpha, slope, groundOffset, text) {
+  function drawPropLayer(
+    type,
+    x,
+    y,
+    alpha,
+    slope,
+    groundOffset,
+    text,
+    wall,
+    flip,
+  ) {
     const transform = ctx.getTransform();
     if (transform.b || transform.c) return false;
     const [left, top, right, bottom] = propBounds(
@@ -1218,6 +2360,7 @@ export function createGameArt(ctx) {
       propDrawAngle(type, slope),
       groundOffset,
       text,
+      flip,
     );
     const anchorX = Math.round(x / 2) * 2,
       anchorY = Math.round(y / 2) * 2;
@@ -1256,7 +2399,7 @@ export function createGameArt(ctx) {
       transform.e - x0,
       transform.f - y0,
     );
-    art.drawProp(type, x, y, 1, slope, groundOffset, text);
+    art.drawProp(type, x, y, 1, slope, groundOffset, text, wall, flip);
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = alpha;
@@ -1273,15 +2416,36 @@ export function createGameArt(ctx) {
     slope = 0,
     groundOffset = () => 0,
     text = "",
+    wall = null,
+    flip = false,
   ) {
+    if (isStartSign(type, text)) type = "start";
+    const mirrored = Boolean(flip) && canFlip(type);
     if (
       alpha < 1 &&
-      drawPropLayer(type, x, y, alpha, slope, groundOffset, text)
+      drawPropLayer(
+        type,
+        x,
+        y,
+        alpha,
+        slope,
+        groundOffset,
+        text,
+        wall,
+        mirrored,
+      )
     )
       return;
     ctx.save();
     ctx.translate(Math.round(x / 2) * 2, Math.round(y / 2) * 2);
     ctx.rotate(propDrawAngle(type, slope));
+    if (mirrored) {
+      // Mirror around the anchor. Ground lookups still use world positions,
+      // so trunks and posts keep following the slope.
+      ctx.scale(-1, 1);
+      const worldGround = groundOffset;
+      groundOffset = (localX) => worldGround(-localX);
+    }
     ctx.globalAlpha = alpha;
     if (type === "tree") {
       // Mature deciduous tree: approximately 124 units wide
@@ -1322,6 +2486,48 @@ export function createGameArt(ctx) {
       // Subtle bark marks on the exposed lower trunk.
       rectAboveGround(-4, -22, 2, 8, "#856d4f", 2, groundOffset);
       rectAboveGround(0, -12, 2, 6, "#856d4f", 2, groundOffset);
+    } else if (type === "sapling" || type === "pine-small") {
+      // Young trees: cached crown, thin trunk whose base follows the slope.
+      drawCanopy(type);
+      const trunkTop =
+        type === "sapling"
+          ? SAPLING_CANOPY_BOTTOM
+          : SMALL_PINE_CANOPY_BOTTOM;
+      rectDownTo(-4, trunkTop, 4, "#66543f", 2, groundOffset);
+      rectDownTo(0, trunkTop, 2, "#856d4f", 2, groundOffset);
+      rectDownTo(2, trunkTop, 2, "#aa8a60", 2, groundOffset);
+    } else if (type === "cactus-small") {
+      drawCanopy(type);
+      // Lower stem continues the same ribs down to the ground.
+      for (let x = -6; x < 6; x += 2) {
+        const index = (x + 6) / 2;
+        const groove = index > 0 && index < 5 && index % 3 === 0;
+        rectDownTo(
+          x,
+          SMALL_CACTUS_BOTTOM,
+          2,
+          cactusStemColor((x + 7) / 12, groove),
+          2,
+          groundOffset,
+        );
+      }
+      // One pebble at its foot.
+      rectDownTo(-12, groundOffset(-11) - 4, 4, "#7f8d83", 2, groundOffset);
+      pixelRect(-10, groundOffset(-11) - 4, 2, 2, "#aeb5a7", 2);
+    } else if (type === "pebbles") {
+      // Three small stones, each seated on the ground under it, lit from the right.
+      const stones = [
+        { x: -10, w: 6, h: 4 },
+        { x: -2, w: 8, h: 6 },
+        { x: 8, w: 4, h: 2 },
+      ];
+      for (const s of stones) {
+        const ground = Math.round(groundOffset(s.x + s.w / 2) / 2) * 2;
+        const top = ground - s.h;
+        pixelRect(s.x, top, s.w, s.h, "#7f8d83", 2);
+        if (s.h > 2) pixelRect(s.x, top + 2, 2, s.h - 2, "#697872", 2);
+        pixelRect(s.x + 2, top, s.w - 2, 2, "#aeb5a7", 2);
+      }
     } else if (type === "bush") {
       // Draw the cached shrub intact.
       // drawProp() already applies the ground-alignment rotation.
@@ -1451,6 +2657,29 @@ export function createGameArt(ctx) {
       rectAboveGround(-10, -14, 20, 2, "#aa8a60", 2, groundOffset);
       rectAboveGround(-4, -16, 8, 2, "#76573d", 2, groundOffset);
       rectAboveGround(-2, -16, 4, 2, "#c39664", 2, groundOffset);
+    } else if (type === "cactus") {
+      // Saguaro: about 60 units wide and 100 tall, centred on the anchor.
+      // The body is cached; the base follows the terrain column by column.
+      drawCanopy(type);
+
+      // Lower trunk continues the same ribs down to the ground.
+      for (let x = -10; x < 10; x += 2) {
+        const index = (x + 10) / 2;
+        const groove = index > 0 && index < 9 && index % 3 === 0;
+        rectDownTo(
+          x,
+          CACTUS_BODY_BOTTOM,
+          2,
+          cactusStemColor((x + 11) / 20, groove),
+          2,
+          groundOffset,
+        );
+      }
+
+      // A couple of desert pebbles seated on the local ground.
+      rectDownTo(-18, groundOffset(-16) - 4, 4, "#7f8d83", 2, groundOffset);
+      pixelRect(-18, groundOffset(-16) - 4, 2, 2, "#aeb5a7", 2);
+      rectDownTo(12, groundOffset(13) - 2, 4, "#697872", 2, groundOffset);
     } else if (type === "crystal") {
       // Solid shards painted in horizontal bands.
       // Ground clipping keeps their bases seated on uneven terrain.
@@ -1482,23 +2711,24 @@ export function createGameArt(ctx) {
       shard(-8, -26, 6, -2);
       shard(8, -24, 6, 2);
       shard(0, -40, 8, 0);
+    } else if (type === "start") {
+      // Same pennant as the start line, drawn by the shared function.
+      drawStartPennant(ctx, 0, 0, groundOffset);
+    } else if (WALL_PROPS.has(type)) {
+      if (type !== "vines") ctx.translate(wall?.face || 0, 0);
+      // Grow away from the rock: rock on the right (side 1) means grow left.
+      if (type === "vines") drawVines(x, wall);
+      else if (type === "moss") drawMoss(wall);
+      else {
+        ctx.scale(wall?.side === 1 ? -1 : 1, 1);
+        drawRoots(x);
+      }
     } else if (type === "sign") {
-      // Upright post carrying a small writable board.
-      // The board sizes itself to the prop's `text` (clamped to
-      // SIGN_MAX_CHARACTERS) and uses the same cream board and pixel
-      // font as the finish flag.
-      const label = [...String(text || "")]
-        .slice(0, SIGN_MAX_CHARACTERS)
-        .join("");
-      const width = Math.max(24, pixelTextWidth(label) + 8);
-
-      // Shaped post with a sunlit edge, matching the fence posts.
-      rectDownTo(-2, -24, 4, "#856d4f", 2, groundOffset);
-      rectDownTo(-2, -24, 2, "#aa8a60", 2, groundOffset);
-
-      // Board: cream face with the level's signage green text.
-      pixelRect(-width / 2, -40, width, 16, "#f4e9d1", 2);
-      drawPixelText(label, 0, -37, "#365345");
+      // Post from -2 to +4: shaded left, lit right, following the slope.
+      rectDownTo(-2, -22, 6, "#856d4f", 2, groundOffset);
+      rectDownTo(-2, -22, 2, "#66543f", 2, groundOffset);
+      rectDownTo(2, -22, 2, "#aa8a60", 2, groundOffset);
+      drawBoard(0, -22, text);
     }
     ctx.restore();
   }
@@ -1694,7 +2924,7 @@ export function createGameArt(ctx) {
     brakePressure = 0,
     state = "ready",
     leanVisual = 0,
-    rider = "max",
+    rider = "male",
     bike = DEFAULT_BIKE,
   }) {
     const model = BIKES[bike] || BIKES[DEFAULT_BIKE];
@@ -2145,6 +3375,7 @@ export function createGameArt(ctx) {
     drawProp,
     drawSpike,
     drawBackground,
+    drawTimeTint,
     drawPixelText,
   };
 }
