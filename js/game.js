@@ -72,7 +72,7 @@ export function startGame() {
   } : undefined;
 
   if (physicsDebugEnabled) {
-    window.pocketTrialsGame = {
+    window.hjulbenGame = {
       get ride() { return session.ride; },
       get ghost() { return ghost; },
       get state() { return session.state; }

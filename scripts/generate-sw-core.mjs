@@ -15,7 +15,7 @@ const sw = readFileSync(swPath, 'utf8');
 
 // Everything the two pages can request, besides the trail files (cached from
 // the catalog) and the service worker itself.
-const included = /\.(js|css|html|webmanifest)$|^icons\/.*\.svg$/;
+const included = /\.(js|css|html|webmanifest)$|^icons\/.*\.(svg|png)$/;
 // Top-level folders and files that are never served to players.
 const skipTop = new Set(['sw.js', 'scripts', 'trails', 'tests', 'node_modules', 'dist', 'coverage', 'netlify']);
 
@@ -42,7 +42,7 @@ for (const file of files.slice(1)) {
   hash.update('\n' + readFileSync(join(root, file.slice(2)), 'utf8').replaceAll('\r\n', '\n'));
 }
 const digest = hash.digest('hex');
-const cache = `pocket-trials-${digest.slice(0, 8)}`;
+const cache = `hjulben-${digest.slice(0, 8)}`;
 
 const block = [
   `const CACHE = '${cache}';`,

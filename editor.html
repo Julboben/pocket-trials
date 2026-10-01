@@ -4,13 +4,21 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Hjulben Trail Editor</title>
+        <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
         <link rel="stylesheet" href="./css/editor.css" />
     </head>
     <body>
         <main class="editor-shell" data-booting>
             <header class="editor-header">
-                <a class="brand" href="./index.html"
-                    ><span>↗</span><strong>HJULBEN</strong></a
+                <a class="brand" href="./index.html">
+                    <img
+                        src="./icons/icon-maskable.svg"
+                        alt=""
+                        height="30"
+                        width="30"
+                        aria-hidden="true"
+                    />
+                    <strong>HJULBEN</strong></a
                 >
                 <label
                     >TRAIL
@@ -296,7 +304,9 @@
                                 <select id="selection-node">
                                     <option value="corner">Corner</option>
                                     <option value="smooth">Smooth</option>
-                                    <option value="independent">Independent</option>
+                                    <option value="independent">
+                                        Independent
+                                    </option>
                                 </select></label
                             >
                             <label id="selection-edge-row" hidden
@@ -320,14 +330,18 @@
                                         <option value="tree">Tree</option>
                                         <option value="pine">Pine</option>
                                         <option value="sapling">Sapling</option>
-                                        <option value="pine-small">Pine (small)</option>
+                                        <option value="pine-small">
+                                            Pine (small)
+                                        </option>
                                     </optgroup>
                                     <optgroup label="Undergrowth">
                                         <option value="bush">Bush</option>
                                         <option value="flowers">Flowers</option>
                                         <option value="stump">Stump</option>
                                         <option value="cactus">Cactus</option>
-                                        <option value="cactus-small">Cactus (small)</option>
+                                        <option value="cactus-small">
+                                            Cactus (small)
+                                        </option>
                                     </optgroup>
                                     <optgroup label="Rock and desert">
                                         <option value="rock">Rock</option>

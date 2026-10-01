@@ -1,11 +1,12 @@
 // Network-first service worker: online loads always get the latest files,
 // and everything fetched is kept so the game also starts offline.
-const CACHE = 'pocket-trials-b62c191e';
+const CACHE = 'hjulben-82ee9eb0';
 const CORE = [
   './',
   './css/editor.css',
   './css/game.css',
   './editor.html',
+  './icons/apple-touch-icon.png',
   './icons/icon-maskable.svg',
   './icons/icon.svg',
   './index.html',
@@ -20,6 +21,7 @@ const CORE = [
   './js/finish.js',
   './js/game.js',
   './js/input.js',
+  './js/local-store.js',
   './js/main.js',
   './js/materials.js',
   './js/online-leaderboard.js',

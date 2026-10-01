@@ -1,3 +1,4 @@
+import { store } from "./local-store.js";
 import {
   trailEntries,
   terrainMaterials,
@@ -54,13 +55,13 @@ const wrap = $("canvas-wrap");
 const ctx = canvas.getContext("2d");
 const art = createGameArt(ctx);
 const tools = createDrawingTools(ctx);
-const DRAFT_PREFIX = "pocket-trials-editor-draft-v1-";
-const CURRENT_TRAIL_KEY = "pocket-trials-editor-current-v1";
+const DRAFT_PREFIX = "hjulben-editor-draft-v1-";
+const CURRENT_TRAIL_KEY = "hjulben-editor-current-v1";
 
 function storedTrailIndex() {
   try {
     const index = trailEntries.findIndex(
-      (entry) => entry.id === localStorage.getItem(CURRENT_TRAIL_KEY),
+      (entry) => entry.id === store().getItem(CURRENT_TRAIL_KEY),
     );
     return Math.max(0, index);
   } catch (_) {
@@ -70,7 +71,7 @@ function storedTrailIndex() {
 
 function rememberTrail() {
   try {
-    localStorage.setItem(CURRENT_TRAIL_KEY, trailEntries[trailIndex].id);
+    store().setItem(CURRENT_TRAIL_KEY, trailEntries[trailIndex].id);
   } catch (_) {}
 }
 
@@ -97,10 +98,10 @@ let dragOrigin = null;
 let lastDragPointer = null;
 let snapGuide = null;
 const terrainArt = createTerrainRenderer();
-const GAME_ART_KEY = "pocket-trials-editor-game-art-v1";
+const GAME_ART_KEY = "hjulben-editor-game-art-v1";
 let gameArt = (() => {
   try {
-    return localStorage.getItem(GAME_ART_KEY) === "1";
+    return store().getItem(GAME_ART_KEY) === "1";
   } catch (_) {
     return false;
   }
@@ -118,7 +119,7 @@ function loadTrailData(index) {
   const stored = trailEntries[index]?.trail;
   try {
     const draft = JSON.parse(
-      localStorage.getItem(DRAFT_PREFIX + trailEntries[index].id) || "null",
+      store().getItem(DRAFT_PREFIX + trailEntries[index].id) || "null",
     );
     return normalizeTrail(draft || stored || createBlankTrail(index), index);
   } catch (_) {
@@ -163,7 +164,7 @@ function updateHistoryButtons() {
   $("redo").disabled = future.length === 0;
 }
 
-const TOOL_SETTINGS_KEY = "pocket-trials-editor-tool-settings-v1";
+const TOOL_SETTINGS_KEY = "hjulben-editor-tool-settings-v1";
 const BASE_MATERIAL = "base";
 const propTypeOptions = () =>
   [...$("selection-prop-type").options].map((option) => [
@@ -299,7 +300,7 @@ let lastNudge = 0;
 
 const toolSettings = (() => {
   try {
-    const stored = JSON.parse(localStorage.getItem(TOOL_SETTINGS_KEY) || "{}");
+    const stored = JSON.parse(store().getItem(TOOL_SETTINGS_KEY) || "{}");
     return Object.fromEntries(
       Object.entries(DEFAULT_TOOL_SETTINGS).map(([name, defaults]) => [
         name,
@@ -313,7 +314,7 @@ const toolSettings = (() => {
 
 function saveToolSettings() {
   try {
-    localStorage.setItem(TOOL_SETTINGS_KEY, JSON.stringify(toolSettings));
+    store().setItem(TOOL_SETTINGS_KEY, JSON.stringify(toolSettings));
   } catch (_) {}
 }
 
@@ -2344,7 +2345,7 @@ async function saveTrail() {
   if (errors.length && !refuse("saving", errors)) return;
   try {
     await persist(entry, trail);
-    localStorage.removeItem(DRAFT_PREFIX + entry.id);
+    store().removeItem(DRAFT_PREFIX + entry.id);
     buildPicker();
     updateTrailControls();
     flash($("save-trail"), "SAVED");
@@ -2375,7 +2376,7 @@ async function deleteTrail() {
   try {
     if (entry.storage === "browser") deleteBrowserTrail(entry.key);
     else await deleteTrailFile(entry.file);
-    localStorage.removeItem(DRAFT_PREFIX + entry.id);
+    store().removeItem(DRAFT_PREFIX + entry.id);
     selectEntry(0);
   } catch (error) {
     showStatus("error", `Could not delete: ${error.message}`);
@@ -2391,7 +2392,7 @@ function openPlaytest() {
   );
   if (errors.length && !refuse("play testing", errors)) return;
   try {
-    localStorage.setItem(PLAYTEST_TRAIL_KEY, JSON.stringify(trail));
+    store().setItem(PLAYTEST_TRAIL_KEY, JSON.stringify(trail));
   } catch (error) {
     showStatus("error", `Could not start the play test: ${error.message}`);
     return;
@@ -3187,12 +3188,12 @@ $("game-art").checked = gameArt;
 $("game-art").addEventListener("change", (event) => {
   gameArt = event.target.checked;
   try {
-    localStorage.setItem(GAME_ART_KEY, gameArt ? "1" : "0");
+    store().setItem(GAME_ART_KEY, gameArt ? "1" : "0");
   } catch (_) {}
   render();
 });
 $("save-draft").addEventListener("click", () => {
-  localStorage.setItem(DRAFT_PREFIX + currentEntry().id, JSON.stringify(trail));
+  store().setItem(DRAFT_PREFIX + currentEntry().id, JSON.stringify(trail));
   flash($("save-draft"), "SAVED");
 });
 $("export-json").addEventListener("click", () => {

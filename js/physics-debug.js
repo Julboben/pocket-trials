@@ -196,8 +196,8 @@ export function createPhysicsDebugger({ enabled, step, inspectPoint }) {
     }
   };
 
-  globalThis.pocketTrialsPhysicsDebug = publicApi;
-  if (enabled) console.info('[Hjulben] Physics tracing enabled. Reproduce a spike, then run pocketTrialsPhysicsDebug.dumpSpike() or copySpike().');
+  globalThis.hjulbenPhysicsDebug = publicApi;
+  if (enabled) console.info('[Hjulben] Physics tracing enabled. Reproduce a spike, then run hjulbenPhysicsDebug.dumpSpike() or copySpike().');
 
   return { begin, recordInput, nextReplayInput, capture, setIteration, recordConstraint, recordContactsResolved, recordContact, recordDynamics, recordTraction, finish };
 }

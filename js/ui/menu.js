@@ -55,7 +55,7 @@ export function loadStoredState() {
 export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose, onPreferences }) {
   let pendingSaveSlot = 0, selectedNewRider = 'male';
   let deleteArmedSlot = -1, deleteArmTimer = 0, leaderboardTrail = 0;
-  let slotMode = 'load', pendingOverwrite = false, creatorFromSlots = false;
+  let creatorFromRiders = false;
 
   const isOpen = () => !$('menu-screen').hidden;
 
@@ -118,11 +118,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     const artCtx = $('active-save-bike').getContext('2d');
     artCtx.setTransform(2, 0, 0, 2, 0, 0);
     artCtx.clearRect(0, 0, 120, 84);
-    if (!session.saveGame) {
-      artCtx.fillStyle = '#17262b'; artCtx.fillRect(0, 0, 120, 84);
-      createDrawingTools(artCtx).drawPixelText('+', 60, 32, '#91a7a8', { pixel: 4 });
-      return;
-    }
+    if (!session.saveGame) return;
     artCtx.fillStyle = '#eae9d9'; artCtx.fillRect(0, 0, 120, 84);
     artCtx.fillStyle = '#c5b496';
     artCtx.beginPath(); artCtx.moveTo(0,72); artCtx.quadraticCurveTo(30,58,60,69); artCtx.quadraticCurveTo(90,78,120,58); artCtx.lineTo(120,84); artCtx.lineTo(0,84); artCtx.fill();
@@ -172,25 +168,25 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
 
   function buildSaveSlots() {
     const rows = session.saveSlots.map((save, index) => {
-      const occupied = Boolean(save);
       const row = document.createElement('div');
       row.className = 'save-slot-row';
       const button = document.createElement('button');
       button.className = 'save-slot';
-      button.setAttribute('aria-pressed', String(slotMode === 'load' && occupied && index === session.activeSaveSlot));
-      const detail = !occupied
-        ? (slotMode === 'new' ? 'Start your new game here' : 'Empty · start a new game')
-        : (slotMode === 'new' ? 'Replace · ' : '') + (save.unlocked + 1) + ' / ' + trails.length + ' trails · ' + trails[save.trail].name;
-      const active = occupied && index === session.activeSaveSlot ? ' · ACTIVE' : '';
-      button.innerHTML = '<span class="save-avatar ' + (!occupied ? 'empty' : save.rider) + '">' + (!occupied ? '+' : riderSymbolMarkup(save.rider)) + '</span>'
-        + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + active + '</span><strong>' + (!occupied ? 'EMPTY SLOT' : save.name) + '</strong><small>' + detail + '</small></span>';
+      button.setAttribute('aria-pressed', String(Boolean(save) && index === session.activeSaveSlot));
+      const active = save && index === session.activeSaveSlot ? ' · ACTIVE' : '';
+      button.innerHTML = save
+        ? '<span class="save-avatar ' + save.rider + '">' + riderSymbolMarkup(save.rider) + '</span>'
+          + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + active + '</span><strong>' + save.name + '</strong><small>'
+          + (save.unlocked + 1) + ' / ' + trails.length + ' trails · ' + trails[save.trail].name + '</small></span>'
+        : '<span class="save-avatar empty">+</span>'
+          + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + '</span><strong>NEW RIDER</strong><small>Start a fresh career in this slot</small></span>';
       button.addEventListener('click', () => {
-        if (slotMode === 'load' && occupied) { selectSaveSlot(index); showView('home'); return; }
-        creatorFromSlots = true;
-        showSaveCreator(index, occupied);
+        if (save) { selectSaveSlot(index); showView('home'); return; }
+        creatorFromRiders = true;
+        showSaveCreator(index);
       });
       row.append(button);
-      if (occupied && slotMode === 'load') {
+      if (save) {
         const remove = document.createElement('button');
         remove.className = 'delete-save';
         remove.type = 'button';
@@ -205,18 +201,8 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     $('save-slots').replaceChildren(...rows);
   }
 
-  function showSlots(mode) {
-    slotMode = mode;
-    $('slot-view-title').textContent = mode === 'new' ? 'New game' : 'Load game';
-    $('load-game-help').textContent = mode === 'new'
-      ? 'Pick a slot for your new rider. Choosing a used slot replaces that savegame.'
-      : 'Select a savegame to make it active. Empty slots can be used for a new game.';
-    buildSaveSlots();
-    showView('load');
-  }
-
   function goBack() {
-    if (!$('menu-save-view').hidden && creatorFromSlots) { showSlots(slotMode); return; }
+    if (!$('menu-save-view').hidden && creatorFromRiders) { showView('riders'); return; }
     updateDashboard();
     showView('home');
   }
@@ -286,16 +272,15 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     $('active-save-slot').textContent = 'SLOT ' + (session.activeSaveSlot + 1);
     $('active-save-rider').textContent = hasSave ? session.saveGame.name : '';
     $('active-save-progress').textContent = hasSave ? (session.unlockedTrail + 1) + ' / ' + trails.length + ' trails · ' + trails[session.savedTrail].name : '';
-    $('menu-start').hidden = !hasSave;
     $('menu-trails').disabled = !hasSave && customTrailEntries.length === 0;
-    const usedSlots = session.saveSlots.filter(Boolean).length;
-    const slotCount = session.saveSlots.length;
-    $('menu-load-game').disabled = usedSlots === 0;
-    $('menu-load-game-detail').textContent = usedSlots ? `${usedSlots} of ${slotCount} slots used` : 'No savegames yet';
-    $('menu-new-game-detail').textContent = usedSlots === slotCount ? 'All slots full · replace one' : 'Create a rider in an empty slot';
+    // One orange call to action: resume a ride, else continue the save, else start one.
     const resumable = canResume();
     $('menu-resume').hidden = !resumable;
-    $('menu-new-game').classList.toggle('menu-action-primary', !hasSave && !resumable);
+    $('menu-continue').hidden = !hasSave;
+    $('menu-continue').classList.toggle('menu-action-primary', !resumable);
+    $('menu-first-ride').hidden = hasSave;
+    $('menu-first-ride').classList.toggle('menu-action-primary', !resumable);
+    $('menu-riders').hidden = !hasSave;
     if (resumable) {
       $('menu-resume-detail').textContent = 'Back to ' + (session.trail?.name ?? 'the trail')
         + (session.stateBeforeMenu === 'paused' ? ' · paused' : '');
@@ -332,7 +317,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
   function showView(view) {
     disarmDelete();
     $('menu-home').hidden = view !== 'home';
-    $('menu-load-view').hidden = view !== 'load';
+    $('menu-riders-view').hidden = view !== 'riders';
     $('menu-trail-view').hidden = view !== 'trails';
     $('menu-leaderboard-view').hidden = view !== 'leaderboard';
     $('menu-save-view').hidden = view !== 'save';
@@ -349,7 +334,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     $('menu-screen').hidden = false;
     updateDashboard();
     showView('home');
-    requestAnimationFrame(() => selectControl($(canResume() ? 'menu-resume' : session.saveGame ? 'menu-start' : 'menu-new-game')));
+    requestAnimationFrame(() => selectControl($(canResume() ? 'menu-resume' : session.saveGame ? 'menu-continue' : 'menu-first-ride')));
   }
 
   function close() { $('menu-screen').hidden = true; }
@@ -481,16 +466,9 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     return session.gameLoopStarted ? session.trailIndex : session.savedTrail;
   }
 
-  function showSaveCreator(slotIndex = session.activeSaveSlot, overwrite = false) {
+  function showSaveCreator(slotIndex) {
     pendingSaveSlot = slotIndex;
-    pendingOverwrite = overwrite;
-    const existing = session.saveSlots[slotIndex];
     $('new-save-slot-label').textContent = 'SAVE SLOT ' + (slotIndex + 1);
-    $('save-warning').textContent = overwrite && existing
-      ? `This replaces ${existing.name} (${existing.unlocked + 1} / ${trails.length} trails) in slot ${slotIndex + 1}. That save's progress and best times are lost; leaderboard runs stay.`
-      : 'Your rider is permanently tied to this savegame. Each slot keeps its own progression and best times.';
-    $('save-warning').classList.toggle('danger', overwrite);
-    $('create-save').textContent = overwrite ? 'Replace Save & Ride →' : 'Create Save & Ride →';
     $('new-save-name').value = '';
     $('new-save-name').classList.remove('invalid');
     showView('save');
@@ -607,17 +585,16 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     const button = event.target.closest('button');
     if (!button) return;
     if (button.matches('[data-menu-back]')) sounds.menuBack();
-    else if (button.id === 'create-save' || button.id === 'menu-start' || button.id === 'menu-resume') sounds.menuConfirm();
+    else if (button.id === 'create-save' || button.id === 'menu-continue' || button.id === 'menu-first-ride' || button.id === 'menu-resume') sounds.menuConfirm();
     else sounds.menuSelect();
   });
-  $('menu-start').addEventListener('click', () => startTrail(session.savedTrail));
+  $('menu-continue').addEventListener('click', () => startTrail(session.savedTrail));
   $('menu-resume').addEventListener('click', () => onClose());
-  $('menu-new-game').addEventListener('click', () => {
-    // First-time players go straight to the rider screen; otherwise pick a slot.
-    if (session.saveSlots.every(save => !save)) { creatorFromSlots = false; showSaveCreator(0); }
-    else showSlots('new');
+  $('menu-first-ride').addEventListener('click', () => {
+    creatorFromRiders = false;
+    showSaveCreator(Math.max(0, session.saveSlots.findIndex(save => !save)));
   });
-  $('menu-load-game').addEventListener('click', () => showSlots('load'));
+  $('menu-riders').addEventListener('click', () => { buildSaveSlots(); showView('riders'); });
   $('menu-trails').addEventListener('click', () => { buildTrailCards(); showView('trails'); });
   $('import-trail').addEventListener('click', () => $('import-trail-file').click());
   $('import-trail-file').addEventListener('change', async event => {
@@ -649,17 +626,14 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     document.querySelectorAll('[data-rider]').forEach(choice => choice.setAttribute('aria-pressed', String(choice === button)));
   }));
   $('create-save').addEventListener('click', () => {
-    // Checked before the overwrite delete, so a blank name never wipes a save.
     const name = cleanRiderName($('new-save-name').value);
     if (!name) {
       $('new-save-name').classList.add('invalid');
       $('new-save-name').focus();
       return;
     }
-    if (pendingOverwrite) deleteSave(pendingSaveSlot, trails.length);
     const save = createSave(pendingSaveSlot, selectedNewRider, trails.length, name);
-    if (!save) { showSlots('load'); return; }
-    pendingOverwrite = false;
+    if (!save) { showView('riders'); return; }
     session.saveGame = save;
     session.activeSaveSlot = pendingSaveSlot;
     saveActiveSlot(session.activeSaveSlot);

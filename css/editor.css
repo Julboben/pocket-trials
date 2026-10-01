@@ -150,3 +150,20 @@ input[type="range"] { padding: 0; accent-color: var(--accent); }
   animation: boot-loader 0.2s 0.4s both;
 }
 @keyframes boot-loader { from { opacity: 0; } to { opacity: 1; } }
+
+/* Dev sandbox (see js/local-store.js). */
+html[data-sandbox] body::after {
+  content: "SANDBOX · ?sandbox=off to leave";
+  position: fixed;
+  z-index: 1000;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  padding: 5px 9px;
+  border-radius: 4px;
+  background: #c2410c;
+  color: #fff;
+  font: 700 10px/1 ui-monospace, monospace;
+  letter-spacing: 1px;
+  pointer-events: none;
+}

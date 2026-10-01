@@ -1,10 +1,11 @@
 import { clamp } from './config.js';
+import { store } from './local-store.js';
 import { cachedOnlineBoard, refreshOnlineBoard } from './online-leaderboard.js';
 
-const SETTINGS_KEY = 'pocket-trials-settings-v1';
-const SAVE_SLOTS_KEY = 'pocket-trials-saves-v2';
-const ACTIVE_SLOT_KEY = 'pocket-trials-active-slot-v1';
-const LEADERBOARD_KEY = 'pocket-trials-leaderboard-v1';
+const SETTINGS_KEY = 'hjulben-settings-v1';
+const SAVE_SLOTS_KEY = 'hjulben-saves-v2';
+const ACTIVE_SLOT_KEY = 'hjulben-active-slot-v1';
+const LEADERBOARD_KEY = 'hjulben-leaderboard-v1';
 const SLOT_COUNT = 3;
 export const LEADERBOARD_SIZE = 10;
 
@@ -21,7 +22,7 @@ const newPlayerId = () => globalThis.crypto?.randomUUID?.() ??
     return (c === 'x' ? r : (r & 3 | 8)).toString(16);
   });
 
-// Parsed copies of each key. localStorage is only read on first use and after
+// Parsed copies of each key. storage is only read on first use and after
 // another tab writes, and every change is written through immediately.
 const cache = new Map();
 if (typeof window !== 'undefined') {
@@ -34,14 +35,14 @@ if (typeof window !== 'undefined') {
 function readJson(key, fallback) {
   if (cache.has(key)) return cache.get(key);
   let value = fallback;
-  try { value = JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch (_) {}
+  try { value = JSON.parse(store().getItem(key) || 'null') ?? fallback; } catch (_) {}
   cache.set(key, value);
   return value;
 }
 
 function writeJson(key, value) {
   cache.set(key, value);
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
+  try { store().setItem(key, JSON.stringify(value)); } catch (_) {}
 }
 
 const emptySlots = () => Array(SLOT_COUNT).fill(null);
@@ -77,7 +78,7 @@ function slots(trailCount) {
 
 function persistSlots(trailCount, next) {
   cache.set(SAVE_SLOTS_KEY, { trailCount, slots: next });
-  try { localStorage.setItem(SAVE_SLOTS_KEY, JSON.stringify(next)); } catch (_) {}
+  try { store().setItem(SAVE_SLOTS_KEY, JSON.stringify(next)); } catch (_) {}
 }
 
 export function savePreferences(preferences) {
@@ -195,7 +196,7 @@ export function readLeaderboard(trailId) {
   return Array.isArray(runs) ? rankRuns(runs) : [];
 }
 
-const GHOST_KEY_PREFIX = 'pocket-trials-ghost-v1:';
+const GHOST_KEY_PREFIX = 'hjulben-ghost-v1:';
 
 /**
  * The fastest finished run on a trail, as encoded inputs for ghost playback.

@@ -1,3 +1,4 @@
+import { store } from './local-store.js';
 export { terrainMaterials } from './materials.js';
 
 async function loadJson(url, description) {
@@ -32,16 +33,16 @@ try {
   throw error;
 }
 
-const BROWSER_TRAILS_KEY = 'pocket-trials-browser-trails-v1';
+const BROWSER_TRAILS_KEY = 'hjulben-browser-trails-v1';
 
 // The editor hands the trail being edited to the game (index.html?playtest=1) through this key.
-export const PLAYTEST_TRAIL_KEY = 'pocket-trials-playtest-v1';
-export const PLAYTEST_EXIT_MESSAGE = 'pocket-trials-playtest-exit';
+export const PLAYTEST_TRAIL_KEY = 'hjulben-playtest-v1';
+export const PLAYTEST_EXIT_MESSAGE = 'hjulben-playtest-exit';
 
 export function readPlaytestTrail() {
   if (new URLSearchParams(window.location.search).get('playtest') !== '1') return null;
   try {
-    const trail = JSON.parse(localStorage.getItem(PLAYTEST_TRAIL_KEY) || 'null');
+    const trail = JSON.parse(store().getItem(PLAYTEST_TRAIL_KEY) || 'null');
     return typeof trail?.name === 'string' ? trail : null;
   } catch (_) {
     return null;
@@ -50,7 +51,7 @@ export function readPlaytestTrail() {
 
 function readBrowserLibrary() {
   try {
-    const stored = JSON.parse(localStorage.getItem(BROWSER_TRAILS_KEY) || '[]');
+    const stored = JSON.parse(store().getItem(BROWSER_TRAILS_KEY) || '[]');
     return Array.isArray(stored) ? stored.filter(item => item?.key && typeof item.trail?.name === 'string') : [];
   } catch (_) {
     return [];
@@ -58,7 +59,7 @@ function readBrowserLibrary() {
 }
 
 function writeBrowserLibrary(library) {
-  localStorage.setItem(BROWSER_TRAILS_KEY, JSON.stringify(library));
+  store().setItem(BROWSER_TRAILS_KEY, JSON.stringify(library));
 }
 
 function browserEntry({ key, trail }) {
@@ -69,7 +70,7 @@ export function slugify(name) {
   return String(name || 'trail').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'trail';
 }
 
-// Browser trails live in localStorage so they work on a static deployment without a server.
+// Browser trails live in browser storage so they work on a static deployment without a server.
 export const trailEntries = [...loadedEntries, ...readBrowserLibrary().map(browserEntry)];
 
 export const officialTrailEntries = trailEntries.filter(entry => entry.source === 'official');

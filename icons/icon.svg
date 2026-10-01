@@ -1,10 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" shape-rendering="crispEdges">
-  <rect width="32" height="32" rx="6" fill="#17262b"/>
-  <path fill="#c5b496" d="M0 24h8v-2h8v2h8v-4h8v12H0z"/>
-  <path fill="#375d4d" d="M0 24h8v-2h8v2h8v-4h8v2h-6v4h-10v-2h-6v2H0z"/>
-  <path fill="#d95832" d="M10 16h12v2H10z"/>
-  <path fill="#ed7842" d="M12 14h8v2h-8z"/>
-  <path fill="#ff8952" d="M14 8h4v4h-4z"/>
-  <path fill="#263a35" d="M7 17h4v4H7zM21 17h4v4h-4z"/>
-  <path fill="#edb466" d="M8 18h2v2H8zM22 18h2v2h-2z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Hjulben</title>
+  <defs>
+    <line id="spoke" x1="256" y1="110" x2="256" y2="402"
+          stroke="#c9ced6" stroke-width="6" stroke-linecap="round"/>
+  </defs>
+
+  <!-- Knobs: 24 tread blocks -->
+  <circle cx="256" cy="256" r="214" fill="none" stroke="#1d1d1f" stroke-width="24"
+          pathLength="24" stroke-dasharray="0.55 0.45"/>
+
+  <!-- Tyre -->
+  <circle cx="256" cy="256" r="180" fill="none" stroke="#1d1d1f" stroke-width="48"/>
+
+  <!-- Rim -->
+  <circle cx="256" cy="256" r="150" fill="none" stroke="#ff6a00" stroke-width="12"/>
+
+  <!-- Spokes -->
+  <use href="#spoke"/>
+  <use href="#spoke" transform="rotate(30 256 256)"/>
+  <use href="#spoke" transform="rotate(60 256 256)"/>
+  <use href="#spoke" transform="rotate(90 256 256)"/>
+  <use href="#spoke" transform="rotate(120 256 256)"/>
+  <use href="#spoke" transform="rotate(150 256 256)"/>
+
+  <!-- Hub -->
+  <circle cx="256" cy="256" r="34" fill="#ff6a00"/>
+  <circle cx="256" cy="256" r="12" fill="#1d1d1f"/>
 </svg>
