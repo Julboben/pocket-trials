@@ -3241,7 +3241,9 @@ syncInspector();
 updateHistoryButtons();
 updateTrailControls();
 resize();
+// The save controls depend on the dev server, so reveal once that is known.
 detectDevServer().then((available) => {
   devServer = available;
   updateTrailControls();
+  document.querySelector(".editor-shell").removeAttribute("data-booting");
 });

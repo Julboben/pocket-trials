@@ -7,7 +7,7 @@ import {
   loadSaveSlots, loadActiveSlot, saveActiveSlot, createSave, deleteSave, readBest,
   readLeaderboard, LEADERBOARD_SIZE, loadPreferences, savePreferences, cleanRiderName
 } from '../storage.js';
-import { ONLINE_LEADERBOARD_EVENT } from '../online-leaderboard.js';
+import { ONLINE_LEADERBOARD_EVENT, isOnlineBoardLoading } from '../online-leaderboard.js';
 import { normalizeTrail, validateTrail, medalFor } from '../trail-schema.js';
 import { ACTION_LABELS, keyLabel } from '../input.js';
 import {
@@ -15,7 +15,8 @@ import {
   leaderboardTrails, trailKey, trailMarker, timeText
 } from '../state.js';
 
-const riderName = name => name || 'RIDER';
+// Runs made without a savegame have no name.
+const runnerName = name => name || 'RIDER';
 
 export function riderSymbolMarkup(selectedRider) {
   return selectedRider === 'female'
@@ -182,7 +183,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
         : (slotMode === 'new' ? 'Replace · ' : '') + (save.unlocked + 1) + ' / ' + trails.length + ' trails · ' + trails[save.trail].name;
       const active = occupied && index === session.activeSaveSlot ? ' · ACTIVE' : '';
       button.innerHTML = '<span class="save-avatar ' + (!occupied ? 'empty' : save.rider) + '">' + (!occupied ? '+' : riderSymbolMarkup(save.rider)) + '</span>'
-        + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + active + '</span><strong>' + (!occupied ? 'EMPTY SLOT' : riderName(save.name)) + '</strong><small>' + detail + '</small></span>';
+        + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + active + '</span><strong>' + (!occupied ? 'EMPTY SLOT' : save.name) + '</strong><small>' + detail + '</small></span>';
       button.addEventListener('click', () => {
         if (slotMode === 'load' && occupied) { selectSaveSlot(index); showView('home'); return; }
         creatorFromSlots = true;
@@ -283,7 +284,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     const hasSave = Boolean(session.saveGame);
     drawActiveSaveIllustration();
     $('active-save-slot').textContent = 'SLOT ' + (session.activeSaveSlot + 1);
-    $('active-save-rider').textContent = hasSave ? riderName(session.saveGame?.name) : '';
+    $('active-save-rider').textContent = hasSave ? session.saveGame.name : '';
     $('active-save-progress').textContent = hasSave ? (session.unlockedTrail + 1) + ' / ' + trails.length + ' trails · ' + trails[session.savedTrail].name : '';
     $('menu-start').hidden = !hasSave;
     $('menu-trails').disabled = !hasSave && customTrailEntries.length === 0;
@@ -418,7 +419,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     $('menu-trail-grid').replaceChildren(...cards);
   }
 
-  function leaderboardRow(run, rank) {
+  function leaderboardRow(run, rank, loading = false) {
     const row = document.createElement('li');
     row.className = 'leaderboard-row' + (rank <= 3 && run ? ' podium-' + rank : '') + (run ? '' : ' open');
     const rankLabel = document.createElement('span');
@@ -427,7 +428,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     if (!run) {
       const empty = document.createElement('span');
       empty.className = 'leaderboard-open';
-      empty.textContent = rank === 1 ? 'NO RUNS YET · FINISH THE TRAIL TO CLAIM IT' : '— — —';
+      empty.textContent = rank > 1 ? '— — —' : loading ? 'LOADING RUNS…' : 'NO RUNS YET · FINISH THE TRAIL TO CLAIM IT';
       row.append(rankLabel, empty);
       return row;
     }
@@ -442,7 +443,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     const copy = document.createElement('span');
     copy.className = 'leaderboard-copy';
     const name = document.createElement('strong');
-    name.textContent = riderName(run.name) + (mine ? ' · YOU' : '');
+    name.textContent = runnerName(run.name) + (mine ? ' · YOU' : '');
     const detail = document.createElement('small');
     const date = run.date ? new Date(run.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }).toUpperCase() : 'CAREER BEST';
     detail.textContent = (run.name && run.slot === null ? 'ONLINE' : run.slot === null ? 'NO SAVE' : 'SLOT ' + (run.slot + 1)) + ' · ' + date;
@@ -458,12 +459,15 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     const trails = leaderboardTrails();
     leaderboardTrail = (leaderboardTrail + trails.length) % trails.length;
     const entry = trails[leaderboardTrail];
-    const runs = readLeaderboard(trailKey(entry));
+    const key = trailKey(entry);
+    const runs = readLeaderboard(key);
+    // Wait for the online board instead of showing local times that it then replaces.
+    const loading = isOnlineBoardLoading(key);
     $('leaderboard-trail-number').textContent = trailMarker(leaderboardTrail);
     $('leaderboard-trail-name').textContent = entry.name.toUpperCase();
     $('leaderboard-trail-meta').textContent = (entry.source === 'custom' ? 'CUSTOM TRAIL' : 'OFFICIAL TRAIL')
       + ' · ' + (leaderboardTrail + 1) + ' / ' + trails.length;
-    const rows = Array.from({ length: LEADERBOARD_SIZE }, (_, index) => leaderboardRow(runs[index], index + 1));
+    const rows = Array.from({ length: LEADERBOARD_SIZE }, (_, index) => leaderboardRow(loading ? undefined : runs[index], index + 1, loading));
     $('leaderboard-list').replaceChildren(...rows);
   }
 
@@ -483,7 +487,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     const existing = session.saveSlots[slotIndex];
     $('new-save-slot-label').textContent = 'SAVE SLOT ' + (slotIndex + 1);
     $('save-warning').textContent = overwrite && existing
-      ? `This replaces ${riderName(existing.name)} (${existing.unlocked + 1} / ${trails.length} trails) in slot ${slotIndex + 1}. That save's progress and best times are lost; leaderboard runs stay.`
+      ? `This replaces ${existing.name} (${existing.unlocked + 1} / ${trails.length} trails) in slot ${slotIndex + 1}. That save's progress and best times are lost; leaderboard runs stay.`
       : 'Your rider is permanently tied to this savegame. Each slot keeps its own progression and best times.';
     $('save-warning').classList.toggle('danger', overwrite);
     $('create-save').textContent = overwrite ? 'Replace Save & Ride →' : 'Create Save & Ride →';

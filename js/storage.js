@@ -49,6 +49,8 @@ const cloneSave = save => save && { ...save, bestTimes: [...save.bestTimes] };
 
 function normalizeSave(save, trailCount) {
   if (!save || !['male', 'female'].includes(save.rider)) return null;
+  const name = cleanRiderName(save.name);
+  if (!name || typeof save.playerId !== 'string' || !UUID_RE.test(save.playerId)) return null;
   const unlocked = clamp(Number(save.unlocked) || 0, 0, trailCount - 1);
   const trail = clamp(Number(save.trail) || 0, 0, unlocked);
   const bestTimes = Array.from({ length: trailCount }, (_, index) => {
@@ -57,8 +59,7 @@ function normalizeSave(save, trailCount) {
   });
   return {
     rider: save.rider, createdAt: Number(save.createdAt) || Date.now(), trail, unlocked, bestTimes,
-    name: cleanRiderName(save.name) || null,
-    playerId: typeof save.playerId === 'string' && UUID_RE.test(save.playerId) ? save.playerId : null
+    name, playerId: save.playerId
   };
 }
 
@@ -104,17 +105,18 @@ export function saveActiveSlot(slotIndex) {
   writeJson(ACTIVE_SLOT_KEY, clamp(slotIndex, 0, SLOT_COUNT - 1));
 }
 
-export function createSave(slotIndex, rider, trailCount, name = '') {
+export function createSave(slotIndex, rider, trailCount, name) {
   const next = [...slots(trailCount)];
   const index = clamp(slotIndex, 0, SLOT_COUNT - 1);
-  if (next[index]) return null;
+  const cleanName = cleanRiderName(name);
+  if (next[index] || !cleanName) return null;
   const save = {
     rider: rider === 'female' ? 'female' : 'male',
     createdAt: Date.now(),
     trail: 0,
     unlocked: 0,
     bestTimes: Array(trailCount).fill(null),
-    name: cleanRiderName(name) || null,
+    name: cleanName,
     playerId: newPlayerId()
   };
   next[index] = save;
@@ -154,19 +156,6 @@ export function saveBest(slotIndex, trailIndex, elapsed, trailCount) {
   updateSave(slotIndex, trailCount, save => { save.bestTimes[trailIndex] = elapsed; });
 }
 
-/** Sets a save's leaderboard name (and gives old saves a playerId). */
-export function nameSave(slotIndex, name, trailCount) {
-  const clean = cleanRiderName(name);
-  if (!clean) return null;
-  let result = null;
-  updateSave(slotIndex, trailCount, save => {
-    save.name = clean;
-    save.playerId = save.playerId || newPlayerId();
-    result = { name: save.name, playerId: save.playerId };
-  });
-  return result;
-}
-
 function normalizeRun(run) {
   const time = Number(run?.time);
   if (!Number.isFinite(time) || time <= 0) return null;
@@ -181,9 +170,15 @@ function normalizeRun(run) {
   };
 }
 
+// One row per rider, like the online board: a save's runs share its id, and
+// runs without a save are grouped by name.
+const runOwner = run => run.saveId ? `save:${run.saveId}` : `name:${run.name ?? ''}`;
+
 function rankRuns(runs) {
+  const owners = new Set();
   return runs.map(normalizeRun).filter(Boolean)
     .sort((a, b) => a.time - b.time || (a.date ?? 0) - (b.date ?? 0))
+    .filter(run => !owners.has(runOwner(run)) && owners.add(runOwner(run)))
     .slice(0, LEADERBOARD_SIZE);
 }
 

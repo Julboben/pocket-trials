@@ -745,6 +745,27 @@ h2 {
 .icon-button[hidden] {
   display: none;
 }
+/* Until the first frame is drawn the markup only holds placeholders, so it
+   stays hidden. The loader fades in late enough to never show on a fast load. */
+.game[data-booting] > * {
+  visibility: hidden;
+}
+.game[data-booting]::after {
+  content: "LOADING…";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--color-text);
+  font: 700 12px/1 var(--font-ui);
+  letter-spacing: 0.2em;
+  animation: boot-loader 0.2s 0.4s both;
+}
+@keyframes boot-loader {
+  from { opacity: 0; }
+  to { opacity: 0.7; }
+}
+
 .game:fullscreen {
   width: 100vw;
   height: 100vh;

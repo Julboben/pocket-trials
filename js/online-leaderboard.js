@@ -9,6 +9,7 @@ const TRAIL_RE = /^(official:)?[a-z0-9][a-z0-9-]{0,55}$/;
 
 const boards = new Map();     // trailKey -> runs[]
 const lastFetch = new Map();  // trailKey -> timestamp
+const pending = new Set();    // trailKeys with a fetch in flight
 
 export const isOnlineTrail = trail => typeof trail === 'string' && TRAIL_RE.test(trail);
 
@@ -35,16 +36,23 @@ export function cachedOnlineBoard(trail) {
   return boards.get(trail) ?? null;
 }
 
-/** Fetches in the background (throttled) and fires ONLINE_LEADERBOARD_EVENT when new data arrives. */
+/** True while the first fetch for a trail is in flight, before there is anything to show. */
+export function isOnlineBoardLoading(trail) {
+  return pending.has(trail) && !boards.has(trail);
+}
+
+/** Fetches in the background (throttled) and fires ONLINE_LEADERBOARD_EVENT when the fetch settles. */
 export function refreshOnlineBoard(trail, force = false) {
   if (typeof window === 'undefined' || !isOnlineTrail(trail)) return;
   const now = Date.now();
   if (!force && now - (lastFetch.get(trail) ?? 0) < REFRESH_MS) return;
   lastFetch.set(trail, now);
+  pending.add(trail);
   fetch(`${API}?trail=${encodeURIComponent(trail)}`, { signal: AbortSignal.timeout(5000) })
     .then(res => (res.ok ? res.json() : Promise.reject(res.status)))
-    .then(data => { boards.set(trail, toRuns(data.runs)); announce(trail); })
-    .catch(() => {});
+    .then(data => { boards.set(trail, toRuns(data.runs)); })
+    .catch(() => {})
+    .finally(() => { pending.delete(trail); announce(trail); });
 }
 
 /**
