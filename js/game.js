@@ -10,7 +10,7 @@ import { encodeInputs, decodeInputs } from './replay-codec.js';
 import { medalFor, normalizeTrail } from './trail-schema.js';
 import {
   readBest, saveBest, readLeaderboard, recordLeaderboardRun, readGhost, saveGhost,
-  nameSave, saveProgress as persistProgress
+  saveProgress as persistProgress
 } from './storage.js';
 import { submitOnlineRun } from './online-leaderboard.js';
 import { createInput, keyLabel } from './input.js';
@@ -356,21 +356,6 @@ export function startGame() {
     setState('won');
   }
 
-  // The active save's leaderboard identity. Saves made before names existed are
-  // asked once and updated; runs without a savegame stay local-only.
-  function onlineIdentity() {
-    const save = session.saveGame;
-    if (!save) return null;
-    if (!save.name || !save.playerId) {
-      const typed = window.prompt('Pick a name for the online leaderboard (max 16 characters):', save.name || '');
-      const updated = nameSave(session.activeSaveSlot, typed, trails.length);
-      if (!updated) return null;
-      save.name = updated.name;          // session.saveGame is the same object as the slot entry
-      save.playerId = updated.playerId;
-    }
-    return { name: save.name, playerId: save.playerId };
-  }
-
   function finishRun(ride) {
     if (session.trailSource === 'playtest') { finishPlaytestRun(ride); return; }
     const entry = currentTrailEntry();
@@ -407,9 +392,9 @@ export function startGame() {
     });
     // Only a run the player actually rode is sent to the world board.
     if (official && session.state === 'running') {
-      const identity = onlineIdentity();
-      if (identity) {
-        submitOnlineRun(key, { time, rider: session.rider, ...identity }).then(result => {
+      // Runs without a savegame stay local-only.
+      if (saveGame) {
+        submitOnlineRun(key, { time, rider: session.rider, name: saveGame.name, playerId: saveGame.playerId }).then(result => {
           if (result?.rank) overlay.toast(`WORLD RANK #${result.rank} OF ${result.total}`, 4000);
         });
       }
@@ -621,4 +606,6 @@ export function startGame() {
     startSelectedTrail(loadPlaytestTrail, false);
   } else showMainMenu();
   requestAnimationFrame(frame);
+  // Queued after the first frame, so the reveal shows a fully drawn screen.
+  requestAnimationFrame(() => game.removeAttribute('data-booting'));
 }

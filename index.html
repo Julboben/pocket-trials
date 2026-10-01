@@ -28,6 +28,7 @@
     <main
       class="game pixel-ui"
       id="game"
+      data-booting
       tabindex="0"
       aria-label="Pocket Trials motorcycle game"
     >
@@ -210,7 +211,7 @@
                 <span>RESUME RIDE</span
                 ><small id="menu-resume-detail">Back to the trail</small>
               </button>
-              <button class="menu-action continue-save" id="menu-start">
+              <button class="menu-action continue-save" id="menu-start" hidden>
                 <span class="active-rider-art" aria-hidden="true"
                   ><canvas
                     id="active-save-bike"
@@ -220,10 +221,9 @@
                 ></span>
                 <span class="continue-save-copy"
                   ><span class="save-label"
-                    >CONTINUE · <b id="active-save-slot">SLOT 1</b></span
+                    >CONTINUE · <b id="active-save-slot"></b></span
                   ><strong id="active-save-rider"></strong
-                  ><small id="active-save-progress"
-                    >1 / 7 trails · The Orchard</small
+                  ><small id="active-save-progress"></small
                   ></span
                 >
                 <span class="continue-arrow" aria-hidden="true">→</span>
