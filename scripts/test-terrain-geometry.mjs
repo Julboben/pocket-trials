@@ -1,4 +1,4 @@
-// The unified terrain model: one block type with outer and inner boundaries,
+// The terrain model: one block type with outer and inner boundaries,
 // curve-preserving cuts, point editing, and validation.
 //
 // The plan's acceptance criteria for the terrain model live here. Physics and
@@ -9,7 +9,7 @@ import {
   createNode, createBoundary, createRegion, hitTestBlock, removeBoundaryNodes, setBoundaryEdge,
   setNodeMode, blockSolidArea, isCurvedEdge,
 } from "../js/terrain-geometry.js";
-import { normalizeLevel, validateLevel } from "../js/level-schema.js";
+import { normalizeTrail, validateTrail } from "../js/trail-schema.js";
 
 let failures = 0;
 const check = (label, condition) => {
@@ -108,11 +108,11 @@ check("hole outside its region is rejected", validateBlock({
     { nodes: [{ x: 100, y: 100 }, { x: 110, y: 100 }, { x: 110, y: 110 }, { x: 100, y: 110 }] },
   ] }],
 }).some(m => m.type === "error"));
-const blockLevel = blocks => normalizeLevel({
+const blockTrail = blocks => normalizeTrail({
   version: 2, name: "Buried", start: { x: 0, y: -40 }, goal: 60, finishY: -40,
   fallY: 1000, apples: [], terrainBlocks: blocks,
 });
-const buriedWarnings = blocks => validateLevel(blockLevel(blocks)).filter(m => /buried/.test(m.text));
+const buriedWarnings = blocks => validateTrail(blockTrail(blocks)).filter(m => /buried/.test(m.text));
 check("a block inside a later block is buried", /^Block 1 /.test(buriedWarnings([square, rectangleBlock(-20, -20, 120, 120)])[0]?.text || ""));
 check("a block inside an earlier block is buried", /^Block 2 /.test(buriedWarnings([rectangleBlock(-20, -20, 120, 120), square])[0]?.text || ""));
 check("only the inner block is reported", buriedWarnings([rectangleBlock(-20, -20, 120, 120), square]).length === 1);

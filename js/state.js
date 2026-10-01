@@ -1,8 +1,8 @@
 // @ts-check
 // Session state shared by the browser modules. Only game.js changes the
 // ride and the state machine; the menu changes saves and preferences.
-import { levels, officialLevelEntries, customLevelEntries } from './levels.js';
-import { levelHash } from './level-hash.js';
+import { trails, officialTrailEntries, customTrailEntries } from './trails.js';
+import { trailHash } from './trail-hash.js';
 
 /** @typedef {import('./types.js').Ride} Ride */
 /** @typedef {'menu' | 'running' | 'paused' | 'ragdoll' | 'won'} GameState */
@@ -60,13 +60,13 @@ export function sanitizePreferences(preferences) {
 export const session = {
   /** @type {GameState} */ state: 'menu',
   /** @type {GameState} */ stateBeforeMenu: 'running',
-  levelIndex: 0,
-  level: levels[0],
-  /** @type {'official' | 'custom' | 'playtest'} */ levelSource: 'official',
-  customLevelIndex: -1,
+  trailIndex: 0,
+  trail: trails[0],
+  /** @type {'official' | 'custom' | 'playtest'} */ trailSource: 'official',
+  customTrailIndex: -1,
   rider: 'max',
-  unlockedLevel: 0,
-  savedLevel: 0,
+  unlockedTrail: 0,
+  savedTrail: 0,
   /** @type {any} */ saveGame: null,
   /** @type {any[]} */ saveSlots: [null, null, null],
   activeSaveSlot: 0,
@@ -77,21 +77,21 @@ export const session = {
   /** @type {number | null} */ rideSaveId: null
 };
 
-export const officialTrailIds = officialLevelEntries.map(entry => entry.id);
-export const leaderboardTrails = () => [...officialLevelEntries, ...customLevelEntries];
+export const officialTrailIds = officialTrailEntries.map(entry => entry.id);
+export const leaderboardTrails = () => [...officialTrailEntries, ...customTrailEntries];
 
 /**
  * Leaderboard and ghost key for a trail. Custom trails are keyed by their
  * content, so an edited trail gets a fresh board and a re-import keeps it.
  */
 export function trailKey(entry) {
-  return entry.source === 'official' ? entry.id : 'trail:' + levelHash(entry.level);
+  return entry.source === 'official' ? entry.id : 'trail:' + trailHash(entry.trail);
 }
 
 export function currentTrailEntry() {
-  return session.levelSource === 'official'
-    ? officialLevelEntries[session.levelIndex]
-    : customLevelEntries[session.customLevelIndex];
+  return session.trailSource === 'official'
+    ? officialTrailEntries[session.trailIndex]
+    : customTrailEntries[session.customTrailIndex];
 }
 
 export function timeText(seconds) {
@@ -105,7 +105,7 @@ export function deltaText(seconds) {
 }
 
 export function trailMarker(index) {
-  return index < officialLevelEntries.length
+  return index < officialTrailEntries.length
     ? String(index + 1).padStart(2, '0')
-    : `C${String(index - officialLevelEntries.length + 1).padStart(2, '0')}`;
+    : `C${String(index - officialTrailEntries.length + 1).padStart(2, '0')}`;
 }

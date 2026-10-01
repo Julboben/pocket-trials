@@ -236,8 +236,8 @@
                 <span>LOAD GAME</span
                 ><small id="menu-load-game-detail">Choose or delete a savegame</small>
               </button>
-              <button class="menu-action menu-action-half" id="menu-levels">
-                <span>LEVELS</span><small>Browse unlocked trails</small>
+              <button class="menu-action menu-action-half" id="menu-trails">
+                <span>TRAILS</span><small>Browse unlocked trails</small>
               </button>
               <button class="menu-action menu-action-half" id="menu-leaderboard">
                 <span>LEADERBOARD</span><small>Fastest runs on every trail</small>
@@ -249,7 +249,7 @@
                 <span>HOW TO PLAY</span><small>Controls, balance, and objectives</small>
               </button>
               <button class="menu-action menu-action-minor" id="menu-editor">
-                <span>LEVEL EDITOR</span
+                <span>TRAIL EDITOR</span
                 ><small>Build and export custom trails</small>
               </button>
             </div>
@@ -274,16 +274,16 @@
             ></div>
           </div>
 
-          <div class="menu-view" id="menu-level-view" hidden>
+          <div class="menu-view" id="menu-trail-view" hidden>
             <div class="menu-view-head">
               <div>
                 <span class="save-label">TRAIL SELECT</span>
-                <h3>Choose a level</h3>
+                <h3>Choose a trail</h3>
               </div>
               <button class="menu-back" data-menu-back>← BACK</button>
             </div>
-            <div class="level-grid" id="menu-level-grid"></div>
-            <div class="level-import">
+            <div class="trail-grid" id="menu-trail-grid"></div>
+            <div class="trail-import">
               <button type="button" class="menu-back" id="import-trail">
                 ＋ IMPORT TRAIL (.JSON)
               </button>
@@ -294,7 +294,7 @@
                 hidden
               />
               <p
-                class="level-import-status"
+                class="trail-import-status"
                 id="import-trail-status"
                 role="status"
               ></p>
@@ -319,10 +319,10 @@
                 ←
               </button>
               <div class="leaderboard-trail-copy" aria-live="polite">
-                <span class="level-number" id="leaderboard-trail-number"
+                <span class="trail-number" id="leaderboard-trail-number"
                   >01</span
                 >
-                <span class="level-copy"
+                <span class="trail-copy"
                   ><strong id="leaderboard-trail-name">THE ORCHARD</strong
                   ><small id="leaderboard-trail-meta"
                     >OFFICIAL TRAIL</small

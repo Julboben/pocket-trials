@@ -1,6 +1,6 @@
 // Main menu: savegames, trail select, leaderboard, settings and how-to-play.
 import { clamp } from '../config.js';
-import { levels, officialLevelEntries, customLevelEntries, saveBrowserLevel } from '../levels.js';
+import { trails, officialTrailEntries, customTrailEntries, saveBrowserTrail } from '../trails.js';
 import { createDrawingTools, createGameArt } from '../drawing.js';
 import { createRiderHair, hairRoot, hairRestDirection, hairBackSupport } from '../rider-hair.js';
 import {
@@ -8,7 +8,7 @@ import {
   readLeaderboard, LEADERBOARD_SIZE, loadPreferences, savePreferences, cleanRiderName
 } from '../storage.js';
 import { ONLINE_LEADERBOARD_EVENT } from '../online-leaderboard.js';
-import { normalizeLevel, validateLevel, medalFor } from '../level-schema.js';
+import { normalizeTrail, validateTrail, medalFor } from '../trail-schema.js';
 import { ACTION_LABELS, keyLabel } from '../input.js';
 import {
   $, session, DEFAULT_BINDINGS, DEFAULT_PREFERENCES, sanitizePreferences,
@@ -26,7 +26,7 @@ export function riderSymbolMarkup(selectedRider) {
 /** Loads saves and preferences into the session. */
 export function loadStoredState() {
   session.preferences = sanitizePreferences(loadPreferences(DEFAULT_PREFERENCES));
-  session.saveSlots = loadSaveSlots(levels.length);
+  session.saveSlots = loadSaveSlots(trails.length);
   session.activeSaveSlot = loadActiveSlot();
   session.saveGame = session.saveSlots[session.activeSaveSlot];
   if (!session.saveGame) {
@@ -37,21 +37,21 @@ export function loadStoredState() {
       saveActiveSlot(firstOccupied);
     }
   }
-  session.unlockedLevel = session.saveGame?.unlocked || 0;
-  session.savedLevel = session.saveGame?.level || 0;
+  session.unlockedTrail = session.saveGame?.unlocked || 0;
+  session.savedTrail = session.saveGame?.trail || 0;
   session.rider = session.saveGame?.rider || 'max';
 }
 
 /**
  * @param {{
  *   sounds: any, input: any,
- *   onStartLevel: (index: number) => void,
+ *   onStartTrail: (index: number) => void,
  *   onStartCustom: (index: number) => void,
  *   onClose: () => void,
  *   onPreferences: () => void
  * }} hooks
  */
-export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose, onPreferences }) {
+export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose, onPreferences }) {
   let pendingSaveSlot = 0, selectedNewRider = 'max';
   let deleteArmedSlot = -1, deleteArmTimer = 0, leaderboardTrail = 0;
   let slotMode = 'load', pendingOverwrite = false, creatorFromSlots = false;
@@ -77,13 +77,13 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
   /** A ride is only resumable while it still belongs to the active save. */
   function canResume() {
     if (!session.gameLoopStarted) return false;
-    if (session.levelSource === 'official' && !session.saveGame) return false;
+    if (session.trailSource === 'official' && !session.saveGame) return false;
     return (session.saveGame?.createdAt ?? null) === session.rideSaveId;
   }
 
-  function startLevel(index) {
+  function startTrail(index) {
     session.rideSaveId = session.saveGame?.createdAt ?? null;
-    onStartLevel(index);
+    onStartTrail(index);
   }
 
   function startCustom(index) {
@@ -133,8 +133,8 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
     session.activeSaveSlot = clamp(index, 0, session.saveSlots.length - 1);
     saveActiveSlot(session.activeSaveSlot);
     session.saveGame = session.saveSlots[session.activeSaveSlot];
-    session.unlockedLevel = session.saveGame?.unlocked || 0;
-    session.savedLevel = session.saveGame?.level || 0;
+    session.unlockedTrail = session.saveGame?.unlocked || 0;
+    session.savedTrail = session.saveGame?.trail || 0;
     session.rider = session.saveGame?.rider || 'max';
     updateDashboard();
   }
@@ -160,7 +160,7 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
       return;
     }
     disarmDelete();
-    deleteSave(index, levels.length);
+    deleteSave(index, trails.length);
     session.saveSlots[index] = null;
     if (index === session.activeSaveSlot) {
       const fallback = session.saveSlots.findIndex(Boolean);
@@ -179,7 +179,7 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
       button.setAttribute('aria-pressed', String(slotMode === 'load' && occupied && index === session.activeSaveSlot));
       const detail = !occupied
         ? (slotMode === 'new' ? 'Start your new game here' : 'Empty · start a new game')
-        : (slotMode === 'new' ? 'Replace · ' : '') + (save.unlocked + 1) + ' / ' + levels.length + ' trails · ' + levels[save.level].name;
+        : (slotMode === 'new' ? 'Replace · ' : '') + (save.unlocked + 1) + ' / ' + trails.length + ' trails · ' + trails[save.trail].name;
       const active = occupied && index === session.activeSaveSlot ? ' · ACTIVE' : '';
       button.innerHTML = '<span class="save-avatar ' + (!occupied ? 'empty' : save.rider === 'Maxine' ? 'female' : 'male') + '">' + (!occupied ? '+' : riderSymbolMarkup(save.rider)) + '</span>'
         + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + active + '</span><strong>' + (!occupied ? 'EMPTY SLOT' : (save.name || riderName(save.rider))) + '</strong><small>' + detail + '</small></span>';
@@ -273,7 +273,7 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
     backgroundContext.imageSmoothingEnabled = false;
     createGameArt(backgroundContext).drawBackground({
       width: bounds.width, height: bounds.height,
-      palette: levels[session.saveGame?.level || 0],
+      palette: trails[session.saveGame?.trail || 0],
       cameraX: 260, cameraY: 0,
       full: session.preferences.scenery === 'full'
     });
@@ -284,9 +284,9 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
     drawActiveSaveIllustration();
     $('active-save-slot').textContent = 'SLOT ' + (session.activeSaveSlot + 1);
     $('active-save-rider').textContent = hasSave ? riderName(session.rider) : '';
-    $('active-save-progress').textContent = hasSave ? (session.unlockedLevel + 1) + ' / ' + levels.length + ' trails · ' + levels[session.savedLevel].name : '';
+    $('active-save-progress').textContent = hasSave ? (session.unlockedTrail + 1) + ' / ' + trails.length + ' trails · ' + trails[session.savedTrail].name : '';
     $('menu-start').hidden = !hasSave;
-    $('menu-levels').disabled = !hasSave && customLevelEntries.length === 0;
+    $('menu-trails').disabled = !hasSave && customTrailEntries.length === 0;
     const usedSlots = session.saveSlots.filter(Boolean).length;
     const slotCount = session.saveSlots.length;
     $('menu-load-game').disabled = usedSlots === 0;
@@ -296,13 +296,13 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
     $('menu-resume').hidden = !resumable;
     $('menu-new-game').classList.toggle('menu-action-primary', !hasSave && !resumable);
     if (resumable) {
-      $('menu-resume-detail').textContent = 'Back to ' + (session.level?.name ?? 'the trail')
+      $('menu-resume-detail').textContent = 'Back to ' + (session.trail?.name ?? 'the trail')
         + (session.stateBeforeMenu === 'paused' ? ' · paused' : '');
     }
     buildSaveSlots();
     drawBackground();
     drawHowToPlayIllustrations();
-    buildLevelCards();
+    buildTrailCards();
   }
 
   function controls() {
@@ -332,7 +332,7 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
     disarmDelete();
     $('menu-home').hidden = view !== 'home';
     $('menu-load-view').hidden = view !== 'load';
-    $('menu-level-view').hidden = view !== 'levels';
+    $('menu-trail-view').hidden = view !== 'trails';
     $('menu-leaderboard-view').hidden = view !== 'leaderboard';
     $('menu-save-view').hidden = view !== 'save';
     $('menu-how-view').hidden = view !== 'how';
@@ -353,9 +353,9 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
 
   function close() { $('menu-screen').hidden = true; }
 
-  function levelSection(title, description) {
+  function trailSection(title, description) {
     const heading = document.createElement('div');
-    heading.className = 'level-section-title';
+    heading.className = 'trail-section-title';
     const strong = document.createElement('strong');
     strong.textContent = title;
     const small = document.createElement('small');
@@ -364,22 +364,22 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
     return heading;
   }
 
-  function levelCard({ trail, number, status, best = null, locked = false, custom = false, onSelect }) {
+  function trailCard({ trail, number, status, best = null, locked = false, custom = false, onSelect }) {
     const button = document.createElement('button');
-    button.className = `level-card${custom ? ' custom-level-card' : ''}`;
+    button.className = `trail-card${custom ? ' custom-trail-card' : ''}`;
     button.disabled = locked;
     const numberLabel = document.createElement('span');
-    numberLabel.className = 'level-number';
+    numberLabel.className = 'trail-number';
     numberLabel.textContent = number;
     const copy = document.createElement('span');
-    copy.className = 'level-copy';
+    copy.className = 'trail-copy';
     const name = document.createElement('strong');
     name.textContent = trail.name.toUpperCase();
     const detail = document.createElement('small');
     detail.textContent = status;
     copy.append(name, detail);
     const bestLabel = document.createElement('span');
-    bestLabel.className = 'level-best';
+    bestLabel.className = 'trail-best';
     bestLabel.textContent = best === null ? '—' : timeText(best);
     const medal = best === null ? null : medalFor(trail.medals, best);
     if (medal) {
@@ -391,23 +391,23 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
     return button;
   }
 
-  function buildLevelCards() {
-    const cards = [levelSection('OFFICIAL TRAILS', 'Career progression and official best times')];
-    levels.forEach((trail, index) => {
-      const locked = !session.saveGame || index > session.unlockedLevel;
-      cards.push(levelCard({
+  function buildTrailCards() {
+    const cards = [trailSection('OFFICIAL TRAILS', 'Career progression and official best times')];
+    trails.forEach((trail, index) => {
+      const locked = !session.saveGame || index > session.unlockedTrail;
+      cards.push(trailCard({
         trail,
         number: String(index + 1).padStart(2, '0'),
-        status: locked ? 'LOCKED' : (index === session.savedLevel ? 'CURRENT TRAIL' : 'UNLOCKED'),
-        best: readBest(session.activeSaveSlot, index, levels.length),
+        status: locked ? 'LOCKED' : (index === session.savedTrail ? 'CURRENT TRAIL' : 'UNLOCKED'),
+        best: readBest(session.activeSaveSlot, index, trails.length),
         locked,
-        onSelect: () => startLevel(index)
+        onSelect: () => startTrail(index)
       }));
     });
-    if (customLevelEntries.length) {
-      cards.push(levelSection('CUSTOM TRAILS', 'Local trails outside career progression'));
-      customLevelEntries.forEach((entry, index) => cards.push(levelCard({
-        trail: entry.level,
+    if (customTrailEntries.length) {
+      cards.push(trailSection('CUSTOM TRAILS', 'Local trails outside career progression'));
+      customTrailEntries.forEach((entry, index) => cards.push(trailCard({
+        trail: entry.trail,
         number: `C${String(index + 1).padStart(2, '0')}`,
         status: entry.storage === 'browser' ? 'CUSTOM · SAVED IN BROWSER' : 'CUSTOM TRAIL',
         best: readLeaderboard(trailKey(entry))[0]?.time ?? null,
@@ -415,7 +415,7 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
         onSelect: () => startCustom(index)
       })));
     }
-    $('menu-level-grid').replaceChildren(...cards);
+    $('menu-trail-grid').replaceChildren(...cards);
   }
 
   function leaderboardRow(run, rank) {
@@ -473,8 +473,8 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
   }
 
   function currentLeaderboardTrail() {
-    if (session.levelSource === 'custom' && session.customLevelIndex >= 0) return officialLevelEntries.length + session.customLevelIndex;
-    return session.gameLoopStarted ? session.levelIndex : session.savedLevel;
+    if (session.trailSource === 'custom' && session.customTrailIndex >= 0) return officialTrailEntries.length + session.customTrailIndex;
+    return session.gameLoopStarted ? session.trailIndex : session.savedTrail;
   }
 
   function showSaveCreator(slotIndex = session.activeSaveSlot, overwrite = false) {
@@ -483,7 +483,7 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
     const existing = session.saveSlots[slotIndex];
     $('new-save-slot-label').textContent = 'SAVE SLOT ' + (slotIndex + 1);
     $('save-warning').textContent = overwrite && existing
-      ? `This replaces ${existing.name || riderName(existing.rider)} (${existing.unlocked + 1} / ${levels.length} trails) in slot ${slotIndex + 1}. That save's progress and best times are lost; leaderboard runs stay.`
+      ? `This replaces ${existing.name || riderName(existing.rider)} (${existing.unlocked + 1} / ${trails.length} trails) in slot ${slotIndex + 1}. That save's progress and best times are lost; leaderboard runs stay.`
       : 'Your rider is permanently tied to this savegame. Each slot keeps its own progression and best times.';
     $('save-warning').classList.toggle('danger', overwrite);
     $('create-save').textContent = overwrite ? 'Replace Save & Ride →' : 'Create Save & Ride →';
@@ -606,7 +606,7 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
     else if (button.id === 'create-save' || button.id === 'menu-start' || button.id === 'menu-resume') sounds.menuConfirm();
     else sounds.menuSelect();
   });
-  $('menu-start').addEventListener('click', () => startLevel(session.savedLevel));
+  $('menu-start').addEventListener('click', () => startTrail(session.savedTrail));
   $('menu-resume').addEventListener('click', () => onClose());
   $('menu-new-game').addEventListener('click', () => {
     // First-time players go straight to the rider screen; otherwise pick a slot.
@@ -614,19 +614,19 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
     else showSlots('new');
   });
   $('menu-load-game').addEventListener('click', () => showSlots('load'));
-  $('menu-levels').addEventListener('click', () => { buildLevelCards(); showView('levels'); });
+  $('menu-trails').addEventListener('click', () => { buildTrailCards(); showView('trails'); });
   $('import-trail').addEventListener('click', () => $('import-trail-file').click());
   $('import-trail-file').addEventListener('change', async event => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
     try {
-      const trail = normalizeLevel(JSON.parse(await file.text()), customLevelEntries.length);
-      const errors = validateLevel(trail).filter(message => message.type === 'error');
+      const trail = normalizeTrail(JSON.parse(await file.text()), customTrailEntries.length);
+      const errors = validateTrail(trail).filter(message => message.type === 'error');
       if (errors.length) throw new Error(errors[0].text);
-      saveBrowserLevel(trail);
+      saveBrowserTrail(trail);
       updateDashboard();
-      showView('levels');
+      showView('trails');
       setImportStatus(`Imported “${trail.name}”. It is saved in this browser under Custom Trails.`);
     } catch (error) {
       setImportStatus(`Could not import ${file.name}: ${error.message}`, true);
@@ -652,8 +652,8 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
       $('new-save-name').focus();
       return;
     }
-    if (pendingOverwrite) deleteSave(pendingSaveSlot, levels.length);
-    const save = createSave(pendingSaveSlot, selectedNewRider, levels.length, name);
+    if (pendingOverwrite) deleteSave(pendingSaveSlot, trails.length);
+    const save = createSave(pendingSaveSlot, selectedNewRider, trails.length, name);
     if (!save) { showSlots('load'); return; }
     pendingOverwrite = false;
     session.saveGame = save;
@@ -661,8 +661,8 @@ export function createMenu({ sounds, input, onStartLevel, onStartCustom, onClose
     saveActiveSlot(session.activeSaveSlot);
     session.saveSlots[session.activeSaveSlot] = save;
     session.rider = save.rider;
-    session.unlockedLevel = 0; session.savedLevel = 0;
-    startLevel(0);
+    session.unlockedTrail = 0; session.savedTrail = 0;
+    startTrail(0);
   });
   document.querySelectorAll('[data-setting]').forEach(button => {
     button.addEventListener('click', () => {

@@ -1,7 +1,7 @@
 // @ts-check
 // In-game DOM: HUD pills, toast, pause screen and the results screen.
 import { $, timeText, deltaText } from "../state.js";
-import { MEDALS } from "../level-schema.js";
+import { MEDALS } from "../trail-schema.js";
 
 export function createOverlay() {
   let lastTimer = "",

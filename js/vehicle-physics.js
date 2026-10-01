@@ -467,7 +467,7 @@ function riderGroundLeverage({ rear, front, chassis }) {
 }
 
 // Leaning forward shifts the rider's weight along the bike, and only the
-// level part of that shift tips it. With the nose raised by angle a the part
+// trail part of that shift tips it. With the nose raised by angle a the part
 // is cos(a), so on a near-vertical face gravity loops the bike over however
 // far the rider leans.
 function forwardLeanWeightShift({ chassis }, facing, leanControl) {
@@ -534,12 +534,12 @@ function resolveContact(point, contact, wheelName, hooks) {
   });
 }
 
-function collideWheel(level, point, wheelName, hooks, sweep = true) {
+function collideWheel(trail, point, wheelName, hooks, sweep = true) {
   if (sweep) {
     const intendedVx = point.x - point.ox,
       intendedVy = point.y - point.oy;
     const hit = terrainSweepCollision(
-      level,
+      trail,
       point.ox,
       point.oy,
       point.x,
@@ -555,7 +555,7 @@ function collideWheel(level, point, wheelName, hooks, sweep = true) {
       advanceAfterTimeOfImpact(point, hit.time);
     }
   }
-  for (const contact of terrainCollisionsAt(level, point.x, point.y, RADIUS))
+  for (const contact of terrainCollisionsAt(trail, point.x, point.y, RADIUS))
     resolveContact(point, contact, wheelName, hooks);
 }
 
@@ -584,7 +584,7 @@ function resolveFreeContact(point, contact, bounce, friction) {
 }
 
 export function collideFreePoint(
-  level,
+  trail,
   point,
   sweep,
   { bounce = 0.12, friction = 0.16 } = {},
@@ -593,7 +593,7 @@ export function collideFreePoint(
     const intendedVx = point.x - point.ox,
       intendedVy = point.y - point.oy;
     const swept = terrainSweepCollision(
-      level,
+      trail,
       point.ox,
       point.oy,
       point.x,
@@ -612,7 +612,7 @@ export function collideFreePoint(
     }
   }
   for (const contact of terrainCollisionsAt(
-    level,
+    trail,
     point.x,
     point.y,
     point.radius,
@@ -622,7 +622,7 @@ export function collideFreePoint(
 
 // `controls.crashed` hands the bike to physics alone: the chassis collides with
 // the terrain so a riderless bike tips over and tumbles instead of sinking.
-export function stepVehicle(vehicle, level, controls, hooks = {}) {
+export function stepVehicle(vehicle, trail, controls, hooks = {}) {
   const { rear, front, chassis, constraints, wheelbaseLimit } = vehicle;
   const {
     facing,
@@ -653,7 +653,7 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
   front.impactSpeed = 0;
   const midpointX = (rear.x + front.x) / 2;
   const midpointY = Math.min(rear.y, front.y) - RADIUS;
-  const slope = terrainAt(level, midpointX, midpointY).slope;
+  const slope = terrainAt(trail, midpointX, midpointY).slope;
   const uphill = clamp(-slope * facing, 0, 1);
   const drivenWheel = facing > 0 ? rear : front;
   const wheelSurfaceSpeed = Math.abs(drivenWheel.angularVelocity * RADIUS);
@@ -794,12 +794,12 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
   const solverWheels =
     facing < 0 ? vehicle.wheelOrder.backward : vehicle.wheelOrder.forward;
   for (const [point, name] of solverWheels) {
-    collideWheel(level, point, name, hooks);
+    collideWheel(trail, point, name, hooks);
     holdBrakedWheel(point);
   }
   if (crashed)
     for (const point of vehicle.chassisPoints)
-      collideFreePoint(level, point, true, CRASHED_CHASSIS_CONTACT);
+      collideFreePoint(trail, point, true, CRASHED_CHASSIS_CONTACT);
   for (let iteration = 0; iteration < BIKE_SOLVER_ITERATIONS; iteration++) {
     hooks.iteration?.(iteration);
     for (const constraint of constraints) {
@@ -807,18 +807,18 @@ export function stepVehicle(vehicle, level, controls, hooks = {}) {
       hooks.constraint?.(correction);
     }
     for (const [point, name] of solverWheels) {
-      collideWheel(level, point, name, hooks, false);
+      collideWheel(trail, point, name, hooks, false);
       holdBrakedWheel(point);
     }
     const wheelbaseCorrection = solveXpbdConstraint(wheelbaseLimit, STEP);
     hooks.constraint?.(wheelbaseCorrection);
     for (const [point, name] of solverWheels) {
-      collideWheel(level, point, name, hooks, false);
+      collideWheel(trail, point, name, hooks, false);
       holdBrakedWheel(point);
     }
     if (crashed)
       for (const point of vehicle.chassisPoints)
-        collideFreePoint(level, point, false, CRASHED_CHASSIS_CONTACT);
+        collideFreePoint(trail, point, false, CRASHED_CHASSIS_CONTACT);
     hooks.contactsResolved?.();
   }
   // In the air nothing outside the bike can speed up its spin. The wheel
@@ -939,7 +939,7 @@ export function vehicleMetrics(vehicle) {
   };
 }
 
-export function createSimulation({ vehicle, level, facing = 1, hooks = {} }) {
+export function createSimulation({ vehicle, trail, facing = 1, hooks = {} }) {
   let currentFacing = facing < 0 ? -1 : 1;
   let throttle = 0;
   let brakePressure = 0;
@@ -983,7 +983,7 @@ export function createSimulation({ vehicle, level, facing = 1, hooks = {} }) {
     const traction = {};
     const dynamics = stepVehicle(
       vehicle,
-      level,
+      trail,
       {
         facing: currentFacing,
         throttle,
@@ -1031,7 +1031,7 @@ export function createSimulation({ vehicle, level, facing = 1, hooks = {} }) {
 
   return {
     vehicle,
-    level,
+    trail,
     step,
     get facing() {
       return currentFacing;

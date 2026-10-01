@@ -1,18 +1,9 @@
-import { TAU } from "./config.js";
 import { terrainMaterials } from "./materials.js";
-import {
-  terrainAt,
-  curveAt,
-  platformPolygon,
-  pathBounds,
-  terrainGeometry,
-} from "./terrain.js";
+import { terrainAt, terrainGeometry } from "./terrain.js";
 import {
   ART_PIXEL,
   createCanvas,
-  createDrawingTools,
   compositeColor,
-  quantizeToPalette,
   drawStartPennant,
 } from "./drawing.js";
 import {
@@ -34,297 +25,30 @@ const BRICK_COLOR = "#4e2e2a99";
 const materialFor = (name) => terrainMaterials[name] || terrainMaterials.grass;
 
 // ---------------------------------------------------------------------------
-// Legacy terrain
-//
-// Trails that only use the old ground line, platforms and paths keep exactly
-// the art they always had. Anything with blocks is drawn by the rasteriser
-// below, which also draws that trail's legacy terrain as blocks.
-// ---------------------------------------------------------------------------
-
-function levelPalette(level) {
-  const names = new Set([
-    level.terrain,
-    ...(level.platforms || []).map((platform) => platform.material),
-    ...(level.paths || []).map((path) => path.material),
-  ]);
-  // Only real material colours: any entry that is not one lets a blended edge
-  // pixel snap to a shade that belongs to nothing on the level.
-  const colors = [];
-  for (const name of names) {
-    const material = materialFor(name);
-    colors.push(
-      material.fill,
-      material.edge,
-      material.surface,
-      ...material.layers,
-    );
-    if (material.vegetation) colors.push(material.vegetation);
-    colors.push(compositeColor(material.detail, material.fill));
-    if (material.pattern === "brick")
-      colors.push(compositeColor(BRICK_COLOR, material.fill));
-  }
-  return colors;
-}
-
-function solidRanges(level, start, end) {
-  const ranges = [];
-  let cursor = start;
-  for (const gap of level.gaps || []) {
-    if (gap[1] <= cursor || gap[0] >= end) continue;
-    if (gap[0] > cursor) ranges.push([cursor, Math.min(gap[0], end)]);
-    cursor = Math.max(cursor, gap[1]);
-    if (cursor >= end) break;
-  }
-  if (cursor < end) ranges.push([cursor, end]);
-  return ranges;
-}
-
-function groundPath(context, level, left, right, bottom) {
-  context.beginPath();
-  for (const [start, end] of solidRanges(level, left, right)) {
-    if (end <= start) continue;
-    context.moveTo(start, bottom);
-    context.lineTo(start, terrainAt(level, start).y);
-    for (let x = start + 5; x < end; x += 5)
-      context.lineTo(x, terrainAt(level, x).y);
-    context.lineTo(end, terrainAt(level, end).y);
-    context.lineTo(end, bottom);
-    context.closePath();
-  }
-}
-
-function drawBrickPattern(context, start, end, top, bottom) {
-  context.fillStyle = BRICK_COLOR;
-  for (let y = Math.floor(top / 14) * 14; y < bottom; y += 14) {
-    context.fillRect(start, y, end - start, 2);
-    const offset = (Math.floor(y / 14) % 2) * 15;
-    for (let x = Math.floor(start / 30) * 30 + offset; x < end; x += 30)
-      context.fillRect(x, y, 2, 14);
-  }
-}
-
-// A surface edge as one-art-pixel columns: a dark band around the curve with a
-// lighter top line, replacing the old round-joined 7-unit stroke.
-function drawSurfaceEdge(context, points, start, end, material) {
-  const snap = (value) => Math.round(value / ART_PIXEL) * ART_PIXEL;
-  const first = Math.floor(start / ART_PIXEL) * ART_PIXEL;
-  for (let x = first; x < end; x += ART_PIXEL) {
-    const left = Math.max(x, start),
-      right = Math.min(x + ART_PIXEL, end);
-    if (right <= left) continue;
-    const y0 = curveAt(points, left).y,
-      y1 = curveAt(points, right).y;
-    const top = snap(Math.min(y0, y1)),
-      bottom = snap(Math.max(y0, y1));
-    context.fillStyle = material.edge;
-    context.fillRect(x, top - 4, ART_PIXEL, bottom - top + 8);
-    context.fillStyle = material.surface;
-    context.fillRect(x, top - 2, ART_PIXEL, bottom - top + ART_PIXEL);
-  }
-}
-
-function drawGround(context, level, left, right, top, bottom) {
-  const material = materialFor(level.terrain);
-  groundPath(context, level, left, right, bottom);
-  context.fillStyle = material.fill;
-  context.fill();
-  context.save();
-  groundPath(context, level, left, right, bottom);
-  context.clip();
-  if (material.pattern === "brick") {
-    drawBrickPattern(context, left, right, top, bottom);
-  } else {
-    for (let i = 0; i < 4; i++) {
-      context.beginPath();
-      const first = Math.floor(left / 8) * 8;
-      for (let x = first; x < right + 8; x += 8) {
-        const y =
-          terrainAt(level, x).y + 27 + i * 30 + Math.sin(x * 0.022 + i) * 5;
-        if (x === first) context.moveTo(x, y);
-        else context.lineTo(x, y);
-      }
-      context.strokeStyle = material.layers[i % material.layers.length];
-      context.lineWidth = 2;
-      context.stroke();
-    }
-  }
-  context.fillStyle = material.detail;
-  for (let i = Math.floor(left / 31); i < Math.ceil(right / 31); i++) {
-    const x = i * 31 + Math.sin(i * 18) * 9;
-    const y = terrainAt(level, x).y + 16 + (Math.sin(i * 23) + 1) * 34;
-    context.beginPath();
-    context.ellipse(x, y, 2 + (((i % 3) + 3) % 3), 1.5, 0.3, 0, TAU);
-    context.fill();
-  }
-  context.restore();
-
-  for (const [start, end] of solidRanges(level, left, right))
-    drawSurfaceEdge(context, level.points, start, end, material);
-
-  if (material.vegetation) {
-    const { pixelPath } = createDrawingTools(context);
-    for (let i = Math.floor(left / 45); i < Math.ceil(right / 45); i++) {
-      const x = i * 45 + Math.sin(i * 9) * 8,
-        surface = terrainAt(level, x);
-      if (!surface.solid) continue;
-      pixelPath(
-        [
-          [x - 4, surface.y - 2],
-          [x - 4, surface.y - 8],
-          [x, surface.y - 4],
-          [x + 2, surface.y - 10],
-        ],
-        material.vegetation,
-        1,
-        2,
-      );
-    }
-  }
-}
-
-function drawAuthoredPath(context, path) {
-  const material = materialFor(path.material);
-  context.beginPath();
-  path.points.forEach((point, index) =>
-    index
-      ? context.lineTo(point[0], point[1])
-      : context.moveTo(point[0], point[1]),
-  );
-  if (path.closed) context.closePath();
-  context.lineCap = "round";
-  context.lineJoin = "round";
-  const thickness = path.thickness || 32;
-  context.strokeStyle = material.edge;
-  context.lineWidth = thickness + 7;
-  context.stroke();
-  context.strokeStyle = material.surface;
-  context.lineWidth = thickness + 3;
-  context.stroke();
-  context.strokeStyle = material.fill;
-  context.lineWidth = thickness;
-  context.stroke();
-}
-
-function platformPath(context, platform) {
-  context.beginPath();
-  platformPolygon(platform).forEach((point, index) =>
-    index
-      ? context.lineTo(point[0], point[1])
-      : context.moveTo(point[0], point[1]),
-  );
-  context.closePath();
-}
-
-function platformBounds(platform) {
-  const polygon = platformPolygon(platform);
-  const xs = polygon.map((point) => point[0]),
-    ys = polygon.map((point) => point[1]);
-  return {
-    left: Math.min(...xs),
-    right: Math.max(...xs),
-    top: Math.min(...ys),
-    bottom: Math.max(...ys),
-  };
-}
-
-function drawPlatform(context, platform) {
-  const start = platform.points[0][0],
-    end = platform.points.at(-1)[0];
-  const { left, right, top, bottom } = platformBounds(platform);
-  const material = materialFor(platform.material);
-  platformPath(context, platform);
-  context.fillStyle = material.fill;
-  context.fill();
-  context.save();
-  platformPath(context, platform);
-  context.clip();
-  if (material.pattern === "brick") {
-    drawBrickPattern(context, left, right, top, bottom + 8);
-  } else {
-    for (
-      let offset = 16, index = 0;
-      offset < bottom - top;
-      offset += 16, index++
-    ) {
-      context.beginPath();
-      for (let x = left; x <= right; x += 6) {
-        const y = curveAt(platform.points, x).y + offset;
-        if (x === left) context.moveTo(x, y);
-        else context.lineTo(x, y);
-      }
-      context.strokeStyle = material.layers[index % material.layers.length];
-      context.lineWidth = 2;
-      context.stroke();
-    }
-  }
-  context.restore();
-  drawSurfaceEdge(context, platform.points, start, end, material);
-
-  // Same pixel-grass tufts as the ground, on the island's top curve. The ±8
-  // padding covers the jitter so a tuft is never missed at an island edge.
-  if (material.vegetation) {
-    const { pixelPath } = createDrawingTools(context);
-    for (
-      let i = Math.floor((start - 8) / 45);
-      i <= Math.floor((end + 8) / 45);
-      i++
-    ) {
-      const x = i * 45 + Math.sin(i * 9) * 8;
-      if (x < start || x > end) continue;
-      const y = curveAt(platform.points, x).y;
-      pixelPath(
-        [
-          [x - 4, y - 2],
-          [x - 4, y - 8],
-          [x, y - 4],
-          [x + 2, y - 10],
-        ],
-        material.vegetation,
-        1,
-        2,
-      );
-    }
-  }
-}
-
-// Highest point of the base ground curve between `left` and `right`.
-function groundTop(level, left, right) {
-  let top = Infinity;
-  for (let x = left; x < right + 8; x += 8)
-    top = Math.min(top, curveAt(level.points, Math.min(x, right)).y);
-  return top;
-}
-
-// ---------------------------------------------------------------------------
 // Start sign
 // ---------------------------------------------------------------------------
 
 /**
- * Where the start sign stands, or null when there is no ground for it. Legacy
- * trails always put it at x 28; block trails put it the same distance behind
- * the start, on the surface under the start rather than the topmost one.
+ * Where the start sign stands, or null when there is no ground for it: a little
+ * behind the start, on the surface under the start rather than the topmost one.
  */
-function startSignAnchor(level, blocks) {
-  if (!blocks) {
-    if (!Array.isArray(level.points) || level.points.length < 2) return null;
-    return { x: 28, y: terrainAt(level, 28, null).y };
-  }
-  const start = level.start || { x: 90, y: null };
+function startSignAnchor(trail) {
+  const start = trail.start || { x: 90, y: null };
   const x = start.x - 62;
   const surface = terrainAt(
-    level,
+    trail,
     x,
     Number.isFinite(start.y) ? start.y : null,
   );
   return surface.solid ? { x, y: surface.y } : null;
 }
 
-function drawStartSign(context, level, anchor) {
+function drawStartSign(context, trail, anchor) {
   // Look for the ground just above the anchor, so the pole's base follows
   // the slope it stands on.
   const reference = anchor.y - 16;
   drawStartPennant(context, anchor.x, anchor.y, (localX) => {
-    const surface = terrainAt(level, anchor.x + localX, reference);
+    const surface = terrainAt(trail, anchor.x + localX, reference);
     return surface?.solid ? surface.y - anchor.y : 0;
   });
 }
@@ -337,7 +61,7 @@ function drawStartSign(context, level, anchor) {
 // so what is drawn solid is exactly what the wheels touch. A span's top is a
 // floor and gets the grass-and-edge rim; its bottom is a ceiling and a sharp
 // sideways change between columns is a wall, and both get a thin edge. The
-// fill details are measured from the floor above them, like the old ground.
+// fill details are measured from the floor above them.
 // Colours are written straight into the pixel buffer from the palette, so no
 // anti-aliasing ever has to be quantised away.
 // ---------------------------------------------------------------------------
@@ -537,7 +261,7 @@ export function rasterizeTerrainChunk(
         single ||
         materialColors((bodyIn(own, span.top + 0.01) || span.topBody).material);
 
-      // Rim overhanging the floor into the air, as the old ground's did.
+      // Rim overhanging the floor into the air.
       const airFirst = Math.max(0, rowAt(Math.max(rimTop - 4, above)));
       const airLast = Math.min(height, rowAt(span.top));
       for (let row = airFirst; row < airLast; row++) {
@@ -696,7 +420,7 @@ function wallShade(colors, reach, lit, faceColumn, y, pixel) {
   return null;
 }
 
-// Pebbles hang below the floor above them, like the old ground's, and repeat
+// Pebbles hang below the floor above them, and repeat
 // all the way down so a tall face is never left bare.
 function drawPebbles(
   compiled,
@@ -831,7 +555,7 @@ function drawCliffLips(
 }
 
 // Grass tufts on every gentle, open floor of a material that grows them,
-// including cave floors, drawn with the same pixel lines as the old ground's.
+// including cave floors, drawn with pixel lines.
 function drawTufts(compiled, originX, worldRight, pixel, column0, row0, put) {
   for (
     let i = Math.floor((originX - 16) / 45);
@@ -942,52 +666,9 @@ function changedColumns(before, after) {
 }
 
 export function createTerrainRenderer() {
-  let currentLevel = null;
+  let currentTrail = null;
   let currentGeometry = null;
   let chunks = new Map();
-  let palette = [];
-
-  function buildLegacyChunk(level, originX, originY) {
-    const left = originX - CHUNK_MARGIN,
-      right = originX + CHUNK_SIZE + CHUNK_MARGIN;
-    const top = originY - CHUNK_MARGIN,
-      bottom = originY + CHUNK_SIZE + CHUNK_MARGIN;
-    const overlaps = (bounds) =>
-      !(
-        bounds.right + 8 < left ||
-        bounds.left - 8 > right ||
-        bounds.bottom + 8 < top ||
-        bounds.top - 8 > bottom
-      );
-    const paths = (level.paths || []).filter((path) =>
-      overlaps(pathBounds(path)),
-    );
-    const platforms = (level.platforms || []).filter((platform) =>
-      overlaps(platformBounds(platform)),
-    );
-    const hasGround = Array.isArray(level.points) && level.points.length >= 2;
-    // Tall levels have many chunks of open sky; skip them before allocating
-    // or quantizing anything. Ground art reaches up to 12 units above its curve.
-    const groundVisible =
-      hasGround && groundTop(level, left, right) - 16 <= bottom;
-    if (!paths.length && !platforms.length && !groundVisible) return null;
-    const canvas = createCanvas(CHUNK_PIXELS, CHUNK_PIXELS);
-    const context = canvas.getContext("2d", { willReadFrequently: true });
-    context.setTransform(
-      1 / ART_PIXEL,
-      0,
-      0,
-      1 / ART_PIXEL,
-      -originX / ART_PIXEL,
-      -originY / ART_PIXEL,
-    );
-    if (hasGround) drawGround(context, level, left, right, top, bottom);
-    for (const path of paths) drawAuthoredPath(context, path);
-    for (const platform of platforms) drawPlatform(context, platform);
-    return quantizeToPalette(context, CHUNK_PIXELS, CHUNK_PIXELS, palette)
-      ? canvas
-      : null;
-  }
 
   function buildBlockChunk(geometry, originX, originY) {
     const raster = rasterizeTerrainChunk(
@@ -1009,20 +690,21 @@ export function createTerrainRenderer() {
     return canvas;
   }
 
-  // On block trails the sign follows the start, which the editor moves
-  // without touching the terrain, so it is drawn live rather than baked in.
+  // The sign follows the start, which the editor moves without touching the
+  // terrain, so it is drawn live rather than baked in.
   let signKey = "",
     signAnchor = null;
-  function blockSign(level) {
-    const key = `${level.start?.x}|${level.start?.y}`;
+  function startSign(trail) {
+    if (!currentGeometry) return null;
+    const key = `${trail.start?.x}|${trail.start?.y}`;
     if (key !== signKey) {
       signKey = key;
-      signAnchor = startSignAnchor(level, currentGeometry);
+      signAnchor = startSignAnchor(trail);
     }
     return signAnchor;
   }
 
-  function chunk(level, column, row) {
+  function chunk(column, row) {
     const key = column + "," + row;
     if (chunks.has(key)) {
       const cached = chunks.get(key);
@@ -1034,26 +716,26 @@ export function createTerrainRenderer() {
       originY = row * CHUNK_SIZE;
     const built = currentGeometry
       ? buildBlockChunk(currentGeometry, originX, originY)
-      : buildLegacyChunk(level, originX, originY);
+      : null;
     chunks.set(key, built);
     if (chunks.size > CHUNK_LIMIT) chunks.delete(chunks.keys().next().value);
     return built;
   }
 
   // Draws every chunk overlapping the view. `ctx` must already map world units.
-  // The compiled terrain is cached per level and replaced whenever the level is
+  // The compiled terrain is cached per trail and replaced whenever the trail is
   // invalidated, so an edit is noticed here without the caller doing anything,
   // and only the chunks in the columns it changed are drawn again.
-  function draw(ctx, level, viewX, viewY, width, height) {
-    if (level !== currentLevel) invalidate(level);
-    else refresh(level);
+  function draw(ctx, trail, viewX, viewY, width, height) {
+    if (trail !== currentTrail) invalidate(trail);
+    else refresh(trail);
     const firstColumn = Math.floor(viewX / CHUNK_SIZE),
       lastColumn = Math.floor((viewX + width) / CHUNK_SIZE);
     const firstRow = Math.floor(viewY / CHUNK_SIZE),
       lastRow = Math.floor((viewY + height) / CHUNK_SIZE);
     for (let row = firstRow; row <= lastRow; row++) {
       for (let column = firstColumn; column <= lastColumn; column++) {
-        const image = chunk(level, column, row);
+        const image = chunk(column, row);
         if (image)
           ctx.drawImage(
             image,
@@ -1064,17 +746,15 @@ export function createTerrainRenderer() {
           );
       }
     }
-    const sign = currentGeometry
-      ? blockSign(level)
-      : startSignAnchor(level, null);
-    if (sign) drawStartSign(ctx, level, sign);
+    const sign = startSign(trail);
+    if (sign) drawStartSign(ctx, trail, sign);
   }
 
-  function refresh(level) {
-    const geometry = level ? terrainGeometry(level) : null;
+  function refresh(trail) {
+    const geometry = trail ? terrainGeometry(trail) : null;
     if (geometry === currentGeometry) return;
     if (!geometry || !currentGeometry) {
-      invalidate(level);
+      invalidate(trail);
       return;
     }
     const previous = currentGeometry;
@@ -1094,12 +774,11 @@ export function createTerrainRenderer() {
     }
   }
 
-  function invalidate(level = null) {
-    currentLevel = level;
-    currentGeometry = level ? terrainGeometry(level) : null;
+  function invalidate(trail = null) {
+    currentTrail = trail;
+    currentGeometry = trail ? terrainGeometry(trail) : null;
     chunks = new Map();
     signKey = "";
-    palette = level && !currentGeometry ? levelPalette(level) : [];
   }
 
   return { draw, invalidate };

@@ -10,7 +10,7 @@ export function createCamera() {
     kick(amount) { camera.shake = Math.min(10, Math.max(camera.shake, amount)); },
     /**
      * @param {{ x: number, y: number }} focus
-     * Levels have no height limit: the view rises as far as the rider climbs,
+     * Trails have no height limit: the view rises as far as the rider climbs,
      * and only stops sinking a little below `fallY`, where the bike is lost.
      * @param {{ facing: number, loose: boolean, width: number, height: number, dt: number, fallY: number, minX?: number }} options
      */

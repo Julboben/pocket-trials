@@ -13,7 +13,7 @@ import { STEP, TAU } from '../js/config.js';
 import { createRide, stepRide, simulateRun } from '../js/ride.js';
 import { encodeInputs } from '../js/replay-codec.js';
 import { terrainAt } from '../js/terrain.js';
-import { loadCatalogLevels, repoRoot } from './lib/levels.mjs';
+import { loadCatalogTrails, repoRoot } from './lib/trails.mjs';
 
 const DECISION_STEPS = 12;
 const HORIZONS = [36, 90, 180];
@@ -31,8 +31,8 @@ for (const leanInput of [-1, -.5, 0, .5, 1]) {
 }
 
 function cloneRide(ride) {
-  const { level, random, ...rest } = ride;
-  return { ...structuredClone(rest), level, random };
+  const { trail, random, ...rest } = ride;
+  return { ...structuredClone(rest), trail, random };
 }
 
 function target(ride) {
@@ -42,7 +42,7 @@ function target(ride) {
     if (apple.taken) continue;
     if (!best || Math.abs(apple.x - mx) < Math.abs(best.x - mx)) best = apple;
   }
-  return best || { x: ride.level.goal + 40, y: terrainAt(ride.level, ride.level.goal).y - 30 };
+  return best || { x: ride.trail.goal + 40, y: terrainAt(ride.trail, ride.trail.goal).y - 30 };
 }
 
 function score(ride, goalTarget, crashedAt) {
@@ -51,22 +51,11 @@ function score(ride, goalTarget, crashedAt) {
   let value = ride.collected * 1e6;
   value -= Math.abs(goalTarget.x - mx) + Math.max(0, Math.abs(goalTarget.y - my) - 40) * .5;
   const angle = Math.atan2(ride.front.y - ride.rear.y, ride.front.x - ride.rear.x) * ride.facing;
-  const ground = terrainAt(ride.level, mx, my);
+  const ground = terrainAt(ride.trail, mx, my);
   const tilt = Math.atan2(Math.sin(angle - Math.atan(ground.slope || 0)), Math.cos(angle - Math.atan(ground.slope || 0)));
   value -= Math.abs(tilt) * 25;
   if (crashedAt !== null) value -= 1e5 - crashedAt * 100;
   return value;
-}
-
-// Below both lips of a gap the fall is certain even before the crash triggers.
-function doomed(ride) {
-  const mx = (ride.rear.x + ride.front.x) / 2, my = (ride.rear.y + ride.front.y) / 2;
-  for (const [from, to] of ride.level.gaps || []) {
-    if (mx <= from || mx >= to) continue;
-    const lip = Math.max(terrainAt(ride.level, from - 1).y, terrainAt(ride.level, to + 1).y);
-    if (my > lip + 40) return true;
-  }
-  return false;
 }
 
 function evaluate(ride, facing, candidate, horizon) {
@@ -76,7 +65,7 @@ function evaluate(ride, facing, candidate, horizon) {
   let crashedAt = null;
   for (let step = 0; step < horizon; step++) {
     stepRide(probe, input);
-    if (probe.status === 'crashed' || doomed(probe)) { crashedAt = step; break; }
+    if (probe.status === 'crashed') { crashedAt = step; break; }
     if (probe.status === 'won') break;
     if (probe.collected > ride.collected) break;
   }
@@ -84,8 +73,8 @@ function evaluate(ride, facing, candidate, horizon) {
 }
 
 function recordTrail(entry) {
-  const level = entry.level;
-  let ride = createRide(level);
+  const trail = entry.trail;
+  let ride = createRide(trail);
   const inputs = [];
   // One frame per committed decision; each remembers the options that crashed from there.
   const stack = [{ ride: cloneRide(ride), length: 0, banned: new Set(), chosen: -1 }];
@@ -138,7 +127,7 @@ function recordTrail(entry) {
       stepRide(ride, input);
       inputs.push(input);
     }
-    if (ride.status === 'crashed' || doomed(ride)) {
+    if (ride.status === 'crashed') {
       backtracks++;
       frame.banned.add(best.index);
       restore(frame);
@@ -152,11 +141,11 @@ function recordTrail(entry) {
 
 const filter = process.argv[2] || '';
 mkdirSync(OUT_DIR, { recursive: true });
-for (const entry of loadCatalogLevels('official')) {
+for (const entry of loadCatalogTrails('official')) {
   if (!entry.id.includes(filter)) continue;
   const started = Date.now();
   const { inputs, backtracks } = recordTrail(entry);
-  const { ride, events } = simulateRun(entry.level, inputs);
+  const { ride, events } = simulateRun(entry.trail, inputs);
   const flips = events.filter(event => event.type === 'flip').reduce((sum, event) => sum + event.count, 0);
   const replay = {
     trail: entry.id,

@@ -104,7 +104,6 @@ export const XPBD_COAST_SPEED_REFERENCE = 140;
 export const XPBD_CONTACT_RESTITUTION_SCALE = .03;
 export const CONTACT_GROUNDED_NORMAL = -.35;
 export const CONTACT_RESTITUTION_SPEED = 35;
-export const TERRAIN_SAMPLE_SPACING = 2;
 
 export const clamp = (number, minimum, maximum) => Math.max(minimum, Math.min(maximum, number));
 export const lerp = (start, end, amount) => start + (end - start) * amount;

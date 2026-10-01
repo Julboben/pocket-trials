@@ -1,6 +1,6 @@
 // @ts-check
 // The finish is a flower the bike has to touch, not a line it has to cross.
-// Only geometry lives here so the ride, the level checks and the editor all
+// Only geometry lives here so the ride, the trail checks and the editor all
 // agree on where the flower is and what counts as hitting it.
 import { RADIUS } from './config.js';
 import { hypot } from './det-math.js';

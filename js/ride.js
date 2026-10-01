@@ -20,12 +20,12 @@ import {
   terrainCollisionsAt,
   terrainSweepCollision,
 } from "./terrain.js";
-import { normalizeSpike, finishFlower } from "./level-schema.js";
+import { normalizeSpike, finishFlower } from "./trail-schema.js";
 import { bikeTouchesFlower } from "./finish.js";
 import { createRagdoll, stepRagdoll } from "./ragdoll.js";
 import { atan2, cos, exp, hypot, sin } from "./det-math.js";
 
-/** @typedef {import('./types.js').Level} Level */
+/** @typedef {import('./types.js').Trail} Trail */
 /** @typedef {import('./types.js').RideInput} RideInput */
 /** @typedef {import('./types.js').RideEvent} RideEvent */
 /** @typedef {import('./types.js').Ride} Ride */
@@ -56,8 +56,8 @@ export function seededRandom(seed = 1) {
   };
 }
 
-function makeWheel(level, x, startY) {
-  const y = startY ?? terrainAt(level, x).y - RADIUS;
+function makeWheel(trail, x, startY) {
+  const y = startY ?? terrainAt(trail, x).y - RADIUS;
   return {
     x,
     y,
@@ -66,7 +66,7 @@ function makeWheel(level, x, startY) {
     inverseMass: 1,
     grounded: true,
     contact: null,
-    material: level.terrain || "grass",
+    material: trail.terrain || "grass",
     spin: 0,
     angularVelocity: 0,
     compression: 0,
@@ -75,28 +75,28 @@ function makeWheel(level, x, startY) {
 }
 
 /**
- * @param {Level} level
+ * @param {Trail} trail
  * @param {{ seed?: number }} [options]
  * @returns {Ride}
  */
-export function createRide(level, { seed = 1 } = {}) {
-  const { x: startX, y: startY, facing } = level.start;
-  const rear = makeWheel(level, startX - WHEELBASE / 2, startY);
-  const front = makeWheel(level, startX + WHEELBASE / 2, startY);
+export function createRide(trail, { seed = 1 } = {}) {
+  const { x: startX, y: startY, facing } = trail.start;
+  const rear = makeWheel(trail, startX - WHEELBASE / 2, startY);
+  const front = makeWheel(trail, startX + WHEELBASE / 2, startY);
   /** @type {Ride} */
   const ride = {
-    level,
+    trail,
     rear,
     front,
     vehicle: createVehicle(rear, front),
-    flower: finishFlower(level),
-    apples: level.apples.map((apple) => ({
+    flower: finishFlower(trail),
+    apples: trail.apples.map((apple) => ({
       x: apple.x,
-      y: Number.isFinite(apple.y) ? apple.y : terrainAt(level, apple.x).y - 60,
+      y: Number.isFinite(apple.y) ? apple.y : terrainAt(trail, apple.x).y - 60,
       taken: false,
     })),
-    spikes: (level.spikes || []).map((spike) =>
-      normalizeSpike(spike, level.points || null, terrainAt(level, Number(spike?.x) || 0)?.y ?? null),
+    spikes: (trail.spikes || []).map((spike) =>
+      normalizeSpike(spike, terrainAt(trail, Number(spike?.x) || 0)?.y ?? null),
     ),
     seed,
     random: seededRandom(seed),
@@ -255,7 +255,7 @@ export function stepRide(ride, input = {}, hooks = {}) {
   /** @type {RideEvent[]} */
   const events = [];
   if (ride.status === "won") return events;
-  const { level, rear, front } = ride;
+  const { trail, rear, front } = ride;
   const running = ride.status === "running";
   if (Number(input.facing)) ride.facing = input.facing < 0 ? -1 : 1;
   const leanInput = running ? clamp(Number(input.leanInput) || 0, -1, 1) : 0;
@@ -305,7 +305,7 @@ export function stepRide(ride, input = {}, hooks = {}) {
   front.impactSpeed = 0;
   stepVehicle(
     ride.vehicle,
-    level,
+    trail,
     {
       facing: ride.facing,
       throttle: ride.throttle,
@@ -327,7 +327,7 @@ export function stepRide(ride, input = {}, hooks = {}) {
   if (landingImpact > 0) events.push({ type: "land", impact: landingImpact });
 
   if (!running) {
-    stepRagdoll(ride.ragdoll, level);
+    stepRagdoll(ride.ragdoll, trail);
     return events;
   }
 
@@ -341,14 +341,14 @@ export function stepRide(ride, input = {}, hooks = {}) {
     if (
       (previous &&
         terrainSweepCollision(
-          level,
+          trail,
           previous.x,
           previous.y,
           point.x,
           point.y,
           point.radius,
         )) ||
-      terrainCollisionsAt(level, point.x, point.y, point.radius)[0]
+      terrainCollisionsAt(trail, point.x, point.y, point.radius)[0]
     ) {
       riderObstacle = true;
       break;
@@ -370,7 +370,7 @@ export function stepRide(ride, input = {}, hooks = {}) {
     crash(ride, "head", head.x, head.y, events);
     return events;
   }
-  if (my > (level.fallY || 620)) {
+  if (my > (trail.fallY || 620)) {
     crash(ride, "fall", head.x, head.y, events);
     return events;
   }
@@ -451,11 +451,11 @@ export function interpolateRide(ride, alpha) {
 
 /**
  * Runs recorded inputs to completion and reports the outcome.
- * @param {Level} level
+ * @param {Trail} trail
  * @param {RideInput[]} inputs
  */
-export function simulateRun(level, inputs, { seed = 1, settleSteps = 0 } = {}) {
-  const ride = createRide(level, { seed });
+export function simulateRun(trail, inputs, { seed = 1, settleSteps = 0 } = {}) {
+  const ride = createRide(trail, { seed });
   const events = [];
   let maxSpeed = 0,
     finite = true;

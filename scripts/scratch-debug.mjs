@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs";
-import { normalizeLevel } from "../js/level-schema.js";
+import { normalizeTrail } from "../js/trail-schema.js";
 import { flattenBoundary } from "../js/terrain-geometry.js";
 import { terrainAt } from "../js/terrain.js";
 import { propAlignmentSlope, propGroundOffset } from "../js/drawing.js";
 
-const raw = JSON.parse(readFileSync(new URL("../levels/custom/the-orchard-copy.json", import.meta.url)));
-const level = normalizeLevel(raw);
-const region = level.terrainBlocks[0].regions[0];
+const raw = JSON.parse(readFileSync(new URL("../trails/custom/the-orchard-copy.json", import.meta.url)));
+const trail = normalizeTrail(raw);
+const region = trail.terrainBlocks[0].regions[0];
 const pts = flattenBoundary(region.outer).points;
 
 // 1. Strata: the game draws them at surface(x) + const. How jagged is that?
@@ -36,10 +36,10 @@ for (let i = 0; i < pts.length; i++) {
 
 // 3. Prop ground offsets: does anything stretch?
 console.log("\nprop offsets (a stretched prop has a large spread):");
-for (const prop of level.props) {
-  const o = propGroundOffset(level, prop);
+for (const prop of trail.props) {
+  const o = propGroundOffset(trail, prop);
   const spread = Math.max(...[-20, 0, 20].map(x => o(x))) - Math.min(...[-20, 0, 20].map(x => o(x)));
-  const slope = propAlignmentSlope(level, prop);
+  const slope = propAlignmentSlope(trail, prop);
   if (spread > 1 || Math.abs(slope) > 0.01) {
     console.log(`  ${prop.type} at (${Math.round(prop.x)}, ${prop.y}) slope ${slope.toFixed(3)} offset spread ${spread.toFixed(1)}`);
   }

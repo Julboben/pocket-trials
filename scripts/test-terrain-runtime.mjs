@@ -1,4 +1,4 @@
-// The runtime half of the unified terrain: the compiled geometry that physics
+// The runtime half of the terrain: the compiled geometry that physics
 // and surface queries read, covering the plan's Runtime acceptance criteria.
 import {
   compileTerrain, terrainContacts, terrainSweep, terrainSurfaceBelow, terrainSurfaceNear,
@@ -11,12 +11,12 @@ const check = (label, condition) => {
   if (!condition) { failures++; console.log("FAIL", label); }
   else console.log("ok  ", label);
 };
-const level = blocks => ({ terrainBlocks: blocks, fallY: 2000 });
+const trail = blocks => ({ terrainBlocks: blocks, fallY: 2000 });
 const R = 12;
 
 // 1. A solid block: floor, walls, and ceiling all collide.
 {
-  const ground = level([rectangleBlock(-200, 500, 2000, 1500)]);
+  const ground = trail([rectangleBlock(-200, 500, 2000, 1500)]);
   const compiled = compileTerrain(ground);
   const floor = terrainContacts(compiled, 100, 490, R)[0];
   check("floor pushes up", floor && floor.ny < -0.9);
@@ -38,7 +38,7 @@ const R = 12;
 // 2. A cave: floor, ceiling, and walls, and no contact with the roof above.
 {
   const holed = cutBlock(rectangleBlock(-200, 500, 2000, 1500), [[600, 700], [1400, 700], [1400, 1200], [600, 1200]]);
-  const compiled = compileTerrain(level([holed.block]));
+  const compiled = compileTerrain(trail([holed.block]));
   check("cave ceiling does not push a rider below it",
     terrainContacts(compiled, 1000, 900, R).length === 0);
   // The cave spans y 700 (ceiling) to 1200 (floor) between x 600 and 1400.
@@ -60,7 +60,7 @@ const R = 12;
 {
   const host = cutBlock(rectangleBlock(-200, 500, 2000, 1500), [[600, 700], [1400, 700], [1400, 1200], [600, 1200]]);
   const island = rectangleBlock(900, 900, 1100, 1000);
-  const compiled = compileTerrain(level([host.block, island]));
+  const compiled = compileTerrain(trail([host.block, island]));
   check("nested island is solid", terrainSolidAt(compiled, 1000, 950));
   check("cave is empty around the island", !terrainSolidAt(compiled, 700, 950));
   const islandTop = terrainContacts(compiled, 1000, 890, R)[0];
@@ -71,7 +71,7 @@ const R = 12;
 
 // 4. Overlapping blocks leave no internal collision barrier.
 {
-  const compiled = compileTerrain(level([
+  const compiled = compileTerrain(trail([
     rectangleBlock(-200, 500, 2000, 1500),
     rectangleBlock(400, 400, 1600, 600),
   ]));
@@ -86,14 +86,14 @@ const R = 12;
 {
   const host = cutBlock(rectangleBlock(-200, 500, 2000, 1500), [[600, 700], [1400, 700], [1400, 1200], [600, 1200]]);
   const island = rectangleBlock(900, 900, 1100, 1000);
-  const before = terrainSurfaceBelow(compileTerrain(level([host.block, island])), 1000, 880);
-  const after = terrainSurfaceBelow(compileTerrain(level([{ ...host.block, regions: host.block.regions }, island])), 1000, 880);
+  const before = terrainSurfaceBelow(compileTerrain(trail([host.block, island])), 1000, 880);
+  const after = terrainSurfaceBelow(compileTerrain(trail([{ ...host.block, regions: host.block.regions }, island])), 1000, 880);
   check("a nested block is independent of its host", before.y === after.y);
 }
 
 // 6. Swept collisions still work against the compiled geometry.
 {
-  const compiled = compileTerrain(level([rectangleBlock(-200, 500, 2000, 1500)]));
+  const compiled = compileTerrain(trail([rectangleBlock(-200, 500, 2000, 1500)]));
   const hit = terrainSweep(compiled, 100, 100, 100, 495, R);
   check("a fast drop sweeps into the floor", hit && hit.ny < -0.9);
   check("swept contact reports the surface", hit && hit.pointY === 500);
@@ -105,7 +105,7 @@ const R = 12;
 
 // 7. Surfaces and shadow samples.
 {
-  const compiled = compileTerrain(level([
+  const compiled = compileTerrain(trail([
     rectangleBlock(-200, 500, 600, 1500),
     rectangleBlock(800, 500, 2000, 1500),
   ]));
@@ -128,7 +128,7 @@ const R = 12;
     { x: 600, y: 1500, edge: "straight" },
     { x: 0, y: 1500, edge: "straight" },
   ] }, inner: [] }] });
-  const compiled = compileTerrain(level([curved]));
+  const compiled = compileTerrain(trail([curved]));
   const crest = terrainSurfaceBelow(compiled, 300, 300);
   check("a curve bulges away from its endpoints", crest && crest.y < 500);
   const contact = terrainContacts(compiled, 300, crest.y + 10, R)[0];
@@ -143,7 +143,7 @@ const R = 12;
 // 9. A block split into disconnected regions is still one block.
 {
   const split = cutBlock(rectangleBlock(-200, 500, 2000, 1500), [[900, 400], [920, 400], [920, 1600], [900, 1600]]);
-  const compiled = compileTerrain(level([split.block]));
+  const compiled = compileTerrain(trail([split.block]));
   check("both sides of a split are solid", terrainSolidAt(compiled, 500, 700) && terrainSolidAt(compiled, 1400, 700));
   check("the split is a gap", !terrainSolidAt(compiled, 910, 700));
   check("the split gap has a left wall", terrainContacts(compiled, 890, 700, R)[0]?.nx > 0.9);
@@ -153,7 +153,7 @@ const R = 12;
 // 10. An entrance: a tunnel cut in from the outside, with a roof above it.
 {
   const entrance = cutBlock(rectangleBlock(-200, 500, 2000, 1500), [[-400, 800], [700, 800], [700, 1000], [-400, 1000]]);
-  const compiled = compileTerrain(level([entrance.block]));
+  const compiled = compileTerrain(trail([entrance.block]));
   check("the entrance mouth is open", !terrainSolidAt(compiled, -150, 900));
   check("the tunnel is open", !terrainSolidAt(compiled, 400, 900));
   check("the roof over the tunnel is solid", terrainSolidAt(compiled, 400, 700));

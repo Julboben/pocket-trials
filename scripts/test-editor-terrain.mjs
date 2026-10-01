@@ -1,12 +1,11 @@
 // Exercises the editor's terrain logic headlessly, without a browser, by
 // reimplementing only the pure decisions it makes. This catches the mistakes
 // that syntax checking cannot: a cut that changes the wrong block, a move that
-// drops a cave, a clear that takes the blocks with it.
+// drops a cave, a material change that misses a block.
 import assert from 'node:assert/strict';
 import {
-  normalizeLevel, createBlankLevel, clearLegacyTerrain, hasLegacyTerrain,
-  createBlankTerrainBlocks, levelTerrain, levelTerrainBlocks,
-} from '../js/level-schema.js';
+  normalizeTrail, createBlankTrail, createBlankTerrainBlocks, trailTerrainBlocks,
+} from '../js/trail-schema.js';
 import { cutBlock, moveBlock, pointInRegion, regionArea, normalizeBlocks } from '../js/terrain-geometry.js';
 import { compileTerrain, terrainSolidAt, terrainSurfaceBelow, terrainContacts } from '../js/terrain-runtime.js';
 import { RADIUS } from '../js/config.js';
@@ -22,27 +21,24 @@ const commitCut = (blocks, points) => {
   return { changed, blocks: next };
 };
 
-// Mirrors clearLegacyTerrain() followed by normalizeLevel().
-const cleared = level => normalizeLevel(clearLegacyTerrain(level));
-
 // 1. Drawing a block adds one block and nothing else.
 {
-  const level = normalizeLevel(createBlankLevel());
-  const before = level.terrainBlocks.length;
+  const trail = normalizeTrail(createBlankTrail());
+  const before = trail.terrainBlocks.length;
   const block = normalizeBlocks([{ material: 'grass', regions: [{ outer: { nodes: [
     { x: 100, y: 100, edge: 'straight' }, { x: 300, y: 100, edge: 'straight' },
     { x: 300, y: 200, edge: 'straight' }, { x: 100, y: 200, edge: 'straight' },
   ] }, inner: [] }] }], 'grass')[0];
-  level.terrainBlocks = [...level.terrainBlocks, block];
-  assert.equal(level.terrainBlocks.length, before + 1);
-  const terrain = compileTerrain({ terrainBlocks: levelTerrain(level) });
+  trail.terrainBlocks = [...trail.terrainBlocks, block];
+  assert.equal(trail.terrainBlocks.length, before + 1);
+  const terrain = compileTerrain({ terrainBlocks: trailTerrainBlocks(trail) });
   assert.ok(terrainSolidAt(terrain, 200, 150), 'the new block is solid');
 }
 
 // 2. A cut inside solid opens a cave; the block stays one block.
 {
-  const level = normalizeLevel(clearLegacyTerrain({ ...createBlankLevel(), terrainBlocks: createBlankTerrainBlocks() }));
-  const { changed, blocks } = commitCut(level.terrainBlocks, [[400, 340], [700, 340], [700, 460], [400, 460]]);
+  const trail = normalizeTrail(createBlankTrail());
+  const { changed, blocks } = commitCut(trail.terrainBlocks, [[400, 340], [700, 340], [700, 460], [400, 460]]);
   assert.ok(changed, 'the cut changes the block');
   assert.equal(blocks.length, 1, 'a cave does not create a new block');
   const terrain = compileTerrain({ terrainBlocks: blocks });
@@ -128,81 +124,40 @@ const cleared = level => normalizeLevel(clearLegacyTerrain(level));
   );
 }
 
-// 8. Clearing the legacy terrain keeps the blocks and removes everything else.
-{
-  const level = normalizeLevel({
-    ...createBlankLevel(),
-    points: [[0, 700], [1600, 700]],
-    platforms: [{ points: [[100, 200], [200, 200]], bottom: [[100, 240], [200, 240]], material: 'rock' }],
-    paths: [{ points: [[300, 300], [400, 250], [500, 300]], closed: true, thickness: 24 }],
-    terrainBlocks: createBlankTerrainBlocks(),
-  });
-  assert.ok(hasLegacyTerrain(level), 'the level starts with legacy terrain');
-  const terrainBefore = compileTerrain({ terrainBlocks: levelTerrain(level) });
-  assert.ok(terrainSolidAt(terrainBefore, 1000, 750), 'the legacy ground is solid before clearing');
-
-  const after = cleared(level);
-  assert.equal(hasLegacyTerrain(after), false, 'no legacy terrain after clearing');
-  assert.equal(after.terrainBlocks.length, 1, 'the blocks survive the clear');
-  assert.equal(after.points, undefined, 'the ground line is gone');
-  assert.equal(after.platforms, undefined, 'the islands are gone');
-  assert.equal(after.paths, undefined, 'the paths are gone');
-  // Everything that was not a block is genuinely gone from the solids.
-  const terrainAfter = compileTerrain({ terrainBlocks: levelTerrain(after) });
-  assert.ok(terrainSolidAt(terrainAfter, 600, 400), 'the block is still solid');
-  assert.ok(!terrainSolidAt(terrainAfter, 150, 220), 'the old island is gone');
-  assert.ok(!terrainSolidAt(terrainAfter, 400, 300), 'the old path is gone');
-  assert.deepEqual(after.apples, level.apples, 'objects are untouched by the clear');
-}
-
-// Mirrors the base-material handler in editor.js: the level's base changes and
+// Mirrors the base-material handler in editor.js: the trail's base changes and
 // so does every block still sitting on the old base.
-const applyBaseMaterial = (level, value) => {
-  const previous = level.terrain;
-  if (value === previous) return level;
-  const next = level.terrainBlocks.map(block =>
+const applyBaseMaterial = (trail, value) => {
+  const previous = trail.terrain;
+  if (value === previous) return trail;
+  const next = trail.terrainBlocks.map(block =>
     block.material === previous ? { ...block, material: value } : block,
   );
-  if (!next.some((block, index) => block !== level.terrainBlocks[index]))
-    return { ...level, terrain: value };
-  return { ...level, terrain: value, terrainBlocks: next };
+  if (!next.some((block, index) => block !== trail.terrainBlocks[index]))
+    return { ...trail, terrain: value };
+  return { ...trail, terrain: value, terrainBlocks: next };
 };
 
-// 9. A half-rebuilt level is playable: both kinds of terrain are solid at once.
+// 8. Changing the base material repaints the ground blocks that use it.
 {
-  const level = normalizeLevel({
-    ...createBlankLevel(),
-    points: [[0, 700], [1600, 700]],
-    terrainBlocks: createBlankTerrainBlocks(),
-  });
-  const terrain = compileTerrain({ terrainBlocks: levelTerrain(level) });
-  assert.ok(terrainSolidAt(terrain, 600, 400), 'the new block is solid');
-  assert.ok(terrainSolidAt(terrain, 1000, 750), 'the legacy ground is still solid');
-  assert.deepEqual(normalizeLevel(after2(level)), level, 'and it still normalizes idempotently');
-  function after2(value) { return value; }
-}
-
-// 10. Changing the base material repaints the ground blocks that use it.
-{
-  const level = normalizeLevel({
-    ...createBlankLevel(),
+  const trail = normalizeTrail({
+    ...createBlankTrail(),
     terrain: 'grass',
     terrainBlocks: [
       { ...createBlankTerrainBlocks()[0], id: 'ground', material: 'grass' },
       { ...createBlankTerrainBlocks()[0], id: 'brickwork', material: 'brick' },
     ],
   });
-  assert.equal(level.terrainBlocks[0].material, 'grass', 'the level starts on grass');
+  assert.equal(trail.terrainBlocks[0].material, 'grass', 'the trail starts on grass');
 
-  const sandy = normalizeLevel(applyBaseMaterial(level, 'sand'));
+  const sandy = normalizeTrail(applyBaseMaterial(trail, 'sand'));
   assert.equal(sandy.terrain, 'sand', 'the base is the new material');
   assert.equal(sandy.terrainBlocks[0].material, 'sand', 'a block on the old base follows it');
   assert.equal(sandy.terrainBlocks[1].material, 'brick', 'a block set to brick keeps it');
-  assert.equal(level.terrainBlocks[0].material, 'grass', 'the original level is untouched');
+  assert.equal(trail.terrainBlocks[0].material, 'grass', 'the original trail is untouched');
 
-  // A level with no blocks still changes its base, so new blocks pick it up.
-  const bare = normalizeLevel(applyBaseMaterial(normalizeLevel(createBlankLevel()), 'snow'));
-  assert.equal(bare.terrain, 'snow', 'a blockless level still takes the new base');
+  // A trail with no blocks still changes its base, so new blocks pick it up.
+  const bare = normalizeTrail(applyBaseMaterial(normalizeTrail({ ...createBlankTrail(), terrainBlocks: [] }), 'snow'));
+  assert.equal(bare.terrain, 'snow', 'a blockless trail still takes the new base');
   assert.equal((bare.terrainBlocks || []).length, 0, 'and gains no blocks');
 }
 
