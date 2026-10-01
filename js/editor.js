@@ -179,7 +179,7 @@ const materialOptions = () => [
 const TOOL_INFO = {
   select: {
     title: "Select",
-    hint: "Click a block to move it, or a point on its edge to move just that point; a selected point shows its curve handles. Alt-click an edge or inside a cave to select that whole ring, and Shift-click blocks to select several. Hold Shift while dragging a point or curve handle to lock it to 15° steps from its neighbour and to the grid. Double-click an edge to add a point, Delete removes the selection, and Escape backs out. Empty cave space selects nothing, so a cave never picks the block around it. Shortcuts: V B C A S P G F H pick tools, arrows nudge (Shift ×10), Alt-drag duplicates what you drag (Alt-click still selects a whole ring), [ ] change prop type, = − 0 zoom, Home returns to the start. Drag from empty space (or Cmd/Ctrl-drag anywhere) to box-select points, apples, props and spikes; Shift adds to the selection, and Delete removes them all.",
+    hint: "Click a block to move it, or a point on its edge to move just that point; a selected point shows its curve handles. Alt-click an edge or inside a cave to select that whole ring, and Shift-click blocks to select several. Hold Shift while dragging a point or curve handle to lock it to 15° steps from its neighbour and to the grid. Double-click an edge to add a point, Delete removes the selection, and Escape backs out. Empty cave space selects nothing, so a cave never picks the block around it. Shortcuts: V B C A S P G F H pick tools, arrows nudge (Shift ×10), Alt-drag duplicates what you drag (Alt-click still selects a whole ring), [ ] change prop type, = − 0 zoom, Home returns to the start. Drag from empty space (or Cmd/Ctrl-drag anywhere) to box-select points, apples, props and spikes; Shift adds to the selection, and Delete removes them all. Cmd/Ctrl+C, X and V copy, cut and paste blocks, apples, props and spikes, even into another trail; a paste lands under the cursor.",
   },
   pan: {
     title: "Pan",
@@ -229,7 +229,7 @@ const TOOL_INFO = {
     title: "Prop",
     hint: "Click to place decorative scenery. Props do not collide. The tool stays active; Esc returns to Select.",
     fields: [
-      { key: "type", label: "Prop", type: "select", options: propTypeOptions },
+      { key: "type", label: "Prop", type: "select", optionsFrom: "selection-prop-type" },
       {
         key: "layer",
         label: "Layer",
@@ -408,12 +408,20 @@ function renderToolSettings() {
       let input;
       if (field.type === "select" || field.type === "toggle") {
         input = document.createElement("select");
-        for (const [value, text] of field.options()) {
-          const option = document.createElement("option");
-          option.value = value;
-          option.textContent = text;
-          input.append(option);
-        }
+        // Copies another select's options, groups included.
+        if (field.optionsFrom)
+          input.append(
+            ...[...$(field.optionsFrom).children].map((node) =>
+              node.cloneNode(true),
+            ),
+          );
+        else
+          for (const [value, text] of field.options()) {
+            const option = document.createElement("option");
+            option.value = value;
+            option.textContent = text;
+            input.append(option);
+          }
         input.value = String(
           field.type === "toggle"
             ? Boolean(settings[field.key])
@@ -2197,6 +2205,215 @@ function deleteSelection() {
   render();
 }
 
+// ---- Copy, cut and paste --------------------------------------------------
+// The clipboard holds plain JSON, so a copy can be pasted into another trail,
+// another tab or a later session.
+
+const CLIPBOARD_FORMAT = "hjulben-editor-clipboard-v1";
+const CLIPBOARD_LISTS = { apple: "apples", prop: "props", spike: "spikes" };
+let pointerClient = null;
+
+/**
+ * What the selection copies: whole blocks, apples, props and spikes. A block
+ * whose every point is selected counts as the whole block; loose points,
+ * handles, the start and the finish aren't copied.
+ */
+function copyableSelection() {
+  const items = selectionItems();
+  const blockIndices = new Set(
+    selection?.kind === "block" || selection?.kind === "blocks"
+      ? selectedBlocks()
+      : [],
+  );
+  const points = items.filter((item) => item.type === "point");
+  blocks().forEach((block, blockIndex) => {
+    const total = boundaryEntries(block).reduce(
+      (sum, { boundary }) => sum + boundary.nodes.length,
+      0,
+    );
+    const picked = points.filter((point) => point.blockIndex === blockIndex);
+    if (total && picked.length >= total) blockIndices.add(blockIndex);
+  });
+  return {
+    blockIndices: [...blockIndices].sort((a, b) => a - b),
+    objects: items.filter((item) => CLIPBOARD_LISTS[item.type]),
+  };
+}
+
+function describeCopy({ blocks: copiedBlocks, apples, props, spikes }) {
+  return [
+    [copiedBlocks.length, "block"],
+    [apples.length, "apple"],
+    [props.length, "prop"],
+    [spikes.length, "spike"],
+  ]
+    .filter(([count]) => count)
+    .map(([count, name]) => `${count} ${name}${count === 1 ? "" : "s"}`)
+    .join(", ");
+}
+
+/** The clipboard payload for a copyable selection, or null when it's empty. */
+function clipboardPayload({ blockIndices, objects }) {
+  if (!blockIndices.length && !objects.length) return null;
+  const payload = { format: CLIPBOARD_FORMAT, centre: [0, 0], blocks: [] };
+  for (const list of Object.values(CLIPBOARD_LISTS)) payload[list] = [];
+  const xs = [],
+    ys = [];
+  for (const index of blockIndices) {
+    const block = blocks()[index];
+    payload.blocks.push(structuredClone(block));
+    for (const { boundary } of boundaryEntries(block))
+      for (const node of boundary.nodes) {
+        xs.push(node.x);
+        ys.push(node.y);
+      }
+  }
+  for (const item of objects) {
+    const object = OBJECT_LISTS()[item.type][item.index];
+    if (!object) continue;
+    payload[CLIPBOARD_LISTS[item.type]].push(structuredClone(object));
+    const [x, y] = itemPosition(item);
+    xs.push(x);
+    ys.push(y);
+  }
+  // The middle of the copied area lands under the cursor on paste.
+  payload.centre = [
+    (Math.min(...xs) + Math.max(...xs)) / 2,
+    (Math.min(...ys) + Math.max(...ys)) / 2,
+  ];
+  return payload;
+}
+
+function readClipboard(text) {
+  try {
+    const data = JSON.parse(text);
+    if (data?.format !== CLIPBOARD_FORMAT) return null;
+    if (!data.centre?.every?.(Number.isFinite)) return null;
+    const lists = ["blocks", ...Object.values(CLIPBOARD_LISTS)];
+    if (!lists.every((list) => Array.isArray(data[list]))) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+/** Under the cursor when it's over the canvas, else the middle of the view. */
+function pastePoint() {
+  if (pointerClient) return pointerWorld(pointerClient);
+  const { width, height } = viewportSize();
+  return { x: cameraX + width / 2 / zoom, y: cameraY + height / 2 / zoom };
+}
+
+function pasteClipboard(data) {
+  const target = pastePoint();
+  const dx = Math.round(target.x - data.centre[0]);
+  const dy = Math.round(target.y - data.centre[1]);
+  const pastedBlocks = data.blocks
+    .map((block) => freshBlockCopy(moveBlock(block, dx, dy)))
+    .filter(Boolean);
+  // Ground-anchored objects (no y) stay anchored, to the ground where they land.
+  const pastedObjects = Object.entries(CLIPBOARD_LISTS).flatMap(
+    ([type, list]) =>
+      data[list]
+        .filter((object) => Number.isFinite(object?.x))
+        .map((object) => ({
+          type,
+          object: {
+            ...structuredClone(object),
+            x: object.x + dx,
+            y: Number.isFinite(object.y) ? object.y + dy : null,
+          },
+        })),
+  );
+  if (!pastedBlocks.length && !pastedObjects.length) return;
+  pushHistory();
+  const firstBlock = blocks().length;
+  trail.terrainBlocks = [...blocks(), ...pastedBlocks];
+  const blockIndices = pastedBlocks.map((_, i) => firstBlock + i);
+  const items = pastedObjects.map(({ type, object }) => {
+    const list = OBJECT_LISTS()[type];
+    list.push(object);
+    return { type, index: list.length - 1 };
+  });
+  if (!items.length)
+    selection =
+      blockIndices.length > 1
+        ? { kind: "blocks", blockIndices }
+        : { kind: "block", blockIndex: blockIndices[0], regionIndex: 0 };
+  else {
+    // Blocks join a mixed selection as all of their points, so the whole
+    // paste drags, nudges and deletes together.
+    for (const blockIndex of blockIndices)
+      boundaryEntries(blocks()[blockIndex]).forEach(
+        ({ boundary, regionIndex }, boundaryIndex) =>
+          boundary.nodes.forEach((_, index) =>
+            items.push({
+              type: "point",
+              blockIndex,
+              regionIndex,
+              boundaryIndex,
+              index,
+            }),
+          ),
+      );
+    selection = makeSelection(items);
+  }
+  setTool("select");
+  syncInspector();
+  render();
+  showStatus("info", `Pasted ${describeCopy(data)}.`);
+}
+
+/** Copy and paste belong to the editor unless a text field or text selection has them. */
+function clipboardIsOurs() {
+  if (playtestOpen()) return false;
+  const active = document.activeElement;
+  const textField =
+    active instanceof HTMLTextAreaElement ||
+    (active instanceof HTMLInputElement &&
+      !["checkbox", "radio", "button", "range", "color"].includes(
+        active.type,
+      )) ||
+    active?.isContentEditable;
+  return !textField && !document.getSelection()?.toString();
+}
+
+function copyToClipboard(event, cut) {
+  if (!clipboardIsOurs() || !selection) return;
+  event.preventDefault();
+  const copied = copyableSelection();
+  const payload = clipboardPayload(copied);
+  if (!payload) {
+    showStatus(
+      "warning",
+      "Nothing to copy. Select blocks, apples, props or spikes; points, the start and the finish can't be copied.",
+    );
+    return;
+  }
+  event.clipboardData.setData("text/plain", JSON.stringify(payload));
+  if (cut) {
+    pushHistory();
+    deleteItems(copied.objects);
+    const removed = new Set(copied.blockIndices);
+    trail.terrainBlocks = blocks().filter((_, index) => !removed.has(index));
+    selection = null;
+    syncInspector();
+    render();
+  }
+  showStatus("info", `${cut ? "Cut" : "Copied"} ${describeCopy(payload)}.`);
+}
+
+document.addEventListener("copy", (event) => copyToClipboard(event, false));
+document.addEventListener("cut", (event) => copyToClipboard(event, true));
+document.addEventListener("paste", (event) => {
+  if (!clipboardIsOurs()) return;
+  const data = readClipboard(event.clipboardData?.getData("text/plain") || "");
+  if (!data) return;
+  event.preventDefault();
+  pasteClipboard(data);
+  canvas.focus({ preventScroll: true });
+});
+
 function download(filename, content, type) {
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob([content], { type }));
@@ -2655,6 +2872,7 @@ canvas.addEventListener("pointerdown", (event) => {
   render();
 });
 canvas.addEventListener("pointermove", (event) => {
+  pointerClient = { clientX: event.clientX, clientY: event.clientY };
   // No button held: the release was missed, so end the drag here.
   if ((dragging || panning || marquee || altPress) && event.buttons === 0) {
     endPointer();
@@ -2884,6 +3102,7 @@ canvas.addEventListener("pointercancel", () => {
   if (!cancelPendingShape()) endPointer();
 });
 canvas.addEventListener("pointerleave", () => {
+  pointerClient = null;
   if (!hoverPoint) return;
   hoverPoint = null;
   render();

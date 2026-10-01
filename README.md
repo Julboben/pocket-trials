@@ -98,6 +98,7 @@ The inspector on the right edits the current selection. The editor supports:
 - Trackpad navigation: two-finger scrolling pans and pinch gestures zoom around the pointer
 - Mouse navigation: wheel panning, `Ctrl`/`Cmd` + wheel zooming, and middle-button or `Space`-drag panning
 - Undo and redo
+- Copy, cut and paste (`Cmd`/`Ctrl` + `C`, `X`, `V`) for blocks, apples, props and spikes. The copy goes to the system clipboard, so it can be pasted into another trail or tab; it lands under the cursor, or in the middle of the view.
 - Continuous trail validation
 - Browser-local drafts
 - JSON and JavaScript module export
