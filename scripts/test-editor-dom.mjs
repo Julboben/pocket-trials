@@ -73,7 +73,7 @@ const reported = (report, label) => {
   check('play testing is refused when the trail does not validate', report.refused === true);
   check('the refusal names the actual problem', report.refusalNamed === true, `("${report.refusalText}")`);
   check('the refusal counts the errors', report.refusalCounted === true, `("${report.refusalText}")`);
-  check('the refusal is the first thing in the list', report.refusalIsFirst === true);
+  check('the refusal pops up over the canvas', report.refusalShown === true);
   check('the play-test button says how many errors', /\d+ ERROR/.test(report.buttonFlash || ''), `("${report.buttonFlash}")`);
   check('the playtest panel did not open', report.playtestClosed === true);
   check('the trail itself was not modified', report.jsonUnchanged === true);

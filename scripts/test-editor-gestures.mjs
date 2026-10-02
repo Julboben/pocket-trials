@@ -3,12 +3,12 @@
 // This is deliberately a source-level check rather than a reimplementation.
 // An earlier version of this file reimplemented the gesture logic, which meant
 // it kept passing while the editor was broken: it verified a copy, not the code
-// that runs. What actually matters is the order of operations in editor.js, so
+// that runs. What actually matters is the order of operations in the editor, so
 // that is what is asserted here. Patterns accept either quote style, because
 // the source is reformatted from time to time.
-import { readFileSync } from 'node:fs';
+import { editorSource } from './lib/editor-source.mjs';
 
-const source = readFileSync(new URL('../js/editor.js', import.meta.url), 'utf8');
+const source = editorSource();
 
 let failures = 0;
 const check = (label, condition) => {
@@ -71,8 +71,8 @@ check('no undo step is pushed unconditionally', !/pushHistory\(\s*\)/.test(relea
 // 5. Both tools, and only those two, start a pending drag with a closed outline.
 // Alt (rectangle) and Shift (grid snap) are read when the drag starts.
 check('Block and Cut start a pending drag',
-  new RegExp(`tool === ${Q}block${Q} \\|\\| tool === ${Q}cut${Q}`).test(down));
-check('the pending shape records which tool it is', /pendingKind = tool/.test(down));
+  new RegExp(`editor.tool === ${Q}block${Q} \\|\\| editor.tool === ${Q}cut${Q}`).test(down));
+check('the pending shape records which tool it is', /pendingKind = editor\.tool/.test(down));
 check('both outlines are closed', /closed:\s*true/.test(down));
 check('Alt and Shift are read at the start of the drag',
   /alt:\s*event\.altKey/.test(down) && /shift:\s*event\.shiftKey/.test(down));

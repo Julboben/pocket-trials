@@ -1,8 +1,10 @@
 // Talks to the online leaderboard. Everything fails quietly so the game
 // keeps working offline (and on GitHub Pages) with the local board.
+import { isSandbox } from './local-store.js';
+
 const API = '/api/leaderboard';
 const REFRESH_MS = 30_000;
-export const ONLINE_LEADERBOARD_EVENT = 'pocket-trials:online-leaderboard';
+export const ONLINE_LEADERBOARD_EVENT = 'hjulben:online-leaderboard';
 
 // Official trails only; custom trails ('trail:<hash>') stay local.
 const TRAIL_RE = /^(official:)?[a-z0-9][a-z0-9-]{0,55}$/;
@@ -61,7 +63,8 @@ export function refreshOnlineBoard(trail, force = false) {
  * @returns {Promise<{rank:number,total:number,best:number,improved:boolean}|null>}
  */
 export async function submitOnlineRun(trail, { time, rider, name, playerId }) {
-  if (typeof window === 'undefined' || !isOnlineTrail(trail) || !name || !playerId) return null;
+  // Sandbox riders are throwaway, so they never reach the shared board.
+  if (typeof window === 'undefined' || isSandbox() || !isOnlineTrail(trail) || !name || !playerId) return null;
   try {
     const res = await fetch(API, {
       method: 'POST',

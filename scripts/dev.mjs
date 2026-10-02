@@ -104,6 +104,6 @@ const server = http.createServer(async (request, response) => {
 });
 
 server.listen(port, host, () => {
-  console.log(`Pocket Trials dev server running at http://${host}:${port}`);
+  console.log(`Hjulben dev server running at http://${host}:${port}`);
   console.log('Editor saves write directly to trails/official and trails/custom. Refresh the browser manually after code changes.');
 });

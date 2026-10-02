@@ -1,4 +1,4 @@
-import { gridSpacing, snapToAngleAndGrid } from '../js/editor-snap.js';
+import { gridSpacing, snapToAngleAndGrid } from '../js/editor/snap.js';
 
 let failures = 0;
 const check = (name, ok, detail = '') => {

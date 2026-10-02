@@ -10,7 +10,7 @@ import { cutBlock, moveBlock, pointInRegion, regionArea, normalizeBlocks } from 
 import { compileTerrain, terrainSolidAt, terrainSurfaceBelow, terrainContacts } from '../js/terrain-runtime.js';
 import { RADIUS } from '../js/config.js';
 
-// Mirrors commitShape() in editor.js.
+// Mirrors commitShape() in js/editor/blocks.js.
 const commitCut = (blocks, points) => {
   const next = blocks.slice();
   let changed = false;
@@ -124,7 +124,7 @@ const commitCut = (blocks, points) => {
   );
 }
 
-// Mirrors the base-material handler in editor.js: the trail's base changes and
+// Mirrors the base-material handler in js/editor/inspector.js: the trail's base changes and
 // so does every block still sitting on the old base.
 const applyBaseMaterial = (trail, value) => {
   const previous = trail.terrain;

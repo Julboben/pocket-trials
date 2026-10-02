@@ -1,4 +1,4 @@
-# Pocket Trials trail format
+# Hjulben trail format
 
 All trails use the same JSON schema. Shipped career trails live in `trails/official/`, while locally authored standalone trails live in `trails/custom/`. The editor's JSON export can be placed directly in `trails/custom/`.
 

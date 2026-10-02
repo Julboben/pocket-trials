@@ -1,6 +1,6 @@
-# Pocket Trials
+# Hjulben
 
-Pocket Trials is a small side-scrolling motorcycle trials game inspired by the physics-driven handling of **Elasto Mania**. Build momentum over rolling terrain, shift the rider's weight, control wheelies and stoppies, collect every apple, and reach the finish flag without putting the rider's helmet into the ground.
+Hjulben is a small side-scrolling motorcycle trials game inspired by the physics-driven handling of **Elasto Mania**. Build momentum over rolling terrain, shift the rider's weight, control wheelies and stoppies, collect every apple, and reach the finish flag without putting the rider's helmet into the ground.
 
 The current version is a dependency-free browser prototype built with native JavaScript modules, Canvas rendering, and custom Verlet-style bike physics.
 
@@ -98,6 +98,9 @@ The inspector on the right edits the current selection. The editor supports:
 - Trackpad navigation: two-finger scrolling pans and pinch gestures zoom around the pointer
 - Mouse navigation: wheel panning, `Ctrl`/`Cmd` + wheel zooming, and middle-button or `Space`-drag panning
 - Undo and redo
+- Copy, cut and paste (`Cmd`/`Ctrl` + `C`, `X`, `V`) for blocks, apples, props and spikes. The copy goes to the system clipboard, so it can be pasted into another trail or tab; it lands under the cursor, or in the middle of the view.
+- Box-select picks up whole blocks along with points and objects; `Shift`-click adds or removes, `Cmd`/`Ctrl` + `A` selects everything, and `Cmd`/`Ctrl` + `D` duplicates. Undo and redo restore the selection too.
+- Press `?` (or the **?** button) for a list of every shortcut.
 - Continuous trail validation
 - Browser-local drafts
 - JSON and JavaScript module export
@@ -123,17 +126,17 @@ The dashboard's Settings view includes:
 - Keyboard bindings
 - Fullscreen mode
 
-The game opens on a dedicated dashboard before any trail is loaded or rendered. Settings, trail selection, and an illustrated How to Play guide are full dashboard views rather than separate modals. Control instructions are centralized in the guide instead of being repeated around the gameplay interface. It provides three independent savegame slots. The main dashboard shows only the active career, while the Load Game view contains slot selection and deletion. New Game always uses an empty slot; when all slots are occupied, one must be explicitly deleted first. A rider is chosen when a slot is created and is permanently tied to that save.
+The game opens on a dedicated dashboard before any trail is loaded or rendered. Settings, trail selection, and an illustrated How to Play guide are full dashboard views rather than separate modals. Control instructions are centralized in the guide instead of being repeated around the gameplay interface. It provides three independent savegame slots. The dashboard has one orange call to action: Resume Ride while a ride is paused, otherwise Continue for the active rider, or Start Riding on a first visit, which goes straight to naming a rider. The Riders view lists every slot: pick a rider to make it active, use an empty slot to create a new one, or delete a rider to free its slot. Saves are never overwritten. A rider is chosen when a slot is created and is permanently tied to that save.
 
 Preferences and all three rider profiles—including each slot's current trail, unlocks, and best times—are stored in browser `localStorage`.
 
 Current storage keys:
 
-- `pocket-trials-settings-v1`
-- `pocket-trials-saves-v2`
-- `pocket-trials-active-slot-v1`
-- `pocket-trials-leaderboard-v1`
-- `pocket-trials-ghost-v1:<trail>` (inputs of the best run, re-simulated as the ghost)
+- `hjulben-settings-v1`
+- `hjulben-saves-v2`
+- `hjulben-active-slot-v1`
+- `hjulben-leaderboard-v1`
+- `hjulben-ghost-v1:<trail>` (inputs of the best run, re-simulated as the ghost)
 
 The dashboard's Leaderboard view ranks the ten fastest finishes per official and custom trail across all savegames on the device. Runs remain on the board after their savegame is deleted. Custom trails are keyed by a hash of their geometry, so editing a trail's layout starts a fresh board, while renaming it keeps the existing one.
 
@@ -168,7 +171,7 @@ Clearing site data resets settings, progression, and recorded times.
 │   ├── vehicle-physics.js # Wheel, suspension, and chassis simulation
 │   ├── physics.js      # Reusable bike-constraint physics helpers
 │   ├── physics-debug.js # Opt-in physics tracing and console export
-│   ├── editor.js       # Visual editor tools, canvas interaction, and import/export
+│   ├── editor/         # Trail editor modules (main.js is the entry, state.js the shared state)
 │   ├── trail-schema.js # Trail defaults, normalization, and validation
 │   ├── audio.js        # Procedural Web Audio effects
 │   ├── config.js       # Shared constants and math helpers
@@ -231,7 +234,9 @@ The logical viewport and camera framing adapt to mobile and desktop dimensions.
 
 The game is currently a **design and physics prototype**. Its most important asset is the accumulated handling behavior: throttle response, braking, rider lean, suspension, momentum, and camera feel.
 
-To investigate physics, open the game with `?physicsDebug=1`. The overlay shows particles, constraints, contact normals, and center of mass. The console automatically prints detected spikes as expanded JSON. Run `pocketTrialsPhysicsDebug.dumpSpike()` or `copySpike()` for the latest spike, and `dump()` or `copy()` for the latest 120 frames. Record deterministic input with `startRecording()` and `stopRecording()`, then replay the returned array with `replay(inputs)`; call `stopReplay()` to return to live controls. Traces include wheel velocities, angular/contact state, torque components, suspension lengths, chassis area, constraints, traction, and collision responses.
+To test as a brand-new player on `localhost`, open the game or editor with `?sandbox`. All data then lives in that tab's `sessionStorage`: your real saves are never read or changed, online submits are skipped, and a SANDBOX badge shows at the bottom. The sandbox survives reloads, the editor, and playtests. Use `?sandbox=reset` to start fresh again and `?sandbox=off` to go back to your real data.
+
+To investigate physics, open the game with `?physicsDebug=1`. The overlay shows particles, constraints, contact normals, and center of mass. The console automatically prints detected spikes as expanded JSON. Run `hjulbenPhysicsDebug.dumpSpike()` or `copySpike()` for the latest spike, and `dump()` or `copy()` for the latest 120 frames. Record deterministic input with `startRecording()` and `stopRecording()`, then replay the returned array with `replay(inputs)`; call `stopReplay()` to return to live controls. Traces include wheel velocities, angular/contact state, torque components, suspension lengths, chassis area, constraints, traction, and collision responses.
 
 `npm test` also runs the DOM-independent vehicle harness in `scripts/test-vehicle-physics.mjs`. It exercises flat acceleration, braking versus coasting, stationary wheel lift, air rotation, mirrored hills, valley settling, and one-wheel landing through the exact `js/vehicle-physics.js` code used by the game.
 
@@ -277,4 +282,4 @@ When changing physics values, validate at least these cases:
 
 ## Inspiration
 
-Pocket Trials is inspired by the momentum, balance, and risk-reward handling of **Elasto Mania**. It is an original prototype and is not affiliated with or endorsed by the creators of Elasto Mania.
+Hjulben is inspired by the momentum, balance, and risk-reward handling of **Elasto Mania**. It is an original prototype and is not affiliated with or endorsed by the creators of Elasto Mania.
