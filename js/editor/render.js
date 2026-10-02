@@ -44,7 +44,6 @@ export function syncTerrain() {
     for (let index = 0; index < value.length; index++)
       mix(value.charCodeAt(index));
   };
-  text(String(editor.trail.terrain));
   mix(editor.trail.fallY || 0);
   for (const block of blocks()) {
     text(String(block.material));

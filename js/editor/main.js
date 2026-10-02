@@ -53,12 +53,10 @@ bindPlaytest();
 buildPicker();
 
 for (const name of Object.keys(terrainMaterials)) {
-  for (const select of [$("base-material"), $("selection-material")]) {
-    const option = document.createElement("option");
-    option.value = name;
-    option.textContent = name.toUpperCase();
-    select.append(option);
-  }
+  const option = document.createElement("option");
+  option.value = name;
+  option.textContent = name.toUpperCase();
+  $("selection-material").append(option);
 }
 
 // Two-option dropdowns are shown as button rows; this must run after the

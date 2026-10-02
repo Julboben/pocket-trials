@@ -101,7 +101,6 @@ export function createBlankTrail(index = 0) {
     name: "New Trail",
     label: `NEW TRAIL / ${number}`,
     goal: 1200,
-    terrain: "grass",
     description: "",
     start: { x: 90, y: null, facing: 1 },
     terrainBlocks: createBlankTerrainBlocks(),
@@ -116,10 +115,6 @@ export function createBlankTrail(index = 0) {
     spikes: [],
     weather: { sun: 1, clouds: 0.2 },
     fallY: 620,
-    sky: "#eae9d9",
-    sun: "#f2c082",
-    mountain: "#b7c8b1",
-    spray: ["#6f8b59", "#9c8b68", "#c5b496"],
   };
 }
 
@@ -205,7 +200,14 @@ export function normalizeTrail(input, index = 0) {
         ? Number(trail.finishY)
         : null;
   trail.fallY = Number(trail.fallY) || fallback.fallY;
-  trail.terrain = terrainMaterials[trail.terrain] ? trail.terrain : "grass";
+  // `terrain` was the trail's base material. Blocks carry their own now, so it
+  // is only kept when an older trail has it: it fills in blocks saved without a
+  // material, and is part of the trail hash, so dropping it would reset scores.
+  if (!terrainMaterials[trail.terrain]) delete trail.terrain;
+  // The old palette fields: the background comes from timeOfDay and backdrop.
+  delete trail.sky;
+  delete trail.sun;
+  delete trail.mountain;
   // Terrain comes from the input only: a trail without blocks has no terrain,
   // which validation reports, rather than silently getting the blank slab.
   trail.terrainBlocks =
@@ -304,8 +306,6 @@ export function validateTrail(trail) {
   const error = (text) => messages.push({ type: "error", text });
   const warning = (text) => messages.push({ type: "warning", text });
   if (!trail.name.trim()) error("The trail needs a name.");
-  if (!terrainMaterials[trail.terrain])
-    error(`Unknown base material “${trail.terrain}”.`);
 
   // Block geometry is validated first, and against the trail's other blocks so
   // a fully buried block is reported.

@@ -81,7 +81,7 @@ Each trail requires collecting all five apples before the finish gate will open.
 Open the visual editor from **Trail Editor** on the main dashboard or navigate directly to `editor.html`. The left column has two tabs:
 
 - **Tools**: tools grouped into Navigate, Terrain, Objects, and Course. Picking a tool shows its settings (for example block material, spike radius and spin, or prop type) before anything is placed. New objects use those settings, which are remembered between sessions. `V` or `Escape` selects, and `H` pans.
-- **Trail**: trail name, base material, finish and fall positions, and weather.
+- **Trail**: trail name, finish and fall positions, and weather.
 
 The inspector on the right edits the current selection. The editor supports:
 

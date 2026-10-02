@@ -326,7 +326,7 @@ export function commitShape(kind, points, closed, rect = false) {
     }
     editor.trail.terrainBlocks = [
       ...blocks(),
-      normalizeBlocks([block], editor.trail.terrain)[0],
+      normalizeBlocks([block], "grass")[0],
     ];
     editor.selection = {
       kind: "block",
@@ -349,7 +349,7 @@ export function commitShape(kind, points, closed, rect = false) {
     if (result.changed)
       replaceBlock(
         blockIndex,
-        normalizeBlocks([result.block], editor.trail.terrain)[0],
+        normalizeBlocks([result.block], "grass")[0],
       );
     return result;
   };
@@ -392,6 +392,6 @@ export function freshBlockCopy(block) {
         })),
       },
     ],
-    editor.trail.terrain,
+    "grass",
   )[0];
 }

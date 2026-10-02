@@ -124,41 +124,19 @@ const commitCut = (blocks, points) => {
   );
 }
 
-// Mirrors the base-material handler in js/editor/inspector.js: the trail's base changes and
-// so does every block still sitting on the old base.
-const applyBaseMaterial = (trail, value) => {
-  const previous = trail.terrain;
-  if (value === previous) return trail;
-  const next = trail.terrainBlocks.map(block =>
-    block.material === previous ? { ...block, material: value } : block,
-  );
-  if (!next.some((block, index) => block !== trail.terrainBlocks[index]))
-    return { ...trail, terrain: value };
-  return { ...trail, terrain: value, terrainBlocks: next };
-};
-
-// 8. Changing the base material repaints the ground blocks that use it.
+// 8. The base material is legacy: a new trail has none, an old one keeps a
+// valid one (it is part of the trail hash), and it still fills in blocks saved
+// without a material.
 {
-  const trail = normalizeTrail({
+  assert.equal('terrain' in normalizeTrail(createBlankTrail()), false, 'a new trail has no base material');
+  const legacy = normalizeTrail({
     ...createBlankTrail(),
-    terrain: 'grass',
-    terrainBlocks: [
-      { ...createBlankTerrainBlocks()[0], id: 'ground', material: 'grass' },
-      { ...createBlankTerrainBlocks()[0], id: 'brickwork', material: 'brick' },
-    ],
+    terrain: 'sand',
+    terrainBlocks: [{ ...createBlankTerrainBlocks()[0], material: undefined }],
   });
-  assert.equal(trail.terrainBlocks[0].material, 'grass', 'the trail starts on grass');
-
-  const sandy = normalizeTrail(applyBaseMaterial(trail, 'sand'));
-  assert.equal(sandy.terrain, 'sand', 'the base is the new material');
-  assert.equal(sandy.terrainBlocks[0].material, 'sand', 'a block on the old base follows it');
-  assert.equal(sandy.terrainBlocks[1].material, 'brick', 'a block set to brick keeps it');
-  assert.equal(trail.terrainBlocks[0].material, 'grass', 'the original trail is untouched');
-
-  // A trail with no blocks still changes its base, so new blocks pick it up.
-  const bare = normalizeTrail(applyBaseMaterial(normalizeTrail({ ...createBlankTrail(), terrainBlocks: [] }), 'snow'));
-  assert.equal(bare.terrain, 'snow', 'a blockless trail still takes the new base');
-  assert.equal((bare.terrainBlocks || []).length, 0, 'and gains no blocks');
+  assert.equal(legacy.terrain, 'sand', 'an old trail keeps its base material');
+  assert.equal(legacy.terrainBlocks[0].material, 'sand', 'and it fills in a missing block material');
+  assert.equal('terrain' in normalizeTrail({ ...createBlankTrail(), terrain: 'lava' }), false, 'an unknown one is dropped');
 }
 
 console.log('Editor terrain logic tests passed.');

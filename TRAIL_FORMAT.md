@@ -22,7 +22,6 @@ The world uses Canvas coordinates:
   name: 'Example Trail',
   label: 'EXAMPLE TRAIL / 08',
   goal: 1800,
-  terrain: 'grass',
   start: { x: 90, y: null, facing: 1 },
 
   terrainBlocks: [
@@ -155,13 +154,7 @@ The finish is a flower at (goal, finishY), floating 22 units above that point. f
 
 ## Terrain materials
 
-Set the base material with:
-
-```js
-terrain: "grass";
-```
-
-The base material is the default for new blocks; each block sets its own with its `material` property. Available presets are:
+Each block sets its own material with its `material` property. Older trails may also have a trail-level `terrain` base material; it is optional and only fills in blocks saved without a material, so new trails should leave it out. Available presets are:
 
 | Material | Intended character                       |
 | -------- | ---------------------------------------- |
@@ -287,7 +280,7 @@ Sign text wraps at word boundaries onto up to 4 lines of 10 characters, and the 
 - `spray`: fallback wheel-particle colors. Material-specific spray takes priority.
 - `description`: design notes for the trail. It is not currently shown during gameplay.
 
-`sky`, `sun` and `mountain` are no longer read: the background comes from `timeOfDay` and `backdrop`. They are ignored and can be removed.
+`sky`, `sun` and `mountain` are no longer read: the background comes from `timeOfDay` and `backdrop`. They are dropped when a trail is loaded.
 
 ## Medals
 

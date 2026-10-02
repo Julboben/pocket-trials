@@ -11,6 +11,7 @@ import { $, canvas } from "./dom.js";
 import { pushHistory, redo, snapshot, undo } from "./history.js";
 import { hitTest } from "./hit-test.js";
 import {
+  flushInspector,
   selectedPosition,
   syncInspector,
   updateSelectedPosition,
@@ -112,7 +113,7 @@ function dragSelectionTo(pointer, shift) {
       };
   }
   updateSelectedPosition(x, y);
-  syncInspector();
+  syncInspector({ live: true });
   render();
 }
 
@@ -191,6 +192,7 @@ export const endPointer = () => {
   }
   const hadGuide = editor.snapGuide !== null;
   resetPointerState();
+  flushInspector();
   if (hadGuide) render();
 };
 

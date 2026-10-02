@@ -45,7 +45,12 @@ const key = (keyName, extra = {}) => {
   document.activeElement = canvas;
   for (const handler of windowListeners.get('keydown') || []) handler({ key: keyName, code: '', preventDefault() {}, ...extra });
 };
-const current = () => JSON.parse(document.getElementById('trail-json').value);
+// Mid-drag the JSON waits for the pointer to pause, so it is flushed first.
+const { flushInspector } = await import('../../js/editor/inspector.js');
+const current = () => {
+  flushInspector();
+  return JSON.parse(document.getElementById('trail-json').value);
+};
 const toolButton = name => [...document.querySelectorAll('[data-tool]')].find(button => button.dataset.tool === name);
 const drag = (from, to, extra = {}) => {
   fire('pointerdown', { ...world(...from), ...extra });

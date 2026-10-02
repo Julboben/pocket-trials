@@ -66,7 +66,7 @@ function makeWheel(trail, x, startY) {
     inverseMass: 1,
     grounded: true,
     contact: null,
-    material: trail.terrain || "grass",
+    material: terrainAt(trail, x, y).material,
     spin: 0,
     angularVelocity: 0,
     compression: 0,
