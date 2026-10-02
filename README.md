@@ -138,7 +138,7 @@ Current storage keys:
 - `hjulben-leaderboard-v1`
 - `hjulben-ghost-v1:<trail>` (inputs of the best run, re-simulated as the ghost)
 
-The dashboard's Leaderboard view ranks the ten fastest finishes per official and custom trail across all savegames on the device. Runs remain on the board after their savegame is deleted. Custom trails are keyed by a hash of their geometry, so editing a trail's layout starts a fresh board, while renaming it keeps the existing one.
+The dashboard's Leaderboard view ranks the ten fastest finishes per official and custom trail across all savegames on the device. Runs remain on the board after their savegame is deleted. Every trail is keyed by a hash of what decides a run (terrain, start, finish, apples, spikes and the fall line), and official trails also by their id (`official:<id>@<hash>`). Editing a trail's gameplay starts fresh leaderboards, ghosts and best times, online and local, while renaming it or changing its props keeps them.
 
 Clearing site data resets settings, progression, and recorded times.
 

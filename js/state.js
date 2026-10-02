@@ -81,11 +81,14 @@ export const officialTrailIds = officialTrailEntries.map(entry => entry.id);
 export const leaderboardTrails = () => [...officialTrailEntries, ...customTrailEntries];
 
 /**
- * Leaderboard and ghost key for a trail. Custom trails are keyed by their
- * content, so an edited trail gets a fresh board and a re-import keeps it.
+ * Leaderboard, ghost and best-time key for a trail. It includes a hash of
+ * everything that decides a run, so an edit that changes the ride starts fresh
+ * boards while a rename or new props keep them. Official trails keep their id
+ * in front, so the online board can tell which trail it is.
  */
 export function trailKey(entry) {
-  return entry.source === 'official' ? entry.id : 'trail:' + trailHash(entry.trail);
+  const hash = trailHash(entry.trail);
+  return entry.source === 'official' ? `${entry.id}@${hash}` : 'trail:' + hash;
 }
 
 export function currentTrailEntry() {

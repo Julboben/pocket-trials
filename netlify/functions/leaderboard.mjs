@@ -3,7 +3,7 @@ import { neon } from '@neondatabase/serverless';
 
 const sql = neon(process.env.DATABASE_URL);
 const TOP = 10;
-const TRAIL_RE = /^(official:)?[a-z0-9][a-z0-9-]{0,55}$/;   // official trails only; custom 'trail:<hash>' stays local
+const TRAIL_RE = /^official:[a-z0-9][a-z0-9-]{0,55}@[0-9a-f]{8}$/;   // 'official:<id>@<gameplay hash>'; custom 'trail:<hash>' stays local
 const NAME_RE = /^[\p{L}\p{N} _.\-]{1,16}$/u;       // safe to put in innerHTML
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const RIDERS = new Set(['male', 'female']);
