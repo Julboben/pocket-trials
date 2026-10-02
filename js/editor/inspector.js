@@ -20,7 +20,13 @@ import {
 import { $ } from "./dom.js";
 import { pushHistory, updateHistoryButtons } from "./history.js";
 import { edgeHit } from "./hit-test.js";
-import { finishY, groundY, objectY, render, syncTerrain } from "./render.js";
+import {
+  finishY,
+  groundY,
+  objectY,
+  render,
+  syncTerrain,
+} from "./render.js";
 import {
   deleteSelection,
   groupTitle,
@@ -28,6 +34,7 @@ import {
   moveItems,
 } from "./selection.js";
 import { editor } from "./state.js";
+import { saveToolSettings, toolSettings } from "./tools.js";
 
 export function selectedPosition() {
   if (!editor.selection) return null;
@@ -113,10 +120,14 @@ const BLOCK_KINDS = [
   "blockBoundary",
 ];
 
-export function syncInspector() {
+/**
+ * Bring the side panel up to date with the trail. `live` is for a drag in
+ * progress: the trail's JSON and validation are expensive on a big trail, so
+ * they wait until the pointer pauses or is released.
+ */
+export function syncInspector({ live = false } = {}) {
   syncTerrain();
   $("trail-name").value = editor.trail.name;
-  $("base-material").value = editor.trail.terrain;
   $("goal-x").value = Math.round(editor.trail.goal);
   $("fall-y").value = Math.round(editor.trail.fallY);
   $("time-of-day").value = editor.trail.timeOfDay || "noon";
@@ -158,15 +169,11 @@ export function syncInspector() {
   if (selectedProp) $("selection-flip").value = String(Boolean(selectedProp.flip));
   $("selection-radius-row").hidden = editor.selection?.kind !== "spike";
   $("selection-spin-row").hidden = editor.selection?.kind !== "spike";
-  // Only the finish has a meaningful "put it back on the ground" action, since
-  // every other object is either placed by hand or already ground-anchored.
-  $("selection-snap-row").hidden = editor.selection?.kind !== "goal";
-  $("selection-snap").checked = !Number.isFinite(editor.trail.finishY);
   $("delete-selection").hidden =
     !editor.selection || ["start", "goal"].includes(editor.selection.kind);
   if (isBlock) {
     $("selection-material").value =
-      blocks()[selectedBlocks()[0]]?.material || editor.trail.terrain;
+      blocks()[selectedBlocks()[0]]?.material || "grass";
     const boundary = boundaryAt(editor.selection);
     const node = boundary?.nodes[editor.selection.index];
     if (node && editor.selection.kind !== "blockHandle") {
@@ -190,6 +197,18 @@ export function syncInspector() {
     $("selection-radius").value = editor.trail.spikes[editor.selection.index].radius;
     $("selection-spin").value = editor.trail.spikes[editor.selection.index].spin;
   }
+  if (live) {
+    clearTimeout(pendingDetails);
+    pendingDetails = setTimeout(syncDetails, 200);
+  } else syncDetails();
+  updateHistoryButtons();
+}
+
+let pendingDetails = null;
+
+function syncDetails() {
+  clearTimeout(pendingDetails);
+  pendingDetails = null;
   $("trail-json").value = JSON.stringify(editor.trail, null, 2);
   const messages = validateTrail(editor.trail);
   $("validation-list").replaceChildren(
@@ -200,7 +219,11 @@ export function syncInspector() {
       return item;
     }),
   );
-  updateHistoryButtons();
+}
+
+/** Finish any JSON and validation a live drag left waiting. */
+export function flushInspector() {
+  if (pendingDetails !== null) syncDetails();
 }
 
 export function updateSelectedPosition(x, y) {
@@ -317,20 +340,6 @@ export function bindInspector() {
     editor.trail.label = `${value.toUpperCase()} / ${String(editor.trailIndex + 1).padStart(2, "0")}`;
   });
 
-  bindTrailInput("base-material", (value) => {
-    const previous = editor.trail.terrain;
-    if (value === previous) return;
-    editor.trail.terrain = value;
-    // Blocks carry their own material, so the renderer never reads the trail's
-    // base. Any block still sitting on the old base follows the change; blocks
-    // deliberately set to something else keep it.
-    const next = blocks().map((block) =>
-      block.material === previous ? { ...block, material: value } : block,
-    );
-    if (next.some((block, index) => block !== blocks()[index]))
-      editor.trail.terrainBlocks = next;
-  });
-
   bindTrailInput("goal-x", (value) => {
     editor.trail.goal = Number(value);
   });
@@ -379,16 +388,6 @@ export function bindInspector() {
     render();
   });
 
-  $("selection-snap").addEventListener("change", (event) => {
-    if (editor.selection?.kind !== "goal") return;
-    pushHistory();
-    // Unchecked pins the finish in the air at its current height; checked sends
-    // it back to whatever surface is under the finish.
-    editor.trail.finishY = event.target.checked ? null : finishY();
-    syncInspector();
-    render();
-  });
-
   $("selection-material").addEventListener("change", (event) => {
     const material = event.target.value;
     if (BLOCK_KINDS.includes(editor.selection?.kind) || editor.selection?.kind === "items") {
@@ -397,6 +396,9 @@ export function bindInspector() {
       pushHistory();
       for (const index of chosen)
         replaceBlock(index, { ...blocks()[index], material });
+      // The next block drawn uses the material last chosen.
+      toolSettings.block.material = material;
+      saveToolSettings();
     }
     syncInspector();
     render();

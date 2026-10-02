@@ -100,5 +100,21 @@ const reported = (report, label) => {
   check('dragging without Shift is not snapped', report.plainExact === true);
 }
 
+// ---------------------------------------------------------------------------
+// A roof over something on the ground leaves it where it stood.
+// ---------------------------------------------------------------------------
+{
+  const report = await boot('covered');
+  check('a block drawn over the start leaves the start on its ground', report.startY === 288, `(${report.startY})`);
+  check('a block dragged over a prop leaves the prop on its ground', report.propY === 300, `(${report.propY})`);
+  check('raising the ground under the finish still carries it', report.finishY === null, `(${report.finishY})`);
+  check('the finish tool clicked in a cave puts the finish on the cave floor', report.caveFinishY === 500, `(${report.caveFinishY})`);
+  check('a finish lifted in the cave is pinned in the air', report.liftedFinishY === 420, `(${report.liftedFinishY})`);
+  check('a selection box around the start selects it', /START/i.test(report.boxTitle || ''), `("${report.boxTitle}")`);
+  check('select all moves the start', report.selectAllMovesStart === true);
+  check('select all moves the finish', report.selectAllMovesFinish === true);
+  check('a ground prop pasted into a cave lands on the cave floor', report.props === 3 && report.pastedPropY === 500, `(${report.props}, ${report.pastedPropY})`);
+}
+
 console.log(failures ? `\n${failures} failing` : '\nEditor DOM tests passed.');
 process.exit(failures ? 1 : 0);

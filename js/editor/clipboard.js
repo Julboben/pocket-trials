@@ -10,7 +10,7 @@ import { canvas } from "./dom.js";
 import { pushHistory } from "./history.js";
 import { syncInspector } from "./inspector.js";
 import { playtestOpen } from "./playtest.js";
-import { render } from "./render.js";
+import { groundY, render, restingY, syncTerrain } from "./render.js";
 import {
   OBJECT_LISTS,
   blockNodes,
@@ -87,7 +87,11 @@ function clipboardPayload({ blockIndices, objects }) {
   for (const item of objects) {
     const object = OBJECT_LISTS()[item.type][item.index];
     if (!object) continue;
-    payload[CLIPBOARD_LISTS[item.type]].push(structuredClone(object));
+    const copy = structuredClone(object);
+    // A ground-anchored object remembers the floor it stood on, so a paste
+    // into a cave can keep it on the cave floor.
+    if (!Number.isFinite(object.y)) copy.floorY = groundY(object.x);
+    payload[CLIPBOARD_LISTS[item.type]].push(copy);
     const [x, y] = itemPosition(item);
     xs.push(x);
     ys.push(y);
@@ -132,8 +136,9 @@ function pasteClipboard(data) {
     ([type, list]) =>
       data[list]
         .filter((object) => Number.isFinite(object?.x))
-        .map((object) => ({
+        .map(({ floorY, ...object }) => ({
           type,
+          floorY: Number.isFinite(floorY) ? floorY + dy : null,
           object: {
             ...structuredClone(object),
             x: object.x + dx,
@@ -149,7 +154,14 @@ function pasteClipboard(data) {
     type: "block",
     index: firstBlock + i,
   }));
-  for (const { type, object } of pastedObjects) {
+  syncTerrain();
+  for (const { type, object, floorY } of pastedObjects) {
+    // Pasted under a roof or into a cave, it stays on the floor it lands on
+    // instead of jumping onto the top.
+    if (object.y === null && floorY !== null) {
+      const y = restingY(object.x, floorY);
+      if (y !== null) object.y = type === "apple" ? y - 60 : y;
+    }
     const list = OBJECT_LISTS()[type];
     list.push(object);
     items.push({ type, index: list.length - 1 });

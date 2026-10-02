@@ -233,6 +233,42 @@ const drawCalls = (renderer, trail, x, y, w, h) => {
     !validateTrail(past).some((m) => /past the finish/.test(m.text)));
 }
 
+// The city backdrop's window hook paints in other colours; the next building
+// column must still be filled with the building colour, at every time of day.
+{
+  const { createGameArt } = await import('../js/drawing.js');
+  const fills = [];
+  const recorder = () => {
+    const target = { fillStyle: '#000' };
+    return new Proxy(target, {
+      get(object, property) {
+        if (property in object) return object[property];
+        if (property === 'fillRect') return (...args) => fills.push([object.fillStyle, ...args]);
+        if (property === 'getTransform') return () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+        if (property === 'createLinearGradient' || property === 'createRadialGradient') return () => ({ addColorStop() {} });
+        return () => {};
+      },
+      set(object, property, value) { object[property] = value; return true; },
+    });
+  };
+  const Offscreen = globalThis.OffscreenCanvas;
+  globalThis.OffscreenCanvas = class {
+    constructor(width, height) { this.width = width; this.height = height; this.context = recorder(); }
+    getContext() { return this.context; }
+  };
+  const art = createGameArt(recorder());
+  for (const timeOfDay of ['noon', 'evening', 'night']) {
+    fills.length = 0;
+    art.drawBackground({ width: 800, height: 400, palette: { backdrop: 'city', timeOfDay }, cameraX: 9000 + timeOfDay.length * 777 });
+    // Tall fills are the sky and the building bodies; windows are 4 tall.
+    const bodies = fills.filter(([, , , , height]) => height > 40);
+    const colours = new Set(bodies.map(([colour]) => colour));
+    const lit = bodies.filter(([colour]) => colour === '#ffeaa8').length;
+    check(`city buildings at ${timeOfDay} are filled with building colours only`, colours.size === 3 && lit === 0 && bodies.length > 0, `(${[...colours].join(', ')})`);
+  }
+  globalThis.OffscreenCanvas = Offscreen;
+}
+
 dom.restore();
 console.log(failures ? `\n${failures} failing` : '\nTerrain render tests passed.');
 process.exit(failures ? 1 : 0);

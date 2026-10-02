@@ -1,11 +1,70 @@
-import { terrainAt, terrainCollisionsAt, terrainGeometry } from "./terrain.js";
+import {
+  terrainAt,
+  terrainCollisionsAt,
+  terrainGeometry,
+  terrainSurfacesAt,
+} from "./terrain.js";
+import { terrainMaterials } from "./materials.js";
 import { FINISH_FLOWER_LIFT } from "./finish.js";
+import {
+  BAT_ROOSTS,
+  BEAM_HALF,
+  CART_WHEELS,
+  LANTERN_CENTRE,
+  LANTERN_LIGHT,
+  LANTERN_TOP,
+  RAIL_TOP,
+  drawBatFlying,
+  drawBatHanging,
+  drawBeams,
+  drawDrip,
+  drawHangingRoots,
+  drawLantern,
+  drawLanternGlass,
+  drawMinecart,
+  drawMushroomSpots,
+  drawMushrooms,
+  drawRails,
+  drawStalactites,
+  mushroomCaps,
+  WATER,
+} from "./cave-props.js";
+import {
+  STEEL,
+  LAMP_HEAD,
+  LAMP_BODY_BOTTOM,
+  LAMP_LIGHT,
+  CRANE_BODY_BOTTOM,
+  CRANE_FOOTING,
+  CRANE_LIGHTS,
+  SCAFFOLD_STANDARDS,
+  SCAFFOLD_TOP,
+  GRAFFITI_BOUNDS,
+  drawCone,
+  drawBarrier,
+  drawDumpster,
+  drawLamp,
+  drawLampGlass,
+  drawBirdPerched,
+  drawBirdFlying,
+  drawCrane,
+  drawScaffoldDecks,
+  drawScaffoldCouplers,
+  drawGraffiti,
+} from "./city-props.js";
 
 const GROUND_ALIGNED_PROP_SPANS = {
   bush: [-28, 28],
   fence: [-33, 33],
   rock: [-16, 18],
   boulder: [-22, 22],
+  crates: [-40, 40],
+  wheelbarrow: [-12, 24],
+  beehive: [-16, 16],
+  tyre: [-40, 40],
+  cone: [-8, 8],
+  barrier: [-34, 34],
+  dumpster: [-36, 32],
 };
 
 /**
@@ -63,7 +122,9 @@ const PLANTED_TOLERANCE = 24;
 const PROP_SLOPE_WINDOW = 90;
 
 function propSlope(trail, prop, reference) {
-  const [left, right] = GROUND_ALIGNED_PROP_SPANS[prop.type];
+  let [left, right] = GROUND_ALIGNED_PROP_SPANS[prop.type];
+  // A mirrored prop stands on the mirror image of its footprint.
+  if (prop.flip) [left, right] = [-right, -left];
   const a = surfaceAt(trail, prop.x + left, reference);
   const b = surfaceAt(trail, prop.x + right, reference);
   if (a === null || b === null) return null;
@@ -618,8 +679,29 @@ export function sunShadowOffset({
 
 // Props that attach to a wall face or cliff edge rather than stand on the ground.
 export const WALL_PROPS = new Set(["vines", "roots", "moss"]);
-// Signs would mirror their text, and wall props already turn to face the wall.
-export const canFlip = (type) => type !== "sign" && !WALL_PROPS.has(type);
+// Graffiti is painted onto the rock itself rather than stood in front of it or
+// behind it, so it is drawn just after the terrain whatever its layer.
+export const PAINTED_PROPS = new Set(["graffiti"]);
+// Props that hang from a cave ceiling. Each looks up from its anchor for the
+// nearest roof; see propWallFit.
+export const CEILING_PROPS = new Set([
+  "hanging-roots",
+  "stalactites",
+  "drip",
+  "lantern",
+  "bats",
+]);
+// Cave props that fit themselves to the rock around them: support beams reach
+// up to the roof, and a mine cart's rails run along the floor to the walls.
+const CAVE_FITTED_PROPS = new Set([...CEILING_PROPS, "beams", "minecart"]);
+// Signs and graffiti would mirror their text, wall props already turn to face
+// the wall, and ceiling props and beams are symmetric or lit from the right.
+export const canFlip = (type) =>
+  type !== "sign" &&
+  type !== "beams" &&
+  !WALL_PROPS.has(type) &&
+  !PAINTED_PROPS.has(type) &&
+  !CEILING_PROPS.has(type);
 // Longest vines can hang, in world units.
 export const VINE_MAX = 140;
 const wallFits = new WeakMap();
@@ -630,11 +712,16 @@ const wallFits = new WeakMap();
  * Cached per prop until it moves or the terrain changes.
  */
 export function propWallFit(trail, prop) {
-  if (!WALL_PROPS.has(prop.type)) return null;
+  if (!WALL_PROPS.has(prop.type) && !CAVE_FITTED_PROPS.has(prop.type)) return null;
   const geometry = terrainGeometry(trail);
   const cached = wallFits.get(prop);
   if (cached && cached.x === prop.x && cached.y === prop.y
     && cached.type === prop.type && cached.geometry === geometry) return cached.fit;
+  if (CAVE_FITTED_PROPS.has(prop.type)) {
+    const fit = caveFit(trail, prop);
+    wallFits.set(prop, { x: prop.x, y: prop.y, type: prop.type, geometry, fit });
+    return fit;
+  }
 
   const y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
   const solidAt = (px, py) => terrainCollisionsAt(trail, px, py, 1).length > 0;
@@ -674,6 +761,229 @@ export function propWallFit(trail, prop) {
   const fit = { side, drop, face };
   wallFits.set(prop, { x: prop.x, y: prop.y, type: prop.type, geometry, fit });
   return fit;
+}
+
+// How far above its anchor a ceiling prop looks for the roof.
+export const CEILING_REACH = 160;
+// A lantern placed with no y hangs this far below the roof of the first cave.
+const LANTERN_DROP = 44;
+// How tall support beams may get, and how far a mine cart's rails may run
+// either side before they end in a buffer stop.
+export const BEAM_REACH = 220;
+export const RAIL_REACH = 120;
+const BEAM_HEIGHT = 96;
+const BEAM_PACKING = 40;
+
+/** Ceiling-prop colours taken from the rock they grow out of. */
+function rockColors(material) {
+  const m = terrainMaterials[material] || terrainMaterials.rock;
+  return { dark: m.layers[m.layers.length - 1], base: m.fill, light: m.layers[0] };
+}
+
+/**
+ * The roof above a point: the nearest ceiling at or just below `y` within
+ * CEILING_REACH, or, for a prop with no y of its own, the roof of the first cave
+ * under the surface. Returns its offset from `y`, the free drop from it to the
+ * floor below (null when nothing is below), and its material.
+ */
+function roofAbove(trail, x, y, explicit, reach = CEILING_REACH) {
+  const surfaces = terrainSurfacesAt(trail, x);
+  let index = -1;
+  surfaces.forEach((surface, i) => {
+    if (!surface.entering && surface.y <= y + 12 && surface.y >= y - reach) index = i;
+  });
+  if (index < 0 && !explicit)
+    index = surfaces.findIndex(
+      (surface, i) => !surface.entering && surface.y > y && surfaces[i + 1]?.entering,
+    );
+  if (index < 0) return null;
+  const roof = surfaces[index];
+  const floor = surfaces[index + 1];
+  return {
+    ceiling: roof.y - y,
+    drop: floor ? floor.y - roof.y : null,
+    material: roof.material,
+  };
+}
+
+function caveFit(trail, prop) {
+  const explicit = Number.isFinite(prop.y);
+  const y = explicit ? prop.y : terrainAt(trail, prop.x).y;
+  if (CEILING_PROPS.has(prop.type)) {
+    const roof = roofAbove(trail, prop.x, y, explicit);
+    const fit = {
+      ceiling: roof ? roof.ceiling : null,
+      drop: roof ? roof.drop : null,
+      colors: rockColors(roof?.material),
+      body: 0,
+    };
+    // A lantern with no y hangs a little below the roof of the cave under it.
+    if (prop.type === "lantern" && roof && roof.ceiling > 0)
+      fit.body = roof.ceiling + Math.min(LANTERN_DROP, Math.max(24, (roof.drop ?? 0) - 24));
+    return fit;
+  }
+  if (prop.type === "beams") {
+    const roofs = [];
+    for (let local = -BEAM_HALF; local < BEAM_HALF; local += 2) {
+      const roof = roofAbove(trail, prop.x + local + 1, y - 8, true, BEAM_REACH);
+      roofs.push(roof ? roof.ceiling - 8 : null);
+    }
+    return { roofs };
+  }
+  // Mine cart: follow the floor out each way until a wall, a drop or the
+  // end of the track.
+  const solid = (px, py) => terrainCollisionsAt(trail, px, py, 1).length > 0;
+  const run = (dir) => {
+    let floorY = y;
+    for (let d = 2; d <= RAIL_REACH; d += 2) {
+      const px = prop.x + dir * d;
+      if (solid(px, floorY - 10)) return { reach: Math.max(0, d - 4), wall: true };
+      const floor = terrainAt(trail, px, floorY - 16);
+      if (!floor.solid || Math.abs(floor.y - floorY) > 12) return { reach: d - 2, wall: false };
+      floorY = floor.y;
+    }
+    return { reach: RAIL_REACH, wall: false };
+  };
+  const left = run(-1);
+  const right = run(1);
+  return { left: left.reach, right: right.reach, leftWall: left.wall, rightWall: right.wall };
+}
+
+/**
+ * How far a cave prop's art reaches above and below its anchor, once fitted:
+ * [rise, hang], or null for other props.
+ */
+export function propSpan(type, fit) {
+  if (type === "beams") return [BEAM_REACH + 12, 4];
+  if (type === "minecart") return [54, 4];
+  if (!CEILING_PROPS.has(type)) return null;
+  const ceiling = fit?.ceiling ?? 0;
+  if (type === "lantern") {
+    const body = fit?.body ?? 0;
+    return [Math.max(-ceiling, -body - LANTERN_TOP) + 4, Math.max(0, body) + 4];
+  }
+  const below = {
+    "hanging-roots": 72,
+    stalactites: 36,
+    drip: (fit?.drop ?? 200) + 8,
+    bats: 120,
+  }[type];
+  return [Math.max(0, -ceiling) + (type === "bats" ? 120 : 4), Math.max(0, ceiling + below)];
+}
+
+// How far a lantern's light reaches across the rock, in bands of brightness.
+const LANTERN_REACH = 136;
+const LANTERN_BANDS = [
+  [40, 0.42],
+  [70, 0.3],
+  [102, 0.18],
+  [LANTERN_REACH, 0.08],
+];
+const lanternLights = new WeakMap();
+
+/**
+ * The patch of rock a lantern lights up: warm rings around it, kept to solid
+ * terrain so the cave wall glows and the open air does not. Cached per prop
+ * until it moves or the terrain changes.
+ */
+function lanternLightSprite(trail, prop, centreX, centreY) {
+  const geometry = terrainGeometry(trail);
+  const cached = lanternLights.get(prop);
+  if (cached && cached.x === centreX && cached.y === centreY && cached.geometry === geometry)
+    return cached.sprite;
+  const size = (LANTERN_REACH * 2) / ART_PIXEL;
+  const canvas = createCanvas(size, size);
+  const context = canvas.getContext("2d");
+  const image = context.createImageData(size, size);
+  const left = Math.round(centreX / ART_PIXEL) * ART_PIXEL - LANTERN_REACH;
+  const top = Math.round(centreY / ART_PIXEL) * ART_PIXEL - LANTERN_REACH;
+  const [r, g, b] = [0xff, 0xe3, 0x9a];
+  for (let column = 0; column < size; column++) {
+    const wx = left + column * ART_PIXEL + 1;
+    const surfaces = terrainSurfacesAt(trail, wx);
+    const spans = [];
+    for (let i = 0; i < surfaces.length; i++)
+      if (surfaces[i].entering) spans.push([surfaces[i].y, surfaces[i + 1]?.y ?? Infinity]);
+    for (let row = 0; row < size; row++) {
+      const wy = top + row * ART_PIXEL + 1;
+      if (!spans.some(([from, to]) => wy >= from && wy <= to)) continue;
+      // A checkerboard nudge dithers the edge between bands.
+      const distance =
+        Math.hypot(wx - centreX, wy - centreY) + ((column + row) % 2 ? 3 : -3);
+      const band = LANTERN_BANDS.find(([radius]) => distance < radius);
+      if (!band) continue;
+      const at = (row * size + column) * 4;
+      image.data[at] = r;
+      image.data[at + 1] = g;
+      image.data[at + 2] = b;
+      image.data[at + 3] = Math.round(band[1] * 255);
+    }
+  }
+  context.putImageData(image, 0, 0);
+  const sprite = { canvas, left, top, size: LANTERN_REACH * 2 };
+  lanternLights.set(prop, { x: centreX, y: centreY, geometry, sprite });
+  return sprite;
+}
+
+// How far below the surface graffiti goes when its prop has no y of its own.
+const GRAFFITI_DEPTH = 40;
+// How close paint may come to the open air, so it stays off the surface lip
+// and the edges of a face.
+const GRAFFITI_INSET = { top: 8, side: 4, bottom: 4 };
+const graffitiPaint = new WeakMap();
+
+/** Where a painted prop's middle is: its own y, or a little into the rock below it. */
+export function paintedPropY(trail, prop) {
+  if (Number.isFinite(prop.y)) return prop.y;
+  const surface = terrainAt(trail, prop.x);
+  return surface?.solid ? surface.y + GRAFFITI_DEPTH : null;
+}
+
+/**
+ * The graffiti sprite for a prop, with every pixel that is not on solid rock
+ * cleared, so the paint stays on the rock face. Cached per prop until it
+ * moves or the terrain changes.
+ */
+function graffitiSprite(trail, prop) {
+  const y = paintedPropY(trail, prop);
+  if (y === null) return null;
+  const geometry = terrainGeometry(trail);
+  const cached = graffitiPaint.get(prop);
+  if (cached && cached.x === prop.x && cached.y === y && cached.geometry === geometry)
+    return cached.sprite;
+
+  const [left, top, right, bottom] = GRAFFITI_BOUNDS;
+  const columns = (right - left) / ART_PIXEL;
+  const rows = (bottom - top) / ART_PIXEL;
+  const canvas = createCanvas(columns, rows);
+  const context = canvas.getContext("2d");
+  context.setTransform(1 / ART_PIXEL, 0, 0, 1 / ART_PIXEL, -left / ART_PIXEL, -top / ART_PIXEL);
+  drawGraffiti(createDrawingTools(context));
+  context.setTransform(1, 0, 0, 1, 0, 0);
+
+  const anchorX = Math.round(prop.x / ART_PIXEL) * ART_PIXEL;
+  const anchorY = Math.round(y / ART_PIXEL) * ART_PIXEL;
+  const solid = (px, py) => terrainCollisionsAt(trail, px, py, 1).length > 0;
+  const { data } = context.getImageData(0, 0, columns, rows);
+  const { top: inTop, side, bottom: inBottom } = GRAFFITI_INSET;
+  for (let row = 0; row < rows; row++) {
+    for (let column = 0; column < columns; column++) {
+      if (!data[(row * columns + column) * 4 + 3]) continue;
+      const wx = anchorX + left + column * ART_PIXEL + 1;
+      const wy = anchorY + top + row * ART_PIXEL + 1;
+      if (
+        !solid(wx, wy) ||
+        !solid(wx, wy - inTop) ||
+        !solid(wx - side, wy) ||
+        !solid(wx + side, wy) ||
+        !solid(wx, wy + inBottom)
+      )
+        context.clearRect(column, row, 1, 1);
+    }
+  }
+  const sprite = { canvas, left: anchorX + left, top: anchorY + top, width: right - left, height: bottom - top };
+  graffitiPaint.set(prop, { x: prop.x, y, geometry, sprite });
+  return sprite;
 }
 
 export function propGroundOffset(trail, prop) {
@@ -1509,6 +1819,325 @@ function drawCactusBody(tools) {
   drawCactusFlower(tools, 24, -84, c.petalLight);
 }
 
+// Farm props. Each is drawn in the coordinates of its original 2-unit art
+// grid, from the top-left corner, and shifted so x = 0 is roughly its centre
+// and y = 0 is the ground it stands on.
+
+// Colours the farm props add to the palette: tyre rubber and shirt cloth.
+const RUBBER = { dark: "#3a403d", base: "#4a524d", light: "#5b645e" };
+const CLOTH = { dark: "#3f6f78", base: "#568f98", light: "#83d1ce" };
+const FARM_WOOD = {
+  dark: "#4d3f2f",
+  base: "#66543f",
+  plank: "#806244",
+  light: "#856d4f",
+  tip: "#aa8a60",
+  cut: "#c39664",
+};
+const FARM_STRAW = { dark: "#d9953a", base: "#f1b95d", light: "#ffe39a" };
+const FARM_LEAF = { stem: "#3d6452", dark: "#477158", mid: "#568061", light: "#618b66" };
+// The start pennant's reds. Darker than a collectible apple, and these never
+// glow or bob, so they don't read as something to pick up.
+const PROP_APPLE = { base: "#d63b2c", shade: "#a8322a", shine: "#e8755b" };
+
+// Draws [x, y, width, height, colour] rectangles shifted by (dx, dy).
+function drawFarmRects({ pixelRect }, rects, dx, dy) {
+  for (const [x, y, width, height, color] of rects)
+    pixelRect(x + dx, y + dy, width, height, color, 2);
+}
+
+const FARM_APPLE = [
+  [2, 2, 4, 8, PROP_APPLE.base],
+  [0, 4, 8, 4, PROP_APPLE.base],
+  [0, 4, 2, 4, PROP_APPLE.shade],
+  [2, 8, 2, 2, PROP_APPLE.shade],
+  [4, 4, 2, 2, PROP_APPLE.shine],
+  [4, 0, 2, 2, FARM_WOOD.dark],
+  [6, 0, 2, 2, FARM_LEAF.light],
+];
+
+const FARM_CRATE = [
+  [0, 0, 40, 28, FARM_WOOD.dark],
+  [4, 0, 32, 8, FARM_WOOD.light],
+  [4, 0, 32, 2, FARM_WOOD.tip],
+  [4, 10, 32, 8, FARM_WOOD.plank],
+  [4, 20, 32, 8, FARM_WOOD.base],
+  [16, 12, 8, 4, FARM_WOOD.dark],
+  [0, 0, 4, 28, FARM_WOOD.base],
+  [36, 0, 4, 28, FARM_WOOD.light],
+  [36, 0, 4, 2, FARM_WOOD.tip],
+];
+
+// 100 × 72: two crates with a third stacked on top, full of apples.
+function drawCrates(tools) {
+  const ox = -50, oy = -72;
+  for (const [x, y] of [[2, 44], [46, 44], [24, 16]])
+    drawFarmRects(tools, FARM_CRATE, ox + x, oy + y);
+  // Back row first, so the front row overlaps it; the last one rolled off.
+  for (const [x, y] of [
+    [28, 0], [36, 0], [44, 0], [52, 0],
+    [24, 6], [32, 6], [40, 6], [48, 6], [56, 6],
+    [90, 62],
+  ])
+    drawFarmRects(tools, FARM_APPLE, ox + x, oy + y);
+}
+
+// 54 × 100: leans to the right, so it rests against something on its right.
+function drawLadder(tools) {
+  const ox = -28, oy = -100;
+  const rects = [];
+  // Rails step 2 units right for every 8 up.
+  for (let step = 0; step < 12; step++) {
+    const y = 92 - step * 8;
+    rects.push([6 + step * 2, y, 4, 8, FARM_WOOD.base]);
+    rects.push([26 + step * 2, y, 4, 8, FARM_WOOD.light]);
+  }
+  // Rungs: lit top, shaded underside.
+  for (let rung = 0; rung < 5; rung++) {
+    const x = 12 + rung * 4;
+    const y = 86 - rung * 16;
+    rects.push([x, y, 16, 2, FARM_WOOD.tip]);
+    rects.push([x, y + 2, 16, 2, FARM_WOOD.base]);
+  }
+  rects.push(
+    [28, 4, 4, 2, FARM_WOOD.tip],
+    [48, 4, 4, 2, FARM_WOOD.tip],
+    [6, 98, 4, 2, FARM_WOOD.dark],
+    [26, 98, 4, 2, FARM_WOOD.dark],
+  );
+  drawFarmRects(tools, rects, ox, oy);
+}
+
+// 80 × 48: a painted barrow with a little harvest, wheel on the right.
+function drawWheelbarrow(tools) {
+  const ox = -40, oy = -48;
+  drawFarmRects(
+    tools,
+    [
+      // Handle.
+      [0, 10, 8, 4, FARM_WOOD.dark],
+      [8, 12, 10, 4, FARM_WOOD.base],
+      // Frame and leg.
+      [18, 30, 42, 4, FARM_WOOD.base],
+      [18, 30, 42, 2, FARM_WOOD.plank],
+      [26, 34, 4, 12, FARM_WOOD.base],
+      [24, 46, 8, 2, FARM_WOOD.dark],
+    ],
+    ox,
+    oy,
+  );
+  drawFarmRects(tools, FARM_APPLE, ox + 30, oy + 4);
+  drawFarmRects(tools, FARM_APPLE, ox + 40, oy + 4);
+  drawFarmRects(
+    tools,
+    [
+      // Painted tub.
+      [14, 14, 52, 4, FARM_LEAF.light],
+      [18, 18, 46, 4, FARM_LEAF.mid],
+      [22, 22, 40, 4, "#4e785c"],
+      [26, 26, 32, 4, FARM_LEAF.dark],
+      [18, 18, 4, 4, FARM_LEAF.dark],
+      [22, 22, 4, 4, FARM_LEAF.stem],
+      [26, 26, 4, 4, FARM_LEAF.stem],
+      [56, 20, 2, 2, FARM_LEAF.stem],
+      // Wheel: rubber tyre, rock-grey hub.
+      [60, 28, 8, 2, RUBBER.dark],
+      [58, 30, 12, 2, RUBBER.dark],
+      [56, 32, 16, 2, RUBBER.dark],
+      [54, 34, 20, 8, RUBBER.dark],
+      [56, 42, 16, 2, RUBBER.dark],
+      [58, 44, 12, 2, RUBBER.dark],
+      [60, 46, 8, 2, RUBBER.dark],
+      [70, 34, 4, 4, RUBBER.base],
+      [60, 32, 8, 2, "#697872"],
+      [58, 34, 12, 6, "#697872"],
+      [60, 40, 8, 2, "#697872"],
+      [62, 36, 4, 2, "#a2ab9e"],
+    ],
+    ox,
+    oy,
+  );
+}
+
+// 64 × 112. The sprite stops above the ground; the post below it is drawn
+// live so it follows the slope, and the face is drawn live so it can turn.
+const SCARECROW_OX = -32;
+const SCARECROW_OY = -112;
+const SCARECROW_BODY_BOTTOM = -32;
+// Eyes and mouth for each way the head can look, in sprite coordinates.
+const SCARECROW_FACES = {
+  left: [[24, 26], [30, 26], [26, 32], [30, 32]],
+  front: [[26, 26], [36, 26], [28, 32], [34, 32]],
+  right: [[32, 26], [38, 26], [32, 32], [36, 32]],
+};
+// How far the rider must be to one side before the head turns to follow.
+const SCARECROW_TURN = 60;
+
+function drawScarecrow(tools) {
+  const s = FARM_STRAW;
+  drawFarmRects(
+    tools,
+    [
+      // Post, down to where the live part takes over.
+      [30, 40, 2, 40, FARM_WOOD.base],
+      [32, 40, 2, 40, FARM_WOOD.light],
+      // Sleeves.
+      [6, 42, 14, 10, CLOTH.dark],
+      [6, 42, 14, 2, CLOTH.base],
+      [44, 42, 14, 10, CLOTH.base],
+      [44, 50, 14, 2, CLOTH.dark],
+      // Plaid shirt with a red patch and a rope belt.
+      [20, 42, 24, 30, CLOTH.base],
+      [20, 42, 6, 30, CLOTH.dark],
+      [20, 54, 24, 2, CLOTH.dark],
+      [32, 42, 2, 30, CLOTH.dark],
+      [42, 44, 2, 24, CLOTH.light],
+      [36, 58, 6, 6, PROP_APPLE.base],
+      [36, 62, 2, 2, PROP_APPLE.shade],
+      [20, 66, 24, 2, s.dark],
+      // Straw poking out of the cuffs and hem.
+      [2, 44, 4, 2, s.base],
+      [4, 52, 2, 2, s.base],
+      [58, 44, 4, 2, s.base],
+      [58, 52, 2, 2, s.base],
+      [22, 72, 2, 6, s.base],
+      [38, 72, 2, 4, s.base],
+      [0, 48, 6, 2, s.dark],
+      [58, 48, 6, 2, s.dark],
+      [26, 72, 2, 4, s.dark],
+      [42, 72, 2, 6, s.dark],
+      // Burlap head.
+      [24, 20, 16, 20, FARM_WOOD.cut],
+      [22, 22, 20, 16, FARM_WOOD.cut],
+      [22, 22, 4, 16, FARM_WOOD.tip],
+      [24, 38, 16, 2, FARM_WOOD.tip],
+      [26, 38, 12, 2, s.dark],
+      // Hair and hat.
+      [18, 22, 4, 4, s.dark],
+      [42, 22, 4, 4, s.base],
+      [16, 18, 32, 2, FARM_WOOD.plank],
+      [16, 20, 32, 2, FARM_WOOD.dark],
+      [22, 8, 20, 10, FARM_WOOD.base],
+      [22, 8, 4, 10, FARM_WOOD.dark],
+      [38, 8, 4, 6, FARM_WOOD.light],
+      [22, 14, 20, 2, PROP_APPLE.base],
+    ],
+    SCARECROW_OX,
+    SCARECROW_OY,
+  );
+}
+
+// 56 × 72: a straw skep on a stool. The bees are drawn live.
+function drawBeehive(tools) {
+  const s = FARM_STRAW;
+  const rects = [
+    // Stool.
+    [10, 54, 4, 18, FARM_WOOD.base],
+    [42, 54, 4, 18, FARM_WOOD.light],
+    [6, 50, 44, 4, FARM_WOOD.plank],
+    [6, 50, 44, 2, FARM_WOOD.tip],
+    // Knob on top.
+    [24, 10, 8, 4, s.base],
+    [24, 10, 2, 4, s.dark],
+  ];
+  // Coiled bands: [left, top, width], each with a groove, a shaded left end
+  // and a lit right shoulder.
+  const bands = [
+    [20, 14, 16, 4],
+    [14, 20, 28, 6],
+    [10, 26, 36, 6],
+    [8, 32, 40, 6],
+    [8, 38, 40, 6],
+    [10, 44, 36, 6],
+  ];
+  for (const [x, y, width] of bands) rects.push([x, y, width, 6, s.base]);
+  for (const [x, y, width, shade] of bands) {
+    rects.push([x, y + 4, width, 2, s.dark]);
+    rects.push([x, y, shade, 6, s.dark]);
+  }
+  for (const [x, y, width] of bands)
+    rects.push([x + width - 8, y, 4, 2, s.light]);
+  rects.push([26, 42, 4, 2, FARM_WOOD.dark], [24, 44, 8, 6, FARM_WOOD.dark]);
+  drawFarmRects(tools, rects, -28, -72);
+}
+// Where each bee hovers, relative to the hive's anchor.
+const BEES = [
+  [14, -62],
+  [-22, -52],
+  [6, -32],
+];
+
+// 96 × 56: the logo's tyre, worn and half-buried. It sits a little below its
+// anchor so the dirt at its base blends into the ground.
+const TYRE_SINK = 4;
+function drawTyre(tools) {
+  const r = RUBBER;
+  const rects = [
+    // Tread lugs sticking out.
+    [40, 8, 4, 4, r.dark],
+    [28, 12, 4, 4, r.dark],
+    [16, 20, 4, 4, r.dark],
+    [6, 32, 4, 4, r.dark],
+    [2, 44, 4, 4, r.dark],
+    [52, 8, 4, 4, r.base],
+    [64, 12, 4, 4, r.base],
+    [76, 20, 4, 4, r.base],
+    [86, 32, 4, 4, r.base],
+    [90, 44, 4, 4, r.base],
+    // Upper half of the ring.
+    [34, 12, 28, 4, r.base],
+    [26, 16, 44, 4, r.base],
+    [20, 20, 56, 4, r.base],
+    [16, 24, 64, 4, r.base],
+    [12, 28, 72, 4, r.base],
+    [10, 32, 76, 4, r.base],
+    [8, 36, 80, 4, r.base],
+    [6, 40, 84, 8, r.base],
+    [4, 48, 88, 8, r.base],
+    // Shaded left side.
+    [16, 24, 6, 4, r.dark],
+    [12, 28, 6, 4, r.dark],
+    [10, 32, 6, 4, r.dark],
+    [8, 36, 6, 4, r.dark],
+    [6, 40, 6, 8, r.dark],
+    [4, 48, 6, 8, r.dark],
+    // Lit upper right.
+    [64, 16, 6, 4, r.light],
+    [70, 20, 6, 4, r.light],
+    [74, 24, 6, 4, r.light],
+    [78, 28, 6, 4, r.light],
+    // Tread grooves.
+    [42, 12, 2, 4, r.dark],
+    [52, 12, 2, 4, r.dark],
+    [24, 22, 4, 2, r.dark],
+    [68, 22, 4, 2, r.dark],
+    [12, 36, 4, 2, r.dark],
+    [80, 36, 4, 2, r.dark],
+    [8, 48, 4, 2, r.dark],
+    [84, 48, 4, 2, r.dark],
+    // The hole.
+    [36, 36, 24, 4, FARM_WOOD.dark],
+    [32, 40, 32, 4, FARM_WOOD.dark],
+    [28, 44, 40, 8, FARM_WOOD.dark],
+    [26, 52, 44, 4, FARM_WOOD.dark],
+    // A weed growing inside, dirt and grass at the base.
+    [46, 46, 2, 10, "#4e785c"],
+    [48, 48, 2, 2, FARM_LEAF.light],
+    [44, 50, 2, 2, FARM_LEAF.mid],
+    [0, 52, 12, 4, FARM_WOOD.plank],
+    [84, 52, 12, 4, FARM_WOOD.plank],
+    [6, 48, 2, 4, FARM_LEAF.mid],
+    [10, 50, 2, 2, FARM_LEAF.light],
+    [86, 48, 2, 4, FARM_LEAF.light],
+    [90, 50, 2, 2, FARM_LEAF.mid],
+  ];
+  drawFarmRects(tools, rects, -48, TYRE_SINK - 56);
+}
+
+// What a prop can react to: the time in seconds for its animation, and the
+// rider's x. Without them, props stand still and the scarecrow looks ahead.
+const NO_SCENE = { time: 0, riderX: null };
+
 // Local bounds [left, top, right, bottom] of each canopy sprite, in world units.
 const CANOPY_SPRITES = {
   tree: { bounds: [-64, -182, 64, TREE_CANOPY_BOTTOM], draw: drawTreeCanopy },
@@ -1533,6 +2162,23 @@ const CANOPY_SPRITES = {
     bounds: [-8, -56, 8, SMALL_CACTUS_BOTTOM],
     draw: drawSmallCactusBody,
   },
+  crates: { bounds: [-50, -72, 50, 0], draw: drawCrates },
+  ladder: { bounds: [-28, -100, 26, 0], draw: drawLadder },
+  wheelbarrow: { bounds: [-40, -48, 40, 0], draw: drawWheelbarrow },
+  scarecrow: {
+    bounds: [SCARECROW_OX, SCARECROW_OY, -SCARECROW_OX, SCARECROW_BODY_BOTTOM],
+    draw: drawScarecrow,
+  },
+  beehive: { bounds: [-28, -72, 28, 0], draw: drawBeehive },
+  tyre: { bounds: [-48, TYRE_SINK - 56, 48, TYRE_SINK], draw: drawTyre },
+  cone: { bounds: [-10, -24, 10, 0], draw: drawCone },
+  barrier: { bounds: [-44, -46, 44, 0], draw: drawBarrier },
+  dumpster: { bounds: [-48, -66, 46, 0], draw: drawDumpster },
+  lamp: { bounds: [-6, -128, 34, LAMP_BODY_BOTTOM], draw: drawLamp },
+  crane: { bounds: [-72, -280, 174, CRANE_BODY_BOTTOM], draw: drawCrane },
+  scaffolding: { bounds: [-52, -142, 52, 0], draw: drawScaffoldDecks },
+  graffiti: { bounds: GRAFFITI_BOUNDS, draw: drawGraffiti },
+  minecart: { bounds: [-24, -40, 24, 0], draw: drawMinecart },
 };
 const canopySprites = new Map();
 
@@ -1595,7 +2241,31 @@ const PROP_EXTENTS = {
   vines: [-16, -10, 16],
   roots: [-32, -16, 32],
   moss: [-18, -18, 18],
+  crates: [-50, -72, 50],
+  ladder: [-28, -100, 26],
+  wheelbarrow: [-40, -48, 40],
+  scarecrow: [-32, -112, 32],
+  beehive: [-32, -80, 32],
+  tyre: [-48, -56, 48],
+  cone: [-12, -26, 12],
+  barrier: [-46, -48, 46],
+  dumpster: [-50, -68, 48],
+  lamp: [-8, -130, 36],
+  crane: [-74, -282, 176],
+  scaffolding: [-54, -144, 54],
+  bird: [-12, -20, 12],
+  graffiti: [GRAFFITI_BOUNDS[0], GRAFFITI_BOUNDS[1], GRAFFITI_BOUNDS[2]],
+  "hanging-roots": [-16, -CEILING_REACH - 4, 16],
+  stalactites: [-20, -CEILING_REACH - 4, 20],
+  drip: [-10, -CEILING_REACH - 4, 10],
+  lantern: [-8, -CEILING_REACH - 4, 8],
+  bats: [-16, -CEILING_REACH - 4, 18],
+  mushrooms: [-20, -34, 20],
+  minecart: [-RAIL_REACH - 4, -54, RAIL_REACH + 4],
+  beams: [-BEAM_HALF - 2, -BEAM_REACH - 12, BEAM_HALF + 2],
 };
+// How far below its anchor each ceiling prop's art can reach.
+const CEILING_HANG = { "hanging-roots": 72, stalactites: 36, drip: 260, lantern: 4, bats: 20 };
 
 function propBounds(type, angle, groundOffset, text, flip = false) {
   let [left, top, right] = PROP_EXTENTS[type] || [-64, -190, 64];
@@ -1640,6 +2310,9 @@ function propBounds(type, angle, groundOffset, text, flip = false) {
     groundOffset(0),
     groundOffset(right),
   );
+  if (type === "tyre") bottom = Math.max(bottom, TYRE_SINK);
+  if (type === "graffiti") bottom = Math.max(bottom, GRAFFITI_BOUNDS[3]);
+  if (CEILING_HANG[type]) bottom = Math.max(bottom, CEILING_HANG[type]);
   // Wall props reach below their anchor, so faded ones need a taller box.
   if (WALL_PROPS.has(type))
     bottom = Math.max(bottom, type === "vines" ? VINE_MAX + 8 : 28);
@@ -1993,13 +2666,14 @@ export function createGameArt(ctx) {
     const tools = createDrawingTools(context);
     const bottom = BACKGROUND_STRIP_TOP + BACKGROUND_STRIP_HEIGHT;
     const step = layer.step || 8;
-    context.fillStyle = layer.color;
     for (
       let worldX = left - step;
       worldX < left + BACKGROUND_STRIP_WIDTH;
       worldX += step
     ) {
       const y = Math.round(layer.shape(worldX) / 4) * 4;
+      // Reset every column: `column` hooks paint windows in other colours.
+      context.fillStyle = layer.color;
       context.fillRect(worldX, y, step, bottom - y);
       layer.column?.(context, worldX, y, step);
     }
@@ -2309,6 +2983,34 @@ export function createGameArt(ctx) {
       pixelRect(dx + hug, 14, 2, length, LEAF.stem, 2);
   }
 
+  // A colony roosting on the roof, or scattering once startled
+  // (`scene.flight`): each bat flutters off on its own path, away from the rider.
+  function drawBats(x, scene) {
+    const tools = { pixelRect };
+    const snap = (value) => Math.round(value / ART_PIXEL) * ART_PIXEL;
+    const flight = scene.flight;
+    BAT_ROOSTS.forEach(([bx, by], index) => {
+      if (!flight) {
+        // Now and then one stretches a wing.
+        const time = scene.time || 0;
+        const stretch = time > 0 && (time + propNoise(x, index + 5) * 11) % 6 < 0.5;
+        drawBatHanging(tools, bx, by, stretch);
+        return;
+      }
+      const age = flight.age;
+      const speed = 60 + propNoise(x, index + 8) * 50;
+      const climb = [-1.1, 0.5, -0.2][index % 3] * 50;
+      const dx = flight.dir * (speed * age + 50 * age * age) * (index === 1 ? 0.8 : 1);
+      // A short drop off the roof, then a jinking flight.
+      const dy = 10 * Math.min(age, 0.2) / 0.2 + climb * age + Math.sin(age * 11 + index * 2) * 6;
+      ctx.save();
+      ctx.translate(snap(bx + 2 + dx), snap(by + 8 + dy));
+      ctx.scale(flight.dir, 1);
+      drawBatFlying(tools, Math.floor(age * 16 + index) % 2 === 0);
+      ctx.restore();
+    });
+  }
+
   // Framed board lit from the right, growing upward from `bottom`. `x` must be
   // even; the board and every line centre on x + 1, the middle of the post.
   function drawBoard(x, bottom, text) {
@@ -2352,6 +3054,7 @@ export function createGameArt(ctx) {
     text,
     wall,
     flip,
+    scene,
   ) {
     const transform = ctx.getTransform();
     if (transform.b || transform.c) return false;
@@ -2399,7 +3102,7 @@ export function createGameArt(ctx) {
       transform.e - x0,
       transform.f - y0,
     );
-    art.drawProp(type, x, y, 1, slope, groundOffset, text, wall, flip);
+    art.drawProp(type, x, y, 1, slope, groundOffset, text, wall, flip, scene);
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = alpha;
@@ -2418,6 +3121,7 @@ export function createGameArt(ctx) {
     text = "",
     wall = null,
     flip = false,
+    scene = NO_SCENE,
   ) {
     if (isStartSign(type, text)) type = "start";
     const mirrored = Boolean(flip) && canFlip(type);
@@ -2433,6 +3137,7 @@ export function createGameArt(ctx) {
         text,
         wall,
         mirrored,
+        scene,
       )
     )
       return;
@@ -2711,6 +3416,135 @@ export function createGameArt(ctx) {
       shard(-8, -26, 6, -2);
       shard(8, -24, 6, 2);
       shard(0, -40, 8, 0);
+    } else if (
+      type === "crates" ||
+      type === "ladder" ||
+      type === "wheelbarrow" ||
+      type === "tyre"
+    ) {
+      drawCanopy(type);
+    } else if (type === "scarecrow") {
+      drawCanopy(type);
+      // The post below the body follows the ground, like a tree trunk.
+      rectDownTo(-2, SCARECROW_BODY_BOTTOM, 2, FARM_WOOD.base, 2, groundOffset);
+      rectDownTo(0, SCARECROW_BODY_BOTTOM, 2, FARM_WOOD.light, 2, groundOffset);
+      // The head watches the rider go by. Only the face moves, so the head's
+      // light and shade stay put.
+      let face = "front";
+      if (Number.isFinite(scene.riderX)) {
+        const dx = (scene.riderX - x) * (mirrored ? -1 : 1);
+        if (dx < -SCARECROW_TURN) face = "left";
+        else if (dx > SCARECROW_TURN) face = "right";
+      }
+      for (const [fx, fy] of SCARECROW_FACES[face])
+        pixelRect(
+          fx + SCARECROW_OX,
+          fy + SCARECROW_OY,
+          2,
+          2,
+          FARM_WOOD.dark,
+          2,
+        );
+    } else if (type === "beehive") {
+      drawCanopy(type);
+      const time = scene.time || 0;
+      const snap = (value) => Math.round(value / ART_PIXEL) * ART_PIXEL;
+      BEES.forEach(([bx, by], index) => {
+        const left = bx + snap(Math.sin(time * 3 + index * 2.1) * 4);
+        const top = by + snap(Math.cos(time * 4.3 + index * 1.3) * 2);
+        pixelRect(left, top + 2, 4, 2, "#f4c64e", 2);
+        pixelRect(left + 2, top + 2, 2, 2, FARM_WOOD.dark, 2);
+        pixelRect(left, top, 2, 2, "#fffdf4", 2);
+      });
+    } else if (
+      type === "cone" ||
+      type === "barrier" ||
+      type === "dumpster" ||
+      type === "graffiti"
+    ) {
+      drawCanopy(type);
+    } else if (type === "lamp") {
+      drawCanopy(type);
+      // The plinth's foot follows the ground.
+      rectDownTo(-4, LAMP_BODY_BOTTOM, 2, "#3a403d", 2, groundOffset);
+      rectDownTo(-2, LAMP_BODY_BOTTOM, 4, "#4a524d", 2, groundOffset);
+      rectDownTo(2, LAMP_BODY_BOTTOM, 2, STEEL.base, 2, groundOffset);
+    } else if (type === "crane") {
+      drawCanopy(type);
+      // Concrete footing, following the ground.
+      const f = CRANE_FOOTING;
+      rectDownTo(-16, CRANE_BODY_BOTTOM, 4, f.dark, 2, groundOffset);
+      rectDownTo(-12, CRANE_BODY_BOTTOM, 28, f.base, 2, groundOffset);
+      rectAboveGround(-12, CRANE_BODY_BOTTOM, 28, 2, f.light, 2, groundOffset);
+    } else if (type === "scaffolding") {
+      drawCanopy(type);
+      // Standards run down to base plates on the ground, like tree trunks.
+      for (const sx of SCAFFOLD_STANDARDS) {
+        rectDownTo(sx, SCAFFOLD_TOP, 2, STEEL.base, 2, groundOffset);
+        rectDownTo(sx + 2, SCAFFOLD_TOP, 2, STEEL.light, 2, groundOffset);
+        const foot = Math.round(groundOffset(sx + 2) / 2) * 2;
+        pixelRect(sx - 2, foot - 2, 8, 2, STEEL.dark, 2);
+      }
+      drawScaffoldCouplers({ pixelRect });
+    } else if (type === "bird") {
+      const tools = { pixelRect };
+      const flight = scene.flight;
+      if (flight) {
+        // Away from the rider: a steep take-off that flattens out.
+        const age = flight.age;
+        const dir = flight.dir * (mirrored ? -1 : 1);
+        const snap = (value) => Math.round(value / ART_PIXEL) * ART_PIXEL;
+        ctx.translate(snap(dir * (50 * age + 90 * age * age)), snap(-(80 * age + 40 * age * age)));
+        ctx.scale(dir, 1);
+        drawBirdFlying(tools, Math.floor(age * 14) % 2 === 0);
+      } else {
+        // Now and then it pecks at the ground.
+        const time = scene.time || 0;
+        const peck = time > 0 && (time + propNoise(x, 1) * 7) % 3 < 0.3;
+        drawBirdPerched(tools, peck);
+      }
+    } else if (CEILING_PROPS.has(type)) {
+      const tools = { pixelRect };
+      const fit = wall || { ceiling: null, drop: null, colors: rockColors(), body: 0 };
+      const noise = (n) => propNoise(x, n);
+      // With no roof found it hangs from its own anchor.
+      const roof = Math.round((fit.ceiling ?? 0) / 2) * 2;
+      if (type === "lantern") {
+        const body = Math.round((fit.body || 0) / 2) * 2;
+        ctx.translate(0, body);
+        const chain = fit.ceiling === null ? 0 : Math.max(0, body + LANTERN_TOP - roof);
+        drawLantern(tools, chain);
+      } else {
+        ctx.translate(0, roof);
+        const room = Number.isFinite(fit.drop) ? fit.drop : Infinity;
+        if (type === "hanging-roots") drawHangingRoots(tools, Math.min(64, room - 14), noise);
+        else if (type === "stalactites") drawStalactites(tools, fit.colors, Math.min(32, room - 24), noise);
+        else if (type === "drip") drawDrip(tools, fit.colors, fit.drop, scene.time || 0, noise(4));
+        else drawBats(x, scene);
+      }
+    } else if (type === "mushrooms") {
+      drawMushrooms({ pixelRect }, groundOffset);
+    } else if (type === "minecart") {
+      const fit = wall || { left: 40, right: 40, leftWall: false, rightWall: false };
+      // Rails run in world space, so a mirrored cart's track is mirrored back.
+      const [left, right, openLeft, openRight] = mirrored
+        ? [-fit.right, fit.left, !fit.rightWall, !fit.leftWall]
+        : [-fit.left, fit.right, !fit.leftWall, !fit.rightWall];
+      const snapTo = (value) => Math.round(value / 2) * 2;
+      drawRails({ pixelRect }, snapTo(left), snapTo(right), groundOffset, openLeft, openRight);
+      // The cart tilts to sit both wheels on the rails.
+      const [rear, front] = CART_WHEELS.map((wx) => snapTo(groundOffset(wx)));
+      ctx.translate(0, snapTo((rear + front) / 2) + RAIL_TOP);
+      ctx.rotate(Math.atan2(front - rear, CART_WHEELS[1] - CART_WHEELS[0]));
+      drawCanopy(type);
+    } else if (type === "beams") {
+      const roofs = wall?.roofs || [];
+      const roofAt = (local) => roofs[(local + BEAM_HALF) / 2] ?? null;
+      const found = roofs.filter((roof) => roof !== null);
+      // The cap beam sits under the lowest point of the roof above it.
+      let headerTop = found.length ? Math.max(...found) : -BEAM_HEIGHT;
+      headerTop = Math.min(-32, Math.round(headerTop / 2) * 2);
+      drawBeams({ pixelRect }, groundOffset, headerTop, roofAt, BEAM_PACKING);
     } else if (type === "start") {
       // Same pennant as the start line, drawn by the shared function.
       drawStartPennant(ctx, 0, 0, groundOffset);
@@ -3367,12 +4201,143 @@ export function createGameArt(ctx) {
     ctx.restore();
   }
 
+  /** Paints a graffiti prop onto the rock, clipped to it. Draw after the terrain. */
+  function drawWallPaint(trail, prop) {
+    const sprite = graffitiSprite(trail, prop);
+    if (!sprite) return;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(sprite.canvas, sprite.left, sprite.top, sprite.width, sprite.height);
+  }
+
+  /**
+   * Prop lights, drawn over the time-of-day grade so they stay bright: a street
+   * lamp and the pool it throws on the ground, a crane's warning lights, a
+   * lantern and the cave wall around it, and glowing mushrooms. Lamps and cranes
+   * only light up after dark; lanterns and mushrooms always glow, more brightly
+   * once `dark`. `time` is in seconds; 0 keeps the lights steady. `trail`,
+   * `prop` and `fit` (from propWallFit) are needed for a lantern.
+   */
+  function drawPropGlow(
+    type,
+    x,
+    y,
+    groundOffset = () => 0,
+    flip = false,
+    time = 0,
+    { dark = true, trail = null, prop = null, fit = null } = {},
+  ) {
+    const dir = flip ? -1 : 1;
+    const strength = dark ? 1 : 0.5;
+    if (type === "lantern") {
+      const centreY = y + (fit?.body || 0) + LANTERN_CENTRE;
+      // A slow, stepped flicker.
+      const flicker = time ? [1, 0.92, 0.97, 0.88][Math.floor(time * 6 + propNoise(x, 3) * 4) % 4] : 1;
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.globalCompositeOperation = "screen";
+      if (trail && prop) {
+        const light = lanternLightSprite(trail, prop, x, centreY);
+        ctx.globalAlpha = strength * flicker;
+        ctx.drawImage(light.canvas, light.left, light.top, light.size, light.size);
+      }
+      ctx.translate(Math.round(x / 2) * 2, Math.round(centreY / 2) * 2);
+      ctx.globalAlpha = 0.22 * strength * flicker;
+      drawPixelDisc(0, 0, 16, LANTERN_LIGHT.flame, 2);
+      ctx.globalAlpha = 0.3 * strength * flicker;
+      drawPixelDisc(0, 0, 10, LANTERN_LIGHT.glass, 2);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+      ctx.translate(0, -LANTERN_CENTRE);
+      drawLanternGlass({ pixelRect }, flicker < 0.95 ? 0 : 1);
+      ctx.restore();
+      return;
+    }
+    ctx.save();
+    ctx.translate(Math.round(x / 2) * 2, Math.round(y / 2) * 2);
+    if (type === "mushrooms") {
+      ctx.scale(dir, 1);
+      const caps = mushroomCaps((local) => groundOffset(local * dir));
+      const pulse = time ? 0.85 + 0.15 * Math.round(Math.sin(time * 1.6 + x) * 2) / 2 : 1;
+      ctx.globalCompositeOperation = "screen";
+      for (const cap of caps) {
+        ctx.globalAlpha = 0.22 * strength * pulse;
+        drawPixelDisc(cap.cx, cap.bottom - 4, cap.cap + 6, WATER.light, 2);
+        ctx.globalAlpha = 0.18 * strength * pulse;
+        drawPixelDisc(cap.cx, cap.bottom - 4, cap.cap + 2, WATER.bright, 2);
+      }
+      // Spores drifting up off the caps, one art pixel at a time.
+      if (time) {
+        caps.forEach((cap, index) => {
+          const rise = (time * 6 + index * 11 + propNoise(x, index) * 30) % 30;
+          const sx = cap.cx + Math.round(Math.sin(time + index * 2) * 1.5) * 2;
+          ctx.globalAlpha = strength * (1 - rise / 30);
+          pixelRect(sx, cap.bottom - 8 - Math.round(rise / 2) * 2, 2, 2, WATER.bright, 2);
+        });
+      }
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+      drawMushroomSpots({ pixelRect }, (local) => groundOffset(local * dir));
+    } else if (!dark) {
+      // Lamps and crane lights stay off by day.
+    } else if (type === "lamp") {
+      // Glass centre and the ground below it, relative to the anchor.
+      const headX = dir * LAMP_HEAD.x;
+      const ground = Math.min(
+        Math.round(groundOffset(headX) / 2) * 2,
+        LAMP_HEAD.y + 200,
+      );
+      ctx.globalCompositeOperation = "screen";
+      // Beam: stepped bands widening down to the ground.
+      const span = ground - LAMP_HEAD.y;
+      for (let py = LAMP_HEAD.y; py < ground; py += 4) {
+        const t = (py - LAMP_HEAD.y) / span;
+        const outer = Math.round((6 + t * 26) / 2) * 2;
+        const inner = Math.round(outer * 0.5 / 2) * 2;
+        ctx.globalAlpha = 0.07;
+        pixelRect(headX - outer, py, outer * 2, 4, LAMP_LIGHT.beam, 2);
+        ctx.globalAlpha = 0.06;
+        pixelRect(headX - inner, py, inner * 2, 4, LAMP_LIGHT.beam, 2);
+      }
+      // Pool on the ground, brightest under the lamp, following the slope.
+      for (let dx = -40; dx < 40; dx += 2) {
+        const reach = Math.abs(dx + 1);
+        const height = reach < 14 ? 8 : reach < 26 ? 6 : 4;
+        ctx.globalAlpha = reach < 14 ? 0.34 : reach < 26 ? 0.22 : 0.12;
+        const gy = Math.round(groundOffset(headX + dx) / 2) * 2;
+        pixelRect(headX + dx, gy - height, 2, height + 4, LAMP_LIGHT.beam, 2);
+      }
+      // Halo, then the glass itself at full brightness.
+      ctx.globalAlpha = 0.28;
+      drawPixelDisc(headX, LAMP_HEAD.y - 2, 14, LAMP_LIGHT.beam, 2);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+      ctx.scale(dir, 1);
+      drawLampGlass({ pixelRect });
+    } else if (type === "crane") {
+      CRANE_LIGHTS.forEach(([lx, ly], index) => {
+        // Blink slowly, out of step with each other.
+        if (time && (time * 0.8 + index * 0.37) % 1 > 0.55) return;
+        const cx = dir * lx;
+        ctx.globalCompositeOperation = "screen";
+        ctx.globalAlpha = 0.35;
+        drawPixelDisc(cx, ly, 6, "#e8755b", 2);
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = 1;
+        pixelRect(cx - 2, ly - 2, 4, 4, "#e8755b", 2);
+        pixelRect(cx, ly - 2, 2, 2, "#ffc295", 2);
+      });
+    }
+    ctx.restore();
+  }
+
   return {
     drawApple,
     drawFlag,
     drawBike,
     drawRagdoll,
     drawProp,
+    drawWallPaint,
+    drawPropGlow,
     drawSpike,
     drawBackground,
     drawTimeTint,

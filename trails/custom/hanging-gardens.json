@@ -2,7 +2,6 @@
   "name": "The Hanging Gardens",
   "label": "THE HANGING GARDENS / HARD",
   "goal": 5480,
-  "terrain": "rock",
   "description": "A long, difficult Elasto Mania-inspired expedition with four mandatory floating islands, twelve apples, exposed transfers, and overhead killers. Reach the first island from the lip at x1160. At x2710, launch onto the first of two consecutive islands, then cross the 90-unit break between them. Reach the final island from x4260. Every island carries a required apple with an explicit height; riding through the valleys below will miss them. Valley floors offer recovery space, but missed islands require backtracking. Settle the bike before each launch and control your height beneath the killers. Geometry checked against the supplied validation rules, but not playtested; jump feasibility and medal times require in-game testing.",
   "start": {
     "x": 275.153511487099,
@@ -233,14 +232,6 @@
     "lightning": 0
   },
   "fallY": 760,
-  "sky": "#eae9d9",
-  "sun": "#f2c082",
-  "mountain": "#b7c8b1",
-  "spray": [
-    "#626b69",
-    "#858e8a",
-    "#aeb5ad"
-  ],
   "medals": {
     "gold": 42,
     "silver": 60,

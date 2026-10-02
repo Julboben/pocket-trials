@@ -7,18 +7,14 @@ import { editor } from "./state.js";
 
 const TOOL_SETTINGS_KEY = "hjulben-editor-tool-settings-v1";
 
-const BASE_MATERIAL = "base";
-
 export const propTypeOptions = () =>
   [...$("selection-prop-type").options].map((option) => [
     option.value,
     option.textContent,
   ]);
 
-const materialOptions = () => [
-  [BASE_MATERIAL, "Trail base material"],
-  ...Object.keys(terrainMaterials).map((name) => [name, name.toUpperCase()]),
-];
+const materialOptions = () =>
+  Object.keys(terrainMaterials).map((name) => [name, name.toUpperCase()]);
 
 const TOOL_INFO = {
   select: {
@@ -111,12 +107,13 @@ const TOOL_INFO = {
   },
   finish: {
     title: "Finish",
-    hint: "Click to move the finish onto the surface at that x, then drag it up or down to float it in the air. The run ends when the bike touches the flower.",
+    hint: "Click to move the finish onto the floor under where you click, then drag it up or down to float it in the air. The run ends when the bike touches the flower.",
   },
 };
 
 const DEFAULT_TOOL_SETTINGS = {
-  block: { material: BASE_MATERIAL },
+  // The last material chosen is kept for the next block.
+  block: { material: "grass" },
   spike: { radius: SPIKE_RADIUS.default, spin: 1 },
   prop: { type: "tree", layer: "back", flip: false },
   start: { facing: "1" },
@@ -145,12 +142,16 @@ export const PLACING_TOOLS = new Set(["apple", "spike", "prop"]);
 export const toolSettings = (() => {
   try {
     const stored = JSON.parse(store().getItem(TOOL_SETTINGS_KEY) || "{}");
-    return Object.fromEntries(
+    const settings = Object.fromEntries(
       Object.entries(DEFAULT_TOOL_SETTINGS).map(([name, defaults]) => [
         name,
         { ...defaults, ...(stored[name] || {}) },
       ]),
     );
+    // Older settings could name the trail's base material, which is gone.
+    if (!terrainMaterials[settings.block.material])
+      settings.block.material = DEFAULT_TOOL_SETTINGS.block.material;
+    return settings;
   } catch (_) {
     return structuredClone(DEFAULT_TOOL_SETTINGS);
   }
@@ -164,9 +165,7 @@ export function saveToolSettings() {
 
 export function toolMaterial(name) {
   const material = toolSettings[name]?.material;
-  return !material || material === BASE_MATERIAL || !terrainMaterials[material]
-    ? editor.trail.terrain
-    : material;
+  return terrainMaterials[material] ? material : "grass";
 }
 
 function clampSetting(field, value) {

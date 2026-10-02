@@ -8,8 +8,11 @@ import {
   createCanvas,
   createDrawingTools,
   createGameArt,
+  PAINTED_PROPS,
+  paintedPropY,
   propAlignmentSlope,
   propGroundOffset,
+  propSpan,
   propWallFit,
   sunLight,
   sunShadowOffset,
@@ -47,6 +50,13 @@ const SCENERY_SHADOWS = {
   "cactus-small": { width: 7, alpha: 0.15, thickness: 3, lift: 12 },
   sapling: { width: 10, alpha: 0.15, thickness: 3, lift: 20 },
   "pine-small": { width: 9, alpha: 0.15, thickness: 3, lift: 22 },
+  crates: { width: 26, alpha: 0.15, thickness: 3, lift: 24 },
+  wheelbarrow: { width: 18, alpha: 0.13, thickness: 3, lift: 14 },
+  scarecrow: { width: 8, alpha: 0.15, thickness: 3, lift: 30 },
+  beehive: { width: 14, alpha: 0.14, thickness: 3, lift: 20 },
+  cone: { width: 7, alpha: 0.14, thickness: 3, lift: 8 },
+  dumpster: { width: 30, alpha: 0.15, thickness: 3, lift: 20 },
+  lamp: { width: 6, alpha: 0.15, thickness: 3, lift: 40 },
 };
 const GHOST_ALPHA = 0.38;
 // Where a front prop hides the rider, the hidden part shows as a silhouette.
@@ -61,9 +71,24 @@ const PROP_RISE = {
   sapling: 80,
   "pine-small": 92,
   "cactus-small": 60,
+  ladder: 102,
+  scarecrow: 114,
+  lamp: 130,
+  crane: 282,
+  scaffolding: 146,
 };
 // How far each prop's art hangs below its anchor, for culling.
-const PROP_HANG = { vines: 148, roots: 28, moss: 28 };
+const PROP_HANG = { vines: 148, roots: 28, moss: 28, graffiti: 38 };
+// How far each prop's art reaches either side of its anchor, for culling.
+const PROP_REACH = { crane: 180, minecart: 150, bats: 220 };
+// Perched birds take off, and roosting bats scatter, when the rider comes
+// within `x` and `y` of them; they are gone `flight` seconds later.
+const STARTLE = {
+  bird: { x: 110, y: 140, flight: 2.5 },
+  bats: { x: 160, y: 200, flight: 2.2 },
+};
+// Props that glow, and how far their light reaches either side, for culling.
+const GLOW_REACH = { lamp: 70, crane: 180, lantern: 100, mushrooms: 40 };
 // How far a hair strand may sink into a floor and still be lifted back onto it.
 const HAIR_GROUND_ALLOWANCE = 8;
 
@@ -84,6 +109,13 @@ export function createRenderer(canvas) {
     cameraY = 0;
   let xrayMask = null,
     xrayRider = null;
+  // What props react to this frame; see drawProp.
+  let propScene = { time: 0, riderX: null };
+  let frameNow = 0;
+  // Birds and bats that have taken off, with when and which way, for the
+  // current ride.
+  const flights = new Map();
+  let flightRide = null;
 
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
@@ -203,25 +235,89 @@ export function createRenderer(canvas) {
     }
   }
 
+  // Perched birds and roosting bats take off, away from the rider, once the
+  // rider comes close. Purely visual: nothing here feeds back into the
+  // simulation.
+  function startleProps(ride, focus, now) {
+    if (flightRide !== ride) {
+      flights.clear();
+      flightRide = ride;
+    }
+    for (const prop of trail.props || []) {
+      const reach = STARTLE[prop.type];
+      if (!reach || flights.has(prop)) continue;
+      let y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
+      if (prop.type === "bats") y += propWallFit(trail, prop)?.ceiling ?? 0;
+      if (Math.abs(focus.x - prop.x) < reach.x && Math.abs(focus.y - y) < reach.y)
+        flights.set(prop, { start: now, dir: prop.x >= focus.x ? 1 : -1 });
+    }
+  }
+
+  // Graffiti, painted onto the rock just after the terrain is drawn.
+  function drawWallPaint() {
+    for (const prop of trail.props || []) {
+      if (!PAINTED_PROPS.has(prop.type) || !inView(prop.x, 70)) continue;
+      const y = paintedPropY(trail, prop);
+      if (y === null || !inView(prop.x, 70, y + 38, 64)) continue;
+      gameArt.drawWallPaint(trail, prop);
+    }
+  }
+
+  // Street lamps and crane lights after dark; lanterns and mushrooms always.
+  function drawPropGlows(dark) {
+    for (const prop of trail.props || []) {
+      const reach = GLOW_REACH[prop.type];
+      if (!reach || !inView(prop.x, reach)) continue;
+      if (!dark && (prop.type === "lamp" || prop.type === "crane")) continue;
+      const ground = terrainAt(trail, prop.x);
+      if (!ground.solid && !Number.isFinite(prop.y)) continue;
+      const y = Number.isFinite(prop.y) ? prop.y : ground.y;
+      const fit = propWallFit(trail, prop);
+      const [rise, hang] = propSpan(prop.type, fit) || [PROP_RISE[prop.type] ?? 90, 0];
+      if (!inView(prop.x, reach, y + hang + reach, rise + hang + reach * 2)) continue;
+      gameArt.drawPropGlow(
+        prop.type,
+        prop.x,
+        y,
+        propGroundOffset(trail, prop),
+        prop.flip,
+        propScene.time,
+        { dark, trail, prop, fit },
+      );
+    }
+  }
+
   // `area` limits drawing to props that can reach a world-space box
   // { left, top, right, bottom }; returns how many props were drawn.
   function drawProps(layer, full, art = gameArt, area = null) {
     let drawn = 0;
     for (const prop of trail.props || []) {
+      const reach = PROP_REACH[prop.type] ?? 70;
       if (
         prop.layer !== layer ||
+        PAINTED_PROPS.has(prop.type) ||
         (!full && (prop.type === "tree" || prop.type === "pine")) ||
-        !inView(prop.x, 70) ||
-        (area && (prop.x < area.left - 70 || prop.x > area.right + 70))
+        !inView(prop.x, reach) ||
+        (area && (prop.x < area.left - reach || prop.x > area.right + reach))
       )
         continue;
       const ground = terrainAt(trail, prop.x);
       if (!ground.solid && !Number.isFinite(prop.y)) continue;
       const y = Number.isFinite(prop.y) ? prop.y : ground.y;
-      const rise = PROP_RISE[prop.type] ?? 90;
-      const hang = PROP_HANG[prop.type] ?? 0;
-      if (!inView(prop.x, 70, y + hang, rise + hang)) continue;
+      const fit = propWallFit(trail, prop);
+      const span = propSpan(prop.type, fit);
+      const rise = span ? span[0] : PROP_RISE[prop.type] ?? 90;
+      const hang = span ? span[1] : PROP_HANG[prop.type] ?? 0;
+      if (!inView(prop.x, reach, y + hang, rise + hang)) continue;
       if (area && (y - rise > area.bottom || y + hang + 70 < area.top)) continue;
+      let scene = propScene;
+      const flight = flights.get(prop);
+      if (flight) {
+        const age = (frameNow - flight.start) / 1000;
+        // With reduced motion a startled bird or bat is simply gone.
+        if (reducedMotion || age > STARTLE[prop.type].flight) continue;
+        scene = { ...propScene, flight: { age, dir: flight.dir } };
+      }
       art.drawProp(
         prop.type,
         prop.x,
@@ -230,8 +326,9 @@ export function createRenderer(canvas) {
         propAlignmentSlope(trail, prop),
         propGroundOffset(trail, prop),
         prop.text,
-        propWallFit(trail, prop),
+        fit,
         prop.flip,
+        scene,
       );
       drawn++;
     }
@@ -659,7 +756,16 @@ export function createRenderer(canvas) {
   }) {
     const paused = state === "paused";
     const animationDt = paused ? 0 : dt;
-    camera.follow(focusOf(ride), {
+    const focus = focusOf(ride);
+    // The ride is already interpolated for this frame, and nothing here feeds
+    // back into the simulation, so replays are unaffected.
+    propScene = {
+      time: reducedMotion ? 0 : now / 1000,
+      riderX: focus.x,
+    };
+    frameNow = now;
+    startleProps(ride, focus, now);
+    camera.follow(focus, {
       facing: ride.facing,
       loose: Boolean(ride.ragdoll),
       width: W,
@@ -693,6 +799,7 @@ export function createRenderer(canvas) {
     effects.update(animationDt);
     drawProps("back", full);
     terrainRenderer.draw(ctx, trail, cameraX, cameraY, W, H);
+    drawWallPaint();
     drawSkidMarks(effects.skidMarks);
     drawSceneryShadows(ride, now, full);
     drawParticles(effects.particles, true);
@@ -716,9 +823,11 @@ export function createRenderer(canvas) {
     drawProps("front", full);
     drawXray(ride, rider, ride.ragdoll ? "ragdoll" : state, full);
     drawParticles(effects.particles, false);
-    // Time-of-day grade over the whole scene; after dark, apples and the
-    // finish are drawn again on top so they stay easy to see.
-    if (gameArt.drawTimeTint(trail, cameraX, cameraY, W, H)) {
+    // Time-of-day grade over the whole scene, then prop lights; after dark,
+    // apples and the finish are drawn again on top so they stay easy to see.
+    const dark = gameArt.drawTimeTint(trail, cameraX, cameraY, W, H);
+    drawPropGlows(dark);
+    if (dark) {
       drawGoal(ride);
       drawApples(ride, now);
     }

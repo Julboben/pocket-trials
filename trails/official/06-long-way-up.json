@@ -2,7 +2,6 @@
   "name": "Long Way Up",
   "label": "LONG WAY UP / 06",
   "goal": 3650,
-  "terrain": "snow",
   "description": "Link everything together across a long climb: preserve momentum, control wheelies, and recover your balance without losing speed.",
   "start": {
     "x": 90,
@@ -93,14 +92,6 @@
     "clouds": 0.35
   },
   "fallY": 620,
-  "sky": "#eae9d9",
-  "sun": "#f2c082",
-  "mountain": "#b7c8b1",
-  "spray": [
-    "#717b65",
-    "#929477",
-    "#b7ae8c"
-  ],
   "medals": {
     "gold": 20,
     "silver": 26,

@@ -11,7 +11,7 @@ import {
 import { ctx } from "./dom.js";
 import { pushHistory } from "./history.js";
 import { syncInspector } from "./inspector.js";
-import { groundY, render } from "./render.js";
+import { floorUnder, groundY, render } from "./render.js";
 import { blocksSelection } from "./selection.js";
 import { gridSpacing } from "./snap.js";
 import { editor } from "./state.js";
@@ -184,9 +184,10 @@ export function addAt(point) {
     });
     editor.selection = { kind: "spike", index: editor.trail.spikes.length - 1 };
   } else if (editor.tool === "finish") {
-    // Placed on the surface at the clicked x, ready to be dragged up or down.
+    // Placed on the floor under the click, so inside a cave it lands on the
+    // cave floor rather than the roof, ready to be dragged up or down.
     editor.trail.goal = point.x;
-    editor.trail.finishY = groundY(point.x);
+    editor.trail.finishY = floorUnder(point.x, point.y) ?? groundY(point.x);
     editor.selection = { kind: "goal" };
   }
   // Start and finish are one of a kind, so those go back to Select; every
@@ -325,7 +326,7 @@ export function commitShape(kind, points, closed, rect = false) {
     }
     editor.trail.terrainBlocks = [
       ...blocks(),
-      normalizeBlocks([block], editor.trail.terrain)[0],
+      normalizeBlocks([block], "grass")[0],
     ];
     editor.selection = {
       kind: "block",
@@ -348,7 +349,7 @@ export function commitShape(kind, points, closed, rect = false) {
     if (result.changed)
       replaceBlock(
         blockIndex,
-        normalizeBlocks([result.block], editor.trail.terrain)[0],
+        normalizeBlocks([result.block], "grass")[0],
       );
     return result;
   };
@@ -391,6 +392,6 @@ export function freshBlockCopy(block) {
         })),
       },
     ],
-    editor.trail.terrain,
+    "grass",
   )[0];
 }

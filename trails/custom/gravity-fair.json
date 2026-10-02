@@ -2,7 +2,6 @@
   "name": "Gravity Fair",
   "label": "GRAVITY FAIR / EXPERT",
   "goal": 5850,
-  "terrain": "grass",
   "description": "Seven rides, one ticket. 1) WARM-UP ROLLERS: pump the bumps; the last crest pops you into a floating apple. 2) THE CATAPULT: the gap lip sits mid-ramp and acts as a kicker, so grab the air apple and land on the downslope. 3) THE BIG WALL: drop into the bowl and power up the 62-degree wall to the summit apple. If you stall, roll back, flip, use the left wall and pump again. Do not overshoot into the killer above. 4) KILLER STEPPING STONES: hop three small islands over a pit lined with spinning killers, one apple per island. 5) THE CRAWLSPACE: rollers under a low rock ceiling with hanging killers; keep the front down. 6) THE BIG SEND: long run-in to a 40-degree kicker over a 160-unit gap; the air apple is just past the lip. If you miss it, the far edge also kicks leftward: flip and jump back. 7) VICTORY HOP: one last small gap to the flag. Not playtested; jump distances, head clearances and medal times are estimates.",
   "start": {
     "x": 90,
@@ -222,14 +221,6 @@
     "lightning": 0
   },
   "fallY": 820,
-  "sky": "#eae9d9",
-  "sun": "#f2c082",
-  "mountain": "#b7c8b1",
-  "spray": [
-    "#6f8b59",
-    "#9c8b68",
-    "#c5b496"
-  ],
   "medals": {
     "gold": 34,
     "silver": 45,

@@ -101,7 +101,6 @@ export function createBlankTrail(index = 0) {
     name: "New Trail",
     label: `NEW TRAIL / ${number}`,
     goal: 1200,
-    terrain: "grass",
     description: "",
     start: { x: 90, y: null, facing: 1 },
     terrainBlocks: createBlankTerrainBlocks(),
@@ -116,10 +115,6 @@ export function createBlankTrail(index = 0) {
     spikes: [],
     weather: { sun: 1, clouds: 0.2 },
     fallY: 620,
-    sky: "#eae9d9",
-    sun: "#f2c082",
-    mountain: "#b7c8b1",
-    spray: ["#6f8b59", "#9c8b68", "#c5b496"],
   };
 }
 
@@ -205,11 +200,22 @@ export function normalizeTrail(input, index = 0) {
         ? Number(trail.finishY)
         : null;
   trail.fallY = Number(trail.fallY) || fallback.fallY;
-  trail.terrain = terrainMaterials[trail.terrain] ? trail.terrain : "grass";
+  // `terrain` was the trail's base material. Blocks carry their own now, so it
+  // only fills in blocks saved without a material, below.
+  if (!terrainMaterials[trail.terrain]) delete trail.terrain;
+  // The old colour fields: the background comes from timeOfDay and backdrop,
+  // and wheel spray from each block's material.
+  delete trail.sky;
+  delete trail.sun;
+  delete trail.mountain;
+  delete trail.spray;
   // Terrain comes from the input only: a trail without blocks has no terrain,
   // which validation reports, rather than silently getting the blank slab.
   trail.terrainBlocks =
     normalizeTerrainBlocks(input?.terrainBlocks, trail.terrain) || [];
+  // Every block now has a material, so the base is only kept where the trail
+  // hash still needs it: when it differs from the first block's material.
+  if (trail.terrain === trail.terrainBlocks[0]?.material) delete trail.terrain;
   const start = trail.start || fallback.start;
   trail.start = {
     x: Number(start.x) || 90,
@@ -304,8 +310,6 @@ export function validateTrail(trail) {
   const error = (text) => messages.push({ type: "error", text });
   const warning = (text) => messages.push({ type: "warning", text });
   if (!trail.name.trim()) error("The trail needs a name.");
-  if (!terrainMaterials[trail.terrain])
-    error(`Unknown base material “${trail.terrain}”.`);
 
   // Block geometry is validated first, and against the trail's other blocks so
   // a fully buried block is reported.
@@ -395,6 +399,28 @@ export function validateTrail(trail) {
         "pine-small",
         "cactus-small",
         "pebbles",
+        "crates",
+        "ladder",
+        "wheelbarrow",
+        "scarecrow",
+        "beehive",
+        "tyre",
+        "cone",
+        "barrier",
+        "dumpster",
+        "lamp",
+        "bird",
+        "graffiti",
+        "crane",
+        "scaffolding",
+        "hanging-roots",
+        "stalactites",
+        "mushrooms",
+        "minecart",
+        "beams",
+        "drip",
+        "lantern",
+        "bats",
       ].includes(prop.type)
     )
       warning(`Prop ${index + 1} has an unknown type “${prop.type}”.`);
