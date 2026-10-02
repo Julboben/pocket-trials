@@ -36,6 +36,9 @@ let terrainFingerprint = null;
 let terrainTrail = null;
 
 export function syncTerrain() {
+  // A redraw that only moved the view can't have changed the terrain.
+  if (viewOnly && terrainTrail === editor.trail && terrainFingerprint !== null)
+    return;
   let hash = 0x811c9dc5;
   const mix = (value) => {
     hash = Math.imul(hash ^ (Math.round(value * 64) | 0), 0x01000193) >>> 0;
@@ -448,8 +451,24 @@ function drawHandles() {
   const startY = Number.isFinite(editor.trail.start.y)
     ? editor.trail.start.y
     : groundY(editor.trail.start.x) - 12;
-  drawHandle(editor.trail.start.x, startY, editor.selection?.kind === "start", "#c6dfa9");
-  drawHandle(editor.trail.goal, finishY(), editor.selection?.kind === "goal", "#c6dfa9");
+  drawHandle(editor.trail.start.x, startY, isSelected("start"), "#c6dfa9");
+  drawHandle(editor.trail.goal, finishY(), isSelected("goal"), "#c6dfa9");
+}
+
+let viewOnly = false;
+
+/**
+ * Redraw after only the view or a preview changed (panning, zooming, hovering,
+ * box-selecting), skipping the check for terrain edits. Anything that edits the
+ * trail must call render().
+ */
+export function renderView() {
+  viewOnly = true;
+  try {
+    render();
+  } finally {
+    viewOnly = false;
+  }
 }
 
 export function render() {

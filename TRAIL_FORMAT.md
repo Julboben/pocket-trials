@@ -154,7 +154,7 @@ The finish is a flower at (goal, finishY), floating 22 units above that point. f
 
 ## Terrain materials
 
-Each block sets its own material with its `material` property. Older trails may also have a trail-level `terrain` base material; it is optional and only fills in blocks saved without a material, so new trails should leave it out. Available presets are:
+Each block sets its own material with its `material` property. Leave out the old trail-level `terrain` base material. A few older trails keep it only because it is part of their trail hash; when present it fills in blocks saved without a material. Available presets are:
 
 | Material | Intended character                       |
 | -------- | ---------------------------------------- |
@@ -277,10 +277,9 @@ Sign text wraps at word boundaries onto up to 4 lines of 10 characters, and the 
 ## Other fields
 
 - `fallY`: vertical position at which the bike is considered lost. Increase it for deep gaps or trails that descend far. It also sets how low the camera can look.
-- `spray`: fallback wheel-particle colors. Material-specific spray takes priority.
 - `description`: design notes for the trail. It is not currently shown during gameplay.
 
-`sky`, `sun` and `mountain` are no longer read: the background comes from `timeOfDay` and `backdrop`. They are dropped when a trail is loaded.
+`sky`, `sun`, `mountain` and `spray` are no longer read: the background comes from `timeOfDay` and `backdrop`, and wheel spray from each block's material. They are dropped when a trail is loaded.
 
 ## Medals
 

@@ -2,7 +2,6 @@
   "name": "Brake Point",
   "label": "BRAKE POINT / 05",
   "goal": 3220,
-  "terrain": "brick",
   "description": "Speed alone will not solve this trail. Brake before steep drops, lean back to resist stoppies, and accelerate cleanly out of bowls.",
   "start": {
     "x": 90,
@@ -87,14 +86,6 @@
     "clouds": 0.24
   },
   "fallY": 620,
-  "sky": "#eae9d9",
-  "sun": "#f2c082",
-  "mountain": "#b7c8b1",
-  "spray": [
-    "#846d55",
-    "#aa8b68",
-    "#c8aa82"
-  ],
   "medals": {
     "gold": 18,
     "silver": 23.5,

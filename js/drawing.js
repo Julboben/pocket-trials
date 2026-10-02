@@ -2666,13 +2666,14 @@ export function createGameArt(ctx) {
     const tools = createDrawingTools(context);
     const bottom = BACKGROUND_STRIP_TOP + BACKGROUND_STRIP_HEIGHT;
     const step = layer.step || 8;
-    context.fillStyle = layer.color;
     for (
       let worldX = left - step;
       worldX < left + BACKGROUND_STRIP_WIDTH;
       worldX += step
     ) {
       const y = Math.round(layer.shape(worldX) / 4) * 4;
+      // Reset every column: `column` hooks paint windows in other colours.
+      context.fillStyle = layer.color;
       context.fillRect(worldX, y, step, bottom - y);
       layer.column?.(context, worldX, y, step);
     }

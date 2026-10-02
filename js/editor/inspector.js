@@ -22,11 +22,9 @@ import { pushHistory, updateHistoryButtons } from "./history.js";
 import { edgeHit } from "./hit-test.js";
 import {
   finishY,
-  floorUnder,
   groundY,
   objectY,
   render,
-  restingY,
   syncTerrain,
 } from "./render.js";
 import {
@@ -171,16 +169,6 @@ export function syncInspector({ live = false } = {}) {
   if (selectedProp) $("selection-flip").value = String(Boolean(selectedProp.flip));
   $("selection-radius-row").hidden = editor.selection?.kind !== "spike";
   $("selection-spin-row").hidden = editor.selection?.kind !== "spike";
-  // Only the finish has a meaningful "put it back on the ground" action, since
-  // every other object is either placed by hand or already ground-anchored.
-  $("selection-snap-row").hidden = editor.selection?.kind !== "goal";
-  // A finish pinned onto a cave floor is on the ground too.
-  $("selection-snap").checked =
-    !Number.isFinite(editor.trail.finishY) ||
-    Math.abs(
-      (floorUnder(editor.trail.goal, editor.trail.finishY - 1) ?? Infinity) -
-        editor.trail.finishY,
-    ) < 0.5;
   $("delete-selection").hidden =
     !editor.selection || ["start", "goal"].includes(editor.selection.kind);
   if (isBlock) {
@@ -396,19 +384,6 @@ export function bindInspector() {
     if (!position) return;
     pushHistory();
     updateSelectedPosition(position[0], Number(event.target.value));
-    syncInspector();
-    render();
-  });
-
-  $("selection-snap").addEventListener("change", (event) => {
-    if (editor.selection?.kind !== "goal") return;
-    pushHistory();
-    // Unchecked pins the finish in the air at its current height; checked sends
-    // it down to the floor under the finish, which stays anchored unless a roof
-    // or cave ceiling is above it.
-    editor.trail.finishY = event.target.checked
-      ? restingY(editor.trail.goal, finishY())
-      : finishY();
     syncInspector();
     render();
   });

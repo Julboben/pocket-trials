@@ -2,7 +2,6 @@
   "name": "The Orchard",
   "label": "THE ORCHARD / 01",
   "goal": 2109.276035710421,
-  "terrain": "grass",
   "description": "Learn the rhythm: build speed on gentle rollers, lean forward on climbs, and settle the bike before each landing.",
   "start": {
     "x": 271.93445286745373,
@@ -707,14 +706,6 @@
     "clouds": 0.15
   },
   "fallY": 620,
-  "sky": "#eae9d9",
-  "sun": "#f2c082",
-  "mountain": "#b7c8b1",
-  "spray": [
-    "#6f8b59",
-    "#9c8b68",
-    "#c5b496"
-  ],
   "medals": {
     "gold": 11,
     "silver": 14.5,

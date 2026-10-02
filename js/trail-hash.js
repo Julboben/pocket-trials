@@ -22,6 +22,10 @@ function canonical(value) {
 export function trailHash(trail) {
   /** @type {Record<string, unknown>} */
   const fields = Object.fromEntries(GAMEPLAY_KEYS.map(key => [key, trail?.[key]]));
+  // `terrain`, the old base material, always matched the first block's
+  // material in older trails, so it is only stored when it doesn't. Hashing the
+  // first block's material in its place keeps those trails' hashes.
+  fields.terrain ??= trail?.terrainBlocks?.[0]?.material;
   fields.terrainCompiler = TERRAIN_COMPILER_VERSION;
   if (Number.isFinite(trail?.finishY)) fields.finishY = trail.finishY;
   const text = canonical(fields);

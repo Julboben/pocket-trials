@@ -198,15 +198,10 @@ if (kind === 'covered') {
   fire('pointerdown', world(650, 450));
   fire('pointerup');
   out.caveFinishY = current().finishY;
-  // Lifted into the cave's air, then snapped back down to the cave floor.
+  // Dragged up into the cave's air, it stays where it was dropped.
   toolButton('select').click();
   drag([650, 500], [650, 420]);
   out.liftedFinishY = current().finishY;
-  const snap = document.getElementById('selection-snap');
-  snap.checked = true;
-  snap.dispatch('change');
-  out.snappedFinishY = current().finishY;
-  out.snapChecked = snap.checked;
 
   // A ground-anchored prop copied and pasted into the cave lands on its floor.
   const docEvent = (type, data = '') => {
@@ -223,6 +218,17 @@ if (kind === 'covered') {
   docEvent('paste', copied);
   out.pastedPropY = current().props.at(-1).y;
   out.props = current().props.length;
+
+  // A selection box around the start selects it.
+  drag([60, 250], [120, 295]);
+  out.boxTitle = document.getElementById('selection-title').textContent;
+  // Select all includes the start and finish, so a nudge moves them too.
+  const before = current();
+  key('a', { metaKey: true, code: 'KeyA' });
+  key('ArrowRight', { code: 'ArrowRight' });
+  const after = current();
+  out.selectAllMovesStart = after.start.x === before.start.x + 1;
+  out.selectAllMovesFinish = after.goal === before.goal + 1;
   process.stdout.write(JSON.stringify(out));
   process.exit(0);
 }

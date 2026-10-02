@@ -228,11 +228,6 @@
     "clouds": 0.2
   },
   "fallY": 620,
-  "spray": [
-    "#6f8b59",
-    "#9c8b68",
-    "#c5b496"
-  ],
   "terrain": "grass",
   "finishY": 289.1977849982403,
   "timeOfDay": "night"

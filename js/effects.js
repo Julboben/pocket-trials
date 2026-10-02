@@ -44,7 +44,7 @@ export function createEffects() {
   function dustPuff(wheel, impactSpeed) {
     const x = wheel.contact?.pointX ?? wheel.x;
     const y = (wheel.contact?.pointY ?? wheel.y + RADIUS) - 2;
-    const spray = terrainMaterials[wheel.material]?.spray || trail.spray || ['#c5b496'];
+    const spray = (terrainMaterials[wheel.material] || terrainMaterials.grass).spray;
     const count = Math.round(clamp(impactSpeed / 40, 3, 9));
     for (let index = 0; index < count; index++) {
       const side = index % 2 ? 1 : -1;
@@ -88,7 +88,7 @@ export function createEffects() {
     while (sprayAccumulator >= 1) {
       sprayAccumulator--;
       const direction = Math.sign(speed || ride.facing);
-      const spray = terrainMaterials[wheel.material]?.spray || trail.spray;
+      const spray = (terrainMaterials[wheel.material] || terrainMaterials.grass).spray;
       const color = spray[Math.floor(Math.random() * spray.length)];
       const life = .28 + Math.random() * .32;
       particles.push({

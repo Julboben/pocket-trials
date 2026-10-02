@@ -110,8 +110,9 @@ const reported = (report, label) => {
   check('raising the ground under the finish still carries it', report.finishY === null, `(${report.finishY})`);
   check('the finish tool clicked in a cave puts the finish on the cave floor', report.caveFinishY === 500, `(${report.caveFinishY})`);
   check('a finish lifted in the cave is pinned in the air', report.liftedFinishY === 420, `(${report.liftedFinishY})`);
-  check('snapping it to the ground lands it on the cave floor', report.snappedFinishY === 500, `(${report.snappedFinishY})`);
-  check('and the snap box stays checked', report.snapChecked === true);
+  check('a selection box around the start selects it', /START/i.test(report.boxTitle || ''), `("${report.boxTitle}")`);
+  check('select all moves the start', report.selectAllMovesStart === true);
+  check('select all moves the finish', report.selectAllMovesFinish === true);
   check('a ground prop pasted into a cave lands on the cave floor', report.props === 3 && report.pastedPropY === 500, `(${report.props}, ${report.pastedPropY})`);
 }
 

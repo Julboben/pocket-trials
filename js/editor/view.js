@@ -1,6 +1,6 @@
 // Camera, zoom and screen-to-world conversion.
 import { $, canvas, ctx } from "./dom.js";
-import { groundY, render, syncTerrain } from "./render.js";
+import { groundY, render, renderView, syncTerrain } from "./render.js";
 import { editor } from "./state.js";
 
 export function focusOnStart() {
@@ -52,5 +52,5 @@ export function zoomAtCenter(factor) {
 
 export function updateZoom() {
   $("zoom-label").textContent = Math.round(editor.zoom * 100) + "%";
-  render();
+  renderView();
 }

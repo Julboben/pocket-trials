@@ -124,18 +124,20 @@ const commitCut = (blocks, points) => {
   );
 }
 
-// 8. The base material is legacy: a new trail has none, an old one keeps a
-// valid one (it is part of the trail hash), and it still fills in blocks saved
-// without a material.
+// 8. The base material is legacy: a new trail has none, it still fills in
+// blocks saved without a material, and it is only kept when it differs from the
+// first block's material, which is when the trail hash still needs it.
 {
   assert.equal('terrain' in normalizeTrail(createBlankTrail()), false, 'a new trail has no base material');
-  const legacy = normalizeTrail({
+  const filled = normalizeTrail({
     ...createBlankTrail(),
     terrain: 'sand',
     terrainBlocks: [{ ...createBlankTerrainBlocks()[0], material: undefined }],
   });
-  assert.equal(legacy.terrain, 'sand', 'an old trail keeps its base material');
-  assert.equal(legacy.terrainBlocks[0].material, 'sand', 'and it fills in a missing block material');
+  assert.equal(filled.terrainBlocks[0].material, 'sand', 'it fills in a missing block material');
+  assert.equal('terrain' in filled, false, 'and is then dropped, as it matches');
+  const differs = normalizeTrail({ ...createBlankTrail(), terrain: 'snow' });
+  assert.equal(differs.terrain, 'snow', 'one that differs from the first block is kept');
   assert.equal('terrain' in normalizeTrail({ ...createBlankTrail(), terrain: 'lava' }), false, 'an unknown one is dropped');
 }
 

@@ -2,7 +2,6 @@
   "name": "Mind Your Head",
   "label": "MIND YOUR HEAD / CUSTOM",
   "goal": 2420,
-  "terrain": "grass",
   "description": "An Elasto Mania-inspired intermediate trail: collect six apples, clear two short gaps, and control your bounce beneath floating masonry and spinning killers. Build speed for the jumps, then brake before entering the sheltered apple hollows. Both gaps are 90 units wide with lower landings; all required apples follow the base route. No mandatory loops or advanced tricks. Not playtested; medal times are rough estimates.",
   "start": {
     "x": 90,
@@ -106,14 +105,6 @@
     "lightning": 0
   },
   "fallY": 650,
-  "sky": "#eae9d9",
-  "sun": "#f2c082",
-  "mountain": "#b7c8b1",
-  "spray": [
-    "#6f8b59",
-    "#9c8b68",
-    "#c5b496"
-  ],
   "medals": {
     "gold": 20,
     "silver": 28,

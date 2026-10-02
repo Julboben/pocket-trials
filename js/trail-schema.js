@@ -201,17 +201,21 @@ export function normalizeTrail(input, index = 0) {
         : null;
   trail.fallY = Number(trail.fallY) || fallback.fallY;
   // `terrain` was the trail's base material. Blocks carry their own now, so it
-  // is only kept when an older trail has it: it fills in blocks saved without a
-  // material, and is part of the trail hash, so dropping it would reset scores.
+  // only fills in blocks saved without a material, below.
   if (!terrainMaterials[trail.terrain]) delete trail.terrain;
-  // The old palette fields: the background comes from timeOfDay and backdrop.
+  // The old colour fields: the background comes from timeOfDay and backdrop,
+  // and wheel spray from each block's material.
   delete trail.sky;
   delete trail.sun;
   delete trail.mountain;
+  delete trail.spray;
   // Terrain comes from the input only: a trail without blocks has no terrain,
   // which validation reports, rather than silently getting the blank slab.
   trail.terrainBlocks =
     normalizeTerrainBlocks(input?.terrainBlocks, trail.terrain) || [];
+  // Every block now has a material, so the base is only kept where the trail
+  // hash still needs it: when it differs from the first block's material.
+  if (trail.terrain === trail.terrainBlocks[0]?.material) delete trail.terrain;
   const start = trail.start || fallback.start;
   trail.start = {
     x: Number(start.x) || 90,

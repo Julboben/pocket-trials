@@ -17,7 +17,7 @@ import {
   updateSelectedPosition,
 } from "./inspector.js";
 import { closePlaytest, openPlaytest, playtestOpen } from "./playtest.js";
-import { render } from "./render.js";
+import { render, renderView } from "./render.js";
 import {
   cyclePropType,
   deleteSelection,
@@ -230,7 +230,7 @@ export function bindInput() {
       const deltaScale = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : 1;
       editor.cameraX += (event.deltaX * deltaScale) / editor.zoom;
       editor.cameraY += (event.deltaY * deltaScale) / editor.zoom;
-      render();
+      renderView();
     },
     { passive: false },
   );
@@ -368,12 +368,12 @@ export function bindInput() {
         pointerStart.cameraX - (event.clientX - pointerStart.clientX) / editor.zoom;
       editor.cameraY =
         pointerStart.cameraY - (event.clientY - pointerStart.clientY) / editor.zoom;
-      render();
+      renderView();
       return;
     }
     if (PLACING_TOOLS.has(editor.tool) && !dragging) {
       editor.hoverPoint = pointerWorld(event);
-      render();
+      renderView();
     }
     if (editor.pendingShape) {
       const point = pointerWorld(event);
@@ -390,7 +390,7 @@ export function bindInput() {
     }
     if (editor.marquee) {
       editor.marquee.to = pointerWorld(event);
-      render();
+      renderView();
       return;
     }
     if (altPress) {
@@ -461,7 +461,7 @@ export function bindInput() {
     editor.pointerClient = null;
     if (!editor.hoverPoint) return;
     editor.hoverPoint = null;
-    render();
+    renderView();
   });
 
   $("show-shortcuts").addEventListener("click", () => shortcuts.showModal());

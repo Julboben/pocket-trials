@@ -18,7 +18,7 @@ import {
   syncInspector,
   updateSelectedPosition,
 } from "./inspector.js";
-import { objectY, render } from "./render.js";
+import { finishY, groundY, objectY, render } from "./render.js";
 import { editor } from "./state.js";
 import { showStatus } from "./status.js";
 import {
@@ -169,9 +169,10 @@ export function sameItem(a, b) {
   );
 }
 
-/** The selectable item a hit refers to, or null (edges, rings, handles, start, finish). */
+/** The selectable item a hit refers to, or null (edges, rings, handles). */
 export function itemFromHit(hit) {
   if (!hit) return null;
+  if (hit.kind === "start" || hit.kind === "goal") return { type: hit.kind };
   if (hit.kind === "block") return { type: "block", index: hit.blockIndex };
   if (hit.kind === "blockPoint") {
     const { blockIndex, regionIndex, boundaryIndex, index } = hit;
@@ -218,6 +219,7 @@ export function makeSelection(list) {
     const { blockIndex, regionIndex, boundaryIndex, index } = item;
     return { kind: "blockPoint", blockIndex, regionIndex, boundaryIndex, index };
   }
+  if (item.type === "start" || item.type === "goal") return { kind: item.type };
   return { kind: item.type, index: item.index };
 }
 
@@ -250,6 +252,11 @@ export function itemPosition(item) {
     const node = boundaryAt(item)?.nodes[item.index];
     return node ? [node.x, node.y] : null;
   }
+  if (item.type === "start") {
+    const { x, y } = editor.trail.start;
+    return [x, Number.isFinite(y) ? y : groundY(x) - 12];
+  }
+  if (item.type === "goal") return [editor.trail.goal, finishY()];
   const object = OBJECT_LISTS()[item.type][item.index];
   if (!object) return null;
   if (item.type === "spike") return [object.x, object.y];
@@ -290,9 +297,20 @@ export function moveItems(x, y) {
       if (node.out) node.out = [node.out[0] + dx, node.out[1] + dy];
       return;
     }
-    const object = OBJECT_LISTS()[item.type][item.index];
-    if (!object || !before[i]) return;
+    if (!before[i]) return;
     // Like dragging one on its own, this fixes a ground-anchored object's height.
+    if (item.type === "start") {
+      editor.trail.start.x = before[i][0] + dx;
+      editor.trail.start.y = before[i][1] + dy;
+      return;
+    }
+    if (item.type === "goal") {
+      editor.trail.goal = before[i][0] + dx;
+      editor.trail.finishY = before[i][1] + dy;
+      return;
+    }
+    const object = OBJECT_LISTS()[item.type][item.index];
+    if (!object) return;
     object.x = before[i][0] + dx;
     object.y = before[i][1] + dy;
   });
@@ -338,6 +356,8 @@ function itemsInBox(from, to) {
       if (position && inside(position)) found.push(item);
     });
   }
+  for (const item of [{ type: "start" }, { type: "goal" }])
+    if (inside(itemPosition(item))) found.push(item);
   return found;
 }
 
@@ -484,11 +504,12 @@ export function deleteSelection() {
   render();
 }
 
-/** Every block, apple, prop and spike. */
+/** Every block, apple, prop and spike, and the start and finish. */
 export function selectAll() {
   const items = blocks().map((_, index) => ({ type: "block", index }));
   for (const [type, list] of Object.entries(OBJECT_LISTS()))
     list.forEach((_, index) => items.push({ type, index }));
+  items.push({ type: "start" }, { type: "goal" });
   editor.selection = makeSelection(items);
   setTool("select");
   syncInspector();
@@ -499,7 +520,10 @@ const DUPLICATE_OFFSET = 30;
 
 /** Duplicate the selection beside itself, and select the copy. */
 export function duplicateSelection() {
-  const items = selectionItems();
+  // There is only ever one start and one finish.
+  const items = selectionItems().filter(
+    (item) => item.type !== "start" && item.type !== "goal",
+  );
   if (!items.length) {
     if (editor.selection)
       showStatus("warning", "Only blocks, points, apples, props and spikes can be duplicated.");
