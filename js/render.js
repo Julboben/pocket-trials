@@ -30,6 +30,11 @@ import {
   hairBackSupport,
 } from "./rider-hair.js";
 import { reducedMotion } from "./state.js";
+import { createLighting } from "./lighting.js";
+
+const searchParams = new URLSearchParams(window.location.search);
+const lightingPrototype = searchParams.get("lighting") === "1";
+const forcedFlash = Number(searchParams.get("flash")) || 0;
 
 /**
  * How far left the camera may look. Blocks can reach into negative x, and the
@@ -98,6 +103,7 @@ export function createRenderer(canvas) {
   const { pixelRect, pixelPath, drawPixelText } = createDrawingTools(ctx);
   const gameArt = createGameArt(ctx);
   const terrainRenderer = createTerrainRenderer();
+  const lighting = lightingPrototype ? createLighting() : null;
   const popups = [];
   let W = 380,
     H = 410,
@@ -797,6 +803,7 @@ export function createRenderer(canvas) {
     ctx.save();
     ctx.translate(-cameraX, -cameraY);
     effects.update(animationDt);
+    if (forcedFlash) effects.weather.flash = forcedFlash;
     drawProps("back", full);
     terrainRenderer.draw(ctx, trail, cameraX, cameraY, W, H);
     drawWallPaint();
@@ -825,8 +832,21 @@ export function createRenderer(canvas) {
     drawParticles(effects.particles, false);
     // Time-of-day grade over the whole scene, then prop lights; after dark,
     // apples and the finish are drawn again on top so they stay easy to see.
-    const dark = gameArt.drawTimeTint(trail, cameraX, cameraY, W, H);
-    drawPropGlows(dark);
+    if (lighting) {
+      lighting.draw(ctx, {
+        trail,
+        ride,
+        cameraX,
+        cameraY,
+        width: W,
+        height: H,
+        flash: effects.weather.flash,
+        time: propScene.time,
+        flip: flipVisual,
+      });
+    }
+    const dark = !lighting && gameArt.drawTimeTint(trail, cameraX, cameraY, W, H);
+    if (!lighting) drawPropGlows(dark);
     if (dark) {
       drawGoal(ride);
       drawApples(ride, now);
