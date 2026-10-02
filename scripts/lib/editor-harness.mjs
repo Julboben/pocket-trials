@@ -195,7 +195,13 @@ export function installGlobals() {
     createElement: tag => new Element(tag),
     createElementNS: (ns, tag) => new Element(tag),
     body: new Element('body'),
-    addEventListener() {},
+    getSelection: () => null,
+    // Recorded so clipboard events can be driven.
+    listeners: new Map(),
+    addEventListener(type, handler) {
+      if (!this.listeners.has(type)) this.listeners.set(type, []);
+      this.listeners.get(type).push(handler);
+    },
   });
   set('localStorage', {
     store: new Map(),

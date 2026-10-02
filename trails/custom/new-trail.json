@@ -1,0 +1,242 @@
+{
+  "name": "Caves",
+  "label": "CAVES / 13",
+  "goal": 1200,
+  "terrain": "grass",
+  "description": "",
+  "start": {
+    "x": 79.99301302564203,
+    "y": 313.4962727199117,
+    "facing": 1
+  },
+  "terrainBlocks": [
+    {
+      "id": "block-1",
+      "material": "grass",
+      "regions": [
+        {
+          "outer": {
+            "id": "boundary-1",
+            "nodes": [
+              {
+                "id": "n1",
+                "x": -95.7362,
+                "y": 115.4044,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n6kv",
+                "x": 156.7338,
+                "y": -94.0184,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n7xk",
+                "x": 849.2028,
+                "y": 106.12,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n81a",
+                "x": 1085.71513125,
+                "y": 219.12566250000003,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n3j4",
+                "x": 890.23990625,
+                "y": 246.05145625,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n22r",
+                "x": 592.16400625,
+                "y": 238.16815625000007,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "njiv",
+                "x": 255.7645,
+                "y": 40.8984,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n9nu",
+                "x": -29.095,
+                "y": 102.7879,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n25s",
+                "x": -11.8732,
+                "y": 343.3055,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n2",
+                "x": 436.8037,
+                "y": 318.3642,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n3",
+                "x": 900,
+                "y": 336,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n4",
+                "x": 1400,
+                "y": 300,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n5",
+                "x": 1400,
+                "y": 580,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "n6",
+                "x": 0,
+                "y": 580,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              }
+            ]
+          },
+          "inner": []
+        }
+      ]
+    }
+  ],
+  "apples": [
+    {
+      "x": 270.4817195644989,
+      "y": 272.4552468141922
+    },
+    {
+      "x": 470,
+      "y": 259.62812051823386
+    },
+    {
+      "x": 710,
+      "y": 268.7659137173591
+    },
+    {
+      "x": 930,
+      "y": 273.84
+    },
+    {
+      "x": 1100,
+      "y": null
+    }
+  ],
+  "props": [
+    {
+      "x": 375.8055130256421,
+      "y": 211.52517896991168,
+      "type": "lantern",
+      "layer": "front"
+    },
+    {
+      "x": 840.9617630256421,
+      "y": 303.5876789699117,
+      "type": "drip",
+      "layer": "front"
+    },
+    {
+      "x": 777.8094192756421,
+      "y": 357.1697102199117,
+      "type": "stalactites",
+      "layer": "front"
+    },
+    {
+      "x": -4.792143224357915,
+      "y": 165.80252271991168,
+      "type": "hanging-roots",
+      "layer": "front"
+    },
+    {
+      "x": 1003.4852005256421,
+      "y": 300.1228352199117,
+      "type": "bats",
+      "layer": "front"
+    },
+    {
+      "x": 13.660981775642085,
+      "y": 336.1931477199117,
+      "type": "mushrooms",
+      "layer": "front"
+    },
+    {
+      "x": 439.3328567756421,
+      "y": 317.6111164699117,
+      "type": "minecart",
+      "layer": "back"
+    },
+    {
+      "x": 633.9617630256421,
+      "y": 323.9587727199117,
+      "type": "beams",
+      "layer": "front"
+    }
+  ],
+  "spikes": [],
+  "weather": {
+    "sun": 1,
+    "clouds": 0.2
+  },
+  "fallY": 620,
+  "sky": "#eae9d9",
+  "sun": "#f2c082",
+  "mountain": "#b7c8b1",
+  "spray": [
+    "#6f8b59",
+    "#9c8b68",
+    "#c5b496"
+  ],
+  "finishY": null,
+  "timeOfDay": "noon"
+}

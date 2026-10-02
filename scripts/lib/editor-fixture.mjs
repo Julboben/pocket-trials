@@ -29,5 +29,9 @@ const base = () => ({
 export function loadTrailShape(kind) {
   const trail = base();
   if (kind === 'badgoal') Object.assign(trail, { goal: 3000 });
+  if (kind === 'covered') trail.props = [
+    { x: 500, y: null, type: 'tree', layer: 'back' },
+    { x: 250, y: null, type: 'tree', layer: 'back' },
+  ];
   return { html: html(), trail };
 }

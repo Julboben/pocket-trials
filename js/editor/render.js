@@ -1,12 +1,14 @@
 // Drawing the trail, selection handles and live previews onto the canvas.
 import {
+  PAINTED_PROPS,
   propAlignmentSlope,
   propGroundOffset,
   propWallFit,
 } from "../drawing.js";
 import { FINISH_FLOWER_RADIUS } from "../finish.js";
 import { store } from "../local-store.js";
-import { invalidateTerrain } from "../terrain.js";
+import { invalidateTerrain, terrainGeometry } from "../terrain.js";
+import { terrainColumnSpans } from "../terrain-runtime.js";
 import { finishFlower, finishHeight, surfaceBelow } from "../trail-schema.js";
 import { terrainMaterials } from "../trails.js";
 import {
@@ -31,6 +33,7 @@ export const GAME_ART_KEY = "hjulben-editor-game-art-v1";
  * is needed, and the trail is invalidated only when it has really changed.
  */
 let terrainFingerprint = null;
+let terrainTrail = null;
 
 export function syncTerrain() {
   let hash = 0x811c9dc5;
@@ -67,10 +70,80 @@ export function syncTerrain() {
     }
   }
   const fingerprint = `${hash}:${blocks().length}`;
+  // Undo and loading swap in another trail object, whose terrain is not an edit.
+  const sameTrail = terrainTrail === editor.trail;
+  terrainTrail = editor.trail;
   if (fingerprint !== terrainFingerprint) {
+    // Read while the compiled terrain is still the one on screen.
+    const anchored =
+      terrainFingerprint !== null && sameTrail ? groundAnchoredObjects() : [];
     terrainFingerprint = fingerprint;
     invalidateTerrain(editor.trail);
+    keepCoveredObjectsInPlace(anchored);
   }
+}
+
+/**
+ * Objects without a height of their own (the start, the finish, props and
+ * apples) stand on the topmost surface at their x. Each is listed with the
+ * floor it stands on now and a way to pin its height.
+ */
+function groundAnchoredObjects() {
+  const trail = editor.trail;
+  const found = [];
+  const add = (x, pin) => {
+    const floor = surfaceBelow(trail, x, null);
+    if (floor) found.push({ x, floor: floor.y, pin });
+  };
+  if (trail.start && !Number.isFinite(trail.start.y))
+    add(trail.start.x, (y) => (trail.start.y = y - 12));
+  if (!Number.isFinite(trail.finishY))
+    add(trail.goal, (y) => (trail.finishY = y));
+  for (const prop of trail.props || [])
+    if (!Number.isFinite(prop.y)) add(prop.x, (y) => (prop.y = y));
+  for (const apple of trail.apples || [])
+    if (!Number.isFinite(apple.y)) add(apple.x, (y) => (apple.y = y - 60));
+  return found;
+}
+
+/**
+ * Terrain that now covers a ground-anchored object, like a roof or a cave
+ * ceiling dragged over it, would lift it onto the new top. Pin it to the floor
+ * it was standing on instead. Ground raised or lowered beneath an object still
+ * carries it along.
+ */
+function keepCoveredObjectsInPlace(anchored) {
+  for (const { x, floor, pin } of anchored) {
+    const y = restingY(x, floor);
+    if (y !== null) pin(y);
+  }
+}
+
+/**
+ * The floor under a point: the top of the solid it is inside, else the first
+ * surface below it. Null when there is none.
+ */
+export function floorUnder(x, y) {
+  const compiled = terrainGeometry(editor.trail);
+  if (!compiled || !Number.isFinite(y)) return null;
+  for (const span of terrainColumnSpans(compiled, x)) {
+    if (span.bottom < y - 0.5) continue;
+    return span.top;
+  }
+  return null;
+}
+
+/**
+ * Where something standing at (x, y) should rest. Null when the floor it is on
+ * is the topmost surface, so it can stay ground-anchored; otherwise an explicit
+ * height, so a roof or cave ceiling above it doesn't lift it onto the top.
+ */
+export function restingY(x, y) {
+  const top = surfaceBelow(editor.trail, x, null);
+  if (!top) return null;
+  const floor = floorUnder(x, y - 1);
+  if (floor !== null && Math.abs(floor - top.y) < 0.5) return null;
+  return floor ?? y;
 }
 
 function drawBlocks() {
@@ -139,6 +212,9 @@ function drawTerrain() {
     terrainArt.draw(ctx, editor.trail, editor.cameraX, editor.cameraY, width / editor.zoom, height / editor.zoom);
     ctx.restore();
   }
+  // Graffiti is painted onto the rock, so it goes straight over the terrain.
+  for (const prop of editor.trail.props || [])
+    if (PAINTED_PROPS.has(prop.type)) art.drawWallPaint(editor.trail, prop);
   drawBlocks();
   drawPendingShape(editor.pendingShape);
 }
@@ -184,7 +260,7 @@ export function finishY() {
 
 function drawProps(layer) {
   for (const prop of editor.trail.props || []) {
-    if (prop.layer !== layer) continue;
+    if (prop.layer !== layer || PAINTED_PROPS.has(prop.type)) continue;
     art.drawProp(
       prop.type,
       prop.x,
@@ -195,6 +271,24 @@ function drawProps(layer) {
       prop.text,
       propWallFit(editor.trail, prop),
       prop.flip,
+    );
+  }
+}
+
+const GLOWING_PROPS = new Set(["lamp", "crane", "lantern", "mushrooms"]);
+
+/** Street lamps and crane lights after dark; lanterns and mushrooms always. */
+function drawPropGlows(dark) {
+  for (const prop of editor.trail.props || []) {
+    if (!GLOWING_PROPS.has(prop.type)) continue;
+    art.drawPropGlow(
+      prop.type,
+      prop.x,
+      objectY(prop),
+      propGroundOffset(editor.trail, prop),
+      prop.flip,
+      0,
+      { dark, trail: editor.trail, prop, fit: propWallFit(editor.trail, prop) },
     );
   }
 }
@@ -380,7 +474,9 @@ export function render() {
   drawTerrain();
   drawObjects();
   drawPlacementPreview();
-  art.drawTimeTint(editor.trail, editor.cameraX, editor.cameraY, width / editor.zoom, height / editor.zoom);
+  drawPropGlows(
+    art.drawTimeTint(editor.trail, editor.cameraX, editor.cameraY, width / editor.zoom, height / editor.zoom),
+  );
   drawHandles();
   drawSnapGuide();
   drawMarquee();

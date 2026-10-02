@@ -158,6 +158,70 @@ if (kind === 'interact') {
   process.exit(0);
 }
 
+// A roof or cave ceiling placed or dragged over something standing on the
+// ground must not lift it onto the new top.
+if (kind === 'covered') {
+  toolButton('apple').click();
+  fire('pointerdown', { clientX: 0, clientY: 0 });
+  fire('pointerup');
+  const probe = current().apples.at(-1);
+  cameraX = probe.x;
+  cameraY = probe.y;
+  document.getElementById('undo').click();
+
+  const out = { errors: [] };
+  // A block drawn over the start.
+  toolButton('block').click();
+  drag([40, 150], [140, 220], { altKey: true });
+  out.startY = current().start.y;
+  // A block drawn away from everything, then dragged over the prop.
+  drag([1000, 100], [1200, 200], { altKey: true });
+  toolButton('select').click();
+  drag([1100, 150], [550, 150]);
+  out.propY = current().props[0].y;
+  // Raising the ground under the finish still carries it along.
+  drag([800, 300], [800, 250]);
+  out.finishY = current().finishY;
+
+  // A cave under the slab's top, from y 400 to 500.
+  toolButton('cut').click();
+  fire('pointerdown', world(400, 400));
+  for (const [x, y] of [[700, 400], [700, 500], [400, 500]]) fire('pointermove', world(x, y));
+  fire('pointerup');
+  // The finish tool clicked inside the cave puts the finish on its floor.
+  toolButton('finish').click();
+  fire('pointerdown', world(650, 450));
+  fire('pointerup');
+  out.caveFinishY = current().finishY;
+  // Lifted into the cave's air, then snapped back down to the cave floor.
+  toolButton('select').click();
+  drag([650, 500], [650, 420]);
+  out.liftedFinishY = current().finishY;
+  const snap = document.getElementById('selection-snap');
+  snap.checked = true;
+  snap.dispatch('change');
+  out.snappedFinishY = current().finishY;
+  out.snapChecked = snap.checked;
+
+  // A ground-anchored prop copied and pasted into the cave lands on its floor.
+  const docEvent = (type, data = '') => {
+    let written = data;
+    const clipboardData = { setData: (_, value) => { written = value; }, getData: () => written };
+    for (const handler of document.listeners.get(type) || []) handler({ preventDefault() {}, clipboardData });
+    return written;
+  };
+  // The slab's top slopes after the corner drag, so the prop stands at 284.375.
+  fire('pointerdown', world(250, 284));
+  fire('pointerup');
+  const copied = docEvent('copy');
+  fire('pointermove', world(600, 480));
+  docEvent('paste', copied);
+  out.pastedPropY = current().props.at(-1).y;
+  out.props = current().props.length;
+  process.stdout.write(JSON.stringify(out));
+  process.exit(0);
+}
+
 const report = { loaded: JSON.parse(document.getElementById('trail-json').value), errors: [] };
 
 // A drag, so the editor actually renders rather than returning early. Game art

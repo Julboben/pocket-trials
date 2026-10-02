@@ -68,6 +68,12 @@
       "name": "Mind Your Head"
     },
     {
+      "id": "custom:new-trail",
+      "source": "custom",
+      "file": "custom/new-trail.json",
+      "name": "Caves"
+    },
+    {
       "id": "custom:wrong-way-up",
       "source": "custom",
       "file": "custom/wrong-way-up.json",

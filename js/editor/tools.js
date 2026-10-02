@@ -111,7 +111,7 @@ const TOOL_INFO = {
   },
   finish: {
     title: "Finish",
-    hint: "Click to move the finish onto the surface at that x, then drag it up or down to float it in the air. The run ends when the bike touches the flower.",
+    hint: "Click to move the finish onto the floor under where you click, then drag it up or down to float it in the air. The run ends when the bike touches the flower.",
   },
 };
 

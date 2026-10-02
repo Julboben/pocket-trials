@@ -20,7 +20,15 @@ import {
 import { $ } from "./dom.js";
 import { pushHistory, updateHistoryButtons } from "./history.js";
 import { edgeHit } from "./hit-test.js";
-import { finishY, groundY, objectY, render, syncTerrain } from "./render.js";
+import {
+  finishY,
+  floorUnder,
+  groundY,
+  objectY,
+  render,
+  restingY,
+  syncTerrain,
+} from "./render.js";
 import {
   deleteSelection,
   groupTitle,
@@ -161,7 +169,13 @@ export function syncInspector() {
   // Only the finish has a meaningful "put it back on the ground" action, since
   // every other object is either placed by hand or already ground-anchored.
   $("selection-snap-row").hidden = editor.selection?.kind !== "goal";
-  $("selection-snap").checked = !Number.isFinite(editor.trail.finishY);
+  // A finish pinned onto a cave floor is on the ground too.
+  $("selection-snap").checked =
+    !Number.isFinite(editor.trail.finishY) ||
+    Math.abs(
+      (floorUnder(editor.trail.goal, editor.trail.finishY - 1) ?? Infinity) -
+        editor.trail.finishY,
+    ) < 0.5;
   $("delete-selection").hidden =
     !editor.selection || ["start", "goal"].includes(editor.selection.kind);
   if (isBlock) {
@@ -383,8 +397,11 @@ export function bindInspector() {
     if (editor.selection?.kind !== "goal") return;
     pushHistory();
     // Unchecked pins the finish in the air at its current height; checked sends
-    // it back to whatever surface is under the finish.
-    editor.trail.finishY = event.target.checked ? null : finishY();
+    // it down to the floor under the finish, which stays anchored unless a roof
+    // or cave ceiling is above it.
+    editor.trail.finishY = event.target.checked
+      ? restingY(editor.trail.goal, finishY())
+      : finishY();
     syncInspector();
     render();
   });
