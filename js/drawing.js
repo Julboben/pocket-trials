@@ -6,6 +6,10 @@ const GROUND_ALIGNED_PROP_SPANS = {
   fence: [-33, 33],
   rock: [-16, 18],
   boulder: [-22, 22],
+  crates: [-40, 40],
+  wheelbarrow: [-12, 24],
+  beehive: [-16, 16],
+  tyre: [-40, 40],
 };
 
 /**
@@ -63,7 +67,9 @@ const PLANTED_TOLERANCE = 24;
 const PROP_SLOPE_WINDOW = 90;
 
 function propSlope(trail, prop, reference) {
-  const [left, right] = GROUND_ALIGNED_PROP_SPANS[prop.type];
+  let [left, right] = GROUND_ALIGNED_PROP_SPANS[prop.type];
+  // A mirrored prop stands on the mirror image of its footprint.
+  if (prop.flip) [left, right] = [-right, -left];
   const a = surfaceAt(trail, prop.x + left, reference);
   const b = surfaceAt(trail, prop.x + right, reference);
   if (a === null || b === null) return null;
@@ -1509,6 +1515,325 @@ function drawCactusBody(tools) {
   drawCactusFlower(tools, 24, -84, c.petalLight);
 }
 
+// Farm props. Each is drawn in the coordinates of its original 2-unit art
+// grid, from the top-left corner, and shifted so x = 0 is roughly its centre
+// and y = 0 is the ground it stands on.
+
+// Colours the farm props add to the palette: tyre rubber and shirt cloth.
+const RUBBER = { dark: "#3a403d", base: "#4a524d", light: "#5b645e" };
+const CLOTH = { dark: "#3f6f78", base: "#568f98", light: "#83d1ce" };
+const FARM_WOOD = {
+  dark: "#4d3f2f",
+  base: "#66543f",
+  plank: "#806244",
+  light: "#856d4f",
+  tip: "#aa8a60",
+  cut: "#c39664",
+};
+const FARM_STRAW = { dark: "#d9953a", base: "#f1b95d", light: "#ffe39a" };
+const FARM_LEAF = { stem: "#3d6452", dark: "#477158", mid: "#568061", light: "#618b66" };
+// The start pennant's reds. Darker than a collectible apple, and these never
+// glow or bob, so they don't read as something to pick up.
+const PROP_APPLE = { base: "#d63b2c", shade: "#a8322a", shine: "#e8755b" };
+
+// Draws [x, y, width, height, colour] rectangles shifted by (dx, dy).
+function drawFarmRects({ pixelRect }, rects, dx, dy) {
+  for (const [x, y, width, height, color] of rects)
+    pixelRect(x + dx, y + dy, width, height, color, 2);
+}
+
+const FARM_APPLE = [
+  [2, 2, 4, 8, PROP_APPLE.base],
+  [0, 4, 8, 4, PROP_APPLE.base],
+  [0, 4, 2, 4, PROP_APPLE.shade],
+  [2, 8, 2, 2, PROP_APPLE.shade],
+  [4, 4, 2, 2, PROP_APPLE.shine],
+  [4, 0, 2, 2, FARM_WOOD.dark],
+  [6, 0, 2, 2, FARM_LEAF.light],
+];
+
+const FARM_CRATE = [
+  [0, 0, 40, 28, FARM_WOOD.dark],
+  [4, 0, 32, 8, FARM_WOOD.light],
+  [4, 0, 32, 2, FARM_WOOD.tip],
+  [4, 10, 32, 8, FARM_WOOD.plank],
+  [4, 20, 32, 8, FARM_WOOD.base],
+  [16, 12, 8, 4, FARM_WOOD.dark],
+  [0, 0, 4, 28, FARM_WOOD.base],
+  [36, 0, 4, 28, FARM_WOOD.light],
+  [36, 0, 4, 2, FARM_WOOD.tip],
+];
+
+// 100 × 72: two crates with a third stacked on top, full of apples.
+function drawCrates(tools) {
+  const ox = -50, oy = -72;
+  for (const [x, y] of [[2, 44], [46, 44], [24, 16]])
+    drawFarmRects(tools, FARM_CRATE, ox + x, oy + y);
+  // Back row first, so the front row overlaps it; the last one rolled off.
+  for (const [x, y] of [
+    [28, 0], [36, 0], [44, 0], [52, 0],
+    [24, 6], [32, 6], [40, 6], [48, 6], [56, 6],
+    [90, 62],
+  ])
+    drawFarmRects(tools, FARM_APPLE, ox + x, oy + y);
+}
+
+// 54 × 100: leans to the right, so it rests against something on its right.
+function drawLadder(tools) {
+  const ox = -28, oy = -100;
+  const rects = [];
+  // Rails step 2 units right for every 8 up.
+  for (let step = 0; step < 12; step++) {
+    const y = 92 - step * 8;
+    rects.push([6 + step * 2, y, 4, 8, FARM_WOOD.base]);
+    rects.push([26 + step * 2, y, 4, 8, FARM_WOOD.light]);
+  }
+  // Rungs: lit top, shaded underside.
+  for (let rung = 0; rung < 5; rung++) {
+    const x = 12 + rung * 4;
+    const y = 86 - rung * 16;
+    rects.push([x, y, 16, 2, FARM_WOOD.tip]);
+    rects.push([x, y + 2, 16, 2, FARM_WOOD.base]);
+  }
+  rects.push(
+    [28, 4, 4, 2, FARM_WOOD.tip],
+    [48, 4, 4, 2, FARM_WOOD.tip],
+    [6, 98, 4, 2, FARM_WOOD.dark],
+    [26, 98, 4, 2, FARM_WOOD.dark],
+  );
+  drawFarmRects(tools, rects, ox, oy);
+}
+
+// 80 × 48: a painted barrow with a little harvest, wheel on the right.
+function drawWheelbarrow(tools) {
+  const ox = -40, oy = -48;
+  drawFarmRects(
+    tools,
+    [
+      // Handle.
+      [0, 10, 8, 4, FARM_WOOD.dark],
+      [8, 12, 10, 4, FARM_WOOD.base],
+      // Frame and leg.
+      [18, 30, 42, 4, FARM_WOOD.base],
+      [18, 30, 42, 2, FARM_WOOD.plank],
+      [26, 34, 4, 12, FARM_WOOD.base],
+      [24, 46, 8, 2, FARM_WOOD.dark],
+    ],
+    ox,
+    oy,
+  );
+  drawFarmRects(tools, FARM_APPLE, ox + 30, oy + 4);
+  drawFarmRects(tools, FARM_APPLE, ox + 40, oy + 4);
+  drawFarmRects(
+    tools,
+    [
+      // Painted tub.
+      [14, 14, 52, 4, FARM_LEAF.light],
+      [18, 18, 46, 4, FARM_LEAF.mid],
+      [22, 22, 40, 4, "#4e785c"],
+      [26, 26, 32, 4, FARM_LEAF.dark],
+      [18, 18, 4, 4, FARM_LEAF.dark],
+      [22, 22, 4, 4, FARM_LEAF.stem],
+      [26, 26, 4, 4, FARM_LEAF.stem],
+      [56, 20, 2, 2, FARM_LEAF.stem],
+      // Wheel: rubber tyre, rock-grey hub.
+      [60, 28, 8, 2, RUBBER.dark],
+      [58, 30, 12, 2, RUBBER.dark],
+      [56, 32, 16, 2, RUBBER.dark],
+      [54, 34, 20, 8, RUBBER.dark],
+      [56, 42, 16, 2, RUBBER.dark],
+      [58, 44, 12, 2, RUBBER.dark],
+      [60, 46, 8, 2, RUBBER.dark],
+      [70, 34, 4, 4, RUBBER.base],
+      [60, 32, 8, 2, "#697872"],
+      [58, 34, 12, 6, "#697872"],
+      [60, 40, 8, 2, "#697872"],
+      [62, 36, 4, 2, "#a2ab9e"],
+    ],
+    ox,
+    oy,
+  );
+}
+
+// 64 × 112. The sprite stops above the ground; the post below it is drawn
+// live so it follows the slope, and the face is drawn live so it can turn.
+const SCARECROW_OX = -32;
+const SCARECROW_OY = -112;
+const SCARECROW_BODY_BOTTOM = -32;
+// Eyes and mouth for each way the head can look, in sprite coordinates.
+const SCARECROW_FACES = {
+  left: [[24, 26], [30, 26], [26, 32], [30, 32]],
+  front: [[26, 26], [36, 26], [28, 32], [34, 32]],
+  right: [[32, 26], [38, 26], [32, 32], [36, 32]],
+};
+// How far the rider must be to one side before the head turns to follow.
+const SCARECROW_TURN = 60;
+
+function drawScarecrow(tools) {
+  const s = FARM_STRAW;
+  drawFarmRects(
+    tools,
+    [
+      // Post, down to where the live part takes over.
+      [30, 40, 2, 40, FARM_WOOD.base],
+      [32, 40, 2, 40, FARM_WOOD.light],
+      // Sleeves.
+      [6, 42, 14, 10, CLOTH.dark],
+      [6, 42, 14, 2, CLOTH.base],
+      [44, 42, 14, 10, CLOTH.base],
+      [44, 50, 14, 2, CLOTH.dark],
+      // Plaid shirt with a red patch and a rope belt.
+      [20, 42, 24, 30, CLOTH.base],
+      [20, 42, 6, 30, CLOTH.dark],
+      [20, 54, 24, 2, CLOTH.dark],
+      [32, 42, 2, 30, CLOTH.dark],
+      [42, 44, 2, 24, CLOTH.light],
+      [36, 58, 6, 6, PROP_APPLE.base],
+      [36, 62, 2, 2, PROP_APPLE.shade],
+      [20, 66, 24, 2, s.dark],
+      // Straw poking out of the cuffs and hem.
+      [2, 44, 4, 2, s.base],
+      [4, 52, 2, 2, s.base],
+      [58, 44, 4, 2, s.base],
+      [58, 52, 2, 2, s.base],
+      [22, 72, 2, 6, s.base],
+      [38, 72, 2, 4, s.base],
+      [0, 48, 6, 2, s.dark],
+      [58, 48, 6, 2, s.dark],
+      [26, 72, 2, 4, s.dark],
+      [42, 72, 2, 6, s.dark],
+      // Burlap head.
+      [24, 20, 16, 20, FARM_WOOD.cut],
+      [22, 22, 20, 16, FARM_WOOD.cut],
+      [22, 22, 4, 16, FARM_WOOD.tip],
+      [24, 38, 16, 2, FARM_WOOD.tip],
+      [26, 38, 12, 2, s.dark],
+      // Hair and hat.
+      [18, 22, 4, 4, s.dark],
+      [42, 22, 4, 4, s.base],
+      [16, 18, 32, 2, FARM_WOOD.plank],
+      [16, 20, 32, 2, FARM_WOOD.dark],
+      [22, 8, 20, 10, FARM_WOOD.base],
+      [22, 8, 4, 10, FARM_WOOD.dark],
+      [38, 8, 4, 6, FARM_WOOD.light],
+      [22, 14, 20, 2, PROP_APPLE.base],
+    ],
+    SCARECROW_OX,
+    SCARECROW_OY,
+  );
+}
+
+// 56 × 72: a straw skep on a stool. The bees are drawn live.
+function drawBeehive(tools) {
+  const s = FARM_STRAW;
+  const rects = [
+    // Stool.
+    [10, 54, 4, 18, FARM_WOOD.base],
+    [42, 54, 4, 18, FARM_WOOD.light],
+    [6, 50, 44, 4, FARM_WOOD.plank],
+    [6, 50, 44, 2, FARM_WOOD.tip],
+    // Knob on top.
+    [24, 10, 8, 4, s.base],
+    [24, 10, 2, 4, s.dark],
+  ];
+  // Coiled bands: [left, top, width], each with a groove, a shaded left end
+  // and a lit right shoulder.
+  const bands = [
+    [20, 14, 16, 4],
+    [14, 20, 28, 6],
+    [10, 26, 36, 6],
+    [8, 32, 40, 6],
+    [8, 38, 40, 6],
+    [10, 44, 36, 6],
+  ];
+  for (const [x, y, width] of bands) rects.push([x, y, width, 6, s.base]);
+  for (const [x, y, width, shade] of bands) {
+    rects.push([x, y + 4, width, 2, s.dark]);
+    rects.push([x, y, shade, 6, s.dark]);
+  }
+  for (const [x, y, width] of bands)
+    rects.push([x + width - 8, y, 4, 2, s.light]);
+  rects.push([26, 42, 4, 2, FARM_WOOD.dark], [24, 44, 8, 6, FARM_WOOD.dark]);
+  drawFarmRects(tools, rects, -28, -72);
+}
+// Where each bee hovers, relative to the hive's anchor.
+const BEES = [
+  [14, -62],
+  [-22, -52],
+  [6, -32],
+];
+
+// 96 × 56: the logo's tyre, worn and half-buried. It sits a little below its
+// anchor so the dirt at its base blends into the ground.
+const TYRE_SINK = 4;
+function drawTyre(tools) {
+  const r = RUBBER;
+  const rects = [
+    // Tread lugs sticking out.
+    [40, 8, 4, 4, r.dark],
+    [28, 12, 4, 4, r.dark],
+    [16, 20, 4, 4, r.dark],
+    [6, 32, 4, 4, r.dark],
+    [2, 44, 4, 4, r.dark],
+    [52, 8, 4, 4, r.base],
+    [64, 12, 4, 4, r.base],
+    [76, 20, 4, 4, r.base],
+    [86, 32, 4, 4, r.base],
+    [90, 44, 4, 4, r.base],
+    // Upper half of the ring.
+    [34, 12, 28, 4, r.base],
+    [26, 16, 44, 4, r.base],
+    [20, 20, 56, 4, r.base],
+    [16, 24, 64, 4, r.base],
+    [12, 28, 72, 4, r.base],
+    [10, 32, 76, 4, r.base],
+    [8, 36, 80, 4, r.base],
+    [6, 40, 84, 8, r.base],
+    [4, 48, 88, 8, r.base],
+    // Shaded left side.
+    [16, 24, 6, 4, r.dark],
+    [12, 28, 6, 4, r.dark],
+    [10, 32, 6, 4, r.dark],
+    [8, 36, 6, 4, r.dark],
+    [6, 40, 6, 8, r.dark],
+    [4, 48, 6, 8, r.dark],
+    // Lit upper right.
+    [64, 16, 6, 4, r.light],
+    [70, 20, 6, 4, r.light],
+    [74, 24, 6, 4, r.light],
+    [78, 28, 6, 4, r.light],
+    // Tread grooves.
+    [42, 12, 2, 4, r.dark],
+    [52, 12, 2, 4, r.dark],
+    [24, 22, 4, 2, r.dark],
+    [68, 22, 4, 2, r.dark],
+    [12, 36, 4, 2, r.dark],
+    [80, 36, 4, 2, r.dark],
+    [8, 48, 4, 2, r.dark],
+    [84, 48, 4, 2, r.dark],
+    // The hole.
+    [36, 36, 24, 4, FARM_WOOD.dark],
+    [32, 40, 32, 4, FARM_WOOD.dark],
+    [28, 44, 40, 8, FARM_WOOD.dark],
+    [26, 52, 44, 4, FARM_WOOD.dark],
+    // A weed growing inside, dirt and grass at the base.
+    [46, 46, 2, 10, "#4e785c"],
+    [48, 48, 2, 2, FARM_LEAF.light],
+    [44, 50, 2, 2, FARM_LEAF.mid],
+    [0, 52, 12, 4, FARM_WOOD.plank],
+    [84, 52, 12, 4, FARM_WOOD.plank],
+    [6, 48, 2, 4, FARM_LEAF.mid],
+    [10, 50, 2, 2, FARM_LEAF.light],
+    [86, 48, 2, 4, FARM_LEAF.light],
+    [90, 50, 2, 2, FARM_LEAF.mid],
+  ];
+  drawFarmRects(tools, rects, -48, TYRE_SINK - 56);
+}
+
+// What a prop can react to: the time in seconds for its animation, and the
+// rider's x. Without them, props stand still and the scarecrow looks ahead.
+const NO_SCENE = { time: 0, riderX: null };
+
 // Local bounds [left, top, right, bottom] of each canopy sprite, in world units.
 const CANOPY_SPRITES = {
   tree: { bounds: [-64, -182, 64, TREE_CANOPY_BOTTOM], draw: drawTreeCanopy },
@@ -1533,6 +1858,15 @@ const CANOPY_SPRITES = {
     bounds: [-8, -56, 8, SMALL_CACTUS_BOTTOM],
     draw: drawSmallCactusBody,
   },
+  crates: { bounds: [-50, -72, 50, 0], draw: drawCrates },
+  ladder: { bounds: [-28, -100, 26, 0], draw: drawLadder },
+  wheelbarrow: { bounds: [-40, -48, 40, 0], draw: drawWheelbarrow },
+  scarecrow: {
+    bounds: [SCARECROW_OX, SCARECROW_OY, -SCARECROW_OX, SCARECROW_BODY_BOTTOM],
+    draw: drawScarecrow,
+  },
+  beehive: { bounds: [-28, -72, 28, 0], draw: drawBeehive },
+  tyre: { bounds: [-48, TYRE_SINK - 56, 48, TYRE_SINK], draw: drawTyre },
 };
 const canopySprites = new Map();
 
@@ -1595,6 +1929,12 @@ const PROP_EXTENTS = {
   vines: [-16, -10, 16],
   roots: [-32, -16, 32],
   moss: [-18, -18, 18],
+  crates: [-50, -72, 50],
+  ladder: [-28, -100, 26],
+  wheelbarrow: [-40, -48, 40],
+  scarecrow: [-32, -112, 32],
+  beehive: [-32, -80, 32],
+  tyre: [-48, -56, 48],
 };
 
 function propBounds(type, angle, groundOffset, text, flip = false) {
@@ -1640,6 +1980,7 @@ function propBounds(type, angle, groundOffset, text, flip = false) {
     groundOffset(0),
     groundOffset(right),
   );
+  if (type === "tyre") bottom = Math.max(bottom, TYRE_SINK);
   // Wall props reach below their anchor, so faded ones need a taller box.
   if (WALL_PROPS.has(type))
     bottom = Math.max(bottom, type === "vines" ? VINE_MAX + 8 : 28);
@@ -2352,6 +2693,7 @@ export function createGameArt(ctx) {
     text,
     wall,
     flip,
+    scene,
   ) {
     const transform = ctx.getTransform();
     if (transform.b || transform.c) return false;
@@ -2399,7 +2741,7 @@ export function createGameArt(ctx) {
       transform.e - x0,
       transform.f - y0,
     );
-    art.drawProp(type, x, y, 1, slope, groundOffset, text, wall, flip);
+    art.drawProp(type, x, y, 1, slope, groundOffset, text, wall, flip, scene);
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = alpha;
@@ -2418,6 +2760,7 @@ export function createGameArt(ctx) {
     text = "",
     wall = null,
     flip = false,
+    scene = NO_SCENE,
   ) {
     if (isStartSign(type, text)) type = "start";
     const mirrored = Boolean(flip) && canFlip(type);
@@ -2433,6 +2776,7 @@ export function createGameArt(ctx) {
         text,
         wall,
         mirrored,
+        scene,
       )
     )
       return;
@@ -2711,6 +3055,46 @@ export function createGameArt(ctx) {
       shard(-8, -26, 6, -2);
       shard(8, -24, 6, 2);
       shard(0, -40, 8, 0);
+    } else if (
+      type === "crates" ||
+      type === "ladder" ||
+      type === "wheelbarrow" ||
+      type === "tyre"
+    ) {
+      drawCanopy(type);
+    } else if (type === "scarecrow") {
+      drawCanopy(type);
+      // The post below the body follows the ground, like a tree trunk.
+      rectDownTo(-2, SCARECROW_BODY_BOTTOM, 2, FARM_WOOD.base, 2, groundOffset);
+      rectDownTo(0, SCARECROW_BODY_BOTTOM, 2, FARM_WOOD.light, 2, groundOffset);
+      // The head watches the rider go by. Only the face moves, so the head's
+      // light and shade stay put.
+      let face = "front";
+      if (Number.isFinite(scene.riderX)) {
+        const dx = (scene.riderX - x) * (mirrored ? -1 : 1);
+        if (dx < -SCARECROW_TURN) face = "left";
+        else if (dx > SCARECROW_TURN) face = "right";
+      }
+      for (const [fx, fy] of SCARECROW_FACES[face])
+        pixelRect(
+          fx + SCARECROW_OX,
+          fy + SCARECROW_OY,
+          2,
+          2,
+          FARM_WOOD.dark,
+          2,
+        );
+    } else if (type === "beehive") {
+      drawCanopy(type);
+      const time = scene.time || 0;
+      const snap = (value) => Math.round(value / ART_PIXEL) * ART_PIXEL;
+      BEES.forEach(([bx, by], index) => {
+        const left = bx + snap(Math.sin(time * 3 + index * 2.1) * 4);
+        const top = by + snap(Math.cos(time * 4.3 + index * 1.3) * 2);
+        pixelRect(left, top + 2, 4, 2, "#f4c64e", 2);
+        pixelRect(left + 2, top + 2, 2, 2, FARM_WOOD.dark, 2);
+        pixelRect(left, top, 2, 2, "#fffdf4", 2);
+      });
     } else if (type === "start") {
       // Same pennant as the start line, drawn by the shared function.
       drawStartPennant(ctx, 0, 0, groundOffset);

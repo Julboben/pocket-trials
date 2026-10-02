@@ -47,6 +47,10 @@ const SCENERY_SHADOWS = {
   "cactus-small": { width: 7, alpha: 0.15, thickness: 3, lift: 12 },
   sapling: { width: 10, alpha: 0.15, thickness: 3, lift: 20 },
   "pine-small": { width: 9, alpha: 0.15, thickness: 3, lift: 22 },
+  crates: { width: 26, alpha: 0.15, thickness: 3, lift: 24 },
+  wheelbarrow: { width: 18, alpha: 0.13, thickness: 3, lift: 14 },
+  scarecrow: { width: 8, alpha: 0.15, thickness: 3, lift: 30 },
+  beehive: { width: 14, alpha: 0.14, thickness: 3, lift: 20 },
 };
 const GHOST_ALPHA = 0.38;
 // Where a front prop hides the rider, the hidden part shows as a silhouette.
@@ -61,6 +65,8 @@ const PROP_RISE = {
   sapling: 80,
   "pine-small": 92,
   "cactus-small": 60,
+  ladder: 102,
+  scarecrow: 114,
 };
 // How far each prop's art hangs below its anchor, for culling.
 const PROP_HANG = { vines: 148, roots: 28, moss: 28 };
@@ -84,6 +90,8 @@ export function createRenderer(canvas) {
     cameraY = 0;
   let xrayMask = null,
     xrayRider = null;
+  // What props react to this frame; see drawProp.
+  let propScene = { time: 0, riderX: null };
 
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
@@ -232,6 +240,7 @@ export function createRenderer(canvas) {
         prop.text,
         propWallFit(trail, prop),
         prop.flip,
+        propScene,
       );
       drawn++;
     }
@@ -659,7 +668,14 @@ export function createRenderer(canvas) {
   }) {
     const paused = state === "paused";
     const animationDt = paused ? 0 : dt;
-    camera.follow(focusOf(ride), {
+    const focus = focusOf(ride);
+    // The ride is already interpolated for this frame, and nothing here feeds
+    // back into the simulation, so replays are unaffected.
+    propScene = {
+      time: reducedMotion ? 0 : now / 1000,
+      riderX: focus.x,
+    };
+    camera.follow(focus, {
       facing: ride.facing,
       loose: Boolean(ride.ragdoll),
       width: W,

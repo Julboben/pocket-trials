@@ -395,6 +395,12 @@ export function validateTrail(trail) {
         "pine-small",
         "cactus-small",
         "pebbles",
+        "crates",
+        "ladder",
+        "wheelbarrow",
+        "scarecrow",
+        "beehive",
+        "tyre",
       ].includes(prop.type)
     )
       warning(`Prop ${index + 1} has an unknown type “${prop.type}”.`);
