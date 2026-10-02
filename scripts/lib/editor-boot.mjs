@@ -33,7 +33,7 @@ globalThis.addEventListener = (type, handler) => {
   windowListeners.get(type).push(handler);
 };
 
-await import('../../js/editor.js');
+await import('../../js/editor/main.js');
 
 const fire = (type, extra = {}) => canvas.dispatch(type, { pointerId: 1, button: 0, clientX: 0, clientY: 0, ...extra });
 // The editor opens centred on the start, so a screen position is only a world
@@ -229,10 +229,10 @@ if (process.env.TSC_ENV_TRAIL === 'badgoal') {
   const button = document.getElementById('play-test');
   const before = document.getElementById('trail-json').value.length;
   button.click();
-  const items = [...document.getElementById('validation-list').children].map(node => node.textContent);
-  report.refused = items.some(text => text.includes('before play testing'));
-  report.refusalText = items.find(text => text.includes('before play testing')) || '';
-  report.refusalIsFirst = items[0]?.includes('before play testing') === true;
+  const toast = document.getElementById('editor-toast');
+  report.refusalText = toast.textContent;
+  report.refused = report.refusalText.includes('before play testing');
+  report.refusalShown = toast.hidden === false;
   // It has to name the actual problem, not just "fix the validation errors".
   report.refusalNamed = /past the end of the terrain/.test(report.refusalText);
   report.refusalCounted = /\b1 validation error\b/.test(report.refusalText);

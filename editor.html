@@ -47,6 +47,9 @@
                     >
                         ▶ PLAY TEST
                     </button>
+                    <button id="show-shortcuts" title="Keyboard shortcuts (?)">
+                        ?
+                    </button>
                     <button id="undo" title="Undo (Cmd/Ctrl+Z)">UNDO</button>
                     <button id="redo" title="Redo (Cmd/Ctrl+Shift+Z)">
                         REDO
@@ -265,9 +268,16 @@
                     ></canvas>
                     <div class="canvas-help">
                         DRAG BLOCKS OR POINTS · DOUBLE-CLICK A BLOCK EDGE TO ADD
-                        A POINT · DRAG TO DRAW A CUT · TWO-FINGER PAN · PINCH TO
-                        ZOOM
+                        A POINT · TWO-FINGER PAN · PINCH TO ZOOM · ? FOR ALL
+                        SHORTCUTS
                     </div>
+                    <div
+                        class="editor-toast"
+                        id="editor-toast"
+                        role="status"
+                        aria-live="polite"
+                        hidden
+                    ></div>
                 </div>
 
                 <aside class="inspector">
@@ -442,6 +452,114 @@
                 allow="fullscreen; screen-wake-lock"
             ></iframe>
         </div>
-        <script type="module" src="./js/editor.js"></script>
+        <dialog class="shortcuts" id="shortcuts" aria-labelledby="shortcuts-title">
+            <div class="shortcuts-head">
+                <strong id="shortcuts-title">KEYBOARD SHORTCUTS</strong>
+                <form method="dialog"><button>CLOSE</button></form>
+            </div>
+            <div class="shortcuts-grid">
+                <section>
+                    <h3>TOOLS</h3>
+                    <dl>
+                        <dt><kbd>V</kbd></dt>
+                        <dd>Select</dd>
+                        <dt><kbd>H</kbd></dt>
+                        <dd>Pan</dd>
+                        <dt><kbd>B</kbd></dt>
+                        <dd>Block</dd>
+                        <dt><kbd>C</kbd></dt>
+                        <dd>Cut</dd>
+                        <dt><kbd>A</kbd></dt>
+                        <dd>Apple</dd>
+                        <dt><kbd>S</kbd></dt>
+                        <dd>Spike</dd>
+                        <dt><kbd>P</kbd></dt>
+                        <dd>Prop</dd>
+                        <dt><kbd>G</kbd></dt>
+                        <dd>Start</dd>
+                        <dt><kbd>F</kbd></dt>
+                        <dd>Finish</dd>
+                    </dl>
+                </section>
+                <section>
+                    <h3>SELECT</h3>
+                    <dl>
+                        <dt>Click</dt>
+                        <dd>Select a block, point or object</dd>
+                        <dt><kbd>Shift</kbd> click</dt>
+                        <dd>Add to or remove from the selection</dd>
+                        <dt>Drag empty space</dt>
+                        <dd>Box-select; <kbd>⌘/Ctrl</kbd> drag works anywhere</dd>
+                        <dt><kbd>Alt</kbd> click</dt>
+                        <dd>Select a whole ring or cave</dd>
+                        <dt><kbd>⌘/Ctrl</kbd> <kbd>A</kbd></dt>
+                        <dd>Select everything</dd>
+                        <dt><kbd>Esc</kbd></dt>
+                        <dd>Back out: shape, tool, then selection</dd>
+                    </dl>
+                </section>
+                <section>
+                    <h3>EDIT</h3>
+                    <dl>
+                        <dt>Drag</dt>
+                        <dd>Move the selection</dd>
+                        <dt><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd></dt>
+                        <dd>Nudge; <kbd>Shift</kbd> for ×10</dd>
+                        <dt><kbd>Shift</kbd> drag</dt>
+                        <dd>Snap a point or handle to 15° and the grid</dd>
+                        <dt>Double-click</dt>
+                        <dd>Add a point to an edge</dd>
+                        <dt><kbd>Alt</kbd> drag</dt>
+                        <dd>Duplicate what you drag</dd>
+                        <dt><kbd>⌘/Ctrl</kbd> <kbd>D</kbd></dt>
+                        <dd>Duplicate the selection</dd>
+                        <dt><kbd>⌘/Ctrl</kbd> <kbd>C</kbd> <kbd>X</kbd> <kbd>V</kbd></dt>
+                        <dd>Copy, cut, paste (also into another trail)</dd>
+                        <dt><kbd>Delete</kbd></dt>
+                        <dd>Delete the selection</dd>
+                        <dt><kbd>[</kbd> <kbd>]</kbd></dt>
+                        <dd>Change prop type</dd>
+                        <dt><kbd>X</kbd></dt>
+                        <dd>Flip prop</dd>
+                        <dt><kbd>⌘/Ctrl</kbd> <kbd>Z</kbd></dt>
+                        <dd>Undo; <kbd>Shift</kbd> to redo</dd>
+                    </dl>
+                </section>
+                <section>
+                    <h3>DRAW (BLOCK AND CUT)</h3>
+                    <dl>
+                        <dt><kbd>Alt</kbd></dt>
+                        <dd>Rectangle</dd>
+                        <dt><kbd>Shift</kbd></dt>
+                        <dd>Snap to the grid</dd>
+                    </dl>
+                </section>
+                <section>
+                    <h3>VIEW</h3>
+                    <dl>
+                        <dt><kbd>Space</kbd> drag</dt>
+                        <dd>Pan, also middle mouse or two fingers</dd>
+                        <dt><kbd>⌘/Ctrl</kbd> scroll</dt>
+                        <dd>Zoom, also pinch</dd>
+                        <dt><kbd>=</kbd> <kbd>−</kbd> <kbd>0</kbd></dt>
+                        <dd>Zoom in, out, reset</dd>
+                        <dt><kbd>Home</kbd></dt>
+                        <dd>Back to the start</dd>
+                    </dl>
+                </section>
+                <section>
+                    <h3>TRAIL</h3>
+                    <dl>
+                        <dt><kbd>⌘/Ctrl</kbd> <kbd>S</kbd></dt>
+                        <dd>Save</dd>
+                        <dt><kbd>⌘/Ctrl</kbd> <kbd>Enter</kbd></dt>
+                        <dd>Play test</dd>
+                        <dt><kbd>?</kbd></dt>
+                        <dd>This list</dd>
+                    </dl>
+                </section>
+            </div>
+        </dialog>
+        <script type="module" src="./js/editor/main.js"></script>
     </body>
 </html>

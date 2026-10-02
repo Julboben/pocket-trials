@@ -99,6 +99,8 @@ The inspector on the right edits the current selection. The editor supports:
 - Mouse navigation: wheel panning, `Ctrl`/`Cmd` + wheel zooming, and middle-button or `Space`-drag panning
 - Undo and redo
 - Copy, cut and paste (`Cmd`/`Ctrl` + `C`, `X`, `V`) for blocks, apples, props and spikes. The copy goes to the system clipboard, so it can be pasted into another trail or tab; it lands under the cursor, or in the middle of the view.
+- Box-select picks up whole blocks along with points and objects; `Shift`-click adds or removes, `Cmd`/`Ctrl` + `A` selects everything, and `Cmd`/`Ctrl` + `D` duplicates. Undo and redo restore the selection too.
+- Press `?` (or the **?** button) for a list of every shortcut.
 - Continuous trail validation
 - Browser-local drafts
 - JSON and JavaScript module export
@@ -169,7 +171,7 @@ Clearing site data resets settings, progression, and recorded times.
 │   ├── vehicle-physics.js # Wheel, suspension, and chassis simulation
 │   ├── physics.js      # Reusable bike-constraint physics helpers
 │   ├── physics-debug.js # Opt-in physics tracing and console export
-│   ├── editor.js       # Visual editor tools, canvas interaction, and import/export
+│   ├── editor/         # Trail editor modules (main.js is the entry, state.js the shared state)
 │   ├── trail-schema.js # Trail defaults, normalization, and validation
 │   ├── audio.js        # Procedural Web Audio effects
 │   ├── config.js       # Shared constants and math helpers
