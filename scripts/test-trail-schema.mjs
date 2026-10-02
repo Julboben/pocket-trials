@@ -4,6 +4,7 @@ import {
   SPIKE_RADIUS, createBlankTrail, normalizeTrail, normalizeSpike, validateTrail, medalFor, normalizeMedals
 } from '../js/trail-schema.js';
 import { trailHash } from '../js/trail-hash.js';
+import { isOnlineTrail } from '../js/online-leaderboard.js';
 import { loadCatalogTrails } from './lib/trails.mjs';
 
 const errors = trail => validateTrail(trail).filter(message => message.type === 'error').map(message => message.text);
@@ -79,6 +80,15 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('cus
   assert.equal(trailHash(a), trailHash(b));
   assert.notEqual(trailHash(a), trailHash(c));
   assert.match(trailHash(a), /^[0-9a-f]{8}$/);
+  const d = normalizeTrail({ ...a, props: [{ x: 100, y: null, type: 'fence' }] });
+  assert.equal(trailHash(a), trailHash(d), 'props do not change the identity');
 }
+
+// Only official trails, keyed by id and gameplay hash, go to the online board.
+for (const entry of loadCatalogTrails('official')) {
+  assert.ok(isOnlineTrail(`${entry.id}@${trailHash(entry.trail)}`), entry.id);
+}
+assert.ok(!isOnlineTrail('official:01-the-orchard'), 'an official id without its hash stays offline');
+assert.ok(!isOnlineTrail('trail:0123abcd'), 'custom trails stay offline');
 
 console.log('Trail schema tests passed.');

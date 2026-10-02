@@ -362,7 +362,7 @@ export function startGame() {
     const official = session.trailSource === 'official';
     const { saveGame } = session;
     const previousBest = official
-      ? (saveGame ? readBest(session.activeSaveSlot, session.trailIndex, trails.length) : null)
+      ? (saveGame ? readBest(session.activeSaveSlot, key, trails.length) : null)
       : readLeaderboard(key)[0]?.time ?? null;
     const rank = recordLeaderboardRun(key, {
       time, rider: session.rider, name: saveGame?.name,
@@ -372,8 +372,8 @@ export function startGame() {
       session.unlockedTrail = Math.max(session.unlockedTrail, Math.min(session.trailIndex + 1, trails.length - 1));
       saveProgress();
       if (saveGame && (previousBest === null || time < previousBest)) {
-        saveBest(session.activeSaveSlot, session.trailIndex, time, trails.length);
-        saveGame.bestTimes[session.trailIndex] = time;
+        saveBest(session.activeSaveSlot, key, time, trails.length);
+        saveGame.bestTimes[key] = time;
       }
     }
     const storedGhost = readGhost(key);

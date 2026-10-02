@@ -385,7 +385,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
         trail,
         number: String(index + 1).padStart(2, '0'),
         status: locked ? 'LOCKED' : (index === session.savedTrail ? 'CURRENT TRAIL' : 'UNLOCKED'),
-        best: readBest(session.activeSaveSlot, index, trails.length),
+        best: readBest(session.activeSaveSlot, trailKey(officialTrailEntries[index]), trails.length),
         locked,
         onSelect: () => startTrail(index)
       }));

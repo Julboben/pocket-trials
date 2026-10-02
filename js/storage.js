@@ -46,7 +46,7 @@ function writeJson(key, value) {
 }
 
 const emptySlots = () => Array(SLOT_COUNT).fill(null);
-const cloneSave = save => save && { ...save, bestTimes: [...save.bestTimes] };
+const cloneSave = save => save && { ...save, bestTimes: { ...save.bestTimes } };
 
 function normalizeSave(save, trailCount) {
   if (!save || !['male', 'female'].includes(save.rider)) return null;
@@ -54,10 +54,11 @@ function normalizeSave(save, trailCount) {
   if (!name || typeof save.playerId !== 'string' || !UUID_RE.test(save.playerId)) return null;
   const unlocked = clamp(Number(save.unlocked) || 0, 0, trailCount - 1);
   const trail = clamp(Number(save.trail) || 0, 0, unlocked);
-  const bestTimes = Array.from({ length: trailCount }, (_, index) => {
-    const value = Number(save.bestTimes?.[index]);
-    return Number.isFinite(value) && value > 0 ? value : null;
-  });
+  // Keyed by trailKey(), so editing a trail's gameplay leaves its old best behind.
+  const stored = save.bestTimes && typeof save.bestTimes === 'object' && !Array.isArray(save.bestTimes) ? save.bestTimes : {};
+  const bestTimes = Object.fromEntries(Object.entries(stored)
+    .map(([key, value]) => [key, Number(value)])
+    .filter(([, value]) => Number.isFinite(value) && value > 0));
   return {
     rider: save.rider, createdAt: Number(save.createdAt) || Date.now(), trail, unlocked, bestTimes,
     name, playerId: save.playerId
@@ -116,7 +117,7 @@ export function createSave(slotIndex, rider, trailCount, name) {
     createdAt: Date.now(),
     trail: 0,
     unlocked: 0,
-    bestTimes: Array(trailCount).fill(null),
+    bestTimes: {},
     name: cleanName,
     playerId: newPlayerId()
   };
@@ -148,13 +149,12 @@ export function saveProgress(slotIndex, trailIndex, unlockedTrail, trailCount) {
   });
 }
 
-export function readBest(slotIndex, trailIndex, trailCount) {
-  const value = Number(slots(trailCount)[slotIndex]?.bestTimes?.[trailIndex]);
-  return Number.isFinite(value) && value > 0 ? value : null;
+export function readBest(slotIndex, trailKey, trailCount) {
+  return slots(trailCount)[slotIndex]?.bestTimes?.[trailKey] ?? null;
 }
 
-export function saveBest(slotIndex, trailIndex, elapsed, trailCount) {
-  updateSave(slotIndex, trailCount, save => { save.bestTimes[trailIndex] = elapsed; });
+export function saveBest(slotIndex, trailKey, elapsed, trailCount) {
+  updateSave(slotIndex, trailCount, save => { save.bestTimes[trailKey] = elapsed; });
 }
 
 function normalizeRun(run) {
