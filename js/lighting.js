@@ -1,7 +1,7 @@
 // Scene lighting. Everything drawn is multiplied by a light map: the ambient
 // light field, baked once per trail and time of day (see light-field.js), plus
 // moving lights stamped on each frame in banded pixel-art steps (props, the
-// bike's headlight and tail light, apples, spikes). Lights add to the ambient
+// bike's headlight and tail light). Lights add to the ambient
 // light, only reach the skin of the rock, and saturate in daylight, so by day
 // open ground looks just as it is drawn while caves stay dark.
 import {
@@ -31,8 +31,7 @@ const AMBIENT = {
 const FLASH = [170, 185, 215];
 // Rain greys the light: the sky's colour is pulled this far towards white.
 const RAIN_SOFTEN = 0.35;
-// Below this much ambient light, lamps and crane lights switch on and apples,
-// spikes and the finish are drawn again on top so they stay easy to see.
+// Below this much ambient light, lamps and crane lights switch on.
 const DARK_BELOW = 0.5;
 // Field texels per culling tile, for skipping the pass in full daylight.
 const TILE = 16;
@@ -48,16 +47,12 @@ const LANTERN = [255, 196, 118],
   LAMP = [255, 222, 160],
   CRANE = [232, 117, 91],
   HEADLIGHT = [255, 244, 212],
-  TAIL = [255, 60, 50],
-  AURA = [200, 205, 220],
-  APPLE = [255, 176, 150],
-  SPIKE = [255, 96, 80];
+  TAIL = [255, 60, 50];
 
 // Where the bike art draws its lamps, in the sprite's local units: +x
 // towards the front wheel, -y up from the frame.
 const BIKE_HEADLIGHT = [17, -19],
-  BIKE_TAIL_LIGHT = [-30, -30],
-  BIKE_AURA = [0, -20];
+  BIKE_TAIL_LIGHT = [-30, -30];
 
 // Strong sun: above this strength (see sunLight) the sun glares and casts
 // rays, growing to full at SUN_GLARE + SUN_GLARE_RANGE.
@@ -259,19 +254,21 @@ export function createLighting() {
   // draws its lamps, placed with the same transform as the sprite: centred
   // between the wheels, turned to the frame in 32 steps and mirrored by
   // `flip`, so they stay on the bike through flips, loops and 180s in the air.
+  // The beam itself turns with the frame's true angle, not the 32 steps: a
+  // long beam jumping a step at a time is hard to steer by.
   function bikeLights(ride, flip, lights) {
     if (ride.ragdoll) return;
     const { rear, front } = ride;
     const mx = (rear.x + front.x) / 2,
       my = (rear.y + front.y) / 2;
     const step = (Math.PI * 2) / 32;
-    const angle = Math.round(Math.atan2(front.y - rear.y, front.x - rear.x) / step) * step;
+    const frame = Math.atan2(front.y - rear.y, front.x - rear.x);
+    const angle = Math.round(frame / step) * step;
     const cos = Math.cos(angle),
       sin = Math.sin(angle);
     const at = ([lx, ly]) => ({ x: mx + cos * flip * lx - sin * ly, y: my + sin * flip * lx + cos * ly });
     const facing = flip < 0 ? -1 : 1;
     const turn = Math.abs(flip);
-    lights.push({ ...at(BIKE_AURA), radius: 70, color: AURA, strength: 0.45 });
     if (!headlights) return;
     lights.push(
       {
@@ -279,7 +276,7 @@ export function createLighting() {
         radius: 230,
         color: HEADLIGHT,
         strength: turn,
-        angle: Math.atan2(sin * facing, cos * facing),
+        angle: Math.atan2(Math.sin(frame) * facing, Math.cos(frame) * facing),
         spread: 0.3,
         core: 5,
       },
@@ -412,11 +409,6 @@ export function createLighting() {
 
     const lights = [...entry.props];
     bikeLights(ride, flip, lights);
-    for (const apple of ride.apples)
-      if (!apple.taken) lights.push({ x: apple.x, y: apple.y, radius: 34, color: APPLE, strength: 0.7 });
-    for (const spike of ride.spikes || [])
-      if (darkAt(entry, spike.x, spike.y))
-        lights.push({ x: spike.x, y: spike.y, radius: spike.radius + 28, color: SPIKE, strength: 0.4 });
 
     lightContext.setTransform(1, 0, 0, 1, 0, 0);
     lightContext.globalCompositeOperation = "source-over";

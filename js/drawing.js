@@ -2366,10 +2366,7 @@ export function createGameArt(ctx) {
     ctx.translate(Math.round(x * scale) / scale, Math.round(y * scale) / scale);
   }
 
-  function drawApple(x, y, { glow = true } = {}) {
-    if (glow) {
-      drawPixelDisc(x, y, 15, "#fbf0ce50", ART_PIXEL);
-    }
+  function drawApple(x, y) {
     const left = Math.round(x / ART_PIXEL) * ART_PIXEL - 11;
     const top = Math.round(y / ART_PIXEL) * ART_PIXEL - 12;
     for (let row = 0; row < APPLE_SPRITE.length; row++) {

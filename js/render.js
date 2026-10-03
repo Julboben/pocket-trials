@@ -718,11 +718,9 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  // With `darkOnly`, only where it is dark, to redraw over the lighting.
-  function drawGoal(ride, darkOnly = false) {
+  function drawGoal(ride) {
     if (!inView(trail.goal, 65)) return;
     const goalY = finishHeight(trail);
-    if (darkOnly && !lighting.isDark(trail, trail.goal, goalY - 40)) return;
     if (inView(trail.goal, 65, goalY, 115))
       gameArt.drawFlag(
         trail.goal,
@@ -732,20 +730,18 @@ export function createRenderer(canvas) {
       );
   }
 
-  function drawApples(ride, now, darkOnly = false) {
+  function drawApples(ride, now) {
     for (const apple of ride.apples) {
       if (apple.taken) continue;
       const appleY = appleDrawY(apple, now);
       if (!inView(apple.x, 30, appleY)) continue;
-      if (darkOnly && !lighting.isDark(trail, apple.x, appleY)) continue;
       gameArt.drawApple(apple.x, appleY);
     }
   }
 
-  function drawSpikes(ride, darkOnly = false) {
+  function drawSpikes(ride) {
     for (const spike of ride.spikes) {
       if (!inView(spike.x, spike.radius + 10, spike.y)) continue;
-      if (darkOnly && !lighting.isDark(trail, spike.x, spike.y)) continue;
       gameArt.drawSpike(
         spike.x,
         spike.y,
@@ -841,10 +837,8 @@ export function createRenderer(canvas) {
     drawProps("front", full);
     drawXray(ride, rider, ride.ragdoll ? "ragdoll" : state, full);
     drawParticles(effects.particles, false);
-    // Light the scene, then the glowing parts of props on top; where it is
-    // dark, the finish, spikes and apples are drawn again so they stay easy
-    // to see.
-    const lit = lighting.draw(ctx, {
+    // Light the scene, then the glowing parts of props on top.
+    lighting.draw(ctx, {
       trail,
       ride,
       cameraX,
@@ -856,11 +850,6 @@ export function createRenderer(canvas) {
       flip: flipVisual,
     });
     drawPropGlows();
-    if (lit) {
-      drawGoal(ride, true);
-      drawSpikes(ride, true);
-      drawApples(ride, now, true);
-    }
     drawPopups(animationDt);
     effects.prune();
     ctx.restore();

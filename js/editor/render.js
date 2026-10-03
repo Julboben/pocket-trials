@@ -312,7 +312,7 @@ function drawSpikes() {
 function drawObjects() {
   drawSpikes();
   for (const apple of editor.trail.apples)
-    art.drawApple(apple.x, objectY(apple, 60), { glow: false });
+    art.drawApple(apple.x, objectY(apple, 60));
   art.drawFlag(editor.trail.goal, finishY(), true, 0);
   if (editor.selection?.kind === "goal") {
     // The petals the bike has to touch.
@@ -551,7 +551,7 @@ function drawPlacementPreview() {
   }
   ctx.save();
   ctx.globalAlpha = 0.5;
-  if (editor.tool === "apple") art.drawApple(x, y, { glow: false });
+  if (editor.tool === "apple") art.drawApple(x, y);
   else art.drawSpike(x, y, toolSettings.spike.radius);
   ctx.restore();
 }
