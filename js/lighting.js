@@ -14,7 +14,7 @@ import {
   sunLight,
   timeOfDayPalette,
 } from "./drawing.js";
-import { bakeLightField, lightFieldAt } from "./light-field.js";
+import { bakeLightField, lightFieldAt, lightReach } from "./light-field.js";
 import { terrainAt, terrainGeometry } from "./terrain.js";
 import { LANTERN_CENTRE } from "./cave-props.js";
 import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
@@ -33,6 +33,11 @@ const FLASH = [170, 185, 215];
 const RAIN_SOFTEN = 0.35;
 // Below this much ambient light, lamps and crane lights switch on.
 const DARK_BELOW = 0.5;
+// Shadows: rays are cast from each light this many world units apart at its
+// edge, and light goes this far into the rock it hits (the skin the cover
+// mask fades out).
+const RAY_SPACING = 6,
+  SHADOW_SKIN = 12;
 // Field texels per culling tile, for skipping the pass in full daylight.
 const TILE = 16;
 // Radius fraction → brightness; hard steps keep the pixel-art look.
@@ -325,11 +330,43 @@ export function createLighting() {
     return cached;
   }
 
-  function stamp(item, strength, left, top) {
+  // The area a light reaches before the terrain blocks it, as a world-space
+  // polygon [x, y, x, y, …], or null when nothing blocks it.
+  function lightShape(field, { x, y, radius, spread = 0, angle = 0 }) {
+    // A beam's polygon is a touch wider than the beam so its edges aren't clipped.
+    const arc = spread ? spread * 2 + 0.04 : Math.PI * 2;
+    const count = Math.max(8, Math.min(180, Math.ceil((arc * radius) / RAY_SPACING)));
+    const from = spread ? angle - spread - 0.02 : 0;
+    const points = spread ? [x, y] : [];
+    let blocked = false;
+    for (let i = 0; i < (spread ? count + 1 : count); i++) {
+      const a = from + (arc * i) / count,
+        dx = Math.cos(a),
+        dy = Math.sin(a);
+      const reach = lightReach(field, x, y, dx, dy, radius, SHADOW_SKIN);
+      if (reach < radius) blocked = true;
+      points.push(x + dx * reach, y + dy * reach);
+    }
+    return blocked ? points : null;
+  }
+
+  // Lights are cut to what they can reach, so they cast shadows; prop lights
+  // never move, so their shape is worked out once, the first time they're seen.
+  function stamp(item, strength, left, top, field) {
     const { image, r } = sprite(item.radius, item.color, item.spread);
     const px = Math.round((item.x - left) / ART_PIXEL),
       py = Math.round((item.y - top) / ART_PIXEL);
     if (px + r < 0 || py + r < 0 || px - r > cols || py - r > rows) return false;
+    if (item.shape === undefined) item.shape = lightShape(field, item);
+    const shape = item.shape;
+    if (shape) {
+      lightContext.save();
+      lightContext.beginPath();
+      for (let k = 0; k < shape.length; k += 2)
+        lightContext.lineTo((shape[k] - left) / ART_PIXEL, (shape[k + 1] - top) / ART_PIXEL);
+      lightContext.closePath();
+      lightContext.clip();
+    }
     lightContext.globalAlpha = Math.min(1, strength);
     if (item.spread) {
       lightContext.setTransform(1, 0, 0, 1, px, py);
@@ -337,6 +374,7 @@ export function createLighting() {
       lightContext.drawImage(image, -r, -r);
       lightContext.setTransform(1, 0, 0, 1, 0, 0);
     } else lightContext.drawImage(image, px - r, py - r);
+    if (shape) lightContext.restore();
     return true;
   }
 
@@ -420,7 +458,7 @@ export function createLighting() {
     let stamped = 0;
     for (const item of lights) {
       const strength = strengthOf(item, time);
-      if (strength <= 0 || !stamp(item, strength, left, top)) continue;
+      if (strength <= 0 || !stamp(item, strength, left, top, field)) continue;
       stamped++;
       if (item.core) cores.push(item, strength);
     }

@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { rectangle, blockTrail } from './lib/terrain-fixtures.mjs';
 
-const { bakeLightField, lightFieldAt } = await import('../js/light-field.js');
+const { bakeLightField, lightFieldAt, lightReach } = await import('../js/light-field.js');
 const { glareStrength } = await import('../js/lighting.js');
 
 let failures = 0;
@@ -71,6 +71,14 @@ check('a bright clear noon sun glares', sky('noon', { sun: 1, clouds: 0.15 }) > 
 check('a cloudy or weak sun does not glare', sky('noon', { sun: 0.7, clouds: 0.35 }) === 0 && sky('noon', { sun: 1, clouds: 1 }) === 0);
 check('rain puts the glare out', sky('noon', { sun: 1, clouds: 0.15, rain: 1 }) === 0);
 check('the moon never glares', sky('night', { sun: 1, clouds: 0 }) === 0);
+
+// Lights stop at the terrain: a ray into the ground goes only skin deep,
+// one through open air goes its full length, and a light set slightly into
+// rock still shines out.
+check('light stops at the ground', Math.abs(lightReach(noon, 200, 250, 0, 1, 200, 12) - 62) < 3, lightReach(noon, 200, 250, 0, 1, 200, 12));
+check('light through open air goes its full length', lightReach(noon, 200, 250, 0, -1, 200, 12) === 200);
+check('light is blocked by a wall', lightReach(noon, 900, 260, 1, 0, 300, 12) < 120, lightReach(noon, 900, 260, 1, 0, 300, 12));
+check('a light just inside rock still shines out', lightReach(noon, 200, 306, 0, -1, 100, 12) === 100);
 
 // A huge trail is baked coarser rather than with ever more texels.
 const wide = bakeLightField(blockTrail([rectangle(0, 300, 60000, 3000, 'grass', 'wide')]), NIGHT);

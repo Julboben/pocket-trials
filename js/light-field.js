@@ -67,6 +67,8 @@ export function bakeLightField(trail, { soak, reach, open = 0.35 }, unit = LIGHT
   }
   const size = width * height;
   const solid = new Uint8Array(size);
+  // The terrain as it is, before gaps and pockets are filled, for shadows.
+  const rock = new Uint8Array(size);
   const dist = new Float32Array(size).fill(Infinity);
   const tops = new Float64Array(width).fill(Infinity);
   // Below all the terrain is treated as more rock, so the ground doesn't end
@@ -85,6 +87,7 @@ export function bakeLightField(trail, { soak, reach, open = 0.35 }, unit = LIGHT
       for (let r = r0; r <= r1; r++) solid[r * width + c] = 1;
     }
     for (let r = floorRow; r < height; r++) solid[r * width + c] = 1;
+    for (let r = 0, i = c; r < height; r++, i += width) rock[i] = solid[i];
     fillThinGaps(solid, width, height, c, Math.floor(THIN_GAP / unit));
     // Air above the column's topmost rock is open to the sky.
     const open = Math.min(height, Math.ceil((tops[c] - y) / unit - 0.5));
@@ -195,7 +198,7 @@ export function bakeLightField(trail, { soak, reach, open = 0.35 }, unit = LIGHT
     light[i] = Math.max(0, Math.min(1, edge + (deep[i] - edge) * smooth((depth - LIP) / ROCK_BLEND)));
     cover[i] = near[i] === Infinity ? 1 : smooth(depth / SKIN);
   }
-  return { x, y, unit, width, height, light, cover };
+  return { x, y, unit, width, height, light, cover, rock };
 }
 
 // The share of the sky (0…1) each air texel sees, over SKY_RAYS. Each ray is
@@ -344,6 +347,31 @@ function fillSmallPockets(solid, dist, width, limit) {
 }
 
 /** The baked light (0…1) at a world point; open sky outside the field. */
+// A light at its source stays lit while buried in rock this deep, so lamps
+// set into a wall still shine out of it.
+const BURIED = 16;
+
+/**
+ * How far light travels from a world point along the unit direction
+ * (dx, dy), up to `max`: it stops `skin` units into the first rock it meets.
+ * Outside the field is open sky.
+ */
+export function lightReach(field, x, y, dx, dy, max, skin) {
+  if (!field) return max;
+  const { rock, unit, width, height } = field;
+  const step = unit / 2;
+  let inAir = false;
+  for (let d = 0; d < max; d += step) {
+    const c = Math.floor((x + dx * d - field.x) / unit),
+      r = Math.floor((y + dy * d - field.y) / unit);
+    const solid = c >= 0 && c < width && r >= 0 && rock[Math.min(r, height - 1) * width + c];
+    if (!solid) inAir = true;
+    else if (inAir) return Math.min(max, d + skin);
+    else if (d > BURIED) return 0;
+  }
+  return max;
+}
+
 export function lightFieldAt(field, wx, wy) {
   if (!field) return 1;
   const c = Math.floor((wx - field.x) / field.unit),
