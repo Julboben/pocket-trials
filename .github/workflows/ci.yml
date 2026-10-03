@@ -25,3 +25,7 @@ jobs:
         run: npm run typecheck
       - name: Tests
         run: npm test
+      - name: Install dependencies
+        run: npm ci
+      - name: Online API tests
+        run: npm run test:online

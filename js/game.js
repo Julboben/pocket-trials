@@ -11,9 +11,10 @@ import { encodeInputs, decodeInputs } from './replay-codec.js';
 import { medalFor, normalizeTrail } from './trail-schema.js';
 import {
   readBest, saveBest, readLeaderboard, recordLeaderboardRun, readGhost, saveGhost,
-  saveProgress as persistProgress, savePreferences
+  saveProgress as persistProgress, savePreferences, clearSaveToken
 } from './storage.js';
-import { submitOnlineRun } from './online-leaderboard.js';
+import { submitOnlineRun, fetchWorldGhost } from './online-leaderboard.js';
+import { queueSaveSync } from './account.js';
 import { createInput, keyLabel } from './input.js';
 import { createCamera } from './camera.js';
 import { createEffects } from './effects.js';
@@ -206,20 +207,36 @@ export function startGame() {
     saveGame.unlocked = session.unlockedTrail;
     session.saveSlots[session.activeSaveSlot] = saveGame;
     persistProgress(session.activeSaveSlot, session.trailIndex, session.unlockedTrail, trails.length);
+    queueSaveSync(saveGame);
   }
 
   // --- Trails ----------------------------------------------------------------
 
+  /** 'on' races your own best run; 'world' the fastest of that and the world's best. */
   function loadGhost(trail) {
     ghost = null;
-    if (session.preferences.ghost !== 'on') return;
-    const data = session.trailSource === 'playtest' ? playtestBest : readGhost(trailKey(currentTrailEntry()));
+    const mode = session.preferences.ghost;
+    if (mode === 'off') return;
+    useGhost(trail, session.trailSource === 'playtest' ? playtestBest : readGhost(trailKey(currentTrailEntry())));
+    if (mode !== 'world' || session.trailSource !== 'official') return;
+    const ride = session.ride;
+    fetchWorldGhost(trailKey(currentTrailEntry())).then(world => {
+      // The player may have restarted, switched trail or changed the setting meanwhile.
+      if (!world || session.ride !== ride || session.preferences.ghost !== 'world') return;
+      if (ghost && ghost.data.time <= world.time) return;
+      // Steps the ghost would already have taken alongside the player.
+      useGhost(trail, world, ride.started ? recorded.length - startStep : 0);
+    });
+  }
+
+  function useGhost(trail, data, catchUp = 0) {
     if (!data || data.physics !== RIDE_VERSION) return;
     const inputs = decodeInputs(data.inputs);
     const ride = createRide(trail, { seed: data.seed });
     // Play the idle lead-in now so the ghost sets off with the player.
-    for (let index = 0; index < data.startStep && index < inputs.length; index++) stepRide(ride, inputs[index]);
-    ghost = { ride, inputs, index: data.startStep, data };
+    const lead = Math.min(data.startStep + catchUp, inputs.length);
+    for (let index = 0; index < lead; index++) stepRide(ride, inputs[index]);
+    ghost = { ride, inputs, index: lead, data };
   }
 
   function initializeTrail(trail, marker) {
@@ -403,11 +420,13 @@ export function startGame() {
       if (saveGame && (previousBest === null || time < previousBest)) {
         saveBest(session.activeSaveSlot, key, time, trails.length);
         saveGame.bestTimes[key] = time;
+        queueSaveSync(saveGame);
       }
     }
     const storedGhost = readGhost(key);
+    const inputs = encodeInputs(recorded);
     if (!storedGhost || storedGhost.physics !== RIDE_VERSION || time < storedGhost.time) {
-      saveGhost(key, { time, splits: ride.splits.slice(), startStep, seed: ride.seed, inputs: encodeInputs(recorded), physics: RIDE_VERSION });
+      saveGhost(key, { time, splits: ride.splits.slice(), startStep, seed: ride.seed, inputs, physics: RIDE_VERSION });
     }
     const medals = session.trail.medals;
     const last = session.trailIndex === trails.length - 1;
@@ -418,13 +437,16 @@ export function startGame() {
       restartKey: keyLabel(session.preferences.bindings.restart[0] || 'KeyR')
     });
     // Only a run the player actually rode is sent to the world board.
-    if (official && session.state === 'running') {
-      // Runs without a savegame stay local-only.
-      if (saveGame) {
-        submitOnlineRun(key, { time, rider: session.rider, name: saveGame.name, playerId: saveGame.playerId }).then(result => {
-          if (result?.rank) overlay.toast(`WORLD RANK #${result.rank} OF ${result.total}`, 4000);
-        });
-      }
+    if (official && session.state === 'running' && saveGame?.token) {
+      // Offline saves stay local-only. The server replays the inputs to time the run.
+      const slot = session.activeSaveSlot;
+      submitOnlineRun(key, { rider: session.rider, token: saveGame.token, run: { inputs, seed: ride.seed, physics: RIDE_VERSION } }).then(result => {
+        if (result && 'signedOut' in result) {
+          clearSaveToken(slot, trails.length);
+          if (session.saveSlots[slot]) session.saveSlots[slot].token = null;
+          overlay.toast('Signed out · Log in from the menu to post world times', 5000);
+        } else if (result?.rank) overlay.toast(`WORLD RANK #${result.rank} OF ${result.total}`, 4000);
+      });
     }
     setState('won');
     vibrate([20, 40, 20, 40, 60]);
@@ -503,7 +525,9 @@ export function startGame() {
       braking: Boolean(replayInput.braking)
     } : {
       facing: ride.facing,
-      leanInput: holding ? 0 : input.leanInput(),
+      // Rounded like the replay codec, so the recorded run is exactly the run
+      // that was simulated and replays (ghost, server check) match it.
+      leanInput: holding ? 0 : Math.round(input.leanInput() * 100) / 100,
       accelerating: !holding && input.held('up'),
       braking: !holding && input.held('down')
     };

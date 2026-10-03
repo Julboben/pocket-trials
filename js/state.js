@@ -38,7 +38,7 @@ export const DEFAULT_PREFERENCES = {
 
 const CHOICES = {
   scenery: ['full', 'reduced'], controls: ['show', 'hide'], sound: ['on', 'off'],
-  shake: ['on', 'off'], haptics: ['on', 'off'], ghost: ['on', 'off'],
+  shake: ['on', 'off'], haptics: ['on', 'off'], ghost: ['on', 'world', 'off'],
   headlight: ['on', 'off']
 };
 
