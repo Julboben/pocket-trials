@@ -875,30 +875,11 @@ h2 {
     letter-spacing: -3px;
     text-transform: uppercase;
 }
-.beta-tag {
-    position: absolute;
-    bottom: -2px;
-    right: -20px;
-    margin-left: 0.45em;
-    padding: 4px 7px 3px;
-    vertical-align: 0.9em;
-    border-radius: var(--radius-pixel);
-    background: var(--color-accent);
-    color: #241710;
-    box-shadow: var(--shadow-pixel);
-    font-size: 11px;
-    letter-spacing: 1px;
-    line-height: 1;
-    transform: rotate(-25deg);
-
-    @media screen and (max-width: 768px) {
-        font-size: 8px;
-    }
-}
-
-.menu-title-container {
-    position: relative;
-    display: inline-block;
+.app-version {
+    color: #aeb7b3;
+    font-size: 8px;
+    font-weight: 850;
+    letter-spacing: 2px;
 }
 
 .menu-logo {
@@ -1661,15 +1642,15 @@ kbd {
         grid-template-columns: 1fr;
     }
     .menu-hero {
-        grid-template-columns: 52px 1fr;
-        gap: 13px;
+        grid-template-columns: 64px 1fr;
+        gap: 14px;
     }
     .menu-logo {
-        width: 62px;
-        height: 62px;
+        width: 64px;
+        height: 64px;
     }
     .menu-hero h2 {
-        font-size: 29px;
+        font-size: clamp(34px, 12vw, 48px);
         letter-spacing: -2px;
     }
 
@@ -1810,6 +1791,63 @@ kbd {
 }
 .save-name-field input.invalid {
     border-color: #e5484d;
+}
+.save-mode {
+    display: grid;
+    gap: 6px;
+    margin-top: 10px;
+}
+.save-mode small {
+    color: var(--color-text-muted);
+    font-size: 9px;
+    line-height: 1.5;
+}
+.account-status {
+    margin: 10px 0 0;
+    color: var(--color-text-muted);
+    font-size: 9px;
+    line-height: 1.5;
+}
+.account-status.error {
+    color: #f0a08c;
+}
+.account-login {
+    margin-top: 14px;
+    padding-top: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--color-border);
+}
+.account-login small {
+    color: var(--color-text-muted);
+    font-size: 9px;
+}
+.save-slot-row.has-link .save-slot {
+    padding-right: 150px;
+}
+.link-save {
+    position: absolute;
+    top: 50%;
+    right: 54px;
+    height: 34px;
+    padding: 0 9px;
+    transform: translateY(-50%);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 0.4px;
+}
+.link-save:hover {
+    border-color: var(--color-accent);
+}
+.link-save:disabled {
+    opacity: 0.5;
+    cursor: progress;
 }
 
 /* Portrait phones: title at the top, home buttons at the bottom within thumb reach. */

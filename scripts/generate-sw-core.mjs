@@ -1,5 +1,6 @@
 // Regenerates the CACHE name and CORE list in sw.js from the files the game
-// and editor can load, so the precache can't drift out of sync by hand.
+// and editor can load, so the precache can't drift out of sync by hand. Also
+// writes js/version.js from package.json, so the menu shows the right version.
 //
 //   node scripts/generate-sw-core.mjs          rewrite sw.js if needed
 //   node scripts/generate-sw-core.mjs --check  fail if sw.js is out of date (CI)
@@ -12,6 +13,20 @@ const check = process.argv.includes('--check');
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const swPath = join(root, 'sw.js');
 const sw = readFileSync(swPath, 'utf8');
+
+const versionPath = join(root, 'js', 'version.js');
+const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+const versionModule = `// Generated from package.json by scripts/generate-sw-core.mjs; do not edit.\nexport const VERSION = ${JSON.stringify(version)};\n`;
+let currentVersionModule = '';
+try { currentVersionModule = readFileSync(versionPath, 'utf8').replaceAll('\r\n', '\n'); } catch {}
+if (currentVersionModule !== versionModule) {
+  if (check) {
+    console.error('js/version.js: out of date with package.json. Run `npm run sw` and commit the result.');
+    process.exit(1);
+  }
+  writeFileSync(versionPath, versionModule);
+  console.log(`js/version.js: updated to ${version}`);
+}
 
 // Everything the two pages can request, besides the trail files (cached from
 // the catalog) and the service worker itself.

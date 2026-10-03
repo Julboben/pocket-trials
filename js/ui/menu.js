@@ -5,11 +5,16 @@ import { createDrawingTools, createGameArt } from '../drawing.js';
 import { createRiderHair, hairRoot, hairRestDirection, hairBackSupport } from '../rider-hair.js';
 import {
   loadSaveSlots, loadActiveSlot, saveActiveSlot, createSave, deleteSave, readBest,
-  readLeaderboard, LEADERBOARD_SIZE, loadPreferences, savePreferences, cleanRiderName
+  readLeaderboard, LEADERBOARD_SIZE, loadPreferences, savePreferences, cleanRiderName,
+  restoreOnlineSave, linkSave, readGhost
 } from '../storage.js';
-import { ONLINE_LEADERBOARD_EVENT, isOnlineBoardLoading } from '../online-leaderboard.js';
+import { ONLINE_LEADERBOARD_EVENT, isOnlineBoardLoading, submitOnlineRun } from '../online-leaderboard.js';
+import { registerRider, loginRider, accountErrorText, passkeysSupported, queueSaveSync } from '../account.js';
+import { isSandbox } from '../local-store.js';
+import { RIDE_VERSION } from '../ride.js';
 import { normalizeTrail, validateTrail, medalFor } from '../trail-schema.js';
 import { ACTION_LABELS, keyLabel } from '../input.js';
+import { VERSION } from '../version.js';
 import {
   $, session, DEFAULT_BINDINGS, DEFAULT_PREFERENCES, sanitizePreferences,
   leaderboardTrails, trailKey, trailMarker, runTimeText
@@ -55,8 +60,14 @@ export function loadStoredState() {
  */
 export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose, onRetry, onPreferences }) {
   let pendingSaveSlot = 0, selectedNewRider = 'male';
+  $('app-version').textContent = 'v' + VERSION;
   let deleteArmedSlot = -1, deleteArmTimer = 0, leaderboardTrail = 0;
   let creatorFromRiders = false;
+  // Sandbox riders are throwaway, so they never get an online account.
+  const onlineAvailable = passkeysSupported() && !isSandbox();
+  let saveMode = onlineAvailable ? 'online' : 'offline';
+  /** True while a passkey prompt or account request is in flight. */
+  let accountBusy = false;
 
   const isOpen = () => !$('menu-screen').hidden;
 
@@ -175,9 +186,10 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
       button.className = 'save-slot';
       button.setAttribute('aria-pressed', String(Boolean(save) && index === session.activeSaveSlot));
       const active = save && index === session.activeSaveSlot ? ' · ACTIVE' : '';
+      const mode = save ? (save.token ? ' · ONLINE' : ' · OFFLINE') : '';
       button.innerHTML = save
         ? '<span class="save-avatar ' + save.rider + '">' + riderSymbolMarkup(save.rider) + '</span>'
-          + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + active + '</span><strong>' + save.name + '</strong><small>'
+          + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + active + mode + '</span><strong>' + save.name + '</strong><small>'
           + (save.unlocked + 1) + ' / ' + trails.length + ' trails · ' + trails[save.trail].name + '</small></span>'
         : '<span class="save-avatar empty">+</span>'
           + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + '</span><strong>NEW RIDER</strong><small>Start a fresh career in this slot</small></span>';
@@ -187,6 +199,17 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
         showSaveCreator(index);
       });
       row.append(button);
+      if (save && !save.token && onlineAvailable) {
+        const link = document.createElement('button');
+        link.className = 'link-save';
+        link.type = 'button';
+        link.textContent = 'GO ONLINE';
+        link.disabled = accountBusy;
+        link.setAttribute('aria-label', 'Take ' + save.name + ' online with a passkey');
+        link.addEventListener('click', () => goOnline(index));
+        row.classList.add('has-link');
+        row.append(link);
+      }
       if (save) {
         const remove = document.createElement('button');
         remove.className = 'delete-save';
@@ -285,6 +308,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     $('menu-first-ride').hidden = hasSave;
     $('menu-first-ride').classList.toggle('menu-action-primary', !resumable);
     $('menu-riders').hidden = !hasSave;
+    $('menu-login').hidden = !onlineAvailable || Boolean(session.saveGame?.token);
     if (resumable) {
       $('menu-resume-detail').textContent = 'Back to ' + (session.trail?.name ?? 'the trail')
         + (session.stateBeforeMenu === 'paused' ? ' · paused' : '');
@@ -475,7 +499,120 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     $('new-save-slot-label').textContent = 'SAVE SLOT ' + (slotIndex + 1);
     $('new-save-name').value = '';
     $('new-save-name').classList.remove('invalid');
+    setStatus('save-status', '');
+    setSaveMode(saveMode);
     showView('save');
+  }
+
+  // --- Online riders ---------------------------------------------------------
+
+  function setStatus(id, text, isError = false) {
+    const status = $(id);
+    status.textContent = text;
+    status.hidden = !text;
+    status.classList.toggle('error', isError);
+  }
+
+  function setAccountBusy(busy) {
+    accountBusy = busy;
+    for (const id of ['create-save', 'save-login-button', 'riders-login-button']) $(id).disabled = busy;
+    document.querySelectorAll('.link-save').forEach(button => { button.disabled = busy; });
+  }
+
+  function setSaveMode(mode) {
+    saveMode = onlineAvailable ? mode : 'offline';
+    const online = saveMode === 'online';
+    document.querySelectorAll('[data-save-mode]').forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.saveMode === saveMode));
+    });
+    $('save-mode').hidden = !onlineAvailable;
+    $('save-login').hidden = !onlineAvailable;
+    $('save-mode-help').textContent = online
+      ? 'Your name is yours alone on the world leaderboard. You sign in with a passkey (fingerprint, face or device PIN), and your progress is backed up.'
+      : 'Stays in this browser only: no world leaderboard, and clearing site data deletes it. You can take it online later from Riders.';
+    $('create-save').textContent = online ? 'Create Passkey & Ride →' : 'Create Save & Ride →';
+  }
+
+  function useNewSave(index, save) {
+    session.saveSlots[index] = save;
+    selectSaveSlot(index);
+    queueSaveSync(save);
+  }
+
+  async function createOnlineSave(name) {
+    setAccountBusy(true);
+    setStatus('save-status', 'Confirm with your passkey…');
+    try {
+      const { token, player } = await registerRider(name, selectedNewRider);
+      const save = createSave(pendingSaveSlot, player.rider, trails.length, player.name, { playerId: player.id, token });
+      if (!save) { showView('riders'); return; }
+      session.unlockedTrail = 0; session.savedTrail = 0;
+      useNewSave(pendingSaveSlot, save);
+      startTrail(0);
+    } catch (error) {
+      setStatus('save-status', accountErrorText(error), true);
+      if (error.message === 'name taken' || error.message === 'name not allowed' || error.message === 'invalid name') {
+        $('new-save-name').classList.add('invalid');
+      }
+    } finally {
+      setAccountBusy(false);
+    }
+  }
+
+  /** Signs in with a passkey and puts that rider into a slot, with their cloud save and ghosts. */
+  async function logIn(statusId) {
+    if (accountBusy) return;
+    setAccountBusy(true);
+    setStatus(statusId, 'Choose your passkey…');
+    try {
+      const account = await loginRider();
+      const index = restoreOnlineSave(trails.length, account);
+      if (index < 0) {
+        setStatus(statusId, 'All rider slots are full. Delete a rider, then log in again.', true);
+        return;
+      }
+      session.saveSlots = loadSaveSlots(trails.length);
+      useNewSave(index, session.saveSlots[index]);
+      showView('home');
+    } catch (error) {
+      setStatus(statusId, accountErrorText(error), true);
+    } finally {
+      setAccountBusy(false);
+    }
+  }
+
+  /** Claims an offline save's name online, then sends its best runs to the world board. */
+  async function goOnline(index) {
+    const save = session.saveSlots[index];
+    if (!save || save.token || accountBusy) return;
+    setAccountBusy(true);
+    setStatus('riders-status', 'Confirm with your passkey…');
+    try {
+      const { token, player } = await registerRider(save.name, save.rider);
+      const linked = linkSave(index, trails.length, { playerId: player.id, token, name: player.name });
+      session.saveSlots[index] = linked;
+      if (index === session.activeSaveSlot) session.saveGame = linked;
+      queueSaveSync(linked);
+      buildSaveSlots();
+      setStatus('riders-status', `${linked.name} is online. Sending best runs…`);
+      let sent = 0;
+      for (const entry of officialTrailEntries) {
+        const key = trailKey(entry);
+        const ghost = readGhost(key);
+        // Ghosts are shared by every save on this device, so only send the
+        // one that set this save's best time.
+        if (!ghost || ghost.physics !== RIDE_VERSION || ghost.time !== linked.bestTimes[key]) continue;
+        const result = await submitOnlineRun(key, { rider: linked.rider, token, run: { inputs: ghost.inputs, seed: ghost.seed, physics: ghost.physics } });
+        if (result && 'rank' in result) sent++;
+      }
+      setStatus('riders-status', `${linked.name} is online.` + (sent ? ` ${sent} best ${sent === 1 ? 'run is' : 'runs are'} on the world leaderboard.` : ''));
+    } catch (error) {
+      setStatus('riders-status', error.message === 'name taken'
+        ? `“${save.name}” is already taken online. If it’s yours, log in below; otherwise create a new online rider.`
+        : accountErrorText(error), true);
+    } finally {
+      setAccountBusy(false);
+    }
   }
 
   function setImportStatus(text, isError = false) {
@@ -599,7 +736,19 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     creatorFromRiders = false;
     showSaveCreator(Math.max(0, session.saveSlots.findIndex(save => !save)));
   });
-  $('menu-riders').addEventListener('click', () => { buildSaveSlots(); showView('riders'); });
+  $('menu-riders').addEventListener('click', () => { buildSaveSlots(); setStatus('riders-status', ''); showView('riders'); });
+  $('menu-login').addEventListener('click', () => {
+    buildSaveSlots();
+    showView('riders');
+    logIn('riders-status');
+  });
+  $('save-login-button').addEventListener('click', () => logIn('save-status'));
+  $('riders-login-button').addEventListener('click', () => logIn('riders-status'));
+  $('riders-login').hidden = !onlineAvailable;
+  document.querySelectorAll('[data-save-mode]').forEach(button => button.addEventListener('click', () => {
+    setSaveMode(button.dataset.saveMode);
+    setStatus('save-status', '');
+  }));
   $('menu-trails').addEventListener('click', () => { buildTrailCards(); showView('trails'); });
   $('import-trail').addEventListener('click', () => $('import-trail-file').click());
   $('import-trail-file').addEventListener('change', async event => {
@@ -631,12 +780,14 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     document.querySelectorAll('[data-rider]').forEach(choice => choice.setAttribute('aria-pressed', String(choice === button)));
   }));
   $('create-save').addEventListener('click', () => {
+    if (accountBusy) return;
     const name = cleanRiderName($('new-save-name').value);
     if (!name) {
       $('new-save-name').classList.add('invalid');
       $('new-save-name').focus();
       return;
     }
+    if (saveMode === 'online') { createOnlineSave(name); return; }
     const save = createSave(pendingSaveSlot, selectedNewRider, trails.length, name);
     if (!save) { showView('riders'); return; }
     session.saveGame = save;

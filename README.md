@@ -18,7 +18,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Code-drawn pixel presentation with smooth terrain, mountains, and apples for readability
 - Responsive mobile and expanded desktop layouts with optional fullscreen play
 - Keyboard, touch, and gamepad controls with remappable keys
-- Ghost of your best run, with split deltas at each apple
+- Ghost of your best run, or the world's best, with split deltas at each apple
 - Results screen with rank, personal best, flips, and gold/silver/bronze medal targets
 - The run timer starts on your first input
 - Installable as an offline-capable web app
@@ -127,7 +127,7 @@ The dashboard's Settings view includes:
 - Sound effects on or off, and master volume
 - Screen shake (off by default when the system prefers reduced motion)
 - Vibration on landings and crashes (on devices that support it)
-- Ghost of your best run on or off
+- Ghost: your best run, the world's best (falls back to yours offline, and races whichever is faster), or off
 - Keyboard bindings
 - Fullscreen mode
 
@@ -145,7 +145,26 @@ Current storage keys:
 
 The dashboard's Leaderboard view ranks the ten fastest finishes per official and custom trail across all savegames on the device. Runs remain on the board after their savegame is deleted. Every trail is keyed by a hash of what decides a run (terrain, start, finish, apples, spikes and the fall line), and official trails also by their id (`official:<id>@<hash>`). Editing a trail's gameplay starts fresh leaderboards, ghosts and best times, online and local, while renaming it or changing its props keeps them.
 
-Clearing site data resets settings, progression, and recorded times.
+Clearing site data resets settings, progression, and recorded times. Online riders can get theirs back by logging in (see below).
+
+## Online riders and the world leaderboard
+
+When creating a rider, players choose **Online** (the default) or **Offline**:
+
+- **Online** riders sign up with a **passkey** (fingerprint, face or device PIN). No email or password is involved. The name is reserved for them on the world leaderboard. Names are unique regardless of case, accents, spaces, `_`, `.` and `-`, and offensive or reserved names are refused. Progress is backed up to the server. After clearing site data, or on another device with the same passkey (synced through iCloud, Google or a password manager), **Log in with passkey** on the dashboard or in Riders restores the save, best times and ghosts.
+- **Offline** riders stay in the browser and never appear on the world board. **Go Online** in Riders claims the name later and uploads the rider's best runs.
+
+The world board doesn't trust times sent by the browser. A finished run is sent as its recorded inputs. The server replays them through the same deterministic simulation (`js/ride.js`) against the official trail, checks that it finishes, and uses its own time. It keeps each rider's best run per trail, and its replay becomes the ghost when restoring a save.
+
+Server code lives in `netlify/functions/` (`account.mjs`, `leaderboard.mjs`) and `netlify/lib/`. It uses Neon Postgres and keeps no server-side sessions: logins and passkey challenges are HMAC-signed tokens.
+
+Setup on Netlify:
+
+- `DATABASE_URL`: the Neon connection string.
+- `AUTH_SECRET`: a random secret of at least 32 characters, e.g. `openssl rand -base64 48`. Changing it signs everyone out, but they can log back in with their passkey.
+- `RP_ID` (optional, default `julben.dk`): the domain passkeys belong to. They work on that domain and every subdomain, such as `h.julben.dk`. Changing it makes existing passkeys unusable.
+
+Tables are created automatically on first use. A rider without a passkey (for example, one imported by hand from an older board) is unclaimed: the first person to create an online rider with that name takes it over, times included. Runs without a replay show on the board but can't be a ghost. Passkeys don't work on `*.netlify.app` deploy previews of the production domain (each preview host has its own), nor in `npm run dev`, which has no functions.
 
 ## Project structure
 
@@ -159,6 +178,7 @@ Clearing site data resets settings, progression, and recorded times.
 │   ├── official/       # Shipped career trails
 │   ├── custom/         # Locally authored standalone trails
 │   └── catalog.json    # Generated trail index
+├── netlify/            # Serverless API: passkey accounts, cloud saves, verified leaderboard
 ├── scripts/            # Catalog generator, dev server, tests, and replay recorder
 ├── tests/replays/      # One recorded replay per official trail (regression fixtures)
 ├── js/
@@ -186,6 +206,8 @@ Clearing site data resets settings, progression, and recorded times.
 │   ├── drawing.js      # Shared canvas primitives and reusable game-art renderers
 │   ├── trails.js       # Terrain materials and generated-catalog loader
 │   ├── storage.js      # Preferences, progression, and best times
+│   ├── account.js      # Passkey sign-up/login and cloud save sync
+│   ├── online-leaderboard.js # World leaderboard client
 │   └── terrain.js      # Heightfield and collision sampling
 ├── editor.html         # Standalone visual trail editor
 ├── TRAIL_FORMAT.md     # trail schema and authoring guide
@@ -193,7 +215,7 @@ Clearing site data resets settings, progression, and recorded times.
 └── README.md           # Project documentation
 ```
 
-The prototype intentionally has no runtime dependencies.
+The game itself intentionally has no runtime dependencies. Only the Netlify functions use npm packages.
 
 ## Design tokens
 
@@ -253,7 +275,7 @@ To investigate physics, open the game with `?physicsDebug=1`. The overlay shows 
 
 `scripts/test-replays.mjs` replays one recorded run per official trail through `js/ride.js` and checks that the finish time, apples, and crash outcome are unchanged, with no NaN values and no terrain tunnelling. After an intentional handling change, re-record the fixtures with `npm run replays`. A search bot drives each trail and writes `tests/replays/*.json`. The simulation only uses `js/det-math.js` for transcendental functions, so a replay recorded in Node plays back bit-for-bit in the browser. Don't use `Math.sin`, `Math.atan2`, `Math.exp`, and similar functions in simulation code, because their last-digit results differ between JavaScript engines.
 
-Run `npm run check` (syntax), `npm run typecheck` (JSDoc types in `// @ts-check` files), and `npm test` before pushing. CI runs all three.
+Run `npm run check` (syntax), `npm run typecheck` (JSDoc types in `// @ts-check` files), and `npm test` before pushing. After `npm ci`, `npm run test:online` tests the online API against an in-memory Postgres (PGlite) using a software passkey. It covers sign-up, unique names, login, cloud saves, and rejection of tampered runs. CI runs all of these.
 
 When changing physics values, validate at least these cases:
 
