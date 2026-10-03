@@ -2,9 +2,11 @@
 // editor drives, and the deterministic compilation the runtime consumes.
 //
 // The editable model is deliberately small. A trail holds a flat list of
-// `terrainBlocks`; each block owns a material and one or more solid regions; each
-// region owns one closed outer boundary and any number of closed inner boundaries
-// (empty spaces). Nesting is purely geometric — a block inside another block's
+// `terrainBlocks`; each block is one connected solid piece: a material, one
+// closed outer boundary and any number of closed inner boundaries (empty
+// spaces). A cut that separates a block into pieces makes each piece its own
+// block. The geometry helpers call any `{ outer, inner }` shape a region, and a
+// block is a region with an id and a material. Nesting is purely geometric — a block inside another block's
 // cave is just another entry in the list, with no stored parent reference.
 //
 // Direction convention: every boundary is stored with the solid on its left.
@@ -77,7 +79,7 @@ const key = value => Math.round(value * SNAP);
  *
  * @typedef {{ id: string, nodes: TerrainNode[] }} TerrainBoundary
  * @typedef {{ outer: TerrainBoundary, inner: TerrainBoundary[] }} TerrainRegion
- * @typedef {{ id: string, material: string, regions: TerrainRegion[] }} TerrainBlock
+ * @typedef {TerrainRegion & { id: string, material: string, layer?: 'back' }} TerrainBlock
  */
 
 export function createNode(x, y, options = {}) {
@@ -100,8 +102,8 @@ export function createRegion(outer, inner = []) {
   return { outer, inner };
 }
 
-export function createBlock(regions, material = 'grass') {
-  return { id: nextId('b'), material, regions };
+export function createBlock(region, material = 'grass') {
+  return { id: nextId('b'), material, outer: region.outer, inner: region.inner };
 }
 
 export function cloneBlock(block) {
@@ -116,7 +118,7 @@ export function rectangleBlock(left, top, right, bottom, material = 'grass') {
     createNode(right, bottom, { edge: 'straight' }),
     createNode(left, bottom, { edge: 'straight' }),
   ];
-  return createBlock([createRegion(createBoundary(nodes))], material);
+  return createBlock(createRegion(createBoundary(nodes)), material);
 }
 
 export function cloneNode(node) {
@@ -139,7 +141,8 @@ export function cloneBlocks(blocks) {
   return blocks.map(block => ({
     id: block.id,
     material: block.material,
-    regions: block.regions.map(cloneRegion),
+    ...(block.layer === 'back' ? { layer: 'back' } : {}),
+    ...cloneRegion(block),
   }));
 }
 
@@ -332,7 +335,7 @@ export function normalizeBlock(raw, defaultMaterial = 'grass') {
     material: typeof raw?.material === 'string' && raw.material ? raw.material : defaultMaterial,
     // A back wall is scenery behind the terrain: drawn and lit, never ridden.
     ...(raw?.layer === 'back' ? { layer: 'back' } : {}),
-    regions: (Array.isArray(raw?.regions) ? raw.regions : []).map(normalizeRegion),
+    ...normalizeRegion(raw),
   };
 }
 
@@ -796,22 +799,23 @@ function survivingCurve(edge) {
 // ---------------------------------------------------------------------------
 
 /**
- * Cut a block with a closed outline. Every region is attempted; regions the
- * cutter misses come back by identity.
+ * Cut a block with a closed outline. Returns the pieces left over as blocks,
+ * largest first: the largest keeps the block's id, and every piece the cut
+ * separated becomes a block of its own with the same material and layer.
  */
 export function cutBlock(block, cutter) {
-  const regions = [];
-  let changed = false;
-  let reason = null;
-  for (const region of block.regions) {
-    const result = subtractRegion(region, cutter);
-    if (result.changed) changed = true;
-    else if (result.reason) reason = reason || result.reason;
-    regions.push(...result.regions);
-  }
-  if (!changed) return { changed: false, block, reason: reason || 'The cut did not change the selected block.' };
-  if (!regions.length) return { changed: false, block, reason: 'The cut removed the block entirely.' };
-  return { changed: true, block: { ...block, regions } };
+  const result = subtractRegion(block, cutter);
+  if (!result.changed) return { changed: false, blocks: [block], reason: result.reason || 'The cut did not change the selected block.' };
+  const pieces = result.regions.slice().sort((a, b) => regionArea(b) - regionArea(a));
+  return {
+    changed: true,
+    blocks: pieces.map(({ outer, inner }, index) => ({
+      ...block,
+      id: index === 0 ? block.id : nextId('b'),
+      outer,
+      inner,
+    })),
+  };
 }
 
 /** Move a block and every boundary it owns, including its empty spaces. */
@@ -826,10 +830,7 @@ export function moveBlock(block, dx, dy) {
       out: node.out ? [round(node.out[0] + dx), round(node.out[1] + dy)] : null,
     })),
   });
-  return {
-    ...block,
-    regions: block.regions.map(region => ({ outer: shift(region.outer), inner: region.inner.map(shift) })),
-  };
+  return { ...block, outer: shift(block.outer), inner: block.inner.map(shift) };
 }
 
 /**
@@ -846,10 +847,7 @@ export function scaleBlock(block, px, py, sx, sy) {
       return { ...node, x, y, in: node.in ? at(node.in) : null, out: node.out ? at(node.out) : null };
     }),
   });
-  return {
-    ...block,
-    regions: block.regions.map(region => ({ outer: scale(region.outer), inner: region.inner.map(scale) })),
-  };
+  return { ...block, outer: scale(block.outer), inner: block.inner.map(scale) };
 }
 
 /** Insert a node into an edge without changing the edge's shape. */
@@ -989,7 +987,7 @@ function tangentFor(node, previous, next) {
 
 /** Add a whole inner boundary, filling a new empty space inside a region. */
 export function addInnerBoundary(region, boundary) {
-  return { outer: region.outer, inner: [...region.inner, orientBoundary(normalizeBoundary(boundary), false)] };
+  return { ...region, inner: [...region.inner, orientBoundary(normalizeBoundary(boundary), false)] };
 }
 
 // ---------------------------------------------------------------------------
@@ -1010,32 +1008,27 @@ export function distanceToSegment(px, py, ax, ay, bx, by) {
  * so clicking inside a cave never selects the surrounding block.
  */
 export function hitTestBlock(block, x, y, threshold = 10) {
-  for (const region of block.regions) {
-    for (const boundary of [region.outer, ...region.inner]) {
-      for (let index = 0; index < boundary.nodes.length; index++) {
-        const node = boundary.nodes[index];
-        if (Math.hypot(node.x - x, node.y - y) <= threshold) return { type: 'node', boundary, region, index, node };
-        const next = boundary.nodes[(index + 1) % boundary.nodes.length];
-        for (const side of ['in', 'out']) {
-          const handle = side === 'in' ? node.in : node.out;
-          if (handle && Math.hypot(handle[0] - x, handle[1] - y) <= threshold) {
-            return { type: 'handle', boundary, region, index, node, side };
-          }
+  for (const boundary of [block.outer, ...block.inner]) {
+    for (let index = 0; index < boundary.nodes.length; index++) {
+      const node = boundary.nodes[index];
+      if (Math.hypot(node.x - x, node.y - y) <= threshold) return { type: 'node', boundary, index, node };
+      const next = boundary.nodes[(index + 1) % boundary.nodes.length];
+      for (const side of ['in', 'out']) {
+        const handle = side === 'in' ? node.in : node.out;
+        if (handle && Math.hypot(handle[0] - x, handle[1] - y) <= threshold) {
+          return { type: 'handle', boundary, index, node, side };
         }
-        if (Math.hypot(next.x - x, next.y - y) <= threshold) continue;
-        const hit = distanceToSegment(x, y, node.x, node.y, next.x, next.y);
-        if (hit.distance <= threshold) {
-          // Parameter along the edge, matching insertBoundaryNode.
-          const t = edgeParameter(node, next, hit.x, hit.y);
-          return { type: 'edge', boundary, region, index, node, t, x: hit.x, y: hit.y };
-        }
+      }
+      if (Math.hypot(next.x - x, next.y - y) <= threshold) continue;
+      const hit = distanceToSegment(x, y, node.x, node.y, next.x, next.y);
+      if (hit.distance <= threshold) {
+        // Parameter along the edge, matching insertBoundaryNode.
+        const t = edgeParameter(node, next, hit.x, hit.y);
+        return { type: 'edge', boundary, index, node, t, x: hit.x, y: hit.y };
       }
     }
   }
-  for (const region of block.regions) {
-    if (pointInRegion(region, x, y)) return { type: 'region', region };
-  }
-  return null;
+  return pointInRegion(block, x, y) ? { type: 'solid' } : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -1044,7 +1037,7 @@ export function hitTestBlock(block, x, y, threshold = 10) {
 
 /** Total solid area of a block, ignoring every other block. */
 export function blockSolidArea(block) {
-  return block.regions.reduce((total, region) => total + regionArea(region), 0);
+  return regionArea(block);
 }
 
 function segmentsCross(a, b) {
@@ -1111,39 +1104,31 @@ function boundariesOverlap(region) {
 export function validateBlock(block) {
   const messages = [];
   const error = text => messages.push({ type: 'error', text });
-  if (!block.regions.length) {
-    error('A block needs at least one solid region.');
-    return messages;
+  for (const [which, boundary] of [['outer', block.outer], ...block.inner.map((b, i) => [`inner ${i + 1}`, b])]) {
+    const nodes = boundary.nodes;
+    if (nodes.length < 3) { error(`Block ${which} boundary needs at least three points.`); continue; }
+    for (let index = 0; index < nodes.length; index++) {
+      const node = nodes[index];
+      if (!Number.isFinite(node.x) || !Number.isFinite(node.y)) {
+        error(`Block ${which} point ${index + 1} must have finite coordinates.`);
+        continue;
+      }
+      const next = nodes[(index + 1) % nodes.length];
+      if (Math.hypot(node.x - next.x, node.y - next.y) < COINCIDENT_EPSILON) {
+        error(`Block ${which} has coincident consecutive points.`);
+      }
+    }
+    const points = flattenBoundary(boundary).points;
+    if (Math.abs(ringArea(points)) < MIN_AREA) error(`Block ${which} boundary encloses no area.`);
+    else if (selfIntersects(points)) error(`Block ${which} boundary crosses itself.`);
   }
-
-  block.regions.forEach((region, regionIndex) => {
-    const label = block.regions.length > 1 ? `Region ${regionIndex + 1}` : 'Block';
-    for (const [which, boundary] of [['outer', region.outer], ...region.inner.map((b, i) => [`inner ${i + 1}`, b])]) {
-      const nodes = boundary.nodes;
-      if (nodes.length < 3) { error(`${label} ${which} boundary needs at least three points.`); continue; }
-      for (let index = 0; index < nodes.length; index++) {
-        const node = nodes[index];
-        if (!Number.isFinite(node.x) || !Number.isFinite(node.y)) {
-          error(`${label} ${which} point ${index + 1} must have finite coordinates.`);
-          continue;
-        }
-        const next = nodes[(index + 1) % nodes.length];
-        if (Math.hypot(node.x - next.x, node.y - next.y) < COINCIDENT_EPSILON) {
-          error(`${label} ${which} has coincident consecutive points.`);
-        }
-      }
-      const points = flattenBoundary(boundary).points;
-      if (Math.abs(ringArea(points)) < MIN_AREA) error(`${label} ${which} boundary encloses no area.`);
-      else if (selfIntersects(points)) error(`${label} ${which} boundary crosses itself.`);
+  for (const [index, hole] of block.inner.entries()) {
+    const point = hole.nodes[0];
+    if (point && !pointInRings([flattenBoundary(block.outer).points], point.x, point.y)) {
+      error(`Block empty space ${index + 1} is not inside the block.`);
     }
-    for (const [index, hole] of region.inner.entries()) {
-      const point = hole.nodes[0];
-      if (point && !pointInRings([flattenBoundary(region.outer).points], point.x, point.y)) {
-        error(`${label} empty space ${index + 1} is not inside the block.`);
-      }
-    }
-    if (boundariesOverlap(region)) error(`${label} has boundaries that cross each other.`);
-  });
+  }
+  if (boundariesOverlap(block)) error('Block has boundaries that cross each other.');
   // Whether a block is buried under other blocks depends on the combined
   // terrain, so it is reported by trail validation from the compiled union.
   return messages;

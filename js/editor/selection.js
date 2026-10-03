@@ -93,7 +93,6 @@ function duplicateItems(items) {
       copies.push({
         type: "point",
         blockIndex: ring.blockIndex,
-        regionIndex: ring.regionIndex,
         boundaryIndex: ring.boundaryIndex,
         index: index + 1 + order,
       }),
@@ -176,8 +175,8 @@ export function itemFromHit(hit) {
   if (hit.kind === "start" || hit.kind === "goal") return { type: hit.kind };
   if (hit.kind === "block") return { type: "block", index: hit.blockIndex };
   if (hit.kind === "blockPoint") {
-    const { blockIndex, regionIndex, boundaryIndex, index } = hit;
-    return { type: "point", blockIndex, regionIndex, boundaryIndex, index };
+    const { blockIndex, boundaryIndex, index } = hit;
+    return { type: "point", blockIndex, boundaryIndex, index };
   }
   return OBJECT_LISTS()[hit.kind] ? { type: hit.kind, index: hit.index } : null;
 }
@@ -215,10 +214,10 @@ export function makeSelection(list) {
   if (items.length > 1) return { kind: "items", items };
   const [item] = items;
   if (item.type === "block")
-    return { kind: "block", blockIndex: item.index, regionIndex: 0 };
+    return { kind: "block", blockIndex: item.index };
   if (item.type === "point") {
-    const { blockIndex, regionIndex, boundaryIndex, index } = item;
-    return { kind: "blockPoint", blockIndex, regionIndex, boundaryIndex, index };
+    const { blockIndex, boundaryIndex, index } = item;
+    return { kind: "blockPoint", blockIndex, boundaryIndex, index };
   }
   if (item.type === "start" || item.type === "goal") return { kind: item.type };
   return { kind: item.type, index: item.index };
@@ -336,20 +335,12 @@ function itemsInBox(from, to) {
       found.push({ type: "block", index: blockIndex });
       continue;
     }
-    boundaryEntries(block).forEach(
-      ({ boundary, regionIndex }, boundaryIndex) => {
-        boundary.nodes.forEach((node, index) => {
-          if (inside([node.x, node.y]))
-            found.push({
-              type: "point",
-              blockIndex,
-              regionIndex,
-              boundaryIndex,
-              index,
-            });
-        });
-      },
-    );
+    boundaryEntries(block).forEach(({ boundary }, boundaryIndex) => {
+      boundary.nodes.forEach((node, index) => {
+        if (inside([node.x, node.y]))
+          found.push({ type: "point", blockIndex, boundaryIndex, index });
+      });
+    });
   }
   for (const [type, list] of Object.entries(OBJECT_LISTS())) {
     list.forEach((_, index) => {
@@ -401,6 +392,7 @@ export function deleteItems(items) {
     if (!block) continue;
     // Highest ring first, so removing one never shifts the index of the next.
     for (const boundaryIndex of [...rings.keys()].sort((a, b) => b - a)) {
+      if (!block) break;
       const boundary = boundariesOf(block)[boundaryIndex];
       if (!boundary) continue;
       const indices = rings.get(boundaryIndex);
@@ -412,7 +404,7 @@ export function deleteItems(items) {
               id: boundary.id,
             });
     }
-    if (block.regions.length) replaceBlock(blockIndex, block);
+    if (block) replaceBlock(blockIndex, block);
     else removed.add(blockIndex);
   }
   if (removed.size)
@@ -459,25 +451,17 @@ export function deleteSelection() {
       ...removeBoundaryNodes(boundary, [editor.selection.index]),
       id: boundary.id,
     });
-    editor.selection = {
-      kind: "block",
-      blockIndex: editor.selection.blockIndex,
-      regionIndex: 0,
-    };
+    editor.selection = { kind: "block", blockIndex: editor.selection.blockIndex };
   } else if (kind === "blockBoundary") {
-    // Deleting a cave fills it back in; deleting an outer boundary removes
-    // that piece of solid, and the block with it if it was the last piece.
+    // Deleting a cave fills it back in; deleting the outer boundary removes
+    // the block.
     const block = blocks()[editor.selection.blockIndex];
     if (!block || !boundaryAt(editor.selection)) return;
     pushHistory();
     const next = withBoundary(block, editor.selection.boundaryIndex, null);
-    if (next.regions.length) {
+    if (next) {
       replaceBlock(editor.selection.blockIndex, next);
-      editor.selection = {
-        kind: "block",
-        blockIndex: editor.selection.blockIndex,
-        regionIndex: 0,
-      };
+      editor.selection = { kind: "block", blockIndex: editor.selection.blockIndex };
     } else {
       editor.trail.terrainBlocks = blocks().filter(
         (_, index) => index !== editor.selection.blockIndex,

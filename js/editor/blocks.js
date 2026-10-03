@@ -45,11 +45,11 @@ export function traceBoundary(boundary) {
   ctx.closePath();
 }
 
-/** A region's solid area as one path, with its caves as holes. */
-export function traceRegion(region) {
+/** A block's solid area as one path, with its caves as holes. */
+export function traceBlock(block) {
   ctx.beginPath();
-  traceBoundary(region.outer);
-  for (const hole of region.inner) traceBoundary(hole);
+  traceBoundary(block.outer);
+  for (const hole of block.inner) traceBoundary(hole);
 }
 
 /** The block indices the current selection covers, whole or in part. */
@@ -69,33 +69,28 @@ export function blockSelected(blockIndex) {
 }
 
 /**
- * Every boundary of a block in one list, outer first within each region.
- * Selections store a boundary by its position in this list, so a block that
- * a cut has split into several regions still resolves to the right ring.
+ * Every boundary of a block in one list: the outer first, then its caves.
+ * Selections store a boundary by its position in this list.
  */
 export function boundaryEntries(block) {
-  return block.regions.flatMap((region, regionIndex) => [
-    { boundary: region.outer, regionIndex, hole: -1 },
-    ...region.inner.map((boundary, hole) => ({ boundary, regionIndex, hole })),
-  ]);
+  return [
+    { boundary: block.outer, hole: -1 },
+    ...block.inner.map((boundary, hole) => ({ boundary, hole })),
+  ];
 }
 
-/** A copy of a block with one boundary replaced, or removed when `replacement` is null. */
+/**
+ * A copy of a block with one boundary replaced, or removed when `replacement`
+ * is null. Removing the outer boundary removes the block: that returns null.
+ */
 export function withBoundary(block, boundaryIndex, replacement) {
   const entry = boundaryEntries(block)[boundaryIndex];
   if (!entry) return block;
-  const regions = block.regions
-    .map((region, regionIndex) => {
-      if (regionIndex !== entry.regionIndex) return region;
-      if (entry.hole < 0)
-        return replacement ? { outer: replacement, inner: region.inner } : null;
-      const inner = region.inner
-        .map((hole, index) => (index === entry.hole ? replacement : hole))
-        .filter(Boolean);
-      return { outer: region.outer, inner };
-    })
+  if (entry.hole < 0) return replacement ? { ...block, outer: replacement } : null;
+  const inner = block.inner
+    .map((hole, index) => (index === entry.hole ? replacement : hole))
     .filter(Boolean);
-  return { ...block, regions };
+  return { ...block, inner };
 }
 
 export function replaceBoundary(blockIndex, boundaryIndex, replacement) {
@@ -104,9 +99,9 @@ export function replaceBoundary(blockIndex, boundaryIndex, replacement) {
     replaceBlock(blockIndex, withBoundary(block, boundaryIndex, replacement));
 }
 
-/** Every boundary of a block, outer first, in region order. */
+/** Every boundary of a block: the outer first, then its caves. */
 export function boundariesOf(block) {
-  return block.regions.flatMap((region) => [region.outer, ...region.inner]);
+  return [block.outer, ...block.inner];
 }
 
 export function boundaryAt(target) {
@@ -284,14 +279,11 @@ function roundCircularCaves(block, circle) {
     Math.abs(Math.hypot(node.x - circle.cx, node.y - circle.cy) - circle.r) < 1;
   return {
     ...block,
-    regions: block.regions.map((region) => ({
-      ...region,
-      inner: region.inner.map((boundary) =>
-        boundary.nodes.length === CIRCLE_STEPS && boundary.nodes.every(onCircle)
-          ? { ...boundary, nodes: circleNodes(circle, boundary) }
-          : boundary,
-      ),
-    })),
+    inner: block.inner.map((boundary) =>
+      boundary.nodes.length === CIRCLE_STEPS && boundary.nodes.every(onCircle)
+        ? { ...boundary, nodes: circleNodes(circle, boundary) }
+        : boundary,
+    ),
   };
 }
 
@@ -365,14 +357,13 @@ export function commitShape(kind, points, closed, rect = false, circle = null) {
       toolMaterial("block"),
     );
     if (circle) {
-      const outer = block.regions[0].outer;
-      block.regions[0].outer = { ...outer, nodes: circleNodes(circle, outer) };
+      block.outer = { ...block.outer, nodes: circleNodes(circle, block.outer) };
     } else if (!rect) {
       // Freehand: the drawn outline, with the rectangle's ids and winding.
       const outline = simplifyOutline(points, 3 / editor.zoom);
       if (outline.length < 3 || Math.abs(signedArea(outline)) < 64)
         return false;
-      const outer = block.regions[0].outer;
+      const outer = block.outer;
       const template = outer.nodes[0];
       if (
         Math.sign(signedArea(outline)) !==
@@ -383,7 +374,7 @@ export function commitShape(kind, points, closed, rect = false, circle = null) {
         )
       )
         outline.reverse();
-      block.regions[0].outer = {
+      block.outer = {
         ...outer,
         nodes: outline.map(([x, y], index) => ({
           ...template,
@@ -405,7 +396,6 @@ export function commitShape(kind, points, closed, rect = false, circle = null) {
     editor.selection = {
       kind: "block",
       blockIndex: editor.trail.terrainBlocks.length - 1,
-      regionIndex: 0,
     };
     return true;
   }
@@ -419,34 +409,47 @@ export function commitShape(kind, points, closed, rect = false, circle = null) {
     showStatus("warning", "That cut was too small. Drag a larger outline.");
     return false;
   }
+  // A cut that separates a block leaves each piece as a block of its own: the
+  // largest keeps the block's place and id, the rest go in right after it.
   const attempt = (blockIndex) => {
     const result = cutBlock(blocks()[blockIndex], points);
-    if (result.changed && circle) result.block = roundCircularCaves(result.block, circle);
-    if (result.changed)
-      replaceBlock(
-        blockIndex,
-        normalizeBlocks([result.block], "grass")[0],
-      );
-    return result;
+    if (!result.changed) return result;
+    const pieces = normalizeBlocks(
+      circle ? result.blocks.map((block) => roundCircularCaves(block, circle)) : result.blocks,
+      "grass",
+    );
+    const list = blocks();
+    editor.trail.terrainBlocks = [
+      ...list.slice(0, blockIndex),
+      ...pieces,
+      ...list.slice(blockIndex + 1),
+    ];
+    return { ...result, added: pieces.length - 1 };
   };
   let reason = null;
   const back = toolLayer("cut") === "back";
   const onLayer = (index) => blocks()[index] && isBackWall(blocks()[index]) === back;
-  const selected = selectedBlocks().filter(onLayer);
-  const changedSelected = selected.filter((index) => {
+  // Cut from the last index down, so pieces inserted after a block never shift
+  // the indices of the blocks still to be cut.
+  const selected = selectedBlocks().filter(onLayer).sort((a, b) => b - a);
+  const changed = [];
+  for (const index of selected) {
     const result = attempt(index);
     reason ||= result.reason;
-    return result.changed;
-  });
-  if (changedSelected.length) {
-    editor.selection = blocksSelection(changedSelected);
+    if (result.changed) {
+      for (let i = 0; i < changed.length; i++) changed[i] += result.added;
+      changed.push(index);
+    }
+  }
+  if (changed.length) {
+    editor.selection = blocksSelection(changed.sort((a, b) => a - b));
     return true;
   }
   for (let blockIndex = blocks().length - 1; blockIndex >= 0; blockIndex--) {
     if (selected.includes(blockIndex) || !onLayer(blockIndex)) continue;
     const result = attempt(blockIndex);
     if (result.changed) {
-      editor.selection = { kind: "block", blockIndex, regionIndex: 0 };
+      editor.selection = { kind: "block", blockIndex };
       return true;
     }
     reason ||= result.reason;
@@ -468,10 +471,8 @@ export function freshBlockCopy(block) {
       {
         material: block.material,
         ...(isBackWall(block) ? { layer: "back" } : {}),
-        regions: block.regions.map((region) => ({
-          outer: strip(region.outer),
-          inner: region.inner.map(strip),
-        })),
+        outer: strip(block.outer),
+        inner: block.inner.map(strip),
       },
     ],
     "grass",
@@ -487,7 +488,7 @@ export function selectedCaves() {
   const existing = new Set(
     blocks()
       .filter(isBackWall)
-      .flatMap((block) => block.regions.map((region) => outlineKey(region.outer))),
+      .map((block) => outlineKey(block.outer)),
   );
   return allSelectedCaves().filter(
     ({ boundary }) => !existing.has(outlineKey(boundary)),
@@ -507,11 +508,7 @@ function allSelectedCaves() {
   return selectedBlocks()
     .map((index) => blocks()[index])
     .filter((block) => block && !isBackWall(block))
-    .flatMap((block) =>
-      block.regions.flatMap((region) =>
-        region.inner.map((boundary) => ({ block, boundary })),
-      ),
-    );
+    .flatMap((block) => block.inner.map((boundary) => ({ block, boundary })));
 }
 
 const outlineKey = (boundary) =>
@@ -532,7 +529,8 @@ export function fillCavesWithBackWalls() {
     freshBlockCopy({
       material: block.material,
       layer: "back",
-      regions: [{ outer: boundary, inner: [] }],
+      outer: boundary,
+      inner: [],
     }),
   );
   const first = blocks().length;

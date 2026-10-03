@@ -17,7 +17,7 @@ import {
   boundaryEntries,
   isBackWall,
   traceBoundary,
-  traceRegion,
+  traceBlock,
 } from "./blocks.js";
 import { $, art, backWallArt, canvas, ctx, terrainArt } from "./dom.js";
 import { scaleFrame } from "./scale.js";
@@ -53,24 +53,21 @@ export function syncTerrain() {
   for (const block of blocks()) {
     text(String(block.material));
     text(block.layer || "");
-    mix(block.regions.length);
-    for (const region of block.regions) {
-      for (const boundary of [region.outer, ...region.inner]) {
-        mix(boundary.nodes.length);
-        for (const node of boundary.nodes) {
-          mix(node.x);
-          mix(node.y);
-          if (node.in) {
-            mix(node.in[0]);
-            mix(node.in[1]);
-          }
-          if (node.out) {
-            mix(node.out[0]);
-            mix(node.out[1]);
-          }
-          text(node.edge || "");
-          text(node.mode || "");
+    for (const boundary of [block.outer, ...block.inner]) {
+      mix(boundary.nodes.length);
+      for (const node of boundary.nodes) {
+        mix(node.x);
+        mix(node.y);
+        if (node.in) {
+          mix(node.in[0]);
+          mix(node.in[1]);
         }
+        if (node.out) {
+          mix(node.out[0]);
+          mix(node.out[1]);
+        }
+        text(node.edge || "");
+        text(node.mode || "");
       }
     }
   }
@@ -174,15 +171,13 @@ function drawBlocks() {
     // will be ridden, so only their outlines are added for editing. Back
     // walls are filled earlier, behind everything.
     if (!gameArt && !back) {
-      for (const region of block.regions) {
-        traceRegion(region);
-        // Even-odd fill so a region's caves stay open.
-        ctx.fillStyle = material.fill;
-        ctx.fill("evenodd");
-      }
+      traceBlock(block);
+      // Even-odd fill so a block's caves stay open.
+      ctx.fillStyle = material.fill;
+      ctx.fill("evenodd");
     }
     // The outline is stroked one boundary at a time: stroke() takes no fill rule,
-    // and tracing a whole region at once would also stroke the shared seam where
+    // and tracing a whole block at once would also stroke the shared seam where
     // a cave meets its own outer boundary twice.
     const selected = blockSelected(blockIndex);
     boundaryEntries(block).forEach(({ boundary }, boundaryIndex) => {
@@ -241,13 +236,11 @@ function drawBackWalls() {
     for (const block of blocks()) {
       if (!isBackWall(block)) continue;
       const material = terrainMaterials[block.material] || terrainMaterials.grass;
-      for (const region of block.regions) {
-        traceRegion(region);
-        ctx.fillStyle = material.fill;
-        ctx.fill("evenodd");
-        ctx.fillStyle = BACK_WALL_SHADE;
-        ctx.fill("evenodd");
-      }
+      traceBlock(block);
+      ctx.fillStyle = material.fill;
+      ctx.fill("evenodd");
+      ctx.fillStyle = BACK_WALL_SHADE;
+      ctx.fill("evenodd");
     }
     return;
   }

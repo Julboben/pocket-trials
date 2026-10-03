@@ -3,7 +3,7 @@
 //
 // The pipeline is:
 //
-//   stored boundaries -> deterministic subdivision -> one body per region, with
+//   stored boundaries -> deterministic subdivision -> one body per block, with
 //   its holes -> every body edge split where another body crosses it -> each
 //   piece kept only if it lies on the boundary of the union of all solids
 //
@@ -63,10 +63,8 @@ export function compileTerrain(trail) {
   /** @type {TerrainBody[]} */
   const bodies = [];
   blocks.forEach((block, blockIndex) => {
-    for (const region of block?.regions || []) {
-      const body = buildBody(block, blockIndex, region);
-      if (body) { body.order = bodies.length; bodies.push(body); }
-    }
+    const body = buildBody(block, blockIndex);
+    if (body) { body.order = bodies.length; bodies.push(body); }
   });
   const bounds = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };
   for (const body of bodies) {
@@ -84,9 +82,9 @@ function finiteRing(points) {
   return points.filter(point => Number.isFinite(point[0]) && Number.isFinite(point[1]));
 }
 
-function buildBody(block, blockIndex, region) {
-  if (!region?.outer?.nodes?.length) return null;
-  const outer = finiteRing(flattenBoundary(region.outer).points);
+function buildBody(block, blockIndex) {
+  if (!block?.outer?.nodes?.length) return null;
+  const outer = finiteRing(flattenBoundary(block.outer).points);
   const outerArea = ringArea(outer);
   if (outer.length < 3 || Math.abs(outerArea) < MIN_AREA) return null;
   const rings = [outer];
@@ -96,7 +94,7 @@ function buildBody(block, blockIndex, region) {
   // trusted from normalization, so a ring stored the wrong way round still
   // collides the right way.
   const outward = [outerArea > 0 ? 1 : -1];
-  for (const hole of region.inner || []) {
+  for (const hole of block.inner || []) {
     if (!hole?.nodes?.length) continue;
     const points = finiteRing(flattenBoundary(hole).points);
     const area = ringArea(points);

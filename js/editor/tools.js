@@ -52,7 +52,7 @@ const TOOL_INFO = {
   },
   cut: {
     title: "Cut",
-    hint: "Drag an outline over a block to remove that shape from it. Hold Alt for a rectangle, Cmd/Ctrl for a circle and Shift to snap to the grid. Inside solid it makes a cave, across an edge it opens an entrance, and all the way through it splits the block in two. It only cuts blocks on the chosen layer: the selected block, or else the topmost one it touches. Escape cancels.",
+    hint: "Drag an outline over a block to remove that shape from it. Hold Alt for a rectangle, Cmd/Ctrl for a circle and Shift to snap to the grid. Inside solid it makes a cave, across an edge it opens an entrance, and all the way through it splits it into separate blocks. It only cuts blocks on the chosen layer: the selected block, or else the topmost one it touches. Escape cancels.",
     fields: [LAYER_FIELD],
   },
   apple: {
