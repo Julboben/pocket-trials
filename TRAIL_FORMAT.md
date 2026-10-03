@@ -226,7 +226,7 @@ weather: {
 }
 ```
 
-- `sun`: sun size and visibility.
+- `sun`: sun size and visibility. A bright, mostly clear daytime sun glares, with a halo and slow rays across the view that stay out of caves: faintly from about `sun: 0.8` with `clouds: 0.25` at `noon`, fully at `sun: 1` with clear skies. Rain and lightning put the glare out.
 - `clouds`: cloud quantity, size, and opacity.
 - `rain`: rain density, screen tint, and ambient rain volume.
 - `lightning`: strike frequency, flash strength, and thunder strength.
@@ -242,7 +242,9 @@ backdrop: 'desert'
 
 Both are optional, and each is independent of the other.
 
-`timeOfDay` picks the sky, sun, hill and light colours, and the grade over the whole scene. Valid values are `morning`, `noon`, `evening` and `night`; anything else, or no value, falls back to `noon`. Evening and night also light the finish and the city windows.
+`timeOfDay` picks the sky, sun, hill and light colours, and how the scene is lit. Valid values are `morning`, `noon`, `evening` and `night`; anything else, or no value, falls back to `noon`. Evening and night also light the finish and the city windows.
+
+Lighting comes from the terrain, so it needs no setup. Air open to the sky gets the time of day's light, which fades in through cave mouths and under overhangs, so caves are dark at any time of day. Air that sees enough of the sky, such as under a floating ledge, stays lit, with only a soft shade right beneath it. Rock takes the light at its surface and darkens with depth: hardly at all at `noon`, a little in the `morning`, more in the `evening`, and quickly at `night`. Small sealed hollows, such as window cut-outs, and thin slits under ledges are lit like the rock around them. Lanterns, glowing mushrooms, lamps and crane lights, apples, spikes and the bike's headlight and tail light cast light of their own, which only reaches the surface of the rock. Where it is dark, apples, spikes and the finish are drawn at full brightness so they stay easy to see. Rain softens the light, and lightning lights up the whole scene.
 
 `backdrop` picks the shapes of the two parallax layers behind the terrain. Valid values are `hills`, `mountains`, `forest`, `desert` and `city`; anything else, or no value, means `hills`, and `hills` is not stored.
 
@@ -266,9 +268,9 @@ They find the rock by sampling up to 22 units either side, so they can be clicke
 
 The farm props are decoration as well. The `ladder` leans to the right, so put it just left of a tree trunk, or flip it to lean the other way. The `scarecrow` turns its head to watch the rider go past, and the bees around the `beehive` buzz in place; both are visual only and stay still with reduced motion. The `tyre` is half-buried and sits a little below its anchor, so its dirt blends into the ground.
 
-The street and building-site props are decoration too. A `lamp` comes on in the `evening` and at `night`, lighting a pool on the ground under its head, and a `crane` shows blinking warning lights. A `bird` takes off and flies away when the rider comes close; with reduced motion it simply disappears. The `crane` is tall and meant for the `back` layer, and `scaffolding` is meant for the `front` layer, where the rider shows through it as a silhouette.
+The street and building-site props are decoration too. A `lamp` comes on in the `evening`, at `night` and wherever else it is dark, such as in a cave, shining a beam down from its head, and a `crane` shows blinking warning lights at the same times. A `bird` takes off and flies away when the rider comes close; with reduced motion it simply disappears. The `crane` is tall and meant for the `back` layer, and `scaffolding` is meant for the `front` layer, where the rider shows through it as a silhouette.
 
-The cave props are decoration as well. `hanging-roots`, `stalactites`, `drip`, `lantern` and `bats` hang from a cave ceiling: each looks up to 160 units above its anchor for the nearest roof, so place it anywhere under the ceiling (with `y: null` it uses the roof of the first cave below the surface). A `drip` lets a drop swell, fall one pixel at a time and splash into a puddle on the floor below. A `lantern` hangs on a chain from the roof down to its anchor, or stands on the ground where there is no roof above it; it always glows and lights up the rock around it, more brightly in the `evening` and at `night`. `mushrooms` stand on the floor and glow too. `bats` scatter away from the rider when the rider comes close; with reduced motion they simply disappear. `beams` are a timber support set that reaches from the floor up to the roof, packed with boards where the roof is uneven, and a `minecart` sits on rails that run along the floor until they reach a wall or a drop, up to 120 units each way. The ceiling props and `beams` cannot be flipped.
+The cave props are decoration as well. `hanging-roots`, `stalactites`, `drip`, `lantern` and `bats` hang from a cave ceiling: each looks up to 160 units above its anchor for the nearest roof, so place it anywhere under the ceiling (with `y: null` it uses the roof of the first cave below the surface). A `drip` lets a drop swell, fall one pixel at a time and splash into a puddle on the floor below. A `lantern` hangs on a chain from the roof down to its anchor, or stands on the ground where there is no roof above it; it always glows and lights up the cave around it. `mushrooms` stand on the floor and glow too. `bats` scatter away from the rider when the rider comes close; with reduced motion they simply disappear. `beams` are a timber support set that reaches from the floor up to the roof, packed with boards where the roof is uneven, and a `minecart` sits on rails that run along the floor until they reach a wall or a drop, up to 120 units each way. The ceiling props and `beams` cannot be flipped.
 
 `graffiti` is painted onto the rock itself rather than placed in front of or behind it, so its `layer` doesn't matter. Place it inside a block, ideally a `brick` one: its `y` is the middle of the piece (with `y: null` it sits 40 units below the surface), and any paint that would land in the open air or on the surface lip is left off. It cannot be flipped.
 

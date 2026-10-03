@@ -31,10 +31,7 @@ import {
 } from "./rider-hair.js";
 import { reducedMotion } from "./state.js";
 import { createLighting } from "./lighting.js";
-
-const searchParams = new URLSearchParams(window.location.search);
-const lightingPrototype = searchParams.get("lighting") === "1";
-const forcedFlash = Number(searchParams.get("flash")) || 0;
+import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
 
 /**
  * How far left the camera may look. Blocks can reach into negative x, and the
@@ -103,7 +100,7 @@ export function createRenderer(canvas) {
   const { pixelRect, pixelPath, drawPixelText } = createDrawingTools(ctx);
   const gameArt = createGameArt(ctx);
   const terrainRenderer = createTerrainRenderer();
-  const lighting = lightingPrototype ? createLighting() : null;
+  const lighting = createLighting();
   const popups = [];
   let W = 380,
     H = 410,
@@ -150,6 +147,7 @@ export function createRenderer(canvas) {
     hair = null;
     flipVisual = facing;
     popups.length = 0;
+    lighting.prepare(trail);
   }
 
   /** Floating pixel text in world space, e.g. "+1 FLIP". */
@@ -269,15 +267,19 @@ export function createRenderer(canvas) {
     }
   }
 
-  // Street lamps and crane lights after dark; lanterns and mushrooms always.
-  function drawPropGlows(dark) {
+  // The glowing parts of props, drawn over the lit scene: the lighting pass
+  // casts their light. Street lamps and crane lights only once it is dark
+  // around them; lanterns and mushrooms always.
+  function drawPropGlows() {
     for (const prop of trail.props || []) {
       const reach = GLOW_REACH[prop.type];
       if (!reach || !inView(prop.x, reach)) continue;
-      if (!dark && (prop.type === "lamp" || prop.type === "crane")) continue;
       const ground = terrainAt(trail, prop.x);
       if (!ground.solid && !Number.isFinite(prop.y)) continue;
       const y = Number.isFinite(prop.y) ? prop.y : ground.y;
+      const head = prop.type === "crane" ? CRANE_LIGHTS[0][1] : prop.type === "lamp" ? LAMP_HEAD.y : -10;
+      const dark = lighting.isDark(trail, prop.x, y + head);
+      if (!dark && (prop.type === "lamp" || prop.type === "crane")) continue;
       const fit = propWallFit(trail, prop);
       const [rise, hang] = propSpan(prop.type, fit) || [PROP_RISE[prop.type] ?? 90, 0];
       if (!inView(prop.x, reach, y + hang + reach, rise + hang + reach * 2)) continue;
@@ -288,7 +290,7 @@ export function createRenderer(canvas) {
         propGroundOffset(trail, prop),
         prop.flip,
         propScene.time,
-        { dark, trail, prop, fit },
+        { dark, trail, prop, fit, emissive: true },
       );
     }
   }
@@ -650,7 +652,8 @@ export function createRenderer(canvas) {
       }
     }
     if (weather.flash > 0) {
-      ctx.fillStyle = `rgba(225, 239, 237, ${weather.flash * 0.28})`;
+      // The lighting pass lights the scene up; this adds the glare on top.
+      ctx.fillStyle = `rgba(225, 239, 237, ${weather.flash * 0.14})`;
       ctx.fillRect(0, 0, W, H);
       if (weather.flash > 0.3 && !reducedMotion) {
         const proximity = 1 - weather.distance;
@@ -715,9 +718,11 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  function drawGoal(ride) {
+  // With `darkOnly`, only where it is dark, to redraw over the lighting.
+  function drawGoal(ride, darkOnly = false) {
     if (!inView(trail.goal, 65)) return;
     const goalY = finishHeight(trail);
+    if (darkOnly && !lighting.isDark(trail, trail.goal, goalY - 40)) return;
     if (inView(trail.goal, 65, goalY, 115))
       gameArt.drawFlag(
         trail.goal,
@@ -727,11 +732,26 @@ export function createRenderer(canvas) {
       );
   }
 
-  function drawApples(ride, now) {
+  function drawApples(ride, now, darkOnly = false) {
     for (const apple of ride.apples) {
       if (apple.taken) continue;
       const appleY = appleDrawY(apple, now);
-      if (inView(apple.x, 30, appleY)) gameArt.drawApple(apple.x, appleY);
+      if (!inView(apple.x, 30, appleY)) continue;
+      if (darkOnly && !lighting.isDark(trail, apple.x, appleY)) continue;
+      gameArt.drawApple(apple.x, appleY);
+    }
+  }
+
+  function drawSpikes(ride, darkOnly = false) {
+    for (const spike of ride.spikes) {
+      if (!inView(spike.x, spike.radius + 10, spike.y)) continue;
+      if (darkOnly && !lighting.isDark(trail, spike.x, spike.y)) continue;
+      gameArt.drawSpike(
+        spike.x,
+        spike.y,
+        spike.radius,
+        reducedMotion ? 0 : ride.spikeTime * spike.spin * TAU,
+      );
     }
   }
 
@@ -803,7 +823,6 @@ export function createRenderer(canvas) {
     ctx.save();
     ctx.translate(-cameraX, -cameraY);
     effects.update(animationDt);
-    if (forcedFlash) effects.weather.flash = forcedFlash;
     drawProps("back", full);
     terrainRenderer.draw(ctx, trail, cameraX, cameraY, W, H);
     drawWallPaint();
@@ -811,15 +830,7 @@ export function createRenderer(canvas) {
     drawSceneryShadows(ride, now, full);
     drawParticles(effects.particles, true);
     drawGoal(ride);
-    for (const spike of ride.spikes) {
-      if (inView(spike.x, spike.radius + 10, spike.y))
-        gameArt.drawSpike(
-          spike.x,
-          spike.y,
-          spike.radius,
-          reducedMotion ? 0 : ride.spikeTime * spike.spin * TAU,
-        );
-    }
+    drawSpikes(ride);
     drawApples(ride, now);
     drawGhost(ghost, rider);
     updateHair(ride, rider, animationDt);
@@ -830,26 +841,25 @@ export function createRenderer(canvas) {
     drawProps("front", full);
     drawXray(ride, rider, ride.ragdoll ? "ragdoll" : state, full);
     drawParticles(effects.particles, false);
-    // Time-of-day grade over the whole scene, then prop lights; after dark,
-    // apples and the finish are drawn again on top so they stay easy to see.
-    if (lighting) {
-      lighting.draw(ctx, {
-        trail,
-        ride,
-        cameraX,
-        cameraY,
-        width: W,
-        height: H,
-        flash: effects.weather.flash,
-        time: propScene.time,
-        flip: flipVisual,
-      });
-    }
-    const dark = !lighting && gameArt.drawTimeTint(trail, cameraX, cameraY, W, H);
-    if (!lighting) drawPropGlows(dark);
-    if (dark) {
-      drawGoal(ride);
-      drawApples(ride, now);
+    // Light the scene, then the glowing parts of props on top; where it is
+    // dark, the finish, spikes and apples are drawn again so they stay easy
+    // to see.
+    const lit = lighting.draw(ctx, {
+      trail,
+      ride,
+      cameraX,
+      cameraY,
+      width: W,
+      height: H,
+      flash: effects.weather.flash,
+      time: propScene.time,
+      flip: flipVisual,
+    });
+    drawPropGlows();
+    if (lit) {
+      drawGoal(ride, true);
+      drawSpikes(ride, true);
+      drawApples(ride, now, true);
     }
     drawPopups(animationDt);
     effects.prune();
@@ -862,6 +872,7 @@ export function createRenderer(canvas) {
     reset,
     draw,
     popup,
+    setHeadlights: lighting.setHeadlights,
     get width() {
       return W;
     },

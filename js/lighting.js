@@ -1,36 +1,41 @@
-// PROTOTYPE light map, enabled with ?lighting=1. The scene is multiplied by a
-// light map: ambient light baked once per trail (terrain never moves), plus
-// moving lights stamped on each frame in banded pixel-art steps.
-//
-// Ambient: air open to the sky gets full sky light, which fades in through air
-// only (so rock blocks it) into cave mouths and under ledges. Rock takes the
-// light of the air at its surface, and deeper in, the sky light soaking down
-// from the top of its column or in from a nearby face. How far that soaks is
-// set by the time of day, so ground stays bright by day and sinks into
-// darkness at night, while caves are dark at any time.
-import { ART_PIXEL, createCanvas, propWallFit } from "./drawing.js";
-import { terrainAt, terrainGeometry, terrainSurfacesAt } from "./terrain.js";
+// Scene lighting. Everything drawn is multiplied by a light map: the ambient
+// light field, baked once per trail and time of day (see light-field.js), plus
+// moving lights stamped on each frame in banded pixel-art steps (props, the
+// bike's headlight and tail light, apples, spikes). Lights add to the ambient
+// light, only reach the skin of the rock, and saturate in daylight, so by day
+// open ground looks just as it is drawn while caves stay dark.
+import {
+  ART_PIXEL,
+  craneLightOn,
+  createCanvas,
+  lanternFlicker,
+  mushroomPulse,
+  propWallFit,
+  sunLight,
+  timeOfDayPalette,
+} from "./drawing.js";
+import { bakeLightField, lightFieldAt } from "./light-field.js";
+import { terrainAt, terrainGeometry } from "./terrain.js";
 import { LANTERN_CENTRE } from "./cave-props.js";
-import { LAMP_HEAD } from "./city-props.js";
+import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
 
-// `soak` is how far sky light reaches down through rock, in world units.
+// Per time of day: the light open sky gives, the light deep in a cave, how far
+// sky light soaks down through rock and fades in sideways through air, and how
+// much of the sky air must see to be fully lit (see light-field.js).
 const AMBIENT = {
-  morning: { sky: [255, 243, 230], cave: [70, 68, 80], soak: 900 },
-  noon: { sky: [255, 255, 255], cave: [78, 80, 94], soak: 1400 },
-  evening: { sky: [236, 200, 182], cave: [50, 42, 58], soak: 260 },
-  night: { sky: [122, 136, 192], cave: [24, 28, 46], soak: 100 },
+  morning: { sky: [255, 243, 230], cave: [70, 68, 80], soak: 900, reach: 170, open: 0.32 },
+  noon: { sky: [255, 255, 255], cave: [78, 80, 94], soak: 1400, reach: 190, open: 0.3 },
+  evening: { sky: [244, 210, 188], cave: [50, 42, 58], soak: 260, reach: 150, open: 0.38 },
+  night: { sky: [122, 136, 192], cave: [24, 28, 46], soak: 100, reach: 130, open: 0.45 },
 };
 const FLASH = [170, 185, 215];
-// World units per baked texel; smoothed when drawn.
-const BAKE_UNIT = 4;
-const BAKE_MARGIN = { side: 240, above: 900, below: 200 };
-// How far sky light fades in sideways through air (cave mouths, under ledges).
-const SIDE_FADE = 130;
-// Rock this close to air takes the air's light; deeper, the soaked sky light.
-const LIP = 10;
-const ROCK_BLEND = 16;
-// How deep into rock a moving light still reaches.
-const SKIN = 10;
+// Rain greys the light: the sky's colour is pulled this far towards white.
+const RAIN_SOFTEN = 0.35;
+// Below this much ambient light, lamps and crane lights switch on and apples,
+// spikes and the finish are drawn again on top so they stay easy to see.
+const DARK_BELOW = 0.5;
+// Field texels per culling tile, for skipping the pass in full daylight.
+const TILE = 16;
 // Radius fraction → brightness; hard steps keep the pixel-art look.
 const BANDS = [
   [0.3, 1],
@@ -38,119 +43,63 @@ const BANDS = [
   [0.72, 0.42],
   [1, 0.18],
 ];
-const DIAGONAL = Math.SQRT2;
+const LANTERN = [255, 196, 118],
+  GLOW = [90, 210, 196],
+  LAMP = [255, 222, 160],
+  CRANE = [232, 117, 91],
+  HEADLIGHT = [255, 244, 212],
+  TAIL = [255, 60, 50],
+  AURA = [200, 205, 220],
+  APPLE = [255, 176, 150],
+  SPIKE = [255, 96, 80];
 
-const smooth = (v) => {
-  const t = Math.max(0, Math.min(1, v));
-  return t * t * (3 - 2 * t);
-};
+// Where the bike art draws its lamps, in the sprite's local units: +x
+// towards the front wheel, -y up from the frame.
+const BIKE_HEADLIGHT = [17, -19],
+  BIKE_TAIL_LIGHT = [-30, -30],
+  BIKE_AURA = [0, -20];
 
-// Two-pass chamfer sweep over a grid. `step(i, j, cost)` relaxes texel i from
-// its already-visited neighbour j; `active[i]` says which texels are updated.
-function chamfer(width, height, active, step) {
-  for (let r = 0; r < height; r++)
-    for (let c = 0; c < width; c++) {
-      const i = r * width + c;
-      if (!active[i]) continue;
-      if (c > 0) step(i, i - 1, 1);
-      if (r > 0) {
-        step(i, i - width, 1);
-        if (c > 0) step(i, i - width - 1, DIAGONAL);
-        if (c < width - 1) step(i, i - width + 1, DIAGONAL);
-      }
-    }
-  for (let r = height - 1; r >= 0; r--)
-    for (let c = width - 1; c >= 0; c--) {
-      const i = r * width + c;
-      if (!active[i]) continue;
-      if (c < width - 1) step(i, i + 1, 1);
-      if (r < height - 1) {
-        step(i, i + width, 1);
-        if (c < width - 1) step(i, i + width + 1, DIAGONAL);
-        if (c > 0) step(i, i + width - 1, DIAGONAL);
-      }
-    }
+// Strong sun: above this strength (see sunLight) the sun glares and casts
+// rays, growing to full at SUN_GLARE + SUN_GLARE_RANGE.
+const SUN_GLARE = 0.6,
+  SUN_GLARE_RANGE = 0.3;
+// Sun rays: [angle offset from straight at the view's centre, beam half-width,
+// length as a fraction of the view's diagonal, brightness].
+const SUN_RAYS = [
+  [-0.42, 0.05, 1.1, 0.8],
+  [-0.2, 0.09, 1.25, 1],
+  [0.02, 0.04, 0.95, 0.7],
+  [0.22, 0.07, 1.2, 0.9],
+  [0.45, 0.05, 0.9, 0.6],
+];
+
+const rgb = ([r, g, b]) => `rgb(${r},${g},${b})`;
+
+/** The lighting settings for a trail's time of day and weather. */
+export function ambientFor(trail) {
+  const preset = AMBIENT[trail.timeOfDay] || AMBIENT.noon;
+  const rain = Math.max(0, Math.min(1, Number(trail.weather?.rain) || 0)) * RAIN_SOFTEN;
+  return {
+    ...preset,
+    sky: preset.sky.map((value) => Math.round(value + (255 - value) * rain)),
+    glow: Boolean(timeOfDayPalette(trail).glow),
+  };
 }
 
-function bakeAmbient(trail, preset) {
-  const bounds = terrainGeometry(trail)?.bounds;
-  if (!bounds) return null;
-  const x = Math.floor((bounds.left - BAKE_MARGIN.side) / BAKE_UNIT) * BAKE_UNIT,
-    y = Math.floor((bounds.top - BAKE_MARGIN.above) / BAKE_UNIT) * BAKE_UNIT;
-  const width = Math.ceil((bounds.right + BAKE_MARGIN.side - x) / BAKE_UNIT),
-    height = Math.ceil((bounds.bottom + BAKE_MARGIN.below - y) / BAKE_UNIT);
-  const size = width * height;
-  const rock = new Uint8Array(size),
-    air = new Uint8Array(size);
-  const dist = new Float32Array(size).fill(Infinity);
-  const tops = new Float64Array(width);
-  for (let c = 0; c < width; c++) {
-    const surfaces = terrainSurfacesAt(trail, x + (c + 0.5) * BAKE_UNIT);
-    const spans = [];
-    for (let i = 0; i < surfaces.length; i++)
-      if (surfaces[i].entering) spans.push([surfaces[i].y, surfaces[i + 1]?.y ?? Infinity]);
-    const topmost = (tops[c] = spans.length ? spans[0][0] : Infinity);
-    for (let r = 0; r < height; r++) {
-      const wy = y + (r + 0.5) * BAKE_UNIT,
-        i = r * width + c;
-      rock[i] = spans.some(([from, to]) => wy >= from && wy <= to) ? 1 : 0;
-      air[i] = 1 - rock[i];
-      if (air[i] && wy < topmost) dist[i] = 0;
-    }
-  }
-  // Air: distance, through air only, to air open to the sky.
-  chamfer(width, height, air, (i, j, cost) => {
-    if (air[j] && dist[j] + cost < dist[i]) dist[i] = dist[j] + cost;
-  });
-  const lit = new Float32Array(size);
-  for (let i = 0; i < size; i++) if (air[i]) lit[i] = 1 - smooth((dist[i] * BAKE_UNIT) / SIDE_FADE);
-  // Rock: the nearest air's light, and the sky light soaking down through it.
-  const near = new Float32Array(size).fill(Infinity),
-    nearLight = new Float32Array(size),
-    soaked = new Float32Array(size);
-  for (let i = 0; i < size; i++)
-    if (air[i]) {
-      near[i] = 0;
-      nearLight[i] = soaked[i] = lit[i];
-    }
-  const fade = BAKE_UNIT / preset.soak;
-  chamfer(width, height, rock, (i, j, cost) => {
-    if (near[j] + cost < near[i]) {
-      near[i] = near[j] + cost;
-      nearLight[i] = nearLight[j];
-    }
-    const through = soaked[j] - cost * fade;
-    if (through > soaked[i]) soaked[i] = through;
-  });
-  const ambient = createCanvas(width, height),
-    flash = createCanvas(width, height),
-    occlusion = createCanvas(width, height);
-  const images = [ambient, flash, occlusion].map((canvas) =>
-    canvas.getContext("2d").createImageData(width, height),
-  );
-  const [ambientData, flashData, occlusionData] = images.map((image) => image.data);
-  for (let i = 0; i < size; i++) {
-    let light = lit[i];
-    if (rock[i]) {
-      const depth = near[i] * BAKE_UNIT;
-      // Sky light from straight above, through every block in the column.
-      const below = y + (Math.floor(i / width) + 0.5) * BAKE_UNIT - tops[i % width];
-      const deep = Math.max(soaked[i], 1 - below / preset.soak);
-      light = nearLight[i] + (deep - nearLight[i]) * smooth((depth - LIP) / ROCK_BLEND);
-      occlusionData[i * 4 + 3] = Math.round(255 * smooth(depth / SKIN));
-    }
-    const at = i * 4;
-    for (let k = 0; k < 3; k++) {
-      ambientData[at + k] = preset.sky[k] * light + preset.cave[k] * (1 - light);
-      flashData[at + k] = FLASH[k] * (0.25 + light * 0.75);
-    }
-    ambientData[at + 3] = flashData[at + 3] = 255;
-  }
-  [ambient, flash, occlusion].forEach((canvas, n) =>
-    canvas.getContext("2d").putImageData(images[n], 0, 0),
-  );
-  return { x, y, width, height, ambient, flash, occlusion };
+/**
+ * How strongly the sun glares on a trail, 0…1: only a bright, mostly clear
+ * daytime sun does, and rain or storms put it out.
+ */
+export function glareStrength(trail) {
+  const { weather = {} } = trail;
+  if (timeOfDayPalette(trail).moon) return 0;
+  const { strength } = sunLight({ width: 0, weather, timeOfDay: trail.timeOfDay });
+  const storm = Math.max(Number(weather.rain) || 0, Number(weather.lightning) || 0);
+  const glare = ((strength - SUN_GLARE) / SUN_GLARE_RANGE) * (1 - Math.min(1, storm));
+  return Math.max(0, Math.min(1, glare));
 }
+
+const hexRgb = (hex) => [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16));
 
 export function createLighting() {
   let canvas = null,
@@ -159,7 +108,11 @@ export function createLighting() {
     lightContext = null,
     cols = 0,
     rows = 0;
+  let glareCanvas = null,
+    glareContext = null,
+    headlights = true;
   const bakes = new WeakMap();
+  const sprites = new Map();
 
   function ensure(width, height) {
     if (canvas && cols === width && rows === height) return;
@@ -169,189 +122,415 @@ export function createLighting() {
     context = canvas.getContext("2d");
     lightCanvas = createCanvas(cols, rows);
     lightContext = lightCanvas.getContext("2d");
+    glareCanvas = null;
   }
 
-  function bakeFor(trail, preset) {
+  /** Switches the bike's headlight and tail light on or off. */
+  function setHeadlights(on) {
+    headlights = Boolean(on);
+  }
+
+  /**
+   * Bakes a trail's light, or returns the cached bake while its terrain, time
+   * of day and weather are unchanged. Call it when a ride starts so the first
+   * frame doesn't pay for the bake.
+   */
+  function prepare(trail) {
     const geometry = terrainGeometry(trail);
+    const { weather = {} } = trail;
+    const key = `${trail.timeOfDay}|${weather.rain || 0}|${weather.lightning || 0}|${weather.sun ?? 1}|${weather.clouds ?? 0.35}`;
     let entry = bakes.get(trail);
-    if (!entry || entry.geometry !== geometry || entry.preset !== preset) {
-      entry = { geometry, preset, bake: bakeAmbient(trail, preset) };
+    if (!entry || entry.geometry !== geometry || entry.key !== key) {
+      entry = bake(trail, ambientFor(trail));
+      entry.geometry = geometry;
+      entry.key = key;
       bakes.set(trail, entry);
     }
-    return entry.bake;
+    return entry;
   }
 
-  function drawBaked(target, image, bake, left, top) {
-    const scale = BAKE_UNIT / ART_PIXEL;
-    target.drawImage(
-      image,
-      (bake.x - left) / ART_PIXEL,
-      (bake.y - top) / ART_PIXEL,
-      bake.width * scale,
-      bake.height * scale,
-    );
-  }
-
-  function bandedGradient(x, y, radius, [r, g, b], strength) {
-    const gradient = lightContext.createRadialGradient(x, y, 0, x, y, radius);
-    let from = 0;
-    for (const [to, level] of BANDS) {
-      const color = `rgba(${r},${g},${b},${Math.min(1, level * strength)})`;
-      gradient.addColorStop(from, color);
-      gradient.addColorStop(to, color);
-      from = Math.min(1, to + 0.0001);
+  function bake(trail, ambient) {
+    const field = bakeLightField(trail, ambient);
+    const entry = {
+      ambient,
+      field,
+      glare: glareStrength(trail),
+      shade: null,
+      sky: rgb(ambient.sky),
+      alwaysOn: ambient.sky.some((value) => value < 255),
+      image: null,
+      flash: null,
+      cover: null,
+      tiles: null,
+      tileCols: 0,
+      props: null,
+    };
+    if (field) {
+      const { width, height, light, cover } = field;
+      const lightning = Boolean(trail.weather?.lightning);
+      const image = new ImageData(width, height),
+        coverImage = new ImageData(width, height),
+        flashImage = lightning ? new ImageData(width, height) : null,
+        shadeImage = entry.glare > 0 ? new ImageData(width, height) : null;
+      const tileCols = Math.ceil(width / TILE);
+      const tiles = new Uint8Array(tileCols * Math.ceil(height / TILE));
+      const { sky, cave } = ambient;
+      for (let i = 0, at = 0; i < light.length; i++, at += 4) {
+        const level = light[i];
+        image.data[at] = cave[0] + (sky[0] - cave[0]) * level;
+        image.data[at + 1] = cave[1] + (sky[1] - cave[1]) * level;
+        image.data[at + 2] = cave[2] + (sky[2] - cave[2]) * level;
+        image.data[at + 3] = 255;
+        coverImage.data[at + 3] = cover[i] * 255;
+        if (shadeImage) shadeImage.data[at + 3] = (1 - level) * 255;
+        if (flashImage) {
+          const strength = 0.25 + level * 0.75;
+          flashImage.data[at] = FLASH[0] * strength;
+          flashImage.data[at + 1] = FLASH[1] * strength;
+          flashImage.data[at + 2] = FLASH[2] * strength;
+          flashImage.data[at + 3] = 255;
+        }
+        if (level < 0.998) {
+          const c = i % width,
+            r = (i - c) / width;
+          tiles[Math.floor(r / TILE) * tileCols + Math.floor(c / TILE)] = 1;
+        }
+      }
+      entry.image = toCanvas(image);
+      entry.cover = toCanvas(coverImage);
+      entry.flash = flashImage && toCanvas(flashImage);
+      entry.shade = shadeImage && toCanvas(shadeImage);
+      entry.tiles = tiles;
+      entry.tileCols = tileCols;
     }
-    gradient.addColorStop(1, `rgba(${r},${g},${b},0)`);
-    return gradient;
+    entry.props = propLights(trail, entry);
+    return entry;
   }
 
-  // World-space light; `cone` is { angle, spread } for a beam.
-  function light(left, top, { x, y, radius, color, strength = 1, cone = null }) {
-    const px = (x - left) / ART_PIXEL,
-      py = (y - top) / ART_PIXEL,
-      pr = radius / ART_PIXEL;
-    if (strength <= 0 || px + pr < 0 || py + pr < 0 || px - pr > cols || py - pr > rows) return;
-    lightContext.save();
-    if (cone) {
-      lightContext.beginPath();
-      lightContext.moveTo(px, py);
-      lightContext.arc(px, py, pr, cone.angle - cone.spread, cone.angle + cone.spread);
-      lightContext.closePath();
-      lightContext.clip();
-    }
-    lightContext.fillStyle = bandedGradient(px, py, pr, color, strength);
-    lightContext.fillRect(px - pr, py - pr, pr * 2, pr * 2);
-    lightContext.restore();
+  function toCanvas(image) {
+    const target = createCanvas(image.width, image.height);
+    target.getContext("2d").putImageData(image, 0, 0);
+    return target;
   }
 
-  function propLights(trail, time) {
+  function darkAt(entry, x, y) {
+    return entry.ambient.glow || lightFieldAt(entry.field, x, y) < DARK_BELOW;
+  }
+
+  /** Whether it is dark enough at a world point for lamps to be on. */
+  function isDark(trail, x, y) {
+    return darkAt(prepare(trail), x, y);
+  }
+
+  // Lights that never move, worked out once per bake. `kind` picks how each
+  // flickers, pulses or blinks.
+  function propLights(trail, entry) {
     const lights = [];
-    const dark = trail.timeOfDay === "night" || trail.timeOfDay === "evening";
     for (const prop of trail.props || []) {
-      if (!["lantern", "lamp", "mushrooms"].includes(prop.type)) continue;
+      const { type } = prop;
+      if (type !== "lantern" && type !== "lamp" && type !== "mushrooms" && type !== "crane") continue;
       const ground = terrainAt(trail, prop.x);
       if (!ground.solid && !Number.isFinite(prop.y)) continue;
       const y = Number.isFinite(prop.y) ? prop.y : ground.y;
-      if (prop.type === "lantern") {
+      const dir = prop.flip ? -1 : 1;
+      if (type === "lantern") {
         const fit = propWallFit(trail, prop);
-        const flicker = time ? [1, 0.92, 0.97, 0.88][Math.floor(time * 6 + prop.x) % 4] : 1;
         const cy = y + (fit?.body || 0) + LANTERN_CENTRE;
-        lights.push({ x: prop.x, y: cy, radius: 150, color: [255, 196, 118], strength: flicker, core: 12 });
-      } else if (prop.type === "mushrooms") {
-        lights.push({ x: prop.x, y: y - 6, radius: 64, color: [90, 210, 196], strength: 0.8 });
-      } else if (dark) {
-        const hx = prop.x + (prop.flip ? -1 : 1) * LAMP_HEAD.x,
+        lights.push({ kind: type, phase: prop.x, x: prop.x, y: cy, radius: 150, color: LANTERN, core: 12 });
+      } else if (type === "mushrooms") {
+        lights.push({ kind: type, phase: prop.x, x: prop.x, y: y - 6, radius: 64, color: GLOW, strength: 0.8 });
+      } else if (type === "lamp") {
+        const hx = prop.x + dir * LAMP_HEAD.x,
           hy = y + LAMP_HEAD.y;
-        lights.push({ x: hx, y: hy, radius: 170, color: [255, 222, 160], cone: { angle: Math.PI / 2, spread: 0.42 } });
-        lights.push({ x: hx, y: hy, radius: 40, color: [255, 222, 160], strength: 0.6, core: 6 });
+        if (!darkAt(entry, hx, hy)) continue;
+        lights.push({ x: hx, y: hy, radius: 170, color: LAMP, angle: Math.PI / 2, spread: 0.42 });
+        lights.push({ x: hx, y: hy, radius: 40, color: LAMP, strength: 0.6, core: 6 });
+      } else {
+        if (!darkAt(entry, prop.x, y + CRANE_LIGHTS[0][1])) continue;
+        CRANE_LIGHTS.forEach(([lx, ly], index) =>
+          lights.push({ kind: type, phase: index, x: prop.x + dir * lx, y: y + ly, radius: 40, color: CRANE, strength: 0.7, core: 4 }),
+        );
       }
     }
     return lights;
   }
 
-  // `flip` is the animated facing, -1…1: the headlight and tail light swap
-  // wheels with it and dim while the bike turns.
-  function bikeLights(ride, flip) {
-    if (ride.ragdoll) return [];
+  // `flip` is the animated facing, -1…1. The lights sit where the bike art
+  // draws its lamps, placed with the same transform as the sprite: centred
+  // between the wheels, turned to the frame in 32 steps and mirrored by
+  // `flip`, so they stay on the bike through flips, loops and 180s in the air.
+  function bikeLights(ride, flip, lights) {
+    if (ride.ragdoll) return;
     const { rear, front } = ride;
-    const nose = flip >= 0 ? front : rear,
-      tail = flip >= 0 ? rear : front;
-    const length = Math.hypot(nose.x - tail.x, nose.y - tail.y) || 1;
-    const fx = (nose.x - tail.x) / length,
-      fy = (nose.y - tail.y) / length;
-    // Up from the frame, whichever way the bike faces.
-    const ux = fy * Math.sign(fx || 1),
-      uy = -fx * Math.sign(fx || 1);
+    const mx = (rear.x + front.x) / 2,
+      my = (rear.y + front.y) / 2;
+    const step = (Math.PI * 2) / 32;
+    const angle = Math.round(Math.atan2(front.y - rear.y, front.x - rear.x) / step) * step;
+    const cos = Math.cos(angle),
+      sin = Math.sin(angle);
+    const at = ([lx, ly]) => ({ x: mx + cos * flip * lx - sin * ly, y: my + sin * flip * lx + cos * ly });
+    const facing = flip < 0 ? -1 : 1;
     const turn = Math.abs(flip);
-    return [
+    lights.push({ ...at(BIKE_AURA), radius: 70, color: AURA, strength: 0.45 });
+    if (!headlights) return;
+    lights.push(
       {
-        x: (rear.x + front.x) / 2 + ux * 20,
-        y: (rear.y + front.y) / 2 + uy * 20,
-        radius: 70,
-        color: [200, 205, 220],
-        strength: 0.45,
-      },
-      {
-        x: nose.x + ux * 22 - fx * 4,
-        y: nose.y + uy * 22 - fy * 4,
+        ...at(BIKE_HEADLIGHT),
         radius: 230,
-        color: [255, 244, 212],
+        color: HEADLIGHT,
         strength: turn,
-        cone: { angle: Math.atan2(fy, fx), spread: 0.3 },
+        angle: Math.atan2(sin * facing, cos * facing),
+        spread: 0.3,
         core: 5,
       },
-      {
-        x: tail.x + ux * 18 - fx * 6,
-        y: tail.y + uy * 18 - fy * 6,
-        radius: 22,
-        color: [255, 60, 50],
-        strength: 0.7 * turn,
-      },
-    ];
+      { ...at(BIKE_TAIL_LIGHT), radius: 22, color: TAIL, strength: 0.7 * turn, core: 2 },
+    );
+  }
+
+  function strengthOf(item, time) {
+    const base = item.strength ?? 1;
+    if (item.kind === "lantern") return base * lanternFlicker(item.phase, time);
+    if (item.kind === "mushrooms") return base * mushroomPulse(item.phase, time);
+    if (item.kind === "crane") return craneLightOn(item.phase, time) ? base : 0;
+    return base;
+  }
+
+  // A light at full strength, cached by size, colour and beam width. A beam
+  // points along +x from the sprite's centre.
+  function sprite(radius, color, spread = 0) {
+    const r = Math.max(1, Math.round(radius / ART_PIXEL));
+    const key = `${r}|${color}|${spread}`;
+    let cached = sprites.get(key);
+    if (cached) return cached;
+    const image = createCanvas(r * 2, r * 2);
+    const g = image.getContext("2d");
+    if (spread) {
+      g.beginPath();
+      g.moveTo(r, r);
+      g.arc(r, r, r, -spread, spread);
+      g.closePath();
+      g.clip();
+    }
+    const gradient = g.createRadialGradient(r, r, 0, r, r, r);
+    const [cr, cg, cb] = color;
+    let from = 0;
+    for (const [to, level] of BANDS) {
+      const stop = `rgba(${cr},${cg},${cb},${level})`;
+      gradient.addColorStop(from, stop);
+      gradient.addColorStop(to, stop);
+      from = Math.min(1, to + 0.0001);
+    }
+    gradient.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+    g.fillStyle = gradient;
+    g.fillRect(0, 0, r * 2, r * 2);
+    cached = { image, r };
+    sprites.set(key, cached);
+    return cached;
+  }
+
+  function stamp(item, strength, left, top) {
+    const { image, r } = sprite(item.radius, item.color, item.spread);
+    const px = Math.round((item.x - left) / ART_PIXEL),
+      py = Math.round((item.y - top) / ART_PIXEL);
+    if (px + r < 0 || py + r < 0 || px - r > cols || py - r > rows) return false;
+    lightContext.globalAlpha = Math.min(1, strength);
+    if (item.spread) {
+      lightContext.setTransform(1, 0, 0, 1, px, py);
+      lightContext.rotate(item.angle);
+      lightContext.drawImage(image, -r, -r);
+      lightContext.setTransform(1, 0, 0, 1, 0, 0);
+    } else lightContext.drawImage(image, px - r, py - r);
+    return true;
+  }
+
+  // Draws one of the baked layers for the view; below the field its bottom
+  // row carries on down, and anything else outside it is open sky.
+  function drawField(target, image, field, left, top) {
+    const { unit } = field;
+    const scale = unit / ART_PIXEL;
+    const sx = (left - field.x) / unit,
+      sy = (top - field.y) / unit;
+    const x0 = Math.max(0, Math.floor(sx) - 1),
+      x1 = Math.min(field.width, Math.ceil(sx + cols / scale) + 1);
+    if (x1 <= x0) return;
+    const y0 = Math.max(0, Math.floor(sy) - 1),
+      y1 = Math.min(field.height, Math.ceil(sy + rows / scale) + 1);
+    const dx = (x0 - sx) * scale,
+      dw = (x1 - x0) * scale;
+    if (y1 > y0) target.drawImage(image, x0, y0, x1 - x0, y1 - y0, dx, (y0 - sy) * scale, dw, (y1 - y0) * scale);
+    const bottom = Math.max(0, (field.height - 1 - sy) * scale);
+    if (bottom < rows) target.drawImage(image, x0, field.height - 1, x1 - x0, 1, dx, bottom, dw, rows - bottom);
+  }
+
+  // Whether any of the view isn't in full daylight.
+  function viewIsLit(entry, left, top) {
+    const { field, tiles, tileCols } = entry;
+    if (!field) return false;
+    const span = field.unit * TILE;
+    const c0 = Math.max(0, Math.floor((left - field.x) / span)),
+      c1 = Math.min(tileCols - 1, Math.floor((left + cols * ART_PIXEL - field.x) / span));
+    const tileRows = tiles.length / tileCols;
+    const r0 = Math.min(tileRows - 1, Math.max(0, Math.floor((top - field.y) / span))),
+      r1 = Math.min(tileRows - 1, Math.max(0, Math.floor((top + rows * ART_PIXEL - field.y) / span)));
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) if (tiles[r * tileCols + c]) return true;
+    return false;
   }
 
   /**
    * Multiplies everything already drawn by the light map, then adds a small
-   * bloom on each light's source. Draws in world space.
+   * bloom on each light's source, and the glare of a strong sun. Draws in
+   * world space; `width` and `height` are the view's size in world units.
+   * Returns false when the view is in full daylight and the scene needed no
+   * shading.
    */
-  function draw(ctx, { trail, ride, cameraX, cameraY, width, height, flash = 0, time = 0, flip = 1 }) {
-    const preset = AMBIENT[trail.timeOfDay] || AMBIENT.noon;
-    const bake = bakeFor(trail, preset);
+  function draw(ctx, options) {
+    const { trail, cameraX, cameraY, width, height } = options;
+    const entry = prepare(trail);
     const left = Math.floor(cameraX / ART_PIXEL) * ART_PIXEL,
       top = Math.floor(cameraY / ART_PIXEL) * ART_PIXEL;
     ensure(Math.ceil(width / ART_PIXEL) + 2, Math.ceil(height / ART_PIXEL) + 2);
+    const lit = (entry.alwaysOn || viewIsLit(entry, left, top)) && shadeScene(ctx, entry, options, left, top);
+    if (entry.glare > 0) drawGlare(ctx, entry, options, left, top);
+    return lit;
+  }
+
+  function shadeScene(ctx, entry, { ride, flash = 0, time = 0, flip = 1 }, left, top) {
+    const { field } = entry;
 
     context.globalCompositeOperation = "source-over";
     context.globalAlpha = 1;
-    context.fillStyle = `rgb(${preset.sky.join(",")})`;
+    context.fillStyle = entry.sky;
     context.fillRect(0, 0, cols, rows);
     context.imageSmoothingEnabled = true;
-    if (bake) drawBaked(context, bake.ambient, bake, left, top);
-    if (flash > 0 && bake) {
+    if (field) drawField(context, entry.image, field, left, top);
+    if (flash > 0 && entry.flash) {
       context.globalCompositeOperation = "lighter";
       context.globalAlpha = Math.min(1, flash);
-      drawBaked(context, bake.flash, bake, left, top);
+      drawField(context, entry.flash, field, left, top);
       context.globalAlpha = 1;
     }
 
-    const lights = [
-      ...propLights(trail, time),
-      ...bikeLights(ride, flip),
-      ...ride.apples
-        .filter((apple) => !apple.taken)
-        .map((apple) => ({ x: apple.x, y: apple.y, radius: 34, color: [255, 176, 150], strength: 0.7 })),
-    ];
+    const lights = [...entry.props];
+    bikeLights(ride, flip, lights);
+    for (const apple of ride.apples)
+      if (!apple.taken) lights.push({ x: apple.x, y: apple.y, radius: 34, color: APPLE, strength: 0.7 });
+    for (const spike of ride.spikes || [])
+      if (darkAt(entry, spike.x, spike.y))
+        lights.push({ x: spike.x, y: spike.y, radius: spike.radius + 28, color: SPIKE, strength: 0.4 });
+
+    lightContext.setTransform(1, 0, 0, 1, 0, 0);
     lightContext.globalCompositeOperation = "source-over";
+    lightContext.globalAlpha = 1;
     lightContext.clearRect(0, 0, cols, rows);
     lightContext.globalCompositeOperation = "lighter";
-    for (const item of lights) light(left, top, item);
-    if (bake) {
-      // Moving lights only reach the skin of the rock.
-      lightContext.globalCompositeOperation = "destination-out";
-      lightContext.imageSmoothingEnabled = true;
-      drawBaked(lightContext, bake.occlusion, bake, left, top);
+    lightContext.imageSmoothingEnabled = false;
+    const cores = [];
+    let stamped = 0;
+    for (const item of lights) {
+      const strength = strengthOf(item, time);
+      if (strength <= 0 || !stamp(item, strength, left, top)) continue;
+      stamped++;
+      if (item.core) cores.push(item, strength);
     }
-    context.globalCompositeOperation = "lighter";
-    context.drawImage(lightCanvas, 0, 0);
-    context.globalCompositeOperation = "source-over";
+    if (stamped) {
+      if (field) {
+        // Moving lights only reach the skin of the rock.
+        lightContext.globalCompositeOperation = "destination-out";
+        lightContext.globalAlpha = 1;
+        lightContext.imageSmoothingEnabled = true;
+        drawField(lightContext, entry.cover, field, left, top);
+      }
+      context.globalCompositeOperation = "lighter";
+      context.drawImage(lightCanvas, 0, 0);
+      context.globalCompositeOperation = "source-over";
+    }
 
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     ctx.globalCompositeOperation = "multiply";
     ctx.drawImage(canvas, left, top, cols * ART_PIXEL, rows * ART_PIXEL);
     ctx.globalCompositeOperation = "screen";
-    for (const item of lights) {
-      if (!item.core) continue;
-      const [cr, cg, cb] = item.color;
+    for (let index = 0; index < cores.length; index += 2) {
+      const item = cores[index],
+        strength = cores[index + 1];
+      const x = Math.round(item.x / 2) * 2,
+        y = Math.round(item.y / 2) * 2;
+      ctx.fillStyle = rgb(item.color);
       for (const [scale, alpha] of [[1, 0.25], [0.5, 0.35]]) {
-        ctx.fillStyle = `rgba(${cr},${cg},${cb},${alpha * (item.strength ?? 1)})`;
+        ctx.globalAlpha = Math.min(1, alpha * strength);
         ctx.beginPath();
-        ctx.arc(Math.round(item.x / 2) * 2, Math.round(item.y / 2) * 2, item.core * scale, 0, Math.PI * 2);
+        ctx.arc(x, y, item.core * scale, 0, Math.PI * 2);
         ctx.fill();
       }
     }
     ctx.restore();
+    return true;
   }
 
-  return { draw };
+  // The glare of a strong sun: a halo round it and slow rays fanning down
+  // across the view, kept out of caves and rock by the baked shade. It fades
+  // when the sun's place in the world is dark, as when the view is deep in a
+  // cave. Screened on top so it only ever brightens.
+  function drawGlare(ctx, entry, { trail, cameraX, cameraY, width, height, time = 0 }, left, top) {
+    const sun = sunLight({ width, cameraX, cameraY, weather: trail.weather, timeOfDay: trail.timeOfDay });
+    const sx = cameraX + sun.x,
+      sy = cameraY + sun.y;
+    const seen = entry.field ? Math.max(0, lightFieldAt(entry.field, sx, sy) * 2 - 1) : 1;
+    const glare = entry.glare * seen;
+    if (glare <= 0.01) return;
+    if (!glareCanvas) {
+      glareCanvas = createCanvas(cols, rows);
+      glareContext = glareCanvas.getContext("2d");
+    }
+    const g = glareContext;
+    const color = hexRgb(timeOfDayPalette(trail).sun || "#fff2c8");
+    const [cr, cg, cb] = color;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalCompositeOperation = "source-over";
+    g.globalAlpha = 1;
+    g.clearRect(0, 0, cols, rows);
+    g.globalCompositeOperation = "lighter";
+    g.imageSmoothingEnabled = false;
+    const ox = (sx - left) / ART_PIXEL,
+      oy = (sy - top) / ART_PIXEL;
+    const toward = Math.atan2(height * 0.6 - sun.y, width * 0.5 - sun.x);
+    const diagonal = Math.hypot(cols, rows);
+    SUN_RAYS.forEach(([offset, spread, length, level], index) => {
+      const angle = toward + offset + Math.sin(time * 0.21 + index * 2.3) * 0.025;
+      const pulse = 0.7 + 0.3 * Math.sin(time * 0.55 + index * 1.7);
+      const reach = length * diagonal;
+      const gradient = g.createRadialGradient(ox, oy, 0, ox, oy, reach);
+      let from = 0;
+      for (const [to, band] of BANDS) {
+        const stop = `rgba(${cr},${cg},${cb},${band * level})`;
+        gradient.addColorStop(from, stop);
+        gradient.addColorStop(to, stop);
+        from = Math.min(1, to + 0.0001);
+      }
+      gradient.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+      g.globalAlpha = pulse;
+      g.fillStyle = gradient;
+      g.beginPath();
+      g.moveTo(ox, oy);
+      g.arc(ox, oy, reach, angle - spread, angle + spread);
+      g.closePath();
+      g.fill();
+    });
+    g.globalAlpha = 1;
+    const halo = sprite(150, color);
+    g.drawImage(halo.image, Math.round(ox - halo.r), Math.round(oy - halo.r));
+    if (entry.shade) {
+      g.globalCompositeOperation = "destination-out";
+      g.imageSmoothingEnabled = true;
+      drawField(g, entry.shade, entry.field, left, top);
+    }
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.globalCompositeOperation = "screen";
+    ctx.globalAlpha = 0.24 * glare;
+    ctx.drawImage(glareCanvas, left, top, cols * ART_PIXEL, rows * ART_PIXEL);
+    ctx.restore();
+  }
+
+  return { prepare, isDark, draw, setHeadlights };
 }

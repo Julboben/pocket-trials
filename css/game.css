@@ -211,6 +211,24 @@ canvas {
     height: 32px;
     background: #182321d9;
 }
+.fps-meter {
+    position: absolute;
+    z-index: 4;
+    bottom: 8px;
+    left: 8px;
+    padding: 3px 6px;
+    border-radius: var(--radius-pixel);
+    background: #101b1acc;
+    color: #b8f5c8;
+    font: 11px/1.2 ui-monospace, monospace;
+    pointer-events: none;
+}
+.game-actions .icon-button[aria-pressed="false"] {
+    color: #8b9695;
+}
+.game-actions .icon-button[aria-pressed="false"] .beam {
+    display: none;
+}
 .toast {
     position: absolute;
     z-index: 5;

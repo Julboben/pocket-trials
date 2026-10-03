@@ -242,6 +242,25 @@ const TIME_PRESETS = {
   },
 };
 
+// Prop light timing, shared by the prop art and the lighting pass so the
+// glass and the light it casts change together. `time` 0 keeps them steady.
+const lightNoise = (x, n) => {
+  const s = Math.sin(n * 127.1 + x * 311.7) * 43758.5453;
+  return s - Math.floor(s);
+};
+/** A lantern's slow, stepped flicker, 0.88…1. */
+export function lanternFlicker(x, time) {
+  return time ? [1, 0.92, 0.97, 0.88][Math.floor(time * 6 + lightNoise(x, 3) * 4) % 4] : 1;
+}
+/** Glowing mushrooms' gentle pulse, 0.7…1. */
+export function mushroomPulse(x, time) {
+  return time ? 0.85 + (0.15 * Math.round(Math.sin(time * 1.6 + x) * 2)) / 2 : 1;
+}
+/** Whether a crane's warning light is lit; they blink out of step. */
+export function craneLightOn(index, time) {
+  return !time || (time * 0.8 + index * 0.37) % 1 <= 0.55;
+}
+
 /** The sky, hill and light colours a trail is drawn with. */
 export function timeOfDayPalette(trail = {}) {
   return TIME_PRESETS[trail.timeOfDay] || TIME_PRESETS[DEFAULT_TIME_OF_DAY];
@@ -4215,7 +4234,9 @@ export function createGameArt(ctx) {
    * lantern and the cave wall around it, and glowing mushrooms. Lamps and cranes
    * only light up after dark; lanterns and mushrooms always glow, more brightly
    * once `dark`. `time` is in seconds; 0 keeps the lights steady. `trail`,
-   * `prop` and `fit` (from propWallFit) are needed for a lantern.
+   * `prop` and `fit` (from propWallFit) are needed for a lantern. With
+   * `emissive`, only the glowing parts are drawn (glass, spots, spores and
+   * bulbs), for when the lighting pass casts the light itself.
    */
   function drawPropGlow(
     type,
@@ -4224,27 +4245,28 @@ export function createGameArt(ctx) {
     groundOffset = () => 0,
     flip = false,
     time = 0,
-    { dark = true, trail = null, prop = null, fit = null } = {},
+    { dark = true, trail = null, prop = null, fit = null, emissive = false } = {},
   ) {
     const dir = flip ? -1 : 1;
     const strength = dark ? 1 : 0.5;
     if (type === "lantern") {
       const centreY = y + (fit?.body || 0) + LANTERN_CENTRE;
-      // A slow, stepped flicker.
-      const flicker = time ? [1, 0.92, 0.97, 0.88][Math.floor(time * 6 + propNoise(x, 3) * 4) % 4] : 1;
+      const flicker = lanternFlicker(x, time);
       ctx.save();
       ctx.imageSmoothingEnabled = false;
       ctx.globalCompositeOperation = "screen";
-      if (trail && prop) {
+      if (trail && prop && !emissive) {
         const light = lanternLightSprite(trail, prop, x, centreY);
         ctx.globalAlpha = strength * flicker;
         ctx.drawImage(light.canvas, light.left, light.top, light.size, light.size);
       }
       ctx.translate(Math.round(x / 2) * 2, Math.round(centreY / 2) * 2);
-      ctx.globalAlpha = 0.22 * strength * flicker;
-      drawPixelDisc(0, 0, 16, LANTERN_LIGHT.flame, 2);
-      ctx.globalAlpha = 0.3 * strength * flicker;
-      drawPixelDisc(0, 0, 10, LANTERN_LIGHT.glass, 2);
+      if (!emissive) {
+        ctx.globalAlpha = 0.22 * strength * flicker;
+        drawPixelDisc(0, 0, 16, LANTERN_LIGHT.flame, 2);
+        ctx.globalAlpha = 0.3 * strength * flicker;
+        drawPixelDisc(0, 0, 10, LANTERN_LIGHT.glass, 2);
+      }
       ctx.globalCompositeOperation = "source-over";
       ctx.globalAlpha = 1;
       ctx.translate(0, -LANTERN_CENTRE);
@@ -4257,9 +4279,9 @@ export function createGameArt(ctx) {
     if (type === "mushrooms") {
       ctx.scale(dir, 1);
       const caps = mushroomCaps((local) => groundOffset(local * dir));
-      const pulse = time ? 0.85 + 0.15 * Math.round(Math.sin(time * 1.6 + x) * 2) / 2 : 1;
+      const pulse = mushroomPulse(x, time);
       ctx.globalCompositeOperation = "screen";
-      for (const cap of caps) {
+      if (!emissive) for (const cap of caps) {
         ctx.globalAlpha = 0.22 * strength * pulse;
         drawPixelDisc(cap.cx, cap.bottom - 4, cap.cap + 6, WATER.light, 2);
         ctx.globalAlpha = 0.18 * strength * pulse;
@@ -4286,43 +4308,47 @@ export function createGameArt(ctx) {
         Math.round(groundOffset(headX) / 2) * 2,
         LAMP_HEAD.y + 200,
       );
-      ctx.globalCompositeOperation = "screen";
-      // Beam: stepped bands widening down to the ground.
-      const span = ground - LAMP_HEAD.y;
-      for (let py = LAMP_HEAD.y; py < ground; py += 4) {
-        const t = (py - LAMP_HEAD.y) / span;
-        const outer = Math.round((6 + t * 26) / 2) * 2;
-        const inner = Math.round(outer * 0.5 / 2) * 2;
-        ctx.globalAlpha = 0.07;
-        pixelRect(headX - outer, py, outer * 2, 4, LAMP_LIGHT.beam, 2);
-        ctx.globalAlpha = 0.06;
-        pixelRect(headX - inner, py, inner * 2, 4, LAMP_LIGHT.beam, 2);
+      if (!emissive) {
+        ctx.globalCompositeOperation = "screen";
+        // Beam: stepped bands widening down to the ground.
+        const span = ground - LAMP_HEAD.y;
+        for (let py = LAMP_HEAD.y; py < ground; py += 4) {
+          const t = (py - LAMP_HEAD.y) / span;
+          const outer = Math.round((6 + t * 26) / 2) * 2;
+          const inner = Math.round(outer * 0.5 / 2) * 2;
+          ctx.globalAlpha = 0.07;
+          pixelRect(headX - outer, py, outer * 2, 4, LAMP_LIGHT.beam, 2);
+          ctx.globalAlpha = 0.06;
+          pixelRect(headX - inner, py, inner * 2, 4, LAMP_LIGHT.beam, 2);
+        }
+        // Pool on the ground, brightest under the lamp, following the slope.
+        for (let dx = -40; dx < 40; dx += 2) {
+          const reach = Math.abs(dx + 1);
+          const height = reach < 14 ? 8 : reach < 26 ? 6 : 4;
+          ctx.globalAlpha = reach < 14 ? 0.34 : reach < 26 ? 0.22 : 0.12;
+          const gy = Math.round(groundOffset(headX + dx) / 2) * 2;
+          pixelRect(headX + dx, gy - height, 2, height + 4, LAMP_LIGHT.beam, 2);
+        }
+        // Halo, then the glass itself at full brightness.
+        ctx.globalAlpha = 0.28;
+        drawPixelDisc(headX, LAMP_HEAD.y - 2, 14, LAMP_LIGHT.beam, 2);
+        ctx.globalCompositeOperation = "source-over";
       }
-      // Pool on the ground, brightest under the lamp, following the slope.
-      for (let dx = -40; dx < 40; dx += 2) {
-        const reach = Math.abs(dx + 1);
-        const height = reach < 14 ? 8 : reach < 26 ? 6 : 4;
-        ctx.globalAlpha = reach < 14 ? 0.34 : reach < 26 ? 0.22 : 0.12;
-        const gy = Math.round(groundOffset(headX + dx) / 2) * 2;
-        pixelRect(headX + dx, gy - height, 2, height + 4, LAMP_LIGHT.beam, 2);
-      }
-      // Halo, then the glass itself at full brightness.
-      ctx.globalAlpha = 0.28;
-      drawPixelDisc(headX, LAMP_HEAD.y - 2, 14, LAMP_LIGHT.beam, 2);
-      ctx.globalCompositeOperation = "source-over";
       ctx.globalAlpha = 1;
       ctx.scale(dir, 1);
       drawLampGlass({ pixelRect });
     } else if (type === "crane") {
       CRANE_LIGHTS.forEach(([lx, ly], index) => {
         // Blink slowly, out of step with each other.
-        if (time && (time * 0.8 + index * 0.37) % 1 > 0.55) return;
+        if (!craneLightOn(index, time)) return;
         const cx = dir * lx;
-        ctx.globalCompositeOperation = "screen";
-        ctx.globalAlpha = 0.35;
-        drawPixelDisc(cx, ly, 6, "#e8755b", 2);
-        ctx.globalCompositeOperation = "source-over";
-        ctx.globalAlpha = 1;
+        if (!emissive) {
+          ctx.globalCompositeOperation = "screen";
+          ctx.globalAlpha = 0.35;
+          drawPixelDisc(cx, ly, 6, "#e8755b", 2);
+          ctx.globalCompositeOperation = "source-over";
+          ctx.globalAlpha = 1;
+        }
         pixelRect(cx - 2, ly - 2, 4, 4, "#e8755b", 2);
         pixelRect(cx, ly - 2, 2, 2, "#ffc295", 2);
       });

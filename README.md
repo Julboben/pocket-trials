@@ -25,6 +25,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Two rider styles and a custom rider name
 - Elasto Mania-style pixel dirt bike, with the original Pocket Classic bike kept for future biker customization
 - Layered foreground and background scenery
+- Pixel lighting at every time of day: ground stays bright by day and sinks into darkness at night, caves are dark at any hour, a headlight you can switch off that stays on the bike through flips and loops, lanterns, lamps, glowing mushrooms, and lightning light the way
 - Terrain-colored wheel spray, brake lights, and fading ground skid marks
 - Procedural engine, braking, wheel-landing, aerial trick, collectible, crash, flip, finish, dashboard, and rain sound effects
 - Collectibles, finish gates, timers, and best times
@@ -53,6 +54,7 @@ A local server is required because the game uses native JavaScript modules and f
 | Brake                            | `Down Arrow` or `S`                       | Brake button                                |
 | Lean backward / forward          | `Left Arrow` / `Right Arrow` or `A` / `D` | Lean buttons                                |
 | Flip riding direction            | `Space`                                   | —                                           |
+| Headlight on / off               | `L` (remappable)                          | Headlight button in the game viewport       |
 | Restart trail                    | `R`                                       | Compact restart button in the game viewport |
 | Pause / resume                   | `P`                                       | Pause button                                |
 | Open / close the main menu       | `Escape`                                  | In-game menu button                         |
@@ -62,7 +64,7 @@ A local server is required because the game uses native JavaScript modules and f
 
 Lean labels adjust to the direction the rider is facing. Every keyboard action can be rebound under **Settings → Keys**. Holding restart freezes the bike until you let go, so you can line up a clean start.
 
-Gamepads use the standard mapping: `RT` or `A` for gas, `LT` or `X` for brake, the left stick or d-pad to lean, `B` to turn around, `Y` to restart, and `Start` to pause. In menus, the d-pad or stick moves the selection, `A` confirms, and `B` goes back.
+Gamepads use the standard mapping: `RT` or `A` for gas, `LT` or `X` for brake, the left stick or d-pad to lean, `B` to turn around, d-pad up for the headlight, `Y` to restart, and `Start` to pause. In menus, the d-pad or stick moves the selection, `A` confirms, and `B` goes back.
 
 ## Trails
 
@@ -163,8 +165,11 @@ Clearing site data resets settings, progression, and recorded times.
 │   ├── ragdoll.js      # Jointed post-crash rider ragdoll
 │   ├── det-math.js     # Deterministic sin/cos/atan2/exp/log, identical in every JS engine
 │   ├── render.js       # Canvas rendering of the world, bike, ghost, and effects
+│   ├── lighting.js     # Light map: baked ambient light plus moving lights, multiplied over the scene
+│   ├── light-field.js  # DOM-free ambient light bake from the terrain
 │   ├── camera.js       # Camera follow and screen shake
 │   ├── effects.js      # Particles, skid marks, and weather
+│   ├── fps-meter.js    # Frame-rate readout for ?fps=1
 │   ├── input.js        # Keyboard, touch, and gamepad input with remapping
 │   ├── state.js        # Shared session state and preferences
 │   ├── ui/             # Dashboard menu and in-game overlay/results
@@ -236,6 +241,8 @@ The game is currently a **design and physics prototype**. Its most important ass
 
 To test as a brand-new player on `localhost`, open the game or editor with `?sandbox`. All data then lives in that tab's `sessionStorage`: your real saves are never read or changed, online submits are skipped, and a SANDBOX badge shows at the bottom. The sandbox survives reloads, the editor, and playtests. Use `?sandbox=reset` to start fresh again and `?sandbox=off` to go back to your real data.
 
+To check performance, open the game with `?fps=1`: a small readout shows frames per second, the average time each frame's work takes, and the slowest frame gap, refreshed twice a second.
+
 To investigate physics, open the game with `?physicsDebug=1`. The overlay shows particles, constraints, contact normals, and center of mass. The console automatically prints detected spikes as expanded JSON. Run `hjulbenPhysicsDebug.dumpSpike()` or `copySpike()` for the latest spike, and `dump()` or `copy()` for the latest 120 frames. Record deterministic input with `startRecording()` and `stopRecording()`, then replay the returned array with `replay(inputs)`; call `stopReplay()` to return to live controls. Traces include wheel velocities, angular/contact state, torque components, suspension lengths, chassis area, constraints, traction, and collision responses.
 
 `npm test` also runs the DOM-independent vehicle harness in `scripts/test-vehicle-physics.mjs`. It exercises flat acceleration, braking versus coasting, stationary wheel lift, air rotation, mirrored hills, valley settling, and one-wheel landing through the exact `js/vehicle-physics.js` code used by the game.
@@ -272,6 +279,7 @@ When changing physics values, validate at least these cases:
 - [x] Splatter behind the bike when you drive on different terrain
 - [x] Add weather effects (rain, lightning, and procedural ambience)
 - [x] Add day / night
+- [x] Lighting engine (dark caves, night, headlight, prop lights)
 - [x] Add a sign that you can write on in the editor
 - [x] Online highscore leaderboard
 - [x] New physics engine with support for overhangs, loops, caves, and fully polygonal ground

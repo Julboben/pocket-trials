@@ -2,7 +2,7 @@
   "name": "Cave at Night",
   "label": "CAVE AT NIGHT",
   "goal": 2200,
-  "description": "A short night ride through a lantern-lit cave. Built to try the lighting prototype (?lighting=1).",
+  "description": "A short night ride through a lantern-lit cave. Built to try the lighting.",
   "start": {
     "x": 640,
     "y": 307,
