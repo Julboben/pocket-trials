@@ -90,7 +90,7 @@ The inspector on the right edits the current selection. The editor supports:
 - Loading every official and custom trail, with its source clearly labeled
 - Drawing terrain blocks and cutting caves, entrances, and gaps into them, freehand or, holding `Alt`, as rectangles and, holding `Cmd`/`Ctrl`, as circles; `Shift` snaps to the grid
 - Drawing and cutting back walls: the Block and Cut tools have a **Layer** picker (Terrain or Back wall), the inspector switches a selected block between layers, and **Fill caves with back walls** closes off the selected block's caves
-- Dragging block points and curve handles, switching edges between straight and curved, and moving whole blocks
+- Dragging block points and curve handles, switching edges between straight and curved, and moving whole blocks (once selected, a block drags from anywhere inside it; `Esc` or `Cmd`/`Ctrl`+`D` deselects, and `Shift`-click adds or removes a block, point or object); holding `Shift` snaps the point or corner you hold to 15° steps and the grid
 - Scaling selected blocks with the handles around them: corners keep the proportions, so a circle stays a circle, sides stretch one way, `Alt` scales from the centre and `Shift` snaps to the grid
 - Double-clicking a block edge to insert a point
 - Placing freely positioned apples, start points, props, and finish positions
@@ -103,7 +103,7 @@ The inspector on the right edits the current selection. The editor supports:
 - Mouse navigation: wheel panning, `Ctrl`/`Cmd` + wheel zooming, and middle-button or `Space`-drag panning
 - Undo and redo
 - Copy, cut and paste (`Cmd`/`Ctrl` + `C`, `X`, `V`) for blocks, apples, props and spikes. The copy goes to the system clipboard, so it can be pasted into another trail or tab; it lands under the cursor, or in the middle of the view.
-- Box-select picks up whole blocks along with points and objects; `Shift`-click adds or removes, `Cmd`/`Ctrl` + `A` selects everything, and `Cmd`/`Ctrl` + `D` duplicates. Undo and redo restore the selection too.
+- Box-select picks up whole blocks along with points and objects; `Shift`-click adds or removes one (for example a prop inside a selected block), `Cmd`/`Ctrl` + `A` selects everything, and `Cmd`/`Ctrl` + `D` selects nothing. Undo and redo restore the selection too.
 - Press `?` (or **Keyboard shortcuts** in the **⋯** menu) for a list of every shortcut.
 - Continuous trail validation, listed in the **⋯** menu, which shows a badge when there are errors or warnings
 - Browser-local draft history (**Save draft** in the header, `Cmd`/`Ctrl` + `S`): up to 12 timestamped drafts per trail. The editor opens the newest draft unless the trail was saved after it. The label next to the trail picker shows which version is open (original, published, or a draft) and whether it has edits since; click it to open **Versions**, where you can open any draft, delete drafts, or revert to the published trail (undoable). **Save draft** is greyed out until the trail changes from the open version, and **Publish** until it differs from the published trail. The inspector panel is hidden until something is selected.

@@ -1,6 +1,7 @@
 // The selection and trail panels on the right.
 import { canFlip } from "../drawing.js";
 import {
+  cubicPoint,
   edgeCurve,
   isCurvedEdge,
   moveBlock,
@@ -23,7 +24,6 @@ import {
 import { $ } from "./dom.js";
 import { pushHistory, updateHistoryButtons } from "./history.js";
 import { updateVersionChip } from "./drafts.js";
-import { edgeHit } from "./hit-test.js";
 import { updateValidationBadge } from "./menu.js";
 import { showStatus } from "./status.js";
 import {
@@ -60,19 +60,8 @@ export function selectedPosition() {
     if (editor.selection.kind === "blockEdge") {
       const next =
         boundary.nodes[(editor.selection.index + 1) % boundary.nodes.length];
-      const hit = edgeHit(node, next, { x: node.x, y: node.y });
-      const control = edgeCurve(node, next);
-      const t = editor.selection.t;
-      return [
-        control[0][0] +
-          3 * t * (1 - t) * (1 - t) * (control[1][0] - control[0][0]) +
-          3 * t * t * (1 - t) * (control[2][0] - control[1][0]) +
-          t * t * t * (control[3][0] - control[2][0]),
-        control[0][1] +
-          3 * t * (1 - t) * (1 - t) * (control[1][1] - control[0][1]) +
-          3 * t * t * (1 - t) * (control[2][1] - control[1][1]) +
-          t * t * t * (control[3][1] - control[2][1]),
-      ];
+      const [p0, c1, c2, p1] = edgeCurve(node, next);
+      return cubicPoint(p0, c1, c2, p1, editor.selection.t);
     }
     return [node.x, node.y];
   }

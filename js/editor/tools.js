@@ -31,7 +31,7 @@ const LAYER_FIELD = {
 const TOOL_INFO = {
   select: {
     title: "Select",
-    hint: "Click a block, a point on its edge, or an object to select it, and drag to move it; a selected point shows its curve handles. Drag from empty space to box-select, and Shift-click to add or remove. Alt-click selects a whole ring or cave. Empty cave space selects nothing, so a cave never picks the block around it. The square handles around selected blocks scale them: corners keep the shape, sides stretch it, and Alt scales from the centre. Press ? for every shortcut.",
+    hint: "Click a block, a point on its edge, or an object to select it, and drag to move it; a selected block drags from anywhere inside it, and Esc or Cmd/Ctrl+D deselects; hold Shift to snap the point or corner you hold to 15° and the grid. A selected point shows its curve handles. Drag from empty space to box-select, and Shift-click to add or remove a block, point or object. Alt-click selects a whole ring or cave. Empty cave space selects nothing, so a cave never picks the block around it. The square handles around selected blocks scale them: corners keep the shape, sides stretch it, and Alt scales from the centre. Press ? for every shortcut.",
   },
   pan: {
     title: "Pan",

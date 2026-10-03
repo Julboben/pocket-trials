@@ -4,12 +4,14 @@ import { scaleBlock } from "../terrain-geometry.js";
 import { blocks, replaceBlock, selectedBlocks } from "./blocks.js";
 import { blockNodes } from "./selection.js";
 import { gridSpacing } from "./snap.js";
-import { editor } from "./state.js";
+import { HIT_REACH, editor } from "./state.js";
 
-// Screen pixels between the blocks and their handles, so a corner point and a
-// corner handle can both be grabbed.
-const PAD = 12;
+// Screen pixels a scale handle can be grabbed from, and its distance outside
+// the blocks. The box holds every point, edge and curve handle, so a pointer
+// that can grab a scale handle is always out of reach of those, and a
+// double-click on an edge never lands on a scale handle.
 const HIT = 7;
+const PAD = HIT + HIT_REACH + 1;
 // Smallest width or height a scale can shrink the selection to, in world units.
 const MIN_SIZE = 8;
 

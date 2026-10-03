@@ -517,28 +517,3 @@ export function selectAll() {
   syncInspector();
   render();
 }
-
-const DUPLICATE_OFFSET = 30;
-
-/** Duplicate the selection beside itself, and select the copy. */
-export function duplicateSelection() {
-  // There is only ever one start and one finish.
-  const items = selectionItems().filter(
-    (item) => item.type !== "start" && item.type !== "goal",
-  );
-  if (!items.length) {
-    if (editor.selection)
-      showStatus("warning", "Only blocks, points, apples, props and spikes can be duplicated.");
-    return;
-  }
-  pushHistory();
-  editor.selection = duplicateItems(items);
-  const position = selectedPosition();
-  if (position)
-    updateSelectedPosition(
-      position[0] + DUPLICATE_OFFSET,
-      position[1] + DUPLICATE_OFFSET,
-    );
-  syncInspector();
-  render();
-}

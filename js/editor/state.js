@@ -9,6 +9,16 @@ export function clampZoom(zoom) {
   return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom));
 }
 
+/** How near, in screen pixels, the pointer must be to grab a point or handle. */
+export const HIT_REACH = 13;
+/**
+ * Edges are only grabbed when the pointer is on them, so a click a little
+ * inside a block, even zoomed out, picks the block.
+ */
+export const EDGE_REACH = 7;
+/** Inside a selected block, a point is only grabbed on its drawn dot. */
+export const DOT_REACH = 7;
+
 export const editor = {
   devServer: false,
   trailIndex: null,
