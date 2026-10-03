@@ -607,7 +607,8 @@ export function startGame() {
     } else startFresh();
   });
   $('secondary').addEventListener('click', startFresh);
-  $('crash-retry').addEventListener('click', startFresh);
+  // Focus the game first: hiding the focused button would blur it and auto-pause.
+  $('crash-retry').addEventListener('click', () => { focusGame(); startFresh(); });
   $('headlight').addEventListener('click', () => { toggleHeadlight(); focusGame(); });
   $('menu').addEventListener('click', () => { sounds.menuBack(); showMainMenu(); });
   document.querySelectorAll('[data-fullscreen]').forEach(button => button.addEventListener('click', () => {

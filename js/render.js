@@ -106,6 +106,7 @@ export function createRenderer(canvas) {
     H = 410,
     pixelScale = 1;
   let hair = null,
+    ghostHair = null,
     flipVisual = 1,
     trail = null,
     cameraX = 0,
@@ -145,6 +146,7 @@ export function createRenderer(canvas) {
   function reset(nextTrail, facing) {
     trail = nextTrail;
     hair = null;
+    ghostHair = null;
     flipVisual = facing;
     popups.length = 0;
     lighting.prepare(trail);
@@ -476,34 +478,35 @@ export function createRenderer(canvas) {
     };
   }
 
-  function currentHairRoot(ride, exact) {
+  function currentHairRoot(ride, exact, flip = flipVisual) {
     if (ride.ragdoll) {
       const head = ride.ragdoll.points.head;
       return { x: head.x - ride.facing * 6, y: head.y };
     }
-    return hairRoot(riderPose(ride), exact);
+    return hairRoot(riderPose(ride, flip), exact);
   }
 
-  function updateHair(ride, rider, dt) {
-    if (rider !== "female") {
-      hair = null;
-      return;
-    }
-    const root = currentHairRoot(ride, true);
+  /** Steps a hair simulation for `ride`; returns it, or null for riders without hair. */
+  function updateHair(current, ride, rider, dt, flip = flipVisual) {
+    if (rider !== "female") return null;
+    const pose = riderPose(ride, flip);
+    const root = currentHairRoot(ride, true, flip);
     const rest = ride.ragdoll
       ? freeHairRestDirection(ride.facing)
-      : hairRestDirection(riderPose(ride));
-    if (!hair || Math.hypot(root.x - hair.root.x, root.y - hair.root.y) > 60)
-      hair = createRiderHair(root, rest);
-    hair.update(dt, {
+      : hairRestDirection(pose);
+    let next = current;
+    if (!next || Math.hypot(root.x - next.root.x, root.y - next.root.y) > 60)
+      next = createRiderHair(root, rest);
+    next.update(dt, {
       root,
       rest,
-      back: ride.ragdoll ? null : hairBackSupport(riderPose(ride)),
+      back: ride.ragdoll ? null : hairBackSupport(pose),
       // The floor under each strand, not the topmost surface: under an
       // overhang the topmost one is above the rider, and clamping to it drew
       // the hair as a pole up to the peak.
       groundAt: (x, y) => terrainAt(trail, x, y - HAIR_GROUND_ALLOWANCE),
     });
+    return next;
   }
 
   function bikeGeometry(ride) {
@@ -580,9 +583,14 @@ export function createRenderer(canvas) {
     };
   }
 
-  function drawGhost(ghost, rider) {
+  function drawGhost(ghost, rider, dt) {
+    if (!ghost) {
+      ghostHair = null;
+      return;
+    }
+    // Simulated off screen too, so the hair has settled when the ghost reappears.
+    ghostHair = updateHair(ghostHair, ghost, rider, dt, ghost.facing);
     if (
-      !ghost ||
       !inView(
         (ghost.rear.x + ghost.front.x) / 2,
         80,
@@ -591,6 +599,8 @@ export function createRenderer(canvas) {
     )
       return;
     ctx.globalAlpha = GHOST_ALPHA;
+    if (ghostHair)
+      ghostHair.draw(pixelPath, currentHairRoot(ghost, false, ghost.facing));
     gameArt.drawBike({
       rear: ghost.rear,
       front: ghost.front,
@@ -828,8 +838,8 @@ export function createRenderer(canvas) {
     drawGoal(ride);
     drawSpikes(ride);
     drawApples(ride, now);
-    drawGhost(ghost, rider);
-    updateHair(ride, rider, animationDt);
+    drawGhost(ghost, rider, animationDt);
+    hair = updateHair(hair, ride, rider, animationDt);
     if (hair) hair.draw(pixelPath, currentHairRoot(ride, false));
     drawBike(ride, rider, flipVisual, ride.ragdoll ? "ragdoll" : state);
     if (debug) drawPhysicsOverlay(ride.vehicle);
