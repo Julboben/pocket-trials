@@ -58,20 +58,22 @@ export function refreshOnlineBoard(trail, force = false) {
 }
 
 /**
+ * Sends a finished run's inputs; the server replays them to get the time.
  * @param {string} trail
- * @param {{ time: number, rider: string, name: string, playerId: string }} run
- * @returns {Promise<{rank:number,total:number,best:number,improved:boolean}|null>}
+ * @param {{ rider: string, token: string, run: { inputs: number[][], seed: number, physics: number } }} submission
+ * @returns {Promise<{rank:number,total:number,time:number,best:number,improved:boolean}|{signedOut:true}|null>}
  */
-export async function submitOnlineRun(trail, { time, rider, name, playerId }) {
+export async function submitOnlineRun(trail, { rider, token, run }) {
   // Sandbox riders are throwaway, so they never reach the shared board.
-  if (typeof window === 'undefined' || isSandbox() || !isOnlineTrail(trail) || !name || !playerId) return null;
+  if (typeof window === 'undefined' || isSandbox() || !isOnlineTrail(trail) || !token) return null;
   try {
     const res = await fetch(API, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ trail, time, rider, name, playerId }),
-      signal: AbortSignal.timeout(8000),
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+      body: JSON.stringify({ trail, rider, run }),
+      signal: AbortSignal.timeout(20000),
     });
+    if (res.status === 401) return { signedOut: true };
     if (!res.ok) return null;
     const data = await res.json();
     boards.set(trail, toRuns(data.runs));

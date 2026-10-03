@@ -47,6 +47,7 @@ function writeJson(key, value) {
 
 const emptySlots = () => Array(SLOT_COUNT).fill(null);
 const cloneSave = save => save && { ...save, bestTimes: { ...save.bestTimes } };
+const TOKEN_RE = /^[\w-]+\.[\w-]+$/;
 
 function normalizeSave(save, trailCount) {
   if (!save || !['male', 'female'].includes(save.rider)) return null;
@@ -61,7 +62,9 @@ function normalizeSave(save, trailCount) {
     .filter(([, value]) => Number.isFinite(value) && value > 0));
   return {
     rider: save.rider, createdAt: Number(save.createdAt) || Date.now(), trail, unlocked, bestTimes,
-    name, playerId: save.playerId
+    name, playerId: save.playerId,
+    // Online riders carry the server's session token; offline saves have none.
+    token: typeof save.token === 'string' && TOKEN_RE.test(save.token) ? save.token : null
   };
 }
 
@@ -107,7 +110,10 @@ export function saveActiveSlot(slotIndex) {
   writeJson(ACTIVE_SLOT_KEY, clamp(slotIndex, 0, SLOT_COUNT - 1));
 }
 
-export function createSave(slotIndex, rider, trailCount, name) {
+/**
+ * @param {{ playerId: string, token: string } | null} [account] the online rider, or null for an offline save
+ */
+export function createSave(slotIndex, rider, trailCount, name, account = null) {
   const next = [...slots(trailCount)];
   const index = clamp(slotIndex, 0, SLOT_COUNT - 1);
   const cleanName = cleanRiderName(name);
@@ -119,12 +125,62 @@ export function createSave(slotIndex, rider, trailCount, name) {
     unlocked: 0,
     bestTimes: {},
     name: cleanName,
-    playerId: newPlayerId()
+    playerId: account?.playerId ?? newPlayerId(),
+    token: account?.token ?? null
   };
   next[index] = save;
   persistSlots(trailCount, next);
   saveActiveSlot(index);
   return cloneSave(save);
+}
+
+/** Turns an offline save into the online rider that was just created for it. */
+export function linkSave(slotIndex, trailCount, { playerId, token, name }) {
+  updateSave(slotIndex, trailCount, save => {
+    save.playerId = playerId;
+    save.token = token;
+    save.name = cleanRiderName(name) || save.name;
+  });
+  return cloneSave(slots(trailCount)[slotIndex]);
+}
+
+/** Forgets an online save's expired session; the rider logs in again to get a new one. */
+export function clearSaveToken(slotIndex, trailCount) {
+  updateSave(slotIndex, trailCount, save => { save.token = null; });
+}
+
+/**
+ * Puts a logged-in rider into their existing slot, or the first free one,
+ * merging the cloud save and the server's best runs (as ghosts) with what is
+ * on this device.
+ * @returns {number} the slot, or -1 when every slot is taken by someone else
+ */
+export function restoreOnlineSave(trailCount, { token, player, save: cloud, runs }) {
+  const next = [...slots(trailCount)];
+  let index = next.findIndex(save => save?.playerId === player.id);
+  if (index < 0) index = next.findIndex(save => !save);
+  if (index < 0) return -1;
+  const local = next[index];
+  const bestTimes = { ...cloud?.bestTimes };
+  for (const [key, time] of Object.entries(local?.bestTimes ?? {})) bestTimes[key] = Math.min(time, bestTimes[key] ?? Infinity);
+  for (const { trail, ghost } of Array.isArray(runs) ? runs : []) {
+    const time = Number(ghost?.time);
+    if (!Number.isFinite(time) || time <= 0) continue;
+    bestTimes[trail] = Math.min(time, bestTimes[trail] ?? Infinity);
+    const stored = readGhost(trail);
+    if (!stored || stored.physics !== ghost.physics || time < stored.time) saveGhost(trail, ghost);
+  }
+  const unlocked = Math.max(Number(local?.unlocked) || 0, Number(cloud?.unlocked) || 0);
+  next[index] = normalizeSave({
+    rider: player.rider,
+    createdAt: local?.createdAt ?? cloud?.createdAt ?? Date.now(),
+    trail: local?.trail ?? cloud?.trail ?? 0,
+    unlocked, bestTimes,
+    name: player.name, playerId: player.id, token
+  }, trailCount);
+  persistSlots(trailCount, next);
+  saveActiveSlot(index);
+  return next[index] ? index : -1;
 }
 
 export function deleteSave(slotIndex, trailCount) {

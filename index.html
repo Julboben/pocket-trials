@@ -321,6 +321,17 @@
                                 </button>
                                 <button
                                     class="menu-action menu-action-row"
+                                    id="menu-login"
+                                    hidden
+                                >
+                                    <span>LOG IN</span
+                                    ><small
+                                        >Bring back your online rider with a
+                                        passkey</small
+                                    >
+                                </button>
+                                <button
+                                    class="menu-action menu-action-row"
                                     id="menu-trails"
                                 >
                                     <span>TRAILS</span
@@ -385,6 +396,22 @@
                                 id="save-slots"
                                 aria-label="Riders"
                             ></div>
+                            <p
+                                class="account-status"
+                                id="riders-status"
+                                role="status"
+                                hidden
+                            ></p>
+                            <div class="account-login" id="riders-login">
+                                <small>Riding online on another day or device?</small>
+                                <button
+                                    type="button"
+                                    class="menu-back"
+                                    id="riders-login-button"
+                                >
+                                    LOG IN WITH PASSKEY
+                                </button>
+                            </div>
                         </div>
 
                         <div class="menu-view" id="menu-trail-view" hidden>
@@ -558,10 +585,7 @@
                                 </button>
                             </div>
                             <label class="save-name-field" for="new-save-name">
-                                <span class="save-label"
-                                    >RIDER NAME · SHOWN ON THE ONLINE
-                                    LEADERBOARD</span
-                                >
+                                <span class="save-label">RIDER NAME</span>
                                 <input
                                     id="new-save-name"
                                     type="text"
@@ -572,12 +596,59 @@
                                     required
                                 />
                             </label>
+                            <div
+                                class="save-mode"
+                                id="save-mode"
+                                role="group"
+                                aria-label="Online or offline"
+                            >
+                                <div class="setting-options" style="--options: 2">
+                                    <button
+                                        type="button"
+                                        class="setting-option"
+                                        data-save-mode="online"
+                                        aria-pressed="true"
+                                    >
+                                        Online
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="setting-option"
+                                        data-save-mode="offline"
+                                        aria-pressed="false"
+                                    >
+                                        Offline
+                                    </button>
+                                </div>
+                                <small id="save-mode-help"
+                                    >Your name is yours alone on the world
+                                    leaderboard. You sign in with a passkey
+                                    (fingerprint, face or device PIN), and your
+                                    progress is backed up.</small
+                                >
+                            </div>
                             <button
                                 class="primary create-save-button"
                                 id="create-save"
                             >
-                                Create Save &amp; Ride →
+                                Create Passkey &amp; Ride →
                             </button>
+                            <p
+                                class="account-status"
+                                id="save-status"
+                                role="status"
+                                hidden
+                            ></p>
+                            <div class="account-login" id="save-login">
+                                <small>Already riding online?</small>
+                                <button
+                                    type="button"
+                                    class="menu-back"
+                                    id="save-login-button"
+                                >
+                                    LOG IN WITH PASSKEY
+                                </button>
+                            </div>
                         </div>
 
                         <div class="menu-view" id="menu-how-view" hidden>
