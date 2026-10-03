@@ -47,6 +47,7 @@ export function startGame() {
     onStartTrail: index => startSelectedTrail(() => loadTrail(index)),
     onStartCustom: index => startSelectedTrail(() => loadCustomTrail(index), false),
     onClose: closeMainMenu,
+    onRetry: retryFromMenu,
     onPreferences: applyPreferences
   });
 
@@ -269,6 +270,7 @@ export function startGame() {
     session.state = next;
     input.clear();
     if (next !== 'won') overlay.hide();
+    $('crash-retry').hidden = next !== 'ragdoll';
     overlay.showPause(next === 'paused');
     holdWakeLock(next === 'running' || next === 'ragdoll' || next === 'won');
   }
@@ -303,6 +305,7 @@ export function startGame() {
     session.state = 'menu';
     input.clear();
     overlay.hide();
+    $('crash-retry').hidden = true;
     holdWakeLock(false);
     game.classList.add('menu-open');
     menu.open();
@@ -320,6 +323,13 @@ export function startGame() {
       setState('won');
       overlay.reopen();
     } else setState(previous === 'paused' ? 'paused' : 'running');
+  }
+
+  function retryFromMenu() {
+    if (!menu.canResume()) return;
+    menu.close();
+    game.classList.remove('menu-open');
+    startFresh();
   }
 
   function startSelectedTrail(load, requiresSave = true) {
@@ -449,7 +459,7 @@ export function startGame() {
         if (session.preferences.shake === 'on') camera.kick(6);
         vibrate([40, 30, 80]);
         setState('ragdoll');
-        overlay.announce('Rider down. Press ' + keyLabel(session.preferences.bindings.restart[0] || 'KeyR') + ' or select the restart button to try again.');
+        overlay.announce('Rider down. Press ' + keyLabel(session.preferences.bindings.restart[0] || 'KeyR') + ' or select Retry to try again.');
         overlay.toast('Rider down · Press ' + keyLabel(session.preferences.bindings.restart[0] || 'KeyR') + ' to retry', Infinity);
         break;
       case 'apple': {
@@ -597,7 +607,7 @@ export function startGame() {
     } else startFresh();
   });
   $('secondary').addEventListener('click', startFresh);
-  $('restart').addEventListener('click', startFresh);
+  $('crash-retry').addEventListener('click', startFresh);
   $('headlight').addEventListener('click', () => { toggleHeadlight(); focusGame(); });
   $('menu').addEventListener('click', () => { sounds.menuBack(); showMainMenu(); });
   document.querySelectorAll('[data-fullscreen]').forEach(button => button.addEventListener('click', () => {

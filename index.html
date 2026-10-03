@@ -61,7 +61,12 @@
                     </div>
                     <div class="hud-pill split-pill" id="split" hidden></div>
                 </div>
-                <div class="toast" id="toast" role="status"></div>
+                <div class="toast-stack">
+                    <div class="toast" id="toast" role="status"></div>
+                    <button class="primary crash-retry" id="crash-retry" hidden>
+                        Retry ↻
+                    </button>
+                </div>
                 <div
                     class="scene-label"
                     id="scene-label"
@@ -70,23 +75,6 @@
                     THE ORCHARD
                 </div>
                 <div class="game-actions">
-                    <button
-                        class="icon-button"
-                        id="headlight"
-                        aria-label="Headlight"
-                        aria-pressed="true"
-                    >
-                        <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            aria-hidden="true"
-                        >
-                            <path d="M10 5a7 7 0 0 0 0 14z"></path>
-                            <path class="beam" d="M14 7h7M14 12h7M14 17h7"></path>
-                        </svg>
-                    </button>
                     <button
                         class="icon-button"
                         id="menu"
@@ -100,21 +88,6 @@
                             aria-hidden="true"
                         >
                             <path d="M4 6h16M4 12h16M4 18h16"></path>
-                        </svg>
-                    </button>
-                    <button
-                        class="icon-button"
-                        id="restart"
-                        aria-label="Restart trail"
-                    >
-                        <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            aria-hidden="true"
-                        >
-                            <path d="M4 10a8 8 0 1 1 1 7M4 4v6h6"></path>
                         </svg>
                     </button>
                 </div>
@@ -211,6 +184,28 @@
                             ><span class="caption">FLIP</span>
                         </button>
                         <button
+                            class="control lights"
+                            id="headlight"
+                            aria-label="Headlight"
+                            aria-pressed="true"
+                        >
+                            <svg
+                                class="symbol"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                aria-hidden="true"
+                            >
+                                <path d="M10 5a7 7 0 0 0 0 14z"></path>
+                                <path
+                                    class="beam"
+                                    d="M14 7h7M14 12h7M14 17h7"
+                                ></path>
+                            </svg>
+                            <span class="caption">LIGHTS</span>
+                        </button>
+                        <button
                             class="control"
                             id="down-control"
                             data-action="down"
@@ -274,6 +269,14 @@
                                     ><small id="menu-resume-detail"
                                         >Back to the trail</small
                                     >
+                                </button>
+                                <button
+                                    class="menu-action menu-action-half"
+                                    id="menu-retry"
+                                    hidden
+                                >
+                                    <span>RETRY</span
+                                    ><small>Restart the trail from the start</small>
                                 </button>
                                 <button
                                     class="menu-action continue-save"

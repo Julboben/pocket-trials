@@ -54,8 +54,8 @@ A local server is required because the game uses native JavaScript modules and f
 | Brake                            | `Down Arrow` or `S`                       | Brake button                                |
 | Lean backward / forward          | `Left Arrow` / `Right Arrow` or `A` / `D` | Lean buttons                                |
 | Flip riding direction            | `Space`                                   | —                                           |
-| Headlight on / off               | `L` (remappable)                          | Headlight button in the game viewport       |
-| Restart trail                    | `R`                                       | Compact restart button in the game viewport |
+| Headlight on / off               | `L` (remappable)                          | Lights button in the control area           |
+| Restart trail                    | `R`                                       | Retry under the crash notice, or in the menu |
 | Pause / resume                   | `P`                                       | Pause button                                |
 | Open / close the main menu       | `Escape`                                  | In-game menu button                         |
 | Toggle fullscreen                | `F` (remappable)                          | Fullscreen On/Off in Settings               |
