@@ -1,6 +1,6 @@
 // What is under the pointer.
-import { edgeCurve, isCurvedEdge, pointInRegion } from "../terrain-geometry.js";
-import { blocks, boundaryEntries } from "./blocks.js";
+import { cubicPoint, edgeCurve, isCurvedEdge, pointInRegion } from "../terrain-geometry.js";
+import { blockSelected, blocks, boundaryEntries, isBackWall } from "./blocks.js";
 import {
   finishY,
   groundY,
@@ -8,7 +8,7 @@ import {
   objectY,
   syncTerrain,
 } from "./render.js";
-import { editor } from "./state.js";
+import { DOT_REACH, EDGE_REACH, HIT_REACH, editor } from "./state.js";
 
 /**
  * Selection priority, highest first: the visible curve handles of the active
@@ -17,10 +17,20 @@ import { editor } from "./state.js";
  * selects the island rather than the block around it, because the topmost
  * solid under the cursor wins. With `wholeBoundary`, a point or edge selects
  * the whole ring it belongs to instead.
+ *
+ * Back walls sit behind the terrain, so terrain wins over them: their points
+ * and edges lose a tie to the terrain's, and their bodies are only hit where
+ * no terrain is. A selected back wall is grabbed like terrain.
+ *
+ * Edges are only grabbed within EDGE_REACH. Inside a selected block, the
+ * block itself wins over any edge and over points away from their dots, so a
+ * selected block can be dragged from anywhere inside it. `preferEdges` turns
+ * that off, for a double-click that adds a point to an edge.
  */
-export function hitTest(point, { wholeBoundary = false } = {}) {
+export function hitTest(point, { wholeBoundary = false, preferEdges = false } = {}) {
   syncTerrain();
-  const threshold = 13 / editor.zoom;
+  const threshold = HIT_REACH / editor.zoom;
+  const edgeReach = EDGE_REACH / editor.zoom;
   let best = null;
   const consider = (value, x, y, rank) => {
     const distance = Math.hypot(point.x - x, point.y - y);
@@ -35,6 +45,7 @@ export function hitTest(point, { wholeBoundary = false } = {}) {
   };
 
   for (const [blockIndex, block] of blocks().entries()) {
+    const behind = isBackWall(block) && !blockSelected(blockIndex) ? 0.5 : 0;
     boundaryEntries(block).forEach(
       ({ boundary, regionIndex }, boundaryIndex) => {
         boundary.nodes.forEach((node, index) => {
@@ -46,7 +57,7 @@ export function hitTest(point, { wholeBoundary = false } = {}) {
               { kind: "blockBoundary", blockIndex, regionIndex, boundaryIndex },
               hit.x,
               hit.y,
-              1,
+              1 + behind,
             );
             return;
           }
@@ -58,16 +69,16 @@ export function hitTest(point, { wholeBoundary = false } = {}) {
                   { ...base, kind: "blockHandle", side },
                   handle[0],
                   handle[1],
-                  0,
+                  0 + behind,
                 );
             }
           }
-          consider({ ...base, kind: "blockPoint" }, node.x, node.y, 1);
+          consider({ ...base, kind: "blockPoint" }, node.x, node.y, 1 + behind);
           // The edge leaving this node, so a double-click can insert into it.
           const next = boundary.nodes[(index + 1) % boundary.nodes.length];
           const hit = edgeHit(node, next, point);
-          if (hit.distance <= threshold)
-            consider({ ...base, kind: "blockEdge", t: hit.t }, hit.x, hit.y, 2);
+          if (hit.distance <= edgeReach)
+            consider({ ...base, kind: "blockEdge", t: hit.t }, hit.x, hit.y, 2 + behind);
         });
       },
     );
@@ -88,6 +99,10 @@ export function hitTest(point, { wholeBoundary = false } = {}) {
     : groundY(editor.trail.start.x) - 12;
   consider({ kind: "start" }, editor.trail.start.x, startY, 1);
   consider({ kind: "goal" }, editor.trail.goal, finishY(), 1);
+  if (!preferEdges && best && grabsSelectedBody(best)) {
+    const body = selectedBodyAt(point);
+    if (body) return body;
+  }
   if (best) return best.selection;
 
   // Bodies: a spike's own disc, then the topmost solid block under the cursor.
@@ -96,7 +111,9 @@ export function hitTest(point, { wholeBoundary = false } = {}) {
     if (Math.hypot(point.x - spike.x, point.y - spike.y) <= spike.radius)
       return { kind: "spike", index };
   }
-  for (let blockIndex = blocks().length - 1; blockIndex >= 0; blockIndex--) {
+  const selectedBody = preferEdges ? null : selectedBodyAt(point);
+  if (selectedBody) return selectedBody;
+  for (const blockIndex of frontToBack()) {
     const block = blocks()[blockIndex];
     const regionIndex = block.regions.findIndex((region) =>
       pointInRegion(region, point.x, point.y),
@@ -104,6 +121,36 @@ export function hitTest(point, { wholeBoundary = false } = {}) {
     if (regionIndex >= 0) return { kind: "block", blockIndex, regionIndex };
   }
   return null;
+}
+
+/** Would a press inside a selected block take that block instead of this hit? */
+function grabsSelectedBody(best) {
+  const kind = best.selection.kind;
+  if (kind === "blockEdge") return true;
+  return kind === "blockPoint" && best.distance > DOT_REACH / editor.zoom;
+}
+
+/** The frontmost selected block whose solid is under a point. */
+function selectedBodyAt(point) {
+  for (const blockIndex of frontToBack()) {
+    if (!blockSelected(blockIndex)) continue;
+    const regionIndex = blocks()[blockIndex].regions.findIndex((region) =>
+      pointInRegion(region, point.x, point.y),
+    );
+    if (regionIndex >= 0) return { kind: "block", blockIndex, regionIndex };
+  }
+  return null;
+}
+
+/**
+ * Block indices from the frontmost down: a selected back wall, then the
+ * terrain topmost first, then the other back walls.
+ */
+function frontToBack() {
+  const order = [...blocks().keys()].reverse();
+  const rank = (index) =>
+    isBackWall(blocks()[index]) ? (blockSelected(index) ? 0 : 2) : 1;
+  return order.sort((a, b) => rank(a) - rank(b));
 }
 
 /**
@@ -114,13 +161,9 @@ function ringAt(point) {
   const inside = (boundary) =>
     pointInRegion({ outer: boundary, inner: [] }, point.x, point.y);
   const body = hitTest(point);
-  // A block drawn above the cave, such as an island inside it, wins.
-  const lowest = body?.kind === "block" ? body.blockIndex : -1;
-  for (
-    let blockIndex = blocks().length - 1;
-    blockIndex > lowest;
-    blockIndex--
-  ) {
+  // A block in front of the cave, such as an island inside it, wins.
+  for (const blockIndex of frontToBack()) {
+    if (body?.kind === "block" && blockIndex === body.blockIndex) break;
     const entries = boundaryEntries(blocks()[blockIndex]);
     const hole = entries.findIndex(
       (entry) => entry.hole >= 0 && inside(entry.boundary),
@@ -173,21 +216,23 @@ export function edgeHit(node, next, point) {
     };
   }
   const control = edgeCurve(node, next);
-  let best = { distance: Infinity, x: node.x, y: node.y, t: 0 };
-  for (let step = 0; step <= 24; step++) {
-    const t = step / 24;
-    const x =
-      control[0][0] +
-      3 * t * (1 - t) * (1 - t) * (control[1][0] - control[0][0]) +
-      3 * t * t * (1 - t) * (control[2][0] - control[1][0]) +
-      t * t * t * (control[3][0] - control[2][0]);
-    const y =
-      control[0][1] +
-      3 * t * (1 - t) * (1 - t) * (control[1][1] - control[0][1]) +
-      3 * t * t * (1 - t) * (control[2][1] - control[1][1]) +
-      t * t * t * (control[3][1] - control[2][1]);
-    const distance = Math.hypot(point.x - x, point.y - y);
-    if (distance < best.distance) best = { distance, x, y, t };
+  const at = (t) => {
+    const [x, y] = cubicPoint(control[0], control[1], control[2], control[3], t);
+    return { x, y, t, distance: Math.hypot(point.x - x, point.y - y) };
+  };
+  // The nearest of a coarse set of samples, then narrowed down around it, so
+  // a long curve is matched exactly at any zoom.
+  const steps = 24;
+  let best = at(0);
+  for (let step = 1; step <= steps; step++) {
+    const sample = at(step / steps);
+    if (sample.distance < best.distance) best = sample;
   }
+  for (let span = 1 / steps; span > 1e-4; span /= 2)
+    for (const t of [best.t - span / 2, best.t + span / 2]) {
+      if (t < 0 || t > 1) continue;
+      const sample = at(t);
+      if (sample.distance < best.distance) best = sample;
+    }
   return best;
 }

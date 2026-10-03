@@ -15,10 +15,12 @@ import {
   blockSelected,
   blocks,
   boundaryEntries,
+  isBackWall,
   traceBoundary,
   traceRegion,
 } from "./blocks.js";
-import { $, art, canvas, ctx, terrainArt } from "./dom.js";
+import { $, art, backWallArt, canvas, ctx, terrainArt } from "./dom.js";
+import { scaleFrame } from "./scale.js";
 import { gridSpacing } from "./snap.js";
 import { editor } from "./state.js";
 import { PLACING_TOOLS, toolSettings } from "./tools.js";
@@ -50,6 +52,7 @@ export function syncTerrain() {
   mix(editor.trail.fallY || 0);
   for (const block of blocks()) {
     text(String(block.material));
+    text(block.layer || "");
     mix(block.regions.length);
     for (const region of block.regions) {
       for (const boundary of [region.outer, ...region.inner]) {
@@ -152,6 +155,12 @@ export function restingY(x, y) {
 // plain terrain is drawn instead.
 const GAME_ART_MIN_ZOOM = 0.35;
 
+// Back walls in the editor: shaded like the game draws them, with a dotted
+// outline and their own point colour, so they read as behind the terrain.
+const BACK_WALL_SHADE = "#1b263380";
+const BACK_WALL_OUTLINE = "#b9c7ff99";
+const BACK_WALL_POINT = "#a99cf0";
+
 function showGameArt() {
   return editor.gameArt && editor.zoom >= GAME_ART_MIN_ZOOM;
 }
@@ -160,9 +169,11 @@ function drawBlocks() {
   const gameArt = showGameArt();
   for (const [blockIndex, block] of blocks().entries()) {
     const material = terrainMaterials[block.material] || terrainMaterials.grass;
+    const back = isBackWall(block);
     // With game art showing, the blocks are already drawn exactly as they
-    // will be ridden, so only their outlines are added for editing.
-    if (!gameArt) {
+    // will be ridden, so only their outlines are added for editing. Back
+    // walls are filled earlier, behind everything.
+    if (!gameArt && !back) {
       for (const region of block.regions) {
         traceRegion(region);
         // Even-odd fill so a region's caves stay open.
@@ -182,15 +193,18 @@ function drawBlocks() {
           editor.selection.boundaryIndex === boundaryIndex);
       ctx.strokeStyle = highlighted
         ? "#fff3be"
-        : gameArt
-          ? "#17262b99"
-          : material.edge;
+        : back
+          ? BACK_WALL_OUTLINE
+          : gameArt
+            ? "#17262b99"
+            : material.edge;
       ctx.lineWidth = highlighted
         ? 3 / editor.zoom
-        : gameArt
+        : gameArt || back
           ? 1.5 / editor.zoom
           : Math.max(2.5, 1.5 / editor.zoom);
       if (highlighted) ctx.setLineDash([8 / editor.zoom, 5 / editor.zoom]);
+      else if (back) ctx.setLineDash([3 / editor.zoom, 4 / editor.zoom]);
       ctx.beginPath();
       traceBoundary(boundary);
       ctx.stroke();
@@ -216,6 +230,32 @@ function drawPendingShape(shape) {
     ctx.fillStyle = shape.fill;
     ctx.fill();
   }
+}
+
+/**
+ * Back walls, behind everything but the sky: the game's art when it shows,
+ * else their material darkened like the game draws them.
+ */
+function drawBackWalls() {
+  if (!showGameArt()) {
+    for (const block of blocks()) {
+      if (!isBackWall(block)) continue;
+      const material = terrainMaterials[block.material] || terrainMaterials.grass;
+      for (const region of block.regions) {
+        traceRegion(region);
+        ctx.fillStyle = material.fill;
+        ctx.fill("evenodd");
+        ctx.fillStyle = BACK_WALL_SHADE;
+        ctx.fill("evenodd");
+      }
+    }
+    return;
+  }
+  const { width, height } = viewportSize();
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  backWallArt.draw(ctx, editor.trail, editor.cameraX, editor.cameraY, width / editor.zoom, height / editor.zoom);
+  ctx.restore();
 }
 
 function drawTerrain() {
@@ -423,7 +463,7 @@ function drawHandles() {
           node.x,
           node.y,
           isBlockPart(blockIndex, boundaryIndex, index),
-          hole >= 0 ? "#83d1ce" : "#f0b45f",
+          isBackWall(block) ? BACK_WALL_POINT : hole >= 0 ? "#83d1ce" : "#f0b45f",
         );
         // Curve handles are only drawn for the active node, so the canvas
         // stays readable, and only those can be grabbed.
@@ -508,6 +548,7 @@ export function render() {
   ctx.translate(-editor.cameraX * editor.zoom, -editor.cameraY * editor.zoom);
   ctx.scale(editor.zoom, editor.zoom);
   drawGrid(width, height);
+  drawBackWalls();
   drawProps("back");
   drawTerrain();
   drawObjects();
@@ -516,8 +557,31 @@ export function render() {
     art.drawTimeTint(editor.trail, editor.cameraX, editor.cameraY, width / editor.zoom, height / editor.zoom),
   );
   drawHandles();
+  drawScaleFrame();
   drawSnapGuide();
   drawMarquee();
+  ctx.restore();
+}
+
+/** The box around selected blocks, with the handles that scale them. */
+function drawScaleFrame() {
+  const shown = editor.pendingShape ? null : scaleFrame();
+  if (!shown) return;
+  const { frame, handles } = shown;
+  ctx.save();
+  ctx.strokeStyle = "#fff3be99";
+  ctx.lineWidth = 1 / editor.zoom;
+  ctx.setLineDash([4 / editor.zoom, 4 / editor.zoom]);
+  ctx.strokeRect(frame.left, frame.top, frame.right - frame.left, frame.bottom - frame.top);
+  ctx.setLineDash([]);
+  const size = 8 / editor.zoom;
+  ctx.lineWidth = 2 / editor.zoom;
+  for (const { x, y } of handles) {
+    ctx.fillStyle = "#fff3be";
+    ctx.strokeStyle = "#17262b";
+    ctx.fillRect(x - size / 2, y - size / 2, size, size);
+    ctx.strokeRect(x - size / 2, y - size / 2, size, size);
+  }
   ctx.restore();
 }
 

@@ -330,6 +330,8 @@ export function normalizeBlock(raw, defaultMaterial = 'grass') {
   return {
     id: typeof raw?.id === 'string' && raw.id ? raw.id : nextId('b'),
     material: typeof raw?.material === 'string' && raw.material ? raw.material : defaultMaterial,
+    // A back wall is scenery behind the terrain: drawn and lit, never ridden.
+    ...(raw?.layer === 'back' ? { layer: 'back' } : {}),
     regions: (Array.isArray(raw?.regions) ? raw.regions : []).map(normalizeRegion),
   };
 }
@@ -827,6 +829,26 @@ export function moveBlock(block, dx, dy) {
   return {
     ...block,
     regions: block.regions.map(region => ({ outer: shift(region.outer), inner: region.inner.map(shift) })),
+  };
+}
+
+/**
+ * Scale a block and every boundary it owns about (px, py), by sx across and sy
+ * down. Both must be positive. Curve handles scale with their points, so a
+ * circle scaled the same both ways stays a circle.
+ */
+export function scaleBlock(block, px, py, sx, sy) {
+  const at = ([x, y]) => [round(px + (x - px) * sx), round(py + (y - py) * sy)];
+  const scale = boundary => ({
+    ...boundary,
+    nodes: boundary.nodes.map(node => {
+      const [x, y] = at([node.x, node.y]);
+      return { ...node, x, y, in: node.in ? at(node.in) : null, out: node.out ? at(node.out) : null };
+    }),
+  });
+  return {
+    ...block,
+    regions: block.regions.map(region => ({ outer: scale(region.outer), inner: region.inner.map(scale) })),
   };
 }
 

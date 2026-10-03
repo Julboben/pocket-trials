@@ -61,6 +61,8 @@ const SCENERY_SHADOWS = {
   lamp: { width: 6, alpha: 0.15, thickness: 3, lift: 40 },
 };
 const GHOST_ALPHA = 0.38;
+// World units around the hair root that the ghost's hair can reach.
+const GHOST_HAIR_REACH = 40;
 // Where a front prop hides the rider, the hidden part shows as a silhouette.
 const XRAY_COLOR = "#fff3be";
 const XRAY_ALPHA = 0.25;
@@ -100,6 +102,7 @@ export function createRenderer(canvas) {
   const { pixelRect, pixelPath, drawPixelText } = createDrawingTools(ctx);
   const gameArt = createGameArt(ctx);
   const terrainRenderer = createTerrainRenderer();
+  const backWallRenderer = createTerrainRenderer({ backWalls: true });
   const lighting = createLighting();
   const popups = [];
   let W = 380,
@@ -112,7 +115,8 @@ export function createRenderer(canvas) {
     cameraX = 0,
     cameraY = 0;
   let xrayMask = null,
-    xrayRider = null;
+    xrayRider = null,
+    ghostHairLayer = null;
   // What props react to this frame; see drawProp.
   let propScene = { time: 0, riderX: null };
   let frameNow = 0;
@@ -583,6 +587,30 @@ export function createRenderer(canvas) {
     };
   }
 
+  // The hair is many overlapping strokes, so drawing them straight at ghost
+  // alpha stacks them up nearly opaque. Draw it solid off screen, then blend
+  // the result once.
+  function drawGhostHair(root) {
+    const transform = ctx.getTransform();
+    const x0 = Math.max(0, Math.floor(transform.a * (root.x - GHOST_HAIR_REACH) + transform.e));
+    const y0 = Math.max(0, Math.floor(transform.d * (root.y - GHOST_HAIR_REACH) + transform.f));
+    const x1 = Math.min(canvas.width, Math.ceil(transform.a * (root.x + GHOST_HAIR_REACH) + transform.e));
+    const y1 = Math.min(canvas.height, Math.ceil(transform.d * (root.y + GHOST_HAIR_REACH) + transform.f));
+    if (x1 <= x0 || y1 <= y0) return;
+    const width = x1 - x0,
+      height = y1 - y0;
+    ghostHairLayer ??= xrayCanvas(width, height);
+    fitLayer(ghostHairLayer, width, height);
+    ghostHairLayer.context.setTransform(transform.a, 0, 0, transform.d, transform.e - x0, transform.f - y0);
+    ghostHairLayer.context.imageSmoothingEnabled = false;
+    ghostHair.draw(ghostHairLayer.tools.pixelPath, root);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = GHOST_ALPHA;
+    ctx.drawImage(ghostHairLayer.canvas, 0, 0, width, height, x0, y0, width, height);
+    ctx.restore();
+  }
+
   function drawGhost(ghost, rider, dt) {
     if (!ghost) {
       ghostHair = null;
@@ -598,9 +626,8 @@ export function createRenderer(canvas) {
       )
     )
       return;
+    if (ghostHair) drawGhostHair(currentHairRoot(ghost, false, ghost.facing));
     ctx.globalAlpha = GHOST_ALPHA;
-    if (ghostHair)
-      ghostHair.draw(pixelPath, currentHairRoot(ghost, false, ghost.facing));
     gameArt.drawBike({
       rear: ghost.rear,
       front: ghost.front,
@@ -829,6 +856,7 @@ export function createRenderer(canvas) {
     ctx.save();
     ctx.translate(-cameraX, -cameraY);
     effects.update(animationDt);
+    backWallRenderer.draw(ctx, trail, cameraX, cameraY, W, H);
     drawProps("back", full);
     terrainRenderer.draw(ctx, trail, cameraX, cameraY, W, H);
     drawWallPaint();

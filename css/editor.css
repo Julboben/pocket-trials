@@ -116,6 +116,7 @@ button:hover, .back-game:hover { background: #3a535b; }
 .inspector fieldset { margin: 15px 0 0; padding: 13px; border: 1px solid var(--border); }
 .inspector legend { padding: 0 5px; }
 input[type="range"] { padding: 0; accent-color: var(--accent); }
+.wide-action { width: 100%; min-height: 34px; margin-bottom: 10px; font-size: 8px; }
 .danger { width: 100%; min-height: 34px; border-color: #75463f; color: #f0a08c; font-size: 8px; }
 .px-icon { width: 18px; height: 18px; flex: none; fill: currentColor; shape-rendering: crispEdges; }
 .icon-button, .header-actions .icon-button, .trail-actions .icon-button { position: relative; width: 34px; min-height: 34px; padding: 0; display: inline-grid; place-items: center; }

@@ -2,9 +2,10 @@ import {
   compileTerrain, terrainContacts, terrainSweep, terrainSurfaceBelow, terrainSurfaces,
   terrainShadowSamples,
 } from './terrain-runtime.js';
-import { trailTerrainBlocks } from './trail-schema.js';
+import { isBackWall, trailTerrainBlocks, trailBackWalls } from './trail-schema.js';
 
 const geometryCache = new WeakMap();
+const backWallCache = new WeakMap();
 
 /**
  * Forget a trail's compiled terrain. Anything that edits a trail's geometry in
@@ -13,6 +14,7 @@ const geometryCache = new WeakMap();
  */
 export function invalidateTerrain(trail) {
   geometryCache.delete(trail);
+  backWallCache.delete(trail);
 }
 
 /**
@@ -25,8 +27,23 @@ export function terrainGeometry(trail) {
   if (!trail || !Array.isArray(trail.terrainBlocks) || !trail.terrainBlocks.length) return null;
   const cached = geometryCache.get(trail);
   if (cached) return cached;
+  if (trail.terrainBlocks.every(isBackWall)) return null;
   const compiled = compileTerrain({ terrainBlocks: trailTerrainBlocks(trail) });
   geometryCache.set(trail, compiled);
+  return compiled;
+}
+
+/**
+ * The compiled back walls of a trail, or null when it has none. Back walls are
+ * scenery behind the rider: nothing collides with them, but they close a cave
+ * off from the sky behind it, so it stays dark.
+ */
+export function backWallGeometry(trail) {
+  if (!trail || !Array.isArray(trail.terrainBlocks)) return null;
+  if (backWallCache.has(trail)) return backWallCache.get(trail);
+  const walls = trailBackWalls(trail);
+  const compiled = walls.length ? compileTerrain({ terrainBlocks: walls }) : null;
+  backWallCache.set(trail, compiled);
   return compiled;
 }
 

@@ -1,5 +1,5 @@
 import { terrainMaterials } from "./materials.js";
-import { terrainAt, terrainGeometry } from "./terrain.js";
+import { backWallGeometry, terrainAt, terrainGeometry } from "./terrain.js";
 import {
   ART_PIXEL,
   createCanvas,
@@ -21,6 +21,9 @@ const CHUNK_PIXELS = CHUNK_SIZE / ART_PIXEL;
 const CHUNK_LIMIT = 96;
 const CHUNK_MARGIN = 24;
 const BRICK_COLOR = "#4e2e2a99";
+// Back walls are drawn as their material in shadow, a little cool, so they
+// read as rock set back behind the riding surface.
+const BACK_WALL_SHADE = [0.5, 0.52, 0.58];
 
 const materialFor = (name) => terrainMaterials[name] || terrainMaterials.grass;
 
@@ -665,7 +668,20 @@ function changedColumns(before, after) {
   return ranges;
 }
 
-export function createTerrainRenderer() {
+function shadeBackWall(data) {
+  for (let offset = 0; offset < data.length; offset += 4) {
+    data[offset] *= BACK_WALL_SHADE[0];
+    data[offset + 1] *= BACK_WALL_SHADE[1];
+    data[offset + 2] *= BACK_WALL_SHADE[2];
+  }
+}
+
+/**
+ * Draws a trail's terrain blocks in cached chunks, or with `backWalls` its
+ * back-layer blocks instead, darkened and without the start sign.
+ */
+export function createTerrainRenderer({ backWalls = false } = {}) {
+  const geometryOf = backWalls ? backWallGeometry : terrainGeometry;
   let currentTrail = null;
   let currentGeometry = null;
   let chunks = new Map();
@@ -679,6 +695,7 @@ export function createTerrainRenderer() {
       CHUNK_PIXELS,
     );
     if (!raster.opaque) return null;
+    if (backWalls) shadeBackWall(raster.data);
     const canvas = createCanvas(CHUNK_PIXELS, CHUNK_PIXELS);
     canvas
       .getContext("2d")
@@ -695,7 +712,7 @@ export function createTerrainRenderer() {
   let signKey = "",
     signAnchor = null;
   function startSign(trail) {
-    if (!currentGeometry) return null;
+    if (!currentGeometry || backWalls) return null;
     const key = `${trail.start?.x}|${trail.start?.y}`;
     if (key !== signKey) {
       signKey = key;
@@ -729,6 +746,7 @@ export function createTerrainRenderer() {
   function draw(ctx, trail, viewX, viewY, width, height) {
     if (trail !== currentTrail) invalidate(trail);
     else refresh(trail);
+    if (!currentGeometry) return;
     const firstColumn = Math.floor(viewX / CHUNK_SIZE),
       lastColumn = Math.floor((viewX + width) / CHUNK_SIZE);
     const firstRow = Math.floor(viewY / CHUNK_SIZE),
@@ -751,7 +769,7 @@ export function createTerrainRenderer() {
   }
 
   function refresh(trail) {
-    const geometry = trail ? terrainGeometry(trail) : null;
+    const geometry = trail ? geometryOf(trail) : null;
     if (geometry === currentGeometry) return;
     if (!geometry || !currentGeometry) {
       invalidate(trail);
@@ -776,7 +794,7 @@ export function createTerrainRenderer() {
 
   function invalidate(trail = null) {
     currentTrail = trail;
-    currentGeometry = trail ? terrainGeometry(trail) : null;
+    currentGeometry = trail ? geometryOf(trail) : null;
     chunks = new Map();
     signKey = "";
   }

@@ -132,6 +132,20 @@ Authoring guidelines:
 - **Caves**: an `inner` boundary inside a region. The cave is open space with a solid roof and floor.
 - **Loops**: a block whose region has a cave, ridden around its inside. Leave generous room in tight bends; very tight radii are hard to ride cleanly.
 
+### Back walls: `layer: "back"`
+
+A block with `"layer": "back"` is a back wall. It sits in `terrainBlocks` in the same format as any other block, but it is scenery: nothing collides with it, it is drawn darkened behind the props and the terrain, it doesn't count as the trail's terrain and it doesn't change the trail's hash or medals. Back walls decide what is a cave. Air with no back wall behind it looks through to the sky at the back of the scene, so the hollow of a ring, the space under a ledge or a window in a building is lit like open air. Air in front of a back wall only gets the light that reaches in from open air, so give an enclosed cave a back wall to keep it dark:
+
+```json
+{ "id": "cave-back", "material": "rock", "layer": "back", "regions": [{ "outer": { "id": "cave-back-boundary", "nodes": [
+  { "x": 470, "y": 205 }, { "x": 1265, "y": 205 }, { "x": 1265, "y": 325 }, { "x": 470, "y": 325 }
+] }, "inner": [] }] }
+```
+
+Let a back wall reach into the rock around the cave, so no gap shows at its edges, and stop it short of the cave mouth for daylight to fade in. Back walls never block lights, so lanterns and the headlight light them up. A trail needs at least one block that is not a back wall.
+
+In the editor, pick **Back wall** as the **Layer** of the Block tool to draw back walls, and of the Cut tool to cut into back walls without touching the terrain. The inspector's **Layer** switches a selected block between terrain and back wall, and **Fill caves with back walls** adds a back wall in the exact shape of each cave (`inner` boundary) in the selection. Caves formed by separate blocks have no `inner` boundary, so draw their back wall with the Block tool. Back walls show with a dashed outline, and clicking a cave picks its back wall before the terrain around it.
+
 Validation reports blocks that enclose no area, cross themselves, or are buried under other blocks, and objects that are left over open air.
 
 ## Start: `start`
@@ -244,7 +258,7 @@ Both are optional, and each is independent of the other.
 
 `timeOfDay` picks the sky, sun, hill and light colours, and how the scene is lit. Valid values are `morning`, `noon`, `evening` and `night`; anything else, or no value, falls back to `noon`. Evening and night also light the finish and the city windows.
 
-Lighting comes from the terrain, so it needs no setup. Air open to the sky gets the time of day's light, which fades in through cave mouths and under overhangs, so caves are dark at any time of day. Air that sees enough of the sky, such as under a floating ledge, stays lit, with only a soft shade right beneath it. Rock takes the light at its surface and darkens with depth: hardly at all at `noon`, a little in the `morning`, more in the `evening`, and quickly at `night`. Small sealed hollows, such as window cut-outs, and thin slits under ledges are lit like the rock around them. Lanterns, glowing mushrooms, lamps and crane lights and the bike's headlight and tail light cast light of their own, which only reaches the surface of the rock. Apples, spikes and the finish get no light of their own, so in the dark they are only seen where some light reaches them; it is up to the trail to light what the rider should see. Rain softens the light, and lightning lights up the whole scene.
+Lighting comes from the terrain and its back walls (see below). Air open to the sky, above the terrain or with no back wall behind it, gets the time of day's light, which fades in through cave mouths and in from the edges of back walls, so a cave closed off by a back wall is dark at any time of day. Air in front of a back wall that sees enough of the sky, such as under a wide overhang, stays lit, with only a soft shade right beneath it. Rock takes the light at its surface and darkens with depth: hardly at all at `noon`, a little in the `morning`, more in the `evening`, and quickly at `night`. Thin slits under ledges, and small sealed hollows in front of a back wall, are lit like the rock around them. Lanterns, glowing mushrooms, lamps and crane lights and the bike's headlight and tail light cast light of their own, which only reaches the surface of the rock. Apples, spikes and the finish get no light of their own, so in the dark they are only seen where some light reaches them; it is up to the trail to light what the rider should see. Rain softens the light, and lightning lights up the whole scene.
 
 `backdrop` picks the shapes of the two parallax layers behind the terrain. Valid values are `hills`, `mountains`, `forest`, `desert` and `city`; anything else, or no value, means `hills`, and `hills` is not stored.
 

@@ -15,7 +15,7 @@ import {
   timeOfDayPalette,
 } from "./drawing.js";
 import { bakeLightField, lightFieldAt, lightReach } from "./light-field.js";
-import { terrainAt, terrainGeometry } from "./terrain.js";
+import { backWallGeometry, terrainAt, terrainGeometry } from "./terrain.js";
 import { LANTERN_CENTRE } from "./cave-props.js";
 import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
 
@@ -137,12 +137,14 @@ export function createLighting() {
    */
   function prepare(trail) {
     const geometry = terrainGeometry(trail);
+    const backWalls = backWallGeometry(trail);
     const { weather = {} } = trail;
     const key = `${trail.timeOfDay}|${weather.rain || 0}|${weather.lightning || 0}|${weather.sun ?? 1}|${weather.clouds ?? 0.35}`;
     let entry = bakes.get(trail);
-    if (!entry || entry.geometry !== geometry || entry.key !== key) {
+    if (!entry || entry.geometry !== geometry || entry.backWalls !== backWalls || entry.key !== key) {
       entry = bake(trail, ambientFor(trail));
       entry.geometry = geometry;
+      entry.backWalls = backWalls;
       entry.key = key;
       bakes.set(trail, entry);
     }

@@ -11,13 +11,21 @@ const playtestFrame = /** @type {HTMLIFrameElement} */ ($("playtest-frame"));
 
 export const playtestOpen = () => !$("playtest").hidden;
 
-export function openPlaytest() {
-  const errors = validateTrail(editor.trail).filter(
+/**
+ * Ride the trail as it is now. With `spawn`, the bike starts there instead of
+ * at the trail's start; the trail itself keeps its start.
+ * @param {{ x: number, y: number } | null} [spawn]
+ */
+export function openPlaytest(spawn = null) {
+  const trail = spawn
+    ? { ...editor.trail, start: { ...editor.trail.start, x: spawn.x, y: spawn.y } }
+    : editor.trail;
+  const errors = validateTrail(trail).filter(
     (message) => message.type === "error",
   );
   if (errors.length && !refuse("play testing", errors)) return;
   try {
-    store().setItem(PLAYTEST_TRAIL_KEY, JSON.stringify(editor.trail));
+    store().setItem(PLAYTEST_TRAIL_KEY, JSON.stringify(trail));
   } catch (error) {
     showStatus("error", `Could not start the play test: ${error.message}`);
     return;
@@ -52,7 +60,7 @@ export function bindPlaytest() {
       closePlaytest();
   });
 
-  $("play-test").addEventListener("click", openPlaytest);
+  $("play-test").addEventListener("click", () => openPlaytest());
 
   $("close-playtest").addEventListener("click", closePlaytest);
 }

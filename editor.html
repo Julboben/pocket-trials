@@ -71,7 +71,7 @@
                     <button
                         id="play-test"
                         class="play-action"
-                        title="Ride the trail as it is now (Cmd/Ctrl+Enter)"
+                        title="Ride the trail as it is now (Cmd/Ctrl+Enter; add Shift to start at the mouse)"
                     >
                         ▶ PLAY TEST
                     </button>
@@ -364,6 +364,16 @@
                                 >Material
                                 <select id="selection-material"></select
                             ></label>
+                            <label id="selection-block-layer-row" hidden
+                                >Layer
+                                <select id="selection-block-layer">
+                                    <option value="terrain">Terrain</option>
+                                    <option value="back">Back wall</option>
+                                </select></label
+                            >
+                            <button class="wide-action" id="fill-back-walls" hidden>
+                                FILL CAVES WITH BACK WALLS
+                            </button>
                             <label id="selection-node-row" hidden
                                 >Point
                                 <select id="selection-node">
@@ -633,13 +643,15 @@
                         <dt>Click</dt>
                         <dd>Select a block, point or object</dd>
                         <dt><kbd>Shift</kbd> click</dt>
-                        <dd>Add to or remove from the selection</dd>
+                        <dd>Add to or take out of the selection, for example a prop inside a selected block</dd>
                         <dt>Drag empty space</dt>
                         <dd>Box-select; <kbd>⌘/Ctrl</kbd> drag works anywhere</dd>
                         <dt><kbd>Alt</kbd> click</dt>
                         <dd>Select a whole ring or cave</dd>
                         <dt><kbd>⌘/Ctrl</kbd> <kbd>A</kbd></dt>
                         <dd>Select everything</dd>
+                        <dt><kbd>⌘/Ctrl</kbd> <kbd>D</kbd></dt>
+                        <dd>Select nothing</dd>
                         <dt><kbd>Esc</kbd></dt>
                         <dd>Back out: shape, tool, then selection</dd>
                     </dl>
@@ -652,13 +664,11 @@
                         <dt><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd></dt>
                         <dd>Nudge; <kbd>Shift</kbd> for ×10</dd>
                         <dt><kbd>Shift</kbd> drag</dt>
-                        <dd>Snap a point or handle to 15° and the grid</dd>
+                        <dd>Snap to 15° and the grid: a point or handle, or the corner you hold of a block, edge or group</dd>
                         <dt>Double-click</dt>
                         <dd>Add a point to an edge</dd>
                         <dt><kbd>Alt</kbd> drag</dt>
                         <dd>Duplicate what you drag</dd>
-                        <dt><kbd>⌘/Ctrl</kbd> <kbd>D</kbd></dt>
-                        <dd>Duplicate the selection</dd>
                         <dt><kbd>⌘/Ctrl</kbd> <kbd>C</kbd> <kbd>X</kbd> <kbd>V</kbd></dt>
                         <dd>Copy, cut, paste (also into another trail)</dd>
                         <dt><kbd>Delete</kbd></dt>
@@ -672,10 +682,25 @@
                     </dl>
                 </section>
                 <section>
+                    <h3>SCALE HANDLES</h3>
+                    <dl>
+                        <dt>Corner</dt>
+                        <dd>Scale, keeping the shape</dd>
+                        <dt>Side</dt>
+                        <dd>Stretch one way</dd>
+                        <dt><kbd>Alt</kbd></dt>
+                        <dd>Scale from the centre</dd>
+                        <dt><kbd>Shift</kbd></dt>
+                        <dd>Snap to the grid</dd>
+                    </dl>
+                </section>
+                <section>
                     <h3>DRAW (BLOCK AND CUT)</h3>
                     <dl>
                         <dt><kbd>Alt</kbd></dt>
                         <dd>Rectangle</dd>
+                        <dt><kbd>⌘/Ctrl</kbd></dt>
+                        <dd>Circle</dd>
                         <dt><kbd>Shift</kbd></dt>
                         <dd>Snap to the grid</dd>
                     </dl>
@@ -702,6 +727,8 @@
                         <dd>Publish (asks first for an official trail)</dd>
                         <dt><kbd>⌘/Ctrl</kbd> <kbd>Enter</kbd></dt>
                         <dd>Play test</dd>
+                        <dt><kbd>⌘/Ctrl</kbd> <kbd>Shift</kbd> <kbd>Enter</kbd></dt>
+                        <dd>Play test from the mouse; the start stays put</dd>
                         <dt><kbd>?</kbd></dt>
                         <dd>This list</dd>
                     </dl>

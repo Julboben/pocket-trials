@@ -25,7 +25,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Two rider styles and a custom rider name
 - Elasto Mania-style pixel dirt bike, with the original Pocket Classic bike kept for future biker customization
 - Layered foreground and background scenery
-- Pixel lighting at every time of day: ground stays bright by day and sinks into darkness at night, caves are dark at any hour, a headlight you can switch off that stays on the bike through flips and loops, lanterns, lamps, glowing mushrooms, and lightning light the way
+- Pixel lighting at every time of day: ground stays bright by day and sinks into darkness at night, caves closed off by a back wall are dark at any hour while open hollows let the sky through, a headlight you can switch off that stays on the bike through flips and loops, lanterns, lamps, glowing mushrooms, and lightning light the way
 - Terrain-colored wheel spray, brake lights, and fading ground skid marks
 - Procedural engine, braking, wheel-landing, aerial trick, collectible, crash, flip, finish, dashboard, and rain sound effects
 - Collectibles, finish gates, timers, and best times
@@ -88,8 +88,10 @@ Open the visual editor from **Trail Editor** on the main dashboard or navigate d
 The inspector on the right edits the current selection. The editor supports:
 
 - Loading every official and custom trail, with its source clearly labeled
-- Drawing terrain blocks and cutting caves, entrances, and gaps into them
-- Dragging block points and curve handles, switching edges between straight and curved, and moving whole blocks
+- Drawing terrain blocks and cutting caves, entrances, and gaps into them, freehand or, holding `Alt`, as rectangles and, holding `Cmd`/`Ctrl`, as circles; `Shift` snaps to the grid
+- Drawing and cutting back walls: the Block and Cut tools have a **Layer** picker (Terrain or Back wall), the inspector switches a selected block between layers, and **Fill caves with back walls** closes off the selected block's caves
+- Dragging block points and curve handles, switching edges between straight and curved, and moving whole blocks (once selected, a block drags from anywhere inside it; `Esc` or `Cmd`/`Ctrl`+`D` deselects, and `Shift`-click adds or removes a block, point or object); holding `Shift` snaps the point or corner you hold to 15° steps and the grid
+- Scaling selected blocks with the handles around them: corners keep the proportions, so a circle stays a circle, sides stretch one way, `Alt` scales from the centre and `Shift` snaps to the grid
 - Double-clicking a block edge to insert a point
 - Placing freely positioned apples, start points, props, and finish positions
 - Moving or removing props and changing their type and foreground/background layer
@@ -101,7 +103,8 @@ The inspector on the right edits the current selection. The editor supports:
 - Mouse navigation: wheel panning, `Ctrl`/`Cmd` + wheel zooming, and middle-button or `Space`-drag panning
 - Undo and redo
 - Copy, cut and paste (`Cmd`/`Ctrl` + `C`, `X`, `V`) for blocks, apples, props and spikes. The copy goes to the system clipboard, so it can be pasted into another trail or tab; it lands under the cursor, or in the middle of the view.
-- Box-select picks up whole blocks along with points and objects; `Shift`-click adds or removes, `Cmd`/`Ctrl` + `A` selects everything, and `Cmd`/`Ctrl` + `D` duplicates. Undo and redo restore the selection too.
+- Box-select picks up whole blocks along with points and objects; `Shift`-click adds or removes one (for example a prop inside a selected block), `Cmd`/`Ctrl` + `A` selects everything, and `Cmd`/`Ctrl` + `D` selects nothing. Undo and redo restore the selection too.
+- Play testing in place (`Cmd`/`Ctrl` + `Enter`); add `Shift` to start the bike where the mouse is, without moving the trail's start
 - Press `?` (or **Keyboard shortcuts** in the **⋯** menu) for a list of every shortcut.
 - Continuous trail validation, listed in the **⋯** menu, which shows a badge when there are errors or warnings
 - Browser-local draft history (**Save draft** in the header, `Cmd`/`Ctrl` + `S`): up to 12 timestamped drafts per trail. The editor opens the newest draft unless the trail was saved after it. The label next to the trail picker shows which version is open (original, published, or a draft) and whether it has edits since; click it to open **Versions**, where you can open any draft, delete drafts, or revert to the published trail (undoable). **Save draft** is greyed out until the trail changes from the open version, and **Publish** until it differs from the published trail. The inspector panel is hidden until something is selected.
@@ -226,6 +229,7 @@ See [`TRAIL_FORMAT.md`](./TRAIL_FORMAT.md) for the complete schema, coordinate s
 Everything is rendered with the Canvas 2D API. The gameplay and illustrated How to Play guide share the same rider, bike, apple, and finish-flag renderers, so visual updates remain synchronized. Rendered elements include:
 
 - Terrain blocks, caves, and floating ledges
+- Back walls: scenery behind the terrain that keeps caves dark
 - Modular pixel bike, rider, wheels, and suspension. Bike models are listed in `BIKE_MODELS` in `js/drawing.js` and chosen with the `bike` option of `drawBike`. `elasto` is the default and `classic` is the original bike
 - Smooth vector apples and pixel finish gates
 - Layered pixel props and particles

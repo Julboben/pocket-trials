@@ -1,17 +1,24 @@
 // Records one replay per official trail with a search-based bot, so the
 // regression tests have real full-trail runs to replay.
 //
-//   node scripts/record-replays.mjs            record every official trail
+//   node scripts/record-replays.mjs            record trails whose replay is stale
 //   node scripts/record-replays.mjs 03         only trails whose id contains "03"
+//   node scripts/record-replays.mjs --force    re-record even replays that still work
 //   REPLAY_MAX_MINUTES=5 node scripts/...      search budget per trail (default 20)
+//
+// An existing replay is kept (its outcome refreshed) while it still finishes
+// the trail, so editing one trail or tweaking physics only re-records the
+// trails that broke. A replay that never finished is kept until its trail
+// changes, since the bot would most likely fail again.
 //
 // The bot tries each input combination held over a short horizon on a copy
 // of the ride, keeps the best-scoring one for a few steps, and repeats. When
 // every option ahead crashes it backs up a little and searches again.
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { STEP, TAU } from '../js/config.js';
 import { createRide, stepRide, simulateRun } from '../js/ride.js';
-import { encodeInputs } from '../js/replay-codec.js';
+import { decodeInputs, encodeInputs } from '../js/replay-codec.js';
 import { terrainAt } from '../js/terrain.js';
 import { loadCatalogTrails, repoRoot } from './lib/trails.mjs';
 
@@ -139,19 +146,16 @@ function recordTrail(entry) {
   return { inputs, backtracks };
 }
 
-const filter = process.argv[2] || '';
-mkdirSync(OUT_DIR, { recursive: true });
-for (const entry of loadCatalogTrails('official')) {
-  if (!entry.id.includes(filter)) continue;
-  const started = Date.now();
-  const { inputs, backtracks } = recordTrail(entry);
-  const { ride, events } = simulateRun(entry.trail, inputs);
+const args = process.argv.slice(2);
+const force = args.includes('--force');
+const filter = args.find(arg => !arg.startsWith('--')) || '';
+const trailHash = trail => createHash('sha256').update(JSON.stringify(trail)).digest('hex').slice(0, 16);
+
+function outcomeOf(trail, inputs, seed = 1) {
+  const { ride, events } = simulateRun(trail, inputs, { seed });
   const flips = events.filter(event => event.type === 'flip').reduce((sum, event) => sum + event.count, 0);
-  const replay = {
-    trail: entry.id,
-    recordedBy: 'scripts/record-replays.mjs',
-    seed: 1,
-    steps: inputs.length,
+  return {
+    ride,
     outcome: {
       status: ride.status,
       elapsed: Math.round(ride.elapsed * 1000) / 1000,
@@ -159,11 +163,53 @@ for (const entry of loadCatalogTrails('official')) {
       apples: ride.apples.length,
       crashCause: ride.crashCause,
       flips
-    },
+    }
+  };
+}
+
+// Returns the existing replay's inputs if they are still worth keeping.
+function reusable(entry, path, hash) {
+  if (force || !existsSync(path)) return null;
+  let replay;
+  try { replay = JSON.parse(readFileSync(path, 'utf8')); } catch { return null; }
+  if (replay.trail !== entry.id) return null;
+  const inputs = decodeInputs(replay.inputs);
+  const { ride, outcome } = outcomeOf(entry.trail, inputs, replay.seed);
+  if (ride.status === 'won') return { inputs: inputs.slice(0, ride.steps), reason: 'still finishes' };
+  const unchanged = replay.trailHash === hash && replay.outcome?.status !== 'won'
+    && JSON.stringify(outcome) === JSON.stringify(replay.outcome);
+  return unchanged ? { inputs, reason: 'never finished, trail unchanged (--force to retry)' } : null;
+}
+
+mkdirSync(OUT_DIR, { recursive: true });
+let kept = 0, recorded = 0;
+for (const entry of loadCatalogTrails('official')) {
+  if (!entry.id.includes(filter)) continue;
+  const started = Date.now();
+  const path = OUT_DIR + entry.file.split('/').pop();
+  const hash = trailHash(entry.trail);
+  const reuse = reusable(entry, path, hash);
+  const { inputs, backtracks } = reuse || recordTrail(entry);
+  const { ride, outcome } = outcomeOf(entry.trail, inputs);
+  const replay = {
+    trail: entry.id,
+    recordedBy: 'scripts/record-replays.mjs',
+    seed: 1,
+    trailHash: hash,
+    steps: inputs.length,
+    outcome,
     inputs: encodeInputs(inputs)
   };
-  const name = entry.file.split('/').pop();
-  writeFileSync(OUT_DIR + name, JSON.stringify(replay) + '\n');
-  console.log(`${entry.id}: ${ride.status} in ${ride.elapsed.toFixed(2)}s, ${ride.collected}/${ride.apples.length} apples, `
-    + `${replay.inputs.length} input runs, ${backtracks} backtracks, ${((Date.now() - started) / 1000).toFixed(1)}s`);
+  const text = JSON.stringify(replay) + '\n';
+  if (!existsSync(path) || readFileSync(path, 'utf8') !== text) writeFileSync(path, text);
+  const summary = `${ride.status} in ${ride.elapsed.toFixed(2)}s, ${ride.collected}/${ride.apples.length} apples`;
+  if (reuse) {
+    kept++;
+    console.log(`${entry.id}: kept, ${reuse.reason} (${summary})`);
+    continue;
+  }
+  recorded++;
+  console.log(`${entry.id}: recorded, ${summary}, ${replay.inputs.length} input runs, `
+    + `${backtracks} backtracks, ${((Date.now() - started) / 1000).toFixed(1)}s`);
 }
+console.log(`${recorded} recorded, ${kept} kept.`);

@@ -1,15 +1,26 @@
 // Pointer, gesture and keyboard handling on the canvas.
 import {
   addAt,
+  blocks,
   boundaryAt,
   commitShape,
   insertBlockNode,
+  selectedBlocks,
   updateShapePoints,
 } from "./blocks.js";
+import { isCurvedEdge } from "../terrain-geometry.js";
 import { typingInField } from "./clipboard.js";
 import { $, canvas } from "./dom.js";
 import { pushHistory, redo, snapshot, undo } from "./history.js";
 import { hitTest } from "./hit-test.js";
+import {
+  endScale,
+  scaleCursor,
+  scaleHandleAt,
+  scaling,
+  startScale,
+  updateScale,
+} from "./scale.js";
 import {
   flushInspector,
   selectedPosition,
@@ -19,13 +30,14 @@ import {
 import { closePlaytest, openPlaytest, playtestOpen } from "./playtest.js";
 import { render, renderView } from "./render.js";
 import {
+  blockNodes,
   cyclePropType,
   deleteSelection,
-  duplicateSelection,
   duplicateTarget,
   finishMarquee,
   inGroup,
   itemFromHit,
+  itemPosition,
   makeSelection,
   nudgeSelection,
   sameItem,
@@ -65,6 +77,37 @@ let lastDragPointer = null;
 
 let pendingKind = null;
 
+// How far, in screen pixels, a press must move before it drags or scales, so
+// the wobble of a click or double-click moves nothing.
+const DRAG_SLOP = 3;
+
+// Where a press that may become a drag or scale began, until it has moved
+// further than DRAG_SLOP.
+let pressClient = null;
+
+/** Has the pointer moved far enough from the press to start dragging? */
+function pastSlop(event) {
+  if (!pressClient) return true;
+  if (
+    Math.hypot(event.clientX - pressClient.clientX, event.clientY - pressClient.clientY) <
+    DRAG_SLOP
+  )
+    return false;
+  pressClient = null;
+  return true;
+}
+
+// Where the pointer is while a scale handle is dragged, so Alt and Shift can
+// re-apply the scale without the pointer moving.
+let scalePoint = null;
+
+function applyScale(event) {
+  const before = updateScale(scalePoint, { alt: event.altKey, shift: event.shiftKey });
+  if (before) pushHistory(before);
+  syncInspector({ live: true });
+  render();
+}
+
 // An Alt press that becomes a duplicate once the mouse moves.
 let altPress = null;
 
@@ -86,7 +129,51 @@ function snapAnchors() {
   ].filter((other) => other !== node);
 }
 
-/** Move the dragged selection to where the pointer is, snapping points and handles while Shift is held. */
+/**
+ * What a Shift-drag of anything but a single point or handle snaps: the point
+ * of the moving selection nearest where it was grabbed, so the corner you hold
+ * lands on the grid. A curved edge bends instead of moving its points, so it
+ * snaps by the grabbed spot itself.
+ */
+function snapReference(pointer, position) {
+  const selection = editor.selection;
+  let candidates = [];
+  if (selection?.kind === "block")
+    candidates = selectedBlocks().flatMap((index) =>
+      blocks()[index] ? blockNodes(blocks()[index]) : [],
+    );
+  else if (selection?.kind === "blockBoundary")
+    candidates = boundaryAt(selection)?.nodes || [];
+  else if (selection?.kind === "blockEdge") {
+    const boundary = boundaryAt(selection);
+    const node = boundary?.nodes[selection.index];
+    const next = boundary?.nodes[(selection.index + 1) % boundary.nodes.length];
+    if (node && next && !isCurvedEdge(node, next)) candidates = [node, next];
+  } else if (selection?.kind === "items")
+    candidates = selection.items.flatMap((item) => {
+      if (item.type === "block")
+        return blocks()[item.index] ? blockNodes(blocks()[item.index]) : [];
+      const at = itemPosition(item);
+      return at ? [{ x: at[0], y: at[1] }] : [];
+    });
+  let best = position ? { x: position[0], y: position[1] } : null;
+  let nearest = Infinity;
+  for (const { x, y } of candidates) {
+    const distance = Math.hypot(x - pointer.x, y - pointer.y);
+    if (distance < nearest) {
+      nearest = distance;
+      best = { x, y };
+    }
+  }
+  return best;
+}
+
+function startDragOrigin(pointer) {
+  const position = selectedPosition();
+  return { pointer, position, reference: snapReference(pointer, position) };
+}
+
+/** Move the dragged selection to where the pointer is, snapping it while Shift is held. */
 function dragSelectionTo(pointer, shift) {
   if (dragSnapshot) {
     pushHistory(dragSnapshot);
@@ -100,7 +187,27 @@ function dragSelectionTo(pointer, shift) {
   let y = origin ? origin[1] + point.y - dragOrigin.pointer.y : point.y;
   editor.snapGuide = null;
   const anchors = shift ? snapAnchors() : null;
-  if (anchors) {
+  const reference = dragOrigin?.reference;
+  if (shift && !anchors && origin && reference) {
+    // The grabbed point snaps to the grid along an angle step from where it
+    // started, and the whole selection moves with it.
+    const moved = {
+      x: reference.x + point.x - dragOrigin.pointer.x,
+      y: reference.y + point.y - dragOrigin.pointer.y,
+    };
+    if (Math.hypot(moved.x - reference.x, moved.y - reference.y) > 1e-6) {
+      const snapped = snapToAngleAndGrid(moved, [reference], gridSpacing(editor.zoom));
+      x = origin[0] + snapped.x - reference.x;
+      y = origin[1] + snapped.y - reference.y;
+      if (snapped.anchor)
+        editor.snapGuide = {
+          from: reference,
+          to: { x: snapped.x, y: snapped.y },
+          angle: snapped.angle,
+          length: snapped.length,
+        };
+    }
+  } else if (anchors) {
     const snapped = snapToAngleAndGrid({ x, y }, anchors, gridSpacing(editor.zoom));
     x = snapped.x;
     y = snapped.y;
@@ -120,6 +227,11 @@ function dragSelectionTo(pointer, shift) {
 // Pressing or releasing Shift mid-drag turns snapping on or off straight away,
 // without waiting for the pointer to move.
 const onShiftChange = (event) => {
+  if (scaling() && scalePoint && (event.key === "Shift" || event.key === "Alt")) {
+    event.preventDefault();
+    applyScale(event);
+    return;
+  }
   if (
     event.key !== "Shift" ||
     !dragging ||
@@ -131,10 +243,13 @@ const onShiftChange = (event) => {
   dragSelectionTo(lastDragPointer, event.type === "keydown");
 };
 
-// Alt and Shift change a Block or Cut drag straight away, without moving the mouse.
+const SHAPE_KEYS = new Set(["Alt", "Shift", "Meta", "Control"]);
+
+// Modifier keys change a Block or Cut drag straight away, without moving the mouse.
 const onShapeModifier = (event) => {
-  if (!editor.pendingShape || (event.key !== "Alt" && event.key !== "Shift")) return;
+  if (!editor.pendingShape || !SHAPE_KEYS.has(event.key)) return;
   event.preventDefault();
+  editor.pendingShape.circle = event.metaKey || event.ctrlKey;
   editor.pendingShape.alt = event.altKey;
   editor.pendingShape.shift = event.shiftKey;
   updateShapePoints(editor.pendingShape);
@@ -152,6 +267,9 @@ function resetPointerState() {
   editor.snapGuide = null;
   editor.marquee = null;
   altPress = null;
+  scalePoint = null;
+  pressClient = null;
+  endScale();
 }
 
 export const endPointer = () => {
@@ -164,7 +282,9 @@ export const endPointer = () => {
     // Only a shape that changed something becomes an undo step, so a missed
     // cut neither leaves an empty step nor clears the redo history.
     const before = snapshot();
-    if (commitShape(kind, shape.points, shape.closed, shape.alt))
+    if (
+      commitShape(kind, shape.points, shape.closed, shape.alt, shape.circleShape)
+    )
       pushHistory(before);
     else if (kind === "block")
       showStatus(
@@ -172,6 +292,12 @@ export const endPointer = () => {
         "That was too small to be a block. Drag a larger shape.",
       );
     syncInspector();
+    render();
+    return;
+  }
+  if (scaling()) {
+    resetPointerState();
+    flushInspector();
     render();
     return;
   }
@@ -253,6 +379,11 @@ export function bindInput() {
     gestureAnchor = null;
   });
 
+  // Ctrl-click opens the context menu on a Mac; while drawing it means a circle.
+  canvas.addEventListener("contextmenu", (event) => {
+    if (editor.pendingShape) event.preventDefault();
+  });
+
   canvas.addEventListener("pointerdown", (event) => {
     if (event.button === 2) return;
     canvas.focus({ preventScroll: true });
@@ -275,6 +406,7 @@ export function bindInput() {
         raw: [[point.x, point.y]],
         end: [point.x, point.y],
         points: [],
+        circle: event.metaKey || event.ctrlKey,
         alt: event.altKey,
         shift: event.shiftKey,
         closed: true,
@@ -289,6 +421,13 @@ export function bindInput() {
     }
     if (editor.tool !== "select") {
       addAt(point);
+      return;
+    }
+    const scaleHandle = scaleHandleAt(point);
+    if (scaleHandle && startScale(scaleHandle, point, snapshot())) {
+      pressClient = { clientX: event.clientX, clientY: event.clientY };
+      dragging = true;
+      canvas.setPointerCapture(event.pointerId);
       return;
     }
     // Alt-press: a drag duplicates what's under the cursor; a plain click
@@ -344,8 +483,9 @@ export function bindInput() {
       editor.selection = hit;
     }
     if (editor.selection) {
+      pressClient = { clientX: event.clientX, clientY: event.clientY };
       dragSnapshot = snapshot();
-      dragOrigin = { pointer: point, position: selectedPosition() };
+      dragOrigin = startDragOrigin(point);
       dragging = true;
       canvas.setPointerCapture(event.pointerId);
     }
@@ -379,6 +519,7 @@ export function bindInput() {
       if (Math.hypot(point.x - last[0], point.y - last[1]) > 6 / editor.zoom)
         editor.pendingShape.raw.push([point.x, point.y]);
       editor.pendingShape.end = [point.x, point.y];
+      editor.pendingShape.circle = event.metaKey || event.ctrlKey;
       editor.pendingShape.alt = event.altKey;
       editor.pendingShape.shift = event.shiftKey;
       updateShapePoints(editor.pendingShape);
@@ -407,13 +548,23 @@ export function bindInput() {
       if (!copy) return;
       editor.selection = copy;
       dragSnapshot = before;
-      dragOrigin = { pointer: press.point, position: selectedPosition() };
+      dragOrigin = startDragOrigin(press.point);
       dragging = true;
       lastDragPointer = { clientX: event.clientX, clientY: event.clientY };
       dragSelectionTo(lastDragPointer, event.shiftKey);
       return;
     }
-    if (!dragging || !editor.selection) return;
+    if (scaling()) {
+      if (!pastSlop(event)) return;
+      scalePoint = pointerWorld(event);
+      applyScale(event);
+      return;
+    }
+    if (editor.tool === "select" && !dragging && !panning) {
+      const handle = scaleHandleAt(pointerWorld(event));
+      canvas.style.cursor = handle ? scaleCursor(handle) : "default";
+    }
+    if (!dragging || !editor.selection || !pastSlop(event)) return;
     lastDragPointer = { clientX: event.clientX, clientY: event.clientY };
     dragSelectionTo(lastDragPointer, event.shiftKey);
   });
@@ -437,7 +588,7 @@ export function bindInput() {
   canvas.addEventListener("dblclick", (event) => {
     if (editor.tool !== "select") return;
     const point = pointerWorld(event);
-    const hit = hitTest(point);
+    const hit = hitTest(point, { preferEdges: true });
     // A double-click on an edge adds a point to it, keeping the edge's shape.
     if (hit?.kind === "blockEdge") {
       pushHistory();
@@ -488,7 +639,21 @@ export function bindInput() {
       // Blurring commits a field that is still being typed in through its change handler.
       event.preventDefault();
       /** @type {HTMLElement} */ (document.activeElement)?.blur?.();
-      openPlaytest();
+      if (!event.shiftKey) openPlaytest();
+      else {
+        // Shift spawns the bike where the mouse is.
+        const pointer = editor.pointerClient;
+        const bounds = canvas.getBoundingClientRect();
+        if (
+          pointer &&
+          pointer.clientX >= bounds.left &&
+          pointer.clientX <= bounds.right &&
+          pointer.clientY >= bounds.top &&
+          pointer.clientY <= bounds.bottom
+        )
+          openPlaytest(pointerWorld(pointer));
+        else showStatus("warning", "Point at the trail to choose where the bike starts.");
+      }
       return;
     }
     if ((event.metaKey || event.ctrlKey) && event.code === "KeyZ") {
@@ -514,7 +679,11 @@ export function bindInput() {
     ) {
       event.preventDefault();
       if (event.code === "KeyA") selectAll();
-      else duplicateSelection();
+      else if (editor.selection) {
+        editor.selection = null;
+        syncInspector();
+        render();
+      }
       return;
     }
 
