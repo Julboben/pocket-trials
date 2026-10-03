@@ -10,6 +10,7 @@ import {
 import { ONLINE_LEADERBOARD_EVENT, isOnlineBoardLoading } from '../online-leaderboard.js';
 import { normalizeTrail, validateTrail, medalFor } from '../trail-schema.js';
 import { ACTION_LABELS, keyLabel } from '../input.js';
+import { VERSION } from '../version.js';
 import {
   $, session, DEFAULT_BINDINGS, DEFAULT_PREFERENCES, sanitizePreferences,
   leaderboardTrails, trailKey, trailMarker, runTimeText
@@ -55,6 +56,7 @@ export function loadStoredState() {
  */
 export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose, onRetry, onPreferences }) {
   let pendingSaveSlot = 0, selectedNewRider = 'male';
+  $('app-version').textContent = 'v' + VERSION;
   let deleteArmedSlot = -1, deleteArmTimer = 0, leaderboardTrail = 0;
   let creatorFromRiders = false;
 
