@@ -44,6 +44,10 @@ const RIDER_PROBES = [
 ];
 // Grace period after spawning before rider probes can crash the bike.
 const SPAWN_GRACE = 0.2;
+// A jump ends once both wheels are down, or one wheel has stayed down this
+// long; brief touches (a wheel clipping a lip, a rear-wheel-first landing)
+// keep counting the same rotation.
+export const LANDING_SETTLE_STEPS = Math.round(0.15 / STEP);
 
 /** Small deterministic PRNG (mulberry32) so crashes replay identically. */
 export function seededRandom(seed = 1) {
@@ -117,6 +121,8 @@ export function createRide(trail, { seed = 1 } = {}) {
     airRotation: 0,
     airTurnMilestone: 0,
     previousAirAngle: 0,
+    inJump: false,
+    landingSteps: 0,
     lastGateNotice: -10,
     previousRiderContacts: null,
     splits: [],
@@ -210,36 +216,47 @@ export function bikeSpeed(ride) {
   return (rear.x - rear.ox + (front.x - front.ox)) / (2 * STEP);
 }
 
-function trackAirRotation(ride, wasAirborne, events) {
+export function trackAirRotation(ride, events) {
   const { rear, front } = ride;
   const airborne = !rear.grounded && !front.grounded;
   const bikeAngle = atan2(front.y - rear.y, front.x - rear.x);
-  if (airborne) {
-    if (!wasAirborne) {
+  if (!ride.inJump) {
+    if (airborne) {
+      ride.inJump = true;
       ride.airRotation = 0;
       ride.airTurnMilestone = 0;
-    } else {
-      ride.airRotation += atan2(
-        sin(bikeAngle - ride.previousAirAngle),
-        cos(bikeAngle - ride.previousAirAngle),
-      );
-      const milestone = Math.floor(Math.abs(ride.airRotation) / Math.PI);
-      if (milestone > ride.airTurnMilestone) {
-        ride.airTurnMilestone = milestone;
-        events.push({ type: "airTurn", full: milestone % 2 === 0 });
-      }
+      ride.landingSteps = 0;
     }
   } else {
-    // A flip counts on landing, allowing a little under-rotation.
-    const flips = Math.floor(Math.abs(ride.airRotation) / TAU + 0.15);
-    if (wasAirborne && flips > 0 && ride.status === "running")
-      events.push({
-        type: "flip",
-        count: flips,
-        direction: Math.sign(ride.airRotation),
-      });
-    ride.airRotation = 0;
-    ride.airTurnMilestone = 0;
+    ride.airRotation += atan2(
+      sin(bikeAngle - ride.previousAirAngle),
+      cos(bikeAngle - ride.previousAirAngle),
+    );
+    const milestone = Math.floor(Math.abs(ride.airRotation) / Math.PI);
+    if (milestone > ride.airTurnMilestone) {
+      ride.airTurnMilestone = milestone;
+      events.push({ type: "airTurn", full: milestone % 2 === 0 });
+    }
+    ride.landingSteps = airborne ? 0 : ride.landingSteps + 1;
+    if (
+      (rear.grounded && front.grounded) ||
+      ride.landingSteps >= LANDING_SETTLE_STEPS
+    ) {
+      // Landing upright already lines the bike up with the ground, so the
+      // rotation is whole turns plus the slope change between takeoff and
+      // landing: round to the nearest turn rather than demanding a full 360°.
+      const flips = Math.round(Math.abs(ride.airRotation) / TAU);
+      if (flips > 0 && ride.status === "running")
+        events.push({
+          type: "flip",
+          count: flips,
+          direction: Math.sign(ride.airRotation),
+        });
+      ride.inJump = false;
+      ride.airRotation = 0;
+      ride.airTurnMilestone = 0;
+      ride.landingSteps = 0;
+    }
   }
   ride.previousAirAngle = bikeAngle;
 }
@@ -318,7 +335,7 @@ export function stepRide(ride, input = {}, hooks = {}) {
     },
     hooks,
   );
-  trackAirRotation(ride, !wasRearGrounded && !wasFrontGrounded, events);
+  trackAirRotation(ride, events);
 
   const landingImpact = Math.max(
     !wasRearGrounded && rear.grounded ? rear.impactSpeed : 0,
