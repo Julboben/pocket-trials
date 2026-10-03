@@ -1,5 +1,6 @@
 // Terrain block geometry: boundaries, points, drawn shapes and cuts.
 import { canFlip } from "../drawing.js";
+import { isBackWall } from "../trail-schema.js";
 import {
   cutBlock,
   edgeCurve,
@@ -16,7 +17,9 @@ import { blocksSelection } from "./selection.js";
 import { gridSpacing } from "./snap.js";
 import { editor } from "./state.js";
 import { showStatus } from "./status.js";
-import { setTool, toolMaterial, toolSettings } from "./tools.js";
+import { setTool, toolLayer, toolMaterial, toolSettings } from "./tools.js";
+
+export { isBackWall };
 
 /** The blocks being edited, normalized so every node and handle is well formed. */
 export function blocks() {
@@ -242,6 +245,56 @@ const signedArea = (points) =>
     return sum + x * ny - nx * y;
   }, 0) / 2;
 
+// Outline points of a circle while it's drawn, and of a circular cut.
+const CIRCLE_STEPS = 48;
+// Handle length that makes four cubic curves follow a circle.
+const CIRCLE_HANDLE = 0.5523;
+
+/** The four smooth points of a circle, wound like `like`'s outline. */
+function circleNodes({ cx, cy, r }, like) {
+  const template = like.nodes[0];
+  const dir = Math.sign(signedArea(like.nodes.map((node) => [node.x, node.y]))) || 1;
+  return Array.from({ length: 4 }, (_, index) => {
+    const angle = (index * Math.PI * dir) / 2;
+    const cos = Math.cos(angle),
+      sin = Math.sin(angle);
+    const x = cx + r * cos,
+      y = cy + r * sin;
+    const tx = -sin * dir * r * CIRCLE_HANDLE,
+      ty = cos * dir * r * CIRCLE_HANDLE;
+    return {
+      ...template,
+      id: `${template.id}-${index}`,
+      x,
+      y,
+      mode: "smooth",
+      in: [x - tx, y - ty],
+      out: [x + tx, y + ty],
+      edge: "curve",
+    };
+  });
+}
+
+/**
+ * A circular cut fully inside solid leaves a cave of the circle's sampled
+ * points; give it the four curved points of a drawn circle instead.
+ */
+function roundCircularCaves(block, circle) {
+  const onCircle = (node) =>
+    Math.abs(Math.hypot(node.x - circle.cx, node.y - circle.cy) - circle.r) < 1;
+  return {
+    ...block,
+    regions: block.regions.map((region) => ({
+      ...region,
+      inner: region.inner.map((boundary) =>
+        boundary.nodes.length === CIRCLE_STEPS && boundary.nodes.every(onCircle)
+          ? { ...boundary, nodes: circleNodes(circle, boundary) }
+          : boundary,
+      ),
+    })),
+  };
+}
+
 function snapToGrid([x, y]) {
   const g = gridSpacing(editor.zoom);
   return [Math.round(x / g) * g, Math.round(y / g) * g];
@@ -249,10 +302,26 @@ function snapToGrid([x, y]) {
 
 /**
  * What a Block or Cut drag will make, from its raw path and the keys held:
- * Alt draws a rectangle, Shift snaps to the grid.
+ * Cmd/Ctrl draws a circle, Alt a rectangle, and Shift snaps to the grid.
  */
 export function updateShapePoints(shape) {
   const snap = shape.shift ? snapToGrid : (point) => point;
+  shape.circleShape = null;
+  if (shape.circle) {
+    // A circle in the dragged square, from the corner where the drag started.
+    const [sx, sy] = snap(shape.raw[0]);
+    const [ex, ey] = snap(shape.end);
+    const size = Math.max(Math.abs(ex - sx), Math.abs(ey - sy));
+    const r = size / 2;
+    const cx = sx + Math.sign(ex - sx || 1) * r;
+    const cy = sy + Math.sign(ey - sy || 1) * r;
+    shape.circleShape = { cx, cy, r };
+    shape.points = Array.from({ length: CIRCLE_STEPS }, (_, index) => {
+      const angle = (index / CIRCLE_STEPS) * Math.PI * 2;
+      return [cx + r * Math.cos(angle), cy + r * Math.sin(angle)];
+    });
+    return;
+  }
   if (shape.alt) {
     const [sx, sy] = snap(shape.raw[0]);
     const [ex, ey] = snap(shape.end);
@@ -271,13 +340,14 @@ export function updateShapePoints(shape) {
 }
 
 /**
- * Commit a drawn shape. A Block drag makes a new block in the drawn shape (or
- * a rectangle with `rect`); a Cut drag removes the drawn outline from a block.
+ * Commit a drawn shape. A Block drag makes a new block in the drawn shape (a
+ * rectangle with `rect`, or a curved circle with `circle`); a Cut drag removes
+ * the drawn outline from a block.
  *
  * The kind is passed in rather than read from `pendingKind`, because the caller
  * has already cleared that state by the time it gets here.
  */
-export function commitShape(kind, points, closed, rect = false) {
+export function commitShape(kind, points, closed, rect = false, circle = null) {
   if (points.length < 2) return false;
   if (kind === "block") {
     const xs = points.map((value) => value[0]),
@@ -294,7 +364,10 @@ export function commitShape(kind, points, closed, rect = false) {
       bottom,
       toolMaterial("block"),
     );
-    if (!rect) {
+    if (circle) {
+      const outer = block.regions[0].outer;
+      block.regions[0].outer = { ...outer, nodes: circleNodes(circle, outer) };
+    } else if (!rect) {
       // Freehand: the drawn outline, with the rectangle's ids and winding.
       const outline = simplifyOutline(points, 3 / editor.zoom);
       if (outline.length < 3 || Math.abs(signedArea(outline)) < 64)
@@ -324,6 +397,7 @@ export function commitShape(kind, points, closed, rect = false) {
         })),
       };
     }
+    if (toolLayer("block") === "back") block.layer = "back";
     editor.trail.terrainBlocks = [
       ...blocks(),
       normalizeBlocks([block], "grass")[0],
@@ -336,16 +410,18 @@ export function commitShape(kind, points, closed, rect = false) {
     return true;
   }
 
-  // A cut needs at least three corners. It applies to the selected blocks when
-  // it overlaps any of them, so a cave can be cut into a block that sits under
-  // another one; otherwise it applies to the topmost block it changes, so one
-  // stroke never carves through every layer at once.
+  // A cut needs at least three corners, and only cuts blocks on its own layer.
+  // It applies to the selected blocks when it overlaps any of them, so a cave
+  // can be cut into a block that sits under another one; otherwise it applies
+  // to the topmost block it changes, so one stroke never carves through every
+  // block at once.
   if (!closed || points.length < 3) {
     showStatus("warning", "That cut was too small. Drag a larger outline.");
     return false;
   }
   const attempt = (blockIndex) => {
     const result = cutBlock(blocks()[blockIndex], points);
+    if (result.changed && circle) result.block = roundCircularCaves(result.block, circle);
     if (result.changed)
       replaceBlock(
         blockIndex,
@@ -354,7 +430,9 @@ export function commitShape(kind, points, closed, rect = false) {
     return result;
   };
   let reason = null;
-  const selected = selectedBlocks().filter((index) => blocks()[index]);
+  const back = toolLayer("cut") === "back";
+  const onLayer = (index) => blocks()[index] && isBackWall(blocks()[index]) === back;
+  const selected = selectedBlocks().filter(onLayer);
   const changedSelected = selected.filter((index) => {
     const result = attempt(index);
     reason ||= result.reason;
@@ -365,7 +443,7 @@ export function commitShape(kind, points, closed, rect = false) {
     return true;
   }
   for (let blockIndex = blocks().length - 1; blockIndex >= 0; blockIndex--) {
-    if (selected.includes(blockIndex)) continue;
+    if (selected.includes(blockIndex) || !onLayer(blockIndex)) continue;
     const result = attempt(blockIndex);
     if (result.changed) {
       editor.selection = { kind: "block", blockIndex, regionIndex: 0 };
@@ -373,7 +451,10 @@ export function commitShape(kind, points, closed, rect = false) {
     }
     reason ||= result.reason;
   }
-  showStatus("warning", reason || "The cut did not overlap any block.");
+  showStatus(
+    "warning",
+    reason || `The cut did not overlap any ${back ? "back wall" : "terrain block"}.`,
+  );
   return false;
 }
 
@@ -386,6 +467,7 @@ export function freshBlockCopy(block) {
     [
       {
         material: block.material,
+        ...(isBackWall(block) ? { layer: "back" } : {}),
         regions: block.regions.map((region) => ({
           outer: strip(region.outer),
           inner: region.inner.map(strip),
@@ -394,4 +476,67 @@ export function freshBlockCopy(block) {
     ],
     "grass",
   )[0];
+}
+
+/**
+ * The caves a "fill with back wall" would close off: the selected cave, or
+ * every cave in the selected terrain blocks, as { block, boundary } pairs.
+ * Caves that already have a back wall in their exact shape are left out.
+ */
+export function selectedCaves() {
+  const existing = new Set(
+    blocks()
+      .filter(isBackWall)
+      .flatMap((block) => block.regions.map((region) => outlineKey(region.outer))),
+  );
+  return allSelectedCaves().filter(
+    ({ boundary }) => !existing.has(outlineKey(boundary)),
+  );
+}
+
+function allSelectedCaves() {
+  const selection = editor.selection;
+  if (selection?.kind === "blockBoundary") {
+    const block = blocks()[selection.blockIndex];
+    const entry = block && boundaryEntries(block)[selection.boundaryIndex];
+    return entry && entry.hole >= 0 && !isBackWall(block)
+      ? [{ block, boundary: entry.boundary }]
+      : [];
+  }
+  if (selection?.kind !== "block" && selection?.kind !== "items") return [];
+  return selectedBlocks()
+    .map((index) => blocks()[index])
+    .filter((block) => block && !isBackWall(block))
+    .flatMap((block) =>
+      block.regions.flatMap((region) =>
+        region.inner.map((boundary) => ({ block, boundary })),
+      ),
+    );
+}
+
+const outlineKey = (boundary) =>
+  boundary.nodes
+    .map((node) => `${Math.round(node.x)},${Math.round(node.y)}`)
+    .sort()
+    .join(" ");
+
+/**
+ * Puts a back wall in the exact shape of each selected cave, in the cave's
+ * material, so the cave stays dark. Returns how many were added.
+ */
+export function fillCavesWithBackWalls() {
+  const caves = selectedCaves();
+  if (!caves.length) return 0;
+  pushHistory();
+  const walls = caves.map(({ block, boundary }) =>
+    freshBlockCopy({
+      material: block.material,
+      layer: "back",
+      regions: [{ outer: boundary, inner: [] }],
+    }),
+  );
+  const first = blocks().length;
+  editor.trail.terrainBlocks = [...blocks(), ...walls];
+  editor.selection = blocksSelection(walls.map((_, index) => first + index));
+  return walls.length;
 }

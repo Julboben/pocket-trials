@@ -10,7 +10,7 @@
  * @typedef {object} Trail
  * @property {string} name
  * @property {string} [label]
- * @property {object[]} terrainBlocks solid terrain; see terrain-geometry.js
+ * @property {object[]} terrainBlocks terrain; see terrain-geometry.js. Blocks with `layer: "back"` are back walls: scenery that keeps caves dark and never collides
  * @property {{ x: number, y?: number | null, facing: 1 | -1 }} start
  * @property {number} goal x coordinate of the finish flower, which may be on either side of the start
  * @property {number | null} [finishY] height the finish stands at; null means on the surface below it

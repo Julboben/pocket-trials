@@ -7,6 +7,7 @@ import {
   boundaryAt,
   boundaryEntries,
   freshBlockCopy,
+  isBackWall,
   replaceBlock,
   replaceBoundary,
   selectedBlocks,
@@ -228,10 +229,11 @@ export function blocksSelection(indices) {
 }
 
 export function groupTitle(items) {
-  const blockCount = items.filter((item) => item.type === "block").length;
-  return blockCount === items.length
-    ? `${blockCount} BLOCKS`
-    : `${items.length} ITEMS`;
+  const picked = items.filter((item) => item.type === "block");
+  if (picked.length !== items.length) return `${items.length} ITEMS`;
+  return picked.every((item) => isBackWall(blocks()[item.index]))
+    ? `${picked.length} BACK WALLS`
+    : `${picked.length} BLOCKS`;
 }
 
 /** Every point of a block, outer rings first. */

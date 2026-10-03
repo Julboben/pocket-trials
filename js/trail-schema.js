@@ -120,6 +120,18 @@ export function createBlankTrail(index = 0) {
 
 /** The terrain blocks on a trail, normalized. */
 export function trailTerrainBlocks(trail) {
+  return allTrailBlocks(trail).filter((block) => !isBackWall(block));
+}
+
+/** Is this block a back wall, scenery behind the terrain, rather than solid? */
+export const isBackWall = (block) => block?.layer === "back";
+
+/** The back walls on a trail, normalized: the blocks on the `back` layer. */
+export function trailBackWalls(trail) {
+  return allTrailBlocks(trail).filter(isBackWall);
+}
+
+function allTrailBlocks(trail) {
   return normalizeTerrainBlocks(trail?.terrainBlocks, trail?.terrain || "grass") || [];
 }
 
@@ -215,7 +227,8 @@ export function normalizeTrail(input, index = 0) {
     normalizeTerrainBlocks(input?.terrainBlocks, trail.terrain) || [];
   // Every block now has a material, so the base is only kept where the trail
   // hash still needs it: when it differs from the first block's material.
-  if (trail.terrain === trail.terrainBlocks[0]?.material) delete trail.terrain;
+  if (trail.terrain === trail.terrainBlocks.find((block) => !isBackWall(block))?.material)
+    delete trail.terrain;
   const start = trail.start || fallback.start;
   trail.start = {
     x: Number(start.x) || 90,
@@ -311,10 +324,15 @@ export function validateTrail(trail) {
   const warning = (text) => messages.push({ type: "warning", text });
   if (!trail.name.trim()) error("The trail needs a name.");
 
-  // Block geometry is validated first, and against the trail's other blocks so
-  // a fully buried block is reported.
-  const blocks = trailTerrainBlocks(trail);
-  for (const message of validateTerrainBlocks(blocks)) messages.push(message);
+  // Block geometry is validated first, back walls included so blocks are
+  // numbered as in the editor, and against the trail's other blocks so a fully
+  // buried block is reported.
+  const allBlocks = allTrailBlocks(trail);
+  for (const message of validateTerrainBlocks(allBlocks)) messages.push(message);
+  const blocks = allBlocks.filter((block) => !isBackWall(block));
+  const number = allBlocks
+    .map((block, index) => (isBackWall(block) ? -1 : index + 1))
+    .filter((value) => value > 0);
   const compiled = blocks.length ? terrainGeometry(trail) : null;
   if (compiled) {
     // A block with no surface left on the union's boundary is entirely inside
@@ -327,7 +345,7 @@ export function validateTrail(trail) {
     blocks.forEach((block, index) => {
       if (!exposed.has(index))
         warning(
-          `Block ${index + 1} is completely buried inside other terrain, so it has no effect.`,
+          `Block ${number[index]} is completely buried inside other terrain, so it has no effect.`,
         );
     });
     const edges = compiled.bodies.reduce(

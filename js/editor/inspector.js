@@ -12,16 +12,20 @@ import {
   blocks,
   boundariesOf,
   boundaryAt,
+  fillCavesWithBackWalls,
+  isBackWall,
   realignSmooth,
   replaceBlock,
   replaceBoundary,
   selectedBlocks,
+  selectedCaves,
 } from "./blocks.js";
 import { $ } from "./dom.js";
 import { pushHistory, updateHistoryButtons } from "./history.js";
 import { updateVersionChip } from "./drafts.js";
 import { edgeHit } from "./hit-test.js";
 import { updateValidationBadge } from "./menu.js";
+import { showStatus } from "./status.js";
 import {
   finishY,
   groundY,
@@ -142,7 +146,10 @@ export function syncInspector({ live = false } = {}) {
     ? "NOTHING SELECTED"
     : editor.selection.kind === "items"
       ? groupTitle(editor.selection.items)
-      : editor.selection.kind.replace(/([A-Z])/g, " $1").toUpperCase();
+      : editor.selection.kind === "block" &&
+          isBackWall(blocks()[editor.selection.blockIndex])
+        ? "BACK WALL"
+        : editor.selection.kind.replace(/([A-Z])/g, " $1").toUpperCase();
   $("selection-empty").hidden = Boolean(editor.selection);
   if (position) {
     $("selection-x").value = Math.round(position[0]);
@@ -155,6 +162,8 @@ export function syncInspector({ live = false } = {}) {
   // with a fixed height is left as it was.
   $("selection-y-row").hidden = !editor.selection;
   $("selection-material-row").hidden = !isBlock;
+  $("selection-block-layer-row").hidden = !isBlock;
+  $("fill-back-walls").hidden = !selectedCaves().length;
   $("selection-edge-row").hidden = !["blockPoint", "blockEdge"].includes(
     editor.selection?.kind,
   );
@@ -174,8 +183,9 @@ export function syncInspector({ live = false } = {}) {
   $("delete-selection").hidden =
     !editor.selection || ["start", "goal"].includes(editor.selection.kind);
   if (isBlock) {
-    $("selection-material").value =
-      blocks()[selectedBlocks()[0]]?.material || "grass";
+    const first = blocks()[selectedBlocks()[0]];
+    $("selection-material").value = first?.material || "grass";
+    $("selection-block-layer").value = isBackWall(first) ? "back" : "terrain";
     const boundary = boundaryAt(editor.selection);
     const node = boundary?.nodes[editor.selection.index];
     if (node && editor.selection.kind !== "blockHandle") {
@@ -405,6 +415,37 @@ export function bindInspector() {
       toolSettings.block.material = material;
       saveToolSettings();
     }
+    syncInspector();
+    render();
+  });
+
+  // Moving blocks between the terrain and the back walls; the next block drawn
+  // goes on the layer last chosen.
+  $("selection-block-layer").addEventListener("change", (event) => {
+    const back = event.target.value === "back";
+    const chosen = selectedBlocks().filter(
+      (index) => blocks()[index] && isBackWall(blocks()[index]) !== back,
+    );
+    if (chosen.length) {
+      pushHistory();
+      for (const index of chosen) {
+        const { layer, ...block } = blocks()[index];
+        replaceBlock(index, back ? { ...block, layer: "back" } : block);
+      }
+      toolSettings.block.layer = back ? "back" : "terrain";
+      saveToolSettings();
+    }
+    syncInspector();
+    render();
+  });
+
+  $("fill-back-walls").addEventListener("click", () => {
+    const added = fillCavesWithBackWalls();
+    if (added)
+      showStatus(
+        "info",
+        `Added ${added === 1 ? "a back wall" : `${added} back walls`}; ${added === 1 ? "the cave stays" : "the caves stay"} dark.`,
+      );
     syncInspector();
     render();
   });

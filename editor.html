@@ -364,6 +364,16 @@
                                 >Material
                                 <select id="selection-material"></select
                             ></label>
+                            <label id="selection-block-layer-row" hidden
+                                >Layer
+                                <select id="selection-block-layer">
+                                    <option value="terrain">Terrain</option>
+                                    <option value="back">Back wall</option>
+                                </select></label
+                            >
+                            <button class="wide-action" id="fill-back-walls" hidden>
+                                FILL CAVES WITH BACK WALLS
+                            </button>
                             <label id="selection-node-row" hidden
                                 >Point
                                 <select id="selection-node">
@@ -672,10 +682,25 @@
                     </dl>
                 </section>
                 <section>
+                    <h3>SCALE HANDLES</h3>
+                    <dl>
+                        <dt>Corner</dt>
+                        <dd>Scale, keeping the shape</dd>
+                        <dt>Side</dt>
+                        <dd>Stretch one way</dd>
+                        <dt><kbd>Alt</kbd></dt>
+                        <dd>Scale from the centre</dd>
+                        <dt><kbd>Shift</kbd></dt>
+                        <dd>Snap to the grid</dd>
+                    </dl>
+                </section>
+                <section>
                     <h3>DRAW (BLOCK AND CUT)</h3>
                     <dl>
                         <dt><kbd>Alt</kbd></dt>
                         <dd>Rectangle</dd>
+                        <dt><kbd>⌘/Ctrl</kbd></dt>
+                        <dd>Circle</dd>
                         <dt><kbd>Shift</kbd></dt>
                         <dd>Snap to the grid</dd>
                     </dl>

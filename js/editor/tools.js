@@ -16,10 +16,22 @@ export const propTypeOptions = () =>
 const materialOptions = () =>
   Object.keys(terrainMaterials).map((name) => [name, name.toUpperCase()]);
 
+export const BLOCK_LAYERS = [
+  ["terrain", "Terrain"],
+  ["back", "Back wall"],
+];
+
+const LAYER_FIELD = {
+  key: "layer",
+  label: "Layer",
+  type: "select",
+  options: () => BLOCK_LAYERS,
+};
+
 const TOOL_INFO = {
   select: {
     title: "Select",
-    hint: "Click a block, a point on its edge, or an object to select it, and drag to move it; a selected point shows its curve handles. Drag from empty space to box-select, and Shift-click to add or remove. Alt-click selects a whole ring or cave. Empty cave space selects nothing, so a cave never picks the block around it. Press ? for every shortcut.",
+    hint: "Click a block, a point on its edge, or an object to select it, and drag to move it; a selected point shows its curve handles. Drag from empty space to box-select, and Shift-click to add or remove. Alt-click selects a whole ring or cave. Empty cave space selects nothing, so a cave never picks the block around it. The square handles around selected blocks scale them: corners keep the shape, sides stretch it, and Alt scales from the centre. Press ? for every shortcut.",
   },
   pan: {
     title: "Pan",
@@ -27,7 +39,7 @@ const TOOL_INFO = {
   },
   block: {
     title: "Block",
-    hint: "Drag an outline to draw a new solid block in that shape. Hold Alt for a rectangle and Shift to snap to the grid; both can be switched mid-drag. It can be drawn anywhere, including inside another block's cave. The tool stays active; Esc returns to Select.",
+    hint: "Drag an outline to draw a new block in that shape: solid terrain, or a back wall, which is scenery behind the terrain that keeps a cave dark. Hold Alt for a rectangle, Cmd/Ctrl for a circle and Shift to snap to the grid; all can be switched mid-drag. It can be drawn anywhere, including inside another block's cave. The tool stays active; Esc returns to Select.",
     fields: [
       {
         key: "material",
@@ -35,11 +47,13 @@ const TOOL_INFO = {
         type: "select",
         options: materialOptions,
       },
+      LAYER_FIELD,
     ],
   },
   cut: {
     title: "Cut",
-    hint: "Drag an outline over a block to remove that shape from it. Hold Alt for a rectangle and Shift to snap to the grid. Inside solid it makes a cave, across an edge it opens an entrance, and all the way through it splits the block in two. It cuts the selected block, or else the topmost block it touches. Escape cancels.",
+    hint: "Drag an outline over a block to remove that shape from it. Hold Alt for a rectangle, Cmd/Ctrl for a circle and Shift to snap to the grid. Inside solid it makes a cave, across an edge it opens an entrance, and all the way through it splits the block in two. It only cuts blocks on the chosen layer: the selected block, or else the topmost one it touches. Escape cancels.",
+    fields: [LAYER_FIELD],
   },
   apple: {
     title: "Apple",
@@ -113,7 +127,8 @@ const TOOL_INFO = {
 
 const DEFAULT_TOOL_SETTINGS = {
   // The last material chosen is kept for the next block.
-  block: { material: "grass" },
+  block: { material: "grass", layer: "terrain" },
+  cut: { layer: "terrain" },
   spike: { radius: SPIKE_RADIUS.default, spin: 1 },
   prop: { type: "tree", layer: "back", flip: false },
   start: { facing: "1" },
@@ -161,6 +176,11 @@ export function saveToolSettings() {
   try {
     store().setItem(TOOL_SETTINGS_KEY, JSON.stringify(toolSettings));
   } catch (_) {}
+}
+
+/** The layer a Block or Cut drag works on: "terrain" or "back". */
+export function toolLayer(name) {
+  return toolSettings[name]?.layer === "back" ? "back" : "terrain";
 }
 
 export function toolMaterial(name) {

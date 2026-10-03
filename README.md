@@ -25,7 +25,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Two rider styles and a custom rider name
 - Elasto Mania-style pixel dirt bike, with the original Pocket Classic bike kept for future biker customization
 - Layered foreground and background scenery
-- Pixel lighting at every time of day: ground stays bright by day and sinks into darkness at night, caves are dark at any hour, a headlight you can switch off that stays on the bike through flips and loops, lanterns, lamps, glowing mushrooms, and lightning light the way
+- Pixel lighting at every time of day: ground stays bright by day and sinks into darkness at night, caves closed off by a back wall are dark at any hour while open hollows let the sky through, a headlight you can switch off that stays on the bike through flips and loops, lanterns, lamps, glowing mushrooms, and lightning light the way
 - Terrain-colored wheel spray, brake lights, and fading ground skid marks
 - Procedural engine, braking, wheel-landing, aerial trick, collectible, crash, flip, finish, dashboard, and rain sound effects
 - Collectibles, finish gates, timers, and best times
@@ -88,8 +88,10 @@ Open the visual editor from **Trail Editor** on the main dashboard or navigate d
 The inspector on the right edits the current selection. The editor supports:
 
 - Loading every official and custom trail, with its source clearly labeled
-- Drawing terrain blocks and cutting caves, entrances, and gaps into them
+- Drawing terrain blocks and cutting caves, entrances, and gaps into them, freehand or, holding `Alt`, as rectangles and, holding `Cmd`/`Ctrl`, as circles; `Shift` snaps to the grid
+- Drawing and cutting back walls: the Block and Cut tools have a **Layer** picker (Terrain or Back wall), the inspector switches a selected block between layers, and **Fill caves with back walls** closes off the selected block's caves
 - Dragging block points and curve handles, switching edges between straight and curved, and moving whole blocks
+- Scaling selected blocks with the handles around them: corners keep the proportions, so a circle stays a circle, sides stretch one way, `Alt` scales from the centre and `Shift` snaps to the grid
 - Double-clicking a block edge to insert a point
 - Placing freely positioned apples, start points, props, and finish positions
 - Moving or removing props and changing their type and foreground/background layer
@@ -226,6 +228,7 @@ See [`TRAIL_FORMAT.md`](./TRAIL_FORMAT.md) for the complete schema, coordinate s
 Everything is rendered with the Canvas 2D API. The gameplay and illustrated How to Play guide share the same rider, bike, apple, and finish-flag renderers, so visual updates remain synchronized. Rendered elements include:
 
 - Terrain blocks, caves, and floating ledges
+- Back walls: scenery behind the terrain that keeps caves dark
 - Modular pixel bike, rider, wheels, and suspension. Bike models are listed in `BIKE_MODELS` in `js/drawing.js` and chosen with the `bike` option of `drawBike`. `elasto` is the default and `classic` is the original bike
 - Smooth vector apples and pixel finish gates
 - Layered pixel props and particles

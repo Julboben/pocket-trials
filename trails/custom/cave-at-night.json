@@ -83,6 +83,57 @@
   "finishY": null,
   "terrainBlocks": [
     {
+      "id": "back-1",
+      "material": "rock",
+      "layer": "back",
+      "regions": [
+        {
+          "outer": {
+            "id": "back-boundary-1",
+            "nodes": [
+              {
+                "id": "bn1",
+                "x": 470,
+                "y": 205,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "bn2",
+                "x": 1265,
+                "y": 205,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "bn3",
+                "x": 1265,
+                "y": 325,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              },
+              {
+                "id": "bn4",
+                "x": 470,
+                "y": 325,
+                "mode": "corner",
+                "in": null,
+                "out": null,
+                "edge": "straight"
+              }
+            ]
+          },
+          "inner": []
+        }
+      ]
+    },
+    {
       "id": "b1",
       "material": "grass",
       "regions": [

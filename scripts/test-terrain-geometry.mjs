@@ -7,7 +7,7 @@ import {
   rectangleBlock, cutBlock, normalizeBlock, regionRings, pointInRegion,
   regionArea, flattenBoundary, moveBlock, insertBoundaryNode, validateBlock, addInnerBoundary,
   createNode, createBoundary, createRegion, hitTestBlock, removeBoundaryNodes, setBoundaryEdge,
-  setNodeMode, blockSolidArea, isCurvedEdge,
+  setNodeMode, blockSolidArea, isCurvedEdge, scaleBlock,
 } from "../js/terrain-geometry.js";
 import { normalizeTrail, validateTrail } from "../js/trail-schema.js";
 
@@ -94,6 +94,18 @@ check("moved block moved its outer", moved.regions[0].outer.nodes[0].x === 600);
 const movedHoleX = moved.regions[0].inner[0].nodes[0].x;
 check("moved block moved its hole", movedHoleX === 525);
 check("moved cave is still empty", !pointInRegion(moved.regions[0], 550, 50));
+
+// Scaling a block scales its caves and curve handles about the pivot.
+const scaled = scaleBlock(holed.block, 0, 0, 2, 3);
+const area = (block) => blockSolidArea(block);
+check("scaled block covers the scaled area", Math.abs(area(scaled) - area(holed.block) * 6) < 1);
+check("scaled block keeps its cave", scaled.regions[0].inner.length === holed.block.regions[0].inner.length);
+const roundish = { ...holed.block, regions: [{ outer: { ...holed.block.regions[0].outer, nodes: [
+  { ...holed.block.regions[0].outer.nodes[0], x: 10, y: 0, in: [10, -5], out: [10, 5] },
+  ...holed.block.regions[0].outer.nodes.slice(1),
+] }, inner: [] }] };
+const curvedScaled = scaleBlock(roundish, 0, 0, 2, 2).regions[0].outer.nodes[0];
+check("scaling moves curve handles", curvedScaled.in[1] === -10 && curvedScaled.out[0] === 20);
 
 // 8. Validation catches malformed geometry.
 check("non-finite is rejected", validateBlock({ material: "grass", regions: [{ outer: { nodes: [

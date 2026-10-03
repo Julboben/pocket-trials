@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { terrainAt } from '../js/terrain.js';
 import {
-  SPIKE_RADIUS, createBlankTrail, normalizeTrail, normalizeSpike, validateTrail, medalFor, normalizeMedals
+  SPIKE_RADIUS, createBlankTrail, normalizeTrail, normalizeSpike, validateTrail, medalFor, normalizeMedals,
+  trailTerrainBlocks, trailBackWalls
 } from '../js/trail-schema.js';
 import { trailHash } from '../js/trail-hash.js';
 import { isOnlineTrail } from '../js/online-leaderboard.js';
@@ -94,6 +95,22 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('cus
 // Only official trails, keyed by id and gameplay hash, go to the online board.
 for (const entry of loadCatalogTrails('official')) {
   assert.ok(isOnlineTrail(`${entry.id}@${trailHash(entry.trail)}`), entry.id);
+}
+// Back walls: blocks on the back layer keep their layer, are left out of the
+// ridden terrain, and are scenery only, so they never change the gameplay hash.
+{
+  const blank = normalizeTrail(createBlankTrail());
+  const wall = { id: 'back-1', material: 'rock', layer: 'back', regions: [{ outer: { nodes: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }] }, inner: [] }] };
+  const walled = normalizeTrail({ ...blank, terrainBlocks: [wall, ...blank.terrainBlocks] });
+  assert.equal(walled.terrainBlocks[0].layer, 'back');
+  assert.ok(!('layer' in walled.terrainBlocks[1]), 'terrain blocks store no layer');
+  assert.deepEqual(normalizeTrail(walled), walled, 'back walls normalize idempotently');
+  assert.deepEqual(trailTerrainBlocks(walled), blank.terrainBlocks, 'back walls are not ridden');
+  assert.equal(trailBackWalls(walled).length, 1);
+  assert.equal(trailHash(walled), trailHash(blank), 'back walls do not change the trail hash');
+  assert.equal(terrainAt(walled, 50, 20).y, terrainAt(blank, 50, 20).y, 'back walls do not collide');
+  assert.deepEqual(errors(walled), []);
+  assert.ok(errors(normalizeTrail({ ...blank, terrainBlocks: [wall] })).some(text => text.includes('needs terrain')), 'back walls alone are not terrain');
 }
 assert.ok(!isOnlineTrail('official:01-the-orchard'), 'an official id without its hash stays offline');
 assert.ok(!isOnlineTrail('trail:0123abcd'), 'custom trails stay offline');

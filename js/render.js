@@ -100,6 +100,7 @@ export function createRenderer(canvas) {
   const { pixelRect, pixelPath, drawPixelText } = createDrawingTools(ctx);
   const gameArt = createGameArt(ctx);
   const terrainRenderer = createTerrainRenderer();
+  const backWallRenderer = createTerrainRenderer({ backWalls: true });
   const lighting = createLighting();
   const popups = [];
   let W = 380,
@@ -829,6 +830,7 @@ export function createRenderer(canvas) {
     ctx.save();
     ctx.translate(-cameraX, -cameraY);
     effects.update(animationDt);
+    backWallRenderer.draw(ctx, trail, cameraX, cameraY, W, H);
     drawProps("back", full);
     terrainRenderer.draw(ctx, trail, cameraX, cameraY, W, H);
     drawWallPaint();

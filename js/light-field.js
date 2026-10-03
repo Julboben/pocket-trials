@@ -7,7 +7,13 @@
 // top of its column or in from a nearby face. How far that soaks is set by the
 // time of day, so ground stays bright by day and sinks into darkness at
 // night, while caves are dark at any time.
-import { terrainGeometry, terrainSurfacesAt } from "./terrain.js";
+//
+// A cave is only dark where a back wall closes it off behind: air with nothing
+// behind it sees the sky through the back of the scene, so the hollow of a
+// ring or an arch is lit like open air. Light fades in from a back wall's edge
+// the same way it fades in from a cave mouth.
+import { backWallGeometry, terrainGeometry, terrainSurfacesAt } from "./terrain.js";
+import { terrainColumnSpans } from "./terrain-runtime.js";
 
 // World units per texel; the field is smoothed when it is drawn.
 export const LIGHT_UNIT = 4;
@@ -74,6 +80,9 @@ export function bakeLightField(trail, { soak, reach, open = 0.35 }, unit = LIGHT
   // Below all the terrain is treated as more rock, so the ground doesn't end
   // in a lit band when the camera looks under it.
   const floorRow = Math.max(0, Math.ceil((bounds.bottom - y) / unit - 0.5));
+  // Air with no back wall behind it, open to the sky behind the scene.
+  const backWalls = backWallGeometry(trail);
+  const backOpen = new Uint8Array(size);
 
   for (let c = 0; c < width; c++) {
     const surfaces = terrainSurfacesAt(trail, x + (c + 0.5) * unit);
@@ -92,6 +101,9 @@ export function bakeLightField(trail, { soak, reach, open = 0.35 }, unit = LIGHT
     // Air above the column's topmost rock is open to the sky.
     const open = Math.min(height, Math.ceil((tops[c] - y) / unit - 0.5));
     for (let r = 0; r < open; r++) if (!solid[r * width + c]) dist[r * width + c] = 0;
+    markOpenBehind(backOpen, backWalls, x + (c + 0.5) * unit, y, unit, width, height, c);
+    for (let r = open, i = open * width + c; r < height; r++, i += width)
+      if (backOpen[i] && !solid[i]) dist[i] = 0;
   }
 
   // Air: distance, through air only, to air open to the sky.
@@ -126,7 +138,8 @@ export function bakeLightField(trail, { soak, reach, open = 0.35 }, unit = LIGHT
 
   const view = skyView(solid, width, height);
   const bounce = new Float32Array(size);
-  for (let i = 0; i < size; i++) if (!solid[i]) bounce[i] = Math.min(1, view[i] / open);
+  for (let i = 0; i < size; i++)
+    if (!solid[i]) bounce[i] = backOpen[i] ? 1 : Math.min(1, view[i] / open);
   spreadThroughAir(bounce, solid, width, height, unit / BOUNCE_REACH);
   const light = new Float32Array(size);
   const near = new Float32Array(size).fill(Infinity),
@@ -318,6 +331,18 @@ function boxBlur(values, width, height, radius) {
 
 // Enclosed air (still at an infinite distance from the sky) in pockets
 // smaller than `limit` texels becomes rock for lighting.
+/** Marks the texels of column `c` with no back wall behind them. */
+function markOpenBehind(backOpen, compiled, worldX, y, unit, width, height, c) {
+  const spans = compiled ? terrainColumnSpans(compiled, worldX) : [];
+  let r = 0;
+  for (const span of spans) {
+    const r0 = Math.min(height, Math.max(0, Math.ceil((span.top - y) / unit - 0.5)));
+    for (; r < r0; r++) backOpen[r * width + c] = 1;
+    r = Math.max(r, Math.min(height, Math.floor((span.bottom - y) / unit - 0.5) + 1));
+  }
+  for (; r < height; r++) backOpen[r * width + c] = 1;
+}
+
 function fillSmallPockets(solid, dist, width, limit) {
   const size = solid.length;
   const seen = new Uint8Array(size);

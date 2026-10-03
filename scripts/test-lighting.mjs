@@ -8,6 +8,7 @@ const { bakeLightField, lightFieldAt, lightReach } = await import('../js/light-f
 const { glareStrength } = await import('../js/lighting.js');
 
 let failures = 0;
+const backWall = (left, top, right, bottom) => ({ ...rectangle(left, top, right, bottom, 'rock', `back-${left}`), layer: 'back' });
 const check = (label, condition, detail = '') => {
   if (!condition) { failures++; console.log('FAIL', label, detail); }
   else console.log('ok  ', label);
@@ -17,8 +18,8 @@ const NOON = { soak: 1400, reach: 190, open: 0.3 };
 const NIGHT = { soak: 100, reach: 130, open: 0.45 };
 
 // Ground from y 300 down to 900; a roof over it from x 600 to 1000, closed on
-// the right, makes a cave open to the left. A box at x 1100 holds a small
-// sealed hollow.
+// the right and with a back wall behind it, makes a cave open to the left. A
+// box at x 1100 holds a small sealed hollow.
 const blocks = [
   rectangle(0, 300, 1400, 900, 'grass', 'ground'),
   rectangle(600, 100, 1000, 200, 'stone', 'roof'),
@@ -28,7 +29,7 @@ const blocks = [
   rectangle(1100, 200, 1130, 240, 'stone', 'box-left'),
   rectangle(1170, 200, 1200, 240, 'stone', 'box-right'),
 ];
-const trail = blockTrail(blocks);
+const trail = blockTrail([backWall(650, 150, 1000, 300), ...blocks]);
 const noon = bakeLightField(trail, NOON);
 const night = bakeLightField(trail, NIGHT);
 assert.ok(noon && night, 'a trail with blocks bakes a field');
@@ -65,6 +66,24 @@ const ledgeTrail = blockTrail([
 const ledgeNoon = bakeLightField(ledgeTrail, NOON);
 check('air under a floating ledge is lit at noon', at(ledgeNoon, 700, 250) > 0.9 && at(ledgeNoon, 700, 160) > 0.45, `${at(ledgeNoon, 700, 250)} ${at(ledgeNoon, 700, 160)}`);
 check('ground under a floating ledge is lit at noon', at(ledgeNoon, 700, 304) > 0.6, at(ledgeNoon, 700, 304));
+
+// Back walls: a hollow ring with nothing behind it sees the sky through the
+// back of the scene and is lit; the same ring closed off behind is a cave.
+const ring = [
+  rectangle(0, 300, 1400, 900, 'grass', 'ground'),
+  rectangle(400, -200, 1000, -100, 'stone', 'ring-top'),
+  rectangle(400, 200, 1000, 300, 'stone', 'ring-bottom'),
+  rectangle(400, -100, 500, 200, 'stone', 'ring-left'),
+  rectangle(900, -100, 1000, 200, 'stone', 'ring-right'),
+];
+const openRing = bakeLightField(blockTrail(ring), NIGHT);
+const closedRing = bakeLightField(blockTrail([...ring, backWall(420, -180, 980, 280)]), NIGHT);
+check('a hollow ring with no back wall is lit inside', at(openRing, 700, 50) > 0.95, at(openRing, 700, 50));
+check('the rock lining an open ring is lit', at(openRing, 700, 204) > 0.9, at(openRing, 700, 204));
+check('the same ring with a back wall is dark inside', at(closedRing, 700, 50) < 0.15, at(closedRing, 700, 50));
+const halfWall = bakeLightField(blockTrail([...ring, backWall(700, -180, 980, 280)]), NIGHT);
+check('light fades in from the edge of a back wall', at(halfWall, 600, 50) > 0.95 && at(halfWall, 720, 50) > at(halfWall, 880, 50) && at(halfWall, 880, 50) < 0.5, `${at(halfWall, 720, 50)} ${at(halfWall, 880, 50)}`);
+check('back walls never block lights', lightReach(closedRing, 700, 50, 1, 0, 150, 12) === 150);
 
 const sky = (timeOfDay, weather) => glareStrength({ timeOfDay, weather });
 check('a bright clear noon sun glares', sky('noon', { sun: 1, clouds: 0.15 }) > 0.9);

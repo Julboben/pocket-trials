@@ -11,6 +11,14 @@ import { $, canvas } from "./dom.js";
 import { pushHistory, redo, snapshot, undo } from "./history.js";
 import { hitTest } from "./hit-test.js";
 import {
+  endScale,
+  scaleCursor,
+  scaleHandleAt,
+  scaling,
+  startScale,
+  updateScale,
+} from "./scale.js";
+import {
   flushInspector,
   selectedPosition,
   syncInspector,
@@ -64,6 +72,17 @@ let dragOrigin = null;
 let lastDragPointer = null;
 
 let pendingKind = null;
+
+// Where the pointer is while a scale handle is dragged, so Alt and Shift can
+// re-apply the scale without the pointer moving.
+let scalePoint = null;
+
+function applyScale(event) {
+  const before = updateScale(scalePoint, { alt: event.altKey, shift: event.shiftKey });
+  if (before) pushHistory(before);
+  syncInspector({ live: true });
+  render();
+}
 
 // An Alt press that becomes a duplicate once the mouse moves.
 let altPress = null;
@@ -120,6 +139,11 @@ function dragSelectionTo(pointer, shift) {
 // Pressing or releasing Shift mid-drag turns snapping on or off straight away,
 // without waiting for the pointer to move.
 const onShiftChange = (event) => {
+  if (scaling() && scalePoint && (event.key === "Shift" || event.key === "Alt")) {
+    event.preventDefault();
+    applyScale(event);
+    return;
+  }
   if (
     event.key !== "Shift" ||
     !dragging ||
@@ -131,10 +155,13 @@ const onShiftChange = (event) => {
   dragSelectionTo(lastDragPointer, event.type === "keydown");
 };
 
-// Alt and Shift change a Block or Cut drag straight away, without moving the mouse.
+const SHAPE_KEYS = new Set(["Alt", "Shift", "Meta", "Control"]);
+
+// Modifier keys change a Block or Cut drag straight away, without moving the mouse.
 const onShapeModifier = (event) => {
-  if (!editor.pendingShape || (event.key !== "Alt" && event.key !== "Shift")) return;
+  if (!editor.pendingShape || !SHAPE_KEYS.has(event.key)) return;
   event.preventDefault();
+  editor.pendingShape.circle = event.metaKey || event.ctrlKey;
   editor.pendingShape.alt = event.altKey;
   editor.pendingShape.shift = event.shiftKey;
   updateShapePoints(editor.pendingShape);
@@ -152,6 +179,8 @@ function resetPointerState() {
   editor.snapGuide = null;
   editor.marquee = null;
   altPress = null;
+  scalePoint = null;
+  endScale();
 }
 
 export const endPointer = () => {
@@ -164,7 +193,9 @@ export const endPointer = () => {
     // Only a shape that changed something becomes an undo step, so a missed
     // cut neither leaves an empty step nor clears the redo history.
     const before = snapshot();
-    if (commitShape(kind, shape.points, shape.closed, shape.alt))
+    if (
+      commitShape(kind, shape.points, shape.closed, shape.alt, shape.circleShape)
+    )
       pushHistory(before);
     else if (kind === "block")
       showStatus(
@@ -172,6 +203,12 @@ export const endPointer = () => {
         "That was too small to be a block. Drag a larger shape.",
       );
     syncInspector();
+    render();
+    return;
+  }
+  if (scaling()) {
+    resetPointerState();
+    flushInspector();
     render();
     return;
   }
@@ -253,6 +290,11 @@ export function bindInput() {
     gestureAnchor = null;
   });
 
+  // Ctrl-click opens the context menu on a Mac; while drawing it means a circle.
+  canvas.addEventListener("contextmenu", (event) => {
+    if (editor.pendingShape) event.preventDefault();
+  });
+
   canvas.addEventListener("pointerdown", (event) => {
     if (event.button === 2) return;
     canvas.focus({ preventScroll: true });
@@ -275,6 +317,7 @@ export function bindInput() {
         raw: [[point.x, point.y]],
         end: [point.x, point.y],
         points: [],
+        circle: event.metaKey || event.ctrlKey,
         alt: event.altKey,
         shift: event.shiftKey,
         closed: true,
@@ -289,6 +332,13 @@ export function bindInput() {
     }
     if (editor.tool !== "select") {
       addAt(point);
+      return;
+    }
+    const scaleHandle = scaleHandleAt(point);
+    if (scaleHandle && startScale(scaleHandle, point, snapshot())) {
+      scalePoint = point;
+      dragging = true;
+      canvas.setPointerCapture(event.pointerId);
       return;
     }
     // Alt-press: a drag duplicates what's under the cursor; a plain click
@@ -379,6 +429,7 @@ export function bindInput() {
       if (Math.hypot(point.x - last[0], point.y - last[1]) > 6 / editor.zoom)
         editor.pendingShape.raw.push([point.x, point.y]);
       editor.pendingShape.end = [point.x, point.y];
+      editor.pendingShape.circle = event.metaKey || event.ctrlKey;
       editor.pendingShape.alt = event.altKey;
       editor.pendingShape.shift = event.shiftKey;
       updateShapePoints(editor.pendingShape);
@@ -412,6 +463,15 @@ export function bindInput() {
       lastDragPointer = { clientX: event.clientX, clientY: event.clientY };
       dragSelectionTo(lastDragPointer, event.shiftKey);
       return;
+    }
+    if (scaling()) {
+      scalePoint = pointerWorld(event);
+      applyScale(event);
+      return;
+    }
+    if (editor.tool === "select" && !dragging && !panning) {
+      const handle = scaleHandleAt(pointerWorld(event));
+      canvas.style.cursor = handle ? scaleCursor(handle) : "default";
     }
     if (!dragging || !editor.selection) return;
     lastDragPointer = { clientX: event.clientX, clientY: event.clientY };
