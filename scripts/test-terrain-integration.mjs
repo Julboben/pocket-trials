@@ -63,8 +63,8 @@ const spiral = () => polygonBlock(SPIRAL_NODES, 'grass', 'spiral');
 // A cave cut into a block: floor, roof, and nothing touching a rider inside.
 {
   const carved = cutBlock(rectangle(0, 300, 800, 600), [[300, 350], [500, 350], [500, 450], [300, 450]]);
-  assert.ok(carved.changed && carved.block.regions[0].inner.length === 1, 'the cut becomes an inner boundary');
-  const trail = normalizeTrail(blockTrail([carved.block]));
+  assert.ok(carved.changed && carved.blocks[0].inner.length === 1, 'the cut becomes an inner boundary');
+  const trail = normalizeTrail(blockTrail([carved.blocks[0]]));
   const floor = terrainAt(trail, 400, 400);
   assert.ok(Math.abs(floor.y - 450) < 2, `the cave floor is found (${floor.y})`);
   assert.equal(terrainCollisionsAt(trail, 400, 400, RADIUS).length, 0, 'a rider inside the cave has no contact');
@@ -93,7 +93,7 @@ const spiral = () => polygonBlock(SPIRAL_NODES, 'grass', 'spiral');
 {
   const trail = normalizeTrail(blockTrail([rectangle(0, 300, 800, 600)]));
   assert.equal(terrainAt(trail, 400, null).y, 300);
-  for (const node of trail.terrainBlocks[0].regions[0].outer.nodes) node.y -= 50;
+  for (const node of trail.terrainBlocks[0].outer.nodes) node.y -= 50;
   invalidateTerrain(trail);
   assert.equal(terrainAt(trail, 400, null).y, 250, 'an invalidated trail recompiles its terrain');
 }

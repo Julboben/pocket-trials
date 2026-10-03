@@ -100,7 +100,7 @@ for (const entry of loadCatalogTrails('official')) {
 // ridden terrain, and are scenery only, so they never change the gameplay hash.
 {
   const blank = normalizeTrail(createBlankTrail());
-  const wall = { id: 'back-1', material: 'rock', layer: 'back', regions: [{ outer: { nodes: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }] }, inner: [] }] };
+  const wall = { id: 'back-1', material: 'rock', layer: 'back', outer: { nodes: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }] }, inner: [] };
   const walled = normalizeTrail({ ...blank, terrainBlocks: [wall, ...blank.terrainBlocks] });
   assert.equal(walled.terrainBlocks[0].layer, 'back');
   assert.ok(!('layer' in walled.terrainBlocks[1]), 'terrain blocks store no layer');

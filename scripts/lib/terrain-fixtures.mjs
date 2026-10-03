@@ -11,7 +11,7 @@ export const SPIRAL_NODES = [
 export function polygonBlock(points, material = 'grass', id = 'block') {
   return normalizeBlocks([{
     id, material,
-    regions: [{ outer: { nodes: points.map(([x, y], index) => ({ id: `${id}-n${index}`, x, y, edge: 'straight' })) }, inner: [] }],
+    outer: { nodes: points.map(([x, y], index) => ({ id: `${id}-n${index}`, x, y, edge: 'straight' })) }, inner: [],
   }], material)[0];
 }
 

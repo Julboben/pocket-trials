@@ -6,7 +6,7 @@ import { propAlignmentSlope, propGroundOffset } from "../js/drawing.js";
 
 const raw = JSON.parse(readFileSync(new URL("../trails/custom/the-orchard-copy.json", import.meta.url)));
 const trail = normalizeTrail(raw);
-const region = trail.terrainBlocks[0].regions[0];
+const region = trail.terrainBlocks[0];
 const pts = flattenBoundary(region.outer).points;
 
 // 1. Strata: the game draws them at surface(x) + const. How jagged is that?

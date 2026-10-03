@@ -78,24 +78,33 @@ if (kind === 'interact') {
   fire('pointerup');
   out.clickLeavesNoUndo = undo.disabled === true;
 
-  // A cut straight through the slab splits it into two regions of one block.
+  // A cut straight through the slab splits it into two blocks.
   toolButton('cut').click();
   fire('pointerdown', world(380, 250));
   for (const [x, y] of [[420, 250], [420, 650], [380, 650]]) fire('pointermove', world(x, y));
   fire('pointerup');
-  out.splitRegions = current().terrainBlocks[0]?.regions.length;
+  out.splitBlocks = current().terrainBlocks.map(block => Object.keys(block).sort().join(','));
 
-  // The right-hand piece's top-right corner is in the second region. Dragging
-  // it must move that corner and leave the left piece alone.
   // The tools stay active after a shape, so go back to Select before moving
   // corners, or the next drag draws another cut instead.
   toolButton('select').click();
-  const before = current().terrainBlocks[0].regions;
+  // Each piece is its own block, so clicking one selects only that one.
+  drag([600, 450], [600, 450]);
+  out.splitSelectsOne = document.getElementById('selection-title').textContent;
+
+  // Dragging the right-hand piece's top-right corner must move that corner
+  // and leave the left piece alone.
+  const outline = block => block.outer.nodes.map(node => [Math.round(node.x), Math.round(node.y)]);
+  const pieces = () => {
+    const list = current().terrainBlocks.slice(0, 2);
+    const left = list.find(block => block.outer.nodes.some(node => node.x < 100));
+    return { left: outline(left), right: outline(list.find(block => block !== left)) };
+  };
+  const before = pieces();
   drag([800, 300], [830, 270]);
-  const after = current().terrainBlocks[0].regions;
-  const corners = regions => regions.map(region => region.outer.nodes.map(node => [Math.round(node.x), Math.round(node.y)]));
-  out.leftUntouched = JSON.stringify(corners(before)[0]) === JSON.stringify(corners(after)[0]);
-  out.rightMoved = corners(after)[1].some(([x, y]) => x === 830 && y === 270);
+  const after = pieces();
+  out.leftUntouched = JSON.stringify(before.left) === JSON.stringify(after.left);
+  out.rightMoved = after.right.some(([x, y]) => x === 830 && y === 270);
 
   // Escape abandons a cut that is still being drawn.
   toolButton('cut').click();
@@ -116,11 +125,11 @@ if (kind === 'interact') {
   fire('pointerdown', { ...world(1100, 400), shiftKey: true });
   fire('pointerup');
   out.multiTitle = document.getElementById('selection-title').textContent;
-  const leftBefore = current().terrainBlocks[0].regions[0].outer.nodes[0].x;
-  const newBefore = current().terrainBlocks[count - 1].regions[0].outer.nodes[0].x;
+  const leftBefore = current().terrainBlocks[0].outer.nodes[0].x;
+  const newBefore = current().terrainBlocks[count - 1].outer.nodes[0].x;
   drag([1100, 400], [1150, 400]);
-  out.multiMoved = current().terrainBlocks[0].regions[0].outer.nodes[0].x === leftBefore + 50
-    && current().terrainBlocks[count - 1].regions[0].outer.nodes[0].x === newBefore + 50;
+  out.multiMoved = current().terrainBlocks[0].outer.nodes[0].x === leftBefore + 50
+    && current().terrainBlocks[count - 1].outer.nodes[0].x === newBefore + 50;
   key('Delete');
   out.multiDeleted = current().terrainBlocks.length === count - 2;
 
@@ -128,7 +137,7 @@ if (kind === 'interact') {
   toolButton('block').click();
   drag([100, 100], [300, 300], { altKey: true });
   toolButton('select').click();
-  const ring = () => current().terrainBlocks.at(-1).regions[0].outer.nodes;
+  const ring = () => current().terrainBlocks.at(-1).outer.nodes;
   const corner = () => ring().reduce((best, node) => Math.hypot(node.x - 300, node.y - 300) < Math.hypot(best.x - 300, best.y - 300) ? node : best);
   const cornerId = corner().id;
   const cornerIndex = ring().findIndex(node => node.id === cornerId);

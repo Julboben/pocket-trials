@@ -28,36 +28,30 @@ The world uses Canvas coordinates:
     {
       id: 'ground',
       material: 'grass',
-      regions: [{
-        outer: { nodes: [
-          { x: 0, y: 320 },
-          { x: 180, y: 320, out: [260, 320] },
-          { x: 340, y: 260, in: [280, 260], out: [400, 260], mode: 'smooth' },
-          { x: 520, y: 330, in: [460, 330] },
-          { x: 780, y: 280 },
-          { x: 780, y: 700 },
-          { x: 0, y: 700 }
-        ] },
-        inner: []
-      }]
+      outer: { nodes: [
+        { x: 0, y: 320 },
+        { x: 180, y: 320, out: [260, 320] },
+        { x: 340, y: 260, in: [280, 260], out: [400, 260], mode: 'smooth' },
+        { x: 520, y: 330, in: [460, 330] },
+        { x: 780, y: 280 },
+        { x: 780, y: 700 },
+        { x: 0, y: 700 }
+      ] },
+      inner: []
     },
     {
       id: 'far-side',
       material: 'grass',
-      regions: [{
-        outer: { nodes: [{ x: 900, y: 290 }, { x: 1950, y: 290 }, { x: 1950, y: 700 }, { x: 900, y: 700 }] },
-        inner: [
-          { nodes: [{ x: 1300, y: 400 }, { x: 1600, y: 400 }, { x: 1600, y: 520 }, { x: 1300, y: 520 }] }
-        ]
-      }]
+      outer: { nodes: [{ x: 900, y: 290 }, { x: 1950, y: 290 }, { x: 1950, y: 700 }, { x: 900, y: 700 }] },
+      inner: [
+        { nodes: [{ x: 1300, y: 400 }, { x: 1600, y: 400 }, { x: 1600, y: 520 }, { x: 1300, y: 520 }] }
+      ]
     },
     {
       id: 'ledge',
       material: 'brick',
-      regions: [{
-        outer: { nodes: [{ x: 1050, y: 200 }, { x: 1380, y: 200 }, { x: 1360, y: 240 }, { x: 1070, y: 240 }] },
-        inner: []
-      }]
+      outer: { nodes: [{ x: 1050, y: 200 }, { x: 1380, y: 200 }, { x: 1360, y: 240 }, { x: 1070, y: 240 }] },
+      inner: []
     }
   ],
 
@@ -94,23 +88,25 @@ The example has rolling ground, a gap between x 780 and 900, a far side with a c
 
 ## Terrain: `terrainBlocks`
 
-`terrainBlocks` is the trail's terrain: a list of blocks, each a material and one or more regions, where each region is a closed outer boundary and any number of caves.
+`terrainBlocks` is the trail's terrain: a list of blocks. Each block is one connected piece of solid: a material, a closed outer boundary, and any number of caves.
 
 ```js
 terrainBlocks: [
   {
     id: 'ground',
     material: 'sand',
-    regions: [
-      { outer: boundary, inner: [cave, ...] }
-    ]
+    outer: boundary,
+    inner: [cave, ...]
   }
 ]
 ```
 
 - `id`: the block's identity, used for invalidation. Any stable string.
 - `material`: one of the terrain materials. It drives the fill, strata, edge, surface and spray.
-- `regions`: the shapes that are solid. A region is `outer` plus `inner` caves; a block with two regions is two separate pieces that share a material.
+- `outer`: the boundary around the solid.
+- `inner`: the caves inside it, each a boundary. Use `[]` for none.
+
+Separate pieces of solid are separate blocks, even when they share a material. Cutting a block in two in the editor leaves two blocks.
 
 A **boundary** is a ring of nodes. Do not repeat the first node at the end. Each node has:
 
@@ -129,17 +125,17 @@ Authoring guidelines:
 - **Slopes**: broad curved edges ride well. Spans of `140–190` units per hill are forgiving; short spans with large height changes create abrupt geometry.
 - **Gaps**: a break between two blocks. The walls either side are solid, so a rider who falls in can hit the cliff face. Start around `80–100` units wide for introductory jumps; wider gaps need a clear launch ramp and a landing below the takeoff height.
 - **Ledges and islands**: a separate block above the ground. Leave at least one wheel diameter between it and the ground, and more when the rider is expected to pass underneath.
-- **Caves**: an `inner` boundary inside a region. The cave is open space with a solid roof and floor.
-- **Loops**: a block whose region has a cave, ridden around its inside. Leave generous room in tight bends; very tight radii are hard to ride cleanly.
+- **Caves**: an `inner` boundary inside a block. The cave is open space with a solid roof and floor.
+- **Loops**: a block with a cave, ridden around its inside. Leave generous room in tight bends; very tight radii are hard to ride cleanly.
 
 ### Back walls: `layer: "back"`
 
 A block with `"layer": "back"` is a back wall. It sits in `terrainBlocks` in the same format as any other block, but it is scenery: nothing collides with it, it is drawn darkened behind the props and the terrain, it doesn't count as the trail's terrain and it doesn't change the trail's hash or medals. Back walls decide what is a cave. Air with no back wall behind it looks through to the sky at the back of the scene, so the hollow of a ring, the space under a ledge or a window in a building is lit like open air. Air in front of a back wall only gets the light that reaches in from open air, so give an enclosed cave a back wall to keep it dark:
 
 ```json
-{ "id": "cave-back", "material": "rock", "layer": "back", "regions": [{ "outer": { "id": "cave-back-boundary", "nodes": [
+{ "id": "cave-back", "material": "rock", "layer": "back", "outer": { "id": "cave-back-boundary", "nodes": [
   { "x": 470, "y": 205 }, { "x": 1265, "y": 205 }, { "x": 1265, "y": 325 }, { "x": 470, "y": 325 }
-] }, "inner": [] }] }
+] }, "inner": [] }
 ```
 
 Let a back wall reach into the rock around the cave, so no gap shows at its edges, and stop it short of the cave mouth for daylight to fade in. Back walls never block lights, so lanterns and the headlight light them up. A trail needs at least one block that is not a back wall.

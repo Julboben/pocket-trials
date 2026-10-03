@@ -47,14 +47,14 @@ export function hitTest(point, { wholeBoundary = false, preferEdges = false } = 
   for (const [blockIndex, block] of blocks().entries()) {
     const behind = isBackWall(block) && !blockSelected(blockIndex) ? 0.5 : 0;
     boundaryEntries(block).forEach(
-      ({ boundary, regionIndex }, boundaryIndex) => {
+      ({ boundary }, boundaryIndex) => {
         boundary.nodes.forEach((node, index) => {
-          const base = { blockIndex, regionIndex, boundaryIndex, index };
+          const base = { blockIndex, boundaryIndex, index };
           if (wholeBoundary) {
             const next = boundary.nodes[(index + 1) % boundary.nodes.length];
             const hit = edgeHit(node, next, point);
             consider(
-              { kind: "blockBoundary", blockIndex, regionIndex, boundaryIndex },
+              { kind: "blockBoundary", blockIndex, boundaryIndex },
               hit.x,
               hit.y,
               1 + behind,
@@ -114,11 +114,8 @@ export function hitTest(point, { wholeBoundary = false, preferEdges = false } = 
   const selectedBody = preferEdges ? null : selectedBodyAt(point);
   if (selectedBody) return selectedBody;
   for (const blockIndex of frontToBack()) {
-    const block = blocks()[blockIndex];
-    const regionIndex = block.regions.findIndex((region) =>
-      pointInRegion(region, point.x, point.y),
-    );
-    if (regionIndex >= 0) return { kind: "block", blockIndex, regionIndex };
+    if (pointInRegion(blocks()[blockIndex], point.x, point.y))
+      return { kind: "block", blockIndex };
   }
   return null;
 }
@@ -134,10 +131,8 @@ function grabsSelectedBody(best) {
 function selectedBodyAt(point) {
   for (const blockIndex of frontToBack()) {
     if (!blockSelected(blockIndex)) continue;
-    const regionIndex = blocks()[blockIndex].regions.findIndex((region) =>
-      pointInRegion(region, point.x, point.y),
-    );
-    if (regionIndex >= 0) return { kind: "block", blockIndex, regionIndex };
+    if (pointInRegion(blocks()[blockIndex], point.x, point.y))
+      return { kind: "block", blockIndex };
   }
   return null;
 }
@@ -155,7 +150,7 @@ function frontToBack() {
 
 /**
  * The ring under a point away from any edge: the cave it is inside, or else
- * the outer boundary of the topmost solid region it is inside.
+ * the outer boundary of the topmost solid block it is inside.
  */
 function ringAt(point) {
   const inside = (boundary) =>
@@ -169,23 +164,11 @@ function ringAt(point) {
       (entry) => entry.hole >= 0 && inside(entry.boundary),
     );
     if (hole >= 0)
-      return {
-        kind: "blockBoundary",
-        blockIndex,
-        regionIndex: entries[hole].regionIndex,
-        boundaryIndex: hole,
-      };
+      return { kind: "blockBoundary", blockIndex, boundaryIndex: hole };
   }
   if (body?.kind !== "block") return null;
-  const boundaryIndex = boundaryEntries(blocks()[body.blockIndex]).findIndex(
-    (entry) => entry.regionIndex === body.regionIndex && entry.hole < 0,
-  );
-  return {
-    kind: "blockBoundary",
-    blockIndex: body.blockIndex,
-    regionIndex: body.regionIndex,
-    boundaryIndex,
-  };
+  // The outer boundary always comes first in a block's boundary list.
+  return { kind: "blockBoundary", blockIndex: body.blockIndex, boundaryIndex: 0 };
 }
 
 /** The closest point on an edge, following the curve when the edge is curved. */
