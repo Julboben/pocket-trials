@@ -639,7 +639,21 @@ export function bindInput() {
       // Blurring commits a field that is still being typed in through its change handler.
       event.preventDefault();
       /** @type {HTMLElement} */ (document.activeElement)?.blur?.();
-      openPlaytest();
+      if (!event.shiftKey) openPlaytest();
+      else {
+        // Shift spawns the bike where the mouse is.
+        const pointer = editor.pointerClient;
+        const bounds = canvas.getBoundingClientRect();
+        if (
+          pointer &&
+          pointer.clientX >= bounds.left &&
+          pointer.clientX <= bounds.right &&
+          pointer.clientY >= bounds.top &&
+          pointer.clientY <= bounds.bottom
+        )
+          openPlaytest(pointerWorld(pointer));
+        else showStatus("warning", "Point at the trail to choose where the bike starts.");
+      }
       return;
     }
     if ((event.metaKey || event.ctrlKey) && event.code === "KeyZ") {

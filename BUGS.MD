@@ -1,3 +1,3 @@
 # Bugs
 
-- [] Make female driver ghost's hair transparent
+- [x] Make female driver ghost's hair transparent
