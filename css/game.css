@@ -220,7 +220,9 @@ canvas {
     border-radius: var(--radius-pixel);
     background: #101b1acc;
     color: #b8f5c8;
-    font: 11px/1.2 ui-monospace, monospace;
+    font:
+        11px/1.2 ui-monospace,
+        monospace;
     pointer-events: none;
 }
 .toast-stack {
@@ -320,7 +322,6 @@ canvas {
     gap: 12px;
 }
 .modal-badge {
-    display: inline-block;
     align-self: center;
     color: #aeb7b3;
     font-size: 8px;
@@ -595,7 +596,10 @@ h2 {
     width: min(760px, 100%);
     margin: 0 auto;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1.2fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 0.8fr) minmax(
+            0,
+            1fr
+        ) minmax(0, 1.2fr);
     gap: 8px;
 }
 .control {
@@ -864,6 +868,7 @@ h2 {
 .menu-hero .modal-badge {
     margin-bottom: 7px;
     color: var(--color-accent);
+    display: block;
 }
 .menu-hero h2 {
     font-size: clamp(32px, 6vw, 54px);
@@ -871,10 +876,9 @@ h2 {
     text-transform: uppercase;
 }
 .beta-tag {
-    display: inline-block;
     position: absolute;
-    top: 10px;
-    left: 1;
+    bottom: -2px;
+    right: -20px;
     margin-left: 0.45em;
     padding: 4px 7px 3px;
     vertical-align: 0.9em;
@@ -892,8 +896,9 @@ h2 {
     }
 }
 
-.menu-logo-container {
+.menu-title-container {
     position: relative;
+    display: inline-block;
 }
 
 .menu-logo {
@@ -1601,7 +1606,10 @@ kbd {
         padding: 14px 10px 12px;
     }
     .controls {
-        grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1.2fr);
+        grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(
+                0,
+                0.8fr
+            ) minmax(0, 1fr) minmax(0, 1.2fr);
         gap: 6px;
     }
 }
@@ -1638,7 +1646,10 @@ kbd {
         height: 60px;
     }
     .controls {
-        grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1.2fr);
+        grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(
+                0,
+                0.8fr
+            ) minmax(0, 1fr) minmax(0, 1.2fr);
         gap: 5px;
     }
     #down-control,
