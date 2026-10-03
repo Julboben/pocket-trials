@@ -49,10 +49,11 @@ export function loadStoredState() {
  *   onStartTrail: (index: number) => void,
  *   onStartCustom: (index: number) => void,
  *   onClose: () => void,
+ *   onRetry: () => void,
  *   onPreferences: () => void
  * }} hooks
  */
-export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose, onPreferences }) {
+export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose, onRetry, onPreferences }) {
   let pendingSaveSlot = 0, selectedNewRider = 'male';
   let deleteArmedSlot = -1, deleteArmTimer = 0, leaderboardTrail = 0;
   let creatorFromRiders = false;
@@ -276,6 +277,9 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     // One orange call to action: resume a ride, else continue the save, else start one.
     const resumable = canResume();
     $('menu-resume').hidden = !resumable;
+    // Retry sits beside Resume whenever there is a ride to restart.
+    $('menu-retry').hidden = !resumable;
+    $('menu-resume').classList.toggle('menu-action-half', resumable);
     $('menu-continue').hidden = !hasSave;
     $('menu-continue').classList.toggle('menu-action-primary', !resumable);
     $('menu-first-ride').hidden = hasSave;
@@ -585,11 +589,12 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     const button = event.target.closest('button');
     if (!button) return;
     if (button.matches('[data-menu-back]')) sounds.menuBack();
-    else if (button.id === 'create-save' || button.id === 'menu-continue' || button.id === 'menu-first-ride' || button.id === 'menu-resume') sounds.menuConfirm();
+    else if (button.id === 'create-save' || button.id === 'menu-continue' || button.id === 'menu-first-ride' || button.id === 'menu-resume' || button.id === 'menu-retry') sounds.menuConfirm();
     else sounds.menuSelect();
   });
   $('menu-continue').addEventListener('click', () => startTrail(session.savedTrail));
   $('menu-resume').addEventListener('click', () => onClose());
+  $('menu-retry').addEventListener('click', () => onRetry());
   $('menu-first-ride').addEventListener('click', () => {
     creatorFromRiders = false;
     showSaveCreator(Math.max(0, session.saveSlots.findIndex(save => !save)));

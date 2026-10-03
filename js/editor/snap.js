@@ -5,6 +5,9 @@ export const SNAP_ANGLE_STEP = 15;
 
 /** The spacing of the grid lines the editor draws, so what you see is what snaps. */
 export function gridSpacing(zoom) {
+  // Coarser when zoomed out, so lines stay at least ~35px apart on screen.
+  if (zoom < .18) return 500;
+  if (zoom < .35) return 200;
   return zoom < .65 ? 100 : 50;
 }
 

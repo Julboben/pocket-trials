@@ -1,7 +1,7 @@
 // Camera, zoom and screen-to-world conversion.
 import { $, canvas, ctx } from "./dom.js";
 import { groundY, render, renderView, syncTerrain } from "./render.js";
-import { editor } from "./state.js";
+import { clampZoom, editor } from "./state.js";
 
 export function focusOnStart() {
   const { width, height } = viewportSize();
@@ -44,7 +44,7 @@ export function zoomAtCenter(factor) {
   const { width, height } = viewportSize();
   const centerX = editor.cameraX + width / 2 / editor.zoom;
   const centerY = editor.cameraY + height / 2 / editor.zoom;
-  editor.zoom = Math.max(0.35, Math.min(2.5, editor.zoom * factor));
+  editor.zoom = clampZoom(editor.zoom * factor);
   editor.cameraX = centerX - width / 2 / editor.zoom;
   editor.cameraY = centerY - height / 2 / editor.zoom;
   updateZoom();

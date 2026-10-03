@@ -1,5 +1,6 @@
 // Button flashes and the toast over the canvas.
 import { $ } from "./dom.js";
+import { showValidation } from "./menu.js";
 
 /**
  * Swap a button's label briefly, then put it back.
@@ -38,15 +39,9 @@ export function refuse(action, errors) {
     $("play-test"),
     `${reasons.length} ERROR${reasons.length === 1 ? "" : "S"}`,
   );
-  // The validation list is the last thing in the sidebar and easy to miss, so
-  // it is brought into view and given attention.
-  const list = $("validation-list");
-  list.closest("section")?.scrollIntoView({ block: "nearest" });
-  list.closest("section")?.classList.add("attention");
-  setTimeout(
-    () => list.closest("section")?.classList.remove("attention"),
-    4000,
-  );
+  // The full list lives in the header's more menu, so it is opened and given
+  // attention rather than leaving the reasons behind a closed menu.
+  showValidation();
   return false;
 }
 

@@ -30,6 +30,8 @@ import {
   hairBackSupport,
 } from "./rider-hair.js";
 import { reducedMotion } from "./state.js";
+import { createLighting } from "./lighting.js";
+import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
 
 /**
  * How far left the camera may look. Blocks can reach into negative x, and the
@@ -98,11 +100,13 @@ export function createRenderer(canvas) {
   const { pixelRect, pixelPath, drawPixelText } = createDrawingTools(ctx);
   const gameArt = createGameArt(ctx);
   const terrainRenderer = createTerrainRenderer();
+  const lighting = createLighting();
   const popups = [];
   let W = 380,
     H = 410,
     pixelScale = 1;
   let hair = null,
+    ghostHair = null,
     flipVisual = 1,
     trail = null,
     cameraX = 0,
@@ -142,8 +146,10 @@ export function createRenderer(canvas) {
   function reset(nextTrail, facing) {
     trail = nextTrail;
     hair = null;
+    ghostHair = null;
     flipVisual = facing;
     popups.length = 0;
+    lighting.prepare(trail);
   }
 
   /** Floating pixel text in world space, e.g. "+1 FLIP". */
@@ -263,15 +269,19 @@ export function createRenderer(canvas) {
     }
   }
 
-  // Street lamps and crane lights after dark; lanterns and mushrooms always.
-  function drawPropGlows(dark) {
+  // The glowing parts of props, drawn over the lit scene: the lighting pass
+  // casts their light. Street lamps and crane lights only once it is dark
+  // around them; lanterns and mushrooms always.
+  function drawPropGlows() {
     for (const prop of trail.props || []) {
       const reach = GLOW_REACH[prop.type];
       if (!reach || !inView(prop.x, reach)) continue;
-      if (!dark && (prop.type === "lamp" || prop.type === "crane")) continue;
       const ground = terrainAt(trail, prop.x);
       if (!ground.solid && !Number.isFinite(prop.y)) continue;
       const y = Number.isFinite(prop.y) ? prop.y : ground.y;
+      const head = prop.type === "crane" ? CRANE_LIGHTS[0][1] : prop.type === "lamp" ? LAMP_HEAD.y : -10;
+      const dark = lighting.isDark(trail, prop.x, y + head);
+      if (!dark && (prop.type === "lamp" || prop.type === "crane")) continue;
       const fit = propWallFit(trail, prop);
       const [rise, hang] = propSpan(prop.type, fit) || [PROP_RISE[prop.type] ?? 90, 0];
       if (!inView(prop.x, reach, y + hang + reach, rise + hang + reach * 2)) continue;
@@ -282,7 +292,7 @@ export function createRenderer(canvas) {
         propGroundOffset(trail, prop),
         prop.flip,
         propScene.time,
-        { dark, trail, prop, fit },
+        { dark, trail, prop, fit, emissive: true },
       );
     }
   }
@@ -468,34 +478,35 @@ export function createRenderer(canvas) {
     };
   }
 
-  function currentHairRoot(ride, exact) {
+  function currentHairRoot(ride, exact, flip = flipVisual) {
     if (ride.ragdoll) {
       const head = ride.ragdoll.points.head;
       return { x: head.x - ride.facing * 6, y: head.y };
     }
-    return hairRoot(riderPose(ride), exact);
+    return hairRoot(riderPose(ride, flip), exact);
   }
 
-  function updateHair(ride, rider, dt) {
-    if (rider !== "female") {
-      hair = null;
-      return;
-    }
-    const root = currentHairRoot(ride, true);
+  /** Steps a hair simulation for `ride`; returns it, or null for riders without hair. */
+  function updateHair(current, ride, rider, dt, flip = flipVisual) {
+    if (rider !== "female") return null;
+    const pose = riderPose(ride, flip);
+    const root = currentHairRoot(ride, true, flip);
     const rest = ride.ragdoll
       ? freeHairRestDirection(ride.facing)
-      : hairRestDirection(riderPose(ride));
-    if (!hair || Math.hypot(root.x - hair.root.x, root.y - hair.root.y) > 60)
-      hair = createRiderHair(root, rest);
-    hair.update(dt, {
+      : hairRestDirection(pose);
+    let next = current;
+    if (!next || Math.hypot(root.x - next.root.x, root.y - next.root.y) > 60)
+      next = createRiderHair(root, rest);
+    next.update(dt, {
       root,
       rest,
-      back: ride.ragdoll ? null : hairBackSupport(riderPose(ride)),
+      back: ride.ragdoll ? null : hairBackSupport(pose),
       // The floor under each strand, not the topmost surface: under an
       // overhang the topmost one is above the rider, and clamping to it drew
       // the hair as a pole up to the peak.
       groundAt: (x, y) => terrainAt(trail, x, y - HAIR_GROUND_ALLOWANCE),
     });
+    return next;
   }
 
   function bikeGeometry(ride) {
@@ -572,9 +583,14 @@ export function createRenderer(canvas) {
     };
   }
 
-  function drawGhost(ghost, rider) {
+  function drawGhost(ghost, rider, dt) {
+    if (!ghost) {
+      ghostHair = null;
+      return;
+    }
+    // Simulated off screen too, so the hair has settled when the ghost reappears.
+    ghostHair = updateHair(ghostHair, ghost, rider, dt, ghost.facing);
     if (
-      !ghost ||
       !inView(
         (ghost.rear.x + ghost.front.x) / 2,
         80,
@@ -583,6 +599,8 @@ export function createRenderer(canvas) {
     )
       return;
     ctx.globalAlpha = GHOST_ALPHA;
+    if (ghostHair)
+      ghostHair.draw(pixelPath, currentHairRoot(ghost, false, ghost.facing));
     gameArt.drawBike({
       rear: ghost.rear,
       front: ghost.front,
@@ -644,7 +662,8 @@ export function createRenderer(canvas) {
       }
     }
     if (weather.flash > 0) {
-      ctx.fillStyle = `rgba(225, 239, 237, ${weather.flash * 0.28})`;
+      // The lighting pass lights the scene up; this adds the glare on top.
+      ctx.fillStyle = `rgba(225, 239, 237, ${weather.flash * 0.14})`;
       ctx.fillRect(0, 0, W, H);
       if (weather.flash > 0.3 && !reducedMotion) {
         const proximity = 1 - weather.distance;
@@ -725,7 +744,20 @@ export function createRenderer(canvas) {
     for (const apple of ride.apples) {
       if (apple.taken) continue;
       const appleY = appleDrawY(apple, now);
-      if (inView(apple.x, 30, appleY)) gameArt.drawApple(apple.x, appleY);
+      if (!inView(apple.x, 30, appleY)) continue;
+      gameArt.drawApple(apple.x, appleY);
+    }
+  }
+
+  function drawSpikes(ride) {
+    for (const spike of ride.spikes) {
+      if (!inView(spike.x, spike.radius + 10, spike.y)) continue;
+      gameArt.drawSpike(
+        spike.x,
+        spike.y,
+        spike.radius,
+        reducedMotion ? 0 : ride.spikeTime * spike.spin * TAU,
+      );
     }
   }
 
@@ -804,18 +836,10 @@ export function createRenderer(canvas) {
     drawSceneryShadows(ride, now, full);
     drawParticles(effects.particles, true);
     drawGoal(ride);
-    for (const spike of ride.spikes) {
-      if (inView(spike.x, spike.radius + 10, spike.y))
-        gameArt.drawSpike(
-          spike.x,
-          spike.y,
-          spike.radius,
-          reducedMotion ? 0 : ride.spikeTime * spike.spin * TAU,
-        );
-    }
+    drawSpikes(ride);
     drawApples(ride, now);
-    drawGhost(ghost, rider);
-    updateHair(ride, rider, animationDt);
+    drawGhost(ghost, rider, animationDt);
+    hair = updateHair(hair, ride, rider, animationDt);
     if (hair) hair.draw(pixelPath, currentHairRoot(ride, false));
     drawBike(ride, rider, flipVisual, ride.ragdoll ? "ragdoll" : state);
     if (debug) drawPhysicsOverlay(ride.vehicle);
@@ -823,14 +847,19 @@ export function createRenderer(canvas) {
     drawProps("front", full);
     drawXray(ride, rider, ride.ragdoll ? "ragdoll" : state, full);
     drawParticles(effects.particles, false);
-    // Time-of-day grade over the whole scene, then prop lights; after dark,
-    // apples and the finish are drawn again on top so they stay easy to see.
-    const dark = gameArt.drawTimeTint(trail, cameraX, cameraY, W, H);
-    drawPropGlows(dark);
-    if (dark) {
-      drawGoal(ride);
-      drawApples(ride, now);
-    }
+    // Light the scene, then the glowing parts of props on top.
+    lighting.draw(ctx, {
+      trail,
+      ride,
+      cameraX,
+      cameraY,
+      width: W,
+      height: H,
+      flash: effects.weather.flash,
+      time: propScene.time,
+      flip: flipVisual,
+    });
+    drawPropGlows();
     drawPopups(animationDt);
     effects.prune();
     ctx.restore();
@@ -842,6 +871,7 @@ export function createRenderer(canvas) {
     reset,
     draw,
     popup,
+    setHeadlights: lighting.setHeadlights,
     get width() {
       return W;
     },

@@ -18,6 +18,7 @@ export const DEFAULT_BINDINGS = {
   back: ['ArrowLeft', 'KeyA'],
   forward: ['ArrowRight', 'KeyD'],
   flip: ['Space'],
+  lights: ['KeyL'],
   restart: ['KeyR'],
   pause: ['KeyP'],
   fullscreen: ['KeyF']
@@ -31,12 +32,14 @@ export const DEFAULT_PREFERENCES = {
   shake: reducedMotion ? 'off' : 'on',
   haptics: 'off',
   ghost: 'on',
+  headlight: 'on',
   bindings: DEFAULT_BINDINGS
 };
 
 const CHOICES = {
   scenery: ['full', 'reduced'], controls: ['show', 'hide'], sound: ['on', 'off'],
-  shake: ['on', 'off'], haptics: ['on', 'off'], ghost: ['on', 'off']
+  shake: ['on', 'off'], haptics: ['on', 'off'], ghost: ['on', 'off'],
+  headlight: ['on', 'off']
 };
 
 /** Repairs preferences loaded from storage. */

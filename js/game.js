@@ -4,13 +4,14 @@ import { STEP, MAX_STEPS_PER_FRAME, clamp } from './config.js';
 import { trails, customTrailEntries, readPlaytestTrail, PLAYTEST_EXIT_MESSAGE } from './trails.js';
 import { createAudio } from './audio.js';
 import { createPhysicsDebugger } from './physics-debug.js';
+import { createFpsMeter } from './fps-meter.js';
 import { terrainAt } from './terrain.js';
 import { createRide, stepRide, bikeSpeed, interpolateRide, RIDE_VERSION } from './ride.js';
 import { encodeInputs, decodeInputs } from './replay-codec.js';
 import { medalFor, normalizeTrail } from './trail-schema.js';
 import {
   readBest, saveBest, readLeaderboard, recordLeaderboardRun, readGhost, saveGhost,
-  saveProgress as persistProgress
+  saveProgress as persistProgress, savePreferences
 } from './storage.js';
 import { submitOnlineRun } from './online-leaderboard.js';
 import { createInput, keyLabel } from './input.js';
@@ -46,10 +47,13 @@ export function startGame() {
     onStartTrail: index => startSelectedTrail(() => loadTrail(index)),
     onStartCustom: index => startSelectedTrail(() => loadCustomTrail(index), false),
     onClose: closeMainMenu,
+    onRetry: retryFromMenu,
     onPreferences: applyPreferences
   });
 
-  const physicsDebugEnabled = new URLSearchParams(window.location.search).get('physicsDebug') === '1';
+  const params = new URLSearchParams(window.location.search);
+  const physicsDebugEnabled = params.get('physicsDebug') === '1';
+  const fpsMeter = params.get('fps') === '1' ? createFpsMeter(/** @type {Element} */ (document.querySelector('.viewport'))) : null;
   const physicsDebug = createPhysicsDebugger({
     enabled: physicsDebugEnabled,
     step: STEP,
@@ -177,6 +181,21 @@ export function startGame() {
     sounds.setVolume(preferences.volume / 100);
     input.setBindings(preferences.bindings);
     if (preferences.ghost === 'off') ghost = null;
+    syncHeadlight();
+  }
+
+  function syncHeadlight() {
+    const on = session.preferences.headlight !== 'off';
+    renderer.setHeadlights(on);
+    $('headlight').setAttribute('aria-pressed', String(on));
+  }
+
+  function toggleHeadlight() {
+    const on = session.preferences.headlight === 'off';
+    session.preferences.headlight = on ? 'on' : 'off';
+    savePreferences(session.preferences);
+    syncHeadlight();
+    sounds.headlight(on);
   }
 
   function saveProgress() {
@@ -251,6 +270,7 @@ export function startGame() {
     session.state = next;
     input.clear();
     if (next !== 'won') overlay.hide();
+    $('crash-retry').hidden = next !== 'ragdoll';
     overlay.showPause(next === 'paused');
     holdWakeLock(next === 'running' || next === 'ragdoll' || next === 'won');
   }
@@ -285,6 +305,7 @@ export function startGame() {
     session.state = 'menu';
     input.clear();
     overlay.hide();
+    $('crash-retry').hidden = true;
     holdWakeLock(false);
     game.classList.add('menu-open');
     menu.open();
@@ -302,6 +323,13 @@ export function startGame() {
       setState('won');
       overlay.reopen();
     } else setState(previous === 'paused' ? 'paused' : 'running');
+  }
+
+  function retryFromMenu() {
+    if (!menu.canResume()) return;
+    menu.close();
+    game.classList.remove('menu-open');
+    startFresh();
   }
 
   function startSelectedTrail(load, requiresSave = true) {
@@ -325,6 +353,7 @@ export function startGame() {
     else if (action === 'pause') { if (state === 'running' || state === 'paused') togglePause(); }
     else if (action === 'menu') { sounds.menuBack(); showMainMenu(); }
     else if (action === 'flip') { if (state === 'running') flipDirection(); }
+    else if (action === 'lights') toggleHeadlight();
     else if (action === 'fullscreen') toggleFullscreen();
     else if (action === 'confirm' || action === 'cancel') {
       if (state === 'paused') resumeGame();
@@ -430,7 +459,7 @@ export function startGame() {
         if (session.preferences.shake === 'on') camera.kick(6);
         vibrate([40, 30, 80]);
         setState('ragdoll');
-        overlay.announce('Rider down. Press ' + keyLabel(session.preferences.bindings.restart[0] || 'KeyR') + ' or select the restart button to try again.');
+        overlay.announce('Rider down. Press ' + keyLabel(session.preferences.bindings.restart[0] || 'KeyR') + ' or select Retry to try again.');
         overlay.toast('Rider down · Press ' + keyLabel(session.preferences.bindings.restart[0] || 'KeyR') + ' to retry', Infinity);
         break;
       case 'apple': {
@@ -500,6 +529,7 @@ export function startGame() {
   // --- Frame loop ----------------------------------------------------------
 
   function frame(now) {
+    fpsMeter?.frame(now);
     const dt = lastTime ? Math.min((now - lastTime) / 1000, .05) : 1 / 60;
     lastTime = now;
     input.pollGamepad();
@@ -530,6 +560,7 @@ export function startGame() {
       restoreGhost?.();
       restore();
     }
+    fpsMeter?.drawn(now);
     sounds.update();
     requestAnimationFrame(frame);
   }
@@ -576,7 +607,9 @@ export function startGame() {
     } else startFresh();
   });
   $('secondary').addEventListener('click', startFresh);
-  $('restart').addEventListener('click', startFresh);
+  // Focus the game first: hiding the focused button would blur it and auto-pause.
+  $('crash-retry').addEventListener('click', () => { focusGame(); startFresh(); });
+  $('headlight').addEventListener('click', () => { toggleHeadlight(); focusGame(); });
   $('menu').addEventListener('click', () => { sounds.menuBack(); showMainMenu(); });
   document.querySelectorAll('[data-fullscreen]').forEach(button => button.addEventListener('click', () => {
     const wantOn = button.dataset.fullscreen === 'on';

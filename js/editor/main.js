@@ -14,25 +14,27 @@ import { $, wrap } from "./dom.js";
 import { pushHistory, redo, undo, updateHistoryButtons } from "./history.js";
 import { bindInput } from "./input.js";
 import { bindInspector, syncInspector } from "./inspector.js";
+import { bindMenu } from "./menu.js";
 import { bindPlaytest } from "./playtest.js";
 import { GAME_ART_KEY, render } from "./render.js";
 import { editor } from "./state.js";
-import { flash, refuse } from "./status.js";
+import { refuse, showStatus } from "./status.js";
 import { TOOL_KEY_LABELS, segmentSelects, setTab, setTool } from "./tools.js";
 import {
-  DRAFT_PREFIX,
+  announceVersion,
+  bindVersions,
   buildPicker,
   createCustomTrail,
-  currentEntry,
   deleteTrail,
   download,
   loadTrailData,
+  saveDraft,
   saveTrail,
   selectEntry,
   storedTrailIndex,
   updateTrailControls,
 } from "./trails.js";
-import { focusOnStart, resize, updateZoom } from "./view.js";
+import { focusOnStart, resize, updateZoom, zoomAtCenter } from "./view.js";
 
 editor.trailIndex = storedTrailIndex();
 
@@ -106,19 +108,17 @@ $("undo").addEventListener("click", undo);
 
 $("redo").addEventListener("click", redo);
 
-$("zoom-in").addEventListener("click", () => {
-  editor.zoom = Math.min(2.5, editor.zoom * 1.2);
-  updateZoom();
-});
+$("zoom-in").addEventListener("click", () => zoomAtCenter(1.2));
 
-$("zoom-out").addEventListener("click", () => {
-  editor.zoom = Math.max(0.35, editor.zoom / 1.2);
-  updateZoom();
-});
+$("zoom-out").addEventListener("click", () => zoomAtCenter(1 / 1.2));
 
 bindInput();
 
 bindInspector();
+
+bindMenu();
+
+bindVersions();
 
 $("game-art").checked = editor.gameArt;
 
@@ -130,10 +130,7 @@ $("game-art").addEventListener("change", (event) => {
   render();
 });
 
-$("save-draft").addEventListener("click", () => {
-  store().setItem(DRAFT_PREFIX + currentEntry().id, JSON.stringify(editor.trail));
-  flash($("save-draft"), "SAVED");
-});
+$("save-draft").addEventListener("click", saveDraft);
 
 $("export-json").addEventListener("click", () => {
   const errors = validateTrail(editor.trail).filter(
@@ -173,6 +170,7 @@ $("import-json").addEventListener("click", () => {
     item.className = "error";
     item.textContent = `Invalid JSON: ${error.message}`;
     $("validation-list").replaceChildren(item);
+    showStatus("error", item.textContent);
   }
 });
 
@@ -193,4 +191,5 @@ detectDevServer().then((available) => {
   editor.devServer = available;
   updateTrailControls();
   document.querySelector(".editor-shell").removeAttribute("data-booting");
+  announceVersion();
 });

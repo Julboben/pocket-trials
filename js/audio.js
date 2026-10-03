@@ -148,6 +148,11 @@ export function createAudio(getSnapshot) {
       playTone(660, .1, 'square', .035, .055, 880);
     },
     flip: () => playTone(180, .12, 'square', .035, 0, 260),
+    headlight(on) {
+      playNoise(.025, .05, 3200);
+      if (on) playTone(520, .07, 'square', .03, .02, 1040);
+      else playTone(700, .08, 'square', .025, .02, 300);
+    },
     airTurn(fullRotation) {
       if (fullRotation) {
         playNoise(.16, .045, 1800);
