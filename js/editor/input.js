@@ -34,10 +34,10 @@ import {
   toggleFlip,
 } from "./selection.js";
 import { gridSpacing, snapToAngleAndGrid } from "./snap.js";
-import { editor } from "./state.js";
+import { clampZoom, editor } from "./state.js";
 import { showStatus } from "./status.js";
 import { PLACING_TOOLS, TOOL_KEYS, setTool } from "./tools.js";
-import { canSave, saveTrail } from "./trails.js";
+import { canSave, saveDraft, saveTrail } from "./trails.js";
 import {
   focusOnStart,
   pointerWorld,
@@ -216,10 +216,7 @@ export function bindInput() {
       if (event.ctrlKey || event.metaKey) {
         // Browsers expose trackpad pinch as a wheel event with Ctrl held.
         const before = pointerWorld(event);
-        editor.zoom = Math.max(
-          0.35,
-          Math.min(2.5, editor.zoom * Math.exp(-event.deltaY * 0.01)),
-        );
+        editor.zoom = clampZoom(editor.zoom * Math.exp(-event.deltaY * 0.01));
         const bounds = canvas.getBoundingClientRect();
         editor.cameraX = before.x - (event.clientX - bounds.left) / editor.zoom;
         editor.cameraY = before.y - (event.clientY - bounds.top) / editor.zoom;
@@ -244,7 +241,7 @@ export function bindInput() {
   canvas.addEventListener("gesturechange", (event) => {
     event.preventDefault();
     if (!gestureAnchor) return;
-    editor.zoom = Math.max(0.35, Math.min(2.5, gestureStartZoom * event.scale));
+    editor.zoom = clampZoom(gestureStartZoom * event.scale);
     const bounds = canvas.getBoundingClientRect();
     editor.cameraX = gestureAnchor.x - (event.clientX - bounds.left) / editor.zoom;
     editor.cameraY = gestureAnchor.y - (event.clientY - bounds.top) / editor.zoom;
@@ -501,7 +498,8 @@ export function bindInput() {
     }
     if ((event.metaKey || event.ctrlKey) && event.code === "KeyS") {
       event.preventDefault();
-      if (canSave()) saveTrail();
+      if (!event.shiftKey) saveDraft();
+      else if (canSave()) saveTrail();
       return;
     }
     if ((event.metaKey || event.ctrlKey) && event.code === "KeyY") {

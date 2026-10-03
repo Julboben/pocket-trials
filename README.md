@@ -102,15 +102,15 @@ The inspector on the right edits the current selection. The editor supports:
 - Undo and redo
 - Copy, cut and paste (`Cmd`/`Ctrl` + `C`, `X`, `V`) for blocks, apples, props and spikes. The copy goes to the system clipboard, so it can be pasted into another trail or tab; it lands under the cursor, or in the middle of the view.
 - Box-select picks up whole blocks along with points and objects; `Shift`-click adds or removes, `Cmd`/`Ctrl` + `A` selects everything, and `Cmd`/`Ctrl` + `D` duplicates. Undo and redo restore the selection too.
-- Press `?` (or the **?** button) for a list of every shortcut.
-- Continuous trail validation
-- Browser-local drafts
-- JSON and JavaScript module export
-- **New**, **Duplicate**, **Save** (`Cmd`/`Ctrl` + `S`), and **Delete** for trails
+- Press `?` (or **Keyboard shortcuts** in the **⋯** menu) for a list of every shortcut.
+- Continuous trail validation, listed in the **⋯** menu, which shows a badge when there are errors or warnings
+- Browser-local draft history (**Save draft** in the header, `Cmd`/`Ctrl` + `S`): up to 12 timestamped drafts per trail. The editor opens the newest draft unless the trail was saved after it. The label next to the trail picker shows which version is open (original, published, or a draft) and whether it has edits since; click it to open **Versions**, where you can open any draft, delete drafts, or revert to the published trail (undoable). **Save draft** is greyed out until the trail changes from the open version, and **Publish** until it differs from the published trail. The inspector panel is hidden until something is selected.
+- JSON import, plus JSON and JavaScript module export (**Import / export** in the **⋯** menu, which warns when validation errors would block an export)
+- **New** (+) and **Duplicate** next to the trail picker, plus **Publish** (`Cmd`/`Ctrl` + `Shift` + `S`) and **Delete** in the **⋯** menu
 
-Where **Save** writes depends on how the editor is served:
+Where **Publish** writes depends on how the editor is served:
 
-- Under `npm run dev`, official and file-based custom trails save directly to their JSON file, and new trails are created in `trails/custom/`.
+- Under `npm run dev`, official and file-based custom trails are written directly to their JSON file, and new trails are created in `trails/custom/`. For an official trail the menu item reads **Overwrite official file…** and asks for confirmation first.
 - On any other server, official and file-based trails are read-only. **New** and **Duplicate** create custom trails stored in the browser (localStorage), which then appear under **Custom Trails** in the game. Players can also add trails with **Import trail** in the game's trail menu.
 
 Editor drafts do not overwrite trail files. Official trails live in `trails/official/`; locally authored trails belong in `trails/custom/`. Both use the exact JSON format produced by **Export JSON**. Source classification comes from the generated catalog and folder—not from a user-editable property inside the trail. See [`TRAIL_FORMAT.md`](./TRAIL_FORMAT.md) for the full schema and design guidelines.
