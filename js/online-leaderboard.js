@@ -57,6 +57,29 @@ export function refreshOnlineBoard(trail, force = false) {
     .finally(() => { pending.delete(trail); announce(trail); });
 }
 
+const worldGhosts = new Map();  // trailKey -> Promise<ghost | null>
+
+/**
+ * The world's fastest verified run on a trail, in ghost format plus who rode
+ * it. Cached for the session, so restarts don't refetch it.
+ * @param {string} trail
+ * @returns {Promise<{ name: string, rider: string, time: number, splits: number[], startStep: number, seed: number, inputs: number[][], physics: number } | null>}
+ */
+export function fetchWorldGhost(trail) {
+  if (typeof window === 'undefined' || isSandbox() || !isOnlineTrail(trail)) return Promise.resolve(null);
+  if (!worldGhosts.has(trail)) {
+    worldGhosts.set(trail, fetch(`${API}?ghost=1&trail=${encodeURIComponent(trail)}`, { signal: AbortSignal.timeout(8000) })
+      .then(res => (res.ok ? res.json() : Promise.reject(res.status)))
+      .then(({ ghost }) => {
+        const replay = ghost?.replay;
+        if (!replay || !Number.isFinite(replay.time) || !Array.isArray(replay.inputs)) return null;
+        return { ...replay, name: cleanName(ghost.name) || null, rider: ghost.rider === 'female' ? 'female' : 'male' };
+      })
+      .catch(() => { worldGhosts.delete(trail); return null; }));
+  }
+  return worldGhosts.get(trail);
+}
+
 /**
  * Sends a finished run's inputs; the server replays them to get the time.
  * @param {string} trail
@@ -76,6 +99,7 @@ export async function submitOnlineRun(trail, { rider, token, run }) {
     if (res.status === 401) return { signedOut: true };
     if (!res.ok) return null;
     const data = await res.json();
+    if (data.rank === 1) worldGhosts.delete(trail);
     boards.set(trail, toRuns(data.runs));
     lastFetch.set(trail, Date.now());
     announce(trail);

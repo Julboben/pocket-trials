@@ -1,5 +1,6 @@
 // Online leaderboard API.
 //   GET  /api/leaderboard?trail=ID                                   -> { runs }
+//   GET  /api/leaderboard?trail=ID&ghost=1                           -> { ghost: { name, rider, replay } | null }
 //   POST /api/leaderboard  { trail, rider, run }  (Bearer token)     -> { rank, total, time, best, improved, runs }
 // `run` is the ride's recorded inputs ({ inputs, seed, physics }). The server
 // replays them and takes the time from its own simulation, never the client's.
@@ -23,9 +24,22 @@ async function top(sql, trail) {
 }
 
 async function list(req) {
-  const trail = new URL(req.url).searchParams.get('trail') ?? '';
+  const params = new URL(req.url).searchParams;
+  const trail = params.get('trail') ?? '';
   if (!TRAIL_RE.test(trail)) throw new HttpError(400, 'bad trail');
+  if (params.has('ghost')) return json({ ghost: await worldGhost(await db(), trail) });
   return json({ runs: await top(await db(), trail) });
+}
+
+/** The fastest run that has a replay (imported times have none), for the World ghost. */
+async function worldGhost(sql, trail) {
+  const [row] = await sql`
+    select p.name, r.rider, r.replay
+    from runs r join players p on p.id = r.player_id
+    where r.trail = ${trail} and r.replay is not null
+    order by r.time_ms asc, r.updated_at asc
+    limit 1`;
+  return row ? { name: row.name, rider: row.rider, replay: row.replay } : null;
 }
 
 async function submit(req) {

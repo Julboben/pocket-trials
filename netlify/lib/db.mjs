@@ -5,16 +5,11 @@ import { neon } from '@neondatabase/serverless';
 let sql = null;
 let ready = null;
 
-// Idempotent. A pre-accounts `runs` table (no replay column) holds unverified
-// times, so it is renamed out of the way and kept, rather than deleted.
+// Idempotent, so it is safe to run on every cold start.
 const SCHEMA = `
 do $$
 begin
   perform pg_advisory_xact_lock(727274);
-  if exists (select 1 from information_schema.tables where table_schema = current_schema() and table_name = 'runs')
-     and not exists (select 1 from information_schema.columns where table_schema = current_schema() and table_name = 'runs' and column_name = 'replay') then
-    execute format('alter table runs rename to %I', 'runs_legacy_' || to_char(now(), 'YYYYMMDDHH24MISS'));
-  end if;
 
   create table if not exists players (
     id uuid constraint players_pkey primary key,
@@ -42,7 +37,7 @@ begin
     player_id uuid not null constraint runs_verified_player_fkey references players(id) on delete cascade,
     rider text not null,
     time_ms integer not null,
-    replay jsonb not null,
+    replay jsonb,  -- null for times imported from the pre-accounts board
     updated_at timestamptz not null default now(),
     constraint runs_verified_pkey primary key (trail, player_id)
   );

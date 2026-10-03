@@ -18,7 +18,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Code-drawn pixel presentation with smooth terrain, mountains, and apples for readability
 - Responsive mobile and expanded desktop layouts with optional fullscreen play
 - Keyboard, touch, and gamepad controls with remappable keys
-- Ghost of your best run, with split deltas at each apple
+- Ghost of your best run, or the world's best, with split deltas at each apple
 - Results screen with rank, personal best, flips, and gold/silver/bronze medal targets
 - The run timer starts on your first input
 - Installable as an offline-capable web app
@@ -127,7 +127,7 @@ The dashboard's Settings view includes:
 - Sound effects on or off, and master volume
 - Screen shake (off by default when the system prefers reduced motion)
 - Vibration on landings and crashes (on devices that support it)
-- Ghost of your best run on or off
+- Ghost: your best run, the world's best (falls back to yours offline, and races whichever is faster), or off
 - Keyboard bindings
 - Fullscreen mode
 
@@ -164,7 +164,7 @@ Setup on Netlify:
 - `AUTH_SECRET`: a random secret of at least 32 characters, e.g. `openssl rand -base64 48`. Changing it signs everyone out, but they can log back in with their passkey.
 - `RP_ID` (optional, default `julben.dk`): the domain passkeys belong to. They work on that domain and every subdomain, such as `h.julben.dk`. Changing it makes existing passkeys unusable.
 
-Tables are created and migrated automatically on first use. A `runs` table from before verification existed is renamed to `runs_legacy_<timestamp>`, and the world board starts empty. Passkeys don't work on `*.netlify.app` deploy previews of the production domain (each preview host has its own), nor in `npm run dev`, which has no functions.
+Tables are created automatically on first use. A rider without a passkey (for example, one imported by hand from an older board) is unclaimed: the first person to create an online rider with that name takes it over, times included. Runs without a replay show on the board but can't be a ghost. Passkeys don't work on `*.netlify.app` deploy previews of the production domain (each preview host has its own), nor in `npm run dev`, which has no functions.
 
 ## Project structure
 

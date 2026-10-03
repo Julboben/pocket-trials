@@ -1,5 +1,5 @@
 // End-to-end tests for the online API (netlify/functions) against an in-memory
-// Postgres (PGlite) and a software passkey authenticator: schema migration,
+// Postgres (PGlite) and a software passkey authenticator: schema setup,
 // passkey sign-up and login, cloud saves, and server-side run verification.
 // Needs the npm dependencies: run `npm ci` first.
 import assert from 'node:assert/strict';
@@ -109,21 +109,19 @@ async function loginRider(authenticator) {
   return api('login', { body: { state: options.body.state, response: authenticator.login(options.body.options) } });
 }
 
-// --- Schema migration ---------------------------------------------------------
+// --- Schema ---------------------------------------------------------------------
 
-// The pre-accounts table, with an unverified time in it.
-await pg.exec(`create table runs (trail text not null, player_id text not null, name text not null, rider text not null,
-  time_ms integer not null, updated_at timestamptz not null default now(), unique (trail, player_id));
-  insert into runs values ('${keyOf('official:01-the-orchard')}', 'x', 'Cheater', 'male', 1000, now());`);
+const orchardKey = keyOf('official:01-the-orchard');
 {
-  const { status, body } = await board(keyOf('official:01-the-orchard'));
-  assert.equal(status, 200);
-  assert.deepEqual(body.runs, [], 'unverified legacy times are not shown');
-  const tables = (await sql`select table_name from information_schema.tables where table_schema = current_schema() order by 1`).map(row => row.table_name);
-  assert.ok(tables.some(name => /^runs_legacy_\d{14}$/.test(name)), 'old runs are kept under a new name');
-  assert.ok(['players', 'credentials', 'runs'].every(name => tables.includes(name)));
-  useSql(sql);   // a fresh instance migrates again, which must be a no-op
-  assert.equal((await board(keyOf('official:01-the-orchard'))).status, 200);
+  const { status, body } = await board(orchardKey);
+  assert.equal(status, 200, JSON.stringify(body));
+  assert.deepEqual(body.runs, []);
+  useSql(sql);   // a fresh instance runs the schema again, which must be a no-op
+  assert.equal((await board(orchardKey)).status, 200);
+  // A rider imported from the pre-accounts board: no passkey, no replay.
+  await sql`insert into players (id, name, name_key, rider) values (${crypto.randomUUID()}, 'julben', 'julben', 'female')`;
+  await sql`insert into runs (trail, player_id, rider, time_ms) select ${orchardKey}, id, 'female', 6908 from players where name_key = 'julben'`;
+  assert.deepEqual((await board(orchardKey)).body.runs.map(run => [run.name, run.time]), [['julben', 6.908]]);
 }
 
 // --- Sign-up ------------------------------------------------------------------
@@ -167,6 +165,20 @@ let julianToken;
   assert.equal((await api('register', { body: { state: first.body.state, response: forged } })).status, 400, 'passkey origin must match');
 }
 
+// --- Claiming an imported name -------------------------------------------------
+
+{
+  const owner = createAuthenticator();
+  const { status, body } = await registerRider('JulBen', owner, 'male');
+  assert.equal(status, 200, JSON.stringify(body));
+  assert.equal(body.player.name, 'JulBen');
+  assert.equal((await board(orchardKey)).body.runs[0].name, 'JulBen', 'the claimer gets the old times');
+  assert.equal((await api('register-options', { body: { name: 'julben' } })).status, 409, 'claimed names are taken');
+  const login = await loginRider(owner);
+  assert.equal(login.status, 200);
+  assert.deepEqual(login.body.runs, [], 'imported runs have no ghost to restore');
+}
+
 // --- Login --------------------------------------------------------------------
 
 {
@@ -184,6 +196,8 @@ let julianToken;
 }
 
 // --- Run verification ---------------------------------------------------------
+
+await sql`delete from runs where replay is null`;   // start from an empty board
 
 const orchard = keyOf('official:01-the-orchard');
 const orchardRun = fixture('01-the-orchard');
@@ -227,6 +241,14 @@ const run = (replay = orchardRun) => ({ inputs: replay.inputs, seed: replay.seed
   const faster = await submit({ body: { trail: orchard, rider: 'female', run: run() }, token: julianToken });
   assert.equal(faster.body.improved, true);
   assert.equal(faster.body.runs.length, 1, 'one row per rider');
+
+  const ghost = await call(leaderboard, '/api/leaderboard?ghost=1&trail=' + encodeURIComponent(orchard), { method: 'GET' });
+  assert.equal(ghost.status, 200);
+  assert.equal(ghost.body.ghost.name, 'Julian');
+  assert.equal(ghost.body.ghost.replay.physics, RIDE_VERSION);
+  assert.ok(Math.abs(ghost.body.ghost.replay.time - orchardRun.outcome.elapsed) < 0.001, 'world ghost is the best replay');
+  const none = await call(leaderboard, '/api/leaderboard?ghost=1&trail=' + encodeURIComponent(keyOf('official:03-high-hopes')), { method: 'GET' });
+  assert.equal(none.body.ghost, null, 'no ghost before anyone finishes');
 
   const listed = await board(orchard);
   assert.equal(listed.body.runs[0].name, 'Julian');

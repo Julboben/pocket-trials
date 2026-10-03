@@ -26,11 +26,14 @@ async function registerOptions(req) {
   if (!validName(name)) throw new HttpError(400, 'invalid name');
   if (blockedName(name)) throw new HttpError(400, 'name not allowed');
   const sql = await db();
-  const [taken] = await sql`select 1 from players where name_key = ${nameKey(name)}`;
-  if (taken) throw new HttpError(409, 'name taken');
+  // A name without a passkey (imported from the old board) is free to claim.
+  const [existing] = await sql`
+    select id, exists (select 1 from credentials c where c.player_id = players.id) as claimed
+    from players where name_key = ${nameKey(name)}`;
+  if (existing?.claimed) throw new HttpError(409, 'name taken');
 
   const { rpID, origin } = relyingParty(req);
-  const playerId = randomUUID();
+  const playerId = existing?.id ?? randomUUID();
   const options = await generateRegistrationOptions({
     rpName: RP_NAME, rpID,
     userName: name, userDisplayName: name,
@@ -65,21 +68,28 @@ async function register(req) {
   const { credential } = verification.registrationInfo;
   const rider = riderOf(body.rider);
   const sql = await db();
+  let rows;
   try {
-    await sql`
+    // Takes over an unclaimed rider of the same name, keeping its times.
+    rows = await sql`
       with player as (
         insert into players (id, name, name_key, rider)
         values (${state.player}, ${state.name}, ${nameKey(state.name)}, ${rider})
+        on conflict (name_key) do update set name = excluded.name, rider = excluded.rider
+          where not exists (select 1 from credentials c where c.player_id = players.id)
         returning id
       )
       insert into credentials (id, player_id, public_key, counter, transports)
       select ${credential.id}, id, ${Buffer.from(credential.publicKey).toString('base64url')}, ${credential.counter}, ${credential.transports ?? []}
-      from player`;
+      from player
+      returning player_id`;
   } catch (error) {
     if (error?.code === '23505') throw new HttpError(409, 'name taken');
     throw error;
   }
-  return json({ token: sessionToken(state.player), player: { id: state.player, name: state.name, rider } });
+  if (!rows.length) throw new HttpError(409, 'name taken');
+  const playerId = rows[0].player_id;
+  return json({ token: sessionToken(playerId), player: { id: playerId, name: state.name, rider } });
 }
 
 async function loginOptions(req) {
@@ -122,7 +132,7 @@ async function login(req) {
   if (!verification.verified) throw new HttpError(400, 'passkey rejected');
 
   await sql`update credentials set counter = ${verification.authenticationInfo.newCounter}, last_used_at = now() where id = ${row.id}`;
-  const runs = await sql`select trail, replay from runs where player_id = ${row.player_id}`;
+  const runs = await sql`select trail, replay from runs where player_id = ${row.player_id} and replay is not null`;
   return json({
     token: sessionToken(row.player_id),
     player: { id: row.player_id, name: row.name, rider: row.rider },
