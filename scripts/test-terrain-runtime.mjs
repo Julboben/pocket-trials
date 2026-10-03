@@ -38,7 +38,7 @@ const R = 12;
 // 2. A cave: floor, ceiling, and walls, and no contact with the roof above.
 {
   const holed = cutBlock(rectangleBlock(-200, 500, 2000, 1500), [[600, 700], [1400, 700], [1400, 1200], [600, 1200]]);
-  const compiled = compileTerrain(trail([holed.block]));
+  const compiled = compileTerrain(trail([holed.blocks[0]]));
   check("cave ceiling does not push a rider below it",
     terrainContacts(compiled, 1000, 900, R).length === 0);
   // The cave spans y 700 (ceiling) to 1200 (floor) between x 600 and 1400.
@@ -60,7 +60,7 @@ const R = 12;
 {
   const host = cutBlock(rectangleBlock(-200, 500, 2000, 1500), [[600, 700], [1400, 700], [1400, 1200], [600, 1200]]);
   const island = rectangleBlock(900, 900, 1100, 1000);
-  const compiled = compileTerrain(trail([host.block, island]));
+  const compiled = compileTerrain(trail([host.blocks[0], island]));
   check("nested island is solid", terrainSolidAt(compiled, 1000, 950));
   check("cave is empty around the island", !terrainSolidAt(compiled, 700, 950));
   const islandTop = terrainContacts(compiled, 1000, 890, R)[0];
@@ -86,8 +86,8 @@ const R = 12;
 {
   const host = cutBlock(rectangleBlock(-200, 500, 2000, 1500), [[600, 700], [1400, 700], [1400, 1200], [600, 1200]]);
   const island = rectangleBlock(900, 900, 1100, 1000);
-  const before = terrainSurfaceBelow(compileTerrain(trail([host.block, island])), 1000, 880);
-  const after = terrainSurfaceBelow(compileTerrain(trail([{ ...host.block, regions: host.block.regions }, island])), 1000, 880);
+  const before = terrainSurfaceBelow(compileTerrain(trail([host.blocks[0], island])), 1000, 880);
+  const after = terrainSurfaceBelow(compileTerrain(trail([{ ...host.blocks[0], outer: host.blocks[0].outer, inner: host.blocks[0].inner }, island])), 1000, 880);
   check("a nested block is independent of its host", before.y === after.y);
 }
 
@@ -122,12 +122,12 @@ const R = 12;
 
 // 8. Curved ground.
 {
-  const curved = normalizeBlock({ material: "grass", regions: [{ outer: { nodes: [
+  const curved = normalizeBlock({ material: "grass", outer: { nodes: [
     { x: 0, y: 500, edge: "curve", out: [200, 300] },
     { x: 600, y: 500, in: [400, 300], edge: "straight" },
     { x: 600, y: 1500, edge: "straight" },
     { x: 0, y: 1500, edge: "straight" },
-  ] }, inner: [] }] });
+  ] }, inner: [] });
   const compiled = compileTerrain(trail([curved]));
   const crest = terrainSurfaceBelow(compiled, 300, 300);
   check("a curve bulges away from its endpoints", crest && crest.y < 500);
@@ -140,10 +140,11 @@ const R = 12;
   check("the flank of the same curve is steep", flank && Math.abs(flank.slope) > 0.5);
 }
 
-// 9. A block split into disconnected regions is still one block.
+// 9. A cut straight through a block leaves two solid blocks with a gap between.
 {
   const split = cutBlock(rectangleBlock(-200, 500, 2000, 1500), [[900, 400], [920, 400], [920, 1600], [900, 1600]]);
-  const compiled = compileTerrain(trail([split.block]));
+  check("a cut through makes two blocks", split.blocks.length === 2);
+  const compiled = compileTerrain(trail(split.blocks));
   check("both sides of a split are solid", terrainSolidAt(compiled, 500, 700) && terrainSolidAt(compiled, 1400, 700));
   check("the split is a gap", !terrainSolidAt(compiled, 910, 700));
   check("the split gap has a left wall", terrainContacts(compiled, 890, 700, R)[0]?.nx > 0.9);
@@ -153,7 +154,7 @@ const R = 12;
 // 10. An entrance: a tunnel cut in from the outside, with a roof above it.
 {
   const entrance = cutBlock(rectangleBlock(-200, 500, 2000, 1500), [[-400, 800], [700, 800], [700, 1000], [-400, 1000]]);
-  const compiled = compileTerrain(trail([entrance.block]));
+  const compiled = compileTerrain(trail([entrance.blocks[0]]));
   check("the entrance mouth is open", !terrainSolidAt(compiled, -150, 900));
   check("the tunnel is open", !terrainSolidAt(compiled, 400, 900));
   check("the roof over the tunnel is solid", terrainSolidAt(compiled, 400, 700));

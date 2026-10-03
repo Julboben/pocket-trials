@@ -37,7 +37,7 @@ const errors = trail => validateTrail(trail).filter(m => m.type === 'error').map
   const blocks = createBlankTerrainBlocks({ terrain: 'grass' });
   const holed = cutBlock(blocks[0], [[400, 340], [700, 340], [700, 460], [400, 460]]);
   assert.ok(holed.changed, 'a cut carves a cave');
-  const trail = normalizeTrail({ ...createBlankTrail(), terrainBlocks: [holed.block] });
+  const trail = normalizeTrail({ ...createBlankTrail(), terrainBlocks: [holed.blocks[0]] });
   assert.deepEqual(errors(trail), [], 'a cave validates');
 
   const terrain = compileTerrain({ terrainBlocks: trailTerrainBlocks(trail) });
@@ -66,7 +66,7 @@ const errors = trail => validateTrail(trail).filter(m => m.type === 'error').map
     ...createBlankTrail(),
     terrainBlocks: [{
       material: 'grass',
-      regions: [{ outer: { nodes: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 20, y: 0 }] }, inner: [] }],
+      outer: { nodes: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 20, y: 0 }] }, inner: [],
     }],
   });
   assert.ok(
@@ -82,7 +82,7 @@ const errors = trail => validateTrail(trail).filter(m => m.type === 'error').map
     terrainBlocks: createBlankTerrainBlocks(),
   });
   const moved = JSON.parse(JSON.stringify(trail));
-  moved.terrainBlocks[0].regions[0].outer.nodes[1].x = 500;
+  moved.terrainBlocks[0].outer.nodes[1].x = 500;
   const other = normalizeTrail(moved);
 
   assert.equal(trailHash(trail), trailHash(normalizeTrail({ ...trail, name: 'Other' })), 'renaming keeps the identity');

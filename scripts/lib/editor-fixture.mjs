@@ -15,7 +15,7 @@ const base = () => ({
   terrainBlocks: [{
     id: 'b1',
     material: 'grass',
-    regions: [{ outer: { id: 'bo1', nodes: blockNodes }, inner: [] }],
+    outer: { id: 'bo1', nodes: blockNodes }, inner: [],
   }],
   apples: [], props: [], spikes: [], weather: { sun: 1, clouds: 0 },
   start: { x: 90, y: null, facing: 1 },

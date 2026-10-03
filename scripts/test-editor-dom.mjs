@@ -85,8 +85,9 @@ const reported = (report, label) => {
 {
   const report = await boot('interact');
   check('a click without a drag leaves no undo step', report.clickLeavesNoUndo === true);
-  check('a cut straight through splits the block into two regions', report.splitRegions === 2, `(${report.splitRegions})`);
-  check('dragging a corner of the second region moves that corner', report.rightMoved === true);
+  check('a cut straight through splits the block into two blocks', JSON.stringify(report.splitBlocks) === '["id,inner,material,outer","id,inner,material,outer"]', `(${JSON.stringify(report.splitBlocks)})`);
+  check('clicking one piece selects only that block', !/BLOCKS/.test(report.splitSelectsOne || ''), `("${report.splitSelectsOne}")`);
+  check('dragging a corner of the second piece moves that corner', report.rightMoved === true);
   check('and leaves the first region alone', report.leftUntouched === true);
   check('Escape abandons a cut being drawn', report.escapeCancels === true);
   check('Shift-click selects several blocks', /2 BLOCKS/.test(report.multiTitle || ''), `("${report.multiTitle}")`);

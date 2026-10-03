@@ -86,188 +86,176 @@
       "id": "back-1",
       "material": "rock",
       "layer": "back",
-      "regions": [
-        {
-          "outer": {
-            "id": "back-boundary-1",
-            "nodes": [
-              {
-                "id": "bn1",
-                "x": 470,
-                "y": 205,
-                "mode": "corner",
-                "in": null,
-                "out": null,
-                "edge": "straight"
-              },
-              {
-                "id": "bn2",
-                "x": 1265,
-                "y": 205,
-                "mode": "corner",
-                "in": null,
-                "out": null,
-                "edge": "straight"
-              },
-              {
-                "id": "bn3",
-                "x": 1265,
-                "y": 325,
-                "mode": "corner",
-                "in": null,
-                "out": null,
-                "edge": "straight"
-              },
-              {
-                "id": "bn4",
-                "x": 470,
-                "y": 325,
-                "mode": "corner",
-                "in": null,
-                "out": null,
-                "edge": "straight"
-              }
-            ]
+      "outer": {
+        "id": "back-boundary-1",
+        "nodes": [
+          {
+            "id": "bn1",
+            "x": 470,
+            "y": 205,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
           },
-          "inner": []
-        }
-      ]
+          {
+            "id": "bn2",
+            "x": 1265,
+            "y": 205,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "bn3",
+            "x": 1265,
+            "y": 325,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "bn4",
+            "x": 470,
+            "y": 325,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
     },
     {
       "id": "b1",
       "material": "grass",
-      "regions": [
-        {
-          "outer": {
-            "id": "r1",
-            "nodes": [
-              {
-                "id": "n1",
-                "x": -300,
-                "y": 320,
-                "mode": "corner",
-                "in": null,
-                "out": null,
-                "edge": "straight"
-              },
-              {
-                "id": "n2",
-                "x": 2400,
-                "y": 320,
-                "mode": "corner",
-                "in": null,
-                "out": null,
-                "edge": "straight"
-              },
-              {
-                "id": "n3",
-                "x": 2400,
-                "y": 800,
-                "mode": "corner",
-                "in": null,
-                "out": null,
-                "edge": "straight"
-              },
-              {
-                "id": "n4",
-                "x": -300,
-                "y": 800,
-                "mode": "corner",
-                "in": null,
-                "out": null,
-                "edge": "straight"
-              }
-            ]
+      "outer": {
+        "id": "r1",
+        "nodes": [
+          {
+            "id": "n1",
+            "x": -300,
+            "y": 320,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
           },
-          "inner": []
-        }
-      ]
+          {
+            "id": "n2",
+            "x": 2400,
+            "y": 320,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n3",
+            "x": 2400,
+            "y": 800,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n4",
+            "x": -300,
+            "y": 800,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
     },
     {
       "id": "b2",
       "material": "rock",
-      "regions": [
-        {
-          "outer": {
-            "id": "r2",
-            "nodes": [
-              {
-                "id": "n5",
-                "x": 420,
-                "y": 220,
-                "mode": "corner",
-                "in": null,
-                "out": null,
-                "edge": "straight"
-              },
-              {
-                "id": "n6",
-                "x": 450,
-                "y": 160,
-                "mode": "corner",
-                "in": null,
-                "out": null,
-                "edge": "straight"
-              },
-              {
-                "id": "n7",
-                "x": 560,
-                "y": 110,
-                "mode": "corner",
-                "in": null,
-                "out": null,
-                "edge": "straight"
-              },
-              {
-                "id": "n8",
-                "x": 1250,
-                "y": 110,
-                "mode": "corner",
-                "in": null,
-                "out": null,
-                "edge": "straight"
-              },
-              {
-                "id": "n9",
-                "x": 1380,
-                "y": 200,
-                "mode": "corner",
-                "in": null,
-                "out": null,
-                "edge": "straight"
-              },
-              {
-                "id": "n10",
-                "x": 1420,
-                "y": 330,
-                "mode": "corner",
-                "in": null,
-                "out": null,
-                "edge": "straight"
-              },
-              {
-                "id": "n11",
-                "x": 1250,
-                "y": 330,
-                "mode": "corner",
-                "in": null,
-                "out": null,
-                "edge": "straight"
-              },
-              {
-                "id": "n12",
-                "x": 1250,
-                "y": 220,
-                "mode": "corner",
-                "in": null,
-                "out": null,
-                "edge": "straight"
-              }
-            ]
+      "outer": {
+        "id": "r2",
+        "nodes": [
+          {
+            "id": "n5",
+            "x": 420,
+            "y": 220,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
           },
-          "inner": []
-        }
-      ]
+          {
+            "id": "n6",
+            "x": 450,
+            "y": 160,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n7",
+            "x": 560,
+            "y": 110,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n8",
+            "x": 1250,
+            "y": 110,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n9",
+            "x": 1380,
+            "y": 200,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n10",
+            "x": 1420,
+            "y": 330,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n11",
+            "x": 1250,
+            "y": 330,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n12",
+            "x": 1250,
+            "y": 220,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
     }
   ],
   "timeOfDay": "night"

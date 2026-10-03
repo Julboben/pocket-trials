@@ -23,70 +23,66 @@ export function createBlankTerrainBlocks(trail = {}) {
       {
         id: "block-1",
         material: trail.terrain || "grass",
-        regions: [
-          {
-            outer: {
-              id: "boundary-1",
-              nodes: [
-                {
-                  id: "n1",
-                  x: 0,
-                  y: 320,
-                  mode: "corner",
-                  in: null,
-                  out: null,
-                  edge: "straight",
-                },
-                {
-                  id: "n2",
-                  x: 420,
-                  y: 300,
-                  mode: "corner",
-                  in: null,
-                  out: null,
-                  edge: "straight",
-                },
-                {
-                  id: "n3",
-                  x: 900,
-                  y: 336,
-                  mode: "corner",
-                  in: null,
-                  out: null,
-                  edge: "straight",
-                },
-                {
-                  id: "n4",
-                  x: 1400,
-                  y: 300,
-                  mode: "corner",
-                  in: null,
-                  out: null,
-                  edge: "straight",
-                },
-                {
-                  id: "n5",
-                  x: 1400,
-                  y: 580,
-                  mode: "corner",
-                  in: null,
-                  out: null,
-                  edge: "straight",
-                },
-                {
-                  id: "n6",
-                  x: 0,
-                  y: 580,
-                  mode: "corner",
-                  in: null,
-                  out: null,
-                  edge: "straight",
-                },
-              ],
+        outer: {
+          id: "boundary-1",
+          nodes: [
+            {
+              id: "n1",
+              x: 0,
+              y: 320,
+              mode: "corner",
+              in: null,
+              out: null,
+              edge: "straight",
             },
-            inner: [],
-          },
-        ],
+            {
+              id: "n2",
+              x: 420,
+              y: 300,
+              mode: "corner",
+              in: null,
+              out: null,
+              edge: "straight",
+            },
+            {
+              id: "n3",
+              x: 900,
+              y: 336,
+              mode: "corner",
+              in: null,
+              out: null,
+              edge: "straight",
+            },
+            {
+              id: "n4",
+              x: 1400,
+              y: 300,
+              mode: "corner",
+              in: null,
+              out: null,
+              edge: "straight",
+            },
+            {
+              id: "n5",
+              x: 1400,
+              y: 580,
+              mode: "corner",
+              in: null,
+              out: null,
+              edge: "straight",
+            },
+            {
+              id: "n6",
+              x: 0,
+              y: 580,
+              mode: "corner",
+              in: null,
+              out: null,
+              edge: "straight",
+            },
+          ],
+        },
+        inner: [],
       },
     ],
     trail.terrain || "grass",
@@ -363,16 +359,12 @@ export function validateTrail(trail) {
   // both ends of the terrain rather than against a position to the right.
   const firstX = blocks.length
     ? Math.min(
-        ...blocks.flatMap((block) =>
-          block.regions.map((region) => regionBounds(region).left),
-        ),
+        ...blocks.map((block) => regionBounds(block).left),
       )
     : Infinity;
   const finalX = blocks.length
     ? Math.max(
-        ...blocks.flatMap((block) =>
-          block.regions.map((region) => regionBounds(region).right),
-        ),
+        ...blocks.map((block) => regionBounds(block).right),
       )
     : -Infinity;
   // A finish off the end of the terrain is already reported by the range check

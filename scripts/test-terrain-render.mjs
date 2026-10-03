@@ -118,7 +118,7 @@ const pixelAt = (raster, left, top, x, y) => {
 {
   const carved = cutBlock(rectangle(0, 300, 800, 600, 'rock'), [[300, 360], [500, 360], [500, 460], [300, 460]]);
   assert.ok(carved.changed, 'the cave cut works');
-  const compiled = terrainGeometry(normalizeTrail(blockTrail([carved.block])));
+  const compiled = terrainGeometry(normalizeTrail(blockTrail([carved.blocks[0]])));
   const raster = rasterizeTerrainChunk(compiled, 256, 256, 160, 160);
   check('the middle of the cave is open', pixelAt(raster, 256, 256, 400, 410) === null);
   check('the rock around the cave is drawn', pixelAt(raster, 256, 256, 400, 480) !== null);
@@ -164,7 +164,7 @@ const drawCalls = (renderer, trail, x, y, w, h) => {
   drawCalls(renderer, trail, 0, 0, 900, 600);
   const rebuilt = drawCalls(renderer, trail, 0, 0, 900, 600).filter(name => name === 'putImageData').length;
   check('an edit far away leaves visible chunks cached', rebuilt === 0, `(${rebuilt} rebuilt)`);
-  for (const node of trail.terrainBlocks[0].regions[0].outer.nodes) node.y -= 40;
+  for (const node of trail.terrainBlocks[0].outer.nodes) node.y -= 40;
   invalidateTerrain(trail);
   const moved = drawCalls(renderer, trail, 0, 0, 900, 600).filter(name => name === 'putImageData').length;
   check('an edit in view rebuilds its chunks', moved > 0);
@@ -179,7 +179,7 @@ const drawCalls = (renderer, trail, x, y, w, h) => {
 {
   const { propAlignmentSlope, propGroundOffset } = await import('../js/drawing.js');
   const carved = cutBlock(rectangle(0, 300, 1200, 800), [[400, 340], [700, 340], [700, 460], [400, 460]]);
-  const trail = normalizeTrail(blockTrail([carved.block]));
+  const trail = normalizeTrail(blockTrail([carved.blocks[0]]));
   assert.equal(trail.points, undefined, 'the trail really has no ground line');
   for (const prop of [
     { x: 550, y: null, type: 'fence' },

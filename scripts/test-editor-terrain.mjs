@@ -10,14 +10,16 @@ import { cutBlock, moveBlock, pointInRegion, regionArea, normalizeBlocks } from 
 import { compileTerrain, terrainSolidAt, terrainSurfaceBelow, terrainContacts } from '../js/terrain-runtime.js';
 import { RADIUS } from '../js/config.js';
 
-// Mirrors commitShape() in js/editor/blocks.js.
+// Mirrors commitShape() in js/editor/blocks.js: each block a cut changes is
+// replaced in place by its pieces, the largest first.
 const commitCut = (blocks, points) => {
-  const next = blocks.slice();
   let changed = false;
-  for (const [index, block] of blocks.entries()) {
+  const next = blocks.flatMap(block => {
     const result = cutBlock(block, points);
-    if (result.changed) { next[index] = normalizeBlocks([result.block], 'grass')[0]; changed = true; }
-  }
+    if (!result.changed) return [block];
+    changed = true;
+    return normalizeBlocks(result.blocks, 'grass');
+  });
   return { changed, blocks: next };
 };
 
@@ -25,10 +27,10 @@ const commitCut = (blocks, points) => {
 {
   const trail = normalizeTrail(createBlankTrail());
   const before = trail.terrainBlocks.length;
-  const block = normalizeBlocks([{ material: 'grass', regions: [{ outer: { nodes: [
+  const block = normalizeBlocks([{ material: 'grass', outer: { nodes: [
     { x: 100, y: 100, edge: 'straight' }, { x: 300, y: 100, edge: 'straight' },
     { x: 300, y: 200, edge: 'straight' }, { x: 100, y: 200, edge: 'straight' },
-  ] }, inner: [] }] }], 'grass')[0];
+  ] }, inner: [] }], 'grass')[0];
   trail.terrainBlocks = [...trail.terrainBlocks, block];
   assert.equal(trail.terrainBlocks.length, before + 1);
   const terrain = compileTerrain({ terrainBlocks: trailTerrainBlocks(trail) });
@@ -58,13 +60,15 @@ const commitCut = (blocks, points) => {
   assert.ok(terrainSolidAt(terrain, 900, 400), 'the rest of the block is untouched');
 }
 
-// 4. A cut all the way through splits the block into regions of the same block.
+// 4. A cut all the way through leaves each piece as a block of its own; the
+//    largest keeps the original block's id.
 {
   const blocks = createBlankTerrainBlocks();
   const { changed, blocks: cut } = commitCut(blocks, [[690, 100], [710, 100], [710, 700], [690, 700]]);
   assert.ok(changed);
-  assert.equal(cut.length, 1, 'a split does not create a new block');
-  assert.ok(cut[0].regions.length > 1, 'the block now has two regions');
+  assert.equal(cut.length, 2, 'a split makes two blocks');
+  assert.equal(cut[0].id, blocks[0].id, 'the largest piece keeps the id');
+  assert.notEqual(cut[1].id, blocks[0].id, 'the other piece gets its own id');
   const terrain = compileTerrain({ terrainBlocks: cut });
   assert.ok(terrainSolidAt(terrain, 400, 400) && terrainSolidAt(terrain, 1000, 400), 'both sides are solid');
   assert.ok(!terrainSolidAt(terrain, 700, 400), 'the split is a gap');
@@ -81,10 +85,10 @@ const commitCut = (blocks, points) => {
 {
   const host = createBlankTerrainBlocks()[0];
   const { blocks } = commitCut([host], [[400, 340], [700, 340], [700, 460], [400, 460]]);
-  const island = normalizeBlocks([{ material: 'rock', regions: [{ outer: { nodes: [
+  const island = normalizeBlocks([{ material: 'rock', outer: { nodes: [
     { x: 500, y: 380, edge: 'straight' }, { x: 600, y: 380, edge: 'straight' },
     { x: 600, y: 430, edge: 'straight' }, { x: 500, y: 430, edge: 'straight' },
-  ] }, inner: [] }] }], 'grass')[0];
+  ] }, inner: [] }], 'grass')[0];
   const before = compileTerrain({ terrainBlocks: [...blocks, island] });
   assert.ok(terrainSolidAt(before, 550, 400), 'the island is solid inside the cave');
 
@@ -102,10 +106,10 @@ const commitCut = (blocks, points) => {
 {
   const host = createBlankTerrainBlocks()[0];
   const { blocks } = commitCut([host], [[400, 340], [700, 340], [700, 460], [400, 460]]);
-  const island = normalizeBlocks([{ material: 'rock', regions: [{ outer: { nodes: [
+  const island = normalizeBlocks([{ material: 'rock', outer: { nodes: [
     { x: 300, y: 380, edge: 'straight' }, { x: 420, y: 380, edge: 'straight' },
     { x: 420, y: 430, edge: 'straight' }, { x: 300, y: 430, edge: 'straight' },
-  ] }, inner: [] }] }], 'grass')[0];
+  ] }, inner: [] }], 'grass')[0];
   // The island straddles the cave's left wall, filling part of it.
   const terrain = compileTerrain({ terrainBlocks: [...blocks, island] });
   assert.ok(terrainSolidAt(terrain, 380, 405), 'the overlapping island is solid');
