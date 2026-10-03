@@ -101,6 +101,8 @@
  * @property {number} airRotation
  * @property {number} airTurnMilestone
  * @property {number} previousAirAngle
+ * @property {boolean} inJump airborne, or touched down but not yet settled
+ * @property {number} landingSteps steps a wheel has been down since the jump
  * @property {number} lastGateNotice
  * @property {Record<string, { x: number, y: number, radius: number }> | null} previousRiderContacts
  *

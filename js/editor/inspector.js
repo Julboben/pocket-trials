@@ -19,7 +19,9 @@ import {
 } from "./blocks.js";
 import { $ } from "./dom.js";
 import { pushHistory, updateHistoryButtons } from "./history.js";
+import { updateVersionChip } from "./drafts.js";
 import { edgeHit } from "./hit-test.js";
+import { updateValidationBadge } from "./menu.js";
 import {
   finishY,
   groundY,
@@ -209,7 +211,9 @@ let pendingDetails = null;
 function syncDetails() {
   clearTimeout(pendingDetails);
   pendingDetails = null;
-  $("trail-json").value = JSON.stringify(editor.trail, null, 2);
+  const json = JSON.stringify(editor.trail, null, 2);
+  $("trail-json").value = json;
+  updateVersionChip(json);
   const messages = validateTrail(editor.trail);
   $("validation-list").replaceChildren(
     ...messages.map((message) => {
@@ -219,6 +223,7 @@ function syncDetails() {
       return item;
     }),
   );
+  updateValidationBadge(messages);
 }
 
 /** Finish any JSON and validation a live drag left waiting. */

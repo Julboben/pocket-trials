@@ -702,7 +702,7 @@
   ],
   "spikes": [],
   "weather": {
-    "sun": 1,
+    "sun": 0.7,
     "clouds": 0.15
   },
   "fallY": 620,

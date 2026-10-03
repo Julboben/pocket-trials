@@ -14,13 +14,24 @@ import {
   uniqueCustomFile,
 } from "../trails.js";
 import { $ } from "./dom.js";
+import {
+  addDraft,
+  clearDrafts,
+  draftAge,
+  formatDraftTime,
+  listDrafts,
+  markSaved,
+  removeDraft,
+  savedAt,
+  savedName,
+  updateVersionChip,
+} from "./drafts.js";
+import { pushHistory } from "./history.js";
 import { syncInspector } from "./inspector.js";
 import { render } from "./render.js";
 import { editor } from "./state.js";
 import { flash, refuse, showStatus } from "./status.js";
 import { focusOnStart } from "./view.js";
-
-export const DRAFT_PREFIX = "hjulben-editor-draft-v1-";
 
 const CURRENT_TRAIL_KEY = "hjulben-editor-current-v1";
 
@@ -41,16 +52,176 @@ function rememberTrail() {
   } catch (_) {}
 }
 
+/**
+ * Record the version just opened or saved. `published` is the published
+ * trail's JSON, kept so Publish can tell whether there is anything new.
+ */
+function setVersion(kind, at, trail, published = editor.version?.published) {
+  const base = JSON.stringify(trail, null, 2);
+  editor.version = {
+    kind,
+    at,
+    base,
+    published: kind === "saved" ? base : published,
+    edited: false,
+    unpublished: kind === "saved" ? false : base !== published,
+  };
+}
+
+function publishedJson(index) {
+  const entry = trailEntries[index];
+  return JSON.stringify(normalizeTrail(entry?.trail || createBlankTrail(index), index), null, 2);
+}
+
+/**
+ * The trail to open: its newest draft when that is newer than the last save,
+ * otherwise the saved trail. Sets editor.version to say which it was.
+ */
 export function loadTrailData(index) {
-  const stored = trailEntries[index]?.trail;
-  try {
-    const draft = JSON.parse(
-      store().getItem(DRAFT_PREFIX + trailEntries[index].id) || "null",
-    );
-    return normalizeTrail(draft || stored || createBlankTrail(index), index);
-  } catch (_) {
-    return normalizeTrail(stored || createBlankTrail(index), index);
+  const entry = trailEntries[index];
+  const stored = entry?.trail;
+  const fallback = () => normalizeTrail(stored || createBlankTrail(index), index);
+  const draft = entry ? listDrafts(entry.id)[0] : null;
+  if (draft && draft.at > savedAt(entry.id)) {
+    try {
+      const trail = normalizeTrail(draft.trail, index);
+      setVersion("draft", draft.at, trail, publishedJson(index));
+      return trail;
+    } catch (_) {}
   }
+  const trail = fallback();
+  setVersion("saved", null, trail);
+  return trail;
+}
+
+/** Tell the author when a trail opened on a draft rather than the saved trail. */
+export function announceVersion() {
+  if (editor.version?.kind !== "draft") return;
+  showStatus(
+    "info",
+    `Opened your draft (${formatDraftTime(editor.version.at)}). Switch versions from the label at the top.`,
+  );
+}
+
+export function saveDraft() {
+  if (!editor.version?.edited) {
+    showStatus("info", "No changes since this version, so there is nothing new to save.");
+    return;
+  }
+  const entry = currentEntry();
+  const at = addDraft(entry.id, editor.trail);
+  if (!at) {
+    showStatus("error", "Could not save the draft: browser storage is full or blocked.");
+    return;
+  }
+  setVersion("draft", at, editor.trail);
+  updateVersionChip();
+  flash($("save-draft"), "SAVED");
+  if ($("versions").open) renderVersions();
+  showStatus("info", `Draft saved · ${formatDraftTime(at)}`);
+}
+
+function openVersion(kind, at, data) {
+  /** @type {HTMLDialogElement} */ ($("versions")).close();
+  pushHistory();
+  editor.trail = normalizeTrail(JSON.parse(JSON.stringify(data)), editor.trailIndex);
+  setVersion(kind, at, editor.trail);
+  editor.selection = null;
+  syncInspector();
+  render();
+  showStatus(
+    "info",
+    `Opened ${kind === "draft" ? `draft (${formatDraftTime(at)})` : savedName(currentEntry()).toLowerCase()}. Undo to go back.`,
+  );
+}
+
+function versionRow({ title, detail, current, onOpen, onDelete, openLabel }) {
+  const item = document.createElement("li");
+  item.className = current ? "current" : "";
+  const text = document.createElement("div");
+  const name = document.createElement("strong");
+  name.textContent = title;
+  const note = document.createElement("span");
+  note.textContent = detail;
+  text.append(name, note);
+  item.append(text);
+  if (current) {
+    const tag = document.createElement("em");
+    tag.textContent = "OPEN NOW";
+    item.append(tag);
+  } else {
+    const open = document.createElement("button");
+    open.textContent = openLabel || "OPEN";
+    open.addEventListener("click", onOpen);
+    item.append(open);
+  }
+  if (onDelete) {
+    const remove = document.createElement("button");
+    remove.className = "danger-inline";
+    remove.textContent = "×";
+    remove.title = "Delete this draft";
+    remove.setAttribute("aria-label", `Delete draft from ${title}`);
+    remove.addEventListener("click", onDelete);
+    item.append(remove);
+  }
+  return item;
+}
+
+/** Fill the versions dialog: the saved trail, then every draft, newest first. */
+export function renderVersions() {
+  const entry = currentEntry();
+  const json = JSON.stringify(editor.trail, null, 2);
+  const matches = (data) => {
+    try {
+      return JSON.stringify(normalizeTrail(JSON.parse(JSON.stringify(data)), editor.trailIndex), null, 2) === json;
+    } catch (_) {
+      return false;
+    }
+  };
+  $("versions-title").textContent = `VERSIONS · ${editor.trail.name.toUpperCase()}`;
+  $("versions-where").textContent = saveStatusText(entry);
+  const drafts = listDrafts(entry.id);
+  const saved = entry.trail || createBlankTrail(editor.trailIndex);
+  const rows = [
+    versionRow({
+      title: savedName(entry),
+      detail: entry.storage === "browser" ? "Saved in this browser" : entry.file ? `trails/${entry.file}` : "Built in",
+      current: matches(saved),
+      openLabel: "REVERT",
+      onOpen: () => openVersion("saved", null, saved),
+    }),
+    ...drafts.map((draft) =>
+      versionRow({
+        title: `Draft · ${formatDraftTime(draft.at)}`,
+        detail: draftAge(draft.at),
+        current: matches(draft.trail),
+        onOpen: () => openVersion("draft", draft.at, draft.trail),
+        onDelete: () => {
+          removeDraft(entry.id, draft.at);
+          renderVersions();
+        },
+      }),
+    ),
+  ];
+  $("versions-list").replaceChildren(...rows);
+  $("versions-empty").hidden = drafts.length > 0;
+  const unsaved = !rows.some((row) => row.classList.contains("current"));
+  $("versions-unsaved").hidden = !unsaved;
+}
+
+export function openVersions() {
+  renderVersions();
+  /** @type {HTMLDialogElement} */ ($("versions")).showModal();
+}
+
+export function bindVersions() {
+  const dialog = /** @type {HTMLDialogElement} */ ($("versions"));
+  $("version-chip").addEventListener("click", openVersions);
+  $("show-versions").addEventListener("click", openVersions);
+  $("versions-save-draft").addEventListener("click", saveDraft);
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
+  });
 }
 
 export function download(filename, content, type) {
@@ -106,14 +277,27 @@ export function canSave(entry = currentEntry()) {
 export function updateTrailControls() {
   const entry = currentEntry();
   $("save-trail").hidden = !canSave(entry);
+  // Publishing over an official trail rewrites a shipped file, so it is named
+  // for what it does and asks first.
+  const official = entry?.source === "official";
+  $("save-trail-label").textContent = official ? "Overwrite official file…" : "Publish";
+  $("save-trail").classList.toggle("danger-item", official);
+  $("save-trail").title =
+    entry?.storage === "browser"
+      ? "Save to this browser's trail library, where the game plays it (Cmd/Ctrl+Shift+S)"
+      : `Write trails/${entry?.file} (Cmd/Ctrl+Shift+S)`;
   $("delete-trail").hidden =
     entry?.source !== "custom" || (entry.storage !== "browser" && !editor.devServer);
-  $("save-status").textContent =
-    entry?.storage === "browser"
-      ? "Saved in this browser"
-      : editor.devServer
-        ? `Dev server · trails/${entry?.file}`
-        : "Read-only here · duplicate or export to keep changes";
+  $("save-status").textContent = saveStatusText(entry);
+  updateVersionChip();
+}
+
+function saveStatusText(entry) {
+  return entry?.storage === "browser"
+    ? "Saved in this browser"
+    : editor.devServer
+      ? `Dev server · trails/${entry?.file}`
+      : "Read-only here · duplicate or export to keep changes";
 }
 
 export function selectEntry(index) {
@@ -129,6 +313,19 @@ export function selectEntry(index) {
   updateTrailControls();
   syncInspector();
   render();
+  announceVersion();
+}
+
+function confirmOverwrite(entry) {
+  const dialog = /** @type {HTMLDialogElement} */ ($("publish-confirm"));
+  $("publish-file").textContent = `trails/${entry.file}`;
+  dialog.returnValue = "";
+  return new Promise((resolve) => {
+    dialog.addEventListener("close", () => resolve(dialog.returnValue === "overwrite"), {
+      once: true,
+    });
+    dialog.showModal();
+  });
 }
 
 async function persist(entry, data) {
@@ -139,18 +336,29 @@ async function persist(entry, data) {
 export async function saveTrail() {
   const entry = currentEntry();
   if (!canSave(entry)) return;
+  if (editor.version && !editor.version.unpublished) {
+    showStatus("info", "Nothing to publish: the trail matches the published version.");
+    return;
+  }
   const errors = validateTrail(editor.trail).filter(
     (message) => message.type === "error",
   );
-  if (errors.length && !refuse("saving", errors)) return;
+  if (errors.length && !refuse("publishing", errors)) return;
+  if (entry.source === "official" && !(await confirmOverwrite(entry))) return;
   try {
     await persist(entry, editor.trail);
-    store().removeItem(DRAFT_PREFIX + entry.id);
+    markSaved(entry.id);
+    setVersion("saved", null, editor.trail);
     buildPicker();
     updateTrailControls();
-    flash($("save-trail"), "SAVED");
+    showStatus(
+      "info",
+      entry.storage === "browser"
+        ? "Published to this browser's trail library."
+        : `Published to trails/${entry.file}.`,
+    );
   } catch (error) {
-    showStatus("error", `Could not save: ${error.message}`);
+    showStatus("error", `Could not publish: ${error.message}`);
   }
 }
 
@@ -176,7 +384,7 @@ export async function deleteTrail() {
   try {
     if (entry.storage === "browser") deleteBrowserTrail(entry.key);
     else await deleteTrailFile(entry.file);
-    store().removeItem(DRAFT_PREFIX + entry.id);
+    clearDrafts(entry.id);
     selectEntry(0);
   } catch (error) {
     showStatus("error", `Could not delete: ${error.message}`);

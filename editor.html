@@ -10,36 +10,64 @@
     <body>
         <main class="editor-shell" data-booting>
             <header class="editor-header">
-                <a class="brand" href="./index.html">
-                    <img
-                        src="./icons/icon-maskable.svg"
-                        alt=""
-                        height="30"
-                        width="30"
-                        aria-hidden="true"
-                    />
-                    <strong>HJULBEN</strong></a
+                <a
+                    class="back-game icon-button"
+                    href="./index.html"
+                    title="Back to the game"
+                    aria-label="Back to the game"
+                    ><svg class="px-icon" viewBox="0 0 11 11" aria-hidden="true"><path d="M4 0h7v1h-7zM4 1h1v1h-1zM10 1h1v1h-1zM4 2h1v1h-1zM10 2h1v1h-1zM2 3h1v1h-1zM10 3h1v1h-1zM1 4h1v1h-1zM10 4h1v1h-1zM0 5h8v1h-8zM10 5h1v1h-1zM1 6h1v1h-1zM10 6h1v1h-1zM2 7h1v1h-1zM10 7h1v1h-1zM4 8h1v1h-1zM10 8h1v1h-1zM4 9h1v1h-1zM10 9h1v1h-1zM4 10h7v1h-7z"></path></svg></a
                 >
                 <label
                     >TRAIL
                     <select id="trail-picker"></select
                 ></label>
                 <div class="trail-actions">
-                    <button id="new-trail" title="Create a new custom trail">
-                        NEW
+                    <button
+                        id="new-trail"
+                        class="icon-button"
+                        title="New trail"
+                        aria-label="New trail"
+                    >
+                        <svg class="px-icon" viewBox="0 0 9 9" aria-hidden="true"><path d="M4 1h1v1h-1zM4 2h1v1h-1zM4 3h1v1h-1zM1 4h7v1h-7zM4 5h1v1h-1zM4 6h1v1h-1zM4 7h1v1h-1z"></path></svg>
                     </button>
                     <button
                         id="duplicate-trail"
-                        title="Copy this trail into a new custom trail"
+                        class="icon-button"
+                        title="Duplicate trail"
+                        aria-label="Duplicate trail"
                     >
-                        DUPLICATE
-                    </button>
-                    <button id="delete-trail" class="danger-inline" hidden>
-                        DELETE
+                        <svg class="px-icon" viewBox="0 0 9 9" aria-hidden="true"><path d="M3 0h6v1h-6zM3 1h1v1h-1zM8 1h1v1h-1zM3 2h1v1h-1zM8 2h1v1h-1zM0 3h6v1h-6zM8 3h1v1h-1zM0 4h1v1h-1zM5 4h1v1h-1zM8 4h1v1h-1zM0 5h1v1h-1zM5 5h1v1h-1zM8 5h1v1h-1zM0 6h1v1h-1zM5 6h4v1h-4zM0 7h1v1h-1zM5 7h1v1h-1zM0 8h6v1h-6z"></path></svg>
                     </button>
                 </div>
+                <button
+                    id="version-chip"
+                    class="version-chip"
+                    title="The version you are editing · open versions"
+                    aria-haspopup="dialog"
+                >
+                    <span class="version-dot" aria-hidden="true"></span
+                    ><span id="version-label"></span>
+                </button>
                 <span class="save-status" id="save-status"></span>
                 <div class="header-actions">
+                    <div class="history-actions">
+                        <button
+                            id="undo"
+                            class="icon-button"
+                            title="Undo (Cmd/Ctrl+Z)"
+                            aria-label="Undo"
+                        >
+                            <svg class="px-icon" viewBox="1 0 8 9" aria-hidden="true"><path d="M3 0h1v1h-1zM2 1h2v1h-2zM1 2h7v1h-7zM2 3h2v1h-2zM8 3h1v1h-1zM3 4h1v1h-1zM8 4h1v1h-1zM8 5h1v1h-1zM8 6h1v1h-1zM7 7h1v1h-1zM2 8h5v1h-5z"></path></svg>
+                        </button>
+                        <button
+                            id="redo"
+                            class="icon-button"
+                            title="Redo (Cmd/Ctrl+Shift+Z)"
+                            aria-label="Redo"
+                        >
+                            <svg class="px-icon" viewBox="0 0 8 9" aria-hidden="true"><path d="M5 0h1v1h-1zM5 1h2v1h-2zM1 2h7v1h-7zM0 3h1v1h-1zM5 3h2v1h-2zM0 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM0 6h1v1h-1zM1 7h1v1h-1zM2 8h5v1h-5z"></path></svg>
+                        </button>
+                    </div>
                     <button
                         id="play-test"
                         class="play-action"
@@ -47,24 +75,60 @@
                     >
                         ▶ PLAY TEST
                     </button>
-                    <button id="show-shortcuts" title="Keyboard shortcuts (?)">
-                        ?
-                    </button>
-                    <button id="undo" title="Undo (Cmd/Ctrl+Z)">UNDO</button>
-                    <button id="redo" title="Redo (Cmd/Ctrl+Shift+Z)">
-                        REDO
-                    </button>
                     <button
-                        id="save-trail"
-                        class="primary-action"
-                        title="Save (Cmd/Ctrl+S)"
-                        hidden
+                        id="save-draft"
+                        class="primary-action draft-action"
+                        title="Save a draft in this browser (Cmd/Ctrl+S)"
                     >
-                        SAVE
+                        <svg class="px-icon" viewBox="0 0 9 9" aria-hidden="true"><path d="M0 0h8v1h-8zM0 1h1v1h-1zM2 1h5v1h-5zM8 1h1v1h-1zM0 2h1v1h-1zM2 2h5v1h-5zM8 2h1v1h-1zM0 3h1v1h-1zM8 3h1v1h-1zM0 4h1v1h-1zM8 4h1v1h-1zM0 5h1v1h-1zM2 5h5v1h-5zM8 5h1v1h-1zM0 6h1v1h-1zM2 6h1v1h-1zM6 6h1v1h-1zM8 6h1v1h-1zM0 7h1v1h-1zM2 7h1v1h-1zM6 7h1v1h-1zM8 7h1v1h-1zM0 8h9v1h-9z"></path></svg><span>SAVE DRAFT</span>
                     </button>
-                    <button id="save-draft">SAVE DRAFT</button>
-                    <button id="export-json">EXPORT JSON</button>
-                    <button id="export-js">EXPORT JS</button>
+                    <div class="more" id="more">
+                        <button
+                            id="more-toggle"
+                            class="icon-button"
+                            title="More actions"
+                            aria-label="More actions"
+                            aria-haspopup="menu"
+                            aria-expanded="false"
+                            aria-controls="more-menu"
+                        >
+                            <svg class="px-icon" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 4h2v1h-2zM4 4h2v1h-2zM8 4h2v1h-2zM0 5h2v1h-2zM4 5h2v1h-2zM8 5h2v1h-2z"></path></svg>
+                            <span class="more-badge" id="more-badge" hidden></span>
+                        </button>
+                        <div class="more-menu" id="more-menu" hidden>
+                            <div class="more-items" role="menu" aria-label="More actions">
+                                <button id="save-trail" role="menuitem" hidden>
+                                    <svg class="px-icon" viewBox="0 0 9 9" aria-hidden="true"><path d="M0 0h2v1h-2zM0 1h4v1h-4zM0 2h6v1h-6zM0 3h8v1h-8zM0 4h6v1h-6zM0 5h4v1h-4zM0 6h2v1h-2zM0 7h1v1h-1zM0 8h1v1h-1z"></path></svg><span id="save-trail-label">Publish</span
+                                    ><kbd>⇧⌘S</kbd>
+                                </button>
+                                <button id="show-versions" role="menuitem">
+                                    <svg class="px-icon" viewBox="0 0 9 9" aria-hidden="true"><path d="M2 0h5v1h-5zM1 1h1v1h-1zM7 1h1v1h-1zM0 2h1v1h-1zM4 2h1v1h-1zM8 2h1v1h-1zM0 3h1v1h-1zM4 3h1v1h-1zM8 3h1v1h-1zM0 4h1v1h-1zM4 4h3v1h-3zM8 4h1v1h-1zM0 5h1v1h-1zM8 5h1v1h-1zM0 6h1v1h-1zM8 6h1v1h-1zM1 7h1v1h-1zM7 7h1v1h-1zM2 8h5v1h-5z"></path></svg><span>Versions</span>
+                                </button>
+                                <button id="open-data" role="menuitem">
+                                    <svg class="px-icon" viewBox="0 0 9 9" aria-hidden="true"><path d="M4 0h1v1h-1zM4 1h1v1h-1zM4 2h1v1h-1zM1 3h1v1h-1zM4 3h1v1h-1zM7 3h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM6 4h1v1h-1zM3 5h3v1h-3zM4 6h1v1h-1zM0 7h1v1h-1zM8 7h1v1h-1zM0 8h9v1h-9z"></path></svg><span>Import / export</span>
+                                </button>
+                                <button id="show-shortcuts" role="menuitem">
+                                    <svg class="px-icon" viewBox="0 0 11 11" aria-hidden="true"><path d="M0 1h11v1h-11zM0 2h1v1h-1zM10 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM4 3h1v1h-1zM6 3h1v1h-1zM8 3h1v1h-1zM10 3h1v1h-1zM0 4h1v1h-1zM10 4h1v1h-1zM0 5h1v1h-1zM2 5h1v1h-1zM4 5h1v1h-1zM6 5h1v1h-1zM8 5h1v1h-1zM10 5h1v1h-1zM0 6h1v1h-1zM10 6h1v1h-1zM0 7h1v1h-1zM3 7h5v1h-5zM10 7h1v1h-1zM0 8h1v1h-1zM10 8h1v1h-1zM0 9h11v1h-11z"></path></svg><span>Keyboard shortcuts</span
+                                    ><kbd>?</kbd>
+                                </button>
+                                <button
+                                    id="delete-trail"
+                                    class="danger-item"
+                                    role="menuitem"
+                                    hidden
+                                >
+                                    <svg class="px-icon" viewBox="0 0 9 9" aria-hidden="true"><path d="M3 0h3v1h-3zM0 1h9v1h-9zM1 2h1v1h-1zM7 2h1v1h-1zM1 3h1v1h-1zM3 3h1v1h-1zM5 3h1v1h-1zM7 3h1v1h-1zM1 4h1v1h-1zM3 4h1v1h-1zM5 4h1v1h-1zM7 4h1v1h-1zM1 5h1v1h-1zM3 5h1v1h-1zM5 5h1v1h-1zM7 5h1v1h-1zM1 6h1v1h-1zM3 6h1v1h-1zM5 6h1v1h-1zM7 6h1v1h-1zM1 7h1v1h-1zM7 7h1v1h-1zM2 8h5v1h-5z"></path></svg><span>Delete trail</span>
+                                </button>
+                            </div>
+                            <section class="validation" id="validation">
+                                <h3>
+                                    VALIDATION
+                                    <span id="validation-summary"></span>
+                                </h3>
+                                <ul id="validation-list"></ul>
+                            </section>
+                        </div>
+                    </div>
                 </div>
             </header>
 
@@ -252,7 +316,6 @@
                             ><span id="zoom-label">100%</span
                             ><button id="zoom-in">+</button>
                         </div>
-                        <a class="back-game" href="./index.html">← GAME</a>
                     </div>
                 </aside>
 
@@ -276,7 +339,7 @@
                     ></div>
                 </div>
 
-                <aside class="inspector">
+                <aside class="inspector" id="inspector">
                     <div class="panel-head">
                         <span>INSPECTOR</span
                         ><strong id="selection-title">NOTHING SELECTED</strong>
@@ -450,15 +513,6 @@
                         </fieldset>
                     </div>
 
-                    <section class="validation">
-                        <h3>VALIDATION</h3>
-                        <ul id="validation-list"></ul>
-                    </section>
-                    <details class="json-panel">
-                        <summary>JSON IMPORT / EXPORT</summary>
-                        <textarea id="trail-json" spellcheck="false"></textarea
-                        ><button id="import-json">IMPORT JSON</button>
-                    </details>
                 </aside>
             </section>
         </main>
@@ -488,6 +542,62 @@
                 allow="fullscreen; screen-wake-lock"
             ></iframe>
         </div>
+        <dialog class="shortcuts data-dialog" id="data-dialog" aria-labelledby="data-title">
+            <div class="shortcuts-head">
+                <strong id="data-title">IMPORT / EXPORT</strong>
+                <form method="dialog"><button>CLOSE</button></form>
+            </div>
+            <label class="data-label" for="trail-json"
+                >TRAIL JSON · PASTE A TRAIL HERE TO IMPORT IT</label
+            >
+            <textarea id="trail-json" spellcheck="false"></textarea>
+            <p class="data-errors" id="data-errors" hidden>
+                <span id="data-errors-text"></span>
+                <button id="data-errors-show">SHOW</button>
+            </p>
+            <div class="data-actions">
+                <button id="import-json"><svg class="px-icon" viewBox="0 0 9 9" aria-hidden="true"><path d="M4 0h1v1h-1zM3 1h3v1h-3zM2 2h1v1h-1zM4 2h1v1h-1zM6 2h1v1h-1zM1 3h1v1h-1zM4 3h1v1h-1zM7 3h1v1h-1zM4 4h1v1h-1zM4 5h1v1h-1zM4 6h1v1h-1zM0 7h1v1h-1zM8 7h1v1h-1zM0 8h9v1h-9z"></path></svg><span>IMPORT JSON</span></button>
+                <button id="export-json"><svg class="px-icon" viewBox="0 0 9 9" aria-hidden="true"><path d="M4 0h1v1h-1zM4 1h1v1h-1zM4 2h1v1h-1zM1 3h1v1h-1zM4 3h1v1h-1zM7 3h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM6 4h1v1h-1zM3 5h3v1h-3zM4 6h1v1h-1zM0 7h1v1h-1zM8 7h1v1h-1zM0 8h9v1h-9z"></path></svg><span>EXPORT JSON</span></button>
+                <button id="export-js"><svg class="px-icon" viewBox="0 0 9 9" aria-hidden="true"><path d="M4 0h1v1h-1zM4 1h1v1h-1zM4 2h1v1h-1zM1 3h1v1h-1zM4 3h1v1h-1zM7 3h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM6 4h1v1h-1zM3 5h3v1h-3zM4 6h1v1h-1zM0 7h1v1h-1zM8 7h1v1h-1zM0 8h9v1h-9z"></path></svg><span>EXPORT JS</span></button>
+            </div>
+        </dialog>
+        <dialog class="shortcuts versions-dialog" id="versions" aria-labelledby="versions-title">
+            <div class="shortcuts-head">
+                <strong id="versions-title">VERSIONS</strong>
+                <form method="dialog"><button>CLOSE</button></form>
+            </div>
+            <p class="versions-note">
+                <span id="versions-where"></span> · Drafts are kept in this
+                browser, up to 12 per trail. The editor opens the newest one
+                unless the trail was saved after it.
+            </p>
+            <p class="versions-unsaved" id="versions-unsaved" hidden>
+                You have edits that are not in any version below.
+            </p>
+            <ul class="versions-list" id="versions-list"></ul>
+            <p class="versions-note" id="versions-empty">No drafts yet.</p>
+            <div class="data-actions versions-actions">
+                <button id="versions-save-draft">SAVE CURRENT AS DRAFT</button>
+            </div>
+        </dialog>
+        <dialog class="shortcuts confirm-dialog" id="publish-confirm" aria-labelledby="publish-confirm-title">
+            <div class="shortcuts-head">
+                <strong id="publish-confirm-title">OVERWRITE OFFICIAL TRAIL?</strong>
+            </div>
+            <p class="confirm-text">
+                Publishing writes over <code id="publish-file"></code> on disk.
+                Official trails ship to every player, and the editor cannot
+                bring the old file back (git can).
+            </p>
+            <p class="confirm-text">
+                To keep working without touching the file, use Save draft, or
+                Duplicate to make your own copy.
+            </p>
+            <form method="dialog" class="data-actions confirm-actions">
+                <button value="cancel" autofocus>CANCEL</button>
+                <button value="overwrite" class="danger-solid">OVERWRITE FILE</button>
+            </form>
+        </dialog>
         <dialog class="shortcuts" id="shortcuts" aria-labelledby="shortcuts-title">
             <div class="shortcuts-head">
                 <strong id="shortcuts-title">KEYBOARD SHORTCUTS</strong>
@@ -587,7 +697,9 @@
                     <h3>TRAIL</h3>
                     <dl>
                         <dt><kbd>⌘/Ctrl</kbd> <kbd>S</kbd></dt>
-                        <dd>Save</dd>
+                        <dd>Save a draft</dd>
+                        <dt><kbd>⌘/Ctrl</kbd> <kbd>Shift</kbd> <kbd>S</kbd></dt>
+                        <dd>Publish (asks first for an official trail)</dd>
                         <dt><kbd>⌘/Ctrl</kbd> <kbd>Enter</kbd></dt>
                         <dd>Play test</dd>
                         <dt><kbd>?</kbd></dt>

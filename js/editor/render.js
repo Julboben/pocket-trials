@@ -18,7 +18,7 @@ import {
   traceBoundary,
   traceRegion,
 } from "./blocks.js";
-import { art, canvas, ctx, terrainArt } from "./dom.js";
+import { $, art, canvas, ctx, terrainArt } from "./dom.js";
 import { gridSpacing } from "./snap.js";
 import { editor } from "./state.js";
 import { PLACING_TOOLS, toolSettings } from "./tools.js";
@@ -148,12 +148,21 @@ export function restingY(x, y) {
   return floor ?? y;
 }
 
+// Below this zoom the game art is too small to read and slow to draw, so the
+// plain terrain is drawn instead.
+const GAME_ART_MIN_ZOOM = 0.35;
+
+function showGameArt() {
+  return editor.gameArt && editor.zoom >= GAME_ART_MIN_ZOOM;
+}
+
 function drawBlocks() {
+  const gameArt = showGameArt();
   for (const [blockIndex, block] of blocks().entries()) {
     const material = terrainMaterials[block.material] || terrainMaterials.grass;
     // With game art showing, the blocks are already drawn exactly as they
     // will be ridden, so only their outlines are added for editing.
-    if (!editor.gameArt) {
+    if (!gameArt) {
       for (const region of block.regions) {
         traceRegion(region);
         // Even-odd fill so a region's caves stay open.
@@ -173,10 +182,14 @@ function drawBlocks() {
           editor.selection.boundaryIndex === boundaryIndex);
       ctx.strokeStyle = highlighted
         ? "#fff3be"
-        : editor.gameArt
+        : gameArt
           ? "#17262b99"
           : material.edge;
-      ctx.lineWidth = highlighted ? 3 / editor.zoom : editor.gameArt ? 1.5 / editor.zoom : 2.5;
+      ctx.lineWidth = highlighted
+        ? 3 / editor.zoom
+        : gameArt
+          ? 1.5 / editor.zoom
+          : Math.max(2.5, 1.5 / editor.zoom);
       if (highlighted) ctx.setLineDash([8 / editor.zoom, 5 / editor.zoom]);
       ctx.beginPath();
       traceBoundary(boundary);
@@ -206,7 +219,7 @@ function drawPendingShape(shape) {
 }
 
 function drawTerrain() {
-  if (editor.gameArt) {
+  if (showGameArt()) {
     // The game's own renderer, fed the same compiled terrain the game rides.
     const { width, height } = viewportSize();
     ctx.save();
@@ -312,7 +325,7 @@ function drawSpikes() {
 function drawObjects() {
   drawSpikes();
   for (const apple of editor.trail.apples)
-    art.drawApple(apple.x, objectY(apple, 60), { glow: false });
+    art.drawApple(apple.x, objectY(apple, 60));
   art.drawFlag(editor.trail.goal, finishY(), true, 0);
   if (editor.selection?.kind === "goal") {
     // The petals the bike has to touch.
@@ -472,6 +485,13 @@ export function renderView() {
 }
 
 export function render() {
+  // The inspector only has something to show for a selection.
+  const inspector = $("inspector");
+  const open = Boolean(editor.selection);
+  if (inspector && inspector.classList.contains("open") !== open) {
+    inspector.classList.toggle("open", open);
+    inspector.inert = !open;
+  }
   const { width, height } = viewportSize();
   if (!width || !height) return;
   syncTerrain();
@@ -551,7 +571,7 @@ function drawPlacementPreview() {
   }
   ctx.save();
   ctx.globalAlpha = 0.5;
-  if (editor.tool === "apple") art.drawApple(x, y, { glow: false });
+  if (editor.tool === "apple") art.drawApple(x, y);
   else art.drawSpike(x, y, toolSettings.spike.radius);
   ctx.restore();
 }

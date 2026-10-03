@@ -211,15 +211,37 @@ canvas {
     height: 32px;
     background: #182321d9;
 }
-.toast {
+.fps-meter {
+    position: absolute;
+    z-index: 4;
+    bottom: 8px;
+    left: 8px;
+    padding: 3px 6px;
+    border-radius: var(--radius-pixel);
+    background: #101b1acc;
+    color: #b8f5c8;
+    font:
+        11px/1.2 ui-monospace,
+        monospace;
+    pointer-events: none;
+}
+.toast-stack {
     position: absolute;
     z-index: 5;
     top: 60px;
     left: 50%;
     width: max-content;
     max-width: 90%;
-    padding: 8px 12px;
     transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    pointer-events: none;
+}
+.toast {
+    max-width: 100%;
+    padding: 8px 12px;
     border: 1px solid #fff4;
     border-radius: 7px;
     background: #17201eee;
@@ -235,6 +257,15 @@ canvas {
 }
 .toast.visible {
     opacity: 1;
+}
+.primary.crash-retry {
+    width: auto;
+    min-width: 132px;
+    padding: 12px 22px;
+    pointer-events: auto;
+}
+.crash-retry[hidden] {
+    display: none;
 }
 
 .overlay {
@@ -291,7 +322,6 @@ canvas {
     gap: 12px;
 }
 .modal-badge {
-    display: inline-block;
     align-self: center;
     color: #aeb7b3;
     font-size: 8px;
@@ -566,7 +596,10 @@ h2 {
     width: min(760px, 100%);
     margin: 0 auto;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) 1.2fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 0.8fr) minmax(
+            0,
+            1fr
+        ) minmax(0, 1.2fr);
     gap: 8px;
 }
 .control {
@@ -603,6 +636,16 @@ h2 {
 #down-control .symbol,
 #up-control .symbol {
     font-size: 18px;
+}
+.control svg.symbol {
+    width: 24px;
+    height: 27px;
+}
+.control.lights[aria-pressed="false"] {
+    color: #8b9695;
+}
+.control.lights[aria-pressed="false"] .beam {
+    display: none;
 }
 .control.gas {
     color: var(--color-green-ink);
@@ -825,6 +868,7 @@ h2 {
 .menu-hero .modal-badge {
     margin-bottom: 7px;
     color: var(--color-accent);
+    display: block;
 }
 .menu-hero h2 {
     font-size: clamp(32px, 6vw, 54px);
@@ -832,10 +876,9 @@ h2 {
     text-transform: uppercase;
 }
 .beta-tag {
-    display: inline-block;
     position: absolute;
-    top: 10px;
-    left: 1;
+    bottom: -2px;
+    right: -20px;
     margin-left: 0.45em;
     padding: 4px 7px 3px;
     vertical-align: 0.9em;
@@ -853,8 +896,9 @@ h2 {
     }
 }
 
-.menu-logo-container {
+.menu-title-container {
     position: relative;
+    display: inline-block;
 }
 
 .menu-logo {
@@ -1536,7 +1580,7 @@ kbd {
         top: calc(10px + env(safe-area-inset-top, 0px));
         left: calc(10px + env(safe-area-inset-left, 0px));
     }
-    .toast {
+    .toast-stack {
         z-index: 9;
         top: calc(52px + env(safe-area-inset-top, 0px));
         right: 10px;
@@ -1544,6 +1588,8 @@ kbd {
         width: auto;
         max-width: none;
         transform: none;
+    }
+    .toast {
         overflow-wrap: anywhere;
         line-height: 1.35;
     }
@@ -1560,7 +1606,10 @@ kbd {
         padding: 14px 10px 12px;
     }
     .controls {
-        grid-template-columns: repeat(4, minmax(0, 1fr)) 1.2fr;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(
+                0,
+                0.8fr
+            ) minmax(0, 1fr) minmax(0, 1.2fr);
         gap: 6px;
     }
 }
@@ -1597,7 +1646,10 @@ kbd {
         height: 60px;
     }
     .controls {
-        grid-template-columns: repeat(4, minmax(0, 1fr)) 1.2fr;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(
+                0,
+                0.8fr
+            ) minmax(0, 1fr) minmax(0, 1.2fr);
         gap: 5px;
     }
     #down-control,
@@ -1665,6 +1717,67 @@ kbd {
     }
     h2 {
         font-size: 24px;
+    }
+}
+
+/* Phones: fill the space under the game with two rows. Flip and lights sit
+   on a slim top row; the big lean, brake and gas buttons stay in thumb reach. */
+@media (max-width: 520px) {
+    .control-area {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        padding: 12px 10px calc(14px + env(safe-area-inset-bottom, 0px));
+    }
+    .controls {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.2fr);
+        grid-template-rows: 50px minmax(76px, 132px);
+        grid-template-areas:
+            "flip flip lights lights"
+            "back forward brake gas";
+        gap: 8px;
+    }
+    #left-control {
+        grid-area: back;
+    }
+    #right-control {
+        grid-area: forward;
+    }
+    #flip-control {
+        grid-area: flip;
+    }
+    #headlight {
+        grid-area: lights;
+    }
+    #down-control {
+        grid-area: brake;
+    }
+    #up-control {
+        grid-area: gas;
+    }
+    .control,
+    #down-control,
+    #up-control {
+        height: auto;
+    }
+    #flip-control,
+    #headlight {
+        flex-direction: row;
+        gap: 10px;
+    }
+    #flip-control .symbol {
+        font-size: 22px;
+    }
+    #headlight svg.symbol {
+        height: 22px;
+    }
+    #down-control .symbol,
+    #up-control .symbol {
+        font-size: 24px;
+    }
+    .control .caption {
+        font-size: 9px;
     }
 }
 

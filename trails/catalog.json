@@ -50,6 +50,12 @@
       "name": "Custom Trail"
     },
     {
+      "id": "custom:cave-at-night",
+      "source": "custom",
+      "file": "custom/cave-at-night.json",
+      "name": "Cave at Night"
+    },
+    {
       "id": "custom:gravity-fair",
       "source": "custom",
       "file": "custom/gravity-fair.json",
