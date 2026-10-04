@@ -8,217 +8,6 @@
     "y": -1029.6093750000105,
     "facing": 1
   },
-  "apples": [
-    {
-      "x": 140,
-      "y": 220
-    },
-    {
-      "x": 540,
-      "y": 246
-    },
-    {
-      "x": 980,
-      "y": 300
-    },
-    {
-      "x": 1860,
-      "y": 175
-    },
-    {
-      "x": 2310,
-      "y": null
-    },
-    {
-      "x": 2640,
-      "y": 287
-    },
-    {
-      "x": 2870,
-      "y": 251
-    },
-    {
-      "x": 2760,
-      "y": 460
-    },
-    {
-      "x": 3250,
-      "y": null
-    },
-    {
-      "x": 3840,
-      "y": 400
-    },
-    {
-      "x": 4560,
-      "y": 190
-    },
-    {
-      "x": 4880,
-      "y": 240
-    },
-    {
-      "x": 5350,
-      "y": null
-    },
-    {
-      "x": 5520,
-      "y": null
-    },
-    {
-      "x": 6130,
-      "y": null
-    }
-  ],
-  "props": [
-    {
-      "x": 70,
-      "y": 280,
-      "type": "crystal",
-      "layer": "back"
-    },
-    {
-      "x": 340,
-      "y": 280,
-      "type": "flowers",
-      "layer": "back"
-    },
-    {
-      "x": 740,
-      "y": 440,
-      "type": "tree",
-      "layer": "back"
-    },
-    {
-      "x": 1240,
-      "y": 394.0118066625099,
-      "type": "fence",
-      "layer": "back"
-    },
-    {
-      "x": 1860,
-      "y": 235,
-      "type": "flowers",
-      "layer": "back"
-    },
-    {
-      "x": 1880,
-      "y": 519.6594619936781,
-      "type": "rock",
-      "layer": "back"
-    },
-    {
-      "x": 2460,
-      "y": null,
-      "type": "stump",
-      "layer": "back"
-    },
-    {
-      "x": 2640,
-      "y": 347,
-      "type": "flowers",
-      "layer": "back"
-    },
-    {
-      "x": 3250,
-      "y": null,
-      "type": "crystal",
-      "layer": "back"
-    },
-    {
-      "x": 3710,
-      "y": 201,
-      "type": "tree",
-      "layer": "back"
-    },
-    {
-      "x": 4180,
-      "y": null,
-      "type": "fence",
-      "layer": "back"
-    },
-    {
-      "x": 4560,
-      "y": 250,
-      "type": "flowers",
-      "layer": "back"
-    },
-    {
-      "x": 4880,
-      "y": 300,
-      "type": "flowers",
-      "layer": "back"
-    },
-    {
-      "x": 4800,
-      "y": 549.4581724170064,
-      "type": "crystal",
-      "layer": "back"
-    },
-    {
-      "x": 5220,
-      "y": null,
-      "type": "tree",
-      "layer": "back"
-    },
-    {
-      "x": 5890,
-      "y": null,
-      "type": "rock",
-      "layer": "back"
-    },
-    {
-      "x": 6340,
-      "y": null,
-      "type": "flowers",
-      "layer": "back"
-    },
-    {
-      "x": 602.0552335748752,
-      "y": -300.8256689381042,
-      "type": "pine",
-      "layer": "front"
-    },
-    {
-      "x": 681.4806908600419,
-      "y": -279.49082207860374,
-      "type": "tree",
-      "layer": "front"
-    }
-  ],
-  "spikes": [
-    {
-      "x": 2780,
-      "y": 175,
-      "radius": 18,
-      "spin": -0.85
-    },
-    {
-      "x": 3840,
-      "y": 305,
-      "radius": 20,
-      "spin": 0.65
-    },
-    {
-      "x": 4660,
-      "y": 135,
-      "radius": 18,
-      "spin": -0.75
-    }
-  ],
-  "weather": {
-    "sun": 0.65,
-    "clouds": 0.4,
-    "rain": 0,
-    "lightning": 0
-  },
-  "fallY": 800,
-  "medals": {
-    "gold": 65,
-    "silver": 95,
-    "bronze": 145
-  },
-  "finishY": null,
   "terrainBlocks": [
     {
       "id": "b1",
@@ -2074,29 +1863,50 @@
             "edge": "straight"
           },
           {
-            "id": "n45",
-            "x": 277.8323,
-            "y": -382,
-            "mode": "corner",
+            "id": "n1s4v",
+            "x": 231.9497,
+            "y": -482.4388,
+            "mode": "independent",
             "in": null,
+            "out": [
+              265.1442,
+              -410.6323
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "n1st4",
+            "x": 364.8806,
+            "y": -360.1226,
+            "mode": "corner",
+            "in": [
+              309.4545,
+              -369.8603
+            ],
             "out": null,
             "edge": "straight"
           },
           {
-            "id": "n46",
-            "x": 280,
-            "y": -380.649,
-            "mode": "corner",
+            "id": "n4cge",
+            "x": 896.4055,
+            "y": -226.3761,
+            "mode": "independent",
             "in": null,
-            "out": null,
-            "edge": "straight"
+            "out": [
+              937.7700649382525,
+              -213.8986038790988
+            ],
+            "edge": "curve"
           },
           {
-            "id": "n47",
-            "x": 962,
-            "y": -210.0514,
+            "id": "n4bs5",
+            "x": 1012.3863,
+            "y": -222.6084,
             "mode": "corner",
-            "in": null,
+            "in": [
+              963.3958899382526,
+              -208.0036413790989
+            ],
             "out": null,
             "edge": "straight"
           },
@@ -2245,47 +2055,50 @@
             "edge": "straight"
           },
           {
-            "id": "n4o",
-            "x": 964,
-            "y": -181.6718,
-            "mode": "corner",
+            "id": "n4oa9",
+            "x": 1003.5180934630084,
+            "y": -194.10890517089393,
+            "mode": "independent",
             "in": null,
+            "out": [
+              978.5397990849945,
+              -189.926406006356
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "n542m",
+            "x": 906.6409906611916,
+            "y": -196.69154196294772,
+            "mode": "corner",
+            "in": [
+              946.9090712831778,
+              -183.93106779840974
+            ],
             "out": null,
             "edge": "straight"
           },
           {
-            "id": "n4p",
-            "x": 958,
-            "y": -182.1892,
-            "mode": "corner",
+            "id": "n27m4",
+            "x": 325.4169,
+            "y": -343.2957,
+            "mode": "independent",
             "in": null,
-            "out": null,
-            "edge": "straight"
+            "out": [
+              268.0669,
+              -371.9935
+            ],
+            "edge": "curve"
           },
           {
-            "id": "n4q",
-            "x": 264,
-            "y": -355.8231,
+            "id": "n2lz8",
+            "x": 219.0106,
+            "y": -449.2257,
             "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n4r",
-            "x": 258,
-            "y": -359.6887,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n4s",
-            "x": 255.2715,
-            "y": -364,
-            "mode": "corner",
-            "in": null,
+            "in": [
+              246.434,
+              -393.6217
+            ],
             "out": null,
             "edge": "straight"
           },
@@ -3067,5 +2880,217 @@
       "inner": []
     }
   ],
+  "apples": [
+    {
+      "x": 140,
+      "y": 220
+    },
+    {
+      "x": 540,
+      "y": 246
+    },
+    {
+      "x": 980,
+      "y": 300
+    },
+    {
+      "x": 1860,
+      "y": 175
+    },
+    {
+      "x": 2310,
+      "y": null
+    },
+    {
+      "x": 2640,
+      "y": 287
+    },
+    {
+      "x": 2870,
+      "y": 251
+    },
+    {
+      "x": 2760,
+      "y": 460
+    },
+    {
+      "x": 3250,
+      "y": null
+    },
+    {
+      "x": 3840,
+      "y": 400
+    },
+    {
+      "x": 4560,
+      "y": 190
+    },
+    {
+      "x": 4880,
+      "y": 240
+    },
+    {
+      "x": 5350,
+      "y": null
+    },
+    {
+      "x": 5520,
+      "y": null
+    },
+    {
+      "x": 6130,
+      "y": null
+    }
+  ],
+  "props": [
+    {
+      "x": 70,
+      "y": 280,
+      "type": "crystal",
+      "layer": "back"
+    },
+    {
+      "x": 340,
+      "y": 280,
+      "type": "flowers",
+      "layer": "back"
+    },
+    {
+      "x": 740,
+      "y": 440,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 1240,
+      "y": 394.0118066625099,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 1860,
+      "y": 235,
+      "type": "flowers",
+      "layer": "back"
+    },
+    {
+      "x": 1880,
+      "y": 519.6594619936781,
+      "type": "rock",
+      "layer": "back"
+    },
+    {
+      "x": 2460,
+      "y": null,
+      "type": "stump",
+      "layer": "back"
+    },
+    {
+      "x": 2640,
+      "y": 347,
+      "type": "flowers",
+      "layer": "back"
+    },
+    {
+      "x": 3250,
+      "y": null,
+      "type": "crystal",
+      "layer": "back"
+    },
+    {
+      "x": 3710,
+      "y": 201,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 4180,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 4560,
+      "y": 250,
+      "type": "flowers",
+      "layer": "back"
+    },
+    {
+      "x": 4880,
+      "y": 300,
+      "type": "flowers",
+      "layer": "back"
+    },
+    {
+      "x": 4800,
+      "y": 549.4581724170064,
+      "type": "crystal",
+      "layer": "back"
+    },
+    {
+      "x": 5220,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 5890,
+      "y": null,
+      "type": "rock",
+      "layer": "back"
+    },
+    {
+      "x": 6340,
+      "y": null,
+      "type": "flowers",
+      "layer": "back"
+    },
+    {
+      "x": 602.0552335748752,
+      "y": -300.8256689381042,
+      "type": "pine",
+      "layer": "front"
+    },
+    {
+      "x": 681.4806908600419,
+      "y": -279.49082207860374,
+      "type": "tree",
+      "layer": "front"
+    }
+  ],
+  "spikes": [
+    {
+      "x": 2780,
+      "y": 175,
+      "radius": 18,
+      "spin": -0.85
+    },
+    {
+      "x": 3840,
+      "y": 305,
+      "radius": 20,
+      "spin": 0.65
+    },
+    {
+      "x": 4660,
+      "y": 135,
+      "radius": 18,
+      "spin": -0.75
+    }
+  ],
+  "water": [],
+  "weather": {
+    "sun": 0.65,
+    "clouds": 0.4,
+    "rain": 0,
+    "lightning": 0
+  },
+  "fallY": 800,
+  "medals": {
+    "gold": 65,
+    "silver": 95,
+    "bronze": 145
+  },
+  "finishY": null,
   "timeOfDay": "noon"
 }

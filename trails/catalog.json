@@ -80,6 +80,12 @@
       "name": "Rolling Country"
     },
     {
+      "id": "custom:the-wrong-way-circus",
+      "source": "custom",
+      "file": "custom/the-wrong-way-circus.json",
+      "name": "The Wrong-Way Circus"
+    },
+    {
       "id": "custom:trail-3",
       "source": "custom",
       "file": "custom/trail-3.json",
@@ -90,12 +96,6 @@
       "source": "custom",
       "file": "custom/water-test.json",
       "name": "Water test"
-    },
-    {
-      "id": "custom:wrong-way-up",
-      "source": "custom",
-      "file": "custom/wrong-way-up.json",
-      "name": "The Wrong-Way Circus"
     }
   ]
 }
