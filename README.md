@@ -13,7 +13,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Rider weight transfer, wheelies, and stoppies
 - Independent front and rear suspension animation
 - Impact-sensitive suspension compression and landing rebound
-- Live post-crash rider ragdoll with jointed elbows and knees, while the crashed bike keeps colliding with the ground
+- Live post-crash rider ragdoll that keeps the bike's spin when thrown, with a weighted body, limited neck, hip, elbow and knee joints, ground grip, and collisions with the crashed bike, which keeps colliding with the ground and can still hang from a ledge
 - Direction flipping with an animated rider and bike transition
 - Code-drawn pixel presentation with smooth terrain, mountains, and apples for readability
 - Responsive mobile and expanded desktop layouts with optional fullscreen play

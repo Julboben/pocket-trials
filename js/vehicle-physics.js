@@ -585,7 +585,9 @@ function collideWheel(trail, point, wheelName, hooks, sweep = true) {
 
 // Collision for loose points (ragdoll joints, a crashed chassis): bounce off
 // the surface and lose some tangential speed, with no rolling or traction.
-function resolveFreeContact(point, contact, bounce, friction) {
+// `grip` adds Coulomb friction: each contact removes sliding speed in proportion
+// to how hard the point presses on the surface, so a body can rest on a slope.
+function resolveFreeContact(point, contact, bounce, friction, grip = 0) {
   if (!contact || (contact.penetration <= 0 && !contact.swept)) return;
   const { nx, ny, penetration } = contact;
   let vx = point.x - point.ox,
@@ -598,8 +600,12 @@ function resolveFreeContact(point, contact, bounce, friction) {
   const tangentX = -ny,
     tangentY = nx,
     tangent = vx * tangentX + vy * tangentY;
-  vx -= tangentX * tangent * friction;
-  vy -= tangentY * tangent * friction;
+  const press = Math.max(0, -normal) + Math.max(0, penetration);
+  const slip =
+    Math.sign(tangent) *
+    Math.min(Math.abs(tangent), Math.max(Math.abs(tangent) * friction, grip * press));
+  vx -= tangentX * slip;
+  vy -= tangentY * slip;
   point.x += nx * penetration;
   point.y += ny * penetration;
   point.ox = point.x - vx;
@@ -611,7 +617,7 @@ export function collideFreePoint(
   trail,
   point,
   sweep,
-  { bounce = 0.12, friction = 0.16 } = {},
+  { bounce = 0.12, friction = 0.16, grip = 0 } = {},
 ) {
   if (sweep) {
     const intendedVx = point.x - point.ox,
@@ -629,7 +635,7 @@ export function collideFreePoint(
       point.y = swept.y + swept.ny * 0.01;
       point.ox = point.x - intendedVx;
       point.oy = point.y - intendedVy;
-      resolveFreeContact(point, swept, bounce, friction);
+      resolveFreeContact(point, swept, bounce, friction, grip);
       // Continue through the rest of the substep with the resolved velocity;
       // stopping at the time of impact would glue sliding points in place.
       advanceAfterTimeOfImpact(point, swept.time);
@@ -641,19 +647,23 @@ export function collideFreePoint(
     point.y,
     point.radius,
   ))
-    resolveFreeContact(point, contact, bounce, friction);
+    resolveFreeContact(point, contact, bounce, friction, grip);
 }
 
 // A probe is an affine blend of the chassis points; contact corrections are
 // spread over them by inverse mass, like an XPBD positional constraint.
-function createFrameProbe(points, along, height) {
+function frameWeights(along, height) {
   const topWeight = height / CHASSIS_TOP_HEIGHT;
   const mountWeight = (1 - topWeight) / 2;
-  const weights = [
+  return [
     mountWeight - along / WHEELBASE,
     mountWeight + along / WHEELBASE,
     topWeight,
   ];
+}
+
+function createFrameProbe(points, along, height) {
+  const weights = frameWeights(along, height);
   const denominator = points.reduce(
     (sum, point, index) => sum + weights[index] ** 2 * point.inverseMass,
     0,
@@ -744,6 +754,90 @@ function collideCrashedChassis(vehicle, trail, sweep) {
     collideFreePoint(trail, point, sweep, CRASHED_CHASSIS_CONTACT);
   for (const probe of vehicle.crashedFrameProbes)
     collideFrameProbe(trail, probe, sweep, CRASHED_CHASSIS_CONTACT);
+}
+
+// The crashed bike as the thrown rider feels it: both wheels, plus capsules
+// along the seat, the frame between the mounts, and the engine. Capsule ends
+// are [offset along the mounts, height above the mount line], like the probes.
+const BIKE_BODY_CAPSULES = [
+  { from: frameWeights(-22, 6), to: frameWeights(22, 6), radius: 3 },
+  { from: frameWeights(-25, 0), to: frameWeights(25, 0), radius: 4 },
+  { from: frameWeights(-5, -12), to: frameWeights(3, -12), radius: 6 },
+];
+
+function nearestOnCapsule(chassisPoints, capsule, x, y) {
+  let ax = 0,
+    ay = 0,
+    bx = 0,
+    by = 0;
+  for (let index = 0; index < 3; index++) {
+    const point = chassisPoints[index];
+    ax += point.x * capsule.from[index];
+    ay += point.y * capsule.from[index];
+    bx += point.x * capsule.to[index];
+    by += point.y * capsule.to[index];
+  }
+  const dx = bx - ax,
+    dy = by - ay,
+    lengthSq = dx * dx + dy * dy || 1;
+  const t = Math.max(
+    0,
+    Math.min(1, ((x - ax) * dx + (y - ay) * dy) / lengthSq),
+  );
+  return {
+    x: ax + dx * t,
+    y: ay + dy * t,
+    weights: capsule.from.map(
+      (weight, index) => weight + (capsule.to[index] - weight) * t,
+    ),
+  };
+}
+
+/**
+ * Pushes a loose point (a ragdoll joint) out of the crashed bike and the bike
+ * back from it, shared by inverse mass. With `apply` false it only reports
+ * whether the point overlaps the bike.
+ * @returns {boolean} whether the point overlapped the bike
+ */
+export function collideWithBike(vehicle, point, inverseMass, apply = true) {
+  const { rear, front, chassisPoints } = vehicle;
+  let touched = false;
+  const push = (cx, cy, reach, bikePoints, weights) => {
+    const dx = point.x - cx,
+      dy = point.y - cy,
+      distanceSq = dx * dx + dy * dy;
+    if (distanceSq >= reach * reach) return;
+    touched = true;
+    if (!apply) return;
+    const length = hypot(dx, dy);
+    const nx = length > 1e-6 ? dx / length : 0,
+      ny = length > 1e-6 ? dy / length : -1;
+    let denominator = inverseMass;
+    for (let index = 0; index < bikePoints.length; index++)
+      denominator += weights[index] ** 2 * bikePoints[index].inverseMass;
+    const lambda = (reach - length) / denominator;
+    point.x += nx * lambda * inverseMass;
+    point.y += ny * lambda * inverseMass;
+    for (let index = 0; index < bikePoints.length; index++) {
+      const share = lambda * weights[index] * bikePoints[index].inverseMass;
+      bikePoints[index].x -= nx * share;
+      bikePoints[index].y -= ny * share;
+    }
+  };
+  for (const wheel of [rear, front])
+    push(wheel.x, wheel.y, RADIUS + point.radius, [wheel], [1]);
+  if (!vehicle.framePassThrough)
+    for (const capsule of BIKE_BODY_CAPSULES) {
+      const nearest = nearestOnCapsule(chassisPoints, capsule, point.x, point.y);
+      push(
+        nearest.x,
+        nearest.y,
+        capsule.radius + point.radius,
+        chassisPoints,
+        nearest.weights,
+      );
+    }
+  return touched;
 }
 
 // A link passes through terrain when a ray along it enters a surface from both

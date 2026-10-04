@@ -390,7 +390,7 @@ export function stepRide(ride, input = {}, hooks = {}) {
   if (ride.water.length) splash(ride, [rear, front], false, events);
 
   if (!running) {
-    stepRagdoll(ride.ragdoll, trail, ride.water);
+    stepRagdoll(ride.ragdoll, trail, ride.water, ride.vehicle);
     if (ride.water.length) splash(ride, ride.ragdoll.list, true, events);
     return events;
   }
