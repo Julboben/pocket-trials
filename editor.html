@@ -209,6 +209,9 @@
                                 <button class="tool" data-tool="prop">
                                     ♣ <span>Prop</span>
                                 </button>
+                                <button class="tool" data-tool="water">
+                                    ≈ <span>Water</span>
+                                </button>
                             </div>
                         </section>
                         <section class="tool-group">
@@ -517,6 +520,27 @@
                                     type="number"
                                     step="0.1"
                             /></label>
+                            <label id="selection-water-width-row" hidden
+                                >Width
+                                <input
+                                    id="selection-water-width"
+                                    type="number"
+                                    min="16"
+                                    step="1"
+                            /></label>
+                            <label id="selection-water-depth-row" hidden
+                                >Depth
+                                <input
+                                    id="selection-water-depth"
+                                    type="number"
+                                    min="8"
+                                    step="1"
+                            /></label>
+                            <p
+                                class="tool-hint"
+                                id="selection-water-hint"
+                                hidden
+                            ></p>
                             <button class="danger" id="delete-selection">
                                 DELETE SELECTION
                             </button>
@@ -629,6 +653,8 @@
                         <dd>Apple</dd>
                         <dt><kbd>S</kbd></dt>
                         <dd>Spike</dd>
+                        <dt><kbd>W</kbd></dt>
+                        <dd>Water</dd>
                         <dt><kbd>P</kbd></dt>
                         <dd>Prop</dd>
                         <dt><kbd>G</kbd></dt>

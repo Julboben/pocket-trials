@@ -13,25 +13,10 @@
       "id": "b1",
       "material": "rock",
       "outer": {
-        "id": "b2",
+        "id": "b1gh",
         "nodes": [
           {
-            "id": "n3",
-            "x": 768.7486,
-            "y": 56.0362,
-            "mode": "independent",
-            "in": [
-              755.4153,
-              56.0362
-            ],
-            "out": [
-              781.6653,
-              56.0362
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n4",
+            "id": "n1d6",
             "x": 807.4986,
             "y": 45.1992,
             "mode": "independent",
@@ -46,7 +31,7 @@
             "edge": "curve"
           },
           {
-            "id": "n5",
+            "id": "n1d7",
             "x": 846.2486,
             "y": 19.0362,
             "mode": "independent",
@@ -61,7 +46,7 @@
             "edge": "curve"
           },
           {
-            "id": "n6",
+            "id": "n1d8",
             "x": 884.9986,
             "y": -7.1268,
             "mode": "independent",
@@ -76,7 +61,7 @@
             "edge": "curve"
           },
           {
-            "id": "n7",
+            "id": "n1d9",
             "x": 923.7486,
             "y": -17.9638,
             "mode": "independent",
@@ -91,7 +76,7 @@
             "edge": "curve"
           },
           {
-            "id": "n8",
+            "id": "n1da",
             "x": 958.7486,
             "y": -7.7125,
             "mode": "independent",
@@ -106,7 +91,7 @@
             "edge": "curve"
           },
           {
-            "id": "n9",
+            "id": "n1db",
             "x": 993.7486,
             "y": 17.0362,
             "mode": "independent",
@@ -121,7 +106,7 @@
             "edge": "curve"
           },
           {
-            "id": "na",
+            "id": "n1dc",
             "x": 1028.7486,
             "y": 41.7849,
             "mode": "independent",
@@ -136,7 +121,7 @@
             "edge": "curve"
           },
           {
-            "id": "nb",
+            "id": "n1dd",
             "x": 1063.7486,
             "y": 52.0362,
             "mode": "independent",
@@ -151,7 +136,7 @@
             "edge": "curve"
           },
           {
-            "id": "nc",
+            "id": "n1de",
             "x": 1108.7486,
             "y": 31.8266,
             "mode": "independent",
@@ -166,7 +151,7 @@
             "edge": "curve"
           },
           {
-            "id": "nd",
+            "id": "n1df",
             "x": 1153.7486,
             "y": -16.9638,
             "mode": "independent",
@@ -181,7 +166,7 @@
             "edge": "curve"
           },
           {
-            "id": "ne",
+            "id": "n1dg",
             "x": 1198.7486,
             "y": -65.7542,
             "mode": "independent",
@@ -196,7 +181,7 @@
             "edge": "curve"
           },
           {
-            "id": "nf",
+            "id": "n1dh",
             "x": 1243.7486,
             "y": -85.9638,
             "mode": "independent",
@@ -211,7 +196,7 @@
             "edge": "curve"
           },
           {
-            "id": "ng",
+            "id": "n1di",
             "x": 1288.7486,
             "y": -65.6077,
             "mode": "independent",
@@ -226,7 +211,7 @@
             "edge": "curve"
           },
           {
-            "id": "nh",
+            "id": "n1dj",
             "x": 1333.7486,
             "y": -16.4638,
             "mode": "independent",
@@ -241,7 +226,7 @@
             "edge": "curve"
           },
           {
-            "id": "ni",
+            "id": "n1dk",
             "x": 1378.7486,
             "y": 32.6801,
             "mode": "independent",
@@ -256,7 +241,7 @@
             "edge": "curve"
           },
           {
-            "id": "nj",
+            "id": "n1dl",
             "x": 1423.7486,
             "y": 53.0362,
             "mode": "independent",
@@ -271,7 +256,7 @@
             "edge": "curve"
           },
           {
-            "id": "nk",
+            "id": "n1dm",
             "x": 2018.7486,
             "y": 58.0362,
             "mode": "independent",
@@ -286,7 +271,7 @@
             "edge": "curve"
           },
           {
-            "id": "nl",
+            "id": "n1dn",
             "x": 2062.4986,
             "y": 39.1446,
             "mode": "independent",
@@ -301,7 +286,7 @@
             "edge": "curve"
           },
           {
-            "id": "nm",
+            "id": "n1do",
             "x": 2106.2486,
             "y": -6.4638,
             "mode": "independent",
@@ -316,7 +301,7 @@
             "edge": "curve"
           },
           {
-            "id": "nn",
+            "id": "n1dp",
             "x": 2149.9986,
             "y": -52.0722,
             "mode": "independent",
@@ -331,7 +316,7 @@
             "edge": "curve"
           },
           {
-            "id": "no",
+            "id": "n1dq",
             "x": 2193.7486,
             "y": -70.9638,
             "mode": "independent",
@@ -346,7 +331,7 @@
             "edge": "curve"
           },
           {
-            "id": "np",
+            "id": "n1dr",
             "x": 2236.2486,
             "y": -52.8044,
             "mode": "independent",
@@ -361,7 +346,7 @@
             "edge": "curve"
           },
           {
-            "id": "nq",
+            "id": "n1ds",
             "x": 2278.7486,
             "y": -8.9638,
             "mode": "independent",
@@ -376,7 +361,7 @@
             "edge": "curve"
           },
           {
-            "id": "nr",
+            "id": "n1dt",
             "x": 2321.2486,
             "y": 34.8768,
             "mode": "independent",
@@ -391,7 +376,7 @@
             "edge": "curve"
           },
           {
-            "id": "ns",
+            "id": "n1du",
             "x": 2363.7486,
             "y": 53.0362,
             "mode": "independent",
@@ -406,7 +391,7 @@
             "edge": "curve"
           },
           {
-            "id": "nt",
+            "id": "n1dv",
             "x": 2402.4986,
             "y": 41.4669,
             "mode": "independent",
@@ -421,7 +406,7 @@
             "edge": "curve"
           },
           {
-            "id": "nu",
+            "id": "n1dw",
             "x": 2441.2486,
             "y": 13.5362,
             "mode": "independent",
@@ -436,7 +421,7 @@
             "edge": "curve"
           },
           {
-            "id": "nv",
+            "id": "n1dx",
             "x": 2479.9986,
             "y": -14.3945,
             "mode": "independent",
@@ -451,7 +436,7 @@
             "edge": "curve"
           },
           {
-            "id": "nw",
+            "id": "n1dy",
             "x": 2518.7486,
             "y": -25.9638,
             "mode": "independent",
@@ -466,7 +451,7 @@
             "edge": "curve"
           },
           {
-            "id": "nx",
+            "id": "n1dz",
             "x": 2554.9986,
             "y": -12.4907,
             "mode": "independent",
@@ -481,7 +466,7 @@
             "edge": "curve"
           },
           {
-            "id": "ny",
+            "id": "n1e0",
             "x": 2591.2486,
             "y": 20.0362,
             "mode": "independent",
@@ -496,7 +481,7 @@
             "edge": "curve"
           },
           {
-            "id": "nz",
+            "id": "n1e1",
             "x": 2627.4986,
             "y": 52.5631,
             "mode": "independent",
@@ -511,7 +496,7 @@
             "edge": "curve"
           },
           {
-            "id": "n10",
+            "id": "n1e2",
             "x": 2663.7486,
             "y": 66.0362,
             "mode": "independent",
@@ -526,7 +511,7 @@
             "edge": "curve"
           },
           {
-            "id": "n11",
+            "id": "n1e3",
             "x": 2706.2486,
             "y": 47.8768,
             "mode": "independent",
@@ -541,7 +526,7 @@
             "edge": "curve"
           },
           {
-            "id": "n12",
+            "id": "n1e4",
             "x": 2748.7486,
             "y": 4.0362,
             "mode": "independent",
@@ -556,7 +541,7 @@
             "edge": "curve"
           },
           {
-            "id": "n13",
+            "id": "n1e5",
             "x": 2791.2486,
             "y": -39.8044,
             "mode": "independent",
@@ -571,7 +556,7 @@
             "edge": "curve"
           },
           {
-            "id": "n14",
+            "id": "n1e6",
             "x": 2833.7486,
             "y": -57.9638,
             "mode": "independent",
@@ -586,7 +571,7 @@
             "edge": "curve"
           },
           {
-            "id": "n15",
+            "id": "n1e7",
             "x": 2873.7486,
             "y": -42.4405,
             "mode": "independent",
@@ -601,7 +586,7 @@
             "edge": "curve"
           },
           {
-            "id": "n16",
+            "id": "n1e8",
             "x": 2913.7486,
             "y": -4.9638,
             "mode": "independent",
@@ -616,7 +601,7 @@
             "edge": "curve"
           },
           {
-            "id": "n17",
+            "id": "n1e9",
             "x": 2953.7486,
             "y": 32.5129,
             "mode": "independent",
@@ -631,7 +616,7 @@
             "edge": "curve"
           },
           {
-            "id": "n18",
+            "id": "n1ea",
             "x": 2993.7486,
             "y": 48.0362,
             "mode": "independent",
@@ -646,7 +631,7 @@
             "edge": "curve"
           },
           {
-            "id": "n19",
+            "id": "n1eb",
             "x": 3031.2486,
             "y": 40.8603,
             "mode": "independent",
@@ -661,7 +646,7 @@
             "edge": "curve"
           },
           {
-            "id": "n1a",
+            "id": "n1ec",
             "x": 3068.7486,
             "y": 23.5362,
             "mode": "independent",
@@ -676,7 +661,7 @@
             "edge": "curve"
           },
           {
-            "id": "n1b",
+            "id": "n1ed",
             "x": 3160.1408,
             "y": -53.3222,
             "mode": "corner",
@@ -688,7 +673,7 @@
             "edge": "straight"
           },
           {
-            "id": "n1c",
+            "id": "n1ee",
             "x": 3176.5804,
             "y": 25.2618,
             "mode": "corner",
@@ -697,7 +682,7 @@
             "edge": "straight"
           },
           {
-            "id": "n1d",
+            "id": "n1ef",
             "x": 3473.7486,
             "y": 25.2618,
             "mode": "corner",
@@ -706,7 +691,7 @@
             "edge": "straight"
           },
           {
-            "id": "n1e",
+            "id": "n1eg",
             "x": 3473.7486,
             "y": -1075.9638,
             "mode": "corner",
@@ -715,7 +700,7 @@
             "edge": "straight"
           },
           {
-            "id": "n1f",
+            "id": "n1eh",
             "x": 4473.7486,
             "y": -1075.9638,
             "mode": "corner",
@@ -724,7 +709,7 @@
             "edge": "straight"
           },
           {
-            "id": "n1g",
+            "id": "n1ei",
             "x": 4473.7486,
             "y": 724.0362,
             "mode": "corner",
@@ -733,7 +718,7 @@
             "edge": "straight"
           },
           {
-            "id": "n1h",
+            "id": "n1ej",
             "x": -1126.2514,
             "y": 724.0362,
             "mode": "corner",
@@ -742,7 +727,7 @@
             "edge": "straight"
           },
           {
-            "id": "n1i",
+            "id": "n1ek",
             "x": -1126.2514,
             "y": 50,
             "mode": "corner",
@@ -751,61 +736,7 @@
             "edge": "straight"
           },
           {
-            "id": "n1j",
-            "x": -550.0815,
-            "y": 50,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n1k",
-            "x": -550.0815,
-            "y": -400,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n1l",
-            "x": -300.0815,
-            "y": -400,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n1m",
-            "x": -300.0815,
-            "y": -200,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n1n",
-            "x": -100,
-            "y": -200,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n1o",
-            "x": -100,
-            "y": 44.0362,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n1p",
+            "id": "n1ep",
             "x": 143.7486,
             "y": 44.0362,
             "mode": "independent",
@@ -817,7 +748,7 @@
             "edge": "curve"
           },
           {
-            "id": "n1q",
+            "id": "n1eq",
             "x": 182.4986,
             "y": 34.5172,
             "mode": "independent",
@@ -832,7 +763,7 @@
             "edge": "curve"
           },
           {
-            "id": "n1r",
+            "id": "n1er",
             "x": 221.2486,
             "y": 11.5362,
             "mode": "independent",
@@ -847,7 +778,7 @@
             "edge": "curve"
           },
           {
-            "id": "n1s",
+            "id": "n1es",
             "x": 259.9986,
             "y": -11.4448,
             "mode": "independent",
@@ -862,7 +793,7 @@
             "edge": "curve"
           },
           {
-            "id": "n1t",
+            "id": "n1et",
             "x": 298.7486,
             "y": -20.9638,
             "mode": "independent",
@@ -877,7 +808,7 @@
             "edge": "curve"
           },
           {
-            "id": "n1u",
+            "id": "n1eu",
             "x": 333.7486,
             "y": -8.5158,
             "mode": "independent",
@@ -892,7 +823,7 @@
             "edge": "curve"
           },
           {
-            "id": "n1v",
+            "id": "n1ev",
             "x": 368.7486,
             "y": 21.5362,
             "mode": "independent",
@@ -907,7 +838,7 @@
             "edge": "curve"
           },
           {
-            "id": "n1w",
+            "id": "n1ew",
             "x": 403.7486,
             "y": 51.5882,
             "mode": "independent",
@@ -922,7 +853,7 @@
             "edge": "curve"
           },
           {
-            "id": "n1x",
+            "id": "n1ex",
             "x": 438.7486,
             "y": 64.0362,
             "mode": "independent",
@@ -935,44 +866,123 @@
               64.0362
             ],
             "edge": "curve"
+          },
+          {
+            "id": "n1ey",
+            "x": 768.7486,
+            "y": 56.0362,
+            "mode": "independent",
+            "in": [
+              755.4153,
+              56.0362
+            ],
+            "out": [
+              781.6653,
+              56.0362
+            ],
+            "edge": "curve"
+          }
+        ]
+      },
+      "inner": []
+    },
+    {
+      "id": "b1gv",
+      "material": "brick",
+      "outer": {
+        "id": "b1gi",
+        "nodes": [
+          {
+            "id": "n1ez",
+            "x": -550.6754,
+            "y": -378.7112,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n1f0",
+            "x": -300.6754,
+            "y": -378.7112,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n1f1",
+            "x": -300.6754,
+            "y": -178.7112,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n1f2",
+            "x": -100.5939,
+            "y": -178.7112,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n1f3",
+            "x": -100.5939,
+            "y": 48.0844,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n1f4",
+            "x": -550.6754,
+            "y": 48.0844,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
           }
         ]
       },
       "inner": [
         {
-          "id": "b1y",
+          "id": "b1gj",
           "nodes": [
             {
-              "id": "n1z",
-              "x": -150,
-              "y": -150,
+              "id": "n1f5",
+              "x": -200.5939,
+              "y": -128.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n20",
-              "x": -200,
-              "y": -150,
+              "id": "n1f6",
+              "x": -200.5939,
+              "y": -78.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n21",
-              "x": -200,
-              "y": -100,
+              "id": "n1f7",
+              "x": -150.5939,
+              "y": -78.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n22",
-              "x": -150,
-              "y": -100,
+              "id": "n1f8",
+              "x": -150.5939,
+              "y": -128.7112,
               "mode": "corner",
               "in": null,
               "out": null,
@@ -981,39 +991,39 @@
           ]
         },
         {
-          "id": "b23",
+          "id": "b1gk",
           "nodes": [
             {
-              "id": "n24",
-              "x": -250,
-              "y": -100,
+              "id": "n1f9",
+              "x": -250.5939,
+              "y": -128.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n25",
-              "x": -250,
-              "y": -150,
+              "id": "n1fa",
+              "x": -300.5939,
+              "y": -128.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n26",
-              "x": -300,
-              "y": -150,
+              "id": "n1fb",
+              "x": -300.5939,
+              "y": -78.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n27",
-              "x": -300,
-              "y": -100,
+              "id": "n1fc",
+              "x": -250.5939,
+              "y": -78.7112,
               "mode": "corner",
               "in": null,
               "out": null,
@@ -1022,39 +1032,39 @@
           ]
         },
         {
-          "id": "b28",
+          "id": "b1gl",
           "nodes": [
             {
-              "id": "n29",
-              "x": -200,
-              "y": 0,
+              "id": "n1fd",
+              "x": -150.5939,
+              "y": 21.2888,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n2a",
-              "x": -150,
-              "y": 0,
+              "id": "n1fe",
+              "x": -150.5939,
+              "y": -28.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n2b",
-              "x": -150,
-              "y": -50,
+              "id": "n1ff",
+              "x": -200.5939,
+              "y": -28.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n2c",
-              "x": -200,
-              "y": -50,
+              "id": "n1fg",
+              "x": -200.5939,
+              "y": 21.2888,
               "mode": "corner",
               "in": null,
               "out": null,
@@ -1063,39 +1073,39 @@
           ]
         },
         {
-          "id": "b2d",
+          "id": "b1gm",
           "nodes": [
             {
-              "id": "n2e",
-              "x": -300,
-              "y": -50,
+              "id": "n1fh",
+              "x": -300.5939,
+              "y": 21.2888,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n2f",
-              "x": -300,
-              "y": 0,
+              "id": "n1fi",
+              "x": -250.5939,
+              "y": 21.2888,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n2g",
-              "x": -250,
-              "y": 0,
+              "id": "n1fj",
+              "x": -250.5939,
+              "y": -28.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n2h",
-              "x": -250,
-              "y": -50,
+              "id": "n1fk",
+              "x": -300.5939,
+              "y": -28.7112,
               "mode": "corner",
               "in": null,
               "out": null,
@@ -1104,39 +1114,39 @@
           ]
         },
         {
-          "id": "b2i",
+          "id": "b1gn",
           "nodes": [
             {
-              "id": "n2j",
-              "x": -350,
-              "y": -50,
+              "id": "n1fl",
+              "x": -400.5939,
+              "y": -28.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n2k",
-              "x": -400,
-              "y": -50,
+              "id": "n1fm",
+              "x": -400.5939,
+              "y": 21.2888,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n2l",
-              "x": -400,
-              "y": 0,
+              "id": "n1fn",
+              "x": -350.5939,
+              "y": 21.2888,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n2m",
-              "x": -350,
-              "y": 0,
+              "id": "n1fo",
+              "x": -350.5939,
+              "y": -28.7112,
               "mode": "corner",
               "in": null,
               "out": null,
@@ -1145,39 +1155,39 @@
           ]
         },
         {
-          "id": "b2n",
+          "id": "b1go",
           "nodes": [
             {
-              "id": "n2o",
-              "x": -450,
-              "y": 0,
+              "id": "n1fp",
+              "x": -450.5939,
+              "y": -28.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n2p",
-              "x": -450,
-              "y": -50,
+              "id": "n1fq",
+              "x": -500.5939,
+              "y": -28.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n2q",
-              "x": -500,
-              "y": -50,
+              "id": "n1fr",
+              "x": -500.5939,
+              "y": 21.2888,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n2r",
-              "x": -500,
-              "y": 0,
+              "id": "n1fs",
+              "x": -450.5939,
+              "y": 21.2888,
               "mode": "corner",
               "in": null,
               "out": null,
@@ -1186,39 +1196,39 @@
           ]
         },
         {
-          "id": "b2s",
+          "id": "b1gp",
           "nodes": [
             {
-              "id": "n2t",
-              "x": -400,
-              "y": -100,
+              "id": "n1ft",
+              "x": -350.5939,
+              "y": -78.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n2u",
-              "x": -350,
-              "y": -100,
+              "id": "n1fu",
+              "x": -350.5939,
+              "y": -128.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n2v",
-              "x": -350,
-              "y": -150,
+              "id": "n1fv",
+              "x": -400.5939,
+              "y": -128.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n2w",
-              "x": -400,
-              "y": -150,
+              "id": "n1fw",
+              "x": -400.5939,
+              "y": -78.7112,
               "mode": "corner",
               "in": null,
               "out": null,
@@ -1227,39 +1237,39 @@
           ]
         },
         {
-          "id": "b2x",
+          "id": "b1gq",
           "nodes": [
             {
-              "id": "n2y",
-              "x": -400,
-              "y": -250,
+              "id": "n1fx",
+              "x": -400.5939,
+              "y": -178.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n2z",
-              "x": -400,
-              "y": -200,
+              "id": "n1fy",
+              "x": -350.5939,
+              "y": -178.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n30",
-              "x": -350,
-              "y": -200,
+              "id": "n1fz",
+              "x": -350.5939,
+              "y": -228.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n31",
-              "x": -350,
-              "y": -250,
+              "id": "n1g0",
+              "x": -400.5939,
+              "y": -228.7112,
               "mode": "corner",
               "in": null,
               "out": null,
@@ -1268,39 +1278,39 @@
           ]
         },
         {
-          "id": "b32",
+          "id": "b1gr",
           "nodes": [
             {
-              "id": "n33",
-              "x": -450,
-              "y": -250,
+              "id": "n1g1",
+              "x": -500.5939,
+              "y": -228.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n34",
-              "x": -500,
-              "y": -250,
+              "id": "n1g2",
+              "x": -500.5939,
+              "y": -178.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n35",
-              "x": -500,
-              "y": -200,
+              "id": "n1g3",
+              "x": -450.5939,
+              "y": -178.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n36",
-              "x": -450,
-              "y": -200,
+              "id": "n1g4",
+              "x": -450.5939,
+              "y": -228.7112,
               "mode": "corner",
               "in": null,
               "out": null,
@@ -1309,39 +1319,39 @@
           ]
         },
         {
-          "id": "b37",
+          "id": "b1gs",
           "nodes": [
             {
-              "id": "n38",
-              "x": -450,
-              "y": -100,
+              "id": "n1g5",
+              "x": -450.5939,
+              "y": -128.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n39",
-              "x": -450,
-              "y": -150,
+              "id": "n1g6",
+              "x": -500.5939,
+              "y": -128.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n3a",
-              "x": -500,
-              "y": -150,
+              "id": "n1g7",
+              "x": -500.5939,
+              "y": -78.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n3b",
-              "x": -500,
-              "y": -100,
+              "id": "n1g8",
+              "x": -450.5939,
+              "y": -78.7112,
               "mode": "corner",
               "in": null,
               "out": null,
@@ -1350,39 +1360,39 @@
           ]
         },
         {
-          "id": "b3c",
+          "id": "b1gt",
           "nodes": [
             {
-              "id": "n3d",
-              "x": -400,
-              "y": -300,
+              "id": "n1g9",
+              "x": -350.5939,
+              "y": -278.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n3e",
-              "x": -350,
-              "y": -300,
+              "id": "n1ga",
+              "x": -350.5939,
+              "y": -328.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n3f",
-              "x": -350,
-              "y": -350,
+              "id": "n1gb",
+              "x": -400.5939,
+              "y": -328.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n3g",
-              "x": -400,
-              "y": -350,
+              "id": "n1gc",
+              "x": -400.5939,
+              "y": -278.7112,
               "mode": "corner",
               "in": null,
               "out": null,
@@ -1391,39 +1401,39 @@
           ]
         },
         {
-          "id": "b3h",
+          "id": "b1gu",
           "nodes": [
             {
-              "id": "n3i",
-              "x": -500,
-              "y": -350,
+              "id": "n1gd",
+              "x": -500.5939,
+              "y": -278.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n3j",
-              "x": -500,
-              "y": -300,
+              "id": "n1ge",
+              "x": -450.5939,
+              "y": -278.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n3k",
-              "x": -450,
-              "y": -300,
+              "id": "n1gf",
+              "x": -450.5939,
+              "y": -328.7112,
               "mode": "corner",
               "in": null,
               "out": null,
               "edge": "straight"
             },
             {
-              "id": "n3l",
-              "x": -450,
-              "y": -350,
+              "id": "n1gg",
+              "x": -500.5939,
+              "y": -328.7112,
               "mode": "corner",
               "in": null,
               "out": null,
@@ -1481,14 +1491,14 @@
     },
     {
       "id": "b3s",
-      "material": "brick",
+      "material": "rock",
       "outer": {
         "id": "b3t",
         "nodes": [
           {
             "id": "n3u",
-            "x": -334.0095,
-            "y": -424.1348,
+            "x": -331.9189,
+            "y": -400.0898,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -1496,8 +1506,8 @@
           },
           {
             "id": "n3v",
-            "x": -317.8804,
-            "y": -423.7713,
+            "x": -315.79,
+            "y": -399.7261,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -1505,8 +1515,8 @@
           },
           {
             "id": "n3w",
-            "x": -317.3113,
-            "y": -401.3091,
+            "x": -315.2209,
+            "y": -377.2641,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -1514,8 +1524,8 @@
           },
           {
             "id": "n3x",
-            "x": -333.7218,
-            "y": -400.9486,
+            "x": -331.6313,
+            "y": -376.9036,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -1671,6 +1681,52 @@
         ]
       },
       "inner": []
+    },
+    {
+      "id": "bwr4",
+      "material": "rock",
+      "outer": {
+        "id": "bwr5",
+        "nodes": [
+          {
+            "id": "nwr6",
+            "x": -273.7994,
+            "y": -231.2806,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nwr7",
+            "x": -233.6398,
+            "y": -231.6441,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nwr8",
+            "x": -233.8452,
+            "y": -176.2945,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nwr9",
+            "x": -273.3959,
+            "y": -176.6579,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
     }
   ],
   "apples": [
@@ -1723,14 +1779,14 @@
       "layer": "back"
     },
     {
-      "x": -176.13182340694186,
-      "y": -6.714173117934877,
+      "x": -176.7255027154823,
+      "y": 14.575064287151164,
       "type": "fence",
       "layer": "back"
     },
     {
-      "x": -175.61826040920914,
-      "y": 1.1283618266085114,
+      "x": -176.21193971774957,
+      "y": 22.417599231694552,
       "type": "fence",
       "layer": "back"
     },
@@ -1777,8 +1833,8 @@
       "layer": "front"
     },
     {
-      "x": -174.32421875,
-      "y": -75.89192500000001,
+      "x": -174.91789805854043,
+      "y": -54.602687594913974,
       "type": "graffiti",
       "layer": "front"
     }

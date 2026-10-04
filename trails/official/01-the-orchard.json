@@ -694,6 +694,12 @@
       "y": 314.8164800590766,
       "type": "wheelbarrow",
       "layer": "back"
+    },
+    {
+      "x": 968.5412530492974,
+      "y": 299.2203386940159,
+      "type": "ladder",
+      "layer": "back"
     }
   ],
   "spikes": [],

@@ -48,7 +48,8 @@ import {
 import { gridSpacing, snapToAngleAndGrid } from "./snap.js";
 import { clampZoom, editor } from "./state.js";
 import { showStatus } from "./status.js";
-import { PLACING_TOOLS, TOOL_KEYS, setTool } from "./tools.js";
+import { PREVIEW_TOOLS, TOOL_KEYS, setTool } from "./tools.js";
+import { commitWater } from "./water.js";
 import { canSave, saveDraft, saveTrail } from "./trails.js";
 import {
   focusOnStart,
@@ -282,7 +283,10 @@ export const endPointer = () => {
     // Only a shape that changed something becomes an undo step, so a missed
     // cut neither leaves an empty step nor clears the redo history.
     const before = snapshot();
-    if (
+    if (kind === "water") {
+      commitWater(shape);
+      pushHistory(before);
+    } else if (
       commitShape(kind, shape.points, shape.closed, shape.alt, shape.circleShape)
     )
       pushHistory(before);
@@ -399,9 +403,11 @@ export function bindInput() {
       canvas.setPointerCapture(event.pointerId);
       return;
     }
-    if (editor.tool === "block" || editor.tool === "cut") {
-      // Both tools draw a shape: start the drag and show it as it grows.
+    if (editor.tool === "block" || editor.tool === "cut" || editor.tool === "water") {
+      // These tools draw a shape: start the drag and show it as it grows.
       pendingKind = editor.tool;
+      const color = { block: "#83d1ce", cut: "#ff8952", water: "#8fd6e8" }[editor.tool];
+      editor.hoverPoint = null;
       editor.pendingShape = {
         raw: [[point.x, point.y]],
         end: [point.x, point.y],
@@ -410,8 +416,9 @@ export function bindInput() {
         alt: event.altKey,
         shift: event.shiftKey,
         closed: true,
-        color: editor.tool === "cut" ? "#ff8952" : "#83d1ce",
-        fill: editor.tool === "cut" ? "#ff895226" : "#83d1ce26",
+        water: editor.tool === "water",
+        color,
+        fill: `${color}26`,
       };
       updateShapePoints(editor.pendingShape);
       dragging = true;
@@ -508,7 +515,7 @@ export function bindInput() {
       renderView();
       return;
     }
-    if (PLACING_TOOLS.has(editor.tool) && !dragging) {
+    if (PREVIEW_TOOLS.has(editor.tool) && !dragging) {
       editor.hoverPoint = pointerWorld(event);
       renderView();
     }

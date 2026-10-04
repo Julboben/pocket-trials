@@ -30,10 +30,15 @@ import { pointerWorld, viewportSize } from "./view.js";
 
 const CLIPBOARD_FORMAT = "hjulben-editor-clipboard-v1";
 
-const CLIPBOARD_LISTS = { apple: "apples", prop: "props", spike: "spikes" };
+const CLIPBOARD_LISTS = {
+  apple: "apples",
+  prop: "props",
+  spike: "spikes",
+  water: "water",
+};
 
 /**
- * What the selection copies: whole blocks, apples, props and spikes. A block
+ * What the selection copies: whole blocks, apples, props, spikes and water. A block
  * whose every point is selected counts as the whole block; loose points,
  * handles, the start and the finish aren't copied.
  */
@@ -56,15 +61,19 @@ function copyableSelection() {
   };
 }
 
-function describeCopy({ blocks: copiedBlocks, apples, props, spikes }) {
+function describeCopy({ blocks: copiedBlocks, apples, props, spikes, water = [] }) {
   return [
     [copiedBlocks.length, "block"],
     [apples.length, "apple"],
     [props.length, "prop"],
     [spikes.length, "spike"],
+    [water.length, "water body", "water bodies"],
   ]
     .filter(([count]) => count)
-    .map(([count, name]) => `${count} ${name}${count === 1 ? "" : "s"}`)
+    .map(
+      ([count, name, plural = `${name}s`]) =>
+        `${count} ${count === 1 ? name : plural}`,
+    )
     .join(", ");
 }
 
@@ -108,6 +117,8 @@ function readClipboard(text) {
   try {
     const data = JSON.parse(text);
     if (data?.format !== CLIPBOARD_FORMAT) return null;
+    // Copies from before water existed have no list for it.
+    data.water ??= [];
     if (!data.centre?.every?.(Number.isFinite)) return null;
     const lists = ["blocks", ...Object.values(CLIPBOARD_LISTS)];
     if (!lists.every((list) => Array.isArray(data[list]))) return null;
@@ -200,7 +211,7 @@ function copyToClipboard(event, cut) {
   if (!payload) {
     showStatus(
       "warning",
-      "Nothing to copy. Select blocks, apples, props or spikes; points, the start and the finish can't be copied.",
+      "Nothing to copy. Select blocks, apples, props, spikes or water; points, the start and the finish can't be copied.",
     );
     return;
   }

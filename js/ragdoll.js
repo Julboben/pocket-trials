@@ -2,6 +2,7 @@
 import { STEP, GRAVITY } from "./config.js";
 import { collideFreePoint } from "./vehicle-physics.js";
 import { atan2, cos, hypot, sin } from "./det-math.js";
+import { RAGDOLL_WATER, RAGDOLL_WATER_RADIUS, applyWater } from "./water.js";
 
 const RAGDOLL_CONTACT = { bounce: 0.12, friction: 0.16 };
 const SOLVER_ITERATIONS = 6;
@@ -197,7 +198,15 @@ function enforceHinge(points, hinge) {
   }
 }
 
-export function stepRagdoll(ragdoll, trail) {
+/**
+ * @param {any} ragdoll
+ * @param {any} trail
+ * @param {import('./types.js').Water[]} [water] normalized water bodies, which buoy the rider up
+ */
+export function stepRagdoll(ragdoll, trail, water = []) {
+  if (water.length)
+    for (const p of ragdoll.list)
+      applyWater(p, Math.max(p.radius, RAGDOLL_WATER_RADIUS), water, RAGDOLL_WATER);
   for (const p of ragdoll.list) {
     const vx = (p.x - p.ox) * 0.996,
       vy = (p.y - p.oy) * 0.996;

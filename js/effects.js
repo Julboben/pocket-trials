@@ -4,6 +4,7 @@
 import { STEP, RADIUS, TAU, clamp, lerp } from './config.js';
 import { terrainMaterials } from './materials.js';
 import { terrainAt } from './terrain.js';
+import { WATER_COLORS, submergedFraction, waterAt } from './water.js';
 
 const MAX_PARTICLES = 400;
 const MAX_SKID_MARKS = 120;
@@ -23,12 +24,12 @@ export function createEffects() {
   /** @type {any[]} */ const particles = [];
   /** @type {any[]} */ const skidMarks = [];
   const weather = { time: 0, nextLightning: Infinity, flash: 0, x: .5, distance: .5 };
-  let trail = null, sprayAccumulator = 0, skidAccumulator = 0;
+  let trail = null, sprayAccumulator = 0, skidAccumulator = 0, wakeAccumulator = 0;
 
   function reset(nextTrail) {
     trail = nextTrail;
     particles.length = 0; skidMarks.length = 0;
-    sprayAccumulator = 0; skidAccumulator = 0;
+    sprayAccumulator = 0; skidAccumulator = 0; wakeAccumulator = 0;
     weather.time = 0; weather.flash = 0; weather.x = .5; weather.distance = .5;
     weather.nextLightning = trail.weather?.lightning ? 2.5 + Math.random() * 4 : Infinity;
   }
@@ -101,6 +102,47 @@ export function createEffects() {
     }
   }
 
+  /** Droplets thrown up where something hits the water, more the harder it hits. */
+  function splash(x, y, speed) {
+    const count = Math.round(clamp(speed / 22, 5, 18));
+    for (let index = 0; index < count; index++) {
+      const side = index % 2 ? 1 : -1;
+      const life = .35 + Math.random() * .35;
+      particles.push({
+        x: x + side * Math.random() * 10, y: y - 1,
+        vx: side * (15 + Math.random() * 70), vy: -(40 + Math.random() * clamp(speed * .9, 60, 260)),
+        life, max: life, color: WATER_COLORS.splash[index % WATER_COLORS.splash.length],
+        size: Math.random() < .6 ? 2 : 4, drag: 1.5
+      });
+    }
+  }
+
+  /** Spray from wheels pushing through the water's surface. */
+  function waterWake(ride, speed) {
+    const bodies = ride.water;
+    if (!bodies?.length || ride.status !== 'running') return;
+    const magnitude = Math.abs(speed);
+    let surface = null, x = 0;
+    for (const wheel of [ride.rear, ride.front]) {
+      const wet = submergedFraction(bodies, wheel.x, wheel.y, RADIUS);
+      if (wet <= 0 || wet >= 1) continue;
+      const body = waterAt(bodies, wheel.x, wheel.y + RADIUS);
+      if (body) { surface = body.y; x = wheel.x; }
+    }
+    if (surface === null || magnitude < 30) { wakeAccumulator = 0; return; }
+    wakeAccumulator += clamp(magnitude / 200, .2, 1.4) * STEP * 30;
+    const direction = Math.sign(speed || ride.facing);
+    while (wakeAccumulator >= 1) {
+      wakeAccumulator--;
+      const life = .3 + Math.random() * .3;
+      particles.push({
+        x: x - direction * Math.random() * RADIUS, y: surface - 1,
+        vx: speed * .25 - direction * Math.random() * 40, vy: -(30 + Math.random() * magnitude * .35),
+        life, max: life, color: WATER_COLORS.splash[Math.floor(Math.random() * 3)], size: 2, drag: 2
+      });
+    }
+  }
+
   /** Advances weather by one step; returns a thunder strike when one happens. */
   function stepWeather() {
     weather.time += STEP;
@@ -140,5 +182,5 @@ export function createEffects() {
     removeExpired(skidMarks, MAX_SKID_MARKS);
   }
 
-  return { particles, skidMarks, weather, reset, burst, dustPuff, brakeMarks, terrainSpray, stepWeather, update, prune };
+  return { particles, skidMarks, weather, reset, burst, dustPuff, brakeMarks, terrainSpray, splash, waterWake, stepWeather, update, prune };
 }

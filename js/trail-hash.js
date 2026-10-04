@@ -31,6 +31,8 @@ export function trailHash(trail) {
   fields.terrain ??= fields.terrainBlocks?.[0]?.material;
   fields.terrainCompiler = TERRAIN_COMPILER_VERSION;
   if (Number.isFinite(trail?.finishY)) fields.finishY = trail.finishY;
+  // Water came later; a trail without any keeps the hash it always had.
+  if (Array.isArray(trail?.water) && trail.water.length) fields.water = trail.water;
   const text = canonical(fields);
   let hash = 0x811c9dc5;
   for (let index = 0; index < text.length; index++) {

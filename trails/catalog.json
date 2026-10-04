@@ -44,12 +44,6 @@
       "name": "Elastic Summit"
     },
     {
-      "id": "custom:00-custom-trail",
-      "source": "custom",
-      "file": "custom/00-custom-trail.json",
-      "name": "Custom Trail"
-    },
-    {
       "id": "custom:cave-at-night",
       "source": "custom",
       "file": "custom/cave-at-night.json",
@@ -72,6 +66,12 @@
       "source": "custom",
       "file": "custom/mind-your-head.json",
       "name": "Mind Your Head"
+    },
+    {
+      "id": "custom:new-trail-2",
+      "source": "custom",
+      "file": "custom/new-trail-2.json",
+      "name": "New Trail"
     },
     {
       "id": "custom:new-trail",

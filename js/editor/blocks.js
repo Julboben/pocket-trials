@@ -299,6 +299,13 @@ function snapToGrid([x, y]) {
 export function updateShapePoints(shape) {
   const snap = shape.shift ? snapToGrid : (point) => point;
   shape.circleShape = null;
+  if (shape.water) {
+    // Water is always a rectangle, from the corner where the drag started.
+    const [sx, sy] = snap(shape.raw[0]);
+    const [ex, ey] = snap(shape.end);
+    shape.points = [[sx, sy], [ex, sy], [ex, ey], [sx, ey]];
+    return;
+  }
   if (shape.circle) {
     // A circle in the dragged square, from the corner where the drag started.
     const [sx, sy] = snap(shape.raw[0]);

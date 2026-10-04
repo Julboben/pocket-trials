@@ -10,6 +10,7 @@ import {
   BACKDROPS,
 } from "./drawing.js";
 import { RADIUS, WHEELBASE } from "./config.js";
+import { WATER_SIZE, normalizeWater, waterAt, waterColumns } from "./water.js";
 import { FINISH_FLOWER_LIFT, bikeTouchesFlower } from "./finish.js";
 import {
   normalizeBlocks as normalizeTerrainBlocks,
@@ -109,6 +110,7 @@ export function createBlankTrail(index = 0) {
     ],
     props: [],
     spikes: [],
+    water: [],
     weather: { sun: 1, clouds: 0.2 },
     fallY: 620,
   };
@@ -268,6 +270,7 @@ export function normalizeTrail(input, index = 0) {
         ),
       )
     : [];
+  trail.water = Array.isArray(trail.water) ? trail.water.map(normalizeWater) : [];
   trail.weather = { ...fallback.weather, ...(trail.weather || {}) };
   // Noon is the default look; an unrecognised value falls back to it too.
   if (!TIMES_OF_DAY.includes(trail.timeOfDay))
@@ -473,6 +476,24 @@ export function validateTrail(trail) {
           `Spike ${index + 1} overlaps the apple at x ${Math.round(apple.x)}.`,
         );
     }
+  }
+  for (const [index, body] of (trail.water || []).entries()) {
+    const name = `Water ${index + 1}`;
+    if (![body.x, body.y, body.width, body.depth].every(Number.isFinite)) {
+      error(`${name} must have finite coordinates and size.`);
+      continue;
+    }
+    if (body.width < WATER_SIZE.minWidth || body.depth < WATER_SIZE.minDepth)
+      error(
+        `${name} must be at least ${WATER_SIZE.minWidth} wide and ${WATER_SIZE.minDepth} deep.`,
+      );
+    const startY = Number.isFinite(trail.start?.y)
+      ? trail.start.y
+      : groundHeight(trail, trail.start.x) - 12;
+    if (waterAt([body], trail.start.x, startY))
+      warning(`${name} covers the start position.`);
+    if (compiled && !waterColumns(compiled, body).length)
+      warning(`${name} is completely inside terrain, so it has no effect.`);
   }
   if (trail.medals !== undefined) {
     const times = MEDALS.map((name) => Number(trail.medals?.[name]));

@@ -1,0 +1,146 @@
+{
+  "name": "New Trail",
+  "label": "NEW TRAIL / 15",
+  "goal": 2012.175329348539,
+  "description": "",
+  "start": {
+    "x": 90,
+    "y": null,
+    "facing": 1
+  },
+  "terrainBlocks": [
+    {
+      "id": "block-1",
+      "material": "grass",
+      "outer": {
+        "id": "boundary-1",
+        "nodes": [
+          {
+            "id": "n1",
+            "x": -600,
+            "y": 300,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n2",
+            "x": 420,
+            "y": 300,
+            "mode": "independent",
+            "in": null,
+            "out": [
+              580,
+              366.79
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "n3",
+            "x": 900,
+            "y": 300,
+            "mode": "corner",
+            "in": [
+              740,
+              366.79
+            ],
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "npd",
+            "x": 1174.2333,
+            "y": 300,
+            "mode": "independent",
+            "in": null,
+            "out": [
+              1249.1601,
+              243.6128
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "nq6",
+            "x": 1300,
+            "y": 300,
+            "mode": "independent",
+            "in": [
+              1224.4156,
+              243.6128
+            ],
+            "out": [
+              1366.6667,
+              500.24065870243487
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "n1pf",
+            "x": 1550,
+            "y": 300,
+            "mode": "corner",
+            "in": [
+              1483.3333,
+              500.24065870243487
+            ],
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n4",
+            "x": 2300,
+            "y": 300,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n5",
+            "x": 2300,
+            "y": 580,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n6",
+            "x": -600,
+            "y": 580,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    }
+  ],
+  "apples": [],
+  "props": [],
+  "spikes": [],
+  "water": [
+    {
+      "x": 420.40193576252335,
+      "y": 314.6036676482341,
+      "width": 474.9,
+      "depth": 55.4
+    },
+    {
+      "x": 1277.7,
+      "y": 324.6,
+      "width": 282.2,
+      "depth": 160.7
+    }
+  ],
+  "weather": {
+    "sun": 0.6,
+    "clouds": 0.2
+  },
+  "fallY": 620,
+  "finishY": 260.98557319391114,
+  "timeOfDay": "noon"
+}

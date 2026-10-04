@@ -1,6 +1,7 @@
 // Tool definitions, keyboard letters, and the per-tool settings panel.
 import { store } from "../local-store.js";
 import { SPIKE_RADIUS } from "../trail-schema.js";
+import { WATER_SIZE, WATER_WIPEOUT_DEPTH } from "../water.js";
 import { terrainMaterials } from "../trails.js";
 import { $, canvas } from "./dom.js";
 import { editor } from "./state.js";
@@ -79,6 +80,26 @@ const TOOL_INFO = {
       },
     ],
   },
+  water: {
+    title: "Water",
+    hint: `Drag a rectangle to fill it with water, or click to drop a body of the size below with its surface where you click. Water fills the open air inside the rectangle and terrain stays dry, so a rectangle drawn over a pit fills the pit. Up to ${WATER_WIPEOUT_DEPTH} deep is a ford the bike rides through, slowed down; deeper water wipes the rider out, who floats. Hold Shift to snap to the grid. Select a body to resize it with its handles or set its width and depth. The tool stays active; Esc returns to Select.`,
+    fields: [
+      {
+        key: "width",
+        label: "Width",
+        type: "number",
+        min: WATER_SIZE.minWidth,
+        step: 1,
+      },
+      {
+        key: "depth",
+        label: `Depth (over ${WATER_WIPEOUT_DEPTH} wipes out)`,
+        type: "number",
+        min: WATER_SIZE.minDepth,
+        step: 1,
+      },
+    ],
+  },
   prop: {
     title: "Prop",
     hint: "Click to place decorative scenery. Props do not collide. The tool stays active; Esc returns to Select.",
@@ -130,6 +151,7 @@ const DEFAULT_TOOL_SETTINGS = {
   block: { material: "grass", layer: "terrain" },
   cut: { layer: "terrain" },
   spike: { radius: SPIKE_RADIUS.default, spin: 1 },
+  water: { width: WATER_SIZE.width, depth: WATER_SIZE.depth },
   prop: { type: "tree", layer: "back", flip: false },
   start: { facing: "1" },
 };
@@ -142,6 +164,7 @@ export const TOOL_KEYS = {
   KeyC: "cut",
   KeyA: "apple",
   KeyS: "spike",
+  KeyW: "water",
   KeyP: "prop",
   KeyG: "start",
   KeyF: "finish",
@@ -153,6 +176,10 @@ export const TOOL_KEY_LABELS = Object.fromEntries(
 
 // Tools that place a new object where you click, and show a preview of it.
 export const PLACING_TOOLS = new Set(["apple", "spike", "prop"]);
+
+// Tools that show a preview under the cursor: the placing tools, and Water,
+// whose click drops a body of the tool's size.
+export const PREVIEW_TOOLS = new Set([...PLACING_TOOLS, "water"]);
 
 export const toolSettings = (() => {
   try {

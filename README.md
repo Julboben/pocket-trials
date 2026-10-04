@@ -33,6 +33,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Seven progressively longer trails with gaps, caves, and floating blocks to ride across
 - Grass, dirt, rock, snow, and brick terrain materials
 - Per-trail rain and lightning configuration with procedural ambience and distance-aware thunder
+- Water you can ride through: shallow fords drag the bike and slow it down, deeper water wipes the rider out, and the ragdoll floats on the surface with splashes, wakes and sound
 
 ## Play
 
@@ -82,7 +83,7 @@ Each trail requires collecting all five apples before the finish gate will open.
 
 Open the visual editor from **Trail Editor** on the main dashboard or navigate directly to `editor.html`. The left column has two tabs:
 
-- **Tools**: tools grouped into Navigate, Terrain, Objects, and Course. Picking a tool shows its settings (for example block material, spike radius and spin, or prop type) before anything is placed. New objects use those settings, which are remembered between sessions. `V` or `Escape` selects, and `H` pans.
+- **Tools**: tools grouped into Navigate, Terrain, Objects, and Course. Picking a tool shows its settings (for example block material, spike radius and spin, water width and depth, or prop type) before anything is placed. New objects use those settings, which are remembered between sessions. `V` or `Escape` selects, and `H` pans.
 - **Trail**: trail name, finish and fall positions, and weather.
 
 The inspector on the right edits the current selection. The editor supports:
@@ -96,13 +97,14 @@ The inspector on the right edits the current selection. The editor supports:
 - Placing freely positioned apples, start points, props, and finish positions
 - Moving or removing props and changing their type and foreground/background layer
 - Placing spinning spike hazards and editing their radius and spin speed
+- Drawing water bodies with the **Water** tool (`W`): drag a rectangle, or click to drop one of the tool's size. Drag a body by the middle of its surface, resize it with the scale handles, and set its width and depth in the inspector, which says whether it is a rideable ford or deep enough to wipe the rider out
 - Choosing the start position and left/right facing direction
 - Selecting the base and per-block materials
 - Editing sun, cloud, rain, and lightning values
 - Trackpad navigation: two-finger scrolling pans and pinch gestures zoom around the pointer
 - Mouse navigation: wheel panning, `Ctrl`/`Cmd` + wheel zooming, and middle-button or `Space`-drag panning
 - Undo and redo
-- Copy, cut and paste (`Cmd`/`Ctrl` + `C`, `X`, `V`) for blocks, apples, props and spikes. The copy goes to the system clipboard, so it can be pasted into another trail or tab; it lands under the cursor, or in the middle of the view.
+- Copy, cut and paste (`Cmd`/`Ctrl` + `C`, `X`, `V`) for blocks, apples, props, spikes and water. The copy goes to the system clipboard, so it can be pasted into another trail or tab; it lands under the cursor, or in the middle of the view.
 - Box-select picks up whole blocks along with points and objects; `Shift`-click adds or removes one (for example a prop inside a selected block), `Cmd`/`Ctrl` + `A` selects everything, and `Cmd`/`Ctrl` + `D` selects nothing. Undo and redo restore the selection too.
 - Play testing in place (`Cmd`/`Ctrl` + `Enter`); add `Shift` to start the bike where the mouse is, without moving the trail's start
 - Press `?` (or **Keyboard shortcuts** in the **⋯** menu) for a list of every shortcut.
@@ -143,7 +145,7 @@ Current storage keys:
 - `hjulben-leaderboard-v1`
 - `hjulben-ghost-v1:<trail>` (inputs of the best run, re-simulated as the ghost)
 
-The dashboard's Leaderboard view ranks the ten fastest finishes per official and custom trail across all savegames on the device. Runs remain on the board after their savegame is deleted. Every trail is keyed by a hash of what decides a run (terrain, start, finish, apples, spikes and the fall line), and official trails also by their id (`official:<id>@<hash>`). Editing a trail's gameplay starts fresh leaderboards, ghosts and best times, online and local, while renaming it or changing its props keeps them.
+The dashboard's Leaderboard view ranks the ten fastest finishes per official and custom trail across all savegames on the device. Runs remain on the board after their savegame is deleted. Every trail is keyed by a hash of what decides a run (terrain, start, finish, apples, spikes, water and the fall line), and official trails also by their id (`official:<id>@<hash>`). Editing a trail's gameplay starts fresh leaderboards, ghosts and best times, online and local, while renaming it or changing its props keeps them.
 
 Clearing site data resets settings, progression, and recorded times. Online riders can get theirs back by logging in (see below).
 
@@ -291,7 +293,6 @@ When changing physics values, validate at least these cases:
 
 - [ ] Music
 - [ ] Add import / export of savegames
-- [ ] Add water that you can drive through
 - [ ] Biker customization: choose your bike (the original Pocket Classic bike is already drawn as the `classic` model), and later colors and gear
 - [ ] Add background: Coast (a sea horizon with an island) and Canyon (layered cliff walls with rock spires) each only need a new entry in backdropLayers and BACKDROP_COLORS, plus an option in the dropdown.
 - [ ] More offical trails
@@ -306,13 +307,8 @@ When changing physics values, validate at least these cases:
 - [x] Add weather effects (rain, lightning, and procedural ambience)
 - [x] Add day / night
 - [x] Lighting engine (dark caves, night, headlight, prop lights)
-- [x] Add a sign that you can write on in the editor
 - [x] Online highscore leaderboard
-- [x] New physics engine with support for overhangs, loops, caves, and fully polygonal ground
-- [x] Unified block terrain (polygon blocks, caves, and cuts)
-- [x] A visual trail-building workflow
-- [x] Rename levels to trails
-- [x] Remove the old ground-line terrain format
+- [x] Drivable water bodies with adjustable depth: deep water wipes the rider out, and the ragdoll floats
 
 ## Inspiration
 

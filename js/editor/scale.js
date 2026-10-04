@@ -1,10 +1,13 @@
-// Scale handles around the selected blocks: corners keep the proportions, so a
-// circle stays a circle and a square a square, and sides stretch one way.
+// Scale handles around the selected blocks and water: corners keep the
+// proportions, so a circle stays a circle and a square a square, and sides
+// stretch one way. Water on its own is just a rectangle, so its corners
+// resize it freely.
 import { scaleBlock } from "../terrain-geometry.js";
+import { WATER_SIZE } from "../water.js";
 import { blocks, replaceBlock, selectedBlocks } from "./blocks.js";
 import { blockNodes } from "./selection.js";
 import { gridSpacing } from "./snap.js";
-import { HIT_REACH, editor } from "./state.js";
+import { HIT_REACH, editor, waters } from "./state.js";
 
 // Screen pixels a scale handle can be grabbed from, and its distance outside
 // the blocks. The box holds every point, edge and curve handle, so a pointer
@@ -30,35 +33,78 @@ const CURSORS = {
 
 let active = null;
 
-/** The blocks that scale handles act on: a selection of only whole blocks. */
+/**
+ * What scale handles act on: a selection of only whole blocks and water
+ * bodies, as `{ blocks, water }` index lists, or null.
+ */
 function targets() {
-  if (editor.tool !== "select") return [];
+  if (editor.tool !== "select") return null;
   const kind = editor.selection?.kind;
-  if (kind === "block") return selectedBlocks().filter((index) => blocks()[index]);
-  if (kind !== "items" || editor.selection.items.some((item) => item.type !== "block"))
-    return [];
-  return selectedBlocks().filter((index) => blocks()[index]);
+  let found = null;
+  if (kind === "block") found = { blocks: selectedBlocks(), water: [] };
+  else if (kind === "water") found = { blocks: [], water: [editor.selection.index] };
+  else if (
+    kind === "items" &&
+    editor.selection.items.every((item) => item.type === "block" || item.type === "water")
+  )
+    found = {
+      blocks: selectedBlocks(),
+      water: editor.selection.items
+        .filter((item) => item.type === "water")
+        .map((item) => item.index),
+    };
+  if (!found) return null;
+  found.blocks = found.blocks.filter((index) => blocks()[index]);
+  found.water = found.water.filter((index) => waters()[index]);
+  return found.blocks.length || found.water.length ? found : null;
 }
 
-/** The box around some blocks' points and curve handles, which contains their curves. */
-function boxOf(list) {
+/**
+ * The box around some blocks' points and curve handles, which contains their
+ * curves, and around some water bodies.
+ */
+function boxOf(list, bodies = []) {
   let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+  const add = (x, y) => {
+    left = Math.min(left, x);
+    right = Math.max(right, x);
+    top = Math.min(top, y);
+    bottom = Math.max(bottom, y);
+  };
   for (const block of list)
     for (const node of blockNodes(block))
-      for (const [x, y] of [[node.x, node.y], node.in, node.out].filter(Boolean)) {
-        left = Math.min(left, x);
-        right = Math.max(right, x);
-        top = Math.min(top, y);
-        bottom = Math.max(bottom, y);
-      }
+      for (const [x, y] of [[node.x, node.y], node.in, node.out].filter(Boolean))
+        add(x, y);
+  for (const body of bodies) {
+    add(body.x, body.y);
+    add(body.x + body.width, body.y + body.depth);
+  }
   return Number.isFinite(left) ? { left, top, right, bottom } : null;
+}
+
+/**
+ * One side of a water body scaled about a pivot, kept at least `min` long by
+ * holding the end nearer the pivot.
+ */
+function scaleSpan(start, size, pivot, factor, min, side, alt) {
+  let a = pivot + (start - pivot) * factor,
+    b = pivot + (start + size - pivot) * factor;
+  if (b - a < min) {
+    if (alt) [a, b] = [(a + b - min) / 2, (a + b + min) / 2];
+    else if (side < 0) a = b - min;
+    else b = a + min;
+  }
+  return [a, b - a];
 }
 
 /** The selection's box and its eight handles, in world units, or null. */
 export function scaleFrame() {
-  const indices = targets();
-  if (!indices.length) return null;
-  const box = boxOf(indices.map((index) => blocks()[index]));
+  const found = targets();
+  if (!found) return null;
+  const box = boxOf(
+    found.blocks.map((index) => blocks()[index]),
+    found.water.map((index) => waters()[index]),
+  );
   if (!box) return null;
   const pad = PAD / editor.zoom;
   const frame = {
@@ -99,11 +145,25 @@ export const scaling = () => active !== null;
 
 /** Start scaling from a handle; `before` becomes the undo step once something changes. */
 export function startScale(handle, point, before) {
-  const indices = targets();
+  const found = targets();
+  if (!found) return false;
+  const indices = found.blocks;
   const originals = indices.map((index) => blocks()[index]);
-  const box = boxOf(originals);
+  const waterIndices = found.water;
+  const waterOriginals = waterIndices.map((index) => ({ ...waters()[index] }));
+  const box = boxOf(originals, waterOriginals);
   if (!box) return false;
-  active = { handle, start: point, indices, originals, box, before, moved: false };
+  active = {
+    handle,
+    start: point,
+    indices,
+    originals,
+    waterIndices,
+    waterOriginals,
+    box,
+    before,
+    moved: false,
+  };
   return true;
 }
 
@@ -114,7 +174,7 @@ export function startScale(handle, point, before) {
  */
 export function updateScale(point, { alt = false, shift = false } = {}) {
   if (!active) return null;
-  const { handle, start, indices, originals, box } = active;
+  const { handle, start, indices, originals, waterIndices, waterOriginals, box } = active;
   const { hx, hy } = handle;
   const width = box.right - box.left,
     height = box.bottom - box.top;
@@ -134,11 +194,17 @@ export function updateScale(point, { alt = false, shift = false } = {}) {
     Math.max(MIN_SIZE / Math.max(size, 1e-6), (to - pivot) / (from - pivot || 1));
   let sx = hx && width > 1e-6 ? factor(x, px, hx > 0 ? box.right : box.left, width) : 1;
   let sy = hy && height > 1e-6 ? factor(y, py, hy > 0 ? box.bottom : box.top, height) : 1;
-  // Corners keep the proportions: the side dragged further decides.
-  if (hx && hy) sx = sy = Math.max(sx, sy);
+  // Corners keep the proportions of blocks: the side dragged further decides.
+  if (hx && hy && indices.length) sx = sy = Math.max(sx, sy);
   indices.forEach((index, i) =>
     replaceBlock(index, scaleBlock(originals[i], px, py, sx, sy)),
   );
+  waterIndices.forEach((index, i) => {
+    const body = waterOriginals[i];
+    const [x, width] = scaleSpan(body.x, body.width, px, sx, WATER_SIZE.minWidth, hx, alt);
+    const [y, depth] = scaleSpan(body.y, body.depth, py, sy, WATER_SIZE.minDepth, hy, alt);
+    waters()[index] = { ...waters()[index], x, y, width, depth };
+  });
   if (active.moved) return null;
   active.moved = true;
   return active.before;

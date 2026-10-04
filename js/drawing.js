@@ -6,6 +6,7 @@ import {
 } from "./terrain.js";
 import { terrainMaterials } from "./materials.js";
 import { FINISH_FLOWER_LIFT } from "./finish.js";
+import { WATER_COLORS } from "./water.js";
 import {
   BAT_ROOSTS,
   BEAM_HALF,
@@ -2584,6 +2585,43 @@ export function createGameArt(ctx) {
     );
   }
 
+  /**
+   * A body of water from its open columns (see `waterColumns`): see-through
+   * blue, darker with depth, with a light rippling line where it meets the
+   * air. `time` only moves the ripples.
+   */
+  function drawWater(body, columns, time = 0, alpha = 1) {
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    for (const { x, segments } of columns) {
+      for (const [top, bottom] of segments) {
+        const surface = Math.abs(top - body.y) < 0.5;
+        const wave = surface
+          ? Math.round(
+              Math.sin(x * 0.07 + time * 2.4) * 0.8 +
+                Math.sin(x * 0.023 - time * 1.1) * 0.7,
+            ) * ART_PIXEL
+          : 0;
+        const y0 = Math.round(top / ART_PIXEL) * ART_PIXEL + wave;
+        const y1 = Math.round(bottom / ART_PIXEL) * ART_PIXEL;
+        if (y1 <= y0) continue;
+        ctx.fillStyle = WATER_COLORS.body;
+        ctx.fillRect(x, y0, ART_PIXEL, y1 - y0);
+        const deep = Math.max(y0, Math.round((body.y + 18) / ART_PIXEL) * ART_PIXEL);
+        if (y1 > deep) {
+          ctx.fillStyle = WATER_COLORS.deep;
+          ctx.fillRect(x, deep, ART_PIXEL, y1 - deep);
+        }
+        if (!surface) continue;
+        ctx.fillStyle = WATER_COLORS.shine;
+        ctx.fillRect(x, y0 + ART_PIXEL, ART_PIXEL, ART_PIXEL * 2);
+        ctx.fillStyle = WATER_COLORS.foam;
+        ctx.fillRect(x, y0, ART_PIXEL, ART_PIXEL);
+      }
+    }
+    ctx.restore();
+  }
+
   function drawElastoWheel(point) {
     const c = ELASTO_COLORS;
     ctx.save();
@@ -4362,6 +4400,7 @@ export function createGameArt(ctx) {
     drawWallPaint,
     drawPropGlow,
     drawSpike,
+    drawWater,
     drawBackground,
     drawTimeTint,
     drawPixelText,

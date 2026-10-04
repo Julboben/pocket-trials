@@ -47,3 +47,9 @@ export const editor = {
   focusPending: true,
   pointerClient: null,
 };
+
+/** The trail's water bodies, created on first use for a trail saved without any. */
+export function waters() {
+  if (!Array.isArray(editor.trail.water)) editor.trail.water = [];
+  return editor.trail.water;
+}

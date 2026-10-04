@@ -7,6 +7,12 @@
  * @property {number} radius
  * @property {number} spin turns per second
  *
+ * @typedef {object} Water a rectangle of water filling the open air inside it
+ * @property {number} x left edge
+ * @property {number} y surface height, the top edge
+ * @property {number} width
+ * @property {number} depth height of the rectangle below the surface
+ *
  * @typedef {object} Trail
  * @property {string} name
  * @property {string} [label]
@@ -17,6 +23,7 @@
  * @property {number} [fallY]
  * @property {{ x: number, y?: number | null }[]} apples
  * @property {Array<Partial<Spike>>} [spikes]
+ * @property {Array<Partial<Water>>} [water]
  * @property {object[]} [props]
  * @property {string} [terrain] material id
  * @property {{ rain?: number, lightning?: number }} [weather]
@@ -68,7 +75,8 @@
  *   | { type: 'airTurn', full: boolean }
  *   | { type: 'flip', count: number, direction: number }
  *   | { type: 'land', impact: number }
- *   | { type: 'crash', cause: 'spike' | 'head' | 'fall', x: number, y: number }
+ *   | { type: 'crash', cause: 'spike' | 'head' | 'fall' | 'water', x: number, y: number }
+ *   | { type: 'splash', x: number, y: number, speed: number, rider: boolean }
  *   | { type: 'apple', apple: object, collected: number, total: number, split: number }
  *   | { type: 'goalLocked', missing: number }
  *   | { type: 'win', time: number, x: number, y: number }} RideEvent
@@ -81,6 +89,7 @@
  * @property {{ x: number, y: number }} flower centre of the finish flower the bike has to touch
  * @property {{ x: number, y: number, taken: boolean }[]} apples
  * @property {Spike[]} spikes
+ * @property {Water[]} water
  * @property {'running' | 'crashed' | 'won'} status
  * @property {boolean} started whether the timer has started (on first input)
  * @property {number} time simulated seconds since spawn
@@ -97,7 +106,7 @@
  * @property {() => number} random
  * @property {number} steps
  * @property {number} spikeTime
- * @property {'spike' | 'head' | 'fall' | null} crashCause
+ * @property {'spike' | 'head' | 'fall' | 'water' | null} crashCause
  * @property {number} airRotation
  * @property {number} airTurnMilestone
  * @property {number} previousAirAngle

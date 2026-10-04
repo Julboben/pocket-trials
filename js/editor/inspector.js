@@ -39,8 +39,9 @@ import {
   itemsCentre,
   moveItems,
 } from "./selection.js";
-import { editor } from "./state.js";
+import { editor, waters } from "./state.js";
 import { saveToolSettings, toolSettings } from "./tools.js";
+import { moveWaterTo, waterDepthHint, waterHandle, waterSize } from "./water.js";
 
 export function selectedPosition() {
   if (!editor.selection) return null;
@@ -95,6 +96,10 @@ export function selectedPosition() {
   if (editor.selection.kind === "spike") {
     const spike = editor.trail.spikes[editor.selection.index];
     return [spike.x, spike.y];
+  }
+  if (editor.selection.kind === "water") {
+    const body = waters()[editor.selection.index];
+    return body ? waterHandle(body) : null;
   }
   if (editor.selection.kind === "start")
     return [
@@ -169,6 +174,16 @@ export function syncInspector({ live = false } = {}) {
   if (selectedProp) $("selection-flip").value = String(Boolean(selectedProp.flip));
   $("selection-radius-row").hidden = editor.selection?.kind !== "spike";
   $("selection-spin-row").hidden = editor.selection?.kind !== "spike";
+  const selectedWater =
+    editor.selection?.kind === "water" ? waters()[editor.selection.index] : null;
+  $("selection-water-width-row").hidden = !selectedWater;
+  $("selection-water-depth-row").hidden = !selectedWater;
+  $("selection-water-hint").hidden = !selectedWater;
+  if (selectedWater) {
+    $("selection-water-width").value = Math.round(selectedWater.width);
+    $("selection-water-depth").value = Math.round(selectedWater.depth);
+    $("selection-water-hint").textContent = waterDepthHint(selectedWater.depth);
+  }
   $("delete-selection").hidden =
     !editor.selection || ["start", "goal"].includes(editor.selection.kind);
   if (isBlock) {
@@ -314,6 +329,9 @@ export function updateSelectedPosition(x, y) {
   } else if (kind === "spike") {
     editor.trail.spikes[editor.selection.index].x = x;
     editor.trail.spikes[editor.selection.index].y = y;
+  } else if (kind === "water") {
+    const body = waters()[editor.selection.index];
+    if (body) moveWaterTo(body, x, y);
   } else if (kind === "start") {
     editor.trail.start.x = x;
     editor.trail.start.y = y;
@@ -547,6 +565,21 @@ export function bindInspector() {
     syncInspector();
     render();
   });
+
+  for (const key of ["width", "depth"])
+    $(`selection-water-${key}`).addEventListener("change", (event) => {
+      const body =
+        editor.selection?.kind === "water" ? waters()[editor.selection.index] : null;
+      if (!body) return;
+      pushHistory();
+      // A new width keeps the body centred where it was; a new depth keeps
+      // its surface and moves the bottom.
+      const centre = body.x + body.width / 2;
+      body[key] = waterSize(event.target.value, key);
+      if (key === "width") body.x = centre - body.width / 2;
+      syncInspector();
+      render();
+    });
 
   $("delete-selection").addEventListener("click", deleteSelection);
 }

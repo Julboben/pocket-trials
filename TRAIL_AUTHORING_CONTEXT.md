@@ -254,6 +254,26 @@ spikes: [
 
 Spikes float freely and do not collide with terrain. Use the editor's **Spike** tool to place one at the clicked position; the inspector edits its radius and spin, and the selected spike shows its lethal area as a dashed circle. Leave at least one bike length of clearance around the start position.
 
+## Water
+
+Water bodies are rectangles of water that the bike rides through. Water fills the open air inside the rectangle; terrain inside it stays solid, so a body drawn over a pit fills the pit up to its surface.
+
+```js
+water: [
+  { x: 600, y: 330, width: 400, depth: 110 }
+]
+```
+
+- `x` and `y` are the top-left corner in world space, so `y` is the water's surface.
+- `width` and `depth` are the size, at least `16` and `8` (defaults `240` and `32`).
+- Water up to `40` deep is a ford: the bike can ride through it, but the water drags on it and slows it down. A wheel in water deeper than `40`, measured from the surface to the wheel's bottom or the body's floor, wipes the rider out, as does the rider's head going under.
+- After a crash the ragdoll floats: buoyancy lifts it to rest at the surface while the water damps its motion. The bike sinks.
+- Riding or falling in splashes, and moving through water leaves a wake.
+
+Use the editor's **Water** tool (`W`): drag a rectangle, or click to drop a body of the tool's size with its surface at the click. Drag a body by the middle of its surface, or click open water to select it. The inspector edits width (keeping the body centred) and depth (keeping the surface), and says whether the body is a ford or deep. The editor warns when water covers the start, or lies entirely inside terrain.
+
+Trails without water may leave the field out. It is part of the trail hash only when a trail has water, so adding it to the format left existing leaderboards unchanged.
+
 ## Weather
 
 Weather values are independent and range from `0` to `1`:

@@ -19,6 +19,7 @@ import {
 } from "./drawing.js";
 import { terrainAt, groundShadowSamples, terrainGeometry } from "./terrain.js";
 import { finishHeight } from "./trail-schema.js";
+import { waterColumns } from "./water.js";
 import { createTerrainRenderer } from "./terrain-render.js";
 import { vehicleMetrics } from "./vehicle-physics.js";
 import { ragdollCenter } from "./ragdoll.js";
@@ -788,6 +789,23 @@ export function createRenderer(canvas) {
     }
   }
 
+  // Drawn over the bike and rider, so whatever is in the water looks wet;
+  // terrain inside a body is left dry.
+  function drawWater(ride) {
+    if (!ride.water?.length) return;
+    const compiled = terrainGeometry(trail);
+    for (const body of ride.water) {
+      if (
+        body.x > cameraX + W ||
+        body.x + body.width < cameraX ||
+        body.y > cameraY + H ||
+        body.y + body.depth < cameraY - 4
+      )
+        continue;
+      gameArt.drawWater(body, waterColumns(compiled, body, ART_PIXEL), propScene.time);
+    }
+  }
+
   /** Where the camera should look: the bike, or the tumbling rider after a crash. */
   function focusOf(ride) {
     return ride.ragdoll
@@ -872,6 +890,7 @@ export function createRenderer(canvas) {
     drawBike(ride, rider, flipVisual, ride.ragdoll ? "ragdoll" : state);
     if (debug) drawPhysicsOverlay(ride.vehicle);
     if (ride.ragdoll) gameArt.drawRagdoll(ride.ragdoll.points, rider);
+    drawWater(ride);
     drawProps("front", full);
     drawXray(ride, rider, ride.ragdoll ? "ragdoll" : state, full);
     drawParticles(effects.particles, false);
