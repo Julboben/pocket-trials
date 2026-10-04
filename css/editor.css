@@ -116,6 +116,8 @@ button:hover, .back-game:hover { background: #3a535b; }
 .inspector fieldset { margin: 15px 0 0; padding: 13px; border: 1px solid var(--border); }
 .inspector legend { padding: 0 5px; }
 input[type="range"] { padding: 0; accent-color: var(--accent); }
+.range-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.range-head output { color: var(--text); font-variant-numeric: tabular-nums; }
 .wide-action { width: 100%; min-height: 34px; margin-bottom: 10px; font-size: 8px; }
 .danger { width: 100%; min-height: 34px; border-color: #75463f; color: #f0a08c; font-size: 8px; }
 .px-icon { width: 18px; height: 18px; flex: none; fill: currentColor; shape-rendering: crispEdges; }
@@ -239,6 +241,7 @@ html[data-sandbox] body::after {
 .confirm-text { margin: 0 0 12px; color: #becbc6; font-size: 9px; line-height: 1.6; }
 .confirm-text code { color: var(--text); font: inherit; font-weight: 900; }
 .confirm-actions { grid-template-columns: 1fr 1fr; }
+.rename-input { width: 100%; font-size: 9px; }
 .danger-solid { border-color: #ec7044; background: #ec7044; color: #25140f; }
 .danger-solid:hover { background: #f58b64; }
 .primary-action:disabled, .primary-action:disabled:hover { border-color: var(--border); background: var(--raised); color: var(--muted); opacity: .6; }

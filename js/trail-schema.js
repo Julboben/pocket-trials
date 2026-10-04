@@ -213,12 +213,6 @@ export function normalizeTrail(input, index = 0) {
   // `terrain` was the trail's base material. Blocks carry their own now, so it
   // only fills in blocks saved without a material, below.
   if (!terrainMaterials[trail.terrain]) delete trail.terrain;
-  // The old colour fields: the background comes from timeOfDay and backdrop,
-  // and wheel spray from each block's material.
-  delete trail.sky;
-  delete trail.sun;
-  delete trail.mountain;
-  delete trail.spray;
   // Terrain comes from the input only: a trail without blocks has no terrain,
   // which validation reports, rather than silently getting the blank slab.
   trail.terrainBlocks =
@@ -413,6 +407,7 @@ export function validateTrail(trail) {
         "cactus-small",
         "pebbles",
         "crates",
+        "apple",
         "ladder",
         "wheelbarrow",
         "scarecrow",

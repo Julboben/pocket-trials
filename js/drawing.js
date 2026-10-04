@@ -1888,18 +1888,17 @@ const FARM_CRATE = [
   [36, 0, 4, 2, FARM_WOOD.tip],
 ];
 
-// 100 × 72: two crates with a third stacked on top, full of apples.
+// 100 × 72: two crates with a third stacked on top. They are empty, so they
+// can hold anything: apple props fill them in the orchard.
 function drawCrates(tools) {
   const ox = -50, oy = -72;
   for (const [x, y] of [[2, 44], [46, 44], [24, 16]])
     drawFarmRects(tools, FARM_CRATE, ox + x, oy + y);
-  // Back row first, so the front row overlaps it; the last one rolled off.
-  for (const [x, y] of [
-    [28, 0], [36, 0], [44, 0], [52, 0],
-    [24, 6], [32, 6], [40, 6], [48, 6], [56, 6],
-    [90, 62],
-  ])
-    drawFarmRects(tools, FARM_APPLE, ox + x, oy + y);
+}
+
+// 8 × 10: one small apple, to hang in a tree or fill a crate or barrow.
+function drawSmallApple(tools) {
+  drawFarmRects(tools, FARM_APPLE, -4, -10);
 }
 
 // 54 × 100: leans to the right, so it rests against something on its right.
@@ -1928,7 +1927,7 @@ function drawLadder(tools) {
   drawFarmRects(tools, rects, ox, oy);
 }
 
-// 80 × 48: a painted barrow with a little harvest, wheel on the right.
+// 80 × 48: an empty painted barrow, wheel on the right.
 function drawWheelbarrow(tools) {
   const ox = -40, oy = -48;
   drawFarmRects(
@@ -1946,8 +1945,6 @@ function drawWheelbarrow(tools) {
     ox,
     oy,
   );
-  drawFarmRects(tools, FARM_APPLE, ox + 30, oy + 4);
-  drawFarmRects(tools, FARM_APPLE, ox + 40, oy + 4);
   drawFarmRects(
     tools,
     [
@@ -2183,6 +2180,7 @@ const CANOPY_SPRITES = {
     draw: drawSmallCactusBody,
   },
   crates: { bounds: [-50, -72, 50, 0], draw: drawCrates },
+  apple: { bounds: [-4, -10, 4, 0], draw: drawSmallApple },
   ladder: { bounds: [-28, -100, 26, 0], draw: drawLadder },
   wheelbarrow: { bounds: [-40, -48, 40, 0], draw: drawWheelbarrow },
   scarecrow: {
@@ -2262,6 +2260,7 @@ const PROP_EXTENTS = {
   roots: [-32, -16, 32],
   moss: [-18, -18, 18],
   crates: [-50, -72, 50],
+  apple: [-6, -12, 6],
   ladder: [-28, -100, 26],
   wheelbarrow: [-40, -48, 40],
   scarecrow: [-32, -112, 32],
@@ -3472,6 +3471,7 @@ export function createGameArt(ctx) {
       shard(0, -40, 8, 0);
     } else if (
       type === "crates" ||
+      type === "apple" ||
       type === "ladder" ||
       type === "wheelbarrow" ||
       type === "tyre"

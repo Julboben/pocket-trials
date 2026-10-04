@@ -117,8 +117,6 @@ function readClipboard(text) {
   try {
     const data = JSON.parse(text);
     if (data?.format !== CLIPBOARD_FORMAT) return null;
-    // Copies from before water existed have no list for it.
-    data.water ??= [];
     if (!data.centre?.every?.(Number.isFinite)) return null;
     const lists = ["blocks", ...Object.values(CLIPBOARD_LISTS)];
     if (!lists.every((list) => Array.isArray(data[list]))) return null;

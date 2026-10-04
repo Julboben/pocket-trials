@@ -267,6 +267,8 @@ The logical viewport and camera framing adapt to mobile and desktop dimensions.
 
 The game is currently a **design and physics prototype**. Its most important asset is the accumulated handling behavior: throttle response, braking, rider lean, suspension, momentum, and camera feel.
 
+`sw.js`'s file list, `js/version.js` and `TRAIL_AUTHORING_CONTEXT.md` (the trail spec, schema, materials and example trails bundled for trail authors) are generated: run `npm run sw` and `npm run context` after changing their sources. `npm test` fails while either is out of date.
+
 To test as a brand-new player on `localhost`, open the game or editor with `?sandbox`. All data then lives in that tab's `sessionStorage`: your real saves are never read or changed, online submits are skipped, and a SANDBOX badge shows at the bottom. The sandbox survives reloads, the editor, and playtests. Use `?sandbox=reset` to start fresh again and `?sandbox=off` to go back to your real data.
 
 To check performance, open the game with `?fps=1`: a small readout shows frames per second, the average time each frame's work takes, and the slowest frame gap, refreshed twice a second.

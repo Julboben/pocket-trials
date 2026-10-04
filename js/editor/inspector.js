@@ -132,8 +132,10 @@ export function syncInspector({ live = false } = {}) {
   $("fall-y").value = Math.round(editor.trail.fallY);
   $("time-of-day").value = editor.trail.timeOfDay || "noon";
   $("backdrop").value = editor.trail.backdrop || "hills";
-  for (const key of ["sun", "clouds", "rain", "lightning"])
+  for (const key of ["sun", "clouds", "rain", "lightning"]) {
     $(`weather-${key}`).value = editor.trail.weather?.[key] ?? 0;
+    showWeatherValue(key);
+  }
   const position = selectedPosition();
   $("selection-fields").hidden = !editor.selection;
   $("selection-title").textContent = !editor.selection
@@ -345,6 +347,27 @@ export function updateSelectedPosition(x, y) {
   }
 }
 
+function showWeatherValue(key) {
+  const value = Number($(`weather-${key}`).value) || 0;
+  $(`weather-${key}-value`).textContent = `${Math.round(value * 100)}%`;
+}
+
+/** Give the trail a new name, as one undoable edit. */
+export function renameTrail(name) {
+  name = String(name).trim();
+  if (!name || name === editor.trail.name) return false;
+  pushHistory();
+  setTrailName(name);
+  syncInspector();
+  render();
+  return true;
+}
+
+function setTrailName(name) {
+  editor.trail.name = name;
+  editor.trail.label = `${name.toUpperCase()} / ${String(editor.trailIndex + 1).padStart(2, "0")}`;
+}
+
 function bindTrailInput(id, apply) {
   $(id).addEventListener("change", (event) => {
     pushHistory();
@@ -357,10 +380,7 @@ function bindTrailInput(id, apply) {
 let propTextPending = false;
 
 export function bindInspector() {
-  bindTrailInput("trail-name", (value) => {
-    editor.trail.name = value;
-    editor.trail.label = `${value.toUpperCase()} / ${String(editor.trailIndex + 1).padStart(2, "0")}`;
-  });
+  bindTrailInput("trail-name", setTrailName);
 
   bindTrailInput("goal-x", (value) => {
     editor.trail.goal = Number(value);
@@ -388,6 +408,7 @@ export function bindInspector() {
     });
     $(`weather-${key}`).addEventListener("input", (event) => {
       editor.trail.weather[key] = Number(event.target.value);
+      showWeatherValue(key);
       render();
     });
   }

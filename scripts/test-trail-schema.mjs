@@ -88,8 +88,6 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('cus
   const { terrain: _dropped, ...stripped } = legacy;
   assert.equal(trailHash(stripped), trailHash(legacy), 'a matching base material is not needed for the hash');
   assert.equal(trailHash(normalizeTrail(legacy)), trailHash(legacy), 'normalizing drops it without changing the hash');
-  for (const colour of ['sky', 'sun', 'mountain', 'spray'])
-    assert.equal(colour in normalizeTrail({ ...a, [colour]: '#fff' }), false, `${colour} is dropped`);
 }
 
 // Only official trails, keyed by id and gameplay hash, go to the online board.

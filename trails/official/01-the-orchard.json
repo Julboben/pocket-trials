@@ -690,6 +690,78 @@
       "layer": "back"
     },
     {
+      "x": 2309.03,
+      "y": 98.34,
+      "type": "apple",
+      "layer": "back"
+    },
+    {
+      "x": 2317,
+      "y": 99.12,
+      "type": "apple",
+      "layer": "back"
+    },
+    {
+      "x": 2324.96,
+      "y": 99.9,
+      "type": "apple",
+      "layer": "back"
+    },
+    {
+      "x": 2332.92,
+      "y": 100.68,
+      "type": "apple",
+      "layer": "back"
+    },
+    {
+      "x": 2304.47,
+      "y": 103.92,
+      "type": "apple",
+      "layer": "back"
+    },
+    {
+      "x": 2312.43,
+      "y": 104.7,
+      "type": "apple",
+      "layer": "back"
+    },
+    {
+      "x": 2320.39,
+      "y": 105.48,
+      "type": "apple",
+      "layer": "back"
+    },
+    {
+      "x": 2328.35,
+      "y": 106.26,
+      "type": "apple",
+      "layer": "back"
+    },
+    {
+      "x": 2336.31,
+      "y": 107.04,
+      "type": "apple",
+      "layer": "back"
+    },
+    {
+      "x": 2364.68,
+      "y": 166.1,
+      "type": "apple",
+      "layer": "back"
+    },
+    {
+      "x": 117.71,
+      "y": 280.3,
+      "type": "apple",
+      "layer": "back"
+    },
+    {
+      "x": 127.53,
+      "y": 282.19,
+      "type": "apple",
+      "layer": "back"
+    },
+    {
       "x": 117.17208868953821,
       "y": 314.8164800590766,
       "type": "wheelbarrow",

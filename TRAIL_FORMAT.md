@@ -79,8 +79,7 @@ The world uses Canvas coordinates:
     lightning: 0.35
   },
 
-  fallY: 800,
-  spray: ['#846d55', '#aa8b68', '#c8aa82']
+  fallY: 800
 }
 ```
 
@@ -200,7 +199,7 @@ props: [
 ];
 ```
 
-Available prop types are `tree`, `pine`, `sapling`, `pine-small`, `bush`, `fence`, `rock`, `boulder`, `pebbles`, `flowers`, `stump`, `cactus`, `cactus-small`, `crystal`, `sign`, the wall props `vines`, `roots` and `moss`, the farm props `crates`, `ladder`, `wheelbarrow`, `scarecrow`, `beehive` and `tyre`, the street props `cone`, `barrier`, `dumpster`, `lamp` and `bird`, the building-site props `crane` and `scaffolding`, the cave props `hanging-roots`, `stalactites`, `drip`, `lantern`, `bats`, `mushrooms`, `minecart` and `beams`, and `graffiti`. `y: null` anchors a prop to the topmost surface at `x`; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front`: `back`-layer props are drawn behind the terrain as well as the gameplay, while `front`-layer props are drawn in front of the gameplay.
+Available prop types are `tree`, `pine`, `sapling`, `pine-small`, `bush`, `fence`, `rock`, `boulder`, `pebbles`, `flowers`, `stump`, `cactus`, `cactus-small`, `crystal`, `sign`, the wall props `vines`, `roots` and `moss`, the farm props `crates`, `apple` (a small decorative apple to hang in trees or fill crates and the wheelbarrow; it is not collected), `ladder`, `wheelbarrow`, `scarecrow`, `beehive` and `tyre`, the street props `cone`, `barrier`, `dumpster`, `lamp` and `bird`, the building-site props `crane` and `scaffolding`, the cave props `hanging-roots`, `stalactites`, `drip`, `lantern`, `bats`, `mushrooms`, `minecart` and `beams`, and `graffiti`. `y: null` anchors a prop to the topmost surface at `x`; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front`: `back`-layer props are drawn behind the terrain as well as the gameplay, while `front`-layer props are drawn in front of the gameplay.
 
 A `sign` prop carries an optional `text` string that is drawn on its board with the game's pixel font. Text is limited to 8 characters; supported characters are `A`–`Z`, `0`–`9`, space, and `→` `/` `.` `!` `+` `-` `:` `×`. Anything else draws as `#`, and longer text is cut off.
 
@@ -310,8 +309,6 @@ Sign text wraps at word boundaries onto up to 4 lines of 10 characters, and the 
 
 - `fallY`: vertical position at which the bike is considered lost. Increase it for deep gaps or trails that descend far. It also sets how low the camera can look.
 - `description`: design notes for the trail. It is not currently shown during gameplay.
-
-`sky`, `sun`, `mountain` and `spray` are no longer read: the background comes from `timeOfDay` and `backdrop`, and wheel spray from each block's material. They are dropped when a trail is loaded.
 
 ## Medals
 

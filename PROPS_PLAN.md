@@ -21,7 +21,8 @@ A plan for the props to add to each level theme, plus guidelines for making them
 
 ## 🍎 Orchard / farmland
 
-- [x] **Apple crates**: stacked in piles. They tie in with the apples you collect.
+- [x] **Crates**: stacked in piles, empty so they can hold anything.
+- [x] **Apple (decor)**: a single small apple to hang in trees or fill crates and the wheelbarrow. It ties in with the apples you collect.
 - [x] **Ladder leaning**
 - [x] **Wheelbarrow**
 - [x] **Scarecrow**: turns its head as you ride past.
