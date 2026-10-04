@@ -885,8 +885,7 @@ h2 {
 }
 
 .menu-logo {
-    width: 84px;
-    height: 84px;
+    --px: 3px;
 }
 .menu-action.continue-save {
     min-height: 92px;
@@ -1642,8 +1641,7 @@ kbd {
         gap: 14px;
     }
     .menu-logo {
-        width: 64px;
-        height: 64px;
+        --px: 2px;
     }
     .menu-hero h2 {
         font-size: clamp(34px, 12vw, 48px);
@@ -1767,20 +1765,36 @@ kbd {
     margin: 14px 0 6px;
 }
 .save-name-field input {
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: 0;
+    background: var(--color-shell);
+    color: var(--color-text);
+    box-shadow: inset 3px 3px 0 var(--color-shadow);
+    caret-color: var(--color-accent);
     font: inherit;
-    font-size: 1.1rem;
-    padding: 10px 12px;
-    border: 2px solid rgba(0, 0, 0, 0.2);
-    border-radius: 10px;
-    background: #fff;
-    color: #222;
+    font-size: 16px;
+    font-weight: 850;
+    letter-spacing: 1px;
+    appearance: none;
+}
+.save-name-field input::placeholder {
+    color: var(--color-text-muted);
+    opacity: 0.7;
+}
+.save-name-field input:hover {
+    border-color: var(--color-surface-hover);
 }
 .save-name-field input:focus {
-    outline: none;
-    border-color: currentColor;
+    border-color: var(--color-accent);
+    outline: 2px solid var(--color-accent);
+    outline-offset: -4px;
 }
 .save-name-field input.invalid {
     border-color: #e5484d;
+    outline-color: #e5484d;
 }
 .save-mode {
     display: grid;
@@ -1862,8 +1876,7 @@ kbd {
         margin-bottom: 18px;
     }
     .menu-logo {
-        width: 50px;
-        height: 50px;
+        --px: 1.5px;
     }
     .menu-hero h2 {
         font-size: 30px;

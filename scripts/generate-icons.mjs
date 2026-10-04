@@ -1,8 +1,10 @@
-// Builds css/icons.css from the pixel art in icons/pixel-icons.mjs.
+// Builds css/icons.css, plus the favicon and app icons from the `logo` icon,
+// from the pixel art in icons/pixel-icons.mjs.
 //
-//   node scripts/generate-icons.mjs          rewrite css/icons.css if needed
-//   node scripts/generate-icons.mjs --check  fail if it is out of date (CI)
+//   node scripts/generate-icons.mjs          rewrite the outputs if needed
+//   node scripts/generate-icons.mjs --check  fail if any is out of date (CI)
 import { readFileSync, writeFileSync } from 'node:fs';
+import { deflateSync, inflateSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import icons from '../icons/pixel-icons.mjs';
@@ -55,7 +57,7 @@ function resolve(name) {
 }
 
 /** One path per colour, one rectangle per horizontal run of pixels. */
-function svg({ rows, palette }) {
+function svgPaths({ rows, palette }) {
   const runs = new Map();
   rows.forEach((row, y) => {
     for (let x = 0; x < row.length;) {
@@ -66,8 +68,12 @@ function svg({ rows, palette }) {
       x = end;
     }
   });
-  const paths = [...runs].map(([char, d]) => `<path${palette[char] ? ` fill='${palette[char]}'` : ''} d='${d}'/>`).join('');
-  const markup = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${rows[0].length} ${rows.length}' shape-rendering='crispEdges'>${paths}</svg>`;
+  return [...runs].map(([char, d]) => `<path${palette[char] ? ` fill='${palette[char]}'` : ''} d='${d}'/>`).join('');
+}
+
+function svg(icon) {
+  const { rows } = icon;
+  const markup = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${rows[0].length} ${rows.length}' shape-rendering='crispEdges'>${svgPaths(icon)}</svg>`;
   return `url("data:image/svg+xml,${markup.replace(/</g, '%3C').replace(/>/g, '%3E').replace(/#/g, '%23')}")`;
 }
 
@@ -111,12 +117,107 @@ ${urls.join('\n')}
 ${rules.join('\n')}
 `;
 
-let current = '';
-try { current = readFileSync(cssPath, 'utf8').replaceAll('\r\n', '\n'); } catch {}
-if (current === css) {
-  console.log(`css/icons.css: up to date, ${names.length} icons`);
-  process.exit(0);
+// --- Favicon and app icons, drawn from the logo -----------------------------
+const logo = resolve('logo');
+const logoSize = logo.rows[0].length;
+const appBackground = '#111c20';
+
+const faviconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${logoSize} ${logo.rows.length}" shape-rendering="crispEdges">
+  <title>Hjulben</title>
+  ${svgPaths(logo).replaceAll("'", '"')}
+</svg>
+`;
+
+// Maskable icons are cropped to a circle of 80% of their width, so pad the logo by 10% on each side.
+const maskPad = logoSize / 8;
+const maskableSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${logoSize + maskPad * 2} ${logoSize + maskPad * 2}" shape-rendering="crispEdges">
+  <title>Hjulben</title>
+  <rect width="100%" height="100%" fill="${appBackground}"/>
+  <g transform="translate(${maskPad} ${maskPad})">${svgPaths(logo).replaceAll("'", '"')}</g>
+</svg>
+`;
+
+/** RGB pixels of the logo, scaled up by whole pixels and centred on the app background. */
+function appIconPixels(size) {
+  const scale = Math.floor((size * 0.9) / logoSize);
+  const offset = Math.floor((size - logoSize * scale) / 2);
+  const hex = colour => [1, 3, 5].map(i => parseInt(colour.slice(i, i + 2), 16));
+  const background = hex(appBackground);
+  const raw = Buffer.alloc((size * 3 + 1) * size);
+  for (let y = 0; y < size; y++) {
+    const row = y * (size * 3 + 1);
+    for (let x = 0; x < size; x++) {
+      const char = logo.rows[Math.floor((y - offset) / scale)]?.[Math.floor((x - offset) / scale)];
+      const inside = x >= offset && y >= offset && char && char !== '.';
+      raw.set(inside ? hex(logo.palette[char]) : background, row + 1 + x * 3);
+    }
+  }
+  return raw;
 }
-if (check) fail('css/icons.css is out of date. Run `npm run icons` and commit the result.');
-writeFileSync(cssPath, css);
-console.log(`css/icons.css: updated, ${names.length} icons`);
+
+const crcTable = Array.from({ length: 256 }, (_, n) => {
+  for (let k = 0; k < 8; k++) n = n & 1 ? 0xedb88320 ^ (n >>> 1) : n >>> 1;
+  return n >>> 0;
+});
+function crc32(bytes) {
+  let crc = ~0;
+  for (const byte of bytes) crc = crcTable[(crc ^ byte) & 255] ^ (crc >>> 8);
+  return ~crc >>> 0;
+}
+function pngChunk(type, data) {
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length);
+  const body = Buffer.concat([Buffer.from(type), data]);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(body));
+  return Buffer.concat([length, body, crc]);
+}
+function png(size, raw) {
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(size, 0);
+  header.writeUInt32BE(size, 4);
+  header[8] = 8; // bit depth
+  header[9] = 2; // RGB
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    pngChunk('IHDR', header),
+    pngChunk('IDAT', deflateSync(raw, { level: 9 })),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+/** The decoded pixels of a PNG this script wrote, so --check doesn't depend on the zlib version. */
+function pngPixels(file) {
+  const parts = [];
+  for (let at = 8; at < file.length;) {
+    const length = file.readUInt32BE(at);
+    if (file.toString('latin1', at + 4, at + 8) === 'IDAT') parts.push(file.subarray(at + 8, at + 8 + length));
+    at += 12 + length;
+  }
+  return inflateSync(Buffer.concat(parts));
+}
+
+const touchSize = 180;
+const touchPixels = appIconPixels(touchSize);
+
+const outputs = [
+  { path: 'css/icons.css', content: css, label: `${names.length} icons` },
+  { path: 'icons/icon.svg', content: faviconSvg },
+  { path: 'icons/icon-maskable.svg', content: maskableSvg },
+  { path: 'icons/apple-touch-icon.png', content: png(touchSize, touchPixels), pixels: touchPixels },
+];
+
+let stale = false;
+for (const { path, content, pixels, label } of outputs) {
+  const file = join(root, path);
+  let current = null;
+  try { current = readFileSync(file); } catch {}
+  const upToDate = current !== null && (pixels
+    ? (() => { try { return pngPixels(current).equals(pixels); } catch { return false; } })()
+    : current.toString('utf8').replaceAll('\r\n', '\n') === content);
+  const suffix = label ? `, ${label}` : '';
+  if (upToDate) { console.log(`${path}: up to date${suffix}`); continue; }
+  if (check) { console.error(`icons: ${path} is out of date. Run \`npm run icons\` and commit the result.`); stale = true; continue; }
+  writeFileSync(file, content);
+  console.log(`${path}: updated${suffix}`);
+}
+if (stale) process.exit(1);
