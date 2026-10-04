@@ -109,10 +109,6 @@ select:focus-visible {
     opacity: 0.3;
     cursor: default;
 }
-.icon-button svg {
-    width: 16px;
-    height: 16px;
-}
 
 .viewport {
     position: relative;
@@ -157,13 +153,8 @@ canvas {
 .timer-pill {
     background: #315d46e8;
 }
-.hud-pill svg {
-    width: 16px;
-    height: 16px;
-}
 .timer-icon {
     color: #d8ebcb;
-    font-size: 15px;
 }
 .scene-label {
     position: absolute;
@@ -268,18 +259,33 @@ canvas {
     display: none;
 }
 
+/* The results modal is a <dialog> opened with showModal(): it sits in the top
+   layer above the HUD and controls (which turn inert), clear of the notch and
+   the home bar, and scrolls when it is taller than the screen. */
 .overlay {
-    position: absolute;
-    z-index: 6;
+    position: fixed;
     inset: 0;
-    padding: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border: 0;
+    padding: calc(16px + env(safe-area-inset-top, 0px))
+        calc(16px + env(safe-area-inset-right, 0px))
+        calc(16px + env(safe-area-inset-bottom, 0px))
+        calc(16px + env(safe-area-inset-left, 0px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
     background: #09100dc2;
+    color: inherit;
+    font: inherit;
 }
-.overlay[hidden] {
-    display: none;
+.overlay[open] {
+    display: flex;
+}
+.overlay::backdrop {
+    background: transparent;
 }
 .pause-overlay {
     position: absolute;
@@ -308,6 +314,9 @@ canvas {
     opacity: 0.8;
 }
 .modal {
+    /* Auto margins centre it, but never past the top when it overflows. */
+    flex-shrink: 0;
+    margin: auto;
     width: min(360px, 100%);
     padding: 26px;
     border: 1px solid #4b5553;
@@ -503,6 +512,12 @@ h2 {
     font-size: 9px;
     letter-spacing: 0.5px;
 }
+/* Keyboard shortcuts mean nothing on a touch screen. */
+@media (hover: none) and (pointer: coarse) {
+    .results-hint {
+        display: none;
+    }
+}
 
 .trail-best[data-medal="gold"] {
     color: #f1c75b;
@@ -512,9 +527,6 @@ h2 {
 }
 .trail-best[data-medal="bronze"] {
     color: #d9955f;
-}
-.trail-best[data-medal]::after {
-    content: " ●";
 }
 
 .setting-range {
@@ -624,28 +636,18 @@ h2 {
     border-radius: var(--radius-pixel);
 }
 .control .symbol {
-    font-size: 27px;
-    font-weight: 700;
-    line-height: 1;
+    --px: 3px;
 }
 .control .caption {
     font-size: 8px;
     font-weight: 850;
     letter-spacing: 1px;
 }
-#down-control .symbol,
-#up-control .symbol {
-    font-size: 18px;
-}
-.control svg.symbol {
-    width: 24px;
-    height: 27px;
-}
 .control.lights[aria-pressed="false"] {
     color: #8b9695;
 }
-.control.lights[aria-pressed="false"] .beam {
-    display: none;
+.control.lights[aria-pressed="false"] .symbol {
+    --icon: var(--icon-headlight-off);
 }
 .control.gas {
     color: var(--color-green-ink);
@@ -883,8 +885,7 @@ h2 {
 }
 
 .menu-logo {
-    width: 84px;
-    height: 84px;
+    --px: 3px;
 }
 .menu-action.continue-save {
     min-height: 92px;
@@ -922,9 +923,8 @@ h2 {
     font-size: 8px;
 }
 .continue-arrow {
+    --px: 3px;
     color: var(--color-green);
-    font-size: 25px;
-    font-weight: 900;
 }
 .save-label {
     color: var(--color-text-muted);
@@ -1051,14 +1051,9 @@ h2 {
     color: var(--color-text-muted);
     border-style: dashed;
 }
-.save-avatar .rider-symbol,
-.rider-portrait .rider-symbol {
-    width: 24px;
-    height: 24px;
-}
-.rider-symbol circle,
-.rider-symbol path {
-    vector-effect: non-scaling-stroke;
+.save-avatar [data-icon],
+.rider-portrait [data-icon] {
+    --px: 3px;
 }
 .menu-actions {
     width: min(560px, 100%);
@@ -1248,6 +1243,16 @@ h2 {
     color: var(--color-text);
     text-align: left;
 }
+.trail-preview {
+    grid-column: 1 / -1;
+    display: block;
+    width: calc(100% + 26px);
+    height: auto;
+    aspect-ratio: 3 / 1;
+    margin: -13px -13px 0;
+    border-bottom: 1px solid var(--color-border);
+    background: #eae9d9;
+}
 .trail-card:disabled {
     cursor: not-allowed;
     opacity: 0.42;
@@ -1302,10 +1307,11 @@ h2 {
 .leaderboard-step {
     border: 1px solid var(--color-border);
     background: var(--color-surface);
+    --px: 3px;
     color: var(--color-green);
     box-shadow: var(--shadow-pixel);
-    font-size: 18px;
-    font-weight: 900;
+    display: grid;
+    place-items: center;
 }
 .leaderboard-step:hover {
     background: var(--color-surface-hover);
@@ -1368,9 +1374,8 @@ h2 {
     height: 34px;
     border-width: 2px;
 }
-.leaderboard-row .save-avatar .rider-symbol {
-    width: 17px;
-    height: 17px;
+.leaderboard-row .save-avatar [data-icon] {
+    --px: 2px;
 }
 .leaderboard-copy {
     min-width: 0;
@@ -1646,8 +1651,7 @@ kbd {
         gap: 14px;
     }
     .menu-logo {
-        width: 64px;
-        height: 64px;
+        --px: 2px;
     }
     .menu-hero h2 {
         font-size: clamp(34px, 12vw, 48px);
@@ -1747,15 +1751,9 @@ kbd {
         flex-direction: row;
         gap: 10px;
     }
-    #flip-control .symbol {
-        font-size: 22px;
-    }
-    #headlight svg.symbol {
-        height: 22px;
-    }
-    #down-control .symbol,
-    #up-control .symbol {
-        font-size: 24px;
+    #flip-control .symbol,
+    #headlight .symbol {
+        --px: 2px;
     }
     .control .caption {
         font-size: 9px;
@@ -1777,20 +1775,36 @@ kbd {
     margin: 14px 0 6px;
 }
 .save-name-field input {
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: 0;
+    background: var(--color-shell);
+    color: var(--color-text);
+    box-shadow: inset 3px 3px 0 var(--color-shadow);
+    caret-color: var(--color-accent);
     font: inherit;
-    font-size: 1.1rem;
-    padding: 10px 12px;
-    border: 2px solid rgba(0, 0, 0, 0.2);
-    border-radius: 10px;
-    background: #fff;
-    color: #222;
+    font-size: 16px;
+    font-weight: 850;
+    letter-spacing: 1px;
+    appearance: none;
+}
+.save-name-field input::placeholder {
+    color: var(--color-text-muted);
+    opacity: 0.7;
+}
+.save-name-field input:hover {
+    border-color: var(--color-surface-hover);
 }
 .save-name-field input:focus {
-    outline: none;
-    border-color: currentColor;
+    border-color: var(--color-accent);
+    outline: 2px solid var(--color-accent);
+    outline-offset: -4px;
 }
 .save-name-field input.invalid {
     border-color: #e5484d;
+    outline-color: #e5484d;
 }
 .save-mode {
     display: grid;
@@ -1872,8 +1886,7 @@ kbd {
         margin-bottom: 18px;
     }
     .menu-logo {
-        width: 50px;
-        height: 50px;
+        --px: 1.5px;
     }
     .menu-hero h2 {
         font-size: 30px;

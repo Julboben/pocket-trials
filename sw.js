@@ -1,10 +1,11 @@
 // Network-first service worker: online loads always get the latest files,
 // and everything fetched is kept so the game also starts offline.
-const CACHE = 'hjulben-0355f61e';
+const CACHE = 'hjulben-520e0970';
 const CORE = [
   './',
   './css/editor.css',
   './css/game.css',
+  './css/icons.css',
   './editor.html',
   './icons/apple-touch-icon.png',
   './icons/icon-maskable.svg',
@@ -59,6 +60,7 @@ const CORE = [
   './js/replay-codec.js',
   './js/ride.js',
   './js/rider-hair.js',
+  './js/scene-preview.js',
   './js/state.js',
   './js/storage.js',
   './js/terrain-geometry.js',

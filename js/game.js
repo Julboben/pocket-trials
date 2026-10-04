@@ -391,7 +391,7 @@ export function startGame() {
     overlay.showResults({
       official: false, time, previousBest, rank: null, medals, medal: medalFor(medals, time), flips,
       apples: ride.apples.length,
-      primaryLabel: 'Play Again →',
+      primaryLabel: 'Play Again',
       restartKey: keyLabel(session.preferences.bindings.restart[0] || 'KeyR')
     });
     $('overlay-badge').textContent = 'PLAY TEST COMPLETED';
@@ -433,7 +433,7 @@ export function startGame() {
     overlay.showResults({
       official, time, previousBest, rank, medals, medal: medalFor(medals, time), flips,
       apples: ride.apples.length,
-      primaryLabel: official && !last ? 'Next Trail →' : 'Play Again →',
+      primaryLabel: official && !last ? 'Next Trail' : 'Play Again',
       restartKey: keyLabel(session.preferences.bindings.restart[0] || 'KeyR')
     });
     // Only a run the player actually rode is sent to the world board.
@@ -498,7 +498,7 @@ export function startGame() {
         overlay.announce(event.collected + ' of ' + event.total + ' apples collected.');
         const ghostSplit = ghost?.data.splits?.[event.collected - 1];
         if (Number.isFinite(ghostSplit)) overlay.split(event.split - ghostSplit);
-        if (event.collected === event.total) overlay.toast('All apples collected! Finish gate unlocked ⚑');
+        if (event.collected === event.total) overlay.toast('All apples collected! Finish gate unlocked', undefined, 'flag');
         break;
       }
       case 'goalLocked':

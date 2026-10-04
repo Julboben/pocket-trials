@@ -1,8 +1,8 @@
 // Main menu: savegames, trail select, leaderboard, settings and how-to-play.
 import { clamp } from '../config.js';
 import { trails, officialTrailEntries, customTrailEntries, saveBrowserTrail } from '../trails.js';
-import { createDrawingTools, createGameArt } from '../drawing.js';
-import { createRiderHair, hairRoot, hairRestDirection, hairBackSupport } from '../rider-hair.js';
+import { createGameArt } from '../drawing.js';
+import { drawScene, posedRide, parkedRide, findClimb, findJump, finishScene, findHighlight } from '../scene-preview.js';
 import {
   loadSaveSlots, loadActiveSlot, saveActiveSlot, createSave, deleteSave, readBest,
   readLeaderboard, LEADERBOARD_SIZE, loadPreferences, savePreferences, cleanRiderName,
@@ -24,9 +24,7 @@ import {
 const runnerName = name => name || 'RIDER';
 
 export function riderSymbolMarkup(selectedRider) {
-  return selectedRider === 'female'
-    ? '<svg class="rider-symbol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="5"></circle><path d="M12 13v8M8.5 18h7"></path></svg>'
-    : '<svg class="rider-symbol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="15" r="5"></circle><path d="M13 11 20 4M15 4h5v5"></path></svg>';
+  return '<span data-icon="' + (selectedRider === 'female' ? 'female' : 'male') + '" aria-hidden="true"></span>';
 }
 
 /** Loads saves and preferences into the session. */
@@ -104,38 +102,71 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     onStartCustom(index);
   }
 
-  function drawPreviewRider(artCtx, rearPoint, frontPoint, leanVisual = 0) {
-    const pose = {
-      rear: { x: rearPoint[0], y: rearPoint[1], spin: 0, compression: 0 },
-      front: { x: frontPoint[0], y: frontPoint[1], spin: 0, compression: 0 },
-      facing: 1, flipVisual: 1, leanVisual
+  // Menu art is drawn by the game's renderer from the trails themselves, a
+  // frame at a time, and kept until the rider or scenery changes.
+  const PREVIEW_CACHE_SIZE = 40;
+  const previewCache = new Map();
+  let previewQueue = [], previewFrame = 0;
+
+  function previewKey(...parts) {
+    const { scenery, headlight } = session.preferences;
+    return [...parts, session.rider, scenery, headlight].join('|');
+  }
+
+  function sceneOptions() {
+    return {
+      rider: session.rider,
+      full: session.preferences.scenery === 'full',
+      headlights: session.preferences.headlight !== 'off'
     };
-    if (session.rider === 'female') {
-      const root = hairRoot(pose, true), rest = hairRestDirection(pose);
-      const previewHair = createRiderHair(root, rest);
-      previewHair.settle(1.5, { root, rest, back: hairBackSupport(pose) });
-      previewHair.draw(createDrawingTools(artCtx).pixelPath, hairRoot(pose, false));
+  }
+
+  function copyPreview(source, target) {
+    target.width = source.width;
+    target.height = source.height;
+    const context = target.getContext('2d');
+    context.imageSmoothingEnabled = false;
+    context.drawImage(source, 0, 0);
+  }
+
+  function renderPreview(key, render) {
+    let image = previewCache.get(key);
+    if (!image) {
+      image = document.createElement('canvas');
+      render(image);
+      previewCache.set(key, image);
+      if (previewCache.size > PREVIEW_CACHE_SIZE) previewCache.delete(previewCache.keys().next().value);
     }
-    createGameArt(artCtx).drawBike({
-      ...pose,
-      mx: (rearPoint[0] + frontPoint[0]) / 2,
-      my: (rearPoint[1] + frontPoint[1]) / 2,
-      angle: Math.atan2(frontPoint[1] - rearPoint[1], frontPoint[0] - rearPoint[0]),
-      length: Math.hypot(frontPoint[0] - rearPoint[0], frontPoint[1] - rearPoint[1]),
-      rider: session.rider
-    });
+    return image;
+  }
+
+  /** Paints a cached preview now, or queues it so menus open without a stall. */
+  function paintPreview(target, key, render, { now = false } = {}) {
+    if (now || previewCache.has(key)) { copyPreview(renderPreview(key, render), target); return; }
+    previewQueue = previewQueue.filter(job => job.target !== target);
+    previewQueue.push({ target, key, render });
+    previewFrame ||= requestAnimationFrame(drainPreviews);
+  }
+
+  function drainPreviews() {
+    previewFrame = 0;
+    if (!isOpen()) { previewQueue = []; return; }
+    let job;
+    while ((job = previewQueue.shift()) && !job.target.isConnected);
+    if (job) copyPreview(renderPreview(job.key, job.render), job.target);
+    if (previewQueue.length) previewFrame = requestAnimationFrame(drainPreviews);
   }
 
   function drawActiveSaveIllustration() {
-    const artCtx = $('active-save-bike').getContext('2d');
-    artCtx.setTransform(2, 0, 0, 2, 0, 0);
-    artCtx.clearRect(0, 0, 120, 84);
-    if (!session.saveGame) return;
-    artCtx.fillStyle = '#eae9d9'; artCtx.fillRect(0, 0, 120, 84);
-    artCtx.fillStyle = '#c5b496';
-    artCtx.beginPath(); artCtx.moveTo(0,72); artCtx.quadraticCurveTo(30,58,60,69); artCtx.quadraticCurveTo(90,78,120,58); artCtx.lineTo(120,84); artCtx.lineTo(0,84); artCtx.fill();
-    artCtx.strokeStyle = '#375d4d'; artCtx.lineWidth = 5; artCtx.beginPath(); artCtx.moveTo(0,72); artCtx.quadraticCurveTo(30,58,60,69); artCtx.quadraticCurveTo(90,78,120,58); artCtx.stroke();
-    drawPreviewRider(artCtx, [35, 61], [85, 65]);
+    const canvasElement = $('active-save-bike');
+    if (!session.saveGame) {
+      canvasElement.getContext('2d').clearRect(0, 0, canvasElement.width, canvasElement.height);
+      return;
+    }
+    const entry = officialTrailEntries[session.savedTrail];
+    paintPreview(canvasElement, previewKey('continue', trailKey(entry)), image => drawScene(image, {
+      ...sceneOptions(), trail: entry.trail, width: 120, height: 84
+    }), { now: true });
   }
 
   function selectSaveSlot(index) {
@@ -191,7 +222,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
         ? '<span class="save-avatar ' + save.rider + '">' + riderSymbolMarkup(save.rider) + '</span>'
           + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + active + mode + '</span><strong>' + save.name + '</strong><small>'
           + (save.unlocked + 1) + ' / ' + trails.length + ' trails · ' + trails[save.trail].name + '</small></span>'
-        : '<span class="save-avatar empty">+</span>'
+        : '<span class="save-avatar empty"><span data-icon="plus" aria-hidden="true"></span></span>'
           + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + '</span><strong>NEW RIDER</strong><small>Start a fresh career in this slot</small></span>';
       button.addEventListener('click', () => {
         if (save) { selectSaveSlot(index); showView('home'); return; }
@@ -231,44 +262,52 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     showView('home');
   }
 
+  // Each card shows its move where it really happens on the official trails.
+  const HOW_TO_SCENES = {
+    drive: () => {
+      const trail = trails[0];
+      return { trail, ride: posedRide(trail) };
+    },
+    lean: () => {
+      const climb = findClimb(trails);
+      if (!climb) return HOW_TO_SCENES.drive();
+      return { trail: climb.trail, ride: posedRide(climb.trail, { x: climb.x, facing: climb.facing, lean: .8 }) };
+    },
+    air: () => {
+      const jump = findJump(trails);
+      const trail = jump?.trail ?? trails[0];
+      const ride = posedRide(trail, { x: jump?.x ?? trail.start.x, facing: jump?.facing ?? trail.start.facing, air: 16, ground: jump?.lip, lean: -.2 });
+      // Higher in the frame, so the lip it took off from shows below.
+      return { trail, ride, arc: true, anchor: [.5, .6] };
+    },
+    goal: () => {
+      const trail = trails[0];
+      return { trail, ...finishScene(trail) };
+    }
+  };
+
   function drawHowToPlayIllustrations() {
     document.querySelectorAll('[data-how-art]').forEach(canvasElement => {
-      const artCtx = canvasElement.getContext('2d');
-      const art = createGameArt(artCtx);
       const kind = canvasElement.dataset.howArt;
-      artCtx.setTransform(2, 0, 0, 2, 0, 0);
-      artCtx.imageSmoothingEnabled = false;
-      artCtx.clearRect(0, 0, 240, 100);
-      artCtx.fillStyle = '#eae9d9'; artCtx.fillRect(0, 0, 240, 100);
-      artCtx.fillStyle = '#b7c8b1';
-      artCtx.beginPath(); artCtx.moveTo(0, 74); artCtx.lineTo(42, 43); artCtx.lineTo(78, 70); artCtx.lineTo(124, 35); artCtx.lineTo(174, 69); artCtx.lineTo(215, 41); artCtx.lineTo(240, 61); artCtx.lineTo(240, 100); artCtx.lineTo(0, 100); artCtx.fill();
-      const ground = points => {
-        artCtx.fillStyle = '#c5b496'; artCtx.beginPath();
-        points.forEach((point, index) => index ? artCtx.lineTo(point[0], point[1]) : artCtx.moveTo(point[0], point[1]));
-        artCtx.lineTo(240, 100); artCtx.lineTo(0, 100); artCtx.closePath(); artCtx.fill();
-        artCtx.strokeStyle = '#375d4d'; artCtx.lineWidth = 6; artCtx.lineJoin = 'round';
-        artCtx.beginPath(); points.forEach((point, index) => index ? artCtx.lineTo(point[0], point[1]) : artCtx.moveTo(point[0], point[1])); artCtx.stroke();
-        artCtx.strokeStyle = '#6f8b59'; artCtx.lineWidth = 2; artCtx.stroke();
-      };
-      const bike = (rear, front, lean = 0) => drawPreviewRider(artCtx, rear, front, lean);
-      if (kind === 'drive') {
-        ground([[0,84],[55,70],[95,80],[145,70],[190,78],[240,68]]);
-        bike([92,68],[141,71]);
-      } else if (kind === 'lean') {
-        ground([[0,92],[65,82],[105,68],[155,43],[200,30],[240,30]]);
-        bike([111,63],[155,41], .8);
-      } else if (kind === 'air') {
-        ground([[0,88],[58,58],[80,58],[80,100],[176,100],[176,77],[240,69]]);
-        bike([104,56],[153,62], -.2);
-        artCtx.strokeStyle = '#d96842'; artCtx.lineWidth = 2; artCtx.setLineDash([5,4]);
-        artCtx.beginPath(); artCtx.arc(130,68,47,Math.PI*1.1,Math.PI*1.82); artCtx.stroke(); artCtx.setLineDash([]);
-      } else {
-        ground([[0,82],[55,74],[110,84],[170,73],[240,72]]);
-        art.drawApple(59, 55);
-        artCtx.save(); artCtx.translate(60, 5); artCtx.scale(.65, .65);
-        art.drawFlag(185, 130, true);
-        artCtx.restore();
-      }
+      const scene = HOW_TO_SCENES[kind];
+      if (!scene) return;
+      paintPreview(canvasElement, previewKey('how', kind), image => {
+        const { trail, ride, focus, anchor, arc } = scene();
+        const view = drawScene(image, { ...sceneOptions(), trail, ride, focus, anchor, width: 240, height: 100 });
+        if (!arc) return;
+        // The path through the air, as a guide drawn over the scene.
+        const context = image.getContext('2d');
+        const scale = view.worldToDevice;
+        const x = ((ride.rear.x + ride.front.x) / 2 - view.x) * scale;
+        const y = ((ride.rear.y + ride.front.y) / 2 - view.y + 12) * scale;
+        context.save();
+        context.strokeStyle = '#d96842'; context.lineWidth = 2 * scale; context.setLineDash([5 * scale, 4 * scale]);
+        context.beginPath();
+        if (ride.facing > 0) context.arc(x, y, 47 * scale, Math.PI * 1.1, Math.PI * 1.82);
+        else context.arc(x, y, 47 * scale, Math.PI * 1.18, Math.PI * 1.9);
+        context.stroke();
+        context.restore();
+      });
     });
   }
 
@@ -378,10 +417,18 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     return heading;
   }
 
-  function trailCard({ trail, number, status, best = null, locked = false, custom = false, onSelect }) {
+  function trailCard({ trail, key, number, status, best = null, locked = false, custom = false, onSelect }) {
     const button = document.createElement('button');
     button.className = `trail-card${custom ? ' custom-trail-card' : ''}`;
     button.disabled = locked;
+    const preview = document.createElement('canvas');
+    preview.className = 'trail-preview';
+    preview.setAttribute('aria-hidden', 'true');
+    // The trail's most eventful stretch, zoomed out, without a rider.
+    paintPreview(preview, previewKey('trail', key), image => drawScene(image, {
+      ...sceneOptions(), trail, ride: parkedRide(trail), focus: findHighlight(trail, 576),
+      width: 576, height: 192, scale: 2, anchor: [.5, .55]
+    }));
     const numberLabel = document.createElement('span');
     numberLabel.className = 'trail-number';
     numberLabel.textContent = number;
@@ -398,9 +445,10 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     const medal = best === null ? null : medalFor(trail.medals, best);
     if (medal) {
       bestLabel.dataset.medal = medal;
+      bestLabel.dataset.iconAfter = 'medal';
       bestLabel.title = medal + ' medal';
     }
-    button.append(numberLabel, copy, bestLabel);
+    button.append(preview, numberLabel, copy, bestLabel);
     if (!locked) button.addEventListener('click', onSelect);
     return button;
   }
@@ -411,6 +459,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
       const locked = !session.saveGame || index > session.unlockedTrail;
       cards.push(trailCard({
         trail,
+        key: trailKey(officialTrailEntries[index]),
         number: String(index + 1).padStart(2, '0'),
         status: locked ? 'LOCKED' : (index === session.savedTrail ? 'CURRENT TRAIL' : 'UNLOCKED'),
         best: readBest(session.activeSaveSlot, trailKey(officialTrailEntries[index]), trails.length),
@@ -422,6 +471,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
       cards.push(trailSection('CUSTOM TRAILS', 'Local trails outside career progression'));
       customTrailEntries.forEach((entry, index) => cards.push(trailCard({
         trail: entry.trail,
+        key: trailKey(entry),
         number: `C${String(index + 1).padStart(2, '0')}`,
         status: entry.storage === 'browser' ? 'CUSTOM · SAVED IN BROWSER' : 'CUSTOM TRAIL',
         best: readLeaderboard(trailKey(entry))[0]?.time ?? null,
@@ -530,7 +580,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     $('save-mode-help').textContent = online
       ? 'Your name is yours alone on the world leaderboard. You sign in with a passkey (fingerprint, face or device PIN), and your progress is backed up.'
       : 'Stays in this browser only: no world leaderboard, and clearing site data deletes it. You can take it online later from Riders.';
-    $('create-save').textContent = online ? 'Create Passkey & Ride →' : 'Create Save & Ride →';
+    $('create-save').textContent = online ? 'Create Passkey & Ride' : 'Create Save & Ride';
   }
 
   function useNewSave(index, save) {

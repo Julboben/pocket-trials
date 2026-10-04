@@ -91,11 +91,12 @@ function makeWheel(trail, x, startY) {
 
 /**
  * @param {Trail} trail
- * @param {{ seed?: number }} [options]
+ * @param {{ seed?: number, start?: { x: number, y?: number | null, facing: number } }} [options]
+ *   `start` places the bike somewhere other than the trail's start, for posed scenes.
  * @returns {Ride}
  */
-export function createRide(trail, { seed = 1 } = {}) {
-  const { x: startX, y: startY, facing } = trail.start;
+export function createRide(trail, { seed = 1, start = trail.start } = {}) {
+  const { x: startX, y: startY, facing } = start;
   const rear = makeWheel(trail, startX - WHEELBASE / 2, startY);
   const front = makeWheel(trail, startX + WHEELBASE / 2, startY);
   /** @type {Ride} */

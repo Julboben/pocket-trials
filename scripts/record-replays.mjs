@@ -15,7 +15,7 @@
 // of the ride, keeps the best-scoring one for a few steps, and repeats. When
 // every option ahead crashes it backs up a little and searches again.
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { STEP, TAU } from '../js/config.js';
 import { createRide, stepRide, simulateRun } from '../js/ride.js';
 import { decodeInputs, encodeInputs } from '../js/replay-codec.js';
@@ -182,8 +182,16 @@ function reusable(entry, path, hash) {
 }
 
 mkdirSync(OUT_DIR, { recursive: true });
+const officialTrails = loadCatalogTrails('official');
+// Drop replays left behind when an official trail is renamed or removed.
+const expected = new Set(officialTrails.map(entry => entry.file.split('/').pop()));
+for (const file of readdirSync(OUT_DIR)) {
+  if (!file.endsWith('.json') || expected.has(file)) continue;
+  unlinkSync(OUT_DIR + file);
+  console.log(`${file}: removed, no official trail uses it`);
+}
 let kept = 0, recorded = 0;
-for (const entry of loadCatalogTrails('official')) {
+for (const entry of officialTrails) {
   if (!entry.id.includes(filter)) continue;
   const started = Date.now();
   const path = OUT_DIR + entry.file.split('/').pop();

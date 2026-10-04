@@ -5,6 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Hjulben Trail Editor</title>
         <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+        <link rel="stylesheet" href="./css/icons.css" />
         <link rel="stylesheet" href="./css/editor.css" />
     </head>
     <body>
@@ -15,7 +16,7 @@
                     href="./index.html"
                     title="Back to the game"
                     aria-label="Back to the game"
-                    ><svg class="px-icon" viewBox="0 0 11 11" aria-hidden="true"><path d="M4 0h7v1h-7zM4 1h1v1h-1zM10 1h1v1h-1zM4 2h1v1h-1zM10 2h1v1h-1zM2 3h1v1h-1zM10 3h1v1h-1zM1 4h1v1h-1zM10 4h1v1h-1zM0 5h8v1h-8zM10 5h1v1h-1zM1 6h1v1h-1zM10 6h1v1h-1zM2 7h1v1h-1zM10 7h1v1h-1zM4 8h1v1h-1zM10 8h1v1h-1zM4 9h1v1h-1zM10 9h1v1h-1zM4 10h7v1h-7z"></path></svg></a
+                    ><span data-icon="exit" aria-hidden="true"></span></a
                 >
                 <label
                     >TRAIL
@@ -28,7 +29,7 @@
                         title="New trail"
                         aria-label="New trail"
                     >
-                        <svg class="px-icon" viewBox="0 0 9 9" aria-hidden="true"><path d="M4 1h1v1h-1zM4 2h1v1h-1zM4 3h1v1h-1zM1 4h7v1h-7zM4 5h1v1h-1zM4 6h1v1h-1zM4 7h1v1h-1z"></path></svg>
+                        <span data-icon="plus" aria-hidden="true"></span>
                     </button>
                     <button
                         id="duplicate-trail"
@@ -36,7 +37,7 @@
                         title="Duplicate trail"
                         aria-label="Duplicate trail"
                     >
-                        <svg class="px-icon" viewBox="0 0 9 9" aria-hidden="true"><path d="M3 0h6v1h-6zM3 1h1v1h-1zM8 1h1v1h-1zM3 2h1v1h-1zM8 2h1v1h-1zM0 3h6v1h-6zM8 3h1v1h-1zM0 4h1v1h-1zM5 4h1v1h-1zM8 4h1v1h-1zM0 5h1v1h-1zM5 5h1v1h-1zM8 5h1v1h-1zM0 6h1v1h-1zM5 6h4v1h-4zM0 7h1v1h-1zM5 7h1v1h-1zM0 8h6v1h-6z"></path></svg>
+                        <span data-icon="duplicate" aria-hidden="true"></span>
                     </button>
                 </div>
                 <button
@@ -57,7 +58,7 @@
                             title="Undo (Cmd/Ctrl+Z)"
                             aria-label="Undo"
                         >
-                            <svg class="px-icon" viewBox="1 0 8 9" aria-hidden="true"><path d="M3 0h1v1h-1zM2 1h2v1h-2zM1 2h7v1h-7zM2 3h2v1h-2zM8 3h1v1h-1zM3 4h1v1h-1zM8 4h1v1h-1zM8 5h1v1h-1zM8 6h1v1h-1zM7 7h1v1h-1zM2 8h5v1h-5z"></path></svg>
+                            <span data-icon="undo" aria-hidden="true"></span>
                         </button>
                         <button
                             id="redo"
@@ -65,7 +66,7 @@
                             title="Redo (Cmd/Ctrl+Shift+Z)"
                             aria-label="Redo"
                         >
-                            <svg class="px-icon" viewBox="0 0 8 9" aria-hidden="true"><path d="M5 0h1v1h-1zM5 1h2v1h-2zM1 2h7v1h-7zM0 3h1v1h-1zM5 3h2v1h-2zM0 4h1v1h-1zM5 4h1v1h-1zM0 5h1v1h-1zM0 6h1v1h-1zM1 7h1v1h-1zM2 8h5v1h-5z"></path></svg>
+                            <span data-icon="redo" aria-hidden="true"></span>
                         </button>
                     </div>
                     <button
@@ -73,14 +74,14 @@
                         class="play-action"
                         title="Ride the trail as it is now (Cmd/Ctrl+Enter; add Shift to start at the mouse)"
                     >
-                        ▶ PLAY TEST
+                        <span data-icon="play" aria-hidden="true"></span> PLAY TEST
                     </button>
                     <button
                         id="save-draft"
                         class="primary-action draft-action"
                         title="Save a draft in this browser (Cmd/Ctrl+S)"
                     >
-                        <svg class="px-icon" viewBox="0 0 9 9" aria-hidden="true"><path d="M0 0h8v1h-8zM0 1h1v1h-1zM2 1h5v1h-5zM8 1h1v1h-1zM0 2h1v1h-1zM2 2h5v1h-5zM8 2h1v1h-1zM0 3h1v1h-1zM8 3h1v1h-1zM0 4h1v1h-1zM8 4h1v1h-1zM0 5h1v1h-1zM2 5h5v1h-5zM8 5h1v1h-1zM0 6h1v1h-1zM2 6h1v1h-1zM6 6h1v1h-1zM8 6h1v1h-1zM0 7h1v1h-1zM2 7h1v1h-1zM6 7h1v1h-1zM8 7h1v1h-1zM0 8h9v1h-9z"></path></svg><span>SAVE DRAFT</span>
+                        <span data-icon="save" aria-hidden="true"></span><span>SAVE DRAFT</span>
                     </button>
                     <div class="more" id="more">
                         <button
@@ -92,26 +93,26 @@
                             aria-expanded="false"
                             aria-controls="more-menu"
                         >
-                            <svg class="px-icon" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 4h2v1h-2zM4 4h2v1h-2zM8 4h2v1h-2zM0 5h2v1h-2zM4 5h2v1h-2zM8 5h2v1h-2z"></path></svg>
+                            <span data-icon="more" aria-hidden="true"></span>
                             <span class="more-badge" id="more-badge" hidden></span>
                         </button>
                         <div class="more-menu" id="more-menu" hidden>
                             <div class="more-items" role="menu" aria-label="More actions">
                                 <button id="save-trail" role="menuitem" hidden>
-                                    <svg class="px-icon" viewBox="0 0 9 9" aria-hidden="true"><path d="M0 0h2v1h-2zM0 1h4v1h-4zM0 2h6v1h-6zM0 3h8v1h-8zM0 4h6v1h-6zM0 5h4v1h-4zM0 6h2v1h-2zM0 7h1v1h-1zM0 8h1v1h-1z"></path></svg><span id="save-trail-label">Publish</span
+                                    <span data-icon="publish" aria-hidden="true"></span><span id="save-trail-label">Publish</span
                                     ><kbd>⇧⌘S</kbd>
                                 </button>
                                 <button id="rename-trail" role="menuitem">
-                                    <svg class="px-icon" viewBox="0 0 9 9" aria-hidden="true"><path d="M7 0h1v1h-1zM6 1h1v1h-1zM8 1h1v1h-1zM5 2h1v1h-1zM7 2h1v1h-1zM4 3h1v1h-1zM6 3h1v1h-1zM3 4h1v1h-1zM5 4h1v1h-1zM2 5h1v1h-1zM4 5h1v1h-1zM1 6h1v1h-1zM3 6h1v1h-1zM1 7h2v1h-2zM0 8h1v1h-1z"></path></svg><span>Rename trail</span>
+                                    <span data-icon="pencil" aria-hidden="true"></span><span>Rename trail</span>
                                 </button>
                                 <button id="show-versions" role="menuitem">
-                                    <svg class="px-icon" viewBox="0 0 9 9" aria-hidden="true"><path d="M2 0h5v1h-5zM1 1h1v1h-1zM7 1h1v1h-1zM0 2h1v1h-1zM4 2h1v1h-1zM8 2h1v1h-1zM0 3h1v1h-1zM4 3h1v1h-1zM8 3h1v1h-1zM0 4h1v1h-1zM4 4h3v1h-3zM8 4h1v1h-1zM0 5h1v1h-1zM8 5h1v1h-1zM0 6h1v1h-1zM8 6h1v1h-1zM1 7h1v1h-1zM7 7h1v1h-1zM2 8h5v1h-5z"></path></svg><span>Versions</span>
+                                    <span data-icon="clock" aria-hidden="true"></span><span>Versions</span>
                                 </button>
                                 <button id="open-data" role="menuitem">
-                                    <svg class="px-icon" viewBox="0 0 9 9" aria-hidden="true"><path d="M4 0h1v1h-1zM4 1h1v1h-1zM4 2h1v1h-1zM1 3h1v1h-1zM4 3h1v1h-1zM7 3h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM6 4h1v1h-1zM3 5h3v1h-3zM4 6h1v1h-1zM0 7h1v1h-1zM8 7h1v1h-1zM0 8h9v1h-9z"></path></svg><span>Import / export</span>
+                                    <span data-icon="download" aria-hidden="true"></span><span>Import / export</span>
                                 </button>
                                 <button id="show-shortcuts" role="menuitem">
-                                    <svg class="px-icon" viewBox="0 0 11 11" aria-hidden="true"><path d="M0 1h11v1h-11zM0 2h1v1h-1zM10 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM4 3h1v1h-1zM6 3h1v1h-1zM8 3h1v1h-1zM10 3h1v1h-1zM0 4h1v1h-1zM10 4h1v1h-1zM0 5h1v1h-1zM2 5h1v1h-1zM4 5h1v1h-1zM6 5h1v1h-1zM8 5h1v1h-1zM10 5h1v1h-1zM0 6h1v1h-1zM10 6h1v1h-1zM0 7h1v1h-1zM3 7h5v1h-5zM10 7h1v1h-1zM0 8h1v1h-1zM10 8h1v1h-1zM0 9h11v1h-11z"></path></svg><span>Keyboard shortcuts</span
+                                    <span data-icon="keyboard" aria-hidden="true"></span><span>Keyboard shortcuts</span
                                     ><kbd>?</kbd>
                                 </button>
                                 <button
@@ -120,7 +121,7 @@
                                     role="menuitem"
                                     hidden
                                 >
-                                    <svg class="px-icon" viewBox="0 0 9 9" aria-hidden="true"><path d="M3 0h3v1h-3zM0 1h9v1h-9zM1 2h1v1h-1zM7 2h1v1h-1zM1 3h1v1h-1zM3 3h1v1h-1zM5 3h1v1h-1zM7 3h1v1h-1zM1 4h1v1h-1zM3 4h1v1h-1zM5 4h1v1h-1zM7 4h1v1h-1zM1 5h1v1h-1zM3 5h1v1h-1zM5 5h1v1h-1zM7 5h1v1h-1zM1 6h1v1h-1zM3 6h1v1h-1zM5 6h1v1h-1zM7 6h1v1h-1zM1 7h1v1h-1zM7 7h1v1h-1zM2 8h5v1h-5z"></path></svg><span>Delete trail</span>
+                                    <span data-icon="trash" aria-hidden="true"></span><span>Delete trail</span>
                                 </button>
                             </div>
                             <section class="validation" id="validation">
@@ -174,14 +175,14 @@
                                     data-tool="select"
                                     title="Select (V)"
                                 >
-                                    ↖ <span>Select</span>
+                                    <span data-icon="cursor" aria-hidden="true"></span><span>Select</span>
                                 </button>
                                 <button
                                     class="tool"
                                     data-tool="pan"
                                     title="Pan (H)"
                                 >
-                                    ✥ <span>Pan</span>
+                                    <span data-icon="pan" aria-hidden="true"></span><span>Pan</span>
                                 </button>
                             </div>
                         </section>
@@ -189,10 +190,10 @@
                             <h3>TERRAIN</h3>
                             <div class="tool-grid">
                                 <button class="tool" data-tool="block">
-                                    ▣ <span>Block</span>
+                                    <span data-icon="block" aria-hidden="true"></span><span>Block</span>
                                 </button>
                                 <button class="tool" data-tool="cut">
-                                    ✂ <span>Cut</span>
+                                    <span data-icon="scissors" aria-hidden="true"></span><span>Cut</span>
                                 </button>
                             </div>
                             <label class="checkbox-row"
@@ -204,16 +205,16 @@
                             <h3>OBJECTS</h3>
                             <div class="tool-grid">
                                 <button class="tool" data-tool="apple">
-                                    ● <span>Apple</span>
+                                    <span data-icon="apple" aria-hidden="true"></span><span>Apple</span>
                                 </button>
                                 <button class="tool" data-tool="spike">
-                                    ✹ <span>Spike</span>
+                                    <span data-icon="spike" aria-hidden="true"></span><span>Spike</span>
                                 </button>
                                 <button class="tool" data-tool="prop">
-                                    ♣ <span>Prop</span>
+                                    <span data-icon="tree" aria-hidden="true"></span><span>Prop</span>
                                 </button>
                                 <button class="tool" data-tool="water">
-                                    ≈ <span>Water</span>
+                                    <span data-icon="water" aria-hidden="true"></span><span>Water</span>
                                 </button>
                             </div>
                         </section>
@@ -221,10 +222,10 @@
                             <h3>COURSE</h3>
                             <div class="tool-grid">
                                 <button class="tool" data-tool="start">
-                                    ▶ <span>Start</span>
+                                    <span data-icon="play" aria-hidden="true"></span><span>Start</span>
                                 </button>
                                 <button class="tool" data-tool="finish">
-                                    ⚑ <span>Finish</span>
+                                    <span data-icon="flag" aria-hidden="true"></span><span>Finish</span>
                                 </button>
                             </div>
                         </section>
@@ -342,9 +343,9 @@
 
                     <div class="toolbox-footer">
                         <div class="zoom-controls">
-                            <button id="zoom-out">−</button
+                            <button id="zoom-out" aria-label="Zoom out"><span data-icon="minus" aria-hidden="true"></span></button
                             ><span id="zoom-label">100%</span
-                            ><button id="zoom-in">+</button>
+                            ><button id="zoom-in" aria-label="Zoom in"><span data-icon="plus" aria-hidden="true"></span></button>
                         </div>
                     </div>
                 </aside>
@@ -604,8 +605,8 @@
                     >ESC OR THE MENU BUTTON RETURNS TO THE EDITOR · RUNS ARE NOT
                     SAVED</span
                 >
-                <button id="close-playtest" class="primary-action">
-                    ← BACK TO EDITOR
+                <button id="close-playtest" class="primary-action" data-icon-before="arrow-left">
+                    BACK TO EDITOR
                 </button>
             </div>
             <iframe
@@ -628,9 +629,9 @@
                 <button id="data-errors-show">SHOW</button>
             </p>
             <div class="data-actions">
-                <button id="import-json"><svg class="px-icon" viewBox="0 0 9 9" aria-hidden="true"><path d="M4 0h1v1h-1zM3 1h3v1h-3zM2 2h1v1h-1zM4 2h1v1h-1zM6 2h1v1h-1zM1 3h1v1h-1zM4 3h1v1h-1zM7 3h1v1h-1zM4 4h1v1h-1zM4 5h1v1h-1zM4 6h1v1h-1zM0 7h1v1h-1zM8 7h1v1h-1zM0 8h9v1h-9z"></path></svg><span>IMPORT JSON</span></button>
-                <button id="export-json"><svg class="px-icon" viewBox="0 0 9 9" aria-hidden="true"><path d="M4 0h1v1h-1zM4 1h1v1h-1zM4 2h1v1h-1zM1 3h1v1h-1zM4 3h1v1h-1zM7 3h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM6 4h1v1h-1zM3 5h3v1h-3zM4 6h1v1h-1zM0 7h1v1h-1zM8 7h1v1h-1zM0 8h9v1h-9z"></path></svg><span>EXPORT JSON</span></button>
-                <button id="export-js"><svg class="px-icon" viewBox="0 0 9 9" aria-hidden="true"><path d="M4 0h1v1h-1zM4 1h1v1h-1zM4 2h1v1h-1zM1 3h1v1h-1zM4 3h1v1h-1zM7 3h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM6 4h1v1h-1zM3 5h3v1h-3zM4 6h1v1h-1zM0 7h1v1h-1zM8 7h1v1h-1zM0 8h9v1h-9z"></path></svg><span>EXPORT JS</span></button>
+                <button id="import-json"><span data-icon="upload" aria-hidden="true"></span><span>IMPORT JSON</span></button>
+                <button id="export-json"><span data-icon="download" aria-hidden="true"></span><span>EXPORT JSON</span></button>
+                <button id="export-js"><span data-icon="download" aria-hidden="true"></span><span>EXPORT JS</span></button>
             </div>
         </dialog>
         <dialog class="shortcuts versions-dialog" id="versions" aria-labelledby="versions-title">
