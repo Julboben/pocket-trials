@@ -25,6 +25,9 @@ const MASS = {
   foot: 0.5,
 };
 const DEGREE = Math.PI / 180;
+const TURN = Math.PI * 2;
+// Most a joint limit swings the body back in one solver pass, in radians.
+const MAX_LIMIT_STEP = 0.08;
 // How far the head tips against the spine, and the thigh swings against the
 // torso, in degrees: [a, joint, b, least, most]. Angles are measured facing
 // right, negative tipping forwards; seated, the hip sits at -90.
@@ -209,7 +212,10 @@ const rotateAbout = (point, center, angle) => {
 };
 
 // Swings the outer joints back inside the allowed turn at the middle joint,
-// the lighter end moving more.
+// the lighter end moving more. The turn wraps at half a circle, so a joint
+// folded past it is sent back to the nearer limit, not the long way round, and
+// each pass moves it a little so a tangled body unfolds over a few steps
+// instead of being flung apart.
 function enforceAngleLimit(points, limit) {
   const a = points[limit.a],
     joint = points[limit.joint],
@@ -219,14 +225,12 @@ function enforceAngleLimit(points, limit) {
     vx = b.x - joint.x,
     vy = b.y - joint.y;
   const turn = atan2(ux * vy - uy * vx, ux * vx + uy * vy) * limit.mirror;
-  const excess =
-    turn < limit.least
-      ? turn - limit.least
-      : turn > limit.most
-        ? turn - limit.most
-        : 0;
-  if (!excess) return;
-  const correction = excess * limit.mirror;
+  if (turn >= limit.least && turn <= limit.most) return;
+  const pastMost = (turn - limit.most + TURN) % TURN,
+    beforeLeast = (limit.least - turn + TURN) % TURN;
+  const excess = pastMost <= beforeLeast ? pastMost : -beforeLeast;
+  const correction =
+    Math.max(-MAX_LIMIT_STEP, Math.min(MAX_LIMIT_STEP, excess)) * limit.mirror;
   const share = a.inverseMass / (a.inverseMass + b.inverseMass);
   rotateAbout(a, joint, correction * share);
   rotateAbout(b, joint, -correction * (1 - share));

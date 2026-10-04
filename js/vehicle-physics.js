@@ -587,6 +587,10 @@ function collideWheel(trail, point, wheelName, hooks, sweep = true) {
 // the surface and lose some tangential speed, with no rolling or traction.
 // `grip` adds Coulomb friction: each contact removes sliding speed in proportion
 // to how hard the point presses on the surface, so a body can rest on a slope.
+// The press counted is capped near a resting body's weight (about two steps of
+// gravity), so a hard landing doesn't brake a slide dead and bodies still glide.
+const GRIP_PRESS_LIMIT = 0.05;
+
 function resolveFreeContact(point, contact, bounce, friction, grip = 0) {
   if (!contact || (contact.penetration <= 0 && !contact.swept)) return;
   const { nx, ny, penetration } = contact;
@@ -600,7 +604,10 @@ function resolveFreeContact(point, contact, bounce, friction, grip = 0) {
   const tangentX = -ny,
     tangentY = nx,
     tangent = vx * tangentX + vy * tangentY;
-  const press = Math.max(0, -normal) + Math.max(0, penetration);
+  const press = Math.min(
+    Math.max(0, -normal) + Math.max(0, penetration),
+    GRIP_PRESS_LIMIT,
+  );
   const slip =
     Math.sign(tangent) *
     Math.min(Math.abs(tangent), Math.max(Math.abs(tangent) * friction, grip * press));
@@ -797,11 +804,22 @@ function nearestOnCapsule(chassisPoints, capsule, x, y) {
  * Pushes a loose point (a ragdoll joint) out of the crashed bike and the bike
  * back from it, shared by inverse mass. With `apply` false it only reports
  * whether the point overlaps the bike.
+ *
+ * The overlap is undone without changing either body's speed, and only their
+ * closing speed is then cancelled, as a dead hit. A joint caught between the
+ * bike and the ground is pushed both ways every iteration, so turning those
+ * pushes into speed would fire the rider or the bike into the air.
  * @returns {boolean} whether the point overlapped the bike
  */
 export function collideWithBike(vehicle, point, inverseMass, apply = true) {
   const { rear, front, chassisPoints } = vehicle;
   let touched = false;
+  const move = (target, x, y) => {
+    target.x += x;
+    target.y += y;
+    target.ox += x;
+    target.oy += y;
+  };
   const push = (cx, cy, reach, bikePoints, weights) => {
     const dx = point.x - cx,
       dy = point.y - cy,
@@ -816,12 +834,24 @@ export function collideWithBike(vehicle, point, inverseMass, apply = true) {
     for (let index = 0; index < bikePoints.length; index++)
       denominator += weights[index] ** 2 * bikePoints[index].inverseMass;
     const lambda = (reach - length) / denominator;
-    point.x += nx * lambda * inverseMass;
-    point.y += ny * lambda * inverseMass;
+    move(point, nx * lambda * inverseMass, ny * lambda * inverseMass);
+    let closing = (point.x - point.ox) * nx + (point.y - point.oy) * ny;
     for (let index = 0; index < bikePoints.length; index++) {
-      const share = lambda * weights[index] * bikePoints[index].inverseMass;
-      bikePoints[index].x -= nx * share;
-      bikePoints[index].y -= ny * share;
+      const bikePoint = bikePoints[index],
+        share = lambda * weights[index] * bikePoint.inverseMass;
+      move(bikePoint, -nx * share, -ny * share);
+      closing -=
+        weights[index] *
+        ((bikePoint.x - bikePoint.ox) * nx + (bikePoint.y - bikePoint.oy) * ny);
+    }
+    if (closing >= 0) return;
+    const impulse = -closing / denominator;
+    point.ox -= nx * impulse * inverseMass;
+    point.oy -= ny * impulse * inverseMass;
+    for (let index = 0; index < bikePoints.length; index++) {
+      const share = impulse * weights[index] * bikePoints[index].inverseMass;
+      bikePoints[index].ox += nx * share;
+      bikePoints[index].oy += ny * share;
     }
   };
   for (const wheel of [rear, front])

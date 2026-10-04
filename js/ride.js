@@ -272,7 +272,8 @@ export function trackAirRotation(ride, events) {
     const milestone = Math.floor(Math.abs(ride.airRotation) / Math.PI);
     if (milestone > ride.airTurnMilestone) {
       ride.airTurnMilestone = milestone;
-      events.push({ type: "airTurn", full: milestone % 2 === 0 });
+      if (ride.status === "running")
+        events.push({ type: "airTurn", full: milestone % 2 === 0 });
     }
     ride.landingSteps = airborne ? 0 : ride.landingSteps + 1;
     if (

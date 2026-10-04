@@ -1,7 +1,7 @@
 {
   "name": "Rolling Country",
   "label": "ROLLING COUNTRY / 02",
-  "goal": 3077.9115921126395,
+  "goal": 3100.1576858626395,
   "description": "Momentum is your friend. Carry speed through valleys, ease over crests, and lean forward when the front wheel gets light.",
   "start": {
     "x": 43.90625,
@@ -1266,7 +1266,7 @@
             "y": 320,
             "mode": "corner",
             "in": [
-              -28.008499999999998,
+              -28.0085,
               318.6912
             ],
             "out": null,
@@ -1501,7 +1501,7 @@
     "silver": 21,
     "bronze": 28
   },
-  "finishY": 230.49409787336776,
+  "finishY": 196.54878537336776,
   "timeOfDay": "noon",
   "backdrop": "forest"
 }
