@@ -229,6 +229,14 @@ export function createVehicle(rear, front) {
     ),
   ];
   const chassisPoints = [chassis.rearMount, chassis.frontMount, chassis.top];
+  // The physical pieces between the points: suspension legs and frame edges.
+  const frameLinks = [
+    [rear, chassis.rearMount],
+    [front, chassis.frontMount],
+    [chassis.rearMount, chassis.frontMount],
+    [chassis.rearMount, chassis.top],
+    [chassis.frontMount, chassis.top],
+  ];
   const crashedFrameProbes = CRASHED_FRAME_PROBES.map(([along, height]) =>
     createFrameProbe(chassisPoints, along, height),
   );
@@ -241,6 +249,7 @@ export function createVehicle(rear, front) {
     wheelbaseLimit,
     chassisPoints,
     crashedFrameProbes,
+    frameLinks,
     bikePoints,
     dampedConstraints: [...constraints, wheelbaseLimit],
     wheelOrder: {
@@ -729,11 +738,54 @@ function collideFrameProbe(trail, probe, sweep, { bounce, friction }) {
 }
 
 function collideCrashedChassis(vehicle, trail, sweep) {
+  if (vehicle.framePassThrough) return;
   const { rearMount, frontMount } = vehicle.chassis;
   for (const point of [rearMount, frontMount])
     collideFreePoint(trail, point, sweep, CRASHED_CHASSIS_CONTACT);
   for (const probe of vehicle.crashedFrameProbes)
     collideFrameProbe(trail, probe, sweep, CRASHED_CHASSIS_CONTACT);
+}
+
+// A link passes through terrain when a ray along it enters a surface from both
+// ends; one end merely resting inside a surface does not count.
+function linkCrossesTerrain(trail, a, b) {
+  return (
+    terrainSweepCollision(trail, a.x, a.y, b.x, b.y, 0) !== null &&
+    terrainSweepCollision(trail, b.x, b.y, a.x, a.y, 0) !== null
+  );
+}
+
+const overlapsTerrain = (trail, x, y, radius) =>
+  terrainCollisionsAt(trail, x, y, radius).some(
+    (contact) => contact.penetration > 0,
+  );
+
+function frameOverlapsTerrain(vehicle, trail) {
+  const { rearMount, frontMount } = vehicle.chassis;
+  return (
+    [rearMount, frontMount].some((point) =>
+      overlapsTerrain(trail, point.x, point.y, point.radius),
+    ) ||
+    vehicle.crashedFrameProbes.some((probe) => {
+      const { x, y } = blendProbe(probe, "x", "y");
+      return overlapsTerrain(trail, x, y, CRASHED_FRAME_PROBE_RADIUS);
+    })
+  );
+}
+
+// While riding only the wheels touch terrain, so the bike can hang with a
+// wheel over a thin ledge and the frame under it. Once crashed the frame
+// collides too and would hook the ledge, so while any link passes through
+// terrain the frame keeps passing through it, as it does while riding, and the
+// wheels keep rolling on the edge. The frame collides again once the bike is
+// clear of the ledge and the frame is out of the ground.
+function updateCrashedPassThrough(vehicle, trail) {
+  const straddling = vehicle.frameLinks.some(([a, b]) =>
+    linkCrossesTerrain(trail, a, b),
+  );
+  if (straddling) vehicle.framePassThrough = true;
+  else if (vehicle.framePassThrough)
+    vehicle.framePassThrough = frameOverlapsTerrain(vehicle, trail);
 }
 
 // `controls.crashed` hands the bike to physics alone: the chassis collides with
@@ -909,6 +961,7 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
 
   const solverWheels =
     facing < 0 ? vehicle.wheelOrder.backward : vehicle.wheelOrder.forward;
+  if (crashed) updateCrashedPassThrough(vehicle, trail);
   for (const [point, name] of solverWheels) {
     collideWheel(trail, point, name, hooks);
     holdBrakedWheel(point);

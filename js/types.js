@@ -64,6 +64,8 @@
  * @property {object[]} dampedConstraints
  * @property {object[]} chassisPoints
  * @property {object[]} crashedFrameProbes chassis-point blends on the drawn outline
+ * @property {object[][]} frameLinks point pairs joined by the suspension and frame
+ * @property {boolean} [framePassThrough] crashed frame ignores terrain while straddling a ledge
  * @property {object[]} bikePoints
  *
  * @typedef {object} RideInput
