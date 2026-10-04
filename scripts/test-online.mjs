@@ -27,10 +27,17 @@ const sql = (strings, ...values) => pg.sql(strings, ...values).then(result => re
 sql.query = (text, params) => pg.query(text, params).then(result => result.rows);
 useSql(sql);
 
-const trails = new Map(loadCatalogTrails('official').map(entry => [entry.id, entry.trail]));
+const officialTrails = loadCatalogTrails('official');
+const trails = new Map(officialTrails.map(entry => [entry.id, entry.trail]));
+// Tests pick trails by catalog position, so renaming a trail never breaks them.
+const [firstTrail, secondTrail, thirdTrail] = officialTrails;
+assert.ok(thirdTrail, 'online tests need at least three official trails');
 useTrailLoader(async id => trails.get(id) ?? null);
-const keyOf = id => `${id}@${trailHash(trails.get(id))}`;
-const fixture = name => readJson(`tests/replays/${name}.json`);
+const keyOf = id => {
+  assert.ok(trails.has(id), `unknown official trail ${id}`);
+  return `${id}@${trailHash(trails.get(id))}`;
+};
+const fixture = entry => readJson(`tests/replays/${entry.file.split('/').pop()}`);
 
 // --- HTTP helpers -------------------------------------------------------------
 
@@ -111,17 +118,17 @@ async function loginRider(authenticator) {
 
 // --- Schema ---------------------------------------------------------------------
 
-const orchardKey = keyOf('official:01-the-orchard');
+const firstTrailKey = keyOf(firstTrail.id);
 {
-  const { status, body } = await board(orchardKey);
+  const { status, body } = await board(firstTrailKey);
   assert.equal(status, 200, JSON.stringify(body));
   assert.deepEqual(body.runs, []);
   useSql(sql);   // a fresh instance runs the schema again, which must be a no-op
-  assert.equal((await board(orchardKey)).status, 200);
+  assert.equal((await board(firstTrailKey)).status, 200);
   // A rider imported from the pre-accounts board: no passkey, no replay.
   await sql`insert into players (id, name, name_key, rider) values (${crypto.randomUUID()}, 'julben', 'julben', 'female')`;
-  await sql`insert into runs (trail, player_id, rider, time_ms) select ${orchardKey}, id, 'female', 6908 from players where name_key = 'julben'`;
-  assert.deepEqual((await board(orchardKey)).body.runs.map(run => [run.name, run.time]), [['julben', 6.908]]);
+  await sql`insert into runs (trail, player_id, rider, time_ms) select ${firstTrailKey}, id, 'female', 6908 from players where name_key = 'julben'`;
+  assert.deepEqual((await board(firstTrailKey)).body.runs.map(run => [run.name, run.time]), [['julben', 6.908]]);
 }
 
 // --- Sign-up ------------------------------------------------------------------
@@ -172,7 +179,7 @@ let julianToken;
   const { status, body } = await registerRider('JulBen', owner, 'male');
   assert.equal(status, 200, JSON.stringify(body));
   assert.equal(body.player.name, 'JulBen');
-  assert.equal((await board(orchardKey)).body.runs[0].name, 'JulBen', 'the claimer gets the old times');
+  assert.equal((await board(firstTrailKey)).body.runs[0].name, 'JulBen', 'the claimer gets the old times');
   assert.equal((await api('register-options', { body: { name: 'julben' } })).status, 409, 'claimed names are taken');
   const login = await loginRider(owner);
   assert.equal(login.status, 200);
@@ -199,58 +206,58 @@ let julianToken;
 
 await sql`delete from runs where replay is null`;   // start from an empty board
 
-const orchard = keyOf('official:01-the-orchard');
-const orchardRun = fixture('01-the-orchard');
-const run = (replay = orchardRun) => ({ inputs: replay.inputs, seed: replay.seed, physics: RIDE_VERSION });
+const firstKey = keyOf(firstTrail.id);
+const firstTrailRun = fixture(firstTrail);
+const run = (replay = firstTrailRun) => ({ inputs: replay.inputs, seed: replay.seed, physics: RIDE_VERSION });
 {
-  assert.equal((await submit({ body: { trail: orchard, rider: 'female', run: run() } })).status, 401, 'runs need a signed-in rider');
-  assert.equal((await submit({ body: { trail: orchard, run: run() }, token: julianToken + 'x' })).status, 401, 'forged tokens are refused');
+  assert.equal((await submit({ body: { trail: firstKey, rider: 'female', run: run() } })).status, 401, 'runs need a signed-in rider');
+  assert.equal((await submit({ body: { trail: firstKey, run: run() }, token: julianToken + 'x' })).status, 401, 'forged tokens are refused');
   const otherPlayer = sign({ type: 'session', player: crypto.randomUUID() }, 60).replace(/.$/, c => (c === 'A' ? 'B' : 'A'));
-  assert.equal((await submit({ body: { trail: orchard, run: run() }, token: otherPlayer })).status, 401, 'tokens signed with another key are refused');
+  assert.equal((await submit({ body: { trail: firstKey, run: run() }, token: otherPlayer })).status, 401, 'tokens signed with another key are refused');
 
   // A client claiming a time gets the simulated one instead.
-  const { status, body } = await submit({ body: { trail: orchard, rider: 'female', run: run(), time: 1 }, token: julianToken });
+  const { status, body } = await submit({ body: { trail: firstKey, rider: 'female', run: run(), time: 1 }, token: julianToken });
   assert.equal(status, 200, JSON.stringify(body));
-  assert.ok(Math.abs(body.time - orchardRun.outcome.elapsed) < 0.001, `server time ${body.time} matches the replay`);
+  assert.ok(Math.abs(body.time - firstTrailRun.outcome.elapsed) < 0.001, `server time ${body.time} matches the replay`);
   assert.equal(body.rank, 1);
   assert.equal(body.total, 1);
   assert.equal(body.runs[0].name, 'Julian');
   assert.equal(body.runs[0].rider, 'female');
 
   // Cutting inputs off before the finish line.
-  const short = structuredClone(orchardRun.inputs);
+  const short = structuredClone(firstTrailRun.inputs);
   short[short.length - 1][0] = 1;
   short.splice(-3);
-  assert.equal((await submit({ body: { trail: orchard, run: run({ ...orchardRun, inputs: short }) }, token: julianToken })).status, 422, 'unfinished runs are refused');
-  assert.equal((await submit({ body: { trail: orchard.replace(/@.*/, '@00000000'), run: run() }, token: julianToken })).status, 409, 'stale trail versions are refused');
-  assert.equal((await submit({ body: { trail: orchard, run: { ...run(), physics: RIDE_VERSION - 1 } }, token: julianToken })).status, 409, 'old physics versions are refused');
-  assert.equal((await submit({ body: { trail: keyOf('official:02-rolling-country'), run: run() }, token: julianToken })).status, 422, 'inputs from another trail do not finish it');
+  assert.equal((await submit({ body: { trail: firstKey, run: run({ ...firstTrailRun, inputs: short }) }, token: julianToken })).status, 422, 'unfinished runs are refused');
+  assert.equal((await submit({ body: { trail: firstKey.replace(/@.*/, '@00000000'), run: run() }, token: julianToken })).status, 409, 'stale trail versions are refused');
+  assert.equal((await submit({ body: { trail: firstKey, run: { ...run(), physics: RIDE_VERSION - 1 } }, token: julianToken })).status, 409, 'old physics versions are refused');
+  assert.equal((await submit({ body: { trail: keyOf(secondTrail.id), run: run() }, token: julianToken })).status, 422, 'inputs from another trail do not finish it');
   for (const inputs of [[], [[1, 1, 2, 1, 0]], [[0, 1, 0, 1, 0]], [[1.5, 1, 0, 1, 0]], [[1, 0, 0, 1, 0]], [[1, 1, 0, 2, 0]], [[72001, 1, 0, 0, 0]], 'x']) {
-    assert.equal((await submit({ body: { trail: orchard, run: { ...run(), inputs } }, token: julianToken })).status, 400, `malformed inputs ${JSON.stringify(inputs)}`);
+    assert.equal((await submit({ body: { trail: firstKey, run: { ...run(), inputs } }, token: julianToken })).status, 400, `malformed inputs ${JSON.stringify(inputs)}`);
   }
 
   // A slower run keeps the best one and its ghost; a faster one replaces it.
-  await sql`update runs set time_ms = 5000, replay = '{"marker":1}'::jsonb where trail = ${orchard}`;
-  const slower = await submit({ body: { trail: orchard, rider: 'male', run: run() }, token: julianToken });
+  await sql`update runs set time_ms = 5000, replay = '{"marker":1}'::jsonb where trail = ${firstKey}`;
+  const slower = await submit({ body: { trail: firstKey, rider: 'male', run: run() }, token: julianToken });
   assert.equal(slower.status, 200, JSON.stringify(slower.body));
   assert.equal(slower.body.best, 5);
   assert.equal(slower.body.improved, false);
   assert.equal(slower.body.runs[0].rider, 'female', 'the best run keeps its rider');
-  assert.equal((await sql`select replay from runs where trail = ${orchard}`)[0].replay.marker, 1);
-  await sql`update runs set time_ms = 60000 where trail = ${orchard}`;
-  const faster = await submit({ body: { trail: orchard, rider: 'female', run: run() }, token: julianToken });
+  assert.equal((await sql`select replay from runs where trail = ${firstKey}`)[0].replay.marker, 1);
+  await sql`update runs set time_ms = 60000 where trail = ${firstKey}`;
+  const faster = await submit({ body: { trail: firstKey, rider: 'female', run: run() }, token: julianToken });
   assert.equal(faster.body.improved, true);
   assert.equal(faster.body.runs.length, 1, 'one row per rider');
 
-  const ghost = await call(leaderboard, '/api/leaderboard?ghost=1&trail=' + encodeURIComponent(orchard), { method: 'GET' });
+  const ghost = await call(leaderboard, '/api/leaderboard?ghost=1&trail=' + encodeURIComponent(firstKey), { method: 'GET' });
   assert.equal(ghost.status, 200);
   assert.equal(ghost.body.ghost.name, 'Julian');
   assert.equal(ghost.body.ghost.replay.physics, RIDE_VERSION);
-  assert.ok(Math.abs(ghost.body.ghost.replay.time - orchardRun.outcome.elapsed) < 0.001, 'world ghost is the best replay');
-  const none = await call(leaderboard, '/api/leaderboard?ghost=1&trail=' + encodeURIComponent(keyOf('official:03-high-hopes')), { method: 'GET' });
+  assert.ok(Math.abs(ghost.body.ghost.replay.time - firstTrailRun.outcome.elapsed) < 0.001, 'world ghost is the best replay');
+  const none = await call(leaderboard, '/api/leaderboard?ghost=1&trail=' + encodeURIComponent(keyOf(thirdTrail.id)), { method: 'GET' });
   assert.equal(none.body.ghost, null, 'no ghost before anyone finishes');
 
-  const listed = await board(orchard);
+  const listed = await board(firstKey);
   assert.equal(listed.body.runs[0].name, 'Julian');
   assert.equal((await board('trail:abcdef12')).status, 400, 'custom trails stay local');
 }
@@ -258,22 +265,22 @@ const run = (replay = orchardRun) => ({ inputs: replay.inputs, seed: replay.seed
 // --- Cloud save and login restore ---------------------------------------------
 
 {
-  const save = { rider: 'female', createdAt: 1700000000000, trail: 1, unlocked: 2, bestTimes: { [orchard]: 8.192, 'not-a-key': 3, [keyOf('official:02-rolling-country')]: -1 }, extra: 'x'.repeat(100) };
+  const save = { rider: 'female', createdAt: 1700000000000, trail: 1, unlocked: 2, bestTimes: { [firstKey]: 8.192, 'not-a-key': 3, [keyOf(secondTrail.id)]: -1 }, extra: 'x'.repeat(100) };
   assert.equal((await api('save', { method: 'PUT', body: { save } })).status, 401);
   assert.equal((await api('save', { method: 'POST', body: { save }, token: julianToken })).status, 405);
   assert.equal((await api('save', { method: 'PUT', body: { save }, token: julianToken })).status, 200);
   assert.equal((await api('save', { method: 'PUT', body: { save: { ...save, extra: 'x'.repeat(40_000) } }, token: julianToken })).status, 413);
 
   const { body } = await loginRider(julian);
-  assert.deepEqual(body.save, { rider: 'female', createdAt: 1700000000000, trail: 1, unlocked: 2, bestTimes: { [orchard]: 8.192 } }, 'only savegame fields are kept');
+  assert.deepEqual(body.save, { rider: 'female', createdAt: 1700000000000, trail: 1, unlocked: 2, bestTimes: { [firstKey]: 8.192 } }, 'only savegame fields are kept');
   assert.equal(body.runs.length, 1);
   const { trail, ghost } = body.runs[0];
-  assert.equal(trail, orchard);
+  assert.equal(trail, firstKey);
   assert.equal(ghost.physics, RIDE_VERSION);
-  assert.ok(Math.abs(ghost.time - orchardRun.outcome.elapsed) < 0.001);
-  assert.equal(ghost.splits.length, orchardRun.outcome.apples, 'ghost has a split per apple');
+  assert.ok(Math.abs(ghost.time - firstTrailRun.outcome.elapsed) < 0.001);
+  assert.equal(ghost.splits.length, firstTrailRun.outcome.apples, 'ghost has a split per apple');
   assert.ok(Number.isInteger(ghost.startStep) && ghost.startStep >= 0);
-  assert.equal(ghost.inputs.reduce((sum, row) => sum + row[0], 0), orchardRun.steps, 'ghost keeps the inputs up to the finish');
+  assert.equal(ghost.inputs.reduce((sum, row) => sum + row[0], 0), firstTrailRun.steps, 'ghost keeps the inputs up to the finish');
 }
 
 // --- Passkeys on other hosts ----------------------------------------------------
