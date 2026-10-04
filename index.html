@@ -92,7 +92,7 @@
                     </button>
                 </div>
 
-                <div class="overlay" id="overlay" hidden>
+                <dialog class="overlay" id="overlay" aria-labelledby="overlay-title">
                     <div class="modal">
                         <div class="modal-badge" id="overlay-badge">
                             CRASHED
@@ -135,15 +135,15 @@
                             Your helmet hit the ground. Reset and give the trail
                             another run.
                         </p>
-                        <button class="primary" id="primary">
-                            Try Again ↗
+                        <button class="primary arrow-after" id="primary" autofocus>
+                            Play Again
                         </button>
                         <button class="secondary" id="secondary" hidden="">
                             Back to Menu
                         </button>
                         <p class="results-hint" id="results-hint" hidden></p>
                     </div>
-                </div>
+                </dialog>
                 <div class="pause-overlay" id="pause-overlay" hidden>
                     <span class="pause-title">PAUSED</span
                     ><span class="pause-hint">Press P or Esc to resume</span>
@@ -303,9 +303,9 @@
                                         ></small
                                     ></span>
                                     <span
-                                        class="continue-arrow"
+                                        class="continue-arrow px-arrow"
                                         aria-hidden="true"
-                                        >→</span
+                                        ></span
                                     >
                                 </button>
                                 <button
@@ -383,7 +383,7 @@
                                     <h3>Riders</h3>
                                 </div>
                                 <button class="menu-back" data-menu-back>
-                                    ← BACK
+                                    BACK
                                 </button>
                             </div>
                             <p class="load-game-help">
@@ -421,7 +421,7 @@
                                     <h3>Choose a trail</h3>
                                 </div>
                                 <button class="menu-back" data-menu-back>
-                                    ← BACK
+                                    BACK
                                 </button>
                             </div>
                             <div class="trail-grid" id="menu-trail-grid"></div>
@@ -458,7 +458,7 @@
                                     <h3>Leaderboard</h3>
                                 </div>
                                 <button class="menu-back" data-menu-back>
-                                    ← BACK
+                                    BACK
                                 </button>
                             </div>
                             <div class="leaderboard-trail">
@@ -468,7 +468,7 @@
                                     id="leaderboard-prev"
                                     aria-label="Previous trail"
                                 >
-                                    ←
+                                    <span class="px-arrow back" aria-hidden="true"></span>
                                 </button>
                                 <div
                                     class="leaderboard-trail-copy"
@@ -493,7 +493,7 @@
                                     id="leaderboard-next"
                                     aria-label="Next trail"
                                 >
-                                    →
+                                    <span class="px-arrow" aria-hidden="true"></span>
                                 </button>
                             </div>
                             <ol
@@ -519,7 +519,7 @@
                                     <h3>Choose your rider</h3>
                                 </div>
                                 <button class="menu-back" data-menu-back>
-                                    ← BACK
+                                    BACK
                                 </button>
                             </div>
                             <p class="save-warning" id="save-warning">
@@ -628,10 +628,10 @@
                                 >
                             </div>
                             <button
-                                class="primary create-save-button"
+                                class="primary create-save-button arrow-after"
                                 id="create-save"
                             >
-                                Create Passkey &amp; Ride →
+                                Create Passkey &amp; Ride
                             </button>
                             <p
                                 class="account-status"
@@ -660,7 +660,7 @@
                                     <h3>How to play</h3>
                                 </div>
                                 <button class="menu-back" data-menu-back>
-                                    ← BACK
+                                    BACK
                                 </button>
                             </div>
                             <div class="how-grid">
@@ -751,7 +751,7 @@
                                     <h3>Settings</h3>
                                 </div>
                                 <button class="menu-back" data-menu-back>
-                                    ← BACK
+                                    BACK
                                 </button>
                             </div>
                             <div class="dashboard-settings">

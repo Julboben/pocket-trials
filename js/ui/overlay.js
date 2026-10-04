@@ -4,6 +4,24 @@ import { $, timeText, runTimeText, deltaText } from "../state.js";
 import { MEDALS } from "../trail-schema.js";
 
 export function createOverlay() {
+  const dialog = /** @type {HTMLDialogElement} */ ($("overlay"));
+  const toasts = /** @type {HTMLElement} */ (document.querySelector(".toast-stack"));
+  const toastHome = /** @type {HTMLElement} */ (toasts.parentElement);
+  const toastNext = toasts.nextSibling;
+  // Escape opens the menu (handled by the game), never just the dialog.
+  dialog.addEventListener("cancel", (event) => event.preventDefault());
+
+  /** The modal sits in the top layer; toasts move in with it to stay visible. */
+  function openDialog() {
+    if (!dialog.open) dialog.showModal();
+    dialog.append(toasts);
+  }
+
+  function closeDialog() {
+    if (dialog.open) dialog.close();
+    if (toasts.parentElement !== toastHome) toastHome.insertBefore(toasts, toastNext);
+  }
+
   let lastTimer = "",
     toastUntil = 0,
     splitUntil = 0;
@@ -89,14 +107,13 @@ export function createOverlay() {
   }
 
   function hide() {
-    $("overlay").hidden = true;
+    closeDialog();
     $("pause-overlay").hidden = true;
   }
 
   /** Shows the results modal again without recomputing it. */
   function reopen() {
-    $("overlay").hidden = false;
-    requestAnimationFrame(() => $("primary").focus({ preventScroll: true }));
+    openDialog();
   }
 
   /**
@@ -165,8 +182,7 @@ export function createOverlay() {
       "Press " + result.restartKey + " to retry · Enter to continue";
     $("results-hint").hidden = false;
     $("pause-overlay").hidden = true;
-    $("overlay").hidden = false;
-    requestAnimationFrame(() => $("primary").focus({ preventScroll: true }));
+    openDialog();
     announce(
       "Trail complete in " +
         runTimeText(time) +

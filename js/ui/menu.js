@@ -530,7 +530,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     $('save-mode-help').textContent = online
       ? 'Your name is yours alone on the world leaderboard. You sign in with a passkey (fingerprint, face or device PIN), and your progress is backed up.'
       : 'Stays in this browser only: no world leaderboard, and clearing site data deletes it. You can take it online later from Riders.';
-    $('create-save').textContent = online ? 'Create Passkey & Ride →' : 'Create Save & Ride →';
+    $('create-save').textContent = online ? 'Create Passkey & Ride' : 'Create Save & Ride';
   }
 
   function useNewSave(index, save) {

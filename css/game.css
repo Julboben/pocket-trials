@@ -268,18 +268,33 @@ canvas {
     display: none;
 }
 
+/* The results modal is a <dialog> opened with showModal(): it sits in the top
+   layer above the HUD and controls (which turn inert), clear of the notch and
+   the home bar, and scrolls when it is taller than the screen. */
 .overlay {
-    position: absolute;
-    z-index: 6;
+    position: fixed;
     inset: 0;
-    padding: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border: 0;
+    padding: calc(16px + env(safe-area-inset-top, 0px))
+        calc(16px + env(safe-area-inset-right, 0px))
+        calc(16px + env(safe-area-inset-bottom, 0px))
+        calc(16px + env(safe-area-inset-left, 0px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
     background: #09100dc2;
+    color: inherit;
+    font: inherit;
 }
-.overlay[hidden] {
-    display: none;
+.overlay[open] {
+    display: flex;
+}
+.overlay::backdrop {
+    background: transparent;
 }
 .pause-overlay {
     position: absolute;
@@ -308,6 +323,9 @@ canvas {
     opacity: 0.8;
 }
 .modal {
+    /* Auto margins centre it, but never past the top when it overflows. */
+    flex-shrink: 0;
+    margin: auto;
     width: min(360px, 100%);
     padding: 26px;
     border: 1px solid #4b5553;
@@ -502,6 +520,12 @@ h2 {
     color: #7f9494;
     font-size: 9px;
     letter-spacing: 0.5px;
+}
+/* Keyboard shortcuts mean nothing on a touch screen. */
+@media (hover: none) and (pointer: coarse) {
+    .results-hint {
+        display: none;
+    }
 }
 
 .trail-best[data-medal="gold"] {
@@ -922,9 +946,8 @@ h2 {
     font-size: 8px;
 }
 .continue-arrow {
+    --px: 3px;
     color: var(--color-green);
-    font-size: 25px;
-    font-weight: 900;
 }
 .save-label {
     color: var(--color-text-muted);
@@ -1302,10 +1325,11 @@ h2 {
 .leaderboard-step {
     border: 1px solid var(--color-border);
     background: var(--color-surface);
+    --px: 3px;
     color: var(--color-green);
     box-shadow: var(--shadow-pixel);
-    font-size: 18px;
-    font-weight: 900;
+    display: grid;
+    place-items: center;
 }
 .leaderboard-step:hover {
     background: var(--color-surface-hover);
@@ -1910,4 +1934,30 @@ html[data-sandbox] body::after {
         monospace;
     letter-spacing: 1px;
     pointer-events: none;
+}
+
+/* Pixel arrow on a 7×5 grid in currentColor; --px sets the pixel size. */
+.px-arrow,
+.arrow-after::after,
+[data-menu-back]::before {
+    content: "";
+    display: inline-block;
+    flex: none;
+    width: calc(7 * var(--px, 2px));
+    height: calc(5 * var(--px, 2px));
+    vertical-align: middle;
+    background: currentColor;
+    -webkit-mask: var(--px-arrow) center / 100% 100% no-repeat;
+    mask: var(--px-arrow) center / 100% 100% no-repeat;
+    --px-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 5' shape-rendering='crispEdges'%3E%3Cpath d='M4 0h1v1H4zM4 1h2v1H4zM0 2h7v1H0zM4 3h2v1H4zM4 4h1v1H4z'/%3E%3C/svg%3E");
+}
+.px-arrow.back,
+[data-menu-back]::before {
+    transform: scaleX(-1);
+}
+.arrow-after::after {
+    margin: -2px 0 0 8px;
+}
+[data-menu-back]::before {
+    margin: -2px 6px 0 0;
 }
