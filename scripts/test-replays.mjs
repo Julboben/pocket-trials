@@ -183,6 +183,21 @@ for (const entry of entries) {
   assert.ok(slide > 140, `thrown rider glides after landing (${slide.toFixed(0)} px)`);
 }
 
+// Only the head crashes on terrain: a corner poking up between the wheels to
+// the hip is ignored, while the same corner at the head ends the run.
+{
+  const settled = createRide(flatTrail());
+  for (let step = 0; step < 60; step++) stepRide(settled, {});
+  const probes = riderCollisionPoints(settled);
+  for (const [name, crashes] of [['hip', false], ['head', true]]) {
+    const { x, y } = probes[name];
+    const trail = flatTrail({ terrainBlocks: [rectangle(0, 320, 3000, 620), rectangle(x - 3, y - 3, x + 3, y + 3, 'rock', 'corner')] });
+    const ride = createRide(trail);
+    for (let step = 0; step < 60 && ride.status === 'running'; step++) stepRide(ride, {});
+    assert.equal(ride.status === 'crashed', crashes, `terrain at the ${name} ${crashes ? 'crashes' : 'does not crash'}`);
+  }
+}
+
 // Falling below the trail ends the run.
 {
   const trail = flatTrail({ terrainBlocks: [rectangle(0, 320, 300, 620)], fallY: 700 });

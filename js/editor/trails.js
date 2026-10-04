@@ -15,6 +15,7 @@ import {
   trailEntries,
   uniqueCustomFile,
 } from "../trails.js";
+import { autosaveNow } from "./autosave.js";
 import { $ } from "./dom.js";
 import {
   addDraft,
@@ -24,6 +25,7 @@ import {
   listDrafts,
   markSaved,
   moveDrafts,
+  readAutosave,
   removeDraft,
   savedAt,
   savedName,
@@ -79,8 +81,28 @@ function publishedJson(index) {
 /**
  * The trail to open: its newest draft when that is newer than the last save,
  * otherwise the saved trail. Sets editor.version to say which it was.
+ *
+ * Unsaved edits autosaved since then are opened on top of that version, as if
+ * the page had never been left, with one undo step back to the version itself.
  */
 export function loadTrailData(index) {
+  const trail = loadVersion(index);
+  const entry = trailEntries[index];
+  const autosave = entry ? readAutosave(entry.id) : null;
+  const newest = Math.max(savedAt(entry?.id), listDrafts(entry?.id)[0]?.at ?? 0);
+  if (!autosave || autosave.at <= newest) return trail;
+  try {
+    const restored = normalizeTrail(autosave.trail, index);
+    if (JSON.stringify(restored, null, 2) === editor.version.base) return trail;
+    editor.version.restoredAt = autosave.at;
+    editor.history.push({ trail: JSON.stringify(trail), selection: null });
+    return restored;
+  } catch (_) {
+    return trail;
+  }
+}
+
+function loadVersion(index) {
   const entry = trailEntries[index];
   const stored = entry?.trail;
   const fallback = () => normalizeTrail(stored || createBlankTrail(index), index);
@@ -97,8 +119,15 @@ export function loadTrailData(index) {
   return trail;
 }
 
-/** Tell the author when a trail opened on a draft rather than the saved trail. */
+/** Tell the author when a trail opened on a draft or autosave rather than the saved trail. */
 export function announceVersion() {
+  if (editor.version?.restoredAt) {
+    showStatus(
+      "info",
+      `Restored your unsaved changes (${formatDraftTime(editor.version.restoredAt)}). Undo to go back to the saved version.`,
+    );
+    return;
+  }
   if (editor.version?.kind !== "draft") return;
   showStatus(
     "info",
@@ -118,6 +147,7 @@ export function saveDraft() {
     return;
   }
   setVersion("draft", at, editor.trail);
+  autosaveNow();
   updateVersionChip();
   flash($("save-draft"), "SAVED");
   if ($("versions").open) renderVersions();
@@ -304,11 +334,13 @@ function saveStatusText(entry) {
 }
 
 export function selectEntry(index) {
+  // Keep unsaved edits to the trail being left; they come back when it is reopened.
+  autosaveNow();
   editor.trailIndex = index;
-  editor.trail = loadTrailData(editor.trailIndex);
-  editor.selection = null;
   editor.history = [];
   editor.future = [];
+  editor.trail = loadTrailData(editor.trailIndex);
+  editor.selection = null;
   editor.focusPending = true;
   focusOnStart();
   rememberTrail();
@@ -361,6 +393,7 @@ export async function saveTrail() {
     const saved = await persist(entry, editor.trail);
     markSaved(entry.id);
     setVersion("saved", null, editor.trail);
+    autosaveNow();
     buildPicker();
     updateTrailControls();
     showStatus(
@@ -399,6 +432,8 @@ export async function deleteTrail() {
     if (entry.storage === "browser") deleteBrowserTrail(entry.key);
     else await deleteTrailFile(entry.file);
     clearDrafts(entry.id);
+    // The trail is gone, so there is nothing to autosave on the way out.
+    editor.version = null;
     selectEntry(0);
   } catch (error) {
     showStatus("error", `Could not delete: ${error.message}`);

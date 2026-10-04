@@ -399,26 +399,21 @@ export function stepRide(ride, input = {}, hooks = {}) {
   const riderContacts = riderCollisionPoints(ride);
   const { head } = riderContacts;
   const { x: mx, y: my } = bikeMidpoint(ride);
-  let riderObstacle = false;
-  for (const name in riderContacts) {
-    const point = riderContacts[name],
-      previous = ride.previousRiderContacts?.[name];
-    if (
-      (previous &&
-        terrainSweepCollision(
-          trail,
-          previous.x,
-          previous.y,
-          point.x,
-          point.y,
-          point.radius,
-        )) ||
-      terrainCollisionsAt(trail, point.x, point.y, point.radius)[0]
-    ) {
-      riderObstacle = true;
-      break;
-    }
-  }
+  // Only the head crashes on terrain; the body may brush corners that poke
+  // between the wheels. Spikes still hurt the whole rider below.
+  const previousHead = ride.previousRiderContacts?.head;
+  const riderObstacle = Boolean(
+    (previousHead &&
+      terrainSweepCollision(
+        trail,
+        previousHead.x,
+        previousHead.y,
+        head.x,
+        head.y,
+        head.radius,
+      )) ||
+      terrainCollisionsAt(trail, head.x, head.y, head.radius)[0],
+  );
   ride.previousRiderContacts = riderContacts;
   const spikeHit = touchedSpike(ride.spikes, [
     { x: rear.x, y: rear.y, radius: RADIUS },

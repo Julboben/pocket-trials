@@ -23,6 +23,7 @@ import {
 } from "./blocks.js";
 import { $ } from "./dom.js";
 import { pushHistory, updateHistoryButtons } from "./history.js";
+import { scheduleAutosave } from "./autosave.js";
 import { updateVersionChip } from "./drafts.js";
 import { updateValidationBadge } from "./menu.js";
 import { showStatus } from "./status.js";
@@ -230,6 +231,7 @@ function syncDetails() {
   const json = JSON.stringify(editor.trail, null, 2);
   $("trail-json").value = json;
   updateVersionChip(json);
+  scheduleAutosave();
   const messages = validateTrail(editor.trail);
   $("validation-list").replaceChildren(
     ...messages.map((message) => {

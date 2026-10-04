@@ -6,6 +6,8 @@ import { editor } from "./state.js";
 
 const DRAFTS_PREFIX = "hjulben-editor-drafts-v2-";
 const SAVED_AT_PREFIX = "hjulben-editor-saved-at-v1-";
+// One autosave per trail, apart from the drafts so it never pushes one out.
+const AUTOSAVE_PREFIX = "hjulben-editor-autosave-v1-";
 const MAX_DRAFTS = 12;
 
 function read(key, fallback) {
@@ -51,6 +53,23 @@ export function clearDrafts(id) {
   try {
     store().removeItem(DRAFTS_PREFIX + id);
     store().removeItem(SAVED_AT_PREFIX + id);
+    store().removeItem(AUTOSAVE_PREFIX + id);
+  } catch (_) {}
+}
+
+/** The trail as it was when last autosaved: `{ at, trail }`, or null. */
+export function readAutosave(id) {
+  const autosave = read(AUTOSAVE_PREFIX + id, null);
+  return Number.isFinite(autosave?.at) && autosave.trail ? autosave : null;
+}
+
+export function writeAutosave(id, trail) {
+  return write(AUTOSAVE_PREFIX + id, { at: Date.now(), trail });
+}
+
+export function clearAutosave(id) {
+  try {
+    store().removeItem(AUTOSAVE_PREFIX + id);
   } catch (_) {}
 }
 
@@ -58,7 +77,7 @@ export function clearDrafts(id) {
 export function moveDrafts(from, to) {
   if (from === to) return;
   try {
-    for (const prefix of [DRAFTS_PREFIX, SAVED_AT_PREFIX]) {
+    for (const prefix of [DRAFTS_PREFIX, SAVED_AT_PREFIX, AUTOSAVE_PREFIX]) {
       const value = store().getItem(prefix + from);
       if (value !== null) store().setItem(prefix + to, value);
       store().removeItem(prefix + from);

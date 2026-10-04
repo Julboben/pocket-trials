@@ -9,6 +9,7 @@ import {
   validateTrail,
 } from "../trail-schema.js";
 import { detectDevServer, terrainMaterials, trailEntries } from "../trails.js";
+import { bindAutosave } from "./autosave.js";
 import { bindClipboard } from "./clipboard.js";
 import { $, wrap } from "./dom.js";
 import { pushHistory, redo, undo, updateHistoryButtons } from "./history.js";
@@ -49,6 +50,8 @@ editor.gameArt = (() => {
 })();
 
 bindClipboard();
+
+bindAutosave();
 
 bindPlaytest();
 
