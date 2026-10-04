@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { RADIUS, STEP, WHEELBASE } from '../js/config.js';
 import { createRide, stepRide, riderCollisionPoints, simulateRun } from '../js/ride.js';
 import { createRagdoll, stepRagdoll } from '../js/ragdoll.js';
@@ -19,6 +19,9 @@ const deepestPenetration = (trail, points, radius) => Math.max(0, ...points.flat
 
 // Recorded runs through every official trail must reproduce their outcome.
 const entries = loadCatalogTrails('official');
+const expectedFixtures = new Set(entries.map(entry => entry.file.split('/').pop()));
+const staleFixtures = readdirSync(repoRoot + 'tests/replays').filter(file => file.endsWith('.json') && !expectedFixtures.has(file));
+assert.deepEqual(staleFixtures, [], `replay fixtures without an official trail: ${staleFixtures.join(', ')}; run node scripts/record-replays.mjs`);
 for (const entry of entries) {
   const path = 'tests/replays/' + entry.file.split('/').pop();
   assert.ok(existsSync(repoRoot + path), `missing replay fixture ${path}; run node scripts/record-replays.mjs`);
