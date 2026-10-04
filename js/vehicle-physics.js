@@ -84,6 +84,17 @@ import { atan2, exp, hypot } from "./det-math.js";
 
 const distance = (a, b) => hypot(a.x - b.x, a.y - b.y);
 const CRASHED_CHASSIS_CONTACT = { bounce: 0.1, friction: 0.35 };
+const CHASSIS_TOP_HEIGHT = 22;
+// chassis.top is a mass point floating well above the drawn seat and bars, so
+// a crashed bike collides through probes on the drawn outline instead. Each is
+// [offset along the mounts, height above the mount line]; the mount line sits
+// SUSPENSION_REST_LENGTH above the axles, and the seat and bars ~27 above.
+const CRASHED_FRAME_PROBES = [
+  [-20, 6],
+  [0, 7],
+  [20, 6],
+];
+const CRASHED_FRAME_PROBE_RADIUS = 3;
 
 export function createVehicle(rear, front) {
   const mountY = (rear.y + front.y) / 2 - SUSPENSION_REST_LENGTH;
@@ -102,7 +113,7 @@ export function createVehicle(rear, front) {
     frontMount: makePoint(front.x, mountY, XPBD_CHASSIS_MOUNT_INVERSE_MASS),
     top: makePoint(
       (rear.x + front.x) / 2,
-      mountY - 22,
+      mountY - CHASSIS_TOP_HEIGHT,
       XPBD_CHASSIS_TOP_INVERSE_MASS,
     ),
   };
@@ -218,6 +229,17 @@ export function createVehicle(rear, front) {
     ),
   ];
   const chassisPoints = [chassis.rearMount, chassis.frontMount, chassis.top];
+  // The physical pieces between the points: suspension legs and frame edges.
+  const frameLinks = [
+    [rear, chassis.rearMount],
+    [front, chassis.frontMount],
+    [chassis.rearMount, chassis.frontMount],
+    [chassis.rearMount, chassis.top],
+    [chassis.frontMount, chassis.top],
+  ];
+  const crashedFrameProbes = CRASHED_FRAME_PROBES.map(([along, height]) =>
+    createFrameProbe(chassisPoints, along, height),
+  );
   const bikePoints = [rear, front, ...chassisPoints];
   return {
     rear,
@@ -226,6 +248,8 @@ export function createVehicle(rear, front) {
     constraints,
     wheelbaseLimit,
     chassisPoints,
+    crashedFrameProbes,
+    frameLinks,
     bikePoints,
     dampedConstraints: [...constraints, wheelbaseLimit],
     wheelOrder: {
@@ -561,7 +585,9 @@ function collideWheel(trail, point, wheelName, hooks, sweep = true) {
 
 // Collision for loose points (ragdoll joints, a crashed chassis): bounce off
 // the surface and lose some tangential speed, with no rolling or traction.
-function resolveFreeContact(point, contact, bounce, friction) {
+// `grip` adds Coulomb friction: each contact removes sliding speed in proportion
+// to how hard the point presses on the surface, so a body can rest on a slope.
+function resolveFreeContact(point, contact, bounce, friction, grip = 0) {
   if (!contact || (contact.penetration <= 0 && !contact.swept)) return;
   const { nx, ny, penetration } = contact;
   let vx = point.x - point.ox,
@@ -574,8 +600,12 @@ function resolveFreeContact(point, contact, bounce, friction) {
   const tangentX = -ny,
     tangentY = nx,
     tangent = vx * tangentX + vy * tangentY;
-  vx -= tangentX * tangent * friction;
-  vy -= tangentY * tangent * friction;
+  const press = Math.max(0, -normal) + Math.max(0, penetration);
+  const slip =
+    Math.sign(tangent) *
+    Math.min(Math.abs(tangent), Math.max(Math.abs(tangent) * friction, grip * press));
+  vx -= tangentX * slip;
+  vy -= tangentY * slip;
   point.x += nx * penetration;
   point.y += ny * penetration;
   point.ox = point.x - vx;
@@ -587,7 +617,7 @@ export function collideFreePoint(
   trail,
   point,
   sweep,
-  { bounce = 0.12, friction = 0.16 } = {},
+  { bounce = 0.12, friction = 0.16, grip = 0 } = {},
 ) {
   if (sweep) {
     const intendedVx = point.x - point.ox,
@@ -605,7 +635,7 @@ export function collideFreePoint(
       point.y = swept.y + swept.ny * 0.01;
       point.ox = point.x - intendedVx;
       point.oy = point.y - intendedVy;
-      resolveFreeContact(point, swept, bounce, friction);
+      resolveFreeContact(point, swept, bounce, friction, grip);
       // Continue through the rest of the substep with the resolved velocity;
       // stopping at the time of impact would glue sliding points in place.
       advanceAfterTimeOfImpact(point, swept.time);
@@ -617,7 +647,239 @@ export function collideFreePoint(
     point.y,
     point.radius,
   ))
-    resolveFreeContact(point, contact, bounce, friction);
+    resolveFreeContact(point, contact, bounce, friction, grip);
+}
+
+// A probe is an affine blend of the chassis points; contact corrections are
+// spread over them by inverse mass, like an XPBD positional constraint.
+function frameWeights(along, height) {
+  const topWeight = height / CHASSIS_TOP_HEIGHT;
+  const mountWeight = (1 - topWeight) / 2;
+  return [
+    mountWeight - along / WHEELBASE,
+    mountWeight + along / WHEELBASE,
+    topWeight,
+  ];
+}
+
+function createFrameProbe(points, along, height) {
+  const weights = frameWeights(along, height);
+  const denominator = points.reduce(
+    (sum, point, index) => sum + weights[index] ** 2 * point.inverseMass,
+    0,
+  );
+  return {
+    points,
+    weights,
+    shares: points.map(
+      (point, index) => (weights[index] * point.inverseMass) / denominator,
+    ),
+  };
+}
+
+function blendProbe({ points, weights }, xKey, yKey) {
+  let x = 0,
+    y = 0;
+  for (let index = 0; index < points.length; index++) {
+    x += points[index][xKey] * weights[index];
+    y += points[index][yKey] * weights[index];
+  }
+  return { x, y };
+}
+
+function resolveFrameProbeContact(probe, contact, bounce, friction) {
+  const { x, y } = blendProbe(probe, "x", "y");
+  const old = blendProbe(probe, "ox", "oy");
+  const { nx, ny } = contact;
+  const penetration = contact.swept
+    ? (contact.x - x) * nx + (contact.y - y) * ny + 0.01
+    : contact.penetration;
+  if (penetration <= 0) return;
+  const vx = x - old.x,
+    vy = y - old.y;
+  let dvx = 0,
+    dvy = 0;
+  const normal = vx * nx + vy * ny;
+  if (normal < 0) {
+    dvx -= nx * normal * (1 + bounce);
+    dvy -= ny * normal * (1 + bounce);
+  }
+  const tangentX = -ny,
+    tangentY = nx,
+    tangent = (vx + dvx) * tangentX + (vy + dvy) * tangentY;
+  dvx -= tangentX * tangent * friction;
+  dvy -= tangentY * tangent * friction;
+  const dx = nx * penetration,
+    dy = ny * penetration;
+  for (let index = 0; index < probe.points.length; index++) {
+    const point = probe.points[index],
+      share = probe.shares[index];
+    if (!share) continue;
+    point.x += dx * share;
+    point.y += dy * share;
+    point.ox += (dx - dvx) * share;
+    point.oy += (dy - dvy) * share;
+    point.grounded = true;
+  }
+}
+
+function collideFrameProbe(trail, probe, sweep, { bounce, friction }) {
+  if (sweep) {
+    const from = blendProbe(probe, "ox", "oy");
+    const to = blendProbe(probe, "x", "y");
+    const swept = terrainSweepCollision(
+      trail,
+      from.x,
+      from.y,
+      to.x,
+      to.y,
+      CRASHED_FRAME_PROBE_RADIUS,
+    );
+    if (swept) resolveFrameProbeContact(probe, swept, bounce, friction);
+  }
+  const { x, y } = blendProbe(probe, "x", "y");
+  for (const contact of terrainCollisionsAt(
+    trail,
+    x,
+    y,
+    CRASHED_FRAME_PROBE_RADIUS,
+  ))
+    resolveFrameProbeContact(probe, contact, bounce, friction);
+}
+
+function collideCrashedChassis(vehicle, trail, sweep) {
+  if (vehicle.framePassThrough) return;
+  const { rearMount, frontMount } = vehicle.chassis;
+  for (const point of [rearMount, frontMount])
+    collideFreePoint(trail, point, sweep, CRASHED_CHASSIS_CONTACT);
+  for (const probe of vehicle.crashedFrameProbes)
+    collideFrameProbe(trail, probe, sweep, CRASHED_CHASSIS_CONTACT);
+}
+
+// The crashed bike as the thrown rider feels it: both wheels, plus capsules
+// along the seat, the frame between the mounts, and the engine. Capsule ends
+// are [offset along the mounts, height above the mount line], like the probes.
+const BIKE_BODY_CAPSULES = [
+  { from: frameWeights(-22, 6), to: frameWeights(22, 6), radius: 3 },
+  { from: frameWeights(-25, 0), to: frameWeights(25, 0), radius: 4 },
+  { from: frameWeights(-5, -12), to: frameWeights(3, -12), radius: 6 },
+];
+
+function nearestOnCapsule(chassisPoints, capsule, x, y) {
+  let ax = 0,
+    ay = 0,
+    bx = 0,
+    by = 0;
+  for (let index = 0; index < 3; index++) {
+    const point = chassisPoints[index];
+    ax += point.x * capsule.from[index];
+    ay += point.y * capsule.from[index];
+    bx += point.x * capsule.to[index];
+    by += point.y * capsule.to[index];
+  }
+  const dx = bx - ax,
+    dy = by - ay,
+    lengthSq = dx * dx + dy * dy || 1;
+  const t = Math.max(
+    0,
+    Math.min(1, ((x - ax) * dx + (y - ay) * dy) / lengthSq),
+  );
+  return {
+    x: ax + dx * t,
+    y: ay + dy * t,
+    weights: capsule.from.map(
+      (weight, index) => weight + (capsule.to[index] - weight) * t,
+    ),
+  };
+}
+
+/**
+ * Pushes a loose point (a ragdoll joint) out of the crashed bike and the bike
+ * back from it, shared by inverse mass. With `apply` false it only reports
+ * whether the point overlaps the bike.
+ * @returns {boolean} whether the point overlapped the bike
+ */
+export function collideWithBike(vehicle, point, inverseMass, apply = true) {
+  const { rear, front, chassisPoints } = vehicle;
+  let touched = false;
+  const push = (cx, cy, reach, bikePoints, weights) => {
+    const dx = point.x - cx,
+      dy = point.y - cy,
+      distanceSq = dx * dx + dy * dy;
+    if (distanceSq >= reach * reach) return;
+    touched = true;
+    if (!apply) return;
+    const length = hypot(dx, dy);
+    const nx = length > 1e-6 ? dx / length : 0,
+      ny = length > 1e-6 ? dy / length : -1;
+    let denominator = inverseMass;
+    for (let index = 0; index < bikePoints.length; index++)
+      denominator += weights[index] ** 2 * bikePoints[index].inverseMass;
+    const lambda = (reach - length) / denominator;
+    point.x += nx * lambda * inverseMass;
+    point.y += ny * lambda * inverseMass;
+    for (let index = 0; index < bikePoints.length; index++) {
+      const share = lambda * weights[index] * bikePoints[index].inverseMass;
+      bikePoints[index].x -= nx * share;
+      bikePoints[index].y -= ny * share;
+    }
+  };
+  for (const wheel of [rear, front])
+    push(wheel.x, wheel.y, RADIUS + point.radius, [wheel], [1]);
+  if (!vehicle.framePassThrough)
+    for (const capsule of BIKE_BODY_CAPSULES) {
+      const nearest = nearestOnCapsule(chassisPoints, capsule, point.x, point.y);
+      push(
+        nearest.x,
+        nearest.y,
+        capsule.radius + point.radius,
+        chassisPoints,
+        nearest.weights,
+      );
+    }
+  return touched;
+}
+
+// A link passes through terrain when a ray along it enters a surface from both
+// ends; one end merely resting inside a surface does not count.
+function linkCrossesTerrain(trail, a, b) {
+  return (
+    terrainSweepCollision(trail, a.x, a.y, b.x, b.y, 0) !== null &&
+    terrainSweepCollision(trail, b.x, b.y, a.x, a.y, 0) !== null
+  );
+}
+
+const overlapsTerrain = (trail, x, y, radius) =>
+  terrainCollisionsAt(trail, x, y, radius).some(
+    (contact) => contact.penetration > 0,
+  );
+
+function frameOverlapsTerrain(vehicle, trail) {
+  const { rearMount, frontMount } = vehicle.chassis;
+  return (
+    [rearMount, frontMount].some((point) =>
+      overlapsTerrain(trail, point.x, point.y, point.radius),
+    ) ||
+    vehicle.crashedFrameProbes.some((probe) => {
+      const { x, y } = blendProbe(probe, "x", "y");
+      return overlapsTerrain(trail, x, y, CRASHED_FRAME_PROBE_RADIUS);
+    })
+  );
+}
+
+// While riding only the wheels touch terrain, so the bike can hang with a
+// wheel over a thin ledge and the frame under it. Once crashed the frame
+// collides too and would hook the ledge, so while any link passes through
+// terrain the frame keeps passing through it, as it does while riding, and the
+// wheels keep rolling on the edge. The frame collides again once the bike is
+// clear of the ledge and the frame is out of the ground.
+function updateCrashedPassThrough(vehicle, trail) {
+  const straddling = vehicle.frameLinks.some(([a, b]) =>
+    linkCrossesTerrain(trail, a, b),
+  );
+  if (straddling) vehicle.framePassThrough = true;
+  else if (vehicle.framePassThrough)
+    vehicle.framePassThrough = frameOverlapsTerrain(vehicle, trail);
 }
 
 // `controls.crashed` hands the bike to physics alone: the chassis collides with
@@ -793,13 +1055,12 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
 
   const solverWheels =
     facing < 0 ? vehicle.wheelOrder.backward : vehicle.wheelOrder.forward;
+  if (crashed) updateCrashedPassThrough(vehicle, trail);
   for (const [point, name] of solverWheels) {
     collideWheel(trail, point, name, hooks);
     holdBrakedWheel(point);
   }
-  if (crashed)
-    for (const point of vehicle.chassisPoints)
-      collideFreePoint(trail, point, true, CRASHED_CHASSIS_CONTACT);
+  if (crashed) collideCrashedChassis(vehicle, trail, true);
   for (let iteration = 0; iteration < BIKE_SOLVER_ITERATIONS; iteration++) {
     hooks.iteration?.(iteration);
     for (const constraint of constraints) {
@@ -816,9 +1077,7 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
       collideWheel(trail, point, name, hooks, false);
       holdBrakedWheel(point);
     }
-    if (crashed)
-      for (const point of vehicle.chassisPoints)
-        collideFreePoint(trail, point, false, CRASHED_CHASSIS_CONTACT);
+    if (crashed) collideCrashedChassis(vehicle, trail, false);
     hooks.contactsResolved?.();
   }
   // In the air nothing outside the bike can speed up its spin. The wheel

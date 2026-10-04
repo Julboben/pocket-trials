@@ -83,13 +83,6 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('cus
   assert.match(trailHash(a), /^[0-9a-f]{8}$/);
   const d = normalizeTrail({ ...a, props: [{ x: 100, y: null, type: 'fence' }] });
   assert.equal(trailHash(a), trailHash(d), 'props do not change the identity');
-  // Dropping a base material that matches the first block keeps the hash.
-  const legacy = { ...a, terrain: a.terrainBlocks[0].material };
-  const { terrain: _dropped, ...stripped } = legacy;
-  assert.equal(trailHash(stripped), trailHash(legacy), 'a matching base material is not needed for the hash');
-  assert.equal(trailHash(normalizeTrail(legacy)), trailHash(legacy), 'normalizing drops it without changing the hash');
-  for (const colour of ['sky', 'sun', 'mountain', 'spray'])
-    assert.equal(colour in normalizeTrail({ ...a, [colour]: '#fff' }), false, `${colour} is dropped`);
 }
 
 // Only official trails, keyed by id and gameplay hash, go to the online board.

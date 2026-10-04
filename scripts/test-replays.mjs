@@ -5,11 +5,11 @@ import { createRide, stepRide, riderCollisionPoints, simulateRun } from '../js/r
 import { decodeInputs, encodeInputs } from '../js/replay-codec.js';
 import { terrainCollisionsAt, terrainAt } from '../js/terrain.js';
 import { loadCatalogTrails, readJson, repoRoot } from './lib/trails.mjs';
-import { rectangle } from './lib/terrain-fixtures.mjs';
+import { polygonBlock, rectangle } from './lib/terrain-fixtures.mjs';
 
 const FINISH_TOLERANCE = .05;
 const flatTrail = (overrides = {}) => ({
-  name: 'test', terrainBlocks: [rectangle(0, 320, 3000, 620)], terrain: 'grass', fallY: 820,
+  name: 'test', terrainBlocks: [rectangle(0, 320, 3000, 620)], fallY: 820,
   start: { x: 120, y: null, facing: 1 }, goal: 2800, apples: [], spikes: [], ...overrides
 });
 const hold = (steps, input) => Array.from({ length: steps }, () => ({ facing: 1, leanInput: 0, accelerating: false, braking: false, ...input }));
@@ -103,6 +103,35 @@ for (const entry of entries) {
   assert.ok(deepestPenetration(trail, ride.vehicle.chassisPoints) < 2, 'crashed chassis rests on the ground');
   const ground = terrainAt(trail, ride.vehicle.chassis.top.x).y;
   assert.ok(ride.vehicle.chassisPoints.every(point => point.y < ground + 1), 'chassis did not sink through the ground');
+}
+
+// The thrown rider keeps the neck and hips inside their limits, comes to rest
+// on flat ground, and grips a moderate slope instead of creeping down it.
+{
+  const turn = (a, joint, b, mirror) => Math.atan2(
+    (joint.x - a.x) * (b.y - joint.y) - (joint.y - a.y) * (b.x - joint.x),
+    (joint.x - a.x) * (b.x - joint.x) + (joint.y - a.y) * (b.y - joint.y)) * mirror;
+  const check = (trail, label) => {
+    const { ride } = simulateRun(trail, hold(900, { accelerating: true }));
+    assert.equal(ride.status, 'crashed', `${label}: crashes`);
+    const { points } = ride.ragdoll;
+    let restX = null;
+    for (let step = 0; step < 1200; step++) {
+      stepRide(ride, {});
+      for (const limit of ride.ragdoll.angleLimits) {
+        const angle = turn(points[limit.a], points[limit.joint], points[limit.b], limit.mirror);
+        assert.ok(angle >= limit.least - .05 && angle <= limit.most + .05, `${label}: ${limit.joint} stays inside its limit`);
+      }
+      if (step === 900) restX = points.hip.x;
+    }
+    assert.ok(ride.ragdoll.asleep, `${label}: the rider comes to rest`);
+    assert.ok(Math.abs(points.hip.x - restX) < .5, `${label}: the rider stays put`);
+  };
+  check(flatTrail({ spikes: [{ x: 400, y: 300, radius: 18 }] }), 'flat');
+  check(flatTrail({
+    terrainBlocks: [polygonBlock([[0, 320], [300, 320], [1300, 720], [3000, 720], [3000, 1200], [0, 1200]])],
+    fallY: 1400, spikes: [{ x: 500, y: 380, radius: 18 }],
+  }), 'slope');
 }
 
 // Falling below the trail ends the run.

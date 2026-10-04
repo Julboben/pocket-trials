@@ -1,23 +1,42 @@
 // @ts-check
 import { STEP, GRAVITY } from "./config.js";
-import { collideFreePoint } from "./vehicle-physics.js";
+import { collideFreePoint, collideWithBike } from "./vehicle-physics.js";
 import { atan2, cos, hypot, sin } from "./det-math.js";
+import { RAGDOLL_WATER, RAGDOLL_WATER_RADIUS, applyWater } from "./water.js";
 
-const RAGDOLL_CONTACT = { bounce: 0.12, friction: 0.16 };
+// `grip` lets a resting body hold on slopes up to about 35 degrees.
+const RAGDOLL_CONTACT = { bounce: 0.12, friction: 0.16, grip: 0.7 };
 const SOLVER_ITERATIONS = 6;
+// Share of the relative swing between linked joints lost each step, so limbs
+// stop flailing once the body has landed.
+const LINK_DAMPING = 0.025;
+// The body sleeps once every joint has moved less than this (px per step)
+// for SLEEP_STEPS steps, and wakes when the bike runs into it.
+const SLEEP_SPEED = 0.02;
+const SLEEP_STEPS = 60;
+// Rough share of the rider's weight at each joint; the torso carries most.
+const MASS = {
+  head: 0.55,
+  shoulder: 1.6,
+  hip: 1.8,
+  elbow: 0.4,
+  hand: 0.3,
+  knee: 0.9,
+  foot: 0.5,
+};
+const DEGREE = Math.PI / 180;
+// How far the head tips against the spine, and the thigh swings against the
+// torso, in degrees: [a, joint, b, least, most]. Angles are measured facing
+// right, negative tipping forwards; seated, the hip sits at -90.
+/** @type {Array<[string, string, string, number, number]>} */
+const ANGLE_LIMITS = [
+  ["hip", "shoulder", "head", -70, 30],
+  ["shoulder", "hip", "knee", -150, 25],
+];
 // Knees and elbows fold at most this far: the distance between the outer
 // joints never drops below this share of the two limb lengths combined.
 const MIN_FOLD = 0.38;
 
-const POSE = {
-  head: [3, -43],
-  shoulder: [1, -35],
-  hip: [-8, -24],
-  elbow: [11, -30],
-  hand: [19, -25],
-  knee: [4, -14],
-  foot: [-2, -3],
-};
 const LINKS = [
   ["head", "shoulder"],
   ["shoulder", "hip"],
@@ -35,20 +54,14 @@ const cross = (a, b, c) =>
   (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
 
 /**
- * Throws the rider off the bike. `random` must return values in [0, 1) so the
- * same seed always produces the same crash.
- * @param {{ x: number, y: number, ox: number, oy: number }} rear
- * @param {{ x: number, y: number, ox: number, oy: number }} front
- * @param {number} facing
- * @param {() => number} random
- */
-/**
  * Throws the rider off the bike.
  *
  * Pass the current drawBike visual state as the fifth argument.
  * Capture it BEFORE resetting lean, suspension, facing or crash state.
  *
- * `random` must return values in [0, 1) for deterministic crashes.
+ * `random` must return values in [0, 1) for deterministic crashes. Each joint
+ * keeps the bike's velocity at its position, spin included, so a rider thrown
+ * mid-flip is flung outwards rather than dropped.
  *
  * @param {{ x: number, y: number, ox: number, oy: number, compression?: number }} rear
  * @param {{ x: number, y: number, ox: number, oy: number, compression?: number }} front
@@ -104,6 +117,14 @@ export function createRagdoll(rear, front, facing, random, visual = {}) {
 
   const vx = (rear.x - rear.ox + (front.x - front.ox)) / 2;
   const vy = (rear.y - rear.oy + (front.y - front.oy)) / 2;
+  const centerX = (rear.x + front.x) / 2,
+    centerY = (rear.y + front.y) / 2;
+  const axisX = front.x - rear.x,
+    axisY = front.y - rear.y;
+  const spin =
+    (axisX * (front.y - front.oy - (rear.y - rear.oy)) -
+      axisY * (front.x - front.ox - (rear.x - rear.ox))) /
+    (axisX * axisX + axisY * axisY || 1);
 
   const points = {};
 
@@ -117,8 +138,8 @@ export function createRagdoll(rear, front, facing, random, visual = {}) {
     const x = mx + c * localX - s * bodyY;
     const y = my + s * localX + c * bodyY;
 
-    const pvx = vx + (random() - 0.5) * 0.35;
-    const pvy = vy - 1.1 + (random() - 0.5) * 0.25;
+    const pvx = vx - spin * (y - centerY) + (random() - 0.5) * 0.35;
+    const pvy = vy + spin * (x - centerX) - 1.1 + (random() - 0.5) * 0.25;
 
     points[name] = {
       x,
@@ -126,6 +147,7 @@ export function createRagdoll(rear, front, facing, random, visual = {}) {
       ox: x - pvx,
       oy: y - pvy,
       radius: name === "head" ? 6 : 3,
+      inverseMass: 1 / MASS[name],
     };
   }
 
@@ -157,12 +179,75 @@ export function createRagdoll(rear, front, facing, random, visual = {}) {
     };
   });
 
+  const angleLimits = ANGLE_LIMITS.map(([a, joint, b, least, most]) => ({
+    a,
+    joint,
+    b,
+    mirror: flipVisual < 0 ? -1 : 1,
+    least: least * DEGREE,
+    most: most * DEGREE,
+  }));
+
   return {
     points,
     links,
     hinges,
+    angleLimits,
     list: Object.values(points),
+    still: 0,
+    asleep: false,
   };
+}
+
+const rotateAbout = (point, center, angle) => {
+  const c = cos(angle),
+    s = sin(angle);
+  const dx = point.x - center.x,
+    dy = point.y - center.y;
+  point.x = center.x + dx * c - dy * s;
+  point.y = center.y + dx * s + dy * c;
+};
+
+// Swings the outer joints back inside the allowed turn at the middle joint,
+// the lighter end moving more.
+function enforceAngleLimit(points, limit) {
+  const a = points[limit.a],
+    joint = points[limit.joint],
+    b = points[limit.b];
+  const ux = joint.x - a.x,
+    uy = joint.y - a.y,
+    vx = b.x - joint.x,
+    vy = b.y - joint.y;
+  const turn = atan2(ux * vy - uy * vx, ux * vx + uy * vy) * limit.mirror;
+  const excess =
+    turn < limit.least
+      ? turn - limit.least
+      : turn > limit.most
+        ? turn - limit.most
+        : 0;
+  if (!excess) return;
+  const correction = excess * limit.mirror;
+  const share = a.inverseMass / (a.inverseMass + b.inverseMass);
+  rotateAbout(a, joint, correction * share);
+  rotateAbout(b, joint, -correction * (1 - share));
+}
+
+// Bleeds off part of the relative velocity across each link, keeping the
+// pair's shared momentum.
+function dampLinks(ragdoll) {
+  for (const link of ragdoll.links) {
+    const a = ragdoll.points[link.a],
+      b = ragdoll.points[link.b];
+    const dvx = b.x - b.ox - (a.x - a.ox),
+      dvy = b.y - b.oy - (a.y - a.oy);
+    const total = a.inverseMass + b.inverseMass;
+    const shareA = (LINK_DAMPING * a.inverseMass) / total,
+      shareB = (LINK_DAMPING * b.inverseMass) / total;
+    a.ox -= dvx * shareA;
+    a.oy -= dvy * shareA;
+    b.ox += dvx * shareB;
+    b.oy += dvy * shareB;
+  }
 }
 
 // A knee or elbow that bends backwards is mirrored across the line through
@@ -180,24 +265,68 @@ function enforceHinge(points, hinge) {
       footY = a.y + dy * t;
     const mirroredX = 2 * footX - joint.x,
       mirroredY = 2 * footY - joint.y;
-    joint.ox += mirroredX - joint.x;
-    joint.oy += mirroredY - joint.y;
+    // Keep only the joint's speed along the limb; carrying its speed across
+    // would drive it back through the line every step.
+    const length = Math.sqrt(lengthSq);
+    const alongX = dx / length,
+      alongY = dy / length;
+    const along = (joint.x - joint.ox) * alongX + (joint.y - joint.oy) * alongY;
     joint.x = mirroredX;
     joint.y = mirroredY;
+    joint.ox = mirroredX - alongX * along;
+    joint.oy = mirroredY - alongY * along;
   }
   const dx = b.x - a.x,
     dy = b.y - a.y,
     span = hypot(dx, dy) || 0.001;
   if (span < hinge.minSpan) {
-    const push = ((hinge.minSpan - span) / span) * 0.5;
-    a.x -= dx * push;
-    a.y -= dy * push;
-    b.x += dx * push;
-    b.y += dy * push;
+    const push = (hinge.minSpan - span) / span / (a.inverseMass + b.inverseMass);
+    a.x -= dx * push * a.inverseMass;
+    a.y -= dy * push * a.inverseMass;
+    b.x += dx * push * b.inverseMass;
+    b.y += dy * push * b.inverseMass;
   }
 }
 
-export function stepRagdoll(ragdoll, trail) {
+// Joints that start inside the bike (feet on the pegs, seat) only collide with
+// it once they have come clear, so the throw does not explode off the seat.
+function collideRagdollWithBike(ragdoll, vehicle) {
+  let touched = false;
+  for (const p of ragdoll.list) {
+    if (!p.clearOfBike) {
+      p.clearOfBike = !collideWithBike(vehicle, p, p.inverseMass, false);
+      continue;
+    }
+    if (collideWithBike(vehicle, p, p.inverseMass)) touched = true;
+  }
+  return touched;
+}
+
+/**
+ * @param {any} ragdoll
+ * @param {any} trail
+ * @param {import('./types.js').Water[]} [water] normalized water bodies, which buoy the rider up
+ * @param {import('./types.js').Vehicle} [vehicle] the crashed bike, which the rider bumps into
+ */
+export function stepRagdoll(ragdoll, trail, water = [], vehicle = null) {
+  if (ragdoll.asleep) {
+    if (!vehicle || !collideRagdollWithBike(ragdoll, vehicle)) {
+      for (const p of ragdoll.list) {
+        p.ox = p.x;
+        p.oy = p.y;
+      }
+      return;
+    }
+    ragdoll.asleep = false;
+    ragdoll.still = 0;
+  }
+  let floating = false;
+  if (water.length)
+    for (const p of ragdoll.list)
+      if (
+        applyWater(p, Math.max(p.radius, RAGDOLL_WATER_RADIUS), water, RAGDOLL_WATER)
+      )
+        floating = true;
   for (const p of ragdoll.list) {
     const vx = (p.x - p.ox) * 0.996,
       vy = (p.y - p.oy) * 0.996;
@@ -213,16 +342,27 @@ export function stepRagdoll(ragdoll, trail) {
       const dx = b.x - a.x,
         dy = b.y - a.y,
         d = hypot(dx, dy) || 0.001;
-      const correction = ((d - link.length) / d) * 0.5;
-      a.x += dx * correction;
-      a.y += dy * correction;
-      b.x -= dx * correction;
-      b.y -= dy * correction;
+      const correction =
+        (d - link.length) / d / (a.inverseMass + b.inverseMass);
+      a.x += dx * correction * a.inverseMass;
+      a.y += dy * correction * a.inverseMass;
+      b.x -= dx * correction * b.inverseMass;
+      b.y -= dy * correction * b.inverseMass;
     }
     for (const hinge of ragdoll.hinges) enforceHinge(ragdoll.points, hinge);
+    for (const limit of ragdoll.angleLimits)
+      enforceAngleLimit(ragdoll.points, limit);
+    if (vehicle) collideRagdollWithBike(ragdoll, vehicle);
     for (const p of ragdoll.list)
       collideFreePoint(trail, p, iteration === 0, RAGDOLL_CONTACT);
   }
+  dampLinks(ragdoll);
+  const moving = ragdoll.list.some(
+    (p) =>
+      Math.abs(p.x - p.ox) > SLEEP_SPEED || Math.abs(p.y - p.oy) > SLEEP_SPEED,
+  );
+  ragdoll.still = moving || floating ? 0 : ragdoll.still + 1;
+  if (ragdoll.still >= SLEEP_STEPS) ragdoll.asleep = true;
 }
 
 export function ragdollCenter(ragdoll) {

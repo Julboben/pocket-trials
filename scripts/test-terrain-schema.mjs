@@ -34,7 +34,7 @@ const errors = trail => validateTrail(trail).filter(m => m.type === 'error').map
 
 // A block-only trail can be carved into a cave, and the queries are cave-aware.
 {
-  const blocks = createBlankTerrainBlocks({ terrain: 'grass' });
+  const blocks = createBlankTerrainBlocks();
   const holed = cutBlock(blocks[0], [[400, 340], [700, 340], [700, 460], [400, 460]]);
   assert.ok(holed.changed, 'a cut carves a cave');
   const trail = normalizeTrail({ ...createBlankTrail(), terrainBlocks: [holed.blocks[0]] });
@@ -54,7 +54,7 @@ const errors = trail => validateTrail(trail).filter(m => m.type === 'error').map
 {
   const once = normalizeTrail({
     ...createBlankTrail(),
-    terrainBlocks: createBlankTerrainBlocks({ terrain: 'rock' }),
+    terrainBlocks: createBlankTerrainBlocks('rock'),
   });
   const twice = normalizeTrail(JSON.parse(JSON.stringify(once)));
   assert.deepEqual(twice, once, 'block-only normalization is idempotent');

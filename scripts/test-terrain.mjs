@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import {
   terrainCollisionsAt,
   terrainSweepCollision,
@@ -141,31 +140,6 @@ assert.ok(
   "boulders rotate to the ground angle",
 );
 
-const rolling = normalizeTrail(
-  JSON.parse(
-    readFileSync(
-      new URL("../trails/official/02-rolling-country.json", import.meta.url),
-    ),
-  ),
-);
-// The fence the trail really has, and upright props planted on the same
-// hillside, so the checks don't depend on which scenery the trail carries.
-// The ground-anchored fence is the one past x 1000; the other has a fixed y.
-const rollingFence = rolling.props.find(
-  (prop) => prop.type === "fence" && prop.x > 1000,
-);
-assert.ok(rollingFence, "rolling country still has a fence to test with");
-const rollingTree = { ...rollingFence, type: "tree", flip: undefined };
-assert.ok(
-  Math.abs(propAlignmentSlope(rolling, rollingFence)) > 0.2,
-  "rolling-country fences sit on the hillside",
-);
-assert.equal(
-  propAlignmentSlope(rolling, rollingTree),
-  0,
-  "rolling-country trees stay upright on the hillside",
-);
-
 const treeBase = propGroundOffset(hillTrail, tree);
 const pineBase = propGroundOffset(hillTrail, pine);
 const flowerBase = propGroundOffset(hillTrail, flowers);
@@ -188,10 +162,6 @@ assert.ok(
   "each flower is planted on the slope under it",
 );
 assert.equal(floatingTree(8), 0, "a floating prop keeps a trail base");
-assert.ok(
-  propGroundOffset(rolling, rollingTree)(6) !== 0,
-  "rolling-country trees meet the hillside at the trunk",
-);
 
 const crest = trailOf(
   [

@@ -11,7 +11,7 @@ const blockNodes = [
 ];
 
 const base = () => ({
-  name: 'Test', goal: 700, fallY: 900, terrain: 'grass',
+  name: 'Test', goal: 700, fallY: 900,
   terrainBlocks: [{
     id: 'b1',
     material: 'grass',

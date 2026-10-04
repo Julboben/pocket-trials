@@ -20,7 +20,7 @@ export function rectangle(left, top, right, bottom, material = 'grass', id = 're
 }
 
 const base = () => ({
-  version: 2, name: 'Fixture', terrain: 'grass', goal: 1400, fallY: 900,
+  name: 'Fixture', goal: 1400, fallY: 900,
   start: { x: 90, y: null, facing: 1 }, apples: [], props: [], spikes: [], weather: { sun: 1, clouds: 0 },
 });
 

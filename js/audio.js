@@ -139,6 +139,12 @@ export function createAudio(getSnapshot) {
     setEnabled,
     setVolume,
     update,
+    splash(speed) {
+      const volume = Math.min(.16, .05 + speed / 3000);
+      playNoise(.28, volume, 1400);
+      playNoise(.18, volume * .6, 3200, .04);
+      playTone(240, .12, 'sine', volume * .25, 0, 90);
+    },
     menuMove: () => playTone(420, .035, 'square', .018, 0, 470),
     menuSelect: () => playTone(520, .07, 'square', .035, 0, 680),
     menuBack: () => playTone(360, .08, 'triangle', .035, 0, 240),
