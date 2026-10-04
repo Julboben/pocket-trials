@@ -9,11 +9,12 @@ import {
   validateTrail,
 } from "../trail-schema.js";
 import { detectDevServer, terrainMaterials, trailEntries } from "../trails.js";
+import { bindAutosave } from "./autosave.js";
 import { bindClipboard } from "./clipboard.js";
 import { $, wrap } from "./dom.js";
 import { pushHistory, redo, undo, updateHistoryButtons } from "./history.js";
 import { bindInput } from "./input.js";
-import { bindInspector, syncInspector } from "./inspector.js";
+import { bindInspector, renameTrail, syncInspector } from "./inspector.js";
 import { bindMenu } from "./menu.js";
 import { bindPlaytest } from "./playtest.js";
 import { GAME_ART_KEY, render } from "./render.js";
@@ -49,6 +50,8 @@ editor.gameArt = (() => {
 })();
 
 bindClipboard();
+
+bindAutosave();
 
 bindPlaytest();
 
@@ -103,6 +106,32 @@ $("duplicate-trail").addEventListener("click", () => {
 });
 
 $("delete-trail").addEventListener("click", deleteTrail);
+
+const renameDialog = /** @type {HTMLDialogElement} */ ($("rename-dialog"));
+const renameInput = /** @type {HTMLInputElement} */ ($("rename-input"));
+
+$("rename-trail").addEventListener("click", () => {
+  renameInput.value = editor.trail.name;
+  renameDialog.returnValue = "";
+  renameDialog.showModal();
+  renameInput.select();
+});
+
+renameDialog.addEventListener("close", () => {
+  if (renameDialog.returnValue === "rename" && renameTrail(renameInput.value))
+    showStatus("info", `Renamed to “${editor.trail.name}”. Save a draft or publish to keep it.`);
+});
+
+// Typing a name must not trigger the editor's shortcuts, such as undo.
+renameDialog.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") event.stopPropagation();
+});
+
+$("rename-cancel").addEventListener("click", () => renameDialog.close());
+
+renameDialog.addEventListener("click", (event) => {
+  if (event.target === renameDialog) renameDialog.close();
+});
 
 $("undo").addEventListener("click", undo);
 

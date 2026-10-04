@@ -25,7 +25,7 @@ import { $, session, currentTrailEntry, trailKey, timeText } from './state.js';
 
 const LANDING_SOUND_IMPACT = 45;
 const HARD_LANDING_IMPACT = 170;
-const CRASH_COLORS = { spike: '#d95832', head: '#ed8b54', fall: '#ed8b54' };
+const CRASH_COLORS = { spike: '#d95832', head: '#ed8b54', fall: '#ed8b54', water: '#8fd6e8' };
 
 export function startGame() {
   const game = $('game');
@@ -84,7 +84,7 @@ export function startGame() {
     };
   }
 
-  let lastTime = 0, accumulator = 0, landingSoundCooldown = 0;
+  let lastTime = 0, accumulator = 0, landingSoundCooldown = 0, splashSoundCooldown = 0;
   /** Inputs of the current attempt, one per step, for saving a ghost. */
   let recorded = [], startStep = 0, flips = 0;
   /** @type {{ ride: any, inputs: any[], index: number, data: any } | null} */
@@ -244,7 +244,7 @@ export function startGame() {
     const ride = createRide(trail, { seed: (Math.random() * 2 ** 31) >>> 0 });
     session.ride = ride;
     recorded = []; startStep = 0; flips = 0;
-    accumulator = 0; landingSoundCooldown = 0;
+    accumulator = 0; landingSoundCooldown = 0; splashSoundCooldown = 0;
     effects.reset(trail);
     renderer.reset(trail, ride.facing);
     camera.reset();
@@ -475,6 +475,13 @@ export function startGame() {
         for (const wheel of [ride.rear, ride.front]) if (wheel.grounded && wheel.impactSpeed > LANDING_SOUND_IMPACT) effects.dustPuff(wheel, wheel.impactSpeed);
         if (event.impact > HARD_LANDING_IMPACT) vibrate(Math.round(clamp(event.impact / 12, 10, 40)));
         break;
+      case 'splash':
+        effects.splash(event.x, event.y, event.speed);
+        if (splashSoundCooldown <= 0) {
+          sounds.splash(event.speed);
+          splashSoundCooldown = .15;
+        }
+        break;
       case 'crash':
         effects.burst(event.x, event.y, CRASH_COLORS[event.cause], event.cause === 'spike' ? 18 : 15);
         sounds.crash();
@@ -513,6 +520,7 @@ export function startGame() {
     const thunder = effects.stepWeather();
     if (thunder) sounds.thunder(thunder.intensity, thunder.distance);
     landingSoundCooldown = Math.max(0, landingSoundCooldown - STEP);
+    splashSoundCooldown = Math.max(0, splashSoundCooldown - STEP);
     physicsDebug.begin({ state: session.state, time: ride.elapsed, trail: session.trail.name, source: session.trailSource, facing: ride.facing, throttle: ride.throttle }, ride.rear, ride.front);
 
     // Holding restart keeps the bike on the start line with the clock stopped.
@@ -546,6 +554,7 @@ export function startGame() {
     else if (ghost && ghost.index >= ghost.inputs.length && ghost.ride.status === 'crashed') stepRide(ghost.ride, {});
 
     effects.terrainSpray(ride, speed, stepInput.braking);
+    effects.waterWake(ride, speed);
     effects.brakeMarks(ride, speed, stepInput.braking);
     for (const event of events) handleEvent(ride, event);
   }

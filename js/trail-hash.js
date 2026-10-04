@@ -7,7 +7,7 @@ import { TERRAIN_COMPILER_VERSION } from './terrain-runtime.js';
 //
 // The terrain compiler version is hashed too: a compiler change alters what the
 // wheels touch, so old replays and scores must not carry over.
-const GAMEPLAY_KEYS = ['terrainBlocks', 'start', 'goal', 'fallY', 'apples', 'spikes', 'terrain'];
+const GAMEPLAY_KEYS = ['terrainBlocks', 'start', 'goal', 'fallY', 'apples', 'spikes'];
 
 function canonical(value) {
   if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
@@ -25,12 +25,12 @@ export function trailHash(trail) {
   // Back walls are scenery, so they never change the hash.
   if (Array.isArray(fields.terrainBlocks))
     fields.terrainBlocks = fields.terrainBlocks.filter(block => block?.layer !== 'back');
-  // `terrain`, the old base material, always matched the first block's
-  // material in older trails, so it is only stored when it doesn't. Hashing the
-  // first block's material in its place keeps those trails' hashes.
-  fields.terrain ??= fields.terrainBlocks?.[0]?.material;
+  // The first block's material, under the key every published hash was made with.
+  if (Array.isArray(fields.terrainBlocks)) fields.terrain = fields.terrainBlocks[0]?.material;
   fields.terrainCompiler = TERRAIN_COMPILER_VERSION;
   if (Number.isFinite(trail?.finishY)) fields.finishY = trail.finishY;
+  // Like finishY, water is only hashed when a trail has some.
+  if (Array.isArray(trail?.water) && trail.water.length) fields.water = trail.water;
   const text = canonical(fields);
   let hash = 0x811c9dc5;
   for (let index = 0; index < text.length; index++) {

@@ -13,7 +13,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Rider weight transfer, wheelies, and stoppies
 - Independent front and rear suspension animation
 - Impact-sensitive suspension compression and landing rebound
-- Live post-crash rider ragdoll with jointed elbows and knees, while the crashed bike keeps colliding with the ground
+- Live post-crash rider ragdoll that keeps the bike's spin when thrown, with a weighted body, limited neck, hip, elbow and knee joints, ground grip, and collisions with the crashed bike, which keeps colliding with the ground and can still hang from a ledge
 - Direction flipping with an animated rider and bike transition
 - Code-drawn pixel presentation with smooth terrain, mountains, and apples for readability
 - Responsive mobile and expanded desktop layouts with optional fullscreen play
@@ -33,6 +33,8 @@ The current version is a dependency-free browser prototype built with native Jav
 - Seven progressively longer trails with gaps, caves, and floating blocks to ride across
 - Grass, dirt, rock, snow, and brick terrain materials
 - Per-trail rain and lightning configuration with procedural ambience and distance-aware thunder
+- Water you can ride through: shallow fords drag the bike and slow it down, deeper water wipes the rider out, and the ragdoll floats on the surface with splashes, wakes and sound; water lilies, reeds, seaweed, fish that dart off and ducks that take off when you come close
+- Squirrels that run to the nearest tree, climb it and hide in the crown when you come close
 
 ## Play
 
@@ -82,7 +84,7 @@ Each trail requires collecting all five apples before the finish gate will open.
 
 Open the visual editor from **Trail Editor** on the main dashboard or navigate directly to `editor.html`. The left column has two tabs:
 
-- **Tools**: tools grouped into Navigate, Terrain, Objects, and Course. Picking a tool shows its settings (for example block material, spike radius and spin, or prop type) before anything is placed. New objects use those settings, which are remembered between sessions. `V` or `Escape` selects, and `H` pans.
+- **Tools**: tools grouped into Navigate, Terrain, Objects, and Course. Picking a tool shows its settings (for example block material, spike radius and spin, water width and depth, or prop type) before anything is placed. New objects use those settings, which are remembered between sessions. `V` or `Escape` selects, and `H` pans.
 - **Trail**: trail name, finish and fall positions, and weather.
 
 The inspector on the right edits the current selection. The editor supports:
@@ -96,18 +98,20 @@ The inspector on the right edits the current selection. The editor supports:
 - Placing freely positioned apples, start points, props, and finish positions
 - Moving or removing props and changing their type and foreground/background layer
 - Placing spinning spike hazards and editing their radius and spin speed
+- Drawing water bodies with the **Water** tool (`W`): drag a rectangle, or click to drop one of the tool's size. Drag a body by the middle of its surface, resize it with the scale handles, and set its width and depth in the inspector, which says whether it is a rideable ford or deep enough to wipe the rider out
 - Choosing the start position and left/right facing direction
 - Selecting the base and per-block materials
 - Editing sun, cloud, rain, and lightning values
 - Trackpad navigation: two-finger scrolling pans and pinch gestures zoom around the pointer
 - Mouse navigation: wheel panning, `Ctrl`/`Cmd` + wheel zooming, and middle-button or `Space`-drag panning
 - Undo and redo
-- Copy, cut and paste (`Cmd`/`Ctrl` + `C`, `X`, `V`) for blocks, apples, props and spikes. The copy goes to the system clipboard, so it can be pasted into another trail or tab; it lands under the cursor, or in the middle of the view.
+- Copy, cut and paste (`Cmd`/`Ctrl` + `C`, `X`, `V`) for blocks, apples, props, spikes and water. The copy goes to the system clipboard, so it can be pasted into another trail or tab; it lands under the cursor, or in the middle of the view.
 - Box-select picks up whole blocks along with points and objects; `Shift`-click adds or removes one (for example a prop inside a selected block), `Cmd`/`Ctrl` + `A` selects everything, and `Cmd`/`Ctrl` + `D` selects nothing. Undo and redo restore the selection too.
 - Play testing in place (`Cmd`/`Ctrl` + `Enter`); add `Shift` to start the bike where the mouse is, without moving the trail's start
 - Press `?` (or **Keyboard shortcuts** in the **⋯** menu) for a list of every shortcut.
 - Continuous trail validation, listed in the **⋯** menu, which shows a badge when there are errors or warnings
 - Browser-local draft history (**Save draft** in the header, `Cmd`/`Ctrl` + `S`): up to 12 timestamped drafts per trail. The editor opens the newest draft unless the trail was saved after it. The label next to the trail picker shows which version is open (original, published, or a draft) and whether it has edits since; click it to open **Versions**, where you can open any draft, delete drafts, or revert to the published trail (undoable). **Save draft** is greyed out until the trail changes from the open version, and **Publish** until it differs from the published trail. The inspector panel is hidden until something is selected.
+- Autosave: unsaved edits are kept in the browser a second after each change, and when the tab is closed, hidden or switched to another trail. Reopening the trail restores them on top of the version they were made to, with one undo step back to that version. The autosave is a single slot per trail, separate from the drafts, and is cleared when you save a draft or publish.
 - JSON import, plus JSON and JavaScript module export (**Import / export** in the **⋯** menu, which warns when validation errors would block an export)
 - **New** (+) and **Duplicate** next to the trail picker, plus **Publish** (`Cmd`/`Ctrl` + `Shift` + `S`) and **Delete** in the **⋯** menu
 
@@ -143,7 +147,7 @@ Current storage keys:
 - `hjulben-leaderboard-v1`
 - `hjulben-ghost-v1:<trail>` (inputs of the best run, re-simulated as the ghost)
 
-The dashboard's Leaderboard view ranks the ten fastest finishes per official and custom trail across all savegames on the device. Runs remain on the board after their savegame is deleted. Every trail is keyed by a hash of what decides a run (terrain, start, finish, apples, spikes and the fall line), and official trails also by their id (`official:<id>@<hash>`). Editing a trail's gameplay starts fresh leaderboards, ghosts and best times, online and local, while renaming it or changing its props keeps them.
+The dashboard's Leaderboard view ranks the ten fastest finishes per official and custom trail across all savegames on the device. Runs remain on the board after their savegame is deleted. Every trail is keyed by a hash of what decides a run (terrain, start, finish, apples, spikes, water and the fall line), and official trails also by their id (`official:<id>@<hash>`). Editing a trail's gameplay starts fresh leaderboards, ghosts and best times, online and local, while renaming it or changing its props keeps them.
 
 Clearing site data resets settings, progression, and recorded times. Online riders can get theirs back by logging in (see below).
 
@@ -265,6 +269,8 @@ The logical viewport and camera framing adapt to mobile and desktop dimensions.
 
 The game is currently a **design and physics prototype**. Its most important asset is the accumulated handling behavior: throttle response, braking, rider lean, suspension, momentum, and camera feel.
 
+`sw.js`'s file list, `js/version.js` and `TRAIL_AUTHORING_CONTEXT.md` (the trail spec, schema, materials and example trails bundled for trail authors) are generated: run `npm run sw` and `npm run context` after changing their sources. `npm test` fails while either is out of date.
+
 To test as a brand-new player on `localhost`, open the game or editor with `?sandbox`. All data then lives in that tab's `sessionStorage`: your real saves are never read or changed, online submits are skipped, and a SANDBOX badge shows at the bottom. The sandbox survives reloads, the editor, and playtests. Use `?sandbox=reset` to start fresh again and `?sandbox=off` to go back to your real data.
 
 To check performance, open the game with `?fps=1`: a small readout shows frames per second, the average time each frame's work takes, and the slowest frame gap, refreshed twice a second.
@@ -291,7 +297,7 @@ When changing physics values, validate at least these cases:
 
 - [ ] Music
 - [ ] Add import / export of savegames
-- [ ] Add water that you can drive through
+- [ ] Add animation to props like with the water props
 - [ ] Biker customization: choose your bike (the original Pocket Classic bike is already drawn as the `classic` model), and later colors and gear
 - [ ] Add background: Coast (a sea horizon with an island) and Canyon (layered cliff walls with rock spires) each only need a new entry in backdropLayers and BACKDROP_COLORS, plus an option in the dropdown.
 - [ ] More offical trails
@@ -300,19 +306,15 @@ When changing physics values, validate at least these cases:
 - [ ] Additional bikes and cosmetic customization
 - [ ] Grip. Right now every material has the same grip, because WHEEL_FRICTION is a single value. If you want sand to feel softer or more slippery, per-material grip can be added. It would change how runs replay, though, so you'd need to raise RIDE_VERSION and re-record the replays. Let me know if you want that.
 - [ ] Map called Meteor Crater - you drive down a crater and then up again.
+- [ ] Make the ragdoll controllable
 - [x] Sound Effects
 - [x] Different terrain types (grass, dirt, rock, snow, and brick)
 - [x] Splatter behind the bike when you drive on different terrain
 - [x] Add weather effects (rain, lightning, and procedural ambience)
 - [x] Add day / night
 - [x] Lighting engine (dark caves, night, headlight, prop lights)
-- [x] Add a sign that you can write on in the editor
 - [x] Online highscore leaderboard
-- [x] New physics engine with support for overhangs, loops, caves, and fully polygonal ground
-- [x] Unified block terrain (polygon blocks, caves, and cuts)
-- [x] A visual trail-building workflow
-- [x] Rename levels to trails
-- [x] Remove the old ground-line terrain format
+- [x] Drivable water bodies with adjustable depth: deep water wipes the rider out, and the ragdoll floats
 
 ## Inspiration
 

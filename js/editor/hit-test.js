@@ -8,7 +8,10 @@ import {
   objectY,
   syncTerrain,
 } from "./render.js";
-import { DOT_REACH, EDGE_REACH, HIT_REACH, editor } from "./state.js";
+import { terrainGeometry } from "../terrain.js";
+import { normalizeWater, waterColumns } from "../water.js";
+import { DOT_REACH, EDGE_REACH, HIT_REACH, editor, waters } from "./state.js";
+import { waterHandle } from "./water.js";
 
 /**
  * Selection priority, highest first: the visible curve handles of the active
@@ -94,6 +97,9 @@ export function hitTest(point, { wholeBoundary = false, preferEdges = false } = 
   editor.trail.spikes.forEach((spike, index) =>
     consider({ kind: "spike", index }, spike.x, spike.y, 1),
   );
+  waters().forEach((body, index) =>
+    consider({ kind: "water", index }, ...waterHandle(body), 1),
+  );
   const startY = Number.isFinite(editor.trail.start.y)
     ? editor.trail.start.y
     : groundY(editor.trail.start.x) - 12;
@@ -113,9 +119,30 @@ export function hitTest(point, { wholeBoundary = false, preferEdges = false } = 
   }
   const selectedBody = preferEdges ? null : selectedBodyAt(point);
   if (selectedBody) return selectedBody;
+  const water = openWaterAt(point);
+  if (water !== null) return { kind: "water", index: water };
   for (const blockIndex of frontToBack()) {
     if (pointInRegion(blocks()[blockIndex], point.x, point.y))
       return { kind: "block", blockIndex };
+  }
+  return null;
+}
+
+/**
+ * The topmost water body with open water under a point, or null. Terrain
+ * inside a body stays the terrain's, so a click there picks the block.
+ */
+function openWaterAt(point) {
+  const compiled = terrainGeometry(editor.trail);
+  for (let index = waters().length - 1; index >= 0; index--) {
+    const body = normalizeWater(waters()[index]);
+    if (point.x < body.x || point.x > body.x + body.width) continue;
+    if (point.y < body.y || point.y > body.y + body.depth) continue;
+    const column = waterColumns(compiled, body).find(
+      (entry) => point.x >= entry.x && point.x < entry.x + 2,
+    );
+    if (column?.segments.some(([top, bottom]) => point.y >= top && point.y <= bottom))
+      return index;
   }
   return null;
 }

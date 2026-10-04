@@ -2,14 +2,15 @@ import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { RADIUS, STEP, WHEELBASE } from '../js/config.js';
 import { createRide, stepRide, riderCollisionPoints, simulateRun } from '../js/ride.js';
+import { createRagdoll, stepRagdoll } from '../js/ragdoll.js';
 import { decodeInputs, encodeInputs } from '../js/replay-codec.js';
 import { terrainCollisionsAt, terrainAt } from '../js/terrain.js';
 import { loadCatalogTrails, readJson, repoRoot } from './lib/trails.mjs';
-import { rectangle } from './lib/terrain-fixtures.mjs';
+import { polygonBlock, rectangle } from './lib/terrain-fixtures.mjs';
 
 const FINISH_TOLERANCE = .05;
 const flatTrail = (overrides = {}) => ({
-  name: 'test', terrainBlocks: [rectangle(0, 320, 3000, 620)], terrain: 'grass', fallY: 820,
+  name: 'test', terrainBlocks: [rectangle(0, 320, 3000, 620)], fallY: 820,
   start: { x: 120, y: null, facing: 1 }, goal: 2800, apples: [], spikes: [], ...overrides
 });
 const hold = (steps, input) => Array.from({ length: steps }, () => ({ facing: 1, leanInput: 0, accelerating: false, braking: false, ...input }));
@@ -103,6 +104,98 @@ for (const entry of entries) {
   assert.ok(deepestPenetration(trail, ride.vehicle.chassisPoints) < 2, 'crashed chassis rests on the ground');
   const ground = terrainAt(trail, ride.vehicle.chassis.top.x).y;
   assert.ok(ride.vehicle.chassisPoints.every(point => point.y < ground + 1), 'chassis did not sink through the ground');
+}
+
+// The thrown rider keeps the neck and hips inside their limits, comes to rest
+// on flat ground, and grips a moderate slope instead of creeping down it.
+{
+  const turn = (a, joint, b, mirror) => Math.atan2(
+    (joint.x - a.x) * (b.y - joint.y) - (joint.y - a.y) * (b.x - joint.x),
+    (joint.x - a.x) * (b.x - joint.x) + (joint.y - a.y) * (b.y - joint.y)) * mirror;
+  const check = (trail, label) => {
+    const { ride } = simulateRun(trail, hold(900, { accelerating: true }));
+    assert.equal(ride.status, 'crashed', `${label}: crashes`);
+    const { points } = ride.ragdoll;
+    let restX = null;
+    for (let step = 0; step < 1200; step++) {
+      stepRide(ride, {});
+      for (const limit of ride.ragdoll.angleLimits) {
+        const angle = turn(points[limit.a], points[limit.joint], points[limit.b], limit.mirror);
+        assert.ok(angle >= limit.least - .05 && angle <= limit.most + .05, `${label}: ${limit.joint} stays inside its limit`);
+      }
+      if (step === 900) restX = points.hip.x;
+    }
+    assert.ok(ride.ragdoll.asleep, `${label}: the rider comes to rest`);
+    assert.ok(Math.abs(points.hip.x - restX) < .5, `${label}: the rider stays put`);
+  };
+  check(flatTrail({ spikes: [{ x: 400, y: 300, radius: 18 }] }), 'flat');
+  check(flatTrail({
+    terrainBlocks: [polygonBlock([[0, 320], [300, 320], [1300, 720], [3000, 720], [3000, 1200], [0, 1200]])],
+    fallY: 1400, spikes: [{ x: 500, y: 380, radius: 18 }],
+  }), 'slope');
+}
+
+// Landing head-first on a kicker folds the rider past half a turn at the hip;
+// the hip limit must unfold it the short way round instead of flinging the
+// rider high into the air.
+{
+  const trail = {
+    name: 'kicker', fallY: 820, goal: 2800, apples: [], spikes: [],
+    start: { x: 120, y: null, facing: 1 },
+    terrainBlocks: [polygonBlock([[0, 320], [400, 320], [600, 220], [640, 220], [640, 320], [3000, 320], [3000, 620], [0, 620]])],
+  };
+  const ride = createRide(trail, { seed: 1 });
+  for (let step = 0; step < 1400 && ride.status === 'running'; step++) {
+    stepRide(ride, { facing: 1, accelerating: step < 440, leanInput: step > 380 ? -.5 : 0 });
+  }
+  assert.equal(ride.status, 'crashed', 'kicker landing crashes');
+  let landed = false, lowest = -Infinity, rise = 0;
+  for (let step = 0; step < 720; step++) {
+    stepRide(ride, {});
+    const list = ride.ragdoll.list;
+    landed ||= list.some(point => point.grounded);
+    if (!landed) continue;
+    const centre = list.reduce((sum, point) => sum + point.y, 0) / list.length;
+    lowest = Math.max(lowest, centre);
+    rise = Math.max(rise, lowest - centre);
+  }
+  assert.ok(rise < 40, `ragdoll stays down after a head-first landing (rose ${rise.toFixed(0)} px)`);
+}
+
+// A rider thrown onto flat ground still glides after landing: a hard impact
+// must not turn the ground grip into a dead stop.
+{
+  const trail = flatTrail();
+  let slide = 0;
+  for (let throwIndex = 0; throwIndex < 10; throwIndex++) {
+    let seed = throwIndex * 7919 + 1;
+    const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const dx = 600 * STEP, dy = 4;
+    const wheel = (x, y) => ({ x, y, ox: x - dx, oy: y - dy });
+    const ragdoll = createRagdoll(wheel(175, 280), wheel(225, 280 - (throwIndex % 5 - 2) * 6), 1, random);
+    let landX = null;
+    for (let step = 0; step < 1200; step++) {
+      stepRagdoll(ragdoll, trail);
+      if (landX === null && ragdoll.list.some(point => point.grounded)) landX = ragdoll.points.hip.x;
+    }
+    slide += (ragdoll.points.hip.x - landX) / 10;
+  }
+  assert.ok(slide > 140, `thrown rider glides after landing (${slide.toFixed(0)} px)`);
+}
+
+// Only the head crashes on terrain: a corner poking up between the wheels to
+// the hip is ignored, while the same corner at the head ends the run.
+{
+  const settled = createRide(flatTrail());
+  for (let step = 0; step < 60; step++) stepRide(settled, {});
+  const probes = riderCollisionPoints(settled);
+  for (const [name, crashes] of [['hip', false], ['head', true]]) {
+    const { x, y } = probes[name];
+    const trail = flatTrail({ terrainBlocks: [rectangle(0, 320, 3000, 620), rectangle(x - 3, y - 3, x + 3, y + 3, 'rock', 'corner')] });
+    const ride = createRide(trail);
+    for (let step = 0; step < 60 && ride.status === 'running'; step++) stepRide(ride, {});
+    assert.equal(ride.status === 'crashed', crashes, `terrain at the ${name} ${crashes ? 'crashes' : 'does not crash'}`);
+  }
 }
 
 // Falling below the trail ends the run.

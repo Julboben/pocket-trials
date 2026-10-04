@@ -8,10 +8,10 @@
       "name": "The Orchard"
     },
     {
-      "id": "official:02-rolling-country",
+      "id": "official:02-splinter-ridge",
       "source": "official",
-      "file": "official/02-rolling-country.json",
-      "name": "Rolling Country"
+      "file": "official/02-splinter-ridge.json",
+      "name": "Splinter Ridge"
     },
     {
       "id": "official:03-high-hopes",
@@ -44,16 +44,16 @@
       "name": "Elastic Summit"
     },
     {
-      "id": "custom:00-custom-trail",
-      "source": "custom",
-      "file": "custom/00-custom-trail.json",
-      "name": "Custom Trail"
-    },
-    {
       "id": "custom:cave-at-night",
       "source": "custom",
       "file": "custom/cave-at-night.json",
       "name": "Cave at Night"
+    },
+    {
+      "id": "custom:caves",
+      "source": "custom",
+      "file": "custom/caves.json",
+      "name": "Caves"
     },
     {
       "id": "custom:gravity-fair",
@@ -74,16 +74,28 @@
       "name": "Mind Your Head"
     },
     {
-      "id": "custom:new-trail",
+      "id": "custom:rolling-country",
       "source": "custom",
-      "file": "custom/new-trail.json",
-      "name": "Caves"
+      "file": "custom/rolling-country.json",
+      "name": "Rolling Country"
     },
     {
-      "id": "custom:wrong-way-up",
+      "id": "custom:the-wrong-way-circus",
       "source": "custom",
-      "file": "custom/wrong-way-up.json",
+      "file": "custom/the-wrong-way-circus.json",
       "name": "The Wrong-Way Circus"
+    },
+    {
+      "id": "custom:trail-3",
+      "source": "custom",
+      "file": "custom/trail-3.json",
+      "name": "Trail 3"
+    },
+    {
+      "id": "custom:water-test",
+      "source": "custom",
+      "file": "custom/water-test.json",
+      "name": "Water test"
     }
   ]
 }

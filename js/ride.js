@@ -24,6 +24,17 @@ import { normalizeSpike, finishFlower } from "./trail-schema.js";
 import { bikeTouchesFlower } from "./finish.js";
 import { createRagdoll, stepRagdoll } from "./ragdoll.js";
 import { atan2, cos, exp, hypot, sin } from "./det-math.js";
+import {
+  BIKE_WATER,
+  CHASSIS_WATER_RADIUS,
+  SPLASH_SPEED,
+  WATER_WIPEOUT_DEPTH,
+  applyWater,
+  surfaceCrossing,
+  waterAt,
+  waterBodies,
+  wheelImmersion,
+} from "./water.js";
 
 /** @typedef {import('./types.js').Trail} Trail */
 /** @typedef {import('./types.js').RideInput} RideInput */
@@ -102,6 +113,7 @@ export function createRide(trail, { seed = 1 } = {}) {
     spikes: (trail.spikes || []).map((spike) =>
       normalizeSpike(spike, terrainAt(trail, Number(spike?.x) || 0)?.y ?? null),
     ),
+    water: waterBodies(trail),
     seed,
     random: seededRandom(seed),
     status: "running",
@@ -183,6 +195,31 @@ function touchedSpike(spikes, points) {
   return null;
 }
 
+/**
+ * Where the rider goes under: a wheel deeper than the wipe-out depth, or the
+ * head under the surface. Null while the rider is above water.
+ */
+function wipedOut(ride, head) {
+  for (const wheel of [ride.rear, ride.front])
+    if (wheelImmersion(ride.water, wheel.x, wheel.y, RADIUS) > WATER_WIPEOUT_DEPTH)
+      return { x: wheel.x, y: waterAt(ride.water, wheel.x, wheel.y)?.y ?? wheel.y };
+  const body = waterAt(ride.water, head.x, head.y);
+  return body ? { x: head.x, y: body.y } : null;
+}
+
+/** A splash for the fastest of these points to break the surface this step. */
+function splash(ride, points, rider, events) {
+  let best = null;
+  for (const point of points) {
+    if (point.px === undefined) continue;
+    const body = surfaceCrossing(ride.water, point.px, point.py, point.x, point.y);
+    const speed = (point.y - point.py) / STEP;
+    if (body && speed > SPLASH_SPEED && (!best || speed > best.speed))
+      best = { x: point.x, y: body.y, speed };
+  }
+  if (best) events.push({ type: "splash", ...best, rider });
+}
+
 function crash(ride, cause, x, y, events) {
   // Capture the rider's lean before changing the crash state.
   const visual = {
@@ -235,7 +272,8 @@ export function trackAirRotation(ride, events) {
     const milestone = Math.floor(Math.abs(ride.airRotation) / Math.PI);
     if (milestone > ride.airTurnMilestone) {
       ride.airTurnMilestone = milestone;
-      events.push({ type: "airTurn", full: milestone % 2 === 0 });
+      if (ride.status === "running")
+        events.push({ type: "airTurn", full: milestone % 2 === 0 });
     }
     ride.landingSteps = airborne ? 0 : ride.landingSteps + 1;
     if (
@@ -320,6 +358,14 @@ export function stepRide(ride, input = {}, hooks = {}) {
     wasFrontGrounded = front.grounded;
   rear.impactSpeed = 0;
   front.impactSpeed = 0;
+  if (ride.water.length)
+    for (const point of ride.vehicle.bikePoints)
+      applyWater(
+        point,
+        point === rear || point === front ? RADIUS : CHASSIS_WATER_RADIUS,
+        ride.water,
+        BIKE_WATER,
+      );
   stepVehicle(
     ride.vehicle,
     trail,
@@ -342,35 +388,32 @@ export function stepRide(ride, input = {}, hooks = {}) {
     !wasFrontGrounded && front.grounded ? front.impactSpeed : 0,
   );
   if (landingImpact > 0) events.push({ type: "land", impact: landingImpact });
+  if (ride.water.length) splash(ride, [rear, front], false, events);
 
   if (!running) {
-    stepRagdoll(ride.ragdoll, trail);
+    stepRagdoll(ride.ragdoll, trail, ride.water, ride.vehicle);
+    if (ride.water.length) splash(ride, ride.ragdoll.list, true, events);
     return events;
   }
 
   const riderContacts = riderCollisionPoints(ride);
   const { head } = riderContacts;
   const { x: mx, y: my } = bikeMidpoint(ride);
-  let riderObstacle = false;
-  for (const name in riderContacts) {
-    const point = riderContacts[name],
-      previous = ride.previousRiderContacts?.[name];
-    if (
-      (previous &&
-        terrainSweepCollision(
-          trail,
-          previous.x,
-          previous.y,
-          point.x,
-          point.y,
-          point.radius,
-        )) ||
-      terrainCollisionsAt(trail, point.x, point.y, point.radius)[0]
-    ) {
-      riderObstacle = true;
-      break;
-    }
-  }
+  // Only the head crashes on terrain; the body may brush corners that poke
+  // between the wheels. Spikes still hurt the whole rider below.
+  const previousHead = ride.previousRiderContacts?.head;
+  const riderObstacle = Boolean(
+    (previousHead &&
+      terrainSweepCollision(
+        trail,
+        previousHead.x,
+        previousHead.y,
+        head.x,
+        head.y,
+        head.radius,
+      )) ||
+      terrainCollisionsAt(trail, head.x, head.y, head.radius)[0],
+  );
   ride.previousRiderContacts = riderContacts;
   const spikeHit = touchedSpike(ride.spikes, [
     { x: rear.x, y: rear.y, radius: RADIUS },
@@ -381,6 +424,14 @@ export function stepRide(ride, input = {}, hooks = {}) {
   ]);
   if (spikeHit) {
     crash(ride, "spike", spikeHit.x, spikeHit.y, events);
+    return events;
+  }
+  const underwater = ride.water.length ? wipedOut(ride, head) : null;
+  if (underwater) {
+    // The rider goes under as the bike stalls, so the wipe-out is the splash.
+    const speed = hypot(rear.x - rear.ox, rear.y - rear.oy) / STEP;
+    events.push({ type: "splash", ...underwater, speed: Math.max(speed, SPLASH_SPEED), rider: true });
+    crash(ride, "water", underwater.x, underwater.y, events);
     return events;
   }
   if (riderObstacle && ride.time > SPAWN_GRACE) {

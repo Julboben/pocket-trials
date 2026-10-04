@@ -11,6 +11,7 @@ import { invalidateTerrain, terrainGeometry } from "../terrain.js";
 import { terrainColumnSpans } from "../terrain-runtime.js";
 import { finishFlower, finishHeight, surfaceBelow } from "../trail-schema.js";
 import { terrainMaterials } from "../trails.js";
+import { normalizeWater, waterColumns } from "../water.js";
 import {
   blockSelected,
   blocks,
@@ -22,8 +23,9 @@ import {
 import { $, art, backWallArt, canvas, ctx, terrainArt } from "./dom.js";
 import { scaleFrame } from "./scale.js";
 import { gridSpacing } from "./snap.js";
-import { editor } from "./state.js";
+import { editor, waters } from "./state.js";
 import { PLACING_TOOLS, toolSettings } from "./tools.js";
+import { waterHandle, waterSize } from "./water.js";
 import { viewportSize } from "./view.js";
 
 export const GAME_ART_KEY = "hjulben-editor-game-art-v1";
@@ -355,6 +357,30 @@ function drawSpikes() {
   }
 }
 
+/**
+ * Water as the game draws it, with its rectangle outlined so the parts
+ * hidden in terrain still show where the body reaches.
+ */
+function drawWater() {
+  const list = waters();
+  if (!list.length) return;
+  const compiled = terrainGeometry(editor.trail);
+  list.forEach((raw, index) => {
+    const body = normalizeWater(raw);
+    art.drawWater(body, waterColumns(compiled, body), 0);
+    const selected = isSelected("water", index);
+    ctx.strokeStyle = selected ? "#fff3be" : "#8fd6e8aa";
+    ctx.lineWidth = (selected ? 2 : 1) / editor.zoom;
+    ctx.setLineDash(
+      selected
+        ? [6 / editor.zoom, 4 / editor.zoom]
+        : [3 / editor.zoom, 4 / editor.zoom],
+    );
+    ctx.strokeRect(body.x, body.y, body.width, body.depth);
+    ctx.setLineDash([]);
+  });
+}
+
 function drawObjects() {
   drawSpikes();
   for (const apple of editor.trail.apples)
@@ -494,6 +520,9 @@ function drawHandles() {
   editor.trail.spikes.forEach((spike, index) =>
     drawHandle(spike.x, spike.y, isSelected("spike", index), "#e65e56"),
   );
+  waters().forEach((body, index) =>
+    drawHandle(...waterHandle(body), isSelected("water", index), "#5fb4d4"),
+  );
   const startY = Number.isFinite(editor.trail.start.y)
     ? editor.trail.start.y
     : groundY(editor.trail.start.x) - 12;
@@ -545,6 +574,7 @@ export function render() {
   drawProps("back");
   drawTerrain();
   drawObjects();
+  drawWater();
   drawPlacementPreview();
   drawPropGlows(
     art.drawTimeTint(editor.trail, editor.cameraX, editor.cameraY, width / editor.zoom, height / editor.zoom),
@@ -609,8 +639,24 @@ function drawSnapGuide() {
 
 /** A faded copy of what the current tool will place, under the cursor. */
 function drawPlacementPreview() {
-  if (!editor.hoverPoint || !PLACING_TOOLS.has(editor.tool)) return;
+  if (!editor.hoverPoint) return;
   const { x, y } = editor.hoverPoint;
+  if (editor.tool === "water" && !editor.pendingShape) {
+    // What a click drops: a body of the tool's size, its surface centred here.
+    const width = waterSize(toolSettings.water.width, "width");
+    const depth = waterSize(toolSettings.water.depth, "depth");
+    ctx.save();
+    ctx.globalAlpha = 0.6;
+    ctx.strokeStyle = "#8fd6e8";
+    ctx.fillStyle = "#3f9fc433";
+    ctx.lineWidth = 1.5 / editor.zoom;
+    ctx.setLineDash([6 / editor.zoom, 4 / editor.zoom]);
+    ctx.fillRect(x - width / 2, y, width, depth);
+    ctx.strokeRect(x - width / 2, y, width, depth);
+    ctx.restore();
+    return;
+  }
+  if (!PLACING_TOOLS.has(editor.tool)) return;
   if (editor.tool === "prop") {
     const prop = { x, y, type: toolSettings.prop.type, layer: "back" };
     art.drawProp(

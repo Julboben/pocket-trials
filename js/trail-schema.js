@@ -1,4 +1,3 @@
-import { terrainMaterials } from "./materials.js";
 import { terrainAt, terrainGeometry } from "./terrain.js";
 import { hypot } from "./det-math.js";
 import {
@@ -10,6 +9,8 @@ import {
   BACKDROPS,
 } from "./drawing.js";
 import { RADIUS, WHEELBASE } from "./config.js";
+import { WATER_SIZE, normalizeWater, waterAt, waterBodies, waterColumns } from "./water.js";
+import { WATER_PROPS, SURFACE_PROPS, waterPropBody } from "./water-props.js";
 import { FINISH_FLOWER_LIFT, bikeTouchesFlower } from "./finish.js";
 import {
   normalizeBlocks as normalizeTerrainBlocks,
@@ -17,12 +18,12 @@ import {
   regionBounds,
 } from "./terrain-geometry.js";
 /** Blocks for a brand new trail: one rectangular slab to build on. */
-export function createBlankTerrainBlocks(trail = {}) {
+export function createBlankTerrainBlocks(material = "grass") {
   return normalizeTerrainBlocks(
     [
       {
         id: "block-1",
-        material: trail.terrain || "grass",
+        material,
         outer: {
           id: "boundary-1",
           nodes: [
@@ -85,7 +86,6 @@ export function createBlankTerrainBlocks(trail = {}) {
         inner: [],
       },
     ],
-    trail.terrain || "grass",
   );
 }
 
@@ -109,6 +109,7 @@ export function createBlankTrail(index = 0) {
     ],
     props: [],
     spikes: [],
+    water: [],
     weather: { sun: 1, clouds: 0.2 },
     fallY: 620,
   };
@@ -128,7 +129,7 @@ export function trailBackWalls(trail) {
 }
 
 function allTrailBlocks(trail) {
-  return normalizeTerrainBlocks(trail?.terrainBlocks, trail?.terrain || "grass") || [];
+  return normalizeTerrainBlocks(trail?.terrainBlocks) || [];
 }
 
 /**
@@ -208,23 +209,10 @@ export function normalizeTrail(input, index = 0) {
         ? Number(trail.finishY)
         : null;
   trail.fallY = Number(trail.fallY) || fallback.fallY;
-  // `terrain` was the trail's base material. Blocks carry their own now, so it
-  // only fills in blocks saved without a material, below.
-  if (!terrainMaterials[trail.terrain]) delete trail.terrain;
-  // The old colour fields: the background comes from timeOfDay and backdrop,
-  // and wheel spray from each block's material.
-  delete trail.sky;
-  delete trail.sun;
-  delete trail.mountain;
-  delete trail.spray;
   // Terrain comes from the input only: a trail without blocks has no terrain,
   // which validation reports, rather than silently getting the blank slab.
   trail.terrainBlocks =
-    normalizeTerrainBlocks(input?.terrainBlocks, trail.terrain) || [];
-  // Every block now has a material, so the base is only kept where the trail
-  // hash still needs it: when it differs from the first block's material.
-  if (trail.terrain === trail.terrainBlocks.find((block) => !isBackWall(block))?.material)
-    delete trail.terrain;
+    normalizeTerrainBlocks(input?.terrainBlocks) || [];
   const start = trail.start || fallback.start;
   trail.start = {
     x: Number(start.x) || 90,
@@ -268,6 +256,7 @@ export function normalizeTrail(input, index = 0) {
         ),
       )
     : [];
+  trail.water = Array.isArray(trail.water) ? trail.water.map(normalizeWater) : [];
   trail.weather = { ...fallback.weather, ...(trail.weather || {}) };
   // Noon is the default look; an unrecognised value falls back to it too.
   if (!TIMES_OF_DAY.includes(trail.timeOfDay))
@@ -410,6 +399,7 @@ export function validateTrail(trail) {
         "cactus-small",
         "pebbles",
         "crates",
+        "apple",
         "ladder",
         "wheelbarrow",
         "scarecrow",
@@ -420,6 +410,7 @@ export function validateTrail(trail) {
         "dumpster",
         "lamp",
         "bird",
+        "squirrel",
         "graffiti",
         "crane",
         "scaffolding",
@@ -431,9 +422,19 @@ export function validateTrail(trail) {
         "drip",
         "lantern",
         "bats",
+        ...WATER_PROPS,
       ].includes(prop.type)
     )
       warning(`Prop ${index + 1} has an unknown type “${prop.type}”.`);
+    if (WATER_PROPS.has(prop.type) && prop.type !== "reeds") {
+      const y = Number.isFinite(prop.y) ? prop.y : groundHeight(trail, prop.x);
+      if (!waterPropBody(waterBodies(trail), prop.type, prop.x, y))
+        warning(
+          SURFACE_PROPS.has(prop.type)
+            ? `Prop ${index + 1} (${prop.type}) floats on water, but there is no water surface at or just above it.`
+            : `Prop ${index + 1} (${prop.type}) lives in water, but it is not in any water.`,
+        );
+    }
     if (prop.type === "sign") {
       if (typeof prop.text !== "string")
         warning(
@@ -473,6 +474,24 @@ export function validateTrail(trail) {
           `Spike ${index + 1} overlaps the apple at x ${Math.round(apple.x)}.`,
         );
     }
+  }
+  for (const [index, body] of (trail.water || []).entries()) {
+    const name = `Water ${index + 1}`;
+    if (![body.x, body.y, body.width, body.depth].every(Number.isFinite)) {
+      error(`${name} must have finite coordinates and size.`);
+      continue;
+    }
+    if (body.width < WATER_SIZE.minWidth || body.depth < WATER_SIZE.minDepth)
+      error(
+        `${name} must be at least ${WATER_SIZE.minWidth} wide and ${WATER_SIZE.minDepth} deep.`,
+      );
+    const startY = Number.isFinite(trail.start?.y)
+      ? trail.start.y
+      : groundHeight(trail, trail.start.x) - 12;
+    if (waterAt([body], trail.start.x, startY))
+      warning(`${name} covers the start position.`);
+    if (compiled && !waterColumns(compiled, body).length)
+      warning(`${name} is completely inside terrain, so it has no effect.`);
   }
   if (trail.medals !== undefined) {
     const times = MEDALS.map((name) => Number(trail.medals?.[name]));

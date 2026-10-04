@@ -172,6 +172,48 @@ if (kind === 'interact') {
   process.exit(0);
 }
 
+// The Water tool: drawing, clicking, moving, resizing and deleting a body.
+if (kind === 'water') {
+  toolButton('apple').click();
+  fire('pointerdown', { clientX: 0, clientY: 0 });
+  fire('pointerup');
+  const probe = current().apples.at(-1);
+  cameraX = probe.x;
+  cameraY = probe.y;
+  document.getElementById('undo').click();
+
+  const out = { errors: [] };
+  const water = () => current().water || [];
+  // A drag draws the dragged rectangle; the top is the surface.
+  toolButton('water').click();
+  drag([1000, 200], [1200, 260]);
+  out.drawn = water()[0];
+  out.drawnSelected = /WATER/i.test(document.getElementById('selection-title').textContent);
+  out.depthRowShown = document.getElementById('selection-water-depth-row').hidden === false;
+  // A click drops a body of the tool's size, its surface centred on the click.
+  drag([400, 250], [400, 250]);
+  out.clicked = water()[1];
+  // Its handle is the middle of the surface, so Select drags it from there.
+  toolButton('select').click();
+  drag([1100, 200], [1150, 180]);
+  out.moved = water()[0];
+  // Clicking open water selects the body.
+  drag([400, 260], [400, 260]);
+  out.clickSelects = /WATER/i.test(document.getElementById('selection-title').textContent);
+  // Deepening it in the inspector keeps the surface and says it is deep now.
+  const depth = document.getElementById('selection-water-depth');
+  depth.value = '120';
+  depth.dispatch('change');
+  out.deepened = water()[1];
+  out.deepHint = document.getElementById('selection-water-hint').textContent;
+  key('Delete');
+  out.afterDelete = water().length;
+  document.getElementById('undo').click();
+  out.afterUndo = water().length;
+  process.stdout.write(JSON.stringify(out));
+  process.exit(0);
+}
+
 // A roof or cave ceiling placed or dragged over something standing on the
 // ground must not lift it onto the new top.
 if (kind === 'covered') {

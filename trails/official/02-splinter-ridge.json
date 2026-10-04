@@ -1,11 +1,11 @@
 {
-  "name": "Rolling Country",
-  "label": "ROLLING COUNTRY / 02",
-  "goal": 3077.9115921126395,
+  "name": "Splinter Ridge",
+  "label": "SPLINTER RIDGE / 02",
+  "goal": 3100.1576858626395,
   "description": "Momentum is your friend. Carry speed through valleys, ease over crests, and lean forward when the front wheel gets light.",
   "start": {
     "x": 43.90625,
-    "y": 275.1953125,
+    "y": 300,
     "facing": 1
   },
   "terrainBlocks": [
@@ -21,7 +21,7 @@
             "y": 320,
             "mode": "independent",
             "in": [
-              80,
+              109.0991,
               320
             ],
             "out": [
@@ -1255,10 +1255,22 @@
               291.5669
             ],
             "out": [
-              -3.0859,
-              346.8359
+              -63.4727,
+              323.5004
             ],
             "edge": "curve"
+          },
+          {
+            "id": "n2oj",
+            "x": 0,
+            "y": 320,
+            "mode": "corner",
+            "in": [
+              -28.0085,
+              318.6912
+            ],
+            "out": null,
+            "edge": "straight"
           }
         ]
       },
@@ -1267,12 +1279,8 @@
   ],
   "apples": [
     {
-      "x": 315,
-      "y": null
-    },
-    {
-      "x": 910,
-      "y": null
+      "x": 611.5228822512595,
+      "y": 181.94026320052643
     },
     {
       "x": 1388.3690048708775,
@@ -1295,32 +1303,14 @@
       "layer": "front"
     },
     {
-      "x": 470.66293176963035,
-      "y": 328.29555751623536,
-      "type": "fence",
-      "layer": "back"
-    },
-    {
       "x": 1480,
       "y": null,
       "type": "stump",
       "layer": "front"
     },
     {
-      "x": 1940,
-      "y": null,
-      "type": "fence",
-      "layer": "back"
-    },
-    {
       "x": 2690,
       "y": null,
-      "type": "rock",
-      "layer": "front"
-    },
-    {
-      "x": 1680.3332962056108,
-      "y": 329.21401096507157,
       "type": "rock",
       "layer": "front"
     },
@@ -1349,27 +1339,14 @@
       "layer": "back"
     },
     {
-      "x": -78.76015625,
-      "y": 212.7438255723501,
-      "type": "moss",
-      "layer": "front"
-    },
-    {
       "x": -104.43113503636937,
       "y": 295.5869218414423,
       "type": "roots",
       "layer": "back"
     },
     {
-      "x": -116.38063822276683,
-      "y": 186.06802598753472,
-      "type": "sign",
-      "layer": "back",
-      "text": "Logging ahead"
-    },
-    {
-      "x": -185.29922839996627,
-      "y": 178.07384230740257,
+      "x": -219.29881088128695,
+      "y": 177.25490143346212,
       "type": "boulder",
       "layer": "back",
       "flip": true
@@ -1382,8 +1359,8 @@
       "flip": true
     },
     {
-      "x": -356.66803220007097,
-      "y": 222.71925941288805,
+      "x": -142.47776907946678,
+      "y": 169.68099363905128,
       "type": "pine",
       "layer": "back"
     },
@@ -1442,8 +1419,8 @@
       "layer": "back"
     },
     {
-      "x": 2420.8995782455727,
-      "y": 296.87827364498696,
+      "x": 2437.988741725562,
+      "y": 308.3431212619589,
       "type": "pine",
       "layer": "back"
     },
@@ -1451,12 +1428,6 @@
       "x": 2940.654706591041,
       "y": 317.0536066210416,
       "type": "tyre",
-      "layer": "back"
-    },
-    {
-      "x": 3310.681213088341,
-      "y": 85.52420603464572,
-      "type": "pine",
       "layer": "back"
     },
     {
@@ -1490,12 +1461,6 @@
       "layer": "back"
     },
     {
-      "x": 3568.1421052842447,
-      "y": 116.89213116695544,
-      "type": "pine",
-      "layer": "back"
-    },
-    {
       "x": 3668.794281628465,
       "y": 137.41198267274115,
       "type": "pine",
@@ -1509,6 +1474,7 @@
     }
   ],
   "spikes": [],
+  "water": [],
   "weather": {
     "sun": 0.75,
     "clouds": 0.65
@@ -1519,7 +1485,7 @@
     "silver": 21,
     "bronze": 28
   },
-  "finishY": 230.49409787336776,
+  "finishY": 196.54878537336776,
   "timeOfDay": "noon",
   "backdrop": "forest"
 }

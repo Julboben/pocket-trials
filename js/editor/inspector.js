@@ -23,6 +23,7 @@ import {
 } from "./blocks.js";
 import { $ } from "./dom.js";
 import { pushHistory, updateHistoryButtons } from "./history.js";
+import { scheduleAutosave } from "./autosave.js";
 import { updateVersionChip } from "./drafts.js";
 import { updateValidationBadge } from "./menu.js";
 import { showStatus } from "./status.js";
@@ -39,8 +40,9 @@ import {
   itemsCentre,
   moveItems,
 } from "./selection.js";
-import { editor } from "./state.js";
+import { editor, waters } from "./state.js";
 import { saveToolSettings, toolSettings } from "./tools.js";
+import { moveWaterTo, waterDepthHint, waterHandle, waterSize } from "./water.js";
 
 export function selectedPosition() {
   if (!editor.selection) return null;
@@ -96,6 +98,10 @@ export function selectedPosition() {
     const spike = editor.trail.spikes[editor.selection.index];
     return [spike.x, spike.y];
   }
+  if (editor.selection.kind === "water") {
+    const body = waters()[editor.selection.index];
+    return body ? waterHandle(body) : null;
+  }
   if (editor.selection.kind === "start")
     return [
       editor.trail.start.x,
@@ -127,8 +133,10 @@ export function syncInspector({ live = false } = {}) {
   $("fall-y").value = Math.round(editor.trail.fallY);
   $("time-of-day").value = editor.trail.timeOfDay || "noon";
   $("backdrop").value = editor.trail.backdrop || "hills";
-  for (const key of ["sun", "clouds", "rain", "lightning"])
+  for (const key of ["sun", "clouds", "rain", "lightning"]) {
     $(`weather-${key}`).value = editor.trail.weather?.[key] ?? 0;
+    showWeatherValue(key);
+  }
   const position = selectedPosition();
   $("selection-fields").hidden = !editor.selection;
   $("selection-title").textContent = !editor.selection
@@ -169,6 +177,16 @@ export function syncInspector({ live = false } = {}) {
   if (selectedProp) $("selection-flip").value = String(Boolean(selectedProp.flip));
   $("selection-radius-row").hidden = editor.selection?.kind !== "spike";
   $("selection-spin-row").hidden = editor.selection?.kind !== "spike";
+  const selectedWater =
+    editor.selection?.kind === "water" ? waters()[editor.selection.index] : null;
+  $("selection-water-width-row").hidden = !selectedWater;
+  $("selection-water-depth-row").hidden = !selectedWater;
+  $("selection-water-hint").hidden = !selectedWater;
+  if (selectedWater) {
+    $("selection-water-width").value = Math.round(selectedWater.width);
+    $("selection-water-depth").value = Math.round(selectedWater.depth);
+    $("selection-water-hint").textContent = waterDepthHint(selectedWater.depth);
+  }
   $("delete-selection").hidden =
     !editor.selection || ["start", "goal"].includes(editor.selection.kind);
   if (isBlock) {
@@ -213,6 +231,7 @@ function syncDetails() {
   const json = JSON.stringify(editor.trail, null, 2);
   $("trail-json").value = json;
   updateVersionChip(json);
+  scheduleAutosave();
   const messages = validateTrail(editor.trail);
   $("validation-list").replaceChildren(
     ...messages.map((message) => {
@@ -314,6 +333,9 @@ export function updateSelectedPosition(x, y) {
   } else if (kind === "spike") {
     editor.trail.spikes[editor.selection.index].x = x;
     editor.trail.spikes[editor.selection.index].y = y;
+  } else if (kind === "water") {
+    const body = waters()[editor.selection.index];
+    if (body) moveWaterTo(body, x, y);
   } else if (kind === "start") {
     editor.trail.start.x = x;
     editor.trail.start.y = y;
@@ -325,6 +347,27 @@ export function updateSelectedPosition(x, y) {
     editor.trail.goal = x;
     editor.trail.finishY = y;
   }
+}
+
+function showWeatherValue(key) {
+  const value = Number($(`weather-${key}`).value) || 0;
+  $(`weather-${key}-value`).textContent = `${Math.round(value * 100)}%`;
+}
+
+/** Give the trail a new name, as one undoable edit. */
+export function renameTrail(name) {
+  name = String(name).trim();
+  if (!name || name === editor.trail.name) return false;
+  pushHistory();
+  setTrailName(name);
+  syncInspector();
+  render();
+  return true;
+}
+
+function setTrailName(name) {
+  editor.trail.name = name;
+  editor.trail.label = `${name.toUpperCase()} / ${String(editor.trailIndex + 1).padStart(2, "0")}`;
 }
 
 function bindTrailInput(id, apply) {
@@ -339,10 +382,7 @@ function bindTrailInput(id, apply) {
 let propTextPending = false;
 
 export function bindInspector() {
-  bindTrailInput("trail-name", (value) => {
-    editor.trail.name = value;
-    editor.trail.label = `${value.toUpperCase()} / ${String(editor.trailIndex + 1).padStart(2, "0")}`;
-  });
+  bindTrailInput("trail-name", setTrailName);
 
   bindTrailInput("goal-x", (value) => {
     editor.trail.goal = Number(value);
@@ -370,6 +410,7 @@ export function bindInspector() {
     });
     $(`weather-${key}`).addEventListener("input", (event) => {
       editor.trail.weather[key] = Number(event.target.value);
+      showWeatherValue(key);
       render();
     });
   }
@@ -547,6 +588,21 @@ export function bindInspector() {
     syncInspector();
     render();
   });
+
+  for (const key of ["width", "depth"])
+    $(`selection-water-${key}`).addEventListener("change", (event) => {
+      const body =
+        editor.selection?.kind === "water" ? waters()[editor.selection.index] : null;
+      if (!body) return;
+      pushHistory();
+      // A new width keeps the body centred where it was; a new depth keeps
+      // its surface and moves the bottom.
+      const centre = body.x + body.width / 2;
+      body[key] = waterSize(event.target.value, key);
+      if (key === "width") body.x = centre - body.width / 2;
+      syncInspector();
+      render();
+    });
 
   $("delete-selection").addEventListener("click", deleteSelection);
 }

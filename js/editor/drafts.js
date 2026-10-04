@@ -4,14 +4,11 @@ import { trailEntries } from "../trails.js";
 import { $ } from "./dom.js";
 import { editor } from "./state.js";
 
-/** The single draft the editor kept before it had a history. */
-export const DRAFT_PREFIX = "hjulben-editor-draft-v1-";
 const DRAFTS_PREFIX = "hjulben-editor-drafts-v2-";
 const SAVED_AT_PREFIX = "hjulben-editor-saved-at-v1-";
+// One autosave per trail, apart from the drafts so it never pushes one out.
+const AUTOSAVE_PREFIX = "hjulben-editor-autosave-v1-";
 const MAX_DRAFTS = 12;
-// A draft migrated from the old single slot has no real time. It sorts as the
-// oldest, but still counts as newer than a save that was never recorded.
-const UNKNOWN_TIME = 1;
 
 function read(key, fallback) {
   try {
@@ -32,16 +29,7 @@ function write(key, value) {
 
 /** Drafts for a trail, newest first: `{ at, trail }`. */
 export function listDrafts(id) {
-  const drafts = read(DRAFTS_PREFIX + id, []);
-  const legacy = read(DRAFT_PREFIX + id, null);
-  if (legacy) {
-    drafts.push({ at: UNKNOWN_TIME, trail: legacy });
-    write(DRAFTS_PREFIX + id, drafts);
-    try {
-      store().removeItem(DRAFT_PREFIX + id);
-    } catch (_) {}
-  }
-  return drafts;
+  return read(DRAFTS_PREFIX + id, []);
 }
 
 /** Keep a copy of the trail; an unchanged trail only moves the newest draft's time. */
@@ -64,8 +52,36 @@ export function removeDraft(id, at) {
 export function clearDrafts(id) {
   try {
     store().removeItem(DRAFTS_PREFIX + id);
-    store().removeItem(DRAFT_PREFIX + id);
     store().removeItem(SAVED_AT_PREFIX + id);
+    store().removeItem(AUTOSAVE_PREFIX + id);
+  } catch (_) {}
+}
+
+/** The trail as it was when last autosaved: `{ at, trail }`, or null. */
+export function readAutosave(id) {
+  const autosave = read(AUTOSAVE_PREFIX + id, null);
+  return Number.isFinite(autosave?.at) && autosave.trail ? autosave : null;
+}
+
+export function writeAutosave(id, trail) {
+  return write(AUTOSAVE_PREFIX + id, { at: Date.now(), trail });
+}
+
+export function clearAutosave(id) {
+  try {
+    store().removeItem(AUTOSAVE_PREFIX + id);
+  } catch (_) {}
+}
+
+/** Carry a trail's drafts and save time over to a new id, after its file moves. */
+export function moveDrafts(from, to) {
+  if (from === to) return;
+  try {
+    for (const prefix of [DRAFTS_PREFIX, SAVED_AT_PREFIX, AUTOSAVE_PREFIX]) {
+      const value = store().getItem(prefix + from);
+      if (value !== null) store().setItem(prefix + to, value);
+      store().removeItem(prefix + from);
+    }
   } catch (_) {}
 }
 
@@ -77,9 +93,8 @@ export function savedAt(id) {
   return Number(read(SAVED_AT_PREFIX + id, 0)) || 0;
 }
 
-/** "Today 12:03", "3 Oct 12:03", or "Older draft" for a migrated one. */
+/** "Today 12:03" or "3 Oct 12:03". */
 export function formatDraftTime(at) {
-  if (at <= UNKNOWN_TIME) return "Older draft";
   const date = new Date(at);
   const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const today = new Date().toDateString() === date.toDateString();
@@ -90,7 +105,6 @@ export function formatDraftTime(at) {
 
 /** "5 minutes ago", for the versions list. */
 export function draftAge(at) {
-  if (at <= UNKNOWN_TIME) return "Kept from before draft history";
   const seconds = Math.round((at - Date.now()) / 1000);
   const units = [["day", 86400], ["hour", 3600], ["minute", 60]];
   const format = new Intl.RelativeTimeFormat([], { numeric: "auto" });

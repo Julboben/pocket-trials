@@ -20,7 +20,7 @@ import {
   updateSelectedPosition,
 } from "./inspector.js";
 import { finishY, groundY, objectY, render } from "./render.js";
-import { editor } from "./state.js";
+import { editor, waters } from "./state.js";
 import { showStatus } from "./status.js";
 import {
   propTypeOptions,
@@ -29,6 +29,7 @@ import {
   setTool,
   toolSettings,
 } from "./tools.js";
+import { moveWaterTo, waterHandle } from "./water.js";
 
 let lastNudge = 0;
 
@@ -49,7 +50,7 @@ export function nudgeSelection(key, big) {
 }
 
 /**
- * Copy blocks, apples, props, spikes and block points in place. A copied
+ * Copy blocks, apples, props, spikes, water and block points in place. A copied
  * point is inserted right after its original, as a corner.
  */
 function duplicateItems(items) {
@@ -153,12 +154,13 @@ export function toggleFlip() {
   render();
 }
 
-// ---- Mixed selection: block points, apples, props and spikes -------------
+// ---- Mixed selection: block points, apples, props, spikes and water -------
 
 export const OBJECT_LISTS = () => ({
   apple: editor.trail.apples,
   prop: editor.trail.props,
   spike: editor.trail.spikes,
+  water: waters(),
 });
 
 export function sameItem(a, b) {
@@ -261,6 +263,7 @@ export function itemPosition(item) {
   const object = OBJECT_LISTS()[item.type][item.index];
   if (!object) return null;
   if (item.type === "spike") return [object.x, object.y];
+  if (item.type === "water") return waterHandle(object);
   return [object.x, objectY(object, item.type === "apple" ? 60 : 0)];
 }
 
@@ -312,6 +315,10 @@ export function moveItems(x, y) {
     }
     const object = OBJECT_LISTS()[item.type][item.index];
     if (!object) return;
+    if (item.type === "water") {
+      moveWaterTo(object, before[i][0] + dx, before[i][1] + dy);
+      return;
+    }
     object.x = before[i][0] + dx;
     object.y = before[i][1] + dy;
   });
@@ -319,7 +326,8 @@ export function moveItems(x, y) {
 
 /**
  * Everything inside the box between two world points: blocks that are wholly
- * inside, points of the others, and apples, props and spikes.
+ * inside, points of the others, and apples, props, spikes and water (by the
+ * middle of its surface).
  */
 function itemsInBox(from, to) {
   const left = Math.min(from.x, to.x),
@@ -485,12 +493,16 @@ export function deleteSelection() {
     pushHistory();
     editor.trail.spikes.splice(editor.selection.index, 1);
     editor.selection = null;
+  } else if (kind === "water") {
+    pushHistory();
+    waters().splice(editor.selection.index, 1);
+    editor.selection = null;
   } else return;
   syncInspector();
   render();
 }
 
-/** Every block, apple, prop and spike, and the start and finish. */
+/** Every block, apple, prop, spike and water body, and the start and finish. */
 export function selectAll() {
   const items = blocks().map((_, index) => ({ type: "block", index }));
   for (const [type, list] of Object.entries(OBJECT_LISTS()))
