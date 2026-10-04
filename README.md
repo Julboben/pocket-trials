@@ -33,7 +33,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Seven progressively longer trails with gaps, caves, and floating blocks to ride across
 - Grass, dirt, rock, snow, and brick terrain materials
 - Per-trail rain and lightning configuration with procedural ambience and distance-aware thunder
-- Water you can ride through: shallow fords drag the bike and slow it down, deeper water wipes the rider out, and the ragdoll floats on the surface with splashes, wakes and sound
+- Water you can ride through: shallow fords drag the bike and slow it down, deeper water wipes the rider out, and the ragdoll floats on the surface with splashes, wakes and sound; water lilies, reeds, seaweed, fish that dart off and ducks that take off when you come close
 
 ## Play
 
@@ -295,6 +295,7 @@ When changing physics values, validate at least these cases:
 
 - [ ] Music
 - [ ] Add import / export of savegames
+- [ ] Add animation to props like with the water props
 - [ ] Biker customization: choose your bike (the original Pocket Classic bike is already drawn as the `classic` model), and later colors and gear
 - [ ] Add background: Coast (a sea horizon with an island) and Canyon (layered cliff walls with rock spires) each only need a new entry in backdropLayers and BACKDROP_COLORS, plus an option in the dropdown.
 - [ ] More offical trails

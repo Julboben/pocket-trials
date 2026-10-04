@@ -232,7 +232,7 @@ props: [
 ];
 ```
 
-Available prop types are `tree`, `pine`, `sapling`, `pine-small`, `bush`, `fence`, `rock`, `boulder`, `pebbles`, `flowers`, `stump`, `cactus`, `cactus-small`, `crystal`, `sign`, the wall props `vines`, `roots` and `moss`, the farm props `crates`, `apple` (a small decorative apple to hang in trees or fill crates and the wheelbarrow; it is not collected), `ladder`, `wheelbarrow`, `scarecrow`, `beehive` and `tyre`, the street props `cone`, `barrier`, `dumpster`, `lamp` and `bird`, the building-site props `crane` and `scaffolding`, the cave props `hanging-roots`, `stalactites`, `drip`, `lantern`, `bats`, `mushrooms`, `minecart` and `beams`, and `graffiti`. `y: null` anchors a prop to the topmost surface at `x`; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front`: `back`-layer props are drawn behind the terrain as well as the gameplay, while `front`-layer props are drawn in front of the gameplay.
+Available prop types are `tree`, `pine`, `sapling`, `pine-small`, `bush`, `fence`, `rock`, `boulder`, `pebbles`, `flowers`, `stump`, `cactus`, `cactus-small`, `crystal`, `sign`, the wall props `vines`, `roots` and `moss`, the farm props `crates`, `apple` (a small decorative apple to hang in trees or fill crates and the wheelbarrow; it is not collected), `ladder`, `wheelbarrow`, `scarecrow`, `beehive` and `tyre`, the street props `cone`, `barrier`, `dumpster`, `lamp` and `bird`, the building-site props `crane` and `scaffolding`, the cave props `hanging-roots`, `stalactites`, `drip`, `lantern`, `bats`, `mushrooms`, `minecart` and `beams`, the water props `lily`, `reeds`, `seaweed`, `fish` and `duck`, and `graffiti`. `y: null` anchors a prop to the topmost surface at `x`; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front`: `back`-layer props are drawn behind the terrain as well as the gameplay, while `front`-layer props are drawn in front of the gameplay.
 
 A `sign` prop carries an optional `text` string that is drawn on its board with the game's pixel font. Text is limited to 8 characters; supported characters are `A`–`Z`, `0`–`9`, space, and `→` `/` `.` `!` `+` `-` `:` `×`. Anything else draws as `#`, and longer text is cut off.
 
@@ -334,6 +334,8 @@ The street and building-site props are decoration too. A `lamp` comes on in the 
 
 The cave props are decoration as well. `hanging-roots`, `stalactites`, `drip`, `lantern` and `bats` hang from a cave ceiling: each looks up to 160 units above its anchor for the nearest roof, so place it anywhere under the ceiling (with `y: null` it uses the roof of the first cave below the surface). A `drip` lets a drop swell, fall one pixel at a time and splash into a puddle on the floor below. A `lantern` hangs on a chain from the roof down to its anchor, or stands on the ground where there is no roof above it; it always glows and lights up the cave around it. `mushrooms` stand on the floor and glow too. `bats` scatter away from the rider when the rider comes close; with reduced motion they simply disappear. `beams` are a timber support set that reaches from the floor up to the roof, packed with boards where the roof is uneven, and a `minecart` sits on rails that run along the floor until they reach a wall or a drop, up to 120 units each way. The ceiling props and `beams` cannot be flipped.
 
+The water props are decoration that belongs with [water](#water). `lily` (lily pads with a flower) and `duck` float on the surface of the body under them: each looks up to 160 units above its anchor, or 24 below it, for a surface and rides its ripples. `seaweed` grows from the bed up to just under the surface, swaying in the current, and `reeds` stand on the bed and reach about 28 units out of the water; place either anywhere in the water and it grows from the bed below (with `y: null`, from the ground at `x`). Reeds also stand on dry ground, for a bank. A `fish` swims to and fro at its anchor's depth, up to 96 units each way through open water, heading first the way it faces; with `y: null` it swims halfway down to the bed. A `fish` darts off and the `duck` takes off when the rider comes close; with reduced motion they simply disappear, and everything else stays still. In the `front` layer, water props are drawn under the water, so their submerged parts look wet. The editor warns about a lily, duck, seaweed or fish that is not in any water.
+
 `graffiti` is painted onto the rock itself rather than placed in front of or behind it, so its `layer` doesn't matter. Place it inside a block, ideally a `brick` one: its `y` is the middle of the piece (with `y: null` it sits 40 units below the surface), and any paint that would land in the open air or on the surface lip is left off. It cannot be flipped.
 
 Sign text wraps at word boundaries onto up to 4 lines of 10 characters, and the board grows taller to fit, staying on its post. Anything longer is cut off, and the editor warns.
@@ -398,7 +400,8 @@ import {
   BACKDROPS,
 } from "./drawing.js";
 import { RADIUS, WHEELBASE } from "./config.js";
-import { WATER_SIZE, normalizeWater, waterAt, waterColumns } from "./water.js";
+import { WATER_SIZE, normalizeWater, waterAt, waterBodies, waterColumns } from "./water.js";
+import { WATER_PROPS, SURFACE_PROPS, waterPropBody } from "./water-props.js";
 import { FINISH_FLOWER_LIFT, bikeTouchesFlower } from "./finish.js";
 import {
   normalizeBlocks as normalizeTerrainBlocks,
@@ -809,9 +812,19 @@ export function validateTrail(trail) {
         "drip",
         "lantern",
         "bats",
+        ...WATER_PROPS,
       ].includes(prop.type)
     )
       warning(`Prop ${index + 1} has an unknown type “${prop.type}”.`);
+    if (WATER_PROPS.has(prop.type) && prop.type !== "reeds") {
+      const y = Number.isFinite(prop.y) ? prop.y : groundHeight(trail, prop.x);
+      if (!waterPropBody(waterBodies(trail), prop.type, prop.x, y))
+        warning(
+          SURFACE_PROPS.has(prop.type)
+            ? `Prop ${index + 1} (${prop.type}) floats on water, but there is no water surface at or just above it.`
+            : `Prop ${index + 1} (${prop.type}) lives in water, but it is not in any water.`,
+        );
+    }
     if (prop.type === "sign") {
       if (typeof prop.text !== "string")
         warning(
@@ -1778,9 +1791,70 @@ Example trail: easy.
       "y": 299.2203386940159,
       "type": "ladder",
       "layer": "back"
+    },
+    {
+      "x": 541.6136459711333,
+      "y": 166.79884193046942,
+      "type": "apple",
+      "layer": "back"
+    },
+    {
+      "x": 506.2014163971314,
+      "y": 189.84374310773,
+      "type": "apple",
+      "layer": "back"
+    },
+    {
+      "x": 1006.9326686105896,
+      "y": 178.8853791102473,
+      "type": "apple",
+      "layer": "back"
+    },
+    {
+      "x": 948.7531641480759,
+      "y": 203.63996380031423,
+      "type": "apple",
+      "layer": "back"
+    },
+    {
+      "x": 993.53,
+      "y": 160.19,
+      "type": "apple",
+      "layer": "back"
+    },
+    {
+      "x": 1325.4596875,
+      "y": 228.07125000000002,
+      "type": "apple",
+      "layer": "back"
+    },
+    {
+      "x": 1253.2784374999999,
+      "y": 180.4134375,
+      "type": "apple",
+      "layer": "back"
+    },
+    {
+      "x": 1917.2909375000002,
+      "y": 215.41500000000002,
+      "type": "apple",
+      "layer": "back"
+    },
+    {
+      "x": 1868.5815624999998,
+      "y": 152.22906250000003,
+      "type": "apple",
+      "layer": "back"
+    },
+    {
+      "x": 1863.6565625,
+      "y": 205.18062500000002,
+      "type": "apple",
+      "layer": "back"
     }
   ],
   "spikes": [],
+  "water": [],
   "weather": {
     "sun": 0.7,
     "clouds": 0.15

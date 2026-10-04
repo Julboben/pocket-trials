@@ -151,6 +151,27 @@ export async function deleteTrailFile(file) {
   removeTrailEntry(entry.id);
 }
 
+/**
+ * The file a custom trail should be published to: its own file while that
+ * still matches the name (a numbered `-2` copy counts), otherwise a free file
+ * named after it.
+ */
+export function customFileFor(entry, name) {
+  const base = slugify(name);
+  if (new RegExp(`^custom/${base}(-\\d+)?\\.json$`).test(entry.file)) return entry.file;
+  return uniqueCustomFile(name);
+}
+
+/**
+ * Write the trail to a new file and remove the old one. The entry keeps its
+ * place in the trail lists, but takes the new file and id.
+ */
+export async function moveTrailFile(entry, file, trail) {
+  const { entry: saved } = await devRequest('PUT', file, trail);
+  await devRequest('DELETE', entry.file);
+  return Object.assign(entry, saved, { trail: JSON.parse(JSON.stringify(trail)) });
+}
+
 export function uniqueCustomFile(name) {
   const base = slugify(name);
   const taken = new Set(trailEntries.map(entry => entry.file));

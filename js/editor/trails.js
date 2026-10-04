@@ -6,8 +6,10 @@ import {
   validateTrail,
 } from "../trail-schema.js";
 import {
+  customFileFor,
   deleteBrowserTrail,
   deleteTrailFile,
+  moveTrailFile,
   saveBrowserTrail,
   saveTrailFile,
   trailEntries,
@@ -21,6 +23,7 @@ import {
   formatDraftTime,
   listDrafts,
   markSaved,
+  moveDrafts,
   removeDraft,
   savedAt,
   savedName,
@@ -330,7 +333,16 @@ function confirmOverwrite(entry) {
 
 async function persist(entry, data) {
   if (entry.storage === "browser") return saveBrowserTrail(data, entry.key);
-  return saveTrailFile(entry.file, data);
+  // A renamed custom trail moves to a file named after it. Official files keep
+  // their names: the online leaderboard knows them by it.
+  const file = entry.source === "custom" ? customFileFor(entry, data.name) : entry.file;
+  if (file === entry.file) return saveTrailFile(entry.file, data);
+  const oldId = entry.id;
+  const oldFile = entry.file;
+  await moveTrailFile(entry, file, data);
+  moveDrafts(oldId, entry.id);
+  rememberTrail();
+  return { ...entry, movedFrom: oldFile };
 }
 
 export async function saveTrail() {
@@ -346,7 +358,7 @@ export async function saveTrail() {
   if (errors.length && !refuse("publishing", errors)) return;
   if (entry.source === "official" && !(await confirmOverwrite(entry))) return;
   try {
-    await persist(entry, editor.trail);
+    const saved = await persist(entry, editor.trail);
     markSaved(entry.id);
     setVersion("saved", null, editor.trail);
     buildPicker();
@@ -355,7 +367,9 @@ export async function saveTrail() {
       "info",
       entry.storage === "browser"
         ? "Published to this browser's trail library."
-        : `Published to trails/${entry.file}.`,
+        : saved?.movedFrom
+          ? `Published to trails/${entry.file} (renamed from ${saved.movedFrom.replace(/^custom\//, "")}).`
+          : `Published to trails/${entry.file}.`,
     );
   } catch (error) {
     showStatus("error", `Could not publish: ${error.message}`);

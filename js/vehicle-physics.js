@@ -84,6 +84,17 @@ import { atan2, exp, hypot } from "./det-math.js";
 
 const distance = (a, b) => hypot(a.x - b.x, a.y - b.y);
 const CRASHED_CHASSIS_CONTACT = { bounce: 0.1, friction: 0.35 };
+const CHASSIS_TOP_HEIGHT = 22;
+// chassis.top is a mass point floating well above the drawn seat and bars, so
+// a crashed bike collides through probes on the drawn outline instead. Each is
+// [offset along the mounts, height above the mount line]; the mount line sits
+// SUSPENSION_REST_LENGTH above the axles, and the seat and bars ~27 above.
+const CRASHED_FRAME_PROBES = [
+  [-20, 6],
+  [0, 7],
+  [20, 6],
+];
+const CRASHED_FRAME_PROBE_RADIUS = 3;
 
 export function createVehicle(rear, front) {
   const mountY = (rear.y + front.y) / 2 - SUSPENSION_REST_LENGTH;
@@ -102,7 +113,7 @@ export function createVehicle(rear, front) {
     frontMount: makePoint(front.x, mountY, XPBD_CHASSIS_MOUNT_INVERSE_MASS),
     top: makePoint(
       (rear.x + front.x) / 2,
-      mountY - 22,
+      mountY - CHASSIS_TOP_HEIGHT,
       XPBD_CHASSIS_TOP_INVERSE_MASS,
     ),
   };
@@ -218,6 +229,9 @@ export function createVehicle(rear, front) {
     ),
   ];
   const chassisPoints = [chassis.rearMount, chassis.frontMount, chassis.top];
+  const crashedFrameProbes = CRASHED_FRAME_PROBES.map(([along, height]) =>
+    createFrameProbe(chassisPoints, along, height),
+  );
   const bikePoints = [rear, front, ...chassisPoints];
   return {
     rear,
@@ -226,6 +240,7 @@ export function createVehicle(rear, front) {
     constraints,
     wheelbaseLimit,
     chassisPoints,
+    crashedFrameProbes,
     bikePoints,
     dampedConstraints: [...constraints, wheelbaseLimit],
     wheelOrder: {
@@ -620,6 +635,107 @@ export function collideFreePoint(
     resolveFreeContact(point, contact, bounce, friction);
 }
 
+// A probe is an affine blend of the chassis points; contact corrections are
+// spread over them by inverse mass, like an XPBD positional constraint.
+function createFrameProbe(points, along, height) {
+  const topWeight = height / CHASSIS_TOP_HEIGHT;
+  const mountWeight = (1 - topWeight) / 2;
+  const weights = [
+    mountWeight - along / WHEELBASE,
+    mountWeight + along / WHEELBASE,
+    topWeight,
+  ];
+  const denominator = points.reduce(
+    (sum, point, index) => sum + weights[index] ** 2 * point.inverseMass,
+    0,
+  );
+  return {
+    points,
+    weights,
+    shares: points.map(
+      (point, index) => (weights[index] * point.inverseMass) / denominator,
+    ),
+  };
+}
+
+function blendProbe({ points, weights }, xKey, yKey) {
+  let x = 0,
+    y = 0;
+  for (let index = 0; index < points.length; index++) {
+    x += points[index][xKey] * weights[index];
+    y += points[index][yKey] * weights[index];
+  }
+  return { x, y };
+}
+
+function resolveFrameProbeContact(probe, contact, bounce, friction) {
+  const { x, y } = blendProbe(probe, "x", "y");
+  const old = blendProbe(probe, "ox", "oy");
+  const { nx, ny } = contact;
+  const penetration = contact.swept
+    ? (contact.x - x) * nx + (contact.y - y) * ny + 0.01
+    : contact.penetration;
+  if (penetration <= 0) return;
+  const vx = x - old.x,
+    vy = y - old.y;
+  let dvx = 0,
+    dvy = 0;
+  const normal = vx * nx + vy * ny;
+  if (normal < 0) {
+    dvx -= nx * normal * (1 + bounce);
+    dvy -= ny * normal * (1 + bounce);
+  }
+  const tangentX = -ny,
+    tangentY = nx,
+    tangent = (vx + dvx) * tangentX + (vy + dvy) * tangentY;
+  dvx -= tangentX * tangent * friction;
+  dvy -= tangentY * tangent * friction;
+  const dx = nx * penetration,
+    dy = ny * penetration;
+  for (let index = 0; index < probe.points.length; index++) {
+    const point = probe.points[index],
+      share = probe.shares[index];
+    if (!share) continue;
+    point.x += dx * share;
+    point.y += dy * share;
+    point.ox += (dx - dvx) * share;
+    point.oy += (dy - dvy) * share;
+    point.grounded = true;
+  }
+}
+
+function collideFrameProbe(trail, probe, sweep, { bounce, friction }) {
+  if (sweep) {
+    const from = blendProbe(probe, "ox", "oy");
+    const to = blendProbe(probe, "x", "y");
+    const swept = terrainSweepCollision(
+      trail,
+      from.x,
+      from.y,
+      to.x,
+      to.y,
+      CRASHED_FRAME_PROBE_RADIUS,
+    );
+    if (swept) resolveFrameProbeContact(probe, swept, bounce, friction);
+  }
+  const { x, y } = blendProbe(probe, "x", "y");
+  for (const contact of terrainCollisionsAt(
+    trail,
+    x,
+    y,
+    CRASHED_FRAME_PROBE_RADIUS,
+  ))
+    resolveFrameProbeContact(probe, contact, bounce, friction);
+}
+
+function collideCrashedChassis(vehicle, trail, sweep) {
+  const { rearMount, frontMount } = vehicle.chassis;
+  for (const point of [rearMount, frontMount])
+    collideFreePoint(trail, point, sweep, CRASHED_CHASSIS_CONTACT);
+  for (const probe of vehicle.crashedFrameProbes)
+    collideFrameProbe(trail, probe, sweep, CRASHED_CHASSIS_CONTACT);
+}
+
 // `controls.crashed` hands the bike to physics alone: the chassis collides with
 // the terrain so a riderless bike tips over and tumbles instead of sinking.
 export function stepVehicle(vehicle, trail, controls, hooks = {}) {
@@ -797,9 +913,7 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
     collideWheel(trail, point, name, hooks);
     holdBrakedWheel(point);
   }
-  if (crashed)
-    for (const point of vehicle.chassisPoints)
-      collideFreePoint(trail, point, true, CRASHED_CHASSIS_CONTACT);
+  if (crashed) collideCrashedChassis(vehicle, trail, true);
   for (let iteration = 0; iteration < BIKE_SOLVER_ITERATIONS; iteration++) {
     hooks.iteration?.(iteration);
     for (const constraint of constraints) {
@@ -816,9 +930,7 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
       collideWheel(trail, point, name, hooks, false);
       holdBrakedWheel(point);
     }
-    if (crashed)
-      for (const point of vehicle.chassisPoints)
-        collideFreePoint(trail, point, false, CRASHED_CHASSIS_CONTACT);
+    if (crashed) collideCrashedChassis(vehicle, trail, false);
     hooks.contactsResolved?.();
   }
   // In the air nothing outside the bike can speed up its spin. The wheel

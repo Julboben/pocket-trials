@@ -159,6 +159,19 @@ export function surfaceCrossing(bodies, fromX, fromY, toX, toY) {
 }
 
 // ---- Drawing ---------------------------------------------------------------
+
+/**
+ * How far the drawn surface has risen (negative) or fallen at an x, in whole
+ * art pixels: the ripples. Floating props ride them too.
+ */
+export function surfaceWave(x, time) {
+  return (
+    Math.round(
+      Math.sin(x * 0.07 + time * 2.4) * 0.8 + Math.sin(x * 0.023 - time * 1.1) * 0.7,
+    ) * 2
+  );
+}
+
 // Which parts of a body are open water, column by column: the rectangle minus
 // the terrain. Cached per compiled terrain, so it is only worked out again
 // when the terrain or the body changes.

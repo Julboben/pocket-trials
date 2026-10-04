@@ -16,6 +16,7 @@ import {
   propWallFit,
   sunLight,
   sunShadowOffset,
+  waterPropAt,
 } from "./drawing.js";
 import { terrainAt, groundShadowSamples, terrainGeometry } from "./terrain.js";
 import { finishHeight } from "./trail-schema.js";
@@ -33,6 +34,7 @@ import {
 import { reducedMotion } from "./state.js";
 import { createLighting } from "./lighting.js";
 import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
+import { WATER_PROPS, FISH_DART, FISH_RANGE } from "./water-props.js";
 
 /**
  * How far left the camera may look. Blocks can reach into negative x, and the
@@ -85,12 +87,15 @@ const PROP_RISE = {
 // How far each prop's art hangs below its anchor, for culling.
 const PROP_HANG = { vines: 148, roots: 28, moss: 28, graffiti: 38 };
 // How far each prop's art reaches either side of its anchor, for culling.
-const PROP_REACH = { crane: 180, minecart: 150, bats: 220 };
-// Perched birds take off, and roosting bats scatter, when the rider comes
-// within `x` and `y` of them; they are gone `flight` seconds later.
+const PROP_REACH = { crane: 180, minecart: 150, bats: 220, fish: FISH_RANGE + 120 };
+// Perched birds and ducks take off, roosting bats scatter, and fish dart off
+// when the rider comes within `x` and `y` of them; they are gone `flight`
+// seconds later.
 const STARTLE = {
   bird: { x: 110, y: 140, flight: 2.5 },
   bats: { x: 160, y: 200, flight: 2.2 },
+  duck: { x: 130, y: 140, flight: 2.5 },
+  fish: { x: 90, y: 70, flight: FISH_DART },
 };
 // Props that glow, and how far their light reaches either side, for culling.
 const GLOW_REACH = { lamp: 70, crane: 180, lantern: 100, mushrooms: 40 };
@@ -246,9 +251,9 @@ export function createRenderer(canvas) {
     }
   }
 
-  // Perched birds and roosting bats take off, away from the rider, once the
-  // rider comes close. Purely visual: nothing here feeds back into the
-  // simulation.
+  // Perched birds, ducks, roosting bats and fish take off, away from the
+  // rider, once the rider comes close. Purely visual: nothing here feeds back
+  // into the simulation.
   function startleProps(ride, focus, now) {
     if (flightRide !== ride) {
       flights.clear();
@@ -257,10 +262,16 @@ export function createRenderer(canvas) {
     for (const prop of trail.props || []) {
       const reach = STARTLE[prop.type];
       if (!reach || flights.has(prop)) continue;
-      let y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
+      let x = prop.x,
+        y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y,
+        from;
       if (prop.type === "bats") y += propWallFit(trail, prop)?.ceiling ?? 0;
-      if (Math.abs(focus.x - prop.x) < reach.x && Math.abs(focus.y - y) < reach.y)
-        flights.set(prop, { start: now, dir: prop.x >= focus.x ? 1 : -1 });
+      if (WATER_PROPS.has(prop.type)) {
+        // A fish darts off from wherever it has swum to.
+        ({ x, y, swim: from } = waterPropAt(trail, prop, propScene.time));
+      }
+      if (Math.abs(focus.x - x) < reach.x && Math.abs(focus.y - y) < reach.y)
+        flights.set(prop, { start: now, dir: x >= focus.x ? 1 : -1, from });
     }
   }
 
@@ -303,13 +314,15 @@ export function createRenderer(canvas) {
   }
 
   // `area` limits drawing to props that can reach a world-space box
-  // { left, top, right, bottom }; returns how many props were drawn.
-  function drawProps(layer, full, art = gameArt, area = null) {
+  // { left, top, right, bottom }, and `wet` to water props (true) or the
+  // others (false); returns how many props were drawn.
+  function drawProps(layer, full, art = gameArt, area = null, wet = null) {
     let drawn = 0;
     for (const prop of trail.props || []) {
       const reach = PROP_REACH[prop.type] ?? 70;
       if (
         prop.layer !== layer ||
+        (wet !== null && wet !== WATER_PROPS.has(prop.type)) ||
         PAINTED_PROPS.has(prop.type) ||
         (!full && (prop.type === "tree" || prop.type === "pine")) ||
         !inView(prop.x, reach) ||
@@ -331,7 +344,7 @@ export function createRenderer(canvas) {
         const age = (frameNow - flight.start) / 1000;
         // With reduced motion a startled bird or bat is simply gone.
         if (reducedMotion || age > STARTLE[prop.type].flight) continue;
-        scene = { ...propScene, flight: { age, dir: flight.dir } };
+        scene = { ...propScene, flight: { age, dir: flight.dir, from: flight.from } };
       }
       art.drawProp(
         prop.type,
@@ -890,8 +903,11 @@ export function createRenderer(canvas) {
     drawBike(ride, rider, flipVisual, ride.ragdoll ? "ragdoll" : state);
     if (debug) drawPhysicsOverlay(ride.vehicle);
     if (ride.ragdoll) gameArt.drawRagdoll(ride.ragdoll.points, rider);
+    // Water props in front are drawn before the water, so what is under the
+    // surface looks wet.
+    drawProps("front", full, gameArt, null, true);
     drawWater(ride);
-    drawProps("front", full);
+    drawProps("front", full, gameArt, null, false);
     drawXray(ride, rider, ride.ragdoll ? "ragdoll" : state, full);
     drawParticles(effects.particles, false);
     // Light the scene, then the glowing parts of props on top.

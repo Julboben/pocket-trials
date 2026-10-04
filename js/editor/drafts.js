@@ -54,6 +54,18 @@ export function clearDrafts(id) {
   } catch (_) {}
 }
 
+/** Carry a trail's drafts and save time over to a new id, after its file moves. */
+export function moveDrafts(from, to) {
+  if (from === to) return;
+  try {
+    for (const prefix of [DRAFTS_PREFIX, SAVED_AT_PREFIX]) {
+      const value = store().getItem(prefix + from);
+      if (value !== null) store().setItem(prefix + to, value);
+      store().removeItem(prefix + from);
+    }
+  } catch (_) {}
+}
+
 export function markSaved(id) {
   write(SAVED_AT_PREFIX + id, Date.now());
 }

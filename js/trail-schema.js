@@ -9,7 +9,8 @@ import {
   BACKDROPS,
 } from "./drawing.js";
 import { RADIUS, WHEELBASE } from "./config.js";
-import { WATER_SIZE, normalizeWater, waterAt, waterColumns } from "./water.js";
+import { WATER_SIZE, normalizeWater, waterAt, waterBodies, waterColumns } from "./water.js";
+import { WATER_PROPS, SURFACE_PROPS, waterPropBody } from "./water-props.js";
 import { FINISH_FLOWER_LIFT, bikeTouchesFlower } from "./finish.js";
 import {
   normalizeBlocks as normalizeTerrainBlocks,
@@ -420,9 +421,19 @@ export function validateTrail(trail) {
         "drip",
         "lantern",
         "bats",
+        ...WATER_PROPS,
       ].includes(prop.type)
     )
       warning(`Prop ${index + 1} has an unknown type “${prop.type}”.`);
+    if (WATER_PROPS.has(prop.type) && prop.type !== "reeds") {
+      const y = Number.isFinite(prop.y) ? prop.y : groundHeight(trail, prop.x);
+      if (!waterPropBody(waterBodies(trail), prop.type, prop.x, y))
+        warning(
+          SURFACE_PROPS.has(prop.type)
+            ? `Prop ${index + 1} (${prop.type}) floats on water, but there is no water surface at or just above it.`
+            : `Prop ${index + 1} (${prop.type}) lives in water, but it is not in any water.`,
+        );
+    }
     if (prop.type === "sign") {
       if (typeof prop.text !== "string")
         warning(

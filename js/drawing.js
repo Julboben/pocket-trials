@@ -6,7 +6,31 @@ import {
 } from "./terrain.js";
 import { terrainMaterials } from "./materials.js";
 import { FINISH_FLOWER_LIFT } from "./finish.js";
-import { WATER_COLORS } from "./water.js";
+import { WATER_COLORS, surfaceWave, waterBodies } from "./water.js";
+import {
+  WATER_PROPS,
+  SURFACE_PROPS,
+  SURFACE_REACH,
+  FISH_RANGE,
+  FISH_CLEARANCE,
+  FISH_HALF,
+  REED_MAX,
+  SEAWEED_MAX,
+  waterPropBody,
+  waterPropNoise,
+  fishSwimY,
+  fishSwim,
+  fishDart,
+  seaweedHeight,
+  reedHeight,
+  drawLily,
+  drawReeds,
+  drawSeaweed,
+  drawFish,
+  drawDuckFloating,
+  drawDuckFlying,
+  FISH_DART,
+} from "./water-props.js";
 import {
   BAT_ROOSTS,
   BEAM_HALF,
@@ -732,6 +756,7 @@ const wallFits = new WeakMap();
  * Cached per prop until it moves or the terrain changes.
  */
 export function propWallFit(trail, prop) {
+  if (WATER_PROPS.has(prop.type)) return waterFit(trail, prop);
   if (!WALL_PROPS.has(prop.type) && !CAVE_FITTED_PROPS.has(prop.type)) return null;
   const geometry = terrainGeometry(trail);
   const cached = wallFits.get(prop);
@@ -869,11 +894,101 @@ function caveFit(trail, prop) {
   return { left: left.reach, right: right.reach, leftWall: left.wall, rightWall: right.wall };
 }
 
+const waterFits = new WeakMap();
+
 /**
- * How far a cave prop's art reaches above and below its anchor, once fitted:
- * [rise, hang], or null for other props.
+ * Where a water prop sits in the body it belongs to, as offsets from its
+ * anchor: `surface` for floating props, `swim` and the open water `left` and
+ * `right` of it for a fish, and the `bed` it grows from, how tall it grows and
+ * the `floor` under it for seaweed and reeds. Cached per prop until it, the
+ * terrain or the water changes.
+ */
+function waterFit(trail, prop) {
+  const geometry = terrainGeometry(trail);
+  const bodies = waterBodies(trail);
+  const water = bodies.map((b) => `${b.x},${b.y},${b.width},${b.depth}`).join(";");
+  const cached = waterFits.get(prop);
+  if (cached && cached.x === prop.x && cached.y === prop.y && cached.type === prop.type
+    && cached.geometry === geometry && cached.water === water) return cached.fit;
+  const fit = fitInWater(trail, prop, bodies);
+  waterFits.set(prop, { x: prop.x, y: prop.y, type: prop.type, geometry, water, fit });
+  return fit;
+}
+
+// Seaweed and reeds follow the bed this far either side of their stem.
+const BED_HALF = 14;
+
+function fitInWater(trail, prop, bodies) {
+  const explicit = Number.isFinite(prop.y);
+  const y = explicit ? prop.y : terrainAt(trail, prop.x).y;
+  const body = waterPropBody(bodies, prop.type, prop.x, y);
+  if (SURFACE_PROPS.has(prop.type)) return { surface: body ? body.y - y : null };
+  if (prop.type === "fish") {
+    if (!body) return { swim: 0, left: 0, right: 0 };
+    const swimY = fishSwimY(body, y, explicit);
+    const open = (px) =>
+      px >= body.x + FISH_HALF &&
+      px <= body.x + body.width - FISH_HALF &&
+      !terrainCollisionsAt(trail, px, swimY, FISH_HALF).length;
+    const run = (dir) => {
+      let reach = 0;
+      for (let d = 4; d <= FISH_RANGE && open(prop.x + dir * d); d += 4) reach = d;
+      return reach;
+    };
+    // How far it can dive from its depth: to just above the bed or the
+    // bottom of the body.
+    const floor = terrainAt(trail, prop.x, swimY);
+    const bottom = Math.min(body.y + body.depth, floor.solid ? floor.y : Infinity);
+    return { swim: swimY - y, left: run(-1), right: run(1), down: Math.max(0, bottom - FISH_CLEARANCE - swimY) };
+  }
+  const tall = prop.type === "reeds" ? reedHeight : seaweedHeight;
+  if (!body) return { bed: 0, height: tall(null), floor: null };
+  // Placed anywhere in the water, it grows from the bed below.
+  const bottom = body.y + body.depth;
+  let bedY = y;
+  if (explicit) {
+    const floor = terrainAt(trail, prop.x, y);
+    bedY = floor.solid && floor.y >= y && floor.y <= bottom + BED_HALF ? floor.y : Math.max(y, bottom);
+  }
+  const floor = [];
+  for (let local = -BED_HALF; local <= BED_HALF; local += 2) {
+    const ground = terrainAt(trail, prop.x + local, bedY - BED_HALF);
+    floor.push(ground.solid && Math.abs(ground.y - bedY) <= BED_HALF ? ground.y - bedY : 0);
+  }
+  return { bed: bedY - y, height: tall(bedY - body.y), floor };
+}
+
+/**
+ * Where a water prop is at `time`, for startling it: a fish where it has swum
+ * to (with its `swim` offset), anything else where it floats or stands.
+ */
+export function waterPropAt(trail, prop, time) {
+  const fit = propWallFit(trail, prop);
+  const y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
+  if (prop.type === "fish") {
+    const swim = fishSwim(prop.x, fit, time, Boolean(prop.flip));
+    return { x: prop.x + swim.dx, y: y + (fit?.swim ?? 0) + swim.dy, swim };
+  }
+  return { x: prop.x, y: y + (fit?.surface ?? 0) };
+}
+
+/**
+ * How far a cave or water prop's art reaches above and below its anchor, once
+ * fitted: [rise, hang], or null for other props.
  */
 export function propSpan(type, fit) {
+  if (SURFACE_PROPS.has(type)) {
+    const surface = fit?.surface ?? 0;
+    return [Math.max(0, -surface) + (type === "duck" ? 120 : 12), Math.max(0, surface) + 6];
+  }
+  if (type === "fish") {
+    const swim = fit?.swim ?? 0;
+    return [Math.max(0, -swim) + 12, Math.max(0, swim) + 12];
+  }
+  if (WATER_PROPS.has(type)) {
+    const bed = fit?.bed ?? 0;
+    return [Math.max(0, (fit?.height ?? REED_MAX) + 16 - bed), Math.max(0, bed) + 4];
+  }
   if (type === "beams") return [BEAM_REACH + 12, 4];
   if (type === "minecart") return [54, 4];
   if (!CEILING_PROPS.has(type)) return null;
@@ -2282,9 +2397,17 @@ const PROP_EXTENTS = {
   mushrooms: [-20, -34, 20],
   minecart: [-RAIL_REACH - 4, -54, RAIL_REACH + 4],
   beams: [-BEAM_HALF - 2, -BEAM_REACH - 12, BEAM_HALF + 2],
+  lily: [-18, -SURFACE_REACH - 12, 22],
+  duck: [-14, -SURFACE_REACH - 20, 16],
+  fish: [-FISH_RANGE - 14, -SURFACE_REACH, FISH_RANGE + 14],
+  seaweed: [-16, -SEAWEED_MAX - 16, 16],
+  reeds: [-24, -REED_MAX - 20, 28],
 };
 // How far below its anchor each ceiling prop's art can reach.
 const CEILING_HANG = { "hanging-roots": 72, stalactites: 36, drip: 260, lantern: 4, bats: 20 };
+// How far below its anchor each water prop's art can reach, once moved onto
+// the surface, to its depth or down to the bed.
+const WATER_HANG = { lily: 32, duck: 32, fish: SURFACE_REACH, seaweed: 200, reeds: 200 };
 
 function propBounds(type, angle, groundOffset, text, flip = false) {
   let [left, top, right] = PROP_EXTENTS[type] || [-64, -190, 64];
@@ -2332,6 +2455,7 @@ function propBounds(type, angle, groundOffset, text, flip = false) {
   if (type === "tyre") bottom = Math.max(bottom, TYRE_SINK);
   if (type === "graffiti") bottom = Math.max(bottom, GRAFFITI_BOUNDS[3]);
   if (CEILING_HANG[type]) bottom = Math.max(bottom, CEILING_HANG[type]);
+  if (WATER_HANG[type]) bottom = Math.max(bottom, WATER_HANG[type]);
   // Wall props reach below their anchor, so faded ones need a taller box.
   if (WALL_PROPS.has(type))
     bottom = Math.max(bottom, type === "vines" ? VINE_MAX + 8 : 28);
@@ -2595,12 +2719,7 @@ export function createGameArt(ctx) {
     for (const { x, segments } of columns) {
       for (const [top, bottom] of segments) {
         const surface = Math.abs(top - body.y) < 0.5;
-        const wave = surface
-          ? Math.round(
-              Math.sin(x * 0.07 + time * 2.4) * 0.8 +
-                Math.sin(x * 0.023 - time * 1.1) * 0.7,
-            ) * ART_PIXEL
-          : 0;
+        const wave = surface ? surfaceWave(x, time) : 0;
         const y0 = Math.round(top / ART_PIXEL) * ART_PIXEL + wave;
         const y1 = Math.round(bottom / ART_PIXEL) * ART_PIXEL;
         if (y1 <= y0) continue;
@@ -3062,6 +3181,72 @@ export function createGameArt(ctx) {
       drawBatFlying(tools, Math.floor(age * 16 + index) % 2 === 0);
       ctx.restore();
     });
+  }
+
+  // A water prop where its fit puts it (see waterFit): lily pads and ducks
+  // riding the ripples on the surface, a fish swimming to and fro and darting
+  // off once startled (`scene.flight`), and seaweed and reeds swaying on the bed.
+  function drawWaterProp(type, x, fit, mirrored, groundOffset, scene) {
+    const tools = { pixelRect };
+    const time = scene.time || 0;
+    const snap = (value) => Math.round(value / ART_PIXEL) * ART_PIXEL;
+    const worldX = (local) => x + (mirrored ? -local : local);
+    if (SURFACE_PROPS.has(type)) {
+      const afloat = Number.isFinite(fit?.surface);
+      ctx.translate(0, afloat ? snap(fit.surface) : 0);
+      const wave = (local) => (afloat ? surfaceWave(worldX(local), time) : 0);
+      if (type === "lily") {
+        // Just clear of the foam line, so the pads lie on the water.
+        ctx.translate(0, -2);
+        drawLily(tools, wave);
+        return;
+      }
+      const flight = scene.flight;
+      if (flight) {
+        // A run across the water, then up and away from the rider.
+        const age = flight.age;
+        const dir = flight.dir * (mirrored ? -1 : 1);
+        ctx.translate(snap(dir * (40 * age + 70 * age * age)), snap(wave(0) - (30 * age + 50 * age * age)));
+        ctx.scale(dir, 1);
+        drawDuckFlying(tools, Math.floor(age * 10) % 2 === 0);
+        return;
+      }
+      // Sitting low, with the foam at its waterline. Now and then it dabbles.
+      ctx.translate(0, wave(2) + 2);
+      drawDuckFloating(tools, time > 0 && (time + waterPropNoise(x, 4) * 9) % 7 < 0.9);
+      return;
+    }
+    if (type === "fish") {
+      // Swims in world directions, whichever way it was placed facing.
+      if (mirrored) ctx.scale(-1, 1);
+      ctx.translate(0, snap(fit?.swim ?? 0));
+      const flight = scene.flight;
+      if (flight) {
+        const age = flight.age;
+        const dart = fishDart(fit, flight.from || { dx: 0, dy: 0 }, flight.dir, age);
+        ctx.globalAlpha *= Math.max(0, 1 - age / FISH_DART);
+        ctx.translate(snap(dart.dx), snap(dart.dy));
+        ctx.scale(flight.dir, 1);
+        drawFish(tools, Math.floor(age * 20) % 2 === 0);
+        return;
+      }
+      const swim = fishSwim(x, fit, time, mirrored);
+      ctx.translate(snap(swim.dx), swim.dy);
+      ctx.scale(swim.dir, 1);
+      drawFish(tools, time > 0 && Math.floor(time * 5 + waterPropNoise(x, 5) * 5) % 2 === 0);
+      return;
+    }
+    ctx.translate(0, snap(fit?.bed ?? 0));
+    const floor = fit?.floor;
+    const ground = floor
+      ? (local) => {
+          const world = mirrored ? -local : local;
+          return floor[Math.max(0, Math.min(floor.length - 1, Math.round((world + BED_HALF) / 2)))];
+        }
+      : groundOffset;
+    const height = fit?.height ?? (type === "reeds" ? reedHeight(null) : seaweedHeight(null));
+    if (type === "reeds") drawReeds(tools, height, time, x, ground);
+    else drawSeaweed(tools, height, time, x, ground);
   }
 
   // Framed board lit from the right, growing upward from `bottom`. `x` must be
@@ -3576,6 +3761,8 @@ export function createGameArt(ctx) {
         else if (type === "drip") drawDrip(tools, fit.colors, fit.drop, scene.time || 0, noise(4));
         else drawBats(x, scene);
       }
+    } else if (WATER_PROPS.has(type)) {
+      drawWaterProp(type, x, wall, mirrored, groundOffset, scene);
     } else if (type === "mushrooms") {
       drawMushrooms({ pixelRect }, groundOffset);
     } else if (type === "minecart") {

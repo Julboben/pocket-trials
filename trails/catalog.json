@@ -74,10 +74,10 @@
       "name": "Mind Your Head"
     },
     {
-      "id": "custom:new-trail-2",
+      "id": "custom:water-test",
       "source": "custom",
-      "file": "custom/new-trail-2.json",
-      "name": "New Trail"
+      "file": "custom/water-test.json",
+      "name": "Water test"
     },
     {
       "id": "custom:wrong-way-up",

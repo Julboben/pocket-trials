@@ -72,6 +72,20 @@ A plan for the props to add to each level theme, plus guidelines for making them
 - [ ] **Lantern**: lights up the surrounding cave wall.
 - [ ] **Bats**: scatter when you ride in.
 
+## 🌊 Water
+*Goes with the water bodies.*
+
+- [x] **Water lilies**: pads with a flower, riding the ripples.
+- [x] **Reeds**: cattails on the bank or the bed, swaying in the breeze.
+- [x] **Seaweed**: grows from the bed to just under the surface, swaying in the current.
+- [x] **Fish**: swims to and fro, and darts off when the bike comes close.
+- [x] **Duck**: floats and dabbles, and takes off when the bike comes close.
+- [ ] **Frog on a lily pad**: jumps into the water as you pass.
+- [ ] **Jetty**: a wooden landing stage with posts down to the bed.
+- [ ] **Rowing boat**: moored, bobbing with the ripples.
+- [ ] **Bubbles**: rise now and then from the bed.
+- [ ] **Dragonflies**: hover over the surface on warm days.
+
 ## 🏁 Motocross track and event props
 *These suit every level and make it feel like a trials event.*
 

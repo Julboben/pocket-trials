@@ -5,6 +5,8 @@ import { createBlankTrail, normalizeTrail, validateTrail } from '../js/trail-sch
 import { trailHash } from '../js/trail-hash.js';
 import { WATER_SIZE, WATER_WIPEOUT_DEPTH, deepWater, normalizeWater, waterAt, wheelImmersion } from '../js/water.js';
 import { rectangle } from './lib/terrain-fixtures.mjs';
+import { propSpan, propWallFit, waterPropAt } from '../js/drawing.js';
+import { FISH_HALF, FISH_RANGE, fishDart, fishSwim } from '../js/water-props.js';
 
 const flatTrail = (overrides = {}) => ({
   name: 'test', terrainBlocks: [rectangle(0, 320, 3000, 620)], fallY: 820,
@@ -85,6 +87,60 @@ const errors = trail => validateTrail(trail).filter(message => message.type === 
   const trail = pitTrail([{ x: 600, y: 330, width: 400, depth: 110 }]);
   const run = () => simulateRun(trail, hold(400, { accelerating: true }), { settleSteps: 240 }).ride.ragdoll.list.map(p => [p.x, p.y]);
   assert.deepEqual(run(), run());
+}
+
+// Water props find their place in the body they belong to.
+{
+  // The pit is open water from 600 to 1000, surface at 330, bed at 440.
+  const pond = [{ x: 600, y: 330, width: 400, depth: 110 }];
+  const trail = normalizeTrail(pitTrail(pond));
+  const fit = prop => propWallFit(trail, prop);
+  // Floating props rise to the surface from anywhere in the water, or settle
+  // onto it from just above.
+  assert.equal(fit({ x: 700, y: 400, type: 'lily' }).surface, 330 - 400);
+  assert.equal(fit({ x: 700, y: 320, type: 'duck' }).surface, 10);
+  assert.equal(fit({ x: 700, y: null, type: 'lily' }).surface, 330 - 440, 'with no y it floats over the bed');
+  assert.equal(fit({ x: 300, y: null, type: 'lily' }).surface, null, 'no water, nothing to float on');
+  // Seaweed and reeds grow from the bed, however high in the water they are placed.
+  const weed = fit({ x: 800, y: 360, type: 'seaweed' });
+  assert.equal(weed.bed, 440 - 360);
+  assert.ok(weed.height > 40 && weed.height <= 110 - 6, 'seaweed stops under the surface');
+  const reeds = fit({ x: 800, y: null, type: 'reeds' });
+  assert.equal(reeds.bed, 0);
+  assert.ok(reeds.height > 110, 'reeds reach out of the water');
+  assert.equal(fit({ x: 300, y: null, type: 'reeds' }).height, 56, 'reeds stand on a dry bank too');
+  // A fish swims at its depth, through open water only.
+  const fish = { x: 620, y: 380, type: 'fish' };
+  const swim = fit(fish);
+  assert.equal(swim.swim, 0);
+  assert.ok(swim.left <= 20 - FISH_HALF, 'the pit wall stops it, nose to tail');
+  assert.equal(swim.right, FISH_RANGE);
+  assert.equal(fit({ x: 800, y: null, type: 'fish' }).swim, (330 + 440) / 2 - 440, 'with no y it swims halfway down');
+  assert.deepEqual(fishSwim(fish.x, swim, 0), { dx: 0, dy: 0, dir: 1 }, 'at rest it is at its anchor, facing its way');
+  assert.equal(fishSwim(fish.x, swim, 0, true).dir, -1);
+  for (let time = 0; time < 60; time += 0.37) {
+    const { dx } = fishSwim(fish.x, swim, time);
+    assert.ok(dx >= -swim.left - 1e-9 && dx <= swim.right + 1e-9, 'it stays in open water');
+  }
+  // Startled toward the wall, it dives instead, and stops short of the bed.
+  const dart = fishDart(swim, { dx: 0, dy: 0 }, -1, 0.7);
+  assert.equal(dart.dx, -swim.left);
+  assert.ok(dart.dy > 0 && dart.dy <= swim.down && 380 + swim.down < 440, JSON.stringify(dart));
+  const at = waterPropAt(trail, fish, 3);
+  assert.equal(at.x, fish.x + fishSwim(fish.x, swim, 3).dx, 'startled from where it has swum to');
+  // Culling covers the surface above a floating prop's anchor.
+  assert.ok(propSpan('lily', fit({ x: 700, y: 400, type: 'lily' }))[0] >= 70);
+  // The editor warns about water props with no water.
+  const stray = normalizeTrail(pitTrail(pond));
+  stray.props = [
+    { x: 300, y: null, type: 'fish', layer: 'back' },
+    { x: 300, y: null, type: 'lily', layer: 'back' },
+    { x: 300, y: null, type: 'reeds', layer: 'back' },
+    { x: 700, y: 400, type: 'duck', layer: 'front' },
+  ];
+  const props = warnings(stray).filter(text => /^Prop/.test(text));
+  assert.equal(props.length, 2, props.join('\n'));
+  assert.ok(props[0].includes('Prop 1 (fish)') && props[1].includes('Prop 2 (lily)'));
 }
 
 console.log('Water tests passed.');

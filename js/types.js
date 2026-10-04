@@ -63,6 +63,7 @@
  * @property {object[]} constraints
  * @property {object[]} dampedConstraints
  * @property {object[]} chassisPoints
+ * @property {object[]} crashedFrameProbes chassis-point blends on the drawn outline
  * @property {object[]} bikePoints
  *
  * @typedef {object} RideInput
