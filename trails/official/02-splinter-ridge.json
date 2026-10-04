@@ -1,11 +1,11 @@
 {
-  "name": "Rolling Country",
-  "label": "ROLLING COUNTRY / 02",
+  "name": "Splinter Ridge",
+  "label": "SPLINTER RIDGE / 02",
   "goal": 3100.1576858626395,
   "description": "Momentum is your friend. Carry speed through valleys, ease over crests, and lean forward when the front wheel gets light.",
   "start": {
     "x": 43.90625,
-    "y": 275.1953125,
+    "y": 300,
     "facing": 1
   },
   "terrainBlocks": [
@@ -1279,12 +1279,8 @@
   ],
   "apples": [
     {
-      "x": 315,
-      "y": null
-    },
-    {
-      "x": 910,
-      "y": null
+      "x": 611.5228822512595,
+      "y": 181.94026320052643
     },
     {
       "x": 1388.3690048708775,
@@ -1435,12 +1431,6 @@
       "layer": "back"
     },
     {
-      "x": 3310.681213088341,
-      "y": 85.52420603464572,
-      "type": "pine",
-      "layer": "back"
-    },
-    {
       "x": 3149.1773616203,
       "y": 246.49028510103238,
       "type": "roots",
@@ -1467,12 +1457,6 @@
     {
       "x": 3466.0196839638165,
       "y": 130.05281052155703,
-      "type": "pine",
-      "layer": "back"
-    },
-    {
-      "x": 3568.1421052842447,
-      "y": 116.89213116695544,
       "type": "pine",
       "layer": "back"
     },

@@ -8,10 +8,10 @@
       "name": "The Orchard"
     },
     {
-      "id": "official:02-rolling-country",
+      "id": "official:02-splinter-ridge",
       "source": "official",
-      "file": "official/02-rolling-country.json",
-      "name": "Rolling Country"
+      "file": "official/02-splinter-ridge.json",
+      "name": "Splinter Ridge"
     },
     {
       "id": "official:03-high-hopes",
@@ -72,6 +72,12 @@
       "source": "custom",
       "file": "custom/mind-your-head.json",
       "name": "Mind Your Head"
+    },
+    {
+      "id": "custom:rolling-country",
+      "source": "custom",
+      "file": "custom/rolling-country.json",
+      "name": "Rolling Country"
     },
     {
       "id": "custom:water-test",
