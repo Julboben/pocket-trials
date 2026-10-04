@@ -80,6 +80,12 @@
       "name": "Rolling Country"
     },
     {
+      "id": "custom:trail-3",
+      "source": "custom",
+      "file": "custom/trail-3.json",
+      "name": "Trail 3"
+    },
+    {
       "id": "custom:water-test",
       "source": "custom",
       "file": "custom/water-test.json",

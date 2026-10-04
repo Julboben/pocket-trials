@@ -19,6 +19,10 @@ A plan for the props to add to each level theme, plus guidelines for making them
 - [ ] **Dolmen**: a Stone Age burial chamber made of large stones with a capstone on top. It works as both a prop and a natural jump.
 - [ ] **Wind turbines**: on the horizon, with blades turning slowly.
 
+## 🌲 Forest
+
+- [x] **Squirrel**: nibbles a nut, and runs up the nearest tree to hide in the crown when the bike comes close.
+
 ## 🍎 Orchard / farmland
 
 - [x] **Crates**: stacked in piles, empty so they can hold anything.

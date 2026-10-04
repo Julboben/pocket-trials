@@ -1,0 +1,227 @@
+{
+  "name": "Trail 3",
+  "label": "TRAIL 3 / 16",
+  "goal": 1200,
+  "description": "",
+  "start": {
+    "x": 90,
+    "y": null,
+    "facing": 1
+  },
+  "terrainBlocks": [
+    {
+      "id": "block-1",
+      "material": "grass",
+      "outer": {
+        "id": "boundary-1",
+        "nodes": [
+          {
+            "id": "n1",
+            "x": -407.1797,
+            "y": 200,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n1xs",
+            "x": -200,
+            "y": 336,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n3yu",
+            "x": 250,
+            "y": 336,
+            "mode": "independent",
+            "in": null,
+            "out": [
+              285.0829,
+              332.9335
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "n2n6",
+            "x": 300.8776,
+            "y": 317.9736,
+            "mode": "independent",
+            "in": [
+              302.6271,
+              314.9071
+            ],
+            "out": [
+              350.9721,
+              283.3324
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "n2",
+            "x": 500,
+            "y": 320,
+            "mode": "independent",
+            "in": [
+              446.3005,
+              285.3588
+            ],
+            "out": [
+              553.9395,
+              349.7769
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "n38p",
+            "x": 674.6023,
+            "y": 336,
+            "mode": "corner",
+            "in": [
+              612.1402,
+              365.7769
+            ],
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n3",
+            "x": 900,
+            "y": 336,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n1rx",
+            "x": 2600,
+            "y": 336,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n4",
+            "x": 2880.3848,
+            "y": 200,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n5",
+            "x": 2773.2051,
+            "y": 600,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n6",
+            "x": -300,
+            "y": 600,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    },
+    {
+      "id": "b169",
+      "material": "grass",
+      "outer": {
+        "id": "b168",
+        "nodes": [
+          {
+            "id": "n164",
+            "x": 631.7577,
+            "y": -89.883,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n165",
+            "x": 949.1511,
+            "y": -89.883,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n166",
+            "x": 949.1511,
+            "y": 94.6501,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n167",
+            "x": 631.7577,
+            "y": 94.6501,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    }
+  ],
+  "apples": [
+    {
+      "x": 421.92819361653955,
+      "y": 247.05521410466184
+    },
+    {
+      "x": 710,
+      "y": 276
+    },
+    {
+      "x": 930,
+      "y": 276
+    },
+    {
+      "x": 1100,
+      "y": null
+    }
+  ],
+  "props": [
+    {
+      "x": 399.2241122428436,
+      "y": 285.2519814425169,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 334.8046875,
+      "y": 302.80234375,
+      "type": "squirrel",
+      "layer": "back"
+    }
+  ],
+  "spikes": [],
+  "water": [],
+  "weather": {
+    "sun": 0.7,
+    "clouds": 0.2
+  },
+  "fallY": 620,
+  "finishY": null,
+  "timeOfDay": "noon"
+}

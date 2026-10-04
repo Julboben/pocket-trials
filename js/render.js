@@ -35,6 +35,7 @@ import { reducedMotion } from "./state.js";
 import { createLighting } from "./lighting.js";
 import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
 import { WATER_PROPS, FISH_DART, FISH_RANGE } from "./water-props.js";
+import { SQUIRREL_HIDE_MAX, SQUIRREL_RANGE } from "./forest-props.js";
 
 /**
  * How far left the camera may look. Blocks can reach into negative x, and the
@@ -87,15 +88,22 @@ const PROP_RISE = {
 // How far each prop's art hangs below its anchor, for culling.
 const PROP_HANG = { vines: 148, roots: 28, moss: 28, graffiti: 38 };
 // How far each prop's art reaches either side of its anchor, for culling.
-const PROP_REACH = { crane: 180, minecart: 150, bats: 220, fish: FISH_RANGE + 120 };
-// Perched birds and ducks take off, roosting bats scatter, and fish dart off
-// when the rider comes within `x` and `y` of them; they are gone `flight`
-// seconds later.
+const PROP_REACH = {
+  crane: 180,
+  minecart: 150,
+  bats: 220,
+  fish: FISH_RANGE + 120,
+  squirrel: SQUIRREL_RANGE + 40,
+};
+// Perched birds and ducks take off, roosting bats scatter, fish dart off and
+// squirrels run for a tree when the rider comes within `x` and `y` of them;
+// they are gone `flight` seconds later (a squirrel as soon as it has hidden).
 const STARTLE = {
   bird: { x: 110, y: 140, flight: 2.5 },
   bats: { x: 160, y: 200, flight: 2.2 },
   duck: { x: 130, y: 140, flight: 2.5 },
   fish: { x: 90, y: 70, flight: FISH_DART },
+  squirrel: { x: 140, y: 120, flight: SQUIRREL_HIDE_MAX },
 };
 // Props that glow, and how far their light reaches either side, for culling.
 const GLOW_REACH = { lamp: 70, crane: 180, lantern: 100, mushrooms: 40 };
@@ -251,9 +259,9 @@ export function createRenderer(canvas) {
     }
   }
 
-  // Perched birds, ducks, roosting bats and fish take off, away from the
-  // rider, once the rider comes close. Purely visual: nothing here feeds back
-  // into the simulation.
+  // Perched birds, ducks, roosting bats, fish and squirrels take off, away
+  // from the rider (a squirrel to its tree), once the rider comes close.
+  // Purely visual: nothing here feeds back into the simulation.
   function startleProps(ride, focus, now) {
     if (flightRide !== ride) {
       flights.clear();
@@ -315,10 +323,14 @@ export function createRenderer(canvas) {
 
   // `area` limits drawing to props that can reach a world-space box
   // { left, top, right, bottom }, and `wet` to water props (true) or the
-  // others (false); returns how many props were drawn.
+  // others (false); returns how many props were drawn. Squirrels come last, so
+  // one climbs up the front of its tree's trunk.
   function drawProps(layer, full, art = gameArt, area = null, wet = null) {
     let drawn = 0;
-    for (const prop of trail.props || []) {
+    const props = trail.props || [];
+    for (const squirrels of [false, true])
+    for (const prop of props) {
+      if ((prop.type === "squirrel") !== squirrels) continue;
       const reach = PROP_REACH[prop.type] ?? 70;
       if (
         prop.layer !== layer ||
@@ -342,7 +354,7 @@ export function createRenderer(canvas) {
       const flight = flights.get(prop);
       if (flight) {
         const age = (frameNow - flight.start) / 1000;
-        // With reduced motion a startled bird or bat is simply gone.
+        // With reduced motion a startled animal is simply gone.
         if (reducedMotion || age > STARTLE[prop.type].flight) continue;
         scene = { ...propScene, flight: { age, dir: flight.dir, from: flight.from } };
       }

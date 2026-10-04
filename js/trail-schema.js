@@ -410,6 +410,7 @@ export function validateTrail(trail) {
         "dumpster",
         "lamp",
         "bird",
+        "squirrel",
         "graffiti",
         "crane",
         "scaffolding",

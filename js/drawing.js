@@ -77,6 +77,15 @@ import {
   drawScaffoldCouplers,
   drawGraffiti,
 } from "./city-props.js";
+import {
+  SQUIRREL_RANGE,
+  SQUIRREL_STEP,
+  SQUIRREL_STEP_UP,
+  SQUIRREL_LENGTH,
+  squirrelDash,
+  drawSquirrelSitting,
+  drawSquirrelRunning,
+} from "./forest-props.js";
 
 const GROUND_ALIGNED_PROP_SPANS = {
   bush: [-28, 28],
@@ -757,6 +766,7 @@ const wallFits = new WeakMap();
  */
 export function propWallFit(trail, prop) {
   if (WATER_PROPS.has(prop.type)) return waterFit(trail, prop);
+  if (prop.type === "squirrel") return squirrelFit(trail, prop);
   if (!WALL_PROPS.has(prop.type) && !CAVE_FITTED_PROPS.has(prop.type)) return null;
   const geometry = terrainGeometry(trail);
   const cached = wallFits.get(prop);
@@ -958,6 +968,55 @@ function fitInWater(trail, prop, bodies) {
   return { bed: bedY - y, height: tall(bedY - body.y), floor };
 }
 
+// Trees a squirrel hides in, with how far above the base the leaves start to
+// cover the trunk; it climbs on until it is out of sight above that line.
+export const SQUIRREL_TREES = { tree: -90, pine: -28, sapling: -46, "pine-small": -16 };
+const squirrelFits = new WeakMap();
+
+/**
+ * Where a startled squirrel can go, as offsets from its anchor: the ground it
+ * can run along `left` and `right` of it (one offset every SQUIRREL_STEP, up
+ * to a wall, a drop or SQUIRREL_RANGE), and the nearest `tree` along that
+ * ground, with its trunk `dx` and the `leaves` line that hides it, or null.
+ * Cached per squirrel until it, the terrain or a tree changes.
+ */
+function squirrelFit(trail, prop) {
+  const geometry = terrainGeometry(trail);
+  const trees = (trail.props || []).filter((other) => other.type in SQUIRREL_TREES);
+  const key = trees.map((tree) => `${tree.type},${tree.x},${tree.y}`).join(";");
+  const cached = squirrelFits.get(prop);
+  if (cached && cached.x === prop.x && cached.y === prop.y
+    && cached.geometry === geometry && cached.key === key) return cached.fit;
+  const y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
+  const trace = (dir) => {
+    const path = [0];
+    let groundY = y;
+    for (let d = SQUIRREL_STEP; d <= SQUIRREL_RANGE; d += SQUIRREL_STEP) {
+      const ground = terrainAt(trail, prop.x + dir * d, groundY - SQUIRREL_STEP_UP);
+      if (!ground.solid || Math.abs(ground.y - groundY) > SQUIRREL_STEP_UP) break;
+      groundY = ground.y;
+      path.push(groundY - y);
+    }
+    return path;
+  };
+  const left = trace(-1);
+  const right = trace(1);
+  let tree = null;
+  for (const other of trees) {
+    const dx = other.x - prop.x;
+    const path = dx < 0 ? left : right;
+    const step = Math.round(Math.abs(dx) / SQUIRREL_STEP);
+    if (step >= path.length || (tree && Math.abs(dx) >= Math.abs(tree.dx))) continue;
+    // Only a tree standing on the ground it runs along.
+    const base = (Number.isFinite(other.y) ? other.y : terrainAt(trail, other.x).y) - y;
+    if (Math.abs(base - path[step]) > SQUIRREL_STEP_UP) continue;
+    tree = { dx, leaves: base + SQUIRREL_TREES[other.type] };
+  }
+  const fit = { left, right, tree };
+  squirrelFits.set(prop, { x: prop.x, y: prop.y, geometry, key, fit });
+  return fit;
+}
+
 /**
  * Where a water prop is at `time`, for startling it: a fish where it has swum
  * to (with its `swim` offset), anything else where it floats or stands.
@@ -988,6 +1047,11 @@ export function propSpan(type, fit) {
   if (WATER_PROPS.has(type)) {
     const bed = fit?.bed ?? 0;
     return [Math.max(0, (fit?.height ?? REED_MAX) + 16 - bed), Math.max(0, bed) + 4];
+  }
+  if (type === "squirrel") {
+    const ground = [...(fit?.left ?? [0]), ...(fit?.right ?? [0])];
+    const top = Math.min(...ground, (fit?.tree?.leaves ?? 0) - SQUIRREL_LENGTH);
+    return [Math.max(0, -top) + 32, Math.max(0, ...ground) + 4];
   }
   if (type === "beams") return [BEAM_REACH + 12, 4];
   if (type === "minecart") return [54, 4];
@@ -2388,6 +2452,7 @@ const PROP_EXTENTS = {
   crane: [-74, -282, 176],
   scaffolding: [-54, -144, 54],
   bird: [-12, -20, 12],
+  squirrel: [-16, -32, 14],
   graffiti: [GRAFFITI_BOUNDS[0], GRAFFITI_BOUNDS[1], GRAFFITI_BOUNDS[2]],
   "hanging-roots": [-16, -CEILING_REACH - 4, 16],
   stalactites: [-20, -CEILING_REACH - 4, 20],
@@ -3741,6 +3806,40 @@ export function createGameArt(ctx) {
         const time = scene.time || 0;
         const peck = time > 0 && (time + propNoise(x, 1) * 7) % 3 < 0.3;
         drawBirdPerched(tools, peck);
+      }
+    } else if (type === "squirrel") {
+      const tools = { pixelRect };
+      const flight = scene.flight;
+      if (flight) {
+        // Runs and climbs in world directions, whichever way it was facing.
+        if (mirrored) ctx.scale(-1, 1);
+        const snap = (value) => Math.round(value / ART_PIXEL) * ART_PIXEL;
+        const age = flight.age;
+        const dash = squirrelDash(wall, flight.dir, age);
+        if (dash.hidden) {
+          ctx.restore();
+          return;
+        }
+        const stretch = Math.floor(age * 12) % 2 === 0;
+        ctx.globalAlpha *= dash.alpha;
+        if (dash.climbing) {
+          // Gone from sight where the leaves start to cover the trunk.
+          ctx.beginPath();
+          ctx.rect(-SQUIRREL_RANGE - 40, snap(wall.tree.leaves), (SQUIRREL_RANGE + 40) * 2, 1000);
+          ctx.clip();
+          ctx.translate(snap(dash.dx) + dash.dir * 6, snap(dash.dy));
+          ctx.scale(dash.dir, 1);
+          ctx.rotate(-Math.PI / 2);
+        } else {
+          // A bounding run, a little hop each stride.
+          ctx.translate(snap(dash.dx), snap(dash.dy) - (stretch ? 2 : 0));
+          ctx.scale(dash.dir, 1);
+        }
+        drawSquirrelRunning(tools, stretch);
+      } else {
+        // Now and then it nibbles a nut.
+        const time = scene.time || 0;
+        drawSquirrelSitting(tools, time > 0 && (time + propNoise(x, 2) * 9) % 5 < 1.2);
       }
     } else if (CEILING_PROPS.has(type)) {
       const tools = { pixelRect };
