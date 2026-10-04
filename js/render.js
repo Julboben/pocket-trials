@@ -161,6 +161,18 @@ export function createRenderer(canvas) {
     H = Math.ceil(deviceHeight / pixelScale) * ART_PIXEL;
   }
 
+  /**
+   * A fixed view of `width` × `height` world units with `scale` device pixels
+   * per art pixel, for canvases that are not laid out on the page.
+   */
+  function setViewport(width, height, scale) {
+    pixelScale = Math.max(1, Math.round(scale));
+    W = Math.ceil(width / ART_PIXEL) * ART_PIXEL;
+    H = Math.ceil(height / ART_PIXEL) * ART_PIXEL;
+    canvas.width = (W / ART_PIXEL) * pixelScale;
+    canvas.height = (H / ART_PIXEL) * pixelScale;
+  }
+
   function reset(nextTrail, facing) {
     trail = nextTrail;
     hair = null;
@@ -516,27 +528,40 @@ export function createRenderer(canvas) {
     return hairRoot(riderPose(ride, flip), exact);
   }
 
-  /** Steps a hair simulation for `ride`; returns it, or null for riders without hair. */
-  function updateHair(current, ride, rider, dt, flip = flipVisual) {
-    if (rider !== "female") return null;
+  function hairState(ride, flip) {
     const pose = riderPose(ride, flip);
-    const root = currentHairRoot(ride, true, flip);
-    const rest = ride.ragdoll
-      ? freeHairRestDirection(ride.facing)
-      : hairRestDirection(pose);
-    let next = current;
-    if (!next || Math.hypot(root.x - next.root.x, root.y - next.root.y) > 60)
-      next = createRiderHair(root, rest);
-    next.update(dt, {
-      root,
-      rest,
+    return {
+      root: currentHairRoot(ride, true, flip),
+      rest: ride.ragdoll
+        ? freeHairRestDirection(ride.facing)
+        : hairRestDirection(pose),
       back: ride.ragdoll ? null : hairBackSupport(pose),
       // The floor under each strand, not the topmost surface: under an
       // overhang the topmost one is above the rider, and clamping to it drew
       // the hair as a pole up to the peak.
       groundAt: (x, y) => terrainAt(trail, x, y - HAIR_GROUND_ALLOWANCE),
-    });
+    };
+  }
+
+  /** Steps a hair simulation for `ride`; returns it, or null for riders without hair. */
+  function updateHair(current, ride, rider, dt, flip = flipVisual) {
+    if (rider !== "female") return null;
+    const state = hairState(ride, flip);
+    let next = current;
+    if (
+      !next ||
+      Math.hypot(state.root.x - next.root.x, state.root.y - next.root.y) > 60
+    )
+      next = createRiderHair(state.root, state.rest);
+    next.update(dt, state);
     return next;
+  }
+
+  /** Lets the rider's hair come to rest around a ride held still, for posed scenes. */
+  function settleHair(ride, rider, seconds = 1.5) {
+    flipVisual = ride.facing;
+    hair = updateHair(null, ride, rider, 0);
+    hair?.settle(seconds, hairState(ride, flipVisual));
   }
 
   function bikeGeometry(ride) {
@@ -943,6 +968,8 @@ export function createRenderer(canvas) {
 
   return {
     resize,
+    setViewport,
+    settleHair,
     reset,
     draw,
     popup,
