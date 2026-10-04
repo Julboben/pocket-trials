@@ -177,7 +177,10 @@ Tables are created automatically on first use. A rider without a passkey (for ex
 ├── index.html          # Game markup and module entry point
 ├── css/
 │   ├── game.css        # Game and dashboard presentation
-│   └── editor.css      # Visual trail editor presentation
+│   ├── editor.css      # Visual trail editor presentation
+│   └── icons.css       # Generated pixel icons (from icons/pixel-icons.mjs)
+├── icons/
+│   └── pixel-icons.mjs # Every UI icon, drawn as ASCII pixel art
 ├── trails/
 │   ├── official/       # Shipped career trails
 │   ├── custom/         # Locally authored standalone trails
@@ -225,6 +228,8 @@ The game itself intentionally has no runtime dependencies. Only the Netlify func
 
 Shared interface colors, spacing, corner radii, typography, and pixel-shadow values are defined as CSS custom properties in `css/game.css`. Trail-specific canvas colors live under `trails/official/` and `trails/custom/`, shared terrain materials and catalog loading live in `js/trails.js`, and simulation constants live in `js/config.js`.
 
+UI icons are drawn as ASCII grids in `icons/pixel-icons.mjs` (`#` takes the text colour; other letters map to the icon's own palette). Run `npm run icons` to regenerate `css/icons.css`, then use one with `<span data-icon="clock"></span>`, or add one to a label with `data-icon-before`/`data-icon-after`. Set `--px` to scale it (keep it a whole number).
+
 ## Technical overview
 
 ### Physics
@@ -269,7 +274,7 @@ The logical viewport and camera framing adapt to mobile and desktop dimensions.
 
 The game is currently a **design and physics prototype**. Its most important asset is the accumulated handling behavior: throttle response, braking, rider lean, suspension, momentum, and camera feel.
 
-`sw.js`'s file list, `js/version.js` and `TRAIL_AUTHORING_CONTEXT.md` (the trail spec, schema, materials and example trails bundled for trail authors) are generated: run `npm run sw` and `npm run context` after changing their sources. `npm test` fails while either is out of date.
+`sw.js`'s file list, `js/version.js` and `TRAIL_AUTHORING_CONTEXT.md` (the trail spec, schema, materials and example trails bundled for trail authors) are generated: run `npm run sw`, `npm run icons` and `npm run context` after changing their sources. `npm test` fails while any of them is out of date.
 
 To test as a brand-new player on `localhost`, open the game or editor with `?sandbox`. All data then lives in that tab's `sessionStorage`: your real saves are never read or changed, online submits are skipped, and a SANDBOX badge shows at the bottom. The sandbox survives reloads, the editor, and playtests. Use `?sandbox=reset` to start fresh again and `?sandbox=off` to go back to your real data.
 

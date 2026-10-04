@@ -49,8 +49,11 @@ export function createOverlay() {
     }
   }
 
-  function toast(message, duration = 2600) {
+  /** @param {string} [icon] a pixel icon shown after the message */
+  function toast(message, duration = 2600, icon) {
     $("toast").textContent = message;
+    if (icon) $("toast").dataset.iconAfter = icon;
+    else delete $("toast").dataset.iconAfter;
     toastUntil =
       duration === Infinity ? Infinity : performance.now() + duration;
     $("toast").classList.add("visible");

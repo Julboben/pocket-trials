@@ -24,9 +24,7 @@ import {
 const runnerName = name => name || 'RIDER';
 
 export function riderSymbolMarkup(selectedRider) {
-  return selectedRider === 'female'
-    ? '<svg class="rider-symbol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="5"></circle><path d="M12 13v8M8.5 18h7"></path></svg>'
-    : '<svg class="rider-symbol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="15" r="5"></circle><path d="M13 11 20 4M15 4h5v5"></path></svg>';
+  return '<span data-icon="' + (selectedRider === 'female' ? 'female' : 'male') + '" aria-hidden="true"></span>';
 }
 
 /** Loads saves and preferences into the session. */
@@ -191,7 +189,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
         ? '<span class="save-avatar ' + save.rider + '">' + riderSymbolMarkup(save.rider) + '</span>'
           + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + active + mode + '</span><strong>' + save.name + '</strong><small>'
           + (save.unlocked + 1) + ' / ' + trails.length + ' trails · ' + trails[save.trail].name + '</small></span>'
-        : '<span class="save-avatar empty">+</span>'
+        : '<span class="save-avatar empty"><span data-icon="plus" aria-hidden="true"></span></span>'
           + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + '</span><strong>NEW RIDER</strong><small>Start a fresh career in this slot</small></span>';
       button.addEventListener('click', () => {
         if (save) { selectSaveSlot(index); showView('home'); return; }
@@ -398,6 +396,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     const medal = best === null ? null : medalFor(trail.medals, best);
     if (medal) {
       bestLabel.dataset.medal = medal;
+      bestLabel.dataset.iconAfter = 'medal';
       bestLabel.title = medal + ' medal';
     }
     button.append(numberLabel, copy, bestLabel);

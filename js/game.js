@@ -498,7 +498,7 @@ export function startGame() {
         overlay.announce(event.collected + ' of ' + event.total + ' apples collected.');
         const ghostSplit = ghost?.data.splits?.[event.collected - 1];
         if (Number.isFinite(ghostSplit)) overlay.split(event.split - ghostSplit);
-        if (event.collected === event.total) overlay.toast('All apples collected! Finish gate unlocked ⚑');
+        if (event.collected === event.total) overlay.toast('All apples collected! Finish gate unlocked', undefined, 'flag');
         break;
       }
       case 'goalLocked':

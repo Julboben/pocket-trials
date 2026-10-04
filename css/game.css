@@ -109,10 +109,6 @@ select:focus-visible {
     opacity: 0.3;
     cursor: default;
 }
-.icon-button svg {
-    width: 16px;
-    height: 16px;
-}
 
 .viewport {
     position: relative;
@@ -157,13 +153,8 @@ canvas {
 .timer-pill {
     background: #315d46e8;
 }
-.hud-pill svg {
-    width: 16px;
-    height: 16px;
-}
 .timer-icon {
     color: #d8ebcb;
-    font-size: 15px;
 }
 .scene-label {
     position: absolute;
@@ -537,9 +528,6 @@ h2 {
 .trail-best[data-medal="bronze"] {
     color: #d9955f;
 }
-.trail-best[data-medal]::after {
-    content: " ●";
-}
 
 .setting-range {
     display: flex;
@@ -648,28 +636,18 @@ h2 {
     border-radius: var(--radius-pixel);
 }
 .control .symbol {
-    font-size: 27px;
-    font-weight: 700;
-    line-height: 1;
+    --px: 3px;
 }
 .control .caption {
     font-size: 8px;
     font-weight: 850;
     letter-spacing: 1px;
 }
-#down-control .symbol,
-#up-control .symbol {
-    font-size: 18px;
-}
-.control svg.symbol {
-    width: 24px;
-    height: 27px;
-}
 .control.lights[aria-pressed="false"] {
     color: #8b9695;
 }
-.control.lights[aria-pressed="false"] .beam {
-    display: none;
+.control.lights[aria-pressed="false"] .symbol {
+    --icon: var(--icon-headlight-off);
 }
 .control.gas {
     color: var(--color-green-ink);
@@ -1074,14 +1052,9 @@ h2 {
     color: var(--color-text-muted);
     border-style: dashed;
 }
-.save-avatar .rider-symbol,
-.rider-portrait .rider-symbol {
-    width: 24px;
-    height: 24px;
-}
-.rider-symbol circle,
-.rider-symbol path {
-    vector-effect: non-scaling-stroke;
+.save-avatar [data-icon],
+.rider-portrait [data-icon] {
+    --px: 3px;
 }
 .menu-actions {
     width: min(560px, 100%);
@@ -1392,9 +1365,8 @@ h2 {
     height: 34px;
     border-width: 2px;
 }
-.leaderboard-row .save-avatar .rider-symbol {
-    width: 17px;
-    height: 17px;
+.leaderboard-row .save-avatar [data-icon] {
+    --px: 2px;
 }
 .leaderboard-copy {
     min-width: 0;
@@ -1771,15 +1743,9 @@ kbd {
         flex-direction: row;
         gap: 10px;
     }
-    #flip-control .symbol {
-        font-size: 22px;
-    }
-    #headlight svg.symbol {
-        height: 22px;
-    }
-    #down-control .symbol,
-    #up-control .symbol {
-        font-size: 24px;
+    #flip-control .symbol,
+    #headlight .symbol {
+        --px: 2px;
     }
     .control .caption {
         font-size: 9px;
@@ -1934,30 +1900,4 @@ html[data-sandbox] body::after {
         monospace;
     letter-spacing: 1px;
     pointer-events: none;
-}
-
-/* Pixel arrow on a 7×5 grid in currentColor; --px sets the pixel size. */
-.px-arrow,
-.arrow-after::after,
-[data-menu-back]::before {
-    content: "";
-    display: inline-block;
-    flex: none;
-    width: calc(7 * var(--px, 2px));
-    height: calc(5 * var(--px, 2px));
-    vertical-align: middle;
-    background: currentColor;
-    -webkit-mask: var(--px-arrow) center / 100% 100% no-repeat;
-    mask: var(--px-arrow) center / 100% 100% no-repeat;
-    --px-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 5' shape-rendering='crispEdges'%3E%3Cpath d='M4 0h1v1H4zM4 1h2v1H4zM0 2h7v1H0zM4 3h2v1H4zM4 4h1v1H4z'/%3E%3C/svg%3E");
-}
-.px-arrow.back,
-[data-menu-back]::before {
-    transform: scaleX(-1);
-}
-.arrow-after::after {
-    margin: -2px 0 0 8px;
-}
-[data-menu-back]::before {
-    margin: -2px 6px 0 0;
 }
