@@ -190,9 +190,6 @@ export const toolSettings = (() => {
         { ...defaults, ...(stored[name] || {}) },
       ]),
     );
-    // Older settings could name the trail's base material, which is gone.
-    if (!terrainMaterials[settings.block.material])
-      settings.block.material = DEFAULT_TOOL_SETTINGS.block.material;
     return settings;
   } catch (_) {
     return structuredClone(DEFAULT_TOOL_SETTINGS);

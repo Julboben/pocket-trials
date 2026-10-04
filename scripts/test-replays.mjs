@@ -9,7 +9,7 @@ import { rectangle } from './lib/terrain-fixtures.mjs';
 
 const FINISH_TOLERANCE = .05;
 const flatTrail = (overrides = {}) => ({
-  name: 'test', terrainBlocks: [rectangle(0, 320, 3000, 620)], terrain: 'grass', fallY: 820,
+  name: 'test', terrainBlocks: [rectangle(0, 320, 3000, 620)], fallY: 820,
   start: { x: 120, y: null, facing: 1 }, goal: 2800, apples: [], spikes: [], ...overrides
 });
 const hold = (steps, input) => Array.from({ length: steps }, () => ({ facing: 1, leanInput: 0, accelerating: false, braking: false, ...input }));

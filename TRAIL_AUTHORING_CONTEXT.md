@@ -196,7 +196,7 @@ The finish is a flower at (goal, finishY), floating 22 units above that point. f
 
 ## Terrain materials
 
-Each block sets its own material with its `material` property. Leave out the old trail-level `terrain` base material. A few older trails keep it only because it is part of their trail hash; when present it fills in blocks saved without a material. Available presets are:
+Each block sets its own material with its `material` property. Available presets are:
 
 | Material | Intended character                       |
 | -------- | ---------------------------------------- |
@@ -273,7 +273,7 @@ water: [
 
 Use the editor's **Water** tool (`W`): drag a rectangle, or click to drop a body of the tool's size with its surface at the click. Drag a body by the middle of its surface, or click open water to select it. The inspector edits width (keeping the body centred) and depth (keeping the surface), and says whether the body is a ford or deep. The editor warns when water covers the start, or lies entirely inside terrain.
 
-Trails without water may leave the field out. It is part of the trail hash only when a trail has water, so adding it to the format left existing leaderboards unchanged.
+Trails without water may leave the field out. Water is part of the trail hash only when a trail has some.
 
 ## Weather
 
@@ -387,7 +387,6 @@ That would let apples and props follow a block automatically after its shape cha
 Schema, normalization and validation rules (the code is authoritative if it disagrees with the spec).
 
 ```js
-import { terrainMaterials } from "./materials.js";
 import { terrainAt, terrainGeometry } from "./terrain.js";
 import { hypot } from "./det-math.js";
 import {
@@ -407,12 +406,12 @@ import {
   regionBounds,
 } from "./terrain-geometry.js";
 /** Blocks for a brand new trail: one rectangular slab to build on. */
-export function createBlankTerrainBlocks(trail = {}) {
+export function createBlankTerrainBlocks(material = "grass") {
   return normalizeTerrainBlocks(
     [
       {
         id: "block-1",
-        material: trail.terrain || "grass",
+        material,
         outer: {
           id: "boundary-1",
           nodes: [
@@ -475,7 +474,6 @@ export function createBlankTerrainBlocks(trail = {}) {
         inner: [],
       },
     ],
-    trail.terrain || "grass",
   );
 }
 
@@ -519,7 +517,7 @@ export function trailBackWalls(trail) {
 }
 
 function allTrailBlocks(trail) {
-  return normalizeTerrainBlocks(trail?.terrainBlocks, trail?.terrain || "grass") || [];
+  return normalizeTerrainBlocks(trail?.terrainBlocks) || [];
 }
 
 /**
@@ -599,17 +597,10 @@ export function normalizeTrail(input, index = 0) {
         ? Number(trail.finishY)
         : null;
   trail.fallY = Number(trail.fallY) || fallback.fallY;
-  // `terrain` was the trail's base material. Blocks carry their own now, so it
-  // only fills in blocks saved without a material, below.
-  if (!terrainMaterials[trail.terrain]) delete trail.terrain;
   // Terrain comes from the input only: a trail without blocks has no terrain,
   // which validation reports, rather than silently getting the blank slab.
   trail.terrainBlocks =
-    normalizeTerrainBlocks(input?.terrainBlocks, trail.terrain) || [];
-  // Every block now has a material, so the base is only kept where the trail
-  // hash still needs it: when it differs from the first block's material.
-  if (trail.terrain === trail.terrainBlocks.find((block) => !isBackWall(block))?.material)
-    delete trail.terrain;
+    normalizeTerrainBlocks(input?.terrainBlocks) || [];
   const start = trail.start || fallback.start;
   trail.start = {
     x: Number(start.x) || 90,

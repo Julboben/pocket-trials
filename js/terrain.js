@@ -75,7 +75,7 @@ export function terrainAt(trail, x, referenceY = null) {
   const blocks = terrainGeometry(trail);
   const surface = blocks && terrainSurfaceBelow(blocks, x, referenceY);
   if (surface) return { y: surface.y, slope: surface.slope, solid: true, material: surface.material };
-  return { y: trail?.fallY || 620, slope: 0, solid: false, material: trail?.terrain || 'grass' };
+  return { y: trail?.fallY || 620, slope: 0, solid: false, material: 'grass' };
 }
 
 export function groundShadowSamples(trail, x, referenceY, width, step = 2, center = x) {

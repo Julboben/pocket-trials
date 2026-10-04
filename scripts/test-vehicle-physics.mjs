@@ -39,7 +39,7 @@ function bandBlock(points, thickness, id = 'band') {
   return polygonBlock([...offset(1), ...offset(-1).reverse()], 'grass', id);
 }
 const groundTrail = (points, extra = {}) => ({
-  name: 'test', terrain: 'grass', fallY: Math.max(...points.map(point => point[1])) + 500,
+  name: 'test', fallY: Math.max(...points.map(point => point[1])) + 500,
   terrainBlocks: [groundBlock(points)], ...extra
 });
 const flatTrail = (y = 320) => groundTrail([[0, y], [1400, y]]);
@@ -49,7 +49,7 @@ function createSimulation(trail, { x = 180, y = null, facing = 1 } = {}) {
     const wheelY = y ?? terrainAt(trail, wheelX).y - RADIUS;
     return {
       x: wheelX, y: wheelY, ox: wheelX, oy: wheelY, inverseMass: 1,
-      grounded: y === null, contact: null, material: trail.terrain,
+      grounded: y === null, contact: null, material: 'grass',
       spin: 0, angularVelocity: 0, compression: 0, impactSpeed: 0
     };
   };

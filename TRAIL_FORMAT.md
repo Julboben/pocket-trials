@@ -163,7 +163,7 @@ The finish is a flower at (goal, finishY), floating 22 units above that point. f
 
 ## Terrain materials
 
-Each block sets its own material with its `material` property. Leave out the old trail-level `terrain` base material. A few older trails keep it only because it is part of their trail hash; when present it fills in blocks saved without a material. Available presets are:
+Each block sets its own material with its `material` property. Available presets are:
 
 | Material | Intended character                       |
 | -------- | ---------------------------------------- |
@@ -240,7 +240,7 @@ water: [
 
 Use the editor's **Water** tool (`W`): drag a rectangle, or click to drop a body of the tool's size with its surface at the click. Drag a body by the middle of its surface, or click open water to select it. The inspector edits width (keeping the body centred) and depth (keeping the surface), and says whether the body is a ford or deep. The editor warns when water covers the start, or lies entirely inside terrain.
 
-Trails without water may leave the field out. It is part of the trail hash only when a trail has water, so adding it to the format left existing leaderboards unchanged.
+Trails without water may leave the field out. Water is part of the trail hash only when a trail has some.
 
 ## Weather
 

@@ -7,7 +7,7 @@ import { WATER_SIZE, WATER_WIPEOUT_DEPTH, deepWater, normalizeWater, waterAt, wh
 import { rectangle } from './lib/terrain-fixtures.mjs';
 
 const flatTrail = (overrides = {}) => ({
-  name: 'test', terrainBlocks: [rectangle(0, 320, 3000, 620)], terrain: 'grass', fallY: 820,
+  name: 'test', terrainBlocks: [rectangle(0, 320, 3000, 620)], fallY: 820,
   start: { x: 120, y: null, facing: 1 }, goal: 2800, apples: [], spikes: [], ...overrides
 });
 // Ground at 320, then a pit from x 600 to 1000 whose floor is at 440.
