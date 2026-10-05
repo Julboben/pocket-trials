@@ -200,7 +200,7 @@ const cloudLayers = new Map();
  * at full cover, it fills the sky. The sun shows as a pale glow through cloud.
  * Returns the canvas and how far left and up of the view to draw it.
  */
-function cloudLayer({ width, height, scrollX, cloudShift, cloudiness, color, glow, sunX, sunY }) {
+function cloudLayer({ width, height, scrollX, cloudShift, cloudiness, color, glow, glowSize = 1, sunX, sunY }) {
   const cell = CLOUD_CELL;
   const gx0 = Math.floor(scrollX / cell),
     gy0 = Math.floor(-cloudShift / cell);
@@ -211,7 +211,7 @@ function cloudLayer({ width, height, scrollX, cloudShift, cloudiness, color, glo
   // The sun in cloud space.
   const sunU = sunX + scrollX,
     sunV = sunY - cloudShift;
-  const key = [gx0, gy0, cols, rows, cloudiness, color, glow, Math.round(sunU / cell), Math.round(sunV / cell)].join("|");
+  const key = [gx0, gy0, cols, rows, cloudiness, color, glow, glowSize, Math.round(sunU / cell), Math.round(sunV / cell)].join("|");
   if (cloudLayers.has(key)) return { canvas: cloudLayers.get(key), offsetX, offsetY };
 
   const canvas = createCanvas(cols, rows);
@@ -304,15 +304,19 @@ function cloudLayer({ width, height, scrollX, cloudShift, cloudiness, color, glo
     }
   }
 
-  // The sun lights the cloud in front of it: a pale disc painted only over cloud.
-  g.globalCompositeOperation = "source-atop";
-  const sc = Math.round(sunU / cell) - gx0,
-    sr = Math.round(sunV / cell) - gy0;
-  for (const [radius, amount] of [[13, 0.45], [9, 1]]) {
-    g.fillStyle = mixHex(color, glow, amount);
-    for (let dy = -radius; dy <= radius; dy++) {
-      const reach = Math.floor(Math.sqrt(radius * radius - dy * dy));
-      g.fillRect(sc - reach, sr + dy, reach * 2 + 1, 1);
+  // The sun or moon lights the cloud in front of it: a pale disc painted
+  // only over cloud. There is none when it is turned off.
+  if (glow) {
+    g.globalCompositeOperation = "source-atop";
+    const sc = Math.round(sunU / cell) - gx0,
+      sr = Math.round(sunV / cell) - gy0;
+    for (const [size, amount] of [[13, 0.45], [9, 1]]) {
+      const radius = Math.round(size * glowSize);
+      g.fillStyle = mixHex(color, glow, amount);
+      for (let dy = -radius; dy <= radius; dy++) {
+        const reach = Math.floor(Math.sqrt(radius * radius - dy * dy));
+        g.fillRect(sc - reach, sr + dy, reach * 2 + 1, 1);
+      }
     }
   }
 
@@ -3170,7 +3174,12 @@ export function createGameArt(ctx) {
         cloudShift,
         cloudiness,
         color: cloudColor,
-        glow: mixHex(cloudColor, time.sun, 0.3),
+        // Fades with the sun setting; the moon gives a smaller, fainter glow.
+        glow:
+          light.sunshine > 0
+            ? mixHex(cloudColor, time.sun, (time.moon ? 0.12 : 0.3) * light.sunshine)
+            : null,
+        glowSize: time.moon ? 0.7 : 1,
         sunX: light.x,
         sunY: light.y,
       });
