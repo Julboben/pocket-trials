@@ -438,6 +438,17 @@ export function timeOfDayPalette(trail = {}) {
   return TIME_PRESETS[trail.timeOfDay] || TIME_PRESETS[DEFAULT_TIME_OF_DAY];
 }
 
+/** A trail's fog, 0…1. */
+export function fogAmount(weather = {}) {
+  return Math.max(0, Math.min(1, Number(weather.fog) || 0));
+}
+
+/** The colour of a trail's fog: between its horizon and its clouds. */
+export function fogColor(trail = {}) {
+  const time = timeOfDayPalette(trail);
+  return mixHex(time.sky, time.cloud, 0.65);
+}
+
 function mixHex(a, b, t) {
   const ca = parseColor(a),
     cb = parseColor(b);
@@ -3098,6 +3109,17 @@ export function createGameArt(ctx) {
       timeOfDay: palette.timeOfDay,
     });
     const storminess = Math.max(rain, lightning);
+    const fog = fogAmount(weather);
+    // Fog washes over everything drawn so far, so each layer further back
+    // ends up behind more of it.
+    const fogWash = (amount) => {
+      if (!fog) return;
+      ctx.save();
+      ctx.globalAlpha = fog * amount;
+      ctx.fillStyle = fogColor(palette);
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+    };
 
     // Sky: one colour, or a banded gradient on the 4-unit grid.
     if (time.skyTop === time.sky) {
@@ -3201,6 +3223,7 @@ export function createGameArt(ctx) {
         : "hills";
       const layers = backdropLayers(theme, backdropColors(palette, time));
       for (const layer of layers) {
+        fogWash(0.45);
         const offsetX = snap(cameraX * layer.parallax);
         const offsetY = snap(cameraY * layer.parallax);
         const first = Math.floor(offsetX / BACKGROUND_STRIP_WIDTH);
@@ -3222,7 +3245,8 @@ export function createGameArt(ctx) {
           ctx.fillRect(0, below, width, height - below);
         }
       }
-    }
+      fogWash(0.45);
+    } else fogWash(0.5);
     if (storminess > 0) {
       ctx.fillStyle = `rgba(38, 55, 62, ${storminess * 0.2})`;
       ctx.fillRect(0, 0, width, height);

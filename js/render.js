@@ -8,6 +8,8 @@ import {
   createCanvas,
   createDrawingTools,
   createGameArt,
+  fogAmount,
+  fogColor,
   PAINTED_PROPS,
   paintedPropY,
   propAlignmentSlope,
@@ -709,10 +711,50 @@ export function createRenderer(canvas) {
       if (popups[index].life <= 0) popups.splice(index, 1);
   }
 
+  /**
+   * Fog over the level, drawn before the riders: a sheet over the backdrop,
+   * terrain, and pickups that thickens with `fog`, so at full fog the trail
+   * is hard to make out. It thins softly towards the rider, so a little more
+   * can be seen close by. `fogHaze` then lays a lighter veil over everything,
+   * the rider included.
+   */
+  function drawFog(fog, focus, facing) {
+    const thickness = fog ** 1.3;
+    const outer = 0.97 * fog ** 1.6;
+    const inner = 0.3 * thickness;
+    // At full fog the view closes in to about 5 m (WHEELBASE is ~1.45 m).
+    const near = 40 + (1 - fog) * 260;
+    const far = 170 + (1 - fog) ** 1.5 * 500;
+    const x = focus.x + facing * 25 * fog;
+    const color = fogColor(trail);
+    const gradient = ctx.createRadialGradient(x, focus.y, near, x, focus.y, far);
+    for (let step = 0; step <= 4; step++) {
+      const t = step / 4;
+      const eased = t * t * (3 - 2 * t);
+      gradient.addColorStop(t, withAlpha(color, inner + (outer - inner) * eased));
+    }
+    ctx.fillStyle = gradient;
+    ctx.fillRect(cameraX, cameraY, W, H);
+  }
+
+  function withAlpha(hex, alpha) {
+    const [r, g, b] = [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16));
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  function fogHaze(fog) {
+    ctx.globalAlpha = 0.3 * fog;
+    ctx.fillStyle = fogColor(trail);
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+  }
+
   function drawWeather(weather) {
     const rainIntensity = clamp(Number(trail.weather?.rain) || 0, 0, 1);
-    if (!rainIntensity && weather.flash <= 0) return;
+    const fog = fogAmount(trail.weather);
+    if (!rainIntensity && !fog && weather.flash <= 0) return;
     ctx.save();
+    if (fog) fogHaze(fog);
     if (rainIntensity) {
       const count = Math.round(
         (45 + rainIntensity * 95) * clamp(W / 760, 0.7, 1.5),
@@ -934,6 +976,8 @@ export function createRenderer(canvas) {
     drawGoal(ride);
     drawSpikes(ride);
     drawApples(ride, now);
+    const fog = fogAmount(trail.weather);
+    if (fog) drawFog(fog, focus, ride.facing);
     drawGhost(ghost, rider, animationDt);
     hair = updateHair(hair, ride, rider, animationDt);
     if (hair) hair.draw(pixelPath, currentHairRoot(ride, false));

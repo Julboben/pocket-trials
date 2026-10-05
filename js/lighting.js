@@ -88,14 +88,15 @@ export function ambientFor(trail) {
 
 /**
  * How strongly the sun glares on a trail, 0…1: only a bright, mostly clear
- * daytime sun does, and rain or storms put it out.
+ * daytime sun does, and rain, storms or fog put it out.
  */
 export function glareStrength(trail) {
   const { weather = {} } = trail;
   if (timeOfDayPalette(trail).moon) return 0;
   const { strength } = sunLight({ width: 0, weather, timeOfDay: trail.timeOfDay });
   const storm = Math.max(Number(weather.rain) || 0, Number(weather.lightning) || 0);
-  const glare = ((strength - SUN_GLARE) / SUN_GLARE_RANGE) * (1 - Math.min(1, storm));
+  const fog = Math.max(0, Math.min(1, Number(weather.fog) || 0));
+  const glare = ((strength - SUN_GLARE) / SUN_GLARE_RANGE) * (1 - Math.min(1, storm)) * (1 - fog);
   return Math.max(0, Math.min(1, glare));
 }
 
