@@ -26,7 +26,7 @@
  * @property {Array<Partial<Water>>} [water]
  * @property {object[]} [props]
  * @property {string} [terrain] material id
- * @property {{ sun?: number, clouds?: number, fog?: number, rain?: number, lightning?: number }} [weather]
+ * @property {{ sun?: number, clouds?: number, fog?: number, rain?: number, snow?: number, lightning?: number }} [weather]
  * @property {'hills' | 'mountains' | 'forest' | 'desert' | 'city'} [backdrop] parallax background theme; omitted means hills
  * @property {'morning' | 'noon' | 'evening' | 'night'} [timeOfDay] sky, light and grade preset; omitted keeps the trail's own colours
  * @property {{ gold: number, silver: number, bronze: number }} [medals] target times in seconds

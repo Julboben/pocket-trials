@@ -133,7 +133,7 @@ export function syncInspector({ live = false } = {}) {
   $("fall-y").value = Math.round(editor.trail.fallY);
   $("time-of-day").value = editor.trail.timeOfDay || "noon";
   $("backdrop").value = editor.trail.backdrop || "hills";
-  for (const key of ["sun", "clouds", "fog", "rain", "lightning"]) {
+  for (const key of ["sun", "clouds", "fog", "rain", "snow", "lightning"]) {
     $(`weather-${key}`).value = editor.trail.weather?.[key] ?? 0;
     showWeatherValue(key);
   }
@@ -401,7 +401,7 @@ export function bindInspector() {
     else delete editor.trail.backdrop;
   });
 
-  for (const key of ["sun", "clouds", "fog", "rain", "lightning"]) {
+  for (const key of ["sun", "clouds", "fog", "rain", "snow", "lightning"]) {
     $(`weather-${key}`).addEventListener("change", (event) => {
       pushHistory();
       editor.trail.weather[key] = Number(event.target.value);

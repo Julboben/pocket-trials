@@ -252,14 +252,16 @@ weather: {
   clouds: 0.25,
   fog: 0.3,
   rain: 0.4,
+  snow: 0,
   lightning: 0.2
 }
 ```
 
-- `sun`: sun size and visibility. A bright, mostly clear daytime sun glares, with a halo and slow rays across the view that stay out of caves: faintly from about `sun: 0.8` with `clouds: 0.25` at `noon`, fully at `sun: 1` with clear skies. Rain and lightning put the glare out, and fog dims it.
+- `sun`: sun size and visibility. A bright, mostly clear daytime sun glares, with a halo and slow rays across the view that stay out of caves: faintly from about `sun: 0.8` with `clouds: 0.25` at `noon`, fully at `sun: 1` with clear skies. Rain, snow and lightning put the glare out, and fog dims it.
 - `clouds`: sky cover, `0`–`1`. Separate flat-based clouds grow from a few small puffs into wide banks up to about `0.4`. From `0.3` a cloud deck with a lumpy underside fills in from the top of the sky, pushing the banks down ahead of it. It lowers steadily as the value rises until at `1` the sky is fully overcast, with the sun only a pale glow through it.
 - `fog`: mist. Each backdrop layer further back fades more into it and the sky pales. In play fog lies over the whole level and thickens as the value rises, thinning softly near the rider (a little more ahead than behind) so the ground close by can still be read; a lighter veil covers the rider too. Around `0.5` it is a light haze, and at `1` nothing more than about 5 m (roughly three bike lengths) from the bike can be seen. The editor shows only the backdrop fog.
 - `rain`: how much rain falls: the number of drops, the screen tint, and the ambient rain volume. Low values are just a few drops; from about `0.6` it builds to a wind-driven downpour at `1`. Drops land on the first terrain or water they reach, splashing on the ground and rippling on water, so caves and overhangs stay dry.
+- `snow`: how much snow falls. Low values are a few drifting flakes; from about `0.6` it builds to a wind-driven blizzard at `1`. Flakes sway as they fall, are nearer or further away, and settle briefly on the first terrain they reach; on water they melt. Caves and overhangs stay clear. Pair it with `clouds` for a grey winter sky. Rain and snow can fall together for sleet.
 - `lightning`: strike frequency, flash strength, and thunder strength.
 
 Any property may be omitted. This supports clear skies, sunny skies with scattered clouds, overcast weather, rain without lightning, lightning without rain, and full storms.

@@ -849,13 +849,74 @@ export function createRenderer(canvas) {
     }
   }
 
+  // How far a flake would have fallen past the ground while it rests there.
+  const SNOW_SETTLE = ART_PIXEL * 14;
+
+  /**
+   * Snowflakes. Like rain, the slider sets how many fall, and from about 0.6
+   * it builds to a blizzard: more, larger flakes driven sideways by the wind
+   * under a white haze. Each flake sways as it falls, with nearer flakes
+   * bigger, brighter, and faster. A flake rests briefly where it lands on
+   * terrain and melts straight into water.
+   */
+  function drawSnow(intensity, time) {
+    const scale = clamp((W * H) / (760 * 430), 0.6, 2.2);
+    const storm = Math.max(0, (intensity - 0.6) / 0.4) ** 1.5;
+    const count = Math.max(1, Math.round(scale * (150 * intensity ** 1.15 + 520 * storm)));
+    const seconds = reducedMotion ? 0 : time;
+    const wind = 0.12 + storm * 0.9;
+    const spanX = W + 120,
+      spanY = H + 40;
+    if (storm) {
+      ctx.fillStyle = `rgba(232, 238, 242, ${storm * 0.24})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+    for (let index = 0; index < count; index++) {
+      const depth = 0.4 + rainHash(index, 11) * 0.8;
+      const fall =
+        rainHash(index, 12) * spanY +
+        seconds * 55 * (0.7 + rainHash(index, 13) * 0.6) * depth * (1 + storm * 1.8) -
+        cameraY * depth;
+      const cycle = Math.floor(fall / spanY);
+      const y = fall - cycle * spanY - 20;
+      const sway =
+        Math.sin(seconds * (0.9 + rainHash(index, 14)) + rainHash(index, 15) * 6.3) *
+        10 *
+        depth;
+      const rawX =
+        (rainHash(index, 16) + rainHash(index + cycle * 7919, 17)) * spanX -
+        fall * wind +
+        sway -
+        cameraX * depth;
+      const x = (((rawX % spanX) + spanX) % spanX) - 60;
+      const size = (depth > 0.9 - storm * 0.35 ? 2 : 1) * ART_PIXEL;
+      const left = Math.round(x / ART_PIXEL) * ART_PIXEL,
+        top = Math.round(y / ART_PIXEL) * ART_PIXEL;
+      const worldX = left + size / 2 + cameraX;
+      const hit = rainGroundAt(worldX);
+      const ground = Math.round((hit.y - cameraY) / ART_PIXEL) * ART_PIXEL;
+      ctx.fillStyle = `rgba(246, 249, 250, ${0.45 + depth * 0.4})`;
+      if (top + size > ground) {
+        if (hit.water || top + size - ground > SNOW_SETTLE) continue;
+        // Resting on the ground until it melts away.
+        ctx.globalAlpha = 1 - (top + size - ground) / SNOW_SETTLE;
+        ctx.fillRect(left, ground - ART_PIXEL, size, ART_PIXEL);
+        ctx.globalAlpha = 1;
+        continue;
+      }
+      ctx.fillRect(left, top, size, size);
+    }
+  }
+
   function drawWeather(weather) {
     const rainIntensity = clamp(Number(trail.weather?.rain) || 0, 0, 1);
+    const snow = clamp(Number(trail.weather?.snow) || 0, 0, 1);
     const fog = fogAmount(trail.weather);
-    if (!rainIntensity && !fog && weather.flash <= 0) return;
+    if (!rainIntensity && !snow && !fog && weather.flash <= 0) return;
     ctx.save();
     if (fog) fogHaze(fog);
     if (rainIntensity) drawRain(rainIntensity, weather.time);
+    if (snow) drawSnow(snow, weather.time);
     if (weather.flash > 0) {
       // The lighting pass lights the scene up; this adds the glare on top.
       ctx.fillStyle = `rgba(225, 239, 237, ${weather.flash * 0.14})`;

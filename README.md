@@ -101,7 +101,7 @@ The inspector on the right edits the current selection. The editor supports:
 - Drawing water bodies with the **Water** tool (`W`): drag a rectangle, or click to drop one of the tool's size. Drag a body by the middle of its surface, resize it with the scale handles, and set its width and depth in the inspector, which says whether it is a rideable ford or deep enough to wipe the rider out
 - Choosing the start position and left/right facing direction
 - Selecting the base and per-block materials
-- Editing sun, cloud, fog, rain, and lightning values
+- Editing sun, cloud, fog, rain, snow, and lightning values
 - Trackpad navigation: two-finger scrolling pans and pinch gestures zoom around the pointer
 - Mouse navigation: wheel panning, `Ctrl`/`Cmd` + wheel zooming, and middle-button or `Space`-drag panning
 - Undo and redo

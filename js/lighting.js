@@ -94,7 +94,11 @@ export function glareStrength(trail) {
   const { weather = {} } = trail;
   if (timeOfDayPalette(trail).moon) return 0;
   const { strength } = sunLight({ width: 0, weather, timeOfDay: trail.timeOfDay });
-  const storm = Math.max(Number(weather.rain) || 0, Number(weather.lightning) || 0);
+  const storm = Math.max(
+    Number(weather.rain) || 0,
+    Number(weather.snow) || 0,
+    Number(weather.lightning) || 0,
+  );
   const fog = Math.max(0, Math.min(1, Number(weather.fog) || 0));
   const glare = ((strength - SUN_GLARE) / SUN_GLARE_RANGE) * (1 - Math.min(1, storm)) * (1 - fog);
   return Math.max(0, Math.min(1, glare));
