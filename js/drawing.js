@@ -186,6 +186,140 @@ const SUN_CLIMB_LIMIT = 600;
 // Vertical spacing, in cloud-parallax space, of the cloud rows repeated above
 // the first one as the camera climbs.
 const CLOUD_ROW_SPACING = 180;
+// Clouds are painted one cell per 4 world units into a small layer that is
+// drawn with one alpha, so shapes that touch merge instead of darkening.
+const CLOUD_CELL = 4;
+// Each row of cloud banks has one bank, or none, per slot this wide.
+const CLOUD_SLOT = 170;
+const cloudLayers = new Map();
+
+/**
+ * The sky's cloud cover as one opaque layer. Cover builds up in stages:
+ * small cumulus that grow into big banks, then from 30% a deck that fills in from the top of the sky on
+ * a lumpy underside, with banks and thin streaks below it, lowering until,
+ * at full cover, it fills the sky. The sun shows as a pale glow through cloud.
+ * Returns the canvas and how far left and up of the view to draw it.
+ */
+function cloudLayer({ width, height, scrollX, cloudShift, cloudiness, color, glow, sunX, sunY }) {
+  const cell = CLOUD_CELL;
+  const gx0 = Math.floor(scrollX / cell),
+    gy0 = Math.floor(-cloudShift / cell);
+  const offsetX = scrollX - gx0 * cell,
+    offsetY = -cloudShift - gy0 * cell;
+  const cols = Math.ceil(width / cell) + 1,
+    rows = Math.ceil(height / cell) + 1;
+  // The sun in cloud space.
+  const sunU = sunX + scrollX,
+    sunV = sunY - cloudShift;
+  const key = [gx0, gy0, cols, rows, cloudiness, color, glow, Math.round(sunU / cell), Math.round(sunV / cell)].join("|");
+  if (cloudLayers.has(key)) return { canvas: cloudLayers.get(key), offsetX, offsetY };
+
+  const canvas = createCanvas(cols, rows);
+  const g = canvas.getContext("2d");
+  g.fillStyle = color;
+  const uLeft = gx0 * cell,
+    uRight = (gx0 + cols) * cell,
+    vTop = gy0 * cell,
+    vBottom = (gy0 + rows) * cell;
+  const rowOf = (v) => Math.round(v / cell) - gy0;
+  // Fills column i of the layer from v0 down to v1.
+  const span = (i, v0, v1) => {
+    const r0 = Math.max(0, rowOf(v0)),
+      r1 = Math.min(rows, rowOf(v1));
+    if (r1 > r0) g.fillRect(i, r0, 1, r1 - r0);
+  };
+
+  // The deck: from 30% it hangs in from the top on a lumpy underside of
+  // overlapping round lobes, and lowers steadily until at 100% it is the
+  // whole sky.
+  const deck = cloudiness >= 1 ? Infinity : Math.max(0, (cloudiness - 0.3) / 0.7);
+  const deckBottom = (u) => {
+    const line = -40 + deck * (height * 0.6 + 40) + Math.sin(u * 0.0045 + 1) * 12;
+    let bottom = -Infinity;
+    for (let k = Math.floor(u / 36) - 1; k <= Math.floor(u / 36) + 1; k++) {
+      const r = 22 + backdropNoise(k + 3) * 14;
+      const d = u - (k * 36 + 18);
+      if (Math.abs(d) < r)
+        bottom = Math.max(bottom, line + (backdropNoise(k + 9) - 0.5) * 12 + Math.sqrt(r * r - d * d) * 0.8);
+    }
+    return bottom;
+  };
+  if (deck === Infinity) g.fillRect(0, 0, cols, rows);
+  else if (deck > 0)
+    for (let i = 0; i < cols; i++) span(i, vTop, deckBottom(uLeft + i * cell));
+
+  if (deck !== Infinity) {
+    const firstRow = Math.max(0, Math.ceil((64 - vBottom - 120) / CLOUD_ROW_SPACING));
+    const lastRow = Math.max(0, Math.floor((64 - vTop + 120) / CLOUD_ROW_SPACING));
+    // Thin high streaks come in with broken cloud and go once it is overcast.
+    const streaks = cloudiness > 0.35 && cloudiness < 0.9 ? Math.sin((Math.PI * (cloudiness - 0.35)) / 0.55) : 0;
+    for (let row = firstRow; row <= lastRow; row++) {
+      // Higher rows are inside the deck once there is one.
+      if (deck > 0 && row > 0) break;
+      const rowV = 64 - row * CLOUD_ROW_SPACING;
+      for (let k = Math.floor(uLeft / CLOUD_SLOT) - 1; k <= Math.ceil(uRight / CLOUD_SLOT); k++) {
+        const n = (j) => backdropNoise(k * 7 + row * 131 + j * 17);
+        // A bank: rounded puffs on one flat base. Up to 40% cover they grow
+        // from small puffs into big banks; the deck does the rest.
+        const w = (22 + 340 * Math.min(cloudiness, 0.4)) * (0.7 + 0.3 * n(1));
+        const h = Math.max(12, w * (0.26 + 0.1 * n(2)));
+        const left = k * CLOUD_SLOT + (CLOUD_SLOT - w) * (0.05 + 0.9 * n(3));
+        // As the deck lowers it pushes the banks down ahead of it, so they
+        // keep clear of its edge.
+        const deckAbove = deck > 0 ? Math.max(deckBottom(left), deckBottom(left + w / 2), deckBottom(left + w)) : -Infinity;
+        const base = Math.max(rowV + 40 + (n(4) - 0.5) * 56, deckAbove + 8 + h * 1.4);
+        if (n(0) < 0.3 + Math.min(cloudiness, 0.4) * 1.2) {
+          const count = 2 + Math.floor(w / 56);
+          const puffs = [];
+          for (let p = 0; p < count; p++) {
+            // Biggest a little left of centre, smaller towards the ends.
+            const middle = 1 - Math.abs((p + 0.5) / count - 0.4) * 1.6;
+            const r = Math.max(8, h * (0.45 + 0.55 * backdropNoise(k * 13 + p + row * 7)) * (0.4 + 0.6 * middle));
+            const c = left + r * 0.8 + (w - r * 1.6) * (count > 1 ? p / (count - 1) : 0.5);
+            puffs.push({ c, r });
+          }
+          const first = puffs[0].c,
+            last = puffs[puffs.length - 1].c;
+          for (let i = 0; i < cols; i++) {
+            const u = uLeft + i * cell;
+            if (u < left - 4 || u > left + w + 4) continue;
+            let top = u >= first && u <= last ? 8 : 0;
+            // Each puff is a dome raised a little above the base.
+            for (const { c, r } of puffs)
+              if (Math.abs(u - c) < r) top = Math.max(top, r * 0.35 + Math.sqrt(r * r - (u - c) ** 2));
+            if (top > 0) span(i, base - top, base);
+          }
+        }
+        // A pair of long thin streaks, high above the banks.
+        if (streaks && n(5) < streaks * 0.75) {
+          const length = 40 + n(6) * 120;
+          const u0 = k * CLOUD_SLOT + n(7) * (CLOUD_SLOT - length);
+          const v = rowV - 4 - n(8) * 16;
+          const r = rowOf(v),
+            c0 = Math.round(u0 / cell) - gx0;
+          g.fillRect(c0, r, Math.round(length / cell), 1);
+          g.fillRect(c0 + 3, r + 1, Math.round((length * 0.6) / cell), 1);
+        }
+      }
+    }
+  }
+
+  // The sun lights the cloud in front of it: a pale disc painted only over cloud.
+  g.globalCompositeOperation = "source-atop";
+  const sc = Math.round(sunU / cell) - gx0,
+    sr = Math.round(sunV / cell) - gy0;
+  for (const [radius, amount] of [[13, 0.45], [9, 1]]) {
+    g.fillStyle = mixHex(color, glow, amount);
+    for (let dy = -radius; dy <= radius; dy++) {
+      const reach = Math.floor(Math.sqrt(radius * radius - dy * dy));
+      g.fillRect(sc - reach, sr + dy, reach * 2 + 1, 1);
+    }
+  }
+
+  cloudLayers.set(key, canvas);
+  if (cloudLayers.size > 4) cloudLayers.delete(cloudLayers.keys().next().value);
+  return { canvas, offsetX, offsetY };
+}
 
 export const TIMES_OF_DAY = ["noon", "morning", "evening", "night"];
 // The time of day a trail gets before one is chosen.
@@ -3021,58 +3155,34 @@ export function createGameArt(ctx) {
       ctx.restore();
     }
     if (cloudiness > 0) {
-      const spacing = 300 - cloudiness * 190;
-      const scale = 0.62 + cloudiness * 0.65;
-      const firstCloud = Math.floor((cameraX * 0.07) / spacing) - 1;
-      const cloudColor =
-        storminess > 0.15 ? time.stormCloud : time.cloud;
-      ctx.save();
-      ctx.globalAlpha = 0.42 + cloudiness * 0.5;
+      const scrollX = cameraX * 0.07;
+      // Rows above the first only come into view once the camera climbs.
       const cloudShift = -cameraY * 0.08;
-      // Row 0 is the original band; rows above it only exist once the camera climbs.
-      const lastRow = Math.max(
-        0,
-        Math.floor((cloudShift + 64 + 60) / CLOUD_ROW_SPACING),
+      const overcast = Math.max(0, (cloudiness - 0.8) / 0.2);
+      const cloudColor =
+        storminess > 0.15
+          ? time.stormCloud
+          : mixHex(time.cloud, time.stormCloud, overcast * 0.5);
+      const layer = cloudLayer({
+        width,
+        height,
+        scrollX,
+        cloudShift,
+        cloudiness,
+        color: cloudColor,
+        glow: mixHex(cloudColor, time.sun, 0.3),
+        sunX: light.x,
+        sunY: light.y,
+      });
+      ctx.save();
+      ctx.globalAlpha = 0.7 + cloudiness * 0.3;
+      ctx.drawImage(
+        layer.canvas,
+        snap(-layer.offsetX),
+        snap(-layer.offsetY),
+        layer.canvas.width * CLOUD_CELL,
+        layer.canvas.height * CLOUD_CELL,
       );
-      const firstRow = Math.max(
-        0,
-        Math.ceil((cloudShift + 64 - height - 60) / CLOUD_ROW_SPACING),
-      );
-      for (let row = firstRow; row <= lastRow; row++) {
-        const rowY = 64 - row * CLOUD_ROW_SPACING + cloudShift;
-        const rowX = row * 137;
-        for (
-          let index = firstCloud - 1;
-          index < firstCloud + Math.ceil(width / spacing) + 2;
-          index++
-        ) {
-          const seed = index + row * 7;
-          placed(
-            index * spacing + 55 + (rowX % spacing) - cameraX * 0.07,
-            rowY + Math.sin(seed * 4) * 22,
-            4,
-            (x, y) => {
-              pixelRect(x, y, 54 * scale, 6 * scale, cloudColor, 4);
-              pixelRect(
-                x + 12 * scale,
-                y - 6 * scale,
-                24 * scale,
-                6 * scale,
-                cloudColor,
-                4,
-              );
-              pixelRect(
-                x + 30 * scale,
-                y + 6 * scale,
-                42 * scale,
-                6 * scale,
-                cloudColor,
-                4,
-              );
-            },
-          );
-        }
-      }
       ctx.restore();
     }
 

@@ -289,7 +289,7 @@ weather: {
 ```
 
 - `sun`: sun size and visibility. A bright, mostly clear daytime sun glares, with a halo and slow rays across the view that stay out of caves: faintly from about `sun: 0.8` with `clouds: 0.25` at `noon`, fully at `sun: 1` with clear skies. Rain and lightning put the glare out.
-- `clouds`: cloud quantity, size, and opacity.
+- `clouds`: sky cover, `0`–`1`. Separate flat-based clouds grow from a few small puffs into wide banks up to about `0.4`. From `0.3` a cloud deck with a lumpy underside fills in from the top of the sky, pushing the banks down ahead of it. It lowers steadily as the value rises until at `1` the sky is fully overcast, with the sun only a pale glow through it.
 - `rain`: rain density, screen tint, and ambient rain volume.
 - `lightning`: strike frequency, flash strength, and thunder strength.
 
