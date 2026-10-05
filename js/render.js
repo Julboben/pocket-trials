@@ -749,38 +749,58 @@ export function createRenderer(canvas) {
     ctx.globalAlpha = 1;
   }
 
+  // A stable pseudo-random value in [0, 1) for each drop and attribute.
+  function rainHash(index, salt) {
+    const value = Math.sin(index * 127.1 + salt * 311.7) * 43758.5453;
+    return value - Math.floor(value);
+  }
+
+  /**
+   * Rain streaks. The slider sets how many drops fall, not how faint they
+   * are, so a little rain is just a few drops. Each drop has its own depth:
+   * nearer drops are longer, brighter, faster, and shift more as the camera
+   * moves, so the drops never line up into rows. A drop lands somewhere new
+   * each time it falls past the bottom.
+   */
+  function drawRain(intensity, time) {
+    const scale = clamp((W * H) / (760 * 430), 0.6, 2.2);
+    const count = Math.max(1, Math.round(160 * scale * intensity ** 1.15));
+    const motion = reducedMotion ? 0 : time * 720;
+    const spanX = W + 80,
+      spanY = H + 70;
+    ctx.fillStyle = `rgba(33, 52, 61, ${intensity * 0.12})`;
+    ctx.fillRect(0, 0, W, H);
+    for (let index = 0; index < count; index++) {
+      const depth = 0.45 + rainHash(index, 1) * 0.75;
+      const fall =
+        rainHash(index, 2) * spanY +
+        motion * (0.6 + rainHash(index, 3) * 0.25) * depth -
+        cameraY * depth;
+      const cycle = Math.floor(fall / spanY);
+      const y = fall - cycle * spanY - 35;
+      const rawX =
+        (rainHash(index, 4) + rainHash(index + cycle * 7919, 5)) * spanX -
+        fall * 0.12 -
+        cameraX * depth;
+      const x = (((rawX % spanX) + spanX) % spanX) - 40;
+      ctx.fillStyle = `rgba(205, 225, 224, ${0.25 + depth * 0.3})`;
+      // A slanted streak as two offset one-pixel columns.
+      const length = (8 + intensity * 6) * depth + rainHash(index, 6) * 4;
+      const half = Math.max(1, Math.round(length / 2 / ART_PIXEL)) * ART_PIXEL;
+      const left = Math.round(x / ART_PIXEL) * ART_PIXEL,
+        top = Math.round(y / ART_PIXEL) * ART_PIXEL;
+      ctx.fillRect(left, top, ART_PIXEL, half);
+      ctx.fillRect(left - ART_PIXEL, top + half, ART_PIXEL, half);
+    }
+  }
+
   function drawWeather(weather) {
     const rainIntensity = clamp(Number(trail.weather?.rain) || 0, 0, 1);
     const fog = fogAmount(trail.weather);
     if (!rainIntensity && !fog && weather.flash <= 0) return;
     ctx.save();
     if (fog) fogHaze(fog);
-    if (rainIntensity) {
-      const count = Math.round(
-        (45 + rainIntensity * 95) * clamp(W / 760, 0.7, 1.5),
-      );
-      const motion = reducedMotion ? 0 : weather.time * 720;
-      ctx.fillStyle = `rgba(33, 52, 61, ${0.04 + rainIntensity * 0.08})`;
-      ctx.fillRect(0, 0, W, H);
-      ctx.fillStyle = `rgba(205, 225, 224, ${0.22 + rainIntensity * 0.3})`;
-      for (let index = 0; index < count; index++) {
-        const seedX = (index * 97.31) % (W + 80);
-        const seedY = (index * 53.17) % (H + 100);
-        const speed = 0.72 + (index % 7) * 0.055;
-        const y = ((seedY + motion * speed) % (H + 70)) - 35;
-        const rainWidth = W + 80;
-        const rawX = seedX - motion * 0.13 + y * 0.08;
-        const x = (((rawX % rainWidth) + rainWidth) % rainWidth) - 40;
-        // A slanted streak as two offset one-pixel columns.
-        const length = 7 + rainIntensity * 8 + (index % 4);
-        const half =
-          Math.max(1, Math.round(length / 2 / ART_PIXEL)) * ART_PIXEL;
-        const left = Math.round(x / ART_PIXEL) * ART_PIXEL,
-          top = Math.round(y / ART_PIXEL) * ART_PIXEL;
-        ctx.fillRect(left, top, ART_PIXEL, half);
-        ctx.fillRect(left - ART_PIXEL, top + half, ART_PIXEL, half);
-      }
-    }
+    if (rainIntensity) drawRain(rainIntensity, weather.time);
     if (weather.flash > 0) {
       // The lighting pass lights the scene up; this adds the glare on top.
       ctx.fillStyle = `rgba(225, 239, 237, ${weather.flash * 0.14})`;
