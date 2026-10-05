@@ -518,7 +518,7 @@ export function startGame() {
   function physicsStep() {
     const ride = session.ride;
     const thunder = effects.stepWeather();
-    if (thunder) sounds.thunder(thunder.intensity, thunder.distance);
+    if (thunder) sounds.thunder(thunder.intensity, thunder.distance, thunder.x);
     landingSoundCooldown = Math.max(0, landingSoundCooldown - STEP);
     splashSoundCooldown = Math.max(0, splashSoundCooldown - STEP);
     physicsDebug.begin({ state: session.state, time: ride.elapsed, trail: session.trail.name, source: session.trailSource, facing: ride.facing, throttle: ride.throttle }, ride.rear, ride.front);

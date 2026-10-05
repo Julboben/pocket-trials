@@ -8,6 +8,8 @@ import {
   createCanvas,
   createDrawingTools,
   createGameArt,
+  fogAmount,
+  fogColor,
   PAINTED_PROPS,
   paintedPropY,
   propAlignmentSlope,
@@ -20,7 +22,7 @@ import {
 } from "./drawing.js";
 import { terrainAt, groundShadowSamples, terrainGeometry } from "./terrain.js";
 import { finishHeight } from "./trail-schema.js";
-import { waterColumns } from "./water.js";
+import { waterBodies, waterColumns, surfaceWave } from "./water.js";
 import { createTerrainRenderer } from "./terrain-render.js";
 import { vehicleMetrics } from "./vehicle-physics.js";
 import { ragdollCenter } from "./ragdoll.js";
@@ -709,36 +711,212 @@ export function createRenderer(canvas) {
       if (popups[index].life <= 0) popups.splice(index, 1);
   }
 
-  function drawWeather(weather) {
-    const rainIntensity = clamp(Number(trail.weather?.rain) || 0, 0, 1);
-    if (!rainIntensity && weather.flash <= 0) return;
-    ctx.save();
-    if (rainIntensity) {
-      const count = Math.round(
-        (45 + rainIntensity * 95) * clamp(W / 760, 0.7, 1.5),
-      );
-      const motion = reducedMotion ? 0 : weather.time * 720;
-      ctx.fillStyle = `rgba(33, 52, 61, ${0.04 + rainIntensity * 0.08})`;
-      ctx.fillRect(0, 0, W, H);
-      ctx.fillStyle = `rgba(205, 225, 224, ${0.22 + rainIntensity * 0.3})`;
-      for (let index = 0; index < count; index++) {
-        const seedX = (index * 97.31) % (W + 80);
-        const seedY = (index * 53.17) % (H + 100);
-        const speed = 0.72 + (index % 7) * 0.055;
-        const y = ((seedY + motion * speed) % (H + 70)) - 35;
-        const rainWidth = W + 80;
-        const rawX = seedX - motion * 0.13 + y * 0.08;
-        const x = (((rawX % rainWidth) + rainWidth) % rainWidth) - 40;
-        // A slanted streak as two offset one-pixel columns.
-        const length = 7 + rainIntensity * 8 + (index % 4);
-        const half =
-          Math.max(1, Math.round(length / 2 / ART_PIXEL)) * ART_PIXEL;
-        const left = Math.round(x / ART_PIXEL) * ART_PIXEL,
-          top = Math.round(y / ART_PIXEL) * ART_PIXEL;
-        ctx.fillRect(left, top, ART_PIXEL, half);
-        ctx.fillRect(left - ART_PIXEL, top + half, ART_PIXEL, half);
+  /**
+   * Fog over the level, drawn before the riders: a sheet over the backdrop,
+   * terrain, and pickups that thickens with `fog`, so at full fog the trail
+   * is hard to make out. It thins softly towards the rider, so a little more
+   * can be seen close by. `fogHaze` then lays a lighter veil over everything,
+   * the rider included.
+   */
+  function drawFog(fog, focus, facing) {
+    const thickness = fog ** 1.3;
+    const outer = 0.97 * fog ** 1.6;
+    const inner = 0.3 * thickness;
+    // At full fog the view closes in to about 5 m (WHEELBASE is ~1.45 m).
+    const near = 40 + (1 - fog) * 260;
+    const far = 170 + (1 - fog) ** 1.5 * 500;
+    const x = focus.x + facing * 25 * fog;
+    const color = fogColor(trail);
+    const gradient = ctx.createRadialGradient(x, focus.y, near, x, focus.y, far);
+    for (let step = 0; step <= 4; step++) {
+      const t = step / 4;
+      const eased = t * t * (3 - 2 * t);
+      gradient.addColorStop(t, withAlpha(color, inner + (outer - inner) * eased));
+    }
+    ctx.fillStyle = gradient;
+    ctx.fillRect(cameraX, cameraY, W, H);
+  }
+
+  function withAlpha(hex, alpha) {
+    const [r, g, b] = [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16));
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  function fogHaze(fog) {
+    ctx.globalAlpha = 0.3 * fog;
+    ctx.fillStyle = fogColor(trail);
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+  }
+
+  // How far a drop falls past the ground while its splash shows.
+  const RAIN_SPLASH = ART_PIXEL * 10;
+
+  // A stable pseudo-random value in [0, 1) for each drop and attribute.
+  function rainHash(index, salt) {
+    const value = Math.sin(index * 127.1 + salt * 311.7) * 43758.5453;
+    return value - Math.floor(value);
+  }
+
+  /**
+   * Rain streaks. The slider sets how many drops fall, not how faint they
+   * are, so a little rain is just a few drops. Each drop has its own depth:
+   * nearer drops are longer, brighter, faster, and shift more as the camera
+   * moves, so the drops never line up into rows. A drop lands somewhere new
+   * each time it falls past the bottom.
+   */
+  // The first terrain or water surface per world column, for rain to land on.
+  const rainGround = new WeakMap();
+  const RAIN_COLUMN = ART_PIXEL * 2;
+
+  function rainGroundAt(x) {
+    let cache = rainGround.get(trail);
+    if (!cache)
+      rainGround.set(trail, (cache = { columns: new Map(), water: waterBodies(trail) }));
+    const column = Math.round(x / RAIN_COLUMN);
+    let hit = cache.columns.get(column);
+    if (hit === undefined) {
+      const at = column * RAIN_COLUMN;
+      const ground = terrainAt(trail, at);
+      hit = { y: ground.solid ? ground.y : Infinity, water: false };
+      for (const body of cache.water)
+        if (at >= body.x && at <= body.x + body.width && body.y < hit.y)
+          hit = { y: body.y, water: true };
+      cache.columns.set(column, hit);
+    }
+    return hit;
+  }
+
+  function drawRain(intensity, time) {
+    const scale = clamp((W * H) / (760 * 430), 0.6, 2.2);
+    // Above about 0.6 the rain builds to a downpour: more, longer, faster
+    // drops, driven at a steeper slant, under a darker sky.
+    const storm = Math.max(0, (intensity - 0.6) / 0.4) ** 1.5;
+    const count = Math.max(1, Math.round(scale * (160 * intensity ** 1.15 + 240 * storm)));
+    const slant = 0.12 + storm * 0.16;
+    const segments = storm > 0.4 ? 3 : 2;
+    const motion = reducedMotion ? 0 : time * 720;
+    const spanX = W + 80,
+      spanY = H + 70;
+    ctx.fillStyle = `rgba(33, 52, 61, ${intensity * 0.12 + storm * 0.1})`;
+    ctx.fillRect(0, 0, W, H);
+    for (let index = 0; index < count; index++) {
+      const depth = 0.45 + rainHash(index, 1) * 0.75;
+      const fall =
+        rainHash(index, 2) * spanY +
+        motion * (0.6 + rainHash(index, 3) * 0.25 + storm * 0.45) * depth -
+        cameraY * depth;
+      const cycle = Math.floor(fall / spanY);
+      const y = fall - cycle * spanY - 35;
+      const rawX =
+        (rainHash(index, 4) + rainHash(index + cycle * 7919, 5)) * spanX -
+        fall * slant -
+        cameraX * depth;
+      const x = (((rawX % spanX) + spanX) % spanX) - 40;
+      ctx.fillStyle = `rgba(205, 225, 224, ${0.25 + depth * 0.3 + storm * 0.1})`;
+      // A slanted streak as offset one-pixel columns.
+      const length = (8 + intensity * 6 + storm * 14) * depth + rainHash(index, 6) * 4;
+      const part = Math.max(1, Math.round(length / segments / ART_PIXEL)) * ART_PIXEL;
+      const left = Math.round(x / ART_PIXEL) * ART_PIXEL,
+        top = Math.round(y / ART_PIXEL) * ART_PIXEL;
+      // Rain stops at the first terrain or water it reaches, with a splash.
+      const worldX = left - ART_PIXEL / 2 + cameraX;
+      const hit = rainGroundAt(worldX);
+      const surface = hit.water ? hit.y + surfaceWave(worldX, propScene.time) : hit.y;
+      const ground = Math.round((surface - cameraY) / ART_PIXEL) * ART_PIXEL;
+      const age = top + part * segments - ground;
+      if (age >= 0 && age < RAIN_SPLASH) {
+        const phase = Math.floor((age / RAIN_SPLASH) * 2);
+        const spread = ART_PIXEL * (1 + phase);
+        if (hit.water) {
+          // A plop that leaves a ripple spreading along the surface.
+          if (!phase) ctx.fillRect(left - ART_PIXEL, ground - ART_PIXEL * 2, ART_PIXEL, ART_PIXEL);
+          ctx.fillRect(left - spread - ART_PIXEL, ground - ART_PIXEL, ART_PIXEL * 2, ART_PIXEL);
+          ctx.fillRect(left + spread - ART_PIXEL * 2, ground - ART_PIXEL, ART_PIXEL * 2, ART_PIXEL);
+        } else {
+          const lift = phase ? ART_PIXEL : ART_PIXEL * 2;
+          ctx.fillRect(left - spread - ART_PIXEL, ground - lift, ART_PIXEL, ART_PIXEL);
+          ctx.fillRect(left + spread - ART_PIXEL, ground - lift, ART_PIXEL, ART_PIXEL);
+        }
+      }
+      if (top >= ground) continue;
+      for (let segment = 0; segment < segments; segment++) {
+        const from = top + segment * part;
+        const size = Math.min(part, ground - from);
+        if (size <= 0) break;
+        ctx.fillRect(left - segment * ART_PIXEL, from, ART_PIXEL, size);
       }
     }
+  }
+
+  // How far a flake would have fallen past the ground while it rests there.
+  const SNOW_SETTLE = ART_PIXEL * 14;
+
+  /**
+   * Snowflakes. Like rain, the slider sets how many fall, and from about 0.6
+   * it builds to a blizzard: more, larger flakes driven sideways by the wind
+   * under a white haze. Each flake sways as it falls, with nearer flakes
+   * bigger, brighter, and faster. A flake rests briefly where it lands on
+   * terrain and melts straight into water.
+   */
+  function drawSnow(intensity, time) {
+    const scale = clamp((W * H) / (760 * 430), 0.6, 2.2);
+    const storm = Math.max(0, (intensity - 0.6) / 0.4) ** 1.5;
+    const count = Math.max(1, Math.round(scale * (150 * intensity ** 1.15 + 520 * storm)));
+    const seconds = reducedMotion ? 0 : time;
+    const wind = 0.12 + storm * 0.9;
+    const spanX = W + 120,
+      spanY = H + 40;
+    if (storm) {
+      ctx.fillStyle = `rgba(232, 238, 242, ${storm * 0.24})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+    for (let index = 0; index < count; index++) {
+      const depth = 0.4 + rainHash(index, 11) * 0.8;
+      const fall =
+        rainHash(index, 12) * spanY +
+        seconds * 55 * (0.7 + rainHash(index, 13) * 0.6) * depth * (1 + storm * 1.8) -
+        cameraY * depth;
+      const cycle = Math.floor(fall / spanY);
+      const y = fall - cycle * spanY - 20;
+      const sway =
+        Math.sin(seconds * (0.9 + rainHash(index, 14)) + rainHash(index, 15) * 6.3) *
+        10 *
+        depth;
+      const rawX =
+        (rainHash(index, 16) + rainHash(index + cycle * 7919, 17)) * spanX -
+        fall * wind +
+        sway -
+        cameraX * depth;
+      const x = (((rawX % spanX) + spanX) % spanX) - 60;
+      const size = (depth > 0.9 - storm * 0.35 ? 2 : 1) * ART_PIXEL;
+      const left = Math.round(x / ART_PIXEL) * ART_PIXEL,
+        top = Math.round(y / ART_PIXEL) * ART_PIXEL;
+      const worldX = left + size / 2 + cameraX;
+      const hit = rainGroundAt(worldX);
+      const ground = Math.round((hit.y - cameraY) / ART_PIXEL) * ART_PIXEL;
+      ctx.fillStyle = `rgba(246, 249, 250, ${0.45 + depth * 0.4})`;
+      if (top + size > ground) {
+        if (hit.water || top + size - ground > SNOW_SETTLE) continue;
+        // Resting on the ground until it melts away.
+        ctx.globalAlpha = 1 - (top + size - ground) / SNOW_SETTLE;
+        ctx.fillRect(left, ground - ART_PIXEL, size, ART_PIXEL);
+        ctx.globalAlpha = 1;
+        continue;
+      }
+      ctx.fillRect(left, top, size, size);
+    }
+  }
+
+  function drawWeather(weather) {
+    const rainIntensity = clamp(Number(trail.weather?.rain) || 0, 0, 1);
+    const snow = clamp(Number(trail.weather?.snow) || 0, 0, 1);
+    const fog = fogAmount(trail.weather);
+    if (!rainIntensity && !snow && !fog && weather.flash <= 0) return;
+    ctx.save();
+    if (fog) fogHaze(fog);
+    if (rainIntensity) drawRain(rainIntensity, weather.time);
+    if (snow) drawSnow(snow, weather.time);
     if (weather.flash > 0) {
       // The lighting pass lights the scene up; this adds the glare on top.
       ctx.fillStyle = `rgba(225, 239, 237, ${weather.flash * 0.14})`;
@@ -934,6 +1112,8 @@ export function createRenderer(canvas) {
     drawGoal(ride);
     drawSpikes(ride);
     drawApples(ride, now);
+    const fog = fogAmount(trail.weather);
+    if (fog) drawFog(fog, focus, ride.facing);
     drawGhost(ghost, rider, animationDt);
     hair = updateHair(hair, ride, rider, animationDt);
     if (hair) hair.draw(pixelPath, currentHairRoot(ride, false));

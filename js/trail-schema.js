@@ -502,7 +502,7 @@ export function validateTrail(trail) {
     else if (!(times[0] <= times[1] && times[1] <= times[2]))
       error("Medal times must get slower from gold to silver to bronze.");
   }
-  for (const key of ["sun", "clouds", "rain", "lightning"]) {
+  for (const key of ["sun", "clouds", "fog", "rain", "snow", "lightning"]) {
     const value = trail.weather?.[key];
     if (
       value !== undefined &&

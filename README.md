@@ -32,7 +32,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Persisted settings and trail progression
 - Seven progressively longer trails with gaps, caves, and floating blocks to ride across
 - Grass, dirt, rock, snow, and brick terrain materials
-- Per-trail rain and lightning configuration with procedural ambience and distance-aware thunder
+- Per-trail rain, snow, and lightning configuration with procedural rain and storm-wind ambience and distance-aware thunder
 - Water you can ride through: shallow fords drag the bike and slow it down, deeper water wipes the rider out, and the ragdoll floats on the surface with splashes, wakes and sound; water lilies, reeds, seaweed, fish that dart off and ducks that take off when you come close
 - Squirrels that run to the nearest tree, climb it and hide in the crown when you come close
 
@@ -101,7 +101,7 @@ The inspector on the right edits the current selection. The editor supports:
 - Drawing water bodies with the **Water** tool (`W`): drag a rectangle, or click to drop one of the tool's size. Drag a body by the middle of its surface, resize it with the scale handles, and set its width and depth in the inspector, which says whether it is a rideable ford or deep enough to wipe the rider out
 - Choosing the start position and left/right facing direction
 - Selecting the base and per-block materials
-- Editing sun, cloud, rain, and lightning values
+- Editing sun, cloud, fog, rain, snow, and lightning values
 - Trackpad navigation: two-finger scrolling pans and pinch gestures zoom around the pointer
 - Mouse navigation: wheel panning, `Ctrl`/`Cmd` + wheel zooming, and middle-button or `Space`-drag panning
 - Undo and redo

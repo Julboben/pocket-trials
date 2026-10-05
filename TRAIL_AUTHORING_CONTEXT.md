@@ -283,15 +283,19 @@ Weather values are independent and range from `0` to `1`:
 weather: {
   sun: 0.8,
   clouds: 0.25,
+  fog: 0.3,
   rain: 0.4,
+  snow: 0,
   lightning: 0.2
 }
 ```
 
-- `sun`: sun size and visibility. A bright, mostly clear daytime sun glares, with a halo and slow rays across the view that stay out of caves: faintly from about `sun: 0.8` with `clouds: 0.25` at `noon`, fully at `sun: 1` with clear skies. Rain and lightning put the glare out.
-- `clouds`: cloud quantity, size, and opacity.
-- `rain`: rain density, screen tint, and ambient rain volume.
-- `lightning`: strike frequency, flash strength, and thunder strength.
+- `sun`: sun size and visibility. A bright, mostly clear daytime sun glares, with a halo and slow rays across the view that stay out of caves: faintly from about `sun: 0.8` with `clouds: 0.25` at `noon`, fully at `sun: 1` with clear skies. Rain, snow and lightning put the glare out, and fog dims it.
+- `clouds`: sky cover, `0`–`1`. Separate flat-based clouds grow from a few small puffs into wide banks up to about `0.4`. From `0.3` a cloud deck with a lumpy underside fills in from the top of the sky, pushing the banks down ahead of it. It lowers steadily as the value rises until at `1` the sky is fully overcast, with the sun only a pale glow through it.
+- `fog`: mist. Each backdrop layer further back fades more into it and the sky pales. In play fog lies over the whole level and thickens as the value rises, thinning softly near the rider (a little more ahead than behind) so the ground close by can still be read; a lighter veil covers the rider too. Around `0.5` it is a light haze, and at `1` nothing more than about 5 m (roughly three bike lengths) from the bike can be seen. The editor shows only the backdrop fog.
+- `rain`: how much rain falls: the number of drops, the screen tint, and the ambient rain volume. Low values are just a few drops; from about `0.6` it builds to a wind-driven downpour at `1`, and from `0.5` gusting wind joins the rain sound. Drops land on the first terrain or water they reach, splashing on the ground and rippling on water, so caves and overhangs stay dry.
+- `snow`: how much snow falls. Low values are a few drifting flakes; from about `0.6` it builds to a wind-driven blizzard at `1`. Light snow brings a soft breeze, and heavier snow a higher, whistling wind. Flakes sway as they fall, are nearer or further away, and settle briefly on the first terrain they reach; on water they melt. Caves and overhangs stay clear. Pair it with `clouds` for a grey winter sky. Rain and snow can fall together for sleet.
+- `lightning`: strike frequency, flash strength, and thunder strength. Thunder follows the flash after a delay that grows with distance and comes from its side of the view: a close strike tears and bangs before rolling, a distant one is a long, muffled rumble. It also brings some wind.
 
 Any property may be omitted. This supports clear skies, sunny skies with scattered clouds, overcast weather, rain without lightning, lightning without rain, and full storms.
 
@@ -895,7 +899,7 @@ export function validateTrail(trail) {
     else if (!(times[0] <= times[1] && times[1] <= times[2]))
       error("Medal times must get slower from gold to silver to bronze.");
   }
-  for (const key of ["sun", "clouds", "rain", "lightning"]) {
+  for (const key of ["sun", "clouds", "fog", "rain", "snow", "lightning"]) {
     const value = trail.weather?.[key];
     if (
       value !== undefined &&
@@ -3700,99 +3704,6 @@ Example trail: advanced.
     "y": null,
     "facing": 1
   },
-  "apples": [
-    {
-      "x": 330,
-      "y": null
-    },
-    {
-      "x": 1232.6953125,
-      "y": 288.32421875
-    },
-    {
-      "x": 2280,
-      "y": null
-    },
-    {
-      "x": 3496.45703125,
-      "y": 254.47265625
-    },
-    {
-      "x": 3671.96875,
-      "y": 128.35546875
-    }
-  ],
-  "props": [
-    {
-      "x": 235,
-      "y": null,
-      "type": "fence",
-      "layer": "back"
-    },
-    {
-      "x": 565,
-      "y": null,
-      "type": "rock",
-      "layer": "front"
-    },
-    {
-      "x": 885,
-      "y": 298.48564429030813,
-      "type": "tree",
-      "layer": "back"
-    },
-    {
-      "x": 1290,
-      "y": 319.056160213863,
-      "type": "flowers",
-      "layer": "front"
-    },
-    {
-      "x": 1799.046875,
-      "y": 332.80859375,
-      "type": "crystal",
-      "layer": "back"
-    },
-    {
-      "x": 2200,
-      "y": null,
-      "type": "stump",
-      "layer": "front"
-    },
-    {
-      "x": 2505,
-      "y": null,
-      "type": "fence",
-      "layer": "back"
-    },
-    {
-      "x": 2960,
-      "y": null,
-      "type": "crystal",
-      "layer": "back"
-    },
-    {
-      "x": 3400,
-      "y": 315.82226850822667,
-      "type": "tree",
-      "layer": "back"
-    },
-    {
-      "x": 3830,
-      "y": null,
-      "type": "rock",
-      "layer": "front"
-    }
-  ],
-  "spikes": [],
-  "weather": {
-    "sun": 0,
-    "clouds": 1,
-    "rain": 0.72,
-    "lightning": 0.65
-  },
-  "fallY": 570,
-  "finishY": null,
   "terrainBlocks": [
     {
       "id": "b1",
@@ -5124,154 +5035,6 @@ Example trail: advanced.
       "inner": []
     },
     {
-      "id": "b2o",
-      "material": "brick",
-      "outer": {
-        "id": "b2p",
-        "nodes": [
-          {
-            "id": "n2q",
-            "x": 1159.7695,
-            "y": 86.9518,
-            "mode": "corner",
-            "in": null,
-            "out": [
-              1183.1029,
-              86.9518
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n2r",
-            "x": 1229.7695,
-            "y": 70.9518,
-            "mode": "corner",
-            "in": [
-              1206.4362,
-              79.3294
-            ],
-            "out": [
-              1253.1029,
-              62.5742
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n2s",
-            "x": 1299.7695,
-            "y": 54.9518,
-            "mode": "corner",
-            "in": [
-              1276.4362,
-              54.9518
-            ],
-            "out": [
-              1328.1029,
-              54.9518
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n2t",
-            "x": 1384.7695,
-            "y": 67.9518,
-            "mode": "corner",
-            "in": [
-              1356.4362,
-              61.145
-            ],
-            "out": [
-              1413.1029,
-              74.7586
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n2u",
-            "x": 1469.7695,
-            "y": 80.9518,
-            "mode": "corner",
-            "in": [
-              1441.4362,
-              80.9518
-            ],
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n2v",
-            "x": 1469.7695,
-            "y": 132.9518,
-            "mode": "corner",
-            "in": null,
-            "out": [
-              1441.4362,
-              132.9518
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n2w",
-            "x": 1384.7695,
-            "y": 119.9518,
-            "mode": "corner",
-            "in": [
-              1413.1029,
-              126.7586
-            ],
-            "out": [
-              1356.4362,
-              113.145
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n2x",
-            "x": 1299.7695,
-            "y": 106.9518,
-            "mode": "corner",
-            "in": [
-              1328.1029,
-              106.9518
-            ],
-            "out": [
-              1276.4362,
-              106.9518
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n2y",
-            "x": 1229.7695,
-            "y": 122.9518,
-            "mode": "corner",
-            "in": [
-              1253.1029,
-              114.5742
-            ],
-            "out": [
-              1206.4362,
-              131.3294
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n2z",
-            "x": 1159.7695,
-            "y": 138.9518,
-            "mode": "corner",
-            "in": [
-              1183.1029,
-              138.9518
-            ],
-            "out": null,
-            "edge": "straight"
-          }
-        ]
-      },
-      "inner": []
-    },
-    {
       "id": "b30",
       "material": "grass",
       "outer": {
@@ -5506,96 +5269,103 @@ Example trail: advanced.
         ]
       },
       "inner": []
-    },
-    {
-      "id": "b3k",
-      "material": "grass",
-      "outer": {
-        "id": "b3l",
-        "nodes": [
-          {
-            "id": "n3m",
-            "x": 743.71,
-            "y": 156.1607,
-            "mode": "corner",
-            "in": null,
-            "out": [
-              777.0434,
-              156.1607
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n3n",
-            "x": 843.71,
-            "y": 131.1607,
-            "mode": "corner",
-            "in": [
-              810.3767,
-              131.1607
-            ],
-            "out": [
-              877.0434,
-              131.1607
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n3o",
-            "x": 943.71,
-            "y": 156.1607,
-            "mode": "corner",
-            "in": [
-              910.3767,
-              156.1607
-            ],
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n3p",
-            "x": 943.71,
-            "y": 204.1607,
-            "mode": "corner",
-            "in": null,
-            "out": [
-              910.3767,
-              204.1607
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n3q",
-            "x": 843.71,
-            "y": 179.1607,
-            "mode": "corner",
-            "in": [
-              877.0434,
-              179.1607
-            ],
-            "out": [
-              810.3767,
-              179.1607
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n3r",
-            "x": 743.71,
-            "y": 204.1607,
-            "mode": "corner",
-            "in": [
-              777.0434,
-              204.1607
-            ],
-            "out": null,
-            "edge": "straight"
-          }
-        ]
-      },
-      "inner": []
     }
   ],
+  "apples": [
+    {
+      "x": 330,
+      "y": null
+    },
+    {
+      "x": 1232.6953125,
+      "y": 288.32421875
+    },
+    {
+      "x": 2280,
+      "y": null
+    },
+    {
+      "x": 3496.45703125,
+      "y": 254.47265625
+    },
+    {
+      "x": 3671.96875,
+      "y": 128.35546875
+    }
+  ],
+  "props": [
+    {
+      "x": 235,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 565,
+      "y": 277.9638736264349,
+      "type": "rock",
+      "layer": "front"
+    },
+    {
+      "x": 885,
+      "y": 298.48564429030813,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 1290,
+      "y": 319.056160213863,
+      "type": "flowers",
+      "layer": "front"
+    },
+    {
+      "x": 1799.046875,
+      "y": 332.80859375,
+      "type": "crystal",
+      "layer": "back"
+    },
+    {
+      "x": 2200,
+      "y": null,
+      "type": "stump",
+      "layer": "front"
+    },
+    {
+      "x": 2505,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 2960,
+      "y": null,
+      "type": "crystal",
+      "layer": "back"
+    },
+    {
+      "x": 3400,
+      "y": 315.82226850822667,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 3830,
+      "y": null,
+      "type": "rock",
+      "layer": "front"
+    }
+  ],
+  "spikes": [],
+  "water": [],
+  "weather": {
+    "sun": 0.1,
+    "clouds": 1,
+    "rain": 0.5,
+    "lightning": 0.65,
+    "fog": 0.2
+  },
+  "fallY": 570,
+  "finishY": null,
   "timeOfDay": "night"
 }
 ```

@@ -59,7 +59,39 @@ export function createAudio(getSnapshot) {
     rainLowpass.type = 'lowpass'; rainLowpass.frequency.value = 2400; rainLowpass.Q.value = .35;
     rainGain.gain.value = 0;
     rain.connect(rainHighpass); rainHighpass.connect(rainLowpass); rainLowpass.connect(rainGain); rainGain.connect(master); rain.start();
-    audio = { context, master, engine, engineFilter, engineGain, noiseBuffer, skidGain, rainGain };
+    // Wind: brown noise through a band that sweeps with the gusts.
+    const windBuffer = context.createBuffer(1, context.sampleRate * 6, context.sampleRate);
+    const windData = windBuffer.getChannelData(0);
+    let brown = 0;
+    for (let index = 0; index < windData.length; index++) {
+      brown = (brown + (Math.random() * 2 - 1) * .02) / 1.02;
+      windData[index] = brown * 3.2;
+    }
+    const wind = context.createBufferSource();
+    const windFilter = context.createBiquadFilter();
+    const windGain = context.createGain();
+    wind.buffer = windBuffer; wind.loop = true;
+    windFilter.type = 'bandpass'; windFilter.frequency.value = 400; windFilter.Q.value = .8;
+    windGain.gain.value = 0;
+    wind.connect(windFilter); windFilter.connect(windGain); windGain.connect(master); wind.start();
+    // A long, dark echo for thunder rolling off the land.
+    const echo = context.createConvolver();
+    const echoLength = context.sampleRate * 3.5;
+    const impulse = context.createBuffer(2, echoLength, context.sampleRate);
+    for (let channel = 0; channel < 2; channel++) {
+      const data = impulse.getChannelData(channel);
+      let smooth = 0;
+      for (let index = 0; index < echoLength; index++) {
+        smooth = smooth * .85 + (Math.random() * 2 - 1) * .15;
+        data[index] = smooth * (1 - index / echoLength) ** 3;
+      }
+    }
+    echo.buffer = impulse;
+    echo.connect(master);
+    audio = {
+      context, master, engine, engineFilter, engineGain, noiseBuffer, skidGain, rainGain,
+      windFilter, windGain, brownBuffer: windBuffer, echo,
+    };
   }
 
   function masterLevel() { return enabled ? .45 * volume * volume : 0; }
@@ -110,7 +142,7 @@ export function createAudio(getSnapshot) {
   function update() {
     if (!audio) return;
     const { state, rear, front, throttle, brakePressure, weather } = getSnapshot();
-    const { context, engine, engineFilter, engineGain, skidGain, rainGain } = audio;
+    const { context, engine, engineFilter, engineGain, skidGain, rainGain, windFilter, windGain } = audio;
     const speed = rear && front ? Math.abs(((rear.x - rear.ox) + (front.x - front.ox)) / (2 * STEP)) : 0;
     const running = state === 'running';
     const grounded = rear && front && (rear.grounded || front.grounded);
@@ -127,11 +159,32 @@ export function createAudio(getSnapshot) {
     const skidLevel = running && grounded && speed > 24 ? brakePressure * clamp(speed / 220, 0, 1) * .16 : 0;
     skidGain.gain.setTargetAtTime(skidLevel, context.currentTime, .025);
     const rainIntensity = clamp(Number(weather?.rain) || 0, 0, 1);
-    const weatherAudible = state !== 'menu' && rainIntensity > 0;
-    const rainLevel = weatherAudible
-      ? (.012 + rainIntensity * .04) * (.94 + Math.sin(context.currentTime * .63) * .06)
+    const snow = clamp(Number(weather?.snow) || 0, 0, 1);
+    const lightning = clamp(Number(weather?.lightning) || 0, 0, 1);
+    const inPlay = state !== 'menu';
+    const storm = (value) => clamp((value - .5) / .5, 0, 1) ** 1.3;
+    const rainStorm = storm(rainIntensity);
+    const rainLevel = inPlay && rainIntensity > 0
+      ? (.012 + rainIntensity * .04 + rainStorm * .02) * (.94 + Math.sin(context.currentTime * .63) * .06)
       : 0;
     rainGain.gain.setTargetAtTime(rainLevel, context.currentTime, .35);
+    // Wind comes with storms: a rainstorm, a blizzard (with a light breeze
+    // in gentle snow), and some with lightning.
+    const snowWind = Math.max(snow * .25, storm(snow));
+    const windStrength = inPlay ? Math.min(1, Math.max(rainStorm, snowWind, lightning * .45)) : 0;
+    const time = context.currentTime;
+    // Slow, uneven gusts from sines that never line up.
+    const gust = clamp(
+      .55 + Math.sin(time * .23) * .25 + Math.sin(time * .61 + 1.3) * .15 + Math.sin(time * 1.7 + 2.1) * .07,
+      0, 1,
+    );
+    // Snow wind whistles higher than the rainstorm's roar.
+    const whistle = snowWind > rainStorm ? 1 : 0;
+    windFilter.frequency.setTargetAtTime(
+      (260 + whistle * 280) + gust * (300 + whistle * 500) * (.5 + windStrength * .5), time, .3,
+    );
+    windFilter.Q.setTargetAtTime(.7 + whistle * .9, time, .5);
+    windGain.gain.setTargetAtTime(windStrength * (.03 + gust * .08), time, .4);
   }
 
   return {
@@ -184,63 +237,108 @@ export function createAudio(getSnapshot) {
       playNoise(.35, .18, 700);
       playTone(120, .32, 'sawtooth', .09, 0, 42);
     },
-    thunder(intensity = .5, distance = .5) {
+    /**
+     * Thunder. The sound lags the flash by the strike's distance. A close
+     * strike tears with a run of sharp snaps and a heavy bang; every strike
+     * then rolls in uneven swells of deep noise that echo off the land, more
+     * muffled and drawn-out the further away it is. No two sound the same.
+     * @param {number} x where the flash was across the view, 0 … 1
+     */
+    thunder(intensity = .5, distance = .5, x = .5) {
       if (!audio || !enabled) return;
-      const { context, master, noiseBuffer } = audio;
+      const { context, master, noiseBuffer, brownBuffer, echo } = audio;
       const strength = clamp(intensity, 0, 1);
       const proximity = 1 - clamp(distance, 0, 1);
-      const delay = .025 + distance * 1.65;
-      const start = context.currentTime + delay;
+      const random = (low, high) => low + Math.random() * (high - low);
+      const start = context.currentTime + .03 + distance ** 1.2 * 2.8;
 
-      // The body is a long, low rolling noise with several uneven swells.
-      const rumble = context.createBufferSource();
-      const rumbleHighpass = context.createBiquadFilter();
-      const rumbleLowpass = context.createBiquadFilter();
-      const rumbleGain = context.createGain();
-      const rumbleDuration = 1.65 + distance * 2.35 + strength * .35;
-      const rumbleVolume = (.055 + strength * .075) * (.38 + proximity * .62);
-      rumble.buffer = noiseBuffer; rumble.loop = true;
-      rumbleHighpass.type = 'highpass'; rumbleHighpass.frequency.value = 24;
-      rumbleLowpass.type = 'lowpass';
-      rumbleLowpass.frequency.setValueAtTime(240 + proximity * 760, start);
-      rumbleLowpass.frequency.exponentialRampToValueAtTime(110 + proximity * 180, start + rumbleDuration);
-      rumbleGain.gain.setValueAtTime(.0001, start);
-      rumbleGain.gain.exponentialRampToValueAtTime(rumbleVolume, start + .045 + distance * .08);
-      rumbleGain.gain.exponentialRampToValueAtTime(Math.max(.0002, rumbleVolume * .32), start + rumbleDuration * .36);
-      rumbleGain.gain.exponentialRampToValueAtTime(Math.max(.0002, rumbleVolume * .58), start + rumbleDuration * .53);
-      rumbleGain.gain.exponentialRampToValueAtTime(Math.max(.0002, rumbleVolume * .2), start + rumbleDuration * .72);
-      rumbleGain.gain.exponentialRampToValueAtTime(.0001, start + rumbleDuration);
-      rumble.connect(rumbleHighpass); rumbleHighpass.connect(rumbleLowpass); rumbleLowpass.connect(rumbleGain); rumbleGain.connect(master);
-      rumble.start(start); rumble.stop(start + rumbleDuration + .05);
+      const out = context.createGain();
+      const pan = context.createStereoPanner();
+      const wet = context.createGain();
+      pan.pan.value = clamp((x - .5) * 1.4, -.8, .8) * (.4 + proximity * .6);
+      wet.gain.value = .35 + distance * .65;
+      out.connect(pan); pan.connect(master); pan.connect(wet); wet.connect(echo);
 
-      // A low pressure wave gives both near and distant thunder physical weight.
-      const boom = context.createOscillator();
-      const boomGain = context.createGain();
-      boom.type = 'sine';
-      boom.frequency.setValueAtTime(58 - proximity * 14, start);
-      boom.frequency.exponentialRampToValueAtTime(24, start + .7 + distance * .55);
-      boomGain.gain.setValueAtTime(.0001, start);
-      boomGain.gain.exponentialRampToValueAtTime(rumbleVolume * (.55 + proximity * .3), start + .025);
-      boomGain.gain.exponentialRampToValueAtTime(.0001, start + .75 + distance * .6);
-      boom.connect(boomGain); boomGain.connect(master);
-      boom.start(start); boom.stop(start + 1.4);
+      const burst = (buffer, at, duration, peak, filters, offset = 0) => {
+        const source = context.createBufferSource();
+        const gain = context.createGain();
+        source.buffer = buffer;
+        let node = source;
+        for (const filter of filters) { node.connect(filter); node = filter; }
+        node.connect(gain); gain.connect(out);
+        gain.gain.setValueAtTime(.0001, at);
+        gain.gain.exponentialRampToValueAtTime(peak, at + .003);
+        gain.gain.exponentialRampToValueAtTime(.0001, at + duration);
+        source.start(at, offset); source.stop(at + duration + .02);
+      };
+      const filter = (type, frequency, q = .7) => {
+        const node = context.createBiquadFilter();
+        node.type = type; node.frequency.value = frequency; node.Q.value = q;
+        return node;
+      };
 
-      // Close strikes add the missing instantaneous electrical crack and snap.
-      if (proximity > .42) {
-        const crack = context.createBufferSource();
-        const crackHighpass = context.createBiquadFilter();
-        const crackGain = context.createGain();
-        const crackDuration = .055 + proximity * .075;
-        crack.buffer = noiseBuffer;
-        crackHighpass.type = 'highpass';
-        crackHighpass.frequency.value = 850 + proximity * 1350;
-        crackGain.gain.setValueAtTime(.0001, start);
-        crackGain.gain.exponentialRampToValueAtTime((.07 + strength * .11) * proximity, start + .004);
-        crackGain.gain.exponentialRampToValueAtTime(.0001, start + crackDuration);
-        crack.connect(crackHighpass); crackHighpass.connect(crackGain); crackGain.connect(master);
-        crack.start(start); crack.stop(start + crackDuration + .02);
-        playTone(145 - proximity * 55, .16, 'sawtooth', .035 + proximity * .05, delay, 38);
+      if (proximity > .35) {
+        // The tearing crack: a quick run of snaps, each a little lower.
+        const snaps = 3 + Math.floor(Math.random() * (1 + proximity * 4));
+        let at = start;
+        for (let snap = 0; snap < snaps; snap++) {
+          burst(
+            noiseBuffer, at, random(.02, .06),
+            (.08 + strength * .08) * proximity * (1 - snap / snaps * .5),
+            [filter('highpass', random(900, 2600) * (1 - snap / snaps * .5))],
+            Math.random() * .9,
+          );
+          at += random(.012, .05);
+        }
+        // Then the bang: broadband, closing down fast.
+        const bang = context.createBufferSource();
+        const bangFilter = filter('lowpass', 3200 * proximity + 400);
+        const bangGain = context.createGain();
+        bang.buffer = noiseBuffer;
+        bangFilter.frequency.setValueAtTime(3200 * proximity + 400, at);
+        bangFilter.frequency.exponentialRampToValueAtTime(160, at + .6);
+        bangGain.gain.setValueAtTime(.0001, at);
+        bangGain.gain.exponentialRampToValueAtTime((.12 + strength * .1) * proximity, at + .008);
+        bangGain.gain.exponentialRampToValueAtTime(.0001, at + .7);
+        bang.connect(bangFilter); bangFilter.connect(bangGain); bangGain.connect(out);
+        bang.start(at, Math.random() * .3); bang.stop(at + .75);
+        // A felt thump under it.
+        const thump = context.createOscillator();
+        const thumpGain = context.createGain();
+        thump.frequency.setValueAtTime(52, at);
+        thump.frequency.exponentialRampToValueAtTime(26, at + .8);
+        thumpGain.gain.setValueAtTime(.0001, at);
+        thumpGain.gain.exponentialRampToValueAtTime(.12 * proximity * (.6 + strength * .4), at + .02);
+        thumpGain.gain.exponentialRampToValueAtTime(.0001, at + .9);
+        thump.connect(thumpGain); thumpGain.connect(out);
+        thump.start(at); thump.stop(at + 1);
       }
+
+      // The roll: deep noise in uneven swells, fading and darkening.
+      const duration = 3 + distance * 3.5 + strength * 1.5 + Math.random() * 1.5;
+      const volume = (.09 + strength * .08) * (.45 + proximity * .55);
+      const roll = context.createBufferSource();
+      const rollHighpass = filter('highpass', 28);
+      const rollLowpass = filter('lowpass', 900, .5);
+      const rollGain = context.createGain();
+      roll.buffer = brownBuffer; roll.loop = true;
+      const bright = 160 + proximity * 900;
+      rollLowpass.frequency.setValueAtTime(bright, start);
+      rollLowpass.frequency.exponentialRampToValueAtTime(70 + proximity * 60, start + duration);
+      rollGain.gain.setValueAtTime(.0001, start);
+      let at = start + (proximity > .35 ? .05 : random(.15, .5) * (.5 + distance));
+      rollGain.gain.exponentialRampToValueAtTime(.0001 + volume * .5, at);
+      while (at < start + duration * .85) {
+        const fade = 1 - (at - start) / duration;
+        const rise = random(.12, .5);
+        rollGain.gain.linearRampToValueAtTime(volume * random(.5, 1) * fade, at + rise);
+        const fall = random(.2, .7);
+        rollGain.gain.linearRampToValueAtTime(volume * random(.12, .4) * fade, at + rise + fall);
+        at += rise + fall;
+      }
+      rollGain.gain.exponentialRampToValueAtTime(.0001, start + duration);
+      roll.connect(rollHighpass); rollHighpass.connect(rollLowpass); rollLowpass.connect(rollGain); rollGain.connect(out);
+      roll.start(start, Math.random() * 5); roll.stop(start + duration + .1);
     },
     win() {
       [523, 659, 784, 1047].forEach((note, index) => playTone(note, .18, 'square', .055, index * .1, note));

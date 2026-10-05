@@ -1840,9 +1840,10 @@
     }
   ],
   "spikes": [],
+  "water": [],
   "weather": {
     "sun": 0.35,
-    "clouds": 0.78,
+    "clouds": 0.15,
     "rain": 0.28
   },
   "fallY": 620,
