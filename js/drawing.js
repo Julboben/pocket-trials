@@ -664,7 +664,8 @@ function backdropLayers(theme, c) {
     ];
   }
 
-  // Hills: exactly the original layers and round trees.
+  // Hills: the original layers and round trees, placed irregularly. Trees
+  // are 48 wide and at least 70 apart, so they never crowd each other.
   const near = hillShape(247, 24, 0.015);
   return [
     {
@@ -678,20 +679,16 @@ function backdropLayers(theme, c) {
       color: c.near,
       parallax: 0.29,
       shape: near,
-      decorate(tools, left, right) {
-        for (
-          let tree = Math.floor((left - 30) / 100);
-          tree <= Math.ceil((right + 30) / 100);
-          tree++
-        ) {
-          const x = tree * 100;
-          const y = groundAt(near, x);
+      decorate: (tools, left, right) =>
+        scatter(left, right, 100, 30, (x, n0) => {
+          if (n0 < 0.15) return;
+          // Planted a little into the hill, like the forest pines.
+          const y = groundAt(near, x) + 8;
           tools.pixelRect(x - 2, y - 28, 4, 28, c.trunk, 4);
           tools.drawPixelDisc(x, y - 34, 14, c.tree, 4);
           tools.drawPixelDisc(x - 10, y - 29, 10, c.tree, 4);
           tools.drawPixelDisc(x + 10, y - 28, 10, c.tree, 4);
-        }
-      },
+        }),
     },
   ];
 }
