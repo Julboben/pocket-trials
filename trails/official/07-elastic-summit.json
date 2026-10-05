@@ -1664,7 +1664,7 @@
   "weather": {
     "sun": 0.1,
     "clouds": 1,
-    "rain": 1,
+    "rain": 0.5,
     "lightning": 0.65,
     "fog": 0.2
   },

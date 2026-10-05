@@ -155,7 +155,7 @@ export function createEffects() {
     weather.x = .15 + Math.random() * .7;
     const interval = lerp(12, 4.5, intensity);
     weather.nextLightning = weather.time + interval * (.7 + Math.random() * .65);
-    return { intensity, distance: weather.distance };
+    return { intensity, distance: weather.distance, x: weather.x };
   }
 
   function update(dt) {
