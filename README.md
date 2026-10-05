@@ -32,7 +32,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Persisted settings and trail progression
 - Seven progressively longer trails with gaps, caves, and floating blocks to ride across
 - Grass, dirt, rock, snow, and brick terrain materials
-- Per-trail rain and lightning configuration with procedural ambience and distance-aware thunder
+- Per-trail rain, snow, and lightning configuration with procedural rain and storm-wind ambience and distance-aware thunder
 - Water you can ride through: shallow fords drag the bike and slow it down, deeper water wipes the rider out, and the ragdoll floats on the surface with splashes, wakes and sound; water lilies, reeds, seaweed, fish that dart off and ducks that take off when you come close
 - Squirrels that run to the nearest tree, climb it and hide in the crown when you come close
 

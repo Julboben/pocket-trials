@@ -59,7 +59,22 @@ export function createAudio(getSnapshot) {
     rainLowpass.type = 'lowpass'; rainLowpass.frequency.value = 2400; rainLowpass.Q.value = .35;
     rainGain.gain.value = 0;
     rain.connect(rainHighpass); rainHighpass.connect(rainLowpass); rainLowpass.connect(rainGain); rainGain.connect(master); rain.start();
-    audio = { context, master, engine, engineFilter, engineGain, noiseBuffer, skidGain, rainGain };
+    // Wind: brown noise through a band that sweeps with the gusts.
+    const windBuffer = context.createBuffer(1, context.sampleRate * 6, context.sampleRate);
+    const windData = windBuffer.getChannelData(0);
+    let brown = 0;
+    for (let index = 0; index < windData.length; index++) {
+      brown = (brown + (Math.random() * 2 - 1) * .02) / 1.02;
+      windData[index] = brown * 3.2;
+    }
+    const wind = context.createBufferSource();
+    const windFilter = context.createBiquadFilter();
+    const windGain = context.createGain();
+    wind.buffer = windBuffer; wind.loop = true;
+    windFilter.type = 'bandpass'; windFilter.frequency.value = 400; windFilter.Q.value = .8;
+    windGain.gain.value = 0;
+    wind.connect(windFilter); windFilter.connect(windGain); windGain.connect(master); wind.start();
+    audio = { context, master, engine, engineFilter, engineGain, noiseBuffer, skidGain, rainGain, windFilter, windGain };
   }
 
   function masterLevel() { return enabled ? .45 * volume * volume : 0; }
@@ -110,7 +125,7 @@ export function createAudio(getSnapshot) {
   function update() {
     if (!audio) return;
     const { state, rear, front, throttle, brakePressure, weather } = getSnapshot();
-    const { context, engine, engineFilter, engineGain, skidGain, rainGain } = audio;
+    const { context, engine, engineFilter, engineGain, skidGain, rainGain, windFilter, windGain } = audio;
     const speed = rear && front ? Math.abs(((rear.x - rear.ox) + (front.x - front.ox)) / (2 * STEP)) : 0;
     const running = state === 'running';
     const grounded = rear && front && (rear.grounded || front.grounded);
@@ -127,11 +142,32 @@ export function createAudio(getSnapshot) {
     const skidLevel = running && grounded && speed > 24 ? brakePressure * clamp(speed / 220, 0, 1) * .16 : 0;
     skidGain.gain.setTargetAtTime(skidLevel, context.currentTime, .025);
     const rainIntensity = clamp(Number(weather?.rain) || 0, 0, 1);
-    const weatherAudible = state !== 'menu' && rainIntensity > 0;
-    const rainLevel = weatherAudible
-      ? (.012 + rainIntensity * .04) * (.94 + Math.sin(context.currentTime * .63) * .06)
+    const snow = clamp(Number(weather?.snow) || 0, 0, 1);
+    const lightning = clamp(Number(weather?.lightning) || 0, 0, 1);
+    const inPlay = state !== 'menu';
+    const storm = (value) => clamp((value - .5) / .5, 0, 1) ** 1.3;
+    const rainStorm = storm(rainIntensity);
+    const rainLevel = inPlay && rainIntensity > 0
+      ? (.012 + rainIntensity * .04 + rainStorm * .02) * (.94 + Math.sin(context.currentTime * .63) * .06)
       : 0;
     rainGain.gain.setTargetAtTime(rainLevel, context.currentTime, .35);
+    // Wind comes with storms: a rainstorm, a blizzard (with a light breeze
+    // in gentle snow), and some with lightning.
+    const snowWind = Math.max(snow * .25, storm(snow));
+    const windStrength = inPlay ? Math.min(1, Math.max(rainStorm, snowWind, lightning * .45)) : 0;
+    const time = context.currentTime;
+    // Slow, uneven gusts from sines that never line up.
+    const gust = clamp(
+      .55 + Math.sin(time * .23) * .25 + Math.sin(time * .61 + 1.3) * .15 + Math.sin(time * 1.7 + 2.1) * .07,
+      0, 1,
+    );
+    // Snow wind whistles higher than the rainstorm's roar.
+    const whistle = snowWind > rainStorm ? 1 : 0;
+    windFilter.frequency.setTargetAtTime(
+      (260 + whistle * 280) + gust * (300 + whistle * 500) * (.5 + windStrength * .5), time, .3,
+    );
+    windFilter.Q.setTargetAtTime(.7 + whistle * .9, time, .5);
+    windGain.gain.setTargetAtTime(windStrength * (.03 + gust * .08), time, .4);
   }
 
   return {
