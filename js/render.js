@@ -22,7 +22,7 @@ import {
 } from "./drawing.js";
 import { terrainAt, groundShadowSamples, terrainGeometry } from "./terrain.js";
 import { finishHeight } from "./trail-schema.js";
-import { waterColumns } from "./water.js";
+import { waterBodies, waterColumns, surfaceWave } from "./water.js";
 import { createTerrainRenderer } from "./terrain-render.js";
 import { vehicleMetrics } from "./vehicle-physics.js";
 import { ragdollCenter } from "./ragdoll.js";
@@ -749,6 +749,9 @@ export function createRenderer(canvas) {
     ctx.globalAlpha = 1;
   }
 
+  // How far a drop falls past the ground while its splash shows.
+  const RAIN_SPLASH = ART_PIXEL * 10;
+
   // A stable pseudo-random value in [0, 1) for each drop and attribute.
   function rainHash(index, salt) {
     const value = Math.sin(index * 127.1 + salt * 311.7) * 43758.5453;
@@ -762,6 +765,28 @@ export function createRenderer(canvas) {
    * moves, so the drops never line up into rows. A drop lands somewhere new
    * each time it falls past the bottom.
    */
+  // The first terrain or water surface per world column, for rain to land on.
+  const rainGround = new WeakMap();
+  const RAIN_COLUMN = ART_PIXEL * 2;
+
+  function rainGroundAt(x) {
+    let cache = rainGround.get(trail);
+    if (!cache)
+      rainGround.set(trail, (cache = { columns: new Map(), water: waterBodies(trail) }));
+    const column = Math.round(x / RAIN_COLUMN);
+    let hit = cache.columns.get(column);
+    if (hit === undefined) {
+      const at = column * RAIN_COLUMN;
+      const ground = terrainAt(trail, at);
+      hit = { y: ground.solid ? ground.y : Infinity, water: false };
+      for (const body of cache.water)
+        if (at >= body.x && at <= body.x + body.width && body.y < hit.y)
+          hit = { y: body.y, water: true };
+      cache.columns.set(column, hit);
+    }
+    return hit;
+  }
+
   function drawRain(intensity, time) {
     const scale = clamp((W * H) / (760 * 430), 0.6, 2.2);
     const count = Math.max(1, Math.round(160 * scale * intensity ** 1.15));
@@ -789,8 +814,31 @@ export function createRenderer(canvas) {
       const half = Math.max(1, Math.round(length / 2 / ART_PIXEL)) * ART_PIXEL;
       const left = Math.round(x / ART_PIXEL) * ART_PIXEL,
         top = Math.round(y / ART_PIXEL) * ART_PIXEL;
-      ctx.fillRect(left, top, ART_PIXEL, half);
-      ctx.fillRect(left - ART_PIXEL, top + half, ART_PIXEL, half);
+      // Rain stops at the first terrain or water it reaches, with a splash.
+      const worldX = left - ART_PIXEL / 2 + cameraX;
+      const hit = rainGroundAt(worldX);
+      const surface = hit.water ? hit.y + surfaceWave(worldX, propScene.time) : hit.y;
+      const ground = Math.round((surface - cameraY) / ART_PIXEL) * ART_PIXEL;
+      const age = top + half * 2 - ground;
+      if (age >= 0 && age < RAIN_SPLASH) {
+        const phase = Math.floor((age / RAIN_SPLASH) * 2);
+        const spread = ART_PIXEL * (1 + phase);
+        if (hit.water) {
+          // A plop that leaves a ripple spreading along the surface.
+          if (!phase) ctx.fillRect(left - ART_PIXEL, ground - ART_PIXEL * 2, ART_PIXEL, ART_PIXEL);
+          ctx.fillRect(left - spread - ART_PIXEL, ground - ART_PIXEL, ART_PIXEL * 2, ART_PIXEL);
+          ctx.fillRect(left + spread - ART_PIXEL * 2, ground - ART_PIXEL, ART_PIXEL * 2, ART_PIXEL);
+        } else {
+          const lift = phase ? ART_PIXEL : ART_PIXEL * 2;
+          ctx.fillRect(left - spread - ART_PIXEL, ground - lift, ART_PIXEL, ART_PIXEL);
+          ctx.fillRect(left + spread - ART_PIXEL, ground - lift, ART_PIXEL, ART_PIXEL);
+        }
+      }
+      if (top >= ground) continue;
+      const upper = Math.min(half, ground - top);
+      ctx.fillRect(left, top, ART_PIXEL, upper);
+      const lower = Math.min(half, ground - top - half);
+      if (lower > 0) ctx.fillRect(left - ART_PIXEL, top + half, ART_PIXEL, lower);
     }
   }
 

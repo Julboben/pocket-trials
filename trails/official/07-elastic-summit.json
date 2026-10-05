@@ -8,99 +8,6 @@
     "y": null,
     "facing": 1
   },
-  "apples": [
-    {
-      "x": 330,
-      "y": null
-    },
-    {
-      "x": 1232.6953125,
-      "y": 288.32421875
-    },
-    {
-      "x": 2280,
-      "y": null
-    },
-    {
-      "x": 3496.45703125,
-      "y": 254.47265625
-    },
-    {
-      "x": 3671.96875,
-      "y": 128.35546875
-    }
-  ],
-  "props": [
-    {
-      "x": 235,
-      "y": null,
-      "type": "fence",
-      "layer": "back"
-    },
-    {
-      "x": 565,
-      "y": null,
-      "type": "rock",
-      "layer": "front"
-    },
-    {
-      "x": 885,
-      "y": 298.48564429030813,
-      "type": "tree",
-      "layer": "back"
-    },
-    {
-      "x": 1290,
-      "y": 319.056160213863,
-      "type": "flowers",
-      "layer": "front"
-    },
-    {
-      "x": 1799.046875,
-      "y": 332.80859375,
-      "type": "crystal",
-      "layer": "back"
-    },
-    {
-      "x": 2200,
-      "y": null,
-      "type": "stump",
-      "layer": "front"
-    },
-    {
-      "x": 2505,
-      "y": null,
-      "type": "fence",
-      "layer": "back"
-    },
-    {
-      "x": 2960,
-      "y": null,
-      "type": "crystal",
-      "layer": "back"
-    },
-    {
-      "x": 3400,
-      "y": 315.82226850822667,
-      "type": "tree",
-      "layer": "back"
-    },
-    {
-      "x": 3830,
-      "y": null,
-      "type": "rock",
-      "layer": "front"
-    }
-  ],
-  "spikes": [],
-  "weather": {
-    "sun": 0,
-    "clouds": 1,
-    "rain": 0.72,
-    "lightning": 0.65
-  },
-  "fallY": 570,
-  "finishY": null,
   "terrainBlocks": [
     {
       "id": "b1",
@@ -1432,154 +1339,6 @@
       "inner": []
     },
     {
-      "id": "b2o",
-      "material": "brick",
-      "outer": {
-        "id": "b2p",
-        "nodes": [
-          {
-            "id": "n2q",
-            "x": 1159.7695,
-            "y": 86.9518,
-            "mode": "corner",
-            "in": null,
-            "out": [
-              1183.1029,
-              86.9518
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n2r",
-            "x": 1229.7695,
-            "y": 70.9518,
-            "mode": "corner",
-            "in": [
-              1206.4362,
-              79.3294
-            ],
-            "out": [
-              1253.1029,
-              62.5742
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n2s",
-            "x": 1299.7695,
-            "y": 54.9518,
-            "mode": "corner",
-            "in": [
-              1276.4362,
-              54.9518
-            ],
-            "out": [
-              1328.1029,
-              54.9518
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n2t",
-            "x": 1384.7695,
-            "y": 67.9518,
-            "mode": "corner",
-            "in": [
-              1356.4362,
-              61.145
-            ],
-            "out": [
-              1413.1029,
-              74.7586
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n2u",
-            "x": 1469.7695,
-            "y": 80.9518,
-            "mode": "corner",
-            "in": [
-              1441.4362,
-              80.9518
-            ],
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n2v",
-            "x": 1469.7695,
-            "y": 132.9518,
-            "mode": "corner",
-            "in": null,
-            "out": [
-              1441.4362,
-              132.9518
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n2w",
-            "x": 1384.7695,
-            "y": 119.9518,
-            "mode": "corner",
-            "in": [
-              1413.1029,
-              126.7586
-            ],
-            "out": [
-              1356.4362,
-              113.145
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n2x",
-            "x": 1299.7695,
-            "y": 106.9518,
-            "mode": "corner",
-            "in": [
-              1328.1029,
-              106.9518
-            ],
-            "out": [
-              1276.4362,
-              106.9518
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n2y",
-            "x": 1229.7695,
-            "y": 122.9518,
-            "mode": "corner",
-            "in": [
-              1253.1029,
-              114.5742
-            ],
-            "out": [
-              1206.4362,
-              131.3294
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n2z",
-            "x": 1159.7695,
-            "y": 138.9518,
-            "mode": "corner",
-            "in": [
-              1183.1029,
-              138.9518
-            ],
-            "out": null,
-            "edge": "straight"
-          }
-        ]
-      },
-      "inner": []
-    },
-    {
       "id": "b30",
       "material": "grass",
       "outer": {
@@ -1814,95 +1573,102 @@
         ]
       },
       "inner": []
-    },
-    {
-      "id": "b3k",
-      "material": "grass",
-      "outer": {
-        "id": "b3l",
-        "nodes": [
-          {
-            "id": "n3m",
-            "x": 743.71,
-            "y": 156.1607,
-            "mode": "corner",
-            "in": null,
-            "out": [
-              777.0434,
-              156.1607
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n3n",
-            "x": 843.71,
-            "y": 131.1607,
-            "mode": "corner",
-            "in": [
-              810.3767,
-              131.1607
-            ],
-            "out": [
-              877.0434,
-              131.1607
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n3o",
-            "x": 943.71,
-            "y": 156.1607,
-            "mode": "corner",
-            "in": [
-              910.3767,
-              156.1607
-            ],
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n3p",
-            "x": 943.71,
-            "y": 204.1607,
-            "mode": "corner",
-            "in": null,
-            "out": [
-              910.3767,
-              204.1607
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n3q",
-            "x": 843.71,
-            "y": 179.1607,
-            "mode": "corner",
-            "in": [
-              877.0434,
-              179.1607
-            ],
-            "out": [
-              810.3767,
-              179.1607
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n3r",
-            "x": 743.71,
-            "y": 204.1607,
-            "mode": "corner",
-            "in": [
-              777.0434,
-              204.1607
-            ],
-            "out": null,
-            "edge": "straight"
-          }
-        ]
-      },
-      "inner": []
     }
   ],
+  "apples": [
+    {
+      "x": 330,
+      "y": null
+    },
+    {
+      "x": 1232.6953125,
+      "y": 288.32421875
+    },
+    {
+      "x": 2280,
+      "y": null
+    },
+    {
+      "x": 3496.45703125,
+      "y": 254.47265625
+    },
+    {
+      "x": 3671.96875,
+      "y": 128.35546875
+    }
+  ],
+  "props": [
+    {
+      "x": 235,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 565,
+      "y": 277.9638736264349,
+      "type": "rock",
+      "layer": "front"
+    },
+    {
+      "x": 885,
+      "y": 298.48564429030813,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 1290,
+      "y": 319.056160213863,
+      "type": "flowers",
+      "layer": "front"
+    },
+    {
+      "x": 1799.046875,
+      "y": 332.80859375,
+      "type": "crystal",
+      "layer": "back"
+    },
+    {
+      "x": 2200,
+      "y": null,
+      "type": "stump",
+      "layer": "front"
+    },
+    {
+      "x": 2505,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 2960,
+      "y": null,
+      "type": "crystal",
+      "layer": "back"
+    },
+    {
+      "x": 3400,
+      "y": 315.82226850822667,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 3830,
+      "y": null,
+      "type": "rock",
+      "layer": "front"
+    }
+  ],
+  "spikes": [],
+  "water": [],
+  "weather": {
+    "sun": 0.1,
+    "clouds": 1,
+    "rain": 1,
+    "lightning": 0.65,
+    "fog": 0.2
+  },
+  "fallY": 570,
+  "finishY": null,
   "timeOfDay": "night"
 }
