@@ -38,7 +38,7 @@ import { createLighting } from "./lighting.js";
 import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
 import { WATER_PROPS, FISH_DART, FISH_RANGE } from "./water-props.js";
 import { SQUIRREL_HIDE_MAX, SQUIRREL_RANGE } from "./forest-props.js";
-import { crackLines, paneBounds } from "./glass.js";
+import { crackLines, glassPane } from "./glass.js";
 
 const GLASS_CRACK_COLOR = "#f6fffde6";
 
@@ -495,9 +495,9 @@ export function createRenderer(canvas) {
     if (!cracks?.length) return;
     for (const crack of cracks) {
       if (rideTrail.brokenBlocks.has(crack.blockId) || !inView(crack.x, 50, crack.y, 50)) continue;
-      const bounds = paneBounds(rideTrail, crack.blockId);
-      if (!bounds) continue;
-      for (const line of crackLines(crack, bounds)) pixelPath(line, GLASS_CRACK_COLOR, 1, 2);
+      const pane = glassPane(rideTrail, crack.blockId);
+      if (!pane) continue;
+      for (const line of crackLines(crack, pane)) pixelPath(line, GLASS_CRACK_COLOR, 1, 2);
     }
   }
 

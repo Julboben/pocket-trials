@@ -105,8 +105,8 @@ export const XPBD_CONTACT_RESTITUTION_SCALE = .03;
 export const CONTACT_GROUNDED_NORMAL = -.35;
 export const CONTACT_RESTITUTION_SPEED = 35;
 
-// Glass panes, measured by their bounding box: thickness is the shorter side
-// and span the longer, so upright panes are walls. A pane at least this thick
+// Glass panes are measured as the rectangle with the same area and perimeter,
+// so a pane's thickness and span don't change when it's tilted. A pane at least this thick
 // never breaks. A thinner one has a strength, the hit speed into it (along
 // the surface normal, px/s) it takes before it shatters: the reference
 // strength for a pane of the reference thickness and span, rising with

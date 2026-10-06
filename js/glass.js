@@ -1,7 +1,7 @@
 // @ts-check
 // Glass: terrain that can break during a ride. Each pane is judged by its
-// bounding box: thickness is its shorter side and span its longer one. A
-// thick pane is like any other terrain; a thin one has a strength worked out
+// thickness and span, measured from its shape at whatever angle it lies
+// (`paneSize`). A thick pane is like any other terrain; a thin one has a strength worked out
 // from its size (`glassStrength`) and shatters only when hit harder than that.
 //
 // A ride on a trail with glass gets its own copy of the trail (`rideTerrain`),
@@ -23,6 +23,7 @@ import {
   TAU,
 } from './config.js';
 import { breakTerrainBlock, terrainGeometry } from './terrain.js';
+import { ringArea } from './terrain-geometry.js';
 import { trailTerrainBlocks } from './trail-schema.js';
 
 export const GLASS = 'glass';
@@ -61,6 +62,46 @@ export function glassStrength(thickness, span) {
   );
 }
 
+/**
+ * A pane's thickness and span: the sides of the rectangle with the same area
+ * and perimeter. That is exact for a rectangle at any angle, and a bent or
+ * curved strip measures as the straight strip it would unroll into. A shape
+ * too round for any rectangle to match is measured as a square.
+ * @param {number[][][]} rings outer ring first, then holes
+ */
+export function paneSize(rings) {
+  let area = 0,
+    perimeter = 0;
+  rings.forEach((ring, index) => {
+    area += Math.abs(ringArea(ring)) * (index ? -1 : 1);
+    for (let point = 0; point < ring.length; point++) {
+      const [ax, ay] = ring[point],
+        [bx, by] = ring[(point + 1) % ring.length];
+      perimeter += Math.hypot(bx - ax, by - ay);
+    }
+  });
+  area = Math.max(area, 0);
+  const half = perimeter / 2;
+  const discriminant = half * half - 4 * area;
+  if (discriminant <= 0) return { thickness: Math.sqrt(area), span: Math.sqrt(area) };
+  const thickness = (half - Math.sqrt(discriminant)) / 2;
+  return { thickness, span: half - thickness };
+}
+
+/** Whether a point is inside a ring, by the even-odd rule. */
+function insideRing(ring, x, y) {
+  let inside = false;
+  for (let index = 0, previous = ring.length - 1; index < ring.length; previous = index++) {
+    const [ax, ay] = ring[index],
+      [bx, by] = ring[previous];
+    if (ay > y !== by > y && x < ax + ((y - ay) * (bx - ax)) / (by - ay)) inside = !inside;
+  }
+  return inside;
+}
+
+const insidePane = (pane, x, y) =>
+  insideRing(pane.rings[0], x, y) && !pane.rings.slice(1).some((hole) => insideRing(hole, x, y));
+
 const panes = new WeakMap();
 
 /** Every glass pane on the trail by block id, with its strength. */
@@ -72,13 +113,13 @@ function glassPanes(source) {
   for (const body of compiled?.bodies || []) {
     if (body.material !== GLASS) continue;
     const { left, right, top, bottom } = body.bounds;
-    // A pane lies along its longer side, so an upright pane is a wall that
-    // the bike can ride into.
-    const width = right - left,
-      height = bottom - top;
+    const { thickness, span } = paneSize(body.rings);
     byId.set(body.blockId, {
       bounds: { left, right, top, bottom },
-      strength: glassStrength(Math.min(width, height), Math.max(width, height)),
+      rings: body.rings,
+      thickness,
+      span,
+      strength: glassStrength(thickness, span),
     });
   }
   panes.set(compiled, byId);
@@ -112,24 +153,36 @@ export function shatterGlass(trail, contact, vx, vy) {
       trail.paneStrength.set(contact.blockId, settling
         ? { ...state, strength: Math.min(state.strength, left) }
         : { before: strength, strength: left, until: trail.glassClock + GLASS_CRACK_SETTLE_STEPS });
+      const [cx, cy] = intoPane(pane, x, y, contact.nx, contact.ny);
       trail.glassCracks.push({
         blockId: contact.blockId,
-        x: Math.min(Math.max(x, pane.bounds.left), pane.bounds.right),
-        y: Math.min(Math.max(y, pane.bounds.top), pane.bounds.bottom),
+        x: cx,
+        y: cy,
         speed,
         severity: Math.min(1, speed / pane.strength),
       });
     }
     return false;
   }
-  breakTerrainBlock(trail, contact.blockId, { x, y, speed, ...pane.bounds });
+  breakTerrainBlock(trail, contact.blockId, { x, y, speed, ...pane.bounds, rings: pane.rings });
   return true;
 }
 
-/** The pane a crack is in, for drawing it: its bounding box. */
-export function paneBounds(trail, blockId) {
-  return trail?.terrainSource ? glassPanes(trail.terrainSource).get(blockId)?.bounds ?? null : null;
+// The first point inside the pane going in from (x, y) against the outward
+// normal: contacts lie on the surface, and swept ones at the wheel's centre.
+function intoPane(pane, x, y, nx, ny) {
+  for (let step = 1; step <= 40; step++)
+    if (insidePane(pane, x - nx * step, y - ny * step)) return [x - nx * step, y - ny * step];
+  return [x, y];
 }
+
+/** A pane on a ride's trail, for drawing its cracks. */
+export function glassPane(trail, blockId) {
+  return trail?.terrainSource ? glassPanes(trail.terrainSource).get(blockId) ?? null : null;
+}
+
+/** Whether (x, y) is inside the glass outlined by `rings` (outer ring first, then holes). */
+export const inGlass = (rings, x, y) => insidePane({ rings }, x, y);
 
 const crackShapes = new WeakMap();
 
@@ -138,7 +191,7 @@ const crackShapes = new WeakMap();
  * Harder hits crack further and in more directions. The shape is seeded by
  * where the hit was, so it is the same every time it is drawn.
  */
-export function crackLines(crack, bounds) {
+export function crackLines(crack, pane) {
   const cached = crackShapes.get(crack);
   if (cached) return cached;
   let seed = (Math.round(crack.x * 7) * 73856093) ^ (Math.round(crack.y * 7) * 19349663);
@@ -148,23 +201,28 @@ export function crackLines(crack, bounds) {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-  const inside = (x, y) => [
-    Math.min(Math.max(x, bounds.left + 1), bounds.right - 1),
-    Math.min(Math.max(y, bounds.top + 1), bounds.bottom - 1),
-  ];
   const rays = 3 + Math.round(crack.severity * 3);
   const reach = 8 + crack.severity * 32;
   const lines = [];
   for (let ray = 0; ray < rays; ray++) {
     let angle = ((ray + random() * 0.6) / rays) * TAU;
-    let [x, y] = inside(crack.x, crack.y);
+    let x = crack.x,
+      y = crack.y;
     const line = [[x, y]];
+    // Each segment runs on until it would leave the glass, and the ray ends there.
     for (let segment = 0, length = reach * (0.6 + random() * 0.6); segment < 3; segment++) {
       angle += (random() - 0.5) * 0.9;
-      [x, y] = inside(x + Math.cos(angle) * length / 3, y + Math.sin(angle) * length / 3);
+      const dx = Math.cos(angle),
+        dy = Math.sin(angle);
+      let run = 0;
+      while (run < length / 3 && insidePane(pane, x + dx * (run + 1), y + dy * (run + 1))) run++;
+      if (!run) break;
+      x += dx * run;
+      y += dy * run;
       line.push([x, y]);
+      if (run < length / 3) break;
     }
-    lines.push(line);
+    if (line.length > 1) lines.push(line);
   }
   crackShapes.set(crack, lines);
   return lines;

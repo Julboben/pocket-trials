@@ -430,12 +430,62 @@
         ]
       },
       "inner": []
+    },
+    {
+      "id": "bt5",
+      "material": "glass",
+      "outer": {
+        "id": "bt6",
+        "nodes": [
+          {
+            "id": "nt7",
+            "x": 1037.6109,
+            "y": 199.8951,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nt8",
+            "x": 1148.132230905634,
+            "y": 136.1578282574061,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nt9",
+            "x": 1152.1549233606966,
+            "y": 141.8843561933328,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nta",
+            "x": 1040.3491719401386,
+            "y": 206.12725037785168,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
     }
   ],
   "apples": [
     {
       "x": 501.53125,
       "y": 341.603125
+    },
+    {
+      "x": 1129.1996368888415,
+      "y": 98.61438932506779
     }
   ],
   "props": [

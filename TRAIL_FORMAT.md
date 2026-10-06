@@ -177,7 +177,7 @@ Each block sets its own material with its `material` property. Available presets
 
 Material definitions live in `terrainMaterials` at the top of `js/materials.js`. Each preset controls fill, internal layers or pattern, edge colors, vegetation, and wheel-spray colors.
 
-Every material collides the same way except `glass`, which is judged by the block's bounding box. Its thickness is the box's shorter side and its span the longer one, so a flat pane is a floor or bridge and an upright pane is a wall:
+Every material collides the same way except `glass`, which is judged by the block's shape. Its thickness and span are the short and long sides of the rectangle with the same area and perimeter as the block. That's exact for a rectangle at any angle, so a flat pane, an upright wall and a tilted plank all measure the same way. A bent or curved strip measures about as thick and as long as the strip itself, and a round or square blob measures as thick as it is wide:
 
 - **Thick** (16 units or more): never breaks, like any other terrain.
 - **Thin** (thinner than 16): has a strength, the speed at which a wheel, the frame or the rider must hit it (straight into the pane) to shatter it. Strength is `280 × (thickness / 8) × √(96 / span)` units/s, so thinner and longer panes are weaker. Riding along a pane barely pushes into it, so driving across thin glass is safe; slamming the wheels down or landing from high up is what breaks it. Resting weight counts as a 40 units/s hit, so only a pane weaker than that cannot carry the bike at all.

@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { RADIUS, STEP, GRAVITY, GLASS_WEIGHT_IMPACT } from '../js/config.js';
 import { createRide, stepRide } from '../js/ride.js';
 import { terrainGeometry } from '../js/terrain.js';
-import { glassStrength } from '../js/glass.js';
-import { blockTrail, rectangle } from './lib/terrain-fixtures.mjs';
+import { glassStrength, paneSize } from '../js/glass.js';
+import { blockTrail, polygonBlock, rectangle } from './lib/terrain-fixtures.mjs';
 
 const PANE_TOP = 300;
 const GROUND = 600;
@@ -36,6 +36,33 @@ const wheelsBelowPane = current => current.rear.y > PANE_TOP + 20 && current.fro
   assert.equal(glassStrength(16, 96), Infinity, 'thick glass never breaks');
   assert.ok(glassStrength(4, 96) < glassStrength(8, 96), 'thinner glass is weaker');
   assert.ok(glassStrength(8, 300) < glassStrength(8, 96), 'longer glass is weaker');
+}
+
+// A pane is measured from its shape, so tilting it changes nothing.
+{
+  const rotated = (length, thickness, degrees) => {
+    const angle = degrees * Math.PI / 180, c = Math.cos(angle), s = Math.sin(angle);
+    return [[0, 0], [length, 0], [length, thickness], [0, thickness]].map(([x, y]) => [x * c - y * s, x * s + y * c]);
+  };
+  for (const degrees of [0, 30, 45, 90, 150]) {
+    const { thickness, span } = paneSize([rotated(128, 7, degrees)]);
+    assert.ok(Math.abs(thickness - 7) < 1e-6 && Math.abs(span - 128) < 1e-6, `a 7 × 128 pane at ${degrees}° measures ${thickness} × ${span}`);
+  }
+  const square = paneSize([rotated(40, 40, 20)]);
+  assert.ok(Math.abs(square.thickness - 40) < 1e-6 && Math.abs(square.span - 40) < 1e-6, 'a square measures as itself');
+}
+
+// A tilted thin pane breaks like a level one when landed on hard.
+{
+  const pane = rotated => polygonBlock(rotated.map(([x, y]) => [x + 340, y + PANE_TOP]), 'glass', 'pane');
+  const angle = -20 * Math.PI / 180, c = Math.cos(angle), s = Math.sin(angle);
+  const outline = [[0, 0], [120, 0], [120, 7], [0, 7]].map(([x, y]) => [x * c - y * s, x * s + y * c]);
+  const trail = blockTrail([rectangle(0, GROUND, 1400, GROUND + 200, 'grass', 'ground'), pane(outline)],
+    { goal: 1300, start: { x: 400, y: null, facing: 1 } });
+  const current = createRide(trail, { start: { x: 400, y: PANE_TOP - 140, facing: 1 } });
+  const events = [];
+  for (let step = 0; step < 2 / STEP; step++) events.push(...stepRide(current, {}));
+  assert.ok(events.some(event => event.type === 'shatter'), 'a tilted thin pane shatters on a hard landing');
 }
 
 // A trail without glass is ridden as it is.

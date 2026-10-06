@@ -51,6 +51,7 @@
  * @property {number} right
  * @property {number} top
  * @property {number} bottom
+ * @property {number[][][]} rings the pane's outline, outer ring first, then holes
  *
  * @typedef {object} Contact
  * @property {number} nx
