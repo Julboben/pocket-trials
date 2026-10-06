@@ -539,7 +539,7 @@
     },
     {
       "id": "b17",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "b18",
         "nodes": [

@@ -241,7 +241,7 @@
   "terrainBlocks": [
     {
       "id": "b1",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "b2",
         "nodes": [
@@ -602,7 +602,7 @@
     },
     {
       "id": "b1-2",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "bs",
         "nodes": [
@@ -807,7 +807,7 @@
     },
     {
       "id": "b1-3",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "b18",
         "nodes": [
@@ -1039,7 +1039,7 @@
     },
     {
       "id": "b1-4",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "b1p",
         "nodes": [
@@ -1505,7 +1505,7 @@
     },
     {
       "id": "b1-5",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "b2m",
         "nodes": [
@@ -1836,7 +1836,7 @@
     },
     {
       "id": "b3a",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "b3b",
         "nodes": [
@@ -2053,7 +2053,7 @@
     },
     {
       "id": "b3z",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "b40",
         "nodes": [

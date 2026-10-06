@@ -4,6 +4,8 @@
 import { STEP, RADIUS, TAU, clamp, lerp } from './config.js';
 import { terrainMaterials } from './materials.js';
 import { terrainAt } from './terrain.js';
+import { inGlass } from './glass.js';
+import { ringArea } from './terrain-geometry.js';
 import { WATER_COLORS, submergedFraction, waterAt } from './water.js';
 
 const MAX_PARTICLES = 400;
@@ -117,6 +119,47 @@ export function createEffects() {
     }
   }
 
+  /**
+   * Shards from a pane of glass breaking: spread over the pane, thrown away
+   * from where it was hit, more for a bigger pane.
+   */
+  function shatter({ x, y, speed, left, right, top, bottom, rings }) {
+    const spray = terrainMaterials.glass.spray;
+    const width = right - left, height = bottom - top;
+    const area = rings ? Math.abs(ringArea(rings[0])) : width * height;
+    const count = Math.round(clamp(area / 60, 14, 60));
+    const throwSpeed = clamp(speed * .35, 40, 160);
+    for (let index = 0, tries = 0; index < count && tries < count * 20; tries++) {
+      const sx = left + Math.random() * width, sy = top + Math.random() * height;
+      // Only where the glass was: a tilted pane fills little of its box.
+      if (rings && !inGlass(rings, sx, sy)) continue;
+      index++;
+      const away = Math.atan2(sy - y, sx - x) + (Math.random() - .5) * 1.2;
+      const push = throwSpeed * (.4 + Math.random() * .8);
+      const life = .5 + Math.random() * .5;
+      particles.push({
+        x: sx, y: sy,
+        vx: Math.cos(away) * push, vy: Math.sin(away) * push - 20 - Math.random() * 40,
+        life, max: life, color: spray[index % spray.length], size: Math.random() < .75 ? 2 : 4, drag: 1.2
+      });
+    }
+  }
+
+  /** A few glints flicking off where a pane cracked. */
+  function crack({ x, y, speed }) {
+    const spray = terrainMaterials.glass.spray;
+    const count = Math.round(clamp(speed / 40, 3, 7));
+    for (let index = 0; index < count; index++) {
+      const side = index % 2 ? 1 : -1;
+      const life = .25 + Math.random() * .2;
+      particles.push({
+        x: x + side * Math.random() * 4, y: y - 1,
+        vx: side * (20 + Math.random() * 40), vy: -(30 + Math.random() * 50),
+        life, max: life, color: spray[index % spray.length], size: 2, drag: 3
+      });
+    }
+  }
+
   /** Spray from wheels pushing through the water's surface. */
   function waterWake(ride, speed) {
     const bodies = ride.water;
@@ -182,5 +225,5 @@ export function createEffects() {
     removeExpired(skidMarks, MAX_SKID_MARKS);
   }
 
-  return { particles, skidMarks, weather, reset, burst, dustPuff, brakeMarks, terrainSpray, splash, waterWake, stepWeather, update, prune };
+  return { particles, skidMarks, weather, reset, burst, dustPuff, brakeMarks, terrainSpray, splash, shatter, crack, waterWake, stepWeather, update, prune };
 }

@@ -85,7 +85,7 @@ const commitCut = (blocks, points) => {
 {
   const host = createBlankTerrainBlocks()[0];
   const { blocks } = commitCut([host], [[400, 340], [700, 340], [700, 460], [400, 460]]);
-  const island = normalizeBlocks([{ material: 'rock', outer: { nodes: [
+  const island = normalizeBlocks([{ material: 'concrete', outer: { nodes: [
     { x: 500, y: 380, edge: 'straight' }, { x: 600, y: 380, edge: 'straight' },
     { x: 600, y: 430, edge: 'straight' }, { x: 500, y: 430, edge: 'straight' },
   ] }, inner: [] }], 'grass')[0];
@@ -106,7 +106,7 @@ const commitCut = (blocks, points) => {
 {
   const host = createBlankTerrainBlocks()[0];
   const { blocks } = commitCut([host], [[400, 340], [700, 340], [700, 460], [400, 460]]);
-  const island = normalizeBlocks([{ material: 'rock', outer: { nodes: [
+  const island = normalizeBlocks([{ material: 'concrete', outer: { nodes: [
     { x: 300, y: 380, edge: 'straight' }, { x: 420, y: 380, edge: 'straight' },
     { x: 420, y: 430, edge: 'straight' }, { x: 300, y: 430, edge: 'straight' },
   ] }, inner: [] }], 'grass')[0];

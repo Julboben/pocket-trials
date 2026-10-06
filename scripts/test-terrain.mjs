@@ -39,7 +39,7 @@ assert.ok(
 
 // A floating block above a slab.
 const islandTrail = trailOf(
-  [rectangle(0, 500, 400, 700, "grass", "ground"), rectangle(100, 200, 240, 240, "rock", "island")],
+  [rectangle(0, 500, 400, 700, "grass", "ground"), rectangle(100, 200, 240, 240, "concrete", "island")],
   { fallY: 900, goal: 380 },
 );
 const hits = (x, y, test) => terrainCollisionsAt(islandTrail, x, y, radius).some(test);
@@ -75,7 +75,7 @@ const hillTrail = trailOf(
   [
     polygonBlock([[0, 100], [140, 240], [140, 500], [0, 500]], "grass", "hill-left"),
     polygonBlock([[180, 280], [200, 300], [200, 500], [180, 500]], "grass", "hill-right"),
-    polygonBlock([[40, 40], [160, 80], [160, 110], [40, 70]], "rock", "shelf"),
+    polygonBlock([[40, 40], [160, 80], [160, 110], [40, 70]], "concrete", "shelf"),
   ],
   { fallY: 500, goal: 190, start: { x: 20, y: null, facing: 1 } },
 );

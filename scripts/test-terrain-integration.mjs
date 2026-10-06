@@ -74,11 +74,11 @@ const spiral = () => polygonBlock(SPIRAL_NODES, 'grass', 'spiral');
 
 // Two overlapping blocks ride as one: the seam between them has no edge.
 {
-  const trail = normalizeTrail(blockTrail([rectangle(0, 300, 500, 600, 'grass', 'a'), rectangle(400, 300, 900, 600, 'rock', 'b')]));
+  const trail = normalizeTrail(blockTrail([rectangle(0, 300, 500, 600, 'grass', 'a'), rectangle(400, 300, 900, 600, 'concrete', 'b')]));
   const seam = terrainCollisionsAt(trail, 450, 300 - RADIUS + 3, RADIUS);
   assert.equal(seam.length, 1, 'a wheel on the seam has one contact');
   assert.ok(seam[0].ny < -0.99, `and it points straight up (${seam[0].ny})`);
-  assert.equal(terrainAt(trail, 450, null).material, 'rock', 'the later block shows on top');
+  assert.equal(terrainAt(trail, 450, null).material, 'concrete', 'the later block shows on top');
   assert.equal(terrainCollisionsAt(trail, 450, 450, RADIUS).length, 1, 'a body deep inside is pushed to the nearest surface');
 }
 

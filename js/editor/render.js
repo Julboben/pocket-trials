@@ -176,7 +176,9 @@ function drawBlocks() {
       traceBlock(block);
       // Even-odd fill so a block's caves stay open.
       ctx.fillStyle = material.fill;
+      ctx.globalAlpha = material.alpha ?? 1;
       ctx.fill("evenodd");
+      ctx.globalAlpha = 1;
     }
     // The outline is stroked one boundary at a time: stroke() takes no fill rule,
     // and tracing a whole block at once would also stroke the shared seam where

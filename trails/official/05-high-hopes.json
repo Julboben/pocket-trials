@@ -1,6 +1,6 @@
 {
   "name": "High Hopes",
-  "label": "HIGH HOPES / 03",
+  "label": "HIGH HOPES / 05",
   "goal": 3312.5687986229404,
   "description": "Steeper faces create wheelies and bigger airtime. Shift your weight early, then use small lean inputs to match the landing slope.",
   "start": {
@@ -11,7 +11,7 @@
   "terrainBlocks": [
     {
       "id": "b1",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "b1gh",
         "nodes": [
@@ -1491,7 +1491,7 @@
     },
     {
       "id": "b3s",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "b3t",
         "nodes": [
@@ -1684,7 +1684,7 @@
     },
     {
       "id": "bwr4",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "bwr5",
         "nodes": [
@@ -1719,6 +1719,52 @@
             "id": "nwr9",
             "x": -273.3959,
             "y": -176.6579,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    },
+    {
+      "id": "bk9s",
+      "material": "glass",
+      "outer": {
+        "id": "bk9r",
+        "nodes": [
+          {
+            "id": "nk9n",
+            "x": -200.2891,
+            "y": -128.1977,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nk9o",
+            "x": -150.2891,
+            "y": -128.1977,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nk9p",
+            "x": -150.2891,
+            "y": -78.1977,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nk9q",
+            "x": -200.2891,
+            "y": -78.1977,
             "mode": "corner",
             "in": null,
             "out": null,

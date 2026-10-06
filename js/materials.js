@@ -1,3 +1,6 @@
+/** Whether a material lets light and the scene behind it through. */
+export const isSeeThrough = (name) => terrainMaterials[name]?.alpha !== undefined;
+
 export const terrainMaterials = {
   grass: {
     fill: '#c5b496', layers: ['#d3c2a2', '#b7a687'], detail: '#ac9c806e',
@@ -14,10 +17,15 @@ export const terrainMaterials = {
     edge: '#8f7550', surface: '#e9d8a8', vegetation: null,
     spray: ['#c9b07e','#dcc59a','#eddcb5']
   },
-  rock: {
+  concrete: {
     fill: '#727a78', layers: ['#89918d', '#606866'], detail: '#4d565466',
     edge: '#3f4d4b', surface: '#9aa49e', vegetation: null,
     spray: ['#626b69','#858e8a','#aeb5ad']
+  },
+  stone: {
+    fill: '#8b8982', layers: ['#a7a49a', '#6b6964'], detail: '#3b3a37cc', pattern: 'stone',
+    edge: '#403e3a', surface: '#b3afa3', vegetation: null,
+    spray: ['#75736d','#9a978e','#bfbbb0']
   },
   snow: {
     fill: '#aebbc0', layers: ['#cbd5d6', '#929fa5'], detail: '#74838a55',
@@ -28,5 +36,12 @@ export const terrainMaterials = {
     fill: '#8d493d', layers: ['#a65a49', '#71392f'], detail: '#492b29aa', pattern: 'brick',
     edge: '#433534', surface: '#74a35a', vegetation: null,
     spray: ['#754239','#9a5748','#bd7961']
+  },
+  glass: {
+    fill: '#9fcfd3', layers: ['#c4e6e6', '#82b6bd'], detail: '#ffffff99', pattern: 'glass',
+    edge: '#4f8790', surface: '#d9f1ee', vegetation: null,
+    // See-through: the body lets this much of itself show, its rims and glints more.
+    alpha: .35, rimAlpha: .85,
+    spray: ['#d9f1ee','#b4dcdc','#ffffff']
   }
 };

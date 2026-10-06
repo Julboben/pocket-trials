@@ -31,7 +31,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Collectibles, finish gates, timers, and best times
 - Persisted settings and trail progression
 - Seven progressively longer trails with gaps, caves, and floating blocks to ride across
-- Grass, dirt, rock, snow, and brick terrain materials
+- Grass, dirt, sand, concrete, stone, snow, brick, and glass terrain materials
 - Per-trail rain, snow, and lightning configuration with procedural rain and storm-wind ambience and distance-aware thunder
 - Water you can ride through: shallow fords drag the bike and slow it down, deeper water wipes the rider out, and the ragdoll floats on the surface with splashes, wakes and sound; water lilies, reeds, seaweed, fish that dart off and ducks that take off when you come close
 - Squirrels that run to the nearest tree, climb it and hide in the crown when you come close
@@ -71,14 +71,18 @@ Gamepads use the standard mapping: `RT` or `A` for gas, `LT` or `X` for brake, t
 ## Trails
 
 1. **The Orchard** — gentle rollers that teach throttle rhythm and basic balance.
-2. **Rolling Country** — longer hills that teach momentum management and crest control.
-3. **High Hopes** — steep climbs and bigger landings that reward early weight shifts.
-4. **Skybound** — two committed jumps across a narrow middle section.
-5. **Brake Point** — sharp drops and deep bowls that teach controlled braking and recovery.
-6. **Long Way Up** — a sustained technical climb combining momentum and wheelie control.
-7. **Elastic Summit** — a long final exam combining climbs, braking, landings, gaps, and stacked ledges.
+2. **Apple Valley** — growing rollers and a big hill that teach carrying momentum, and a small hop to reach the flower.
+3. **Windfall** — turning around: ride away to build speed, turn, and launch back to an apple high behind you.
+4. **Splinter Ridge** — longer, steeper woodland hills that teach momentum management and crest control.
+5. **High Hopes** — steep climbs and bigger landings that reward early weight shifts.
+6. **Skybound** — two committed jumps across a narrow middle section.
+7. **Brake Point** — sharp drops and deep bowls that teach controlled braking and recovery.
+8. **Long Way Up** — a sustained technical climb combining momentum and wheelie control.
+9. **Elastic Summit** — a long final exam combining climbs, braking, landings, gaps, and stacked ledges.
 
-Each trail requires collecting all five apples before the finish gate will open. Completing a trail unlocks the next one. Selecting a trail starts it immediately, and its number and name remain visible as a lower-left course marker.
+The planned full career is laid out in [`TRAILS_PLAN.md`](./TRAILS_PLAN.md).
+
+Each trail requires collecting every apple before the finish gate will open. Completing a trail unlocks the next one. Selecting a trail starts it immediately, and its number and name remain visible as a lower-left course marker.
 
 ## Trail editor
 
@@ -314,7 +318,7 @@ When changing physics values, validate at least these cases:
 - [ ] Map called Meteor Crater - you drive down a crater and then up again.
 - [ ] Make the ragdoll controllable
 - [x] Sound Effects
-- [x] Different terrain types (grass, dirt, rock, snow, and brick)
+- [x] Different terrain types (grass, dirt, concrete, stone, snow, and brick)
 - [x] Splatter behind the bike when you drive on different terrain
 - [x] Add weather effects (rain, lightning, and procedural ambience)
 - [x] Add day / night

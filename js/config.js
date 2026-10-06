@@ -105,5 +105,28 @@ export const XPBD_CONTACT_RESTITUTION_SCALE = .03;
 export const CONTACT_GROUNDED_NORMAL = -.35;
 export const CONTACT_RESTITUTION_SPEED = 35;
 
+// Glass panes are measured as the rectangle with the same area and perimeter,
+// so a pane's thickness and span don't change when it's tilted. A pane at least this thick
+// never breaks. A thinner one has a strength, the hit speed into it (along
+// the surface normal, px/s) it takes before it shatters: the reference
+// strength for a pane of the reference thickness and span, rising with
+// thickness and falling with the square root of the span. Resting weight
+// counts as a hit of the weight impact, so only a pane weaker than that
+// cannot carry the bike at all.
+export const GLASS_THIN_THICKNESS = 16;
+export const GLASS_REFERENCE_THICKNESS = 8;
+export const GLASS_REFERENCE_SPAN = 96;
+export const GLASS_REFERENCE_STRENGTH = 280;
+export const GLASS_WEIGHT_IMPACT = 40;
+// A hit that doesn't break a pane cracks it when it is harder than this share
+// of the strength the pane has left, and the pane loses this share of the
+// hit's speed from its strength. Resting weight never cracks glass. Hits this
+// many seconds after a crack count as the same landing.
+export const GLASS_CRACK_SHARE = .5;
+export const GLASS_CRACK_LOSS = .5;
+export const GLASS_CRACK_SETTLE = .25;
+// Share of the speed into the pane that is lost going through it.
+export const GLASS_BREAK_DRAG = .35;
+
 export const clamp = (number, minimum, maximum) => Math.max(minimum, Math.min(maximum, number));
 export const lerp = (start, end, amount) => start + (end - start) * amount;

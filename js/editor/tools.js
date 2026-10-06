@@ -14,8 +14,10 @@ export const propTypeOptions = () =>
     option.textContent,
   ]);
 
+export const materialLabel = (name) => name[0].toUpperCase() + name.slice(1);
+
 const materialOptions = () =>
-  Object.keys(terrainMaterials).map((name) => [name, name.toUpperCase()]);
+  Object.keys(terrainMaterials).map((name) => [name, materialLabel(name)]);
 
 export const BLOCK_LAYERS = [
   ["terrain", "Terrain"],

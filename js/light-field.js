@@ -13,6 +13,7 @@
 // ring or an arch is lit like open air. Light fades in from a back wall's edge
 // the same way it fades in from a cave mouth.
 import { backWallGeometry, terrainGeometry, terrainSurfacesAt } from "./terrain.js";
+import { isSeeThrough } from "./materials.js";
 import { terrainColumnSpans } from "./terrain-runtime.js";
 
 // World units per texel; the field is smoothed when it is drawn.
@@ -88,6 +89,8 @@ export function bakeLightField(trail, { soak, reach, open = 0.35 }, unit = LIGHT
     const surfaces = terrainSurfacesAt(trail, x + (c + 0.5) * unit);
     for (let s = 0; s < surfaces.length; s++) {
       if (!surfaces[s].entering) continue;
+      // Glass from top to bottom lets the light through, as if it were air.
+      if (isSeeThrough(surfaces[s].material) && isSeeThrough(surfaces[s + 1]?.material)) continue;
       const from = surfaces[s].y,
         to = s + 1 < surfaces.length ? surfaces[s + 1].y : Infinity;
       if (tops[c] === Infinity) tops[c] = from;

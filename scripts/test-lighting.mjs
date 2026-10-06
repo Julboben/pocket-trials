@@ -8,7 +8,7 @@ const { bakeLightField, lightFieldAt, lightReach } = await import('../js/light-f
 const { glareStrength } = await import('../js/lighting.js');
 
 let failures = 0;
-const backWall = (left, top, right, bottom) => ({ ...rectangle(left, top, right, bottom, 'rock', `back-${left}`), layer: 'back' });
+const backWall = (left, top, right, bottom) => ({ ...rectangle(left, top, right, bottom, 'concrete', `back-${left}`), layer: 'back' });
 const check = (label, condition, detail = '') => {
   if (!condition) { failures++; console.log('FAIL', label, detail); }
   else console.log('ok  ', label);

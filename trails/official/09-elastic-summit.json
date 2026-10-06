@@ -1,6 +1,6 @@
 {
   "name": "Elastic Summit",
-  "label": "ELASTIC SUMMIT / 07",
+  "label": "ELASTIC SUMMIT / 09",
   "goal": 4080,
   "description": "The final exam: rolling speed, precise braking, steep climbs, controlled airtime, and enough patience to finish in one piece.",
   "start": {
@@ -11,7 +11,7 @@
   "terrainBlocks": [
     {
       "id": "b1",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "b2",
         "nodes": [
@@ -597,7 +597,7 @@
     },
     {
       "id": "b1-2",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "b17",
         "nodes": [
@@ -979,7 +979,7 @@
     },
     {
       "id": "b1-3",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "b1y",
         "nodes": [
