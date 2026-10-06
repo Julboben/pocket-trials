@@ -21,8 +21,8 @@ Create new trails as a single JSON file each, following the format below.
 3. `js/materials.js`: Valid terrain materials
 4. `trails/custom/README.md`: Where custom trail files go and how they are loaded
 5. `trails/official/01-the-orchard.json`: Example trail: easy
-6. `trails/official/04-skybound.json`: Example trail: medium
-7. `trails/official/07-elastic-summit.json`: Example trail: advanced
+6. `trails/official/06-skybound.json`: Example trail: medium
+7. `trails/official/09-elastic-summit.json`: Example trail: advanced
 
 ---
 
@@ -1879,14 +1879,14 @@ Example trail: easy.
 
 ---
 
-## `trails/official/04-skybound.json`
+## `trails/official/06-skybound.json`
 
 Example trail: medium.
 
 ```json
 {
   "name": "Skybound",
-  "label": "SKYBOUND / 04",
+  "label": "SKYBOUND / 06",
   "goal": 3244.3685535694976,
   "description": "Commit to the jumps. Build speed before each lip, stay calm in the air, and line both wheels up with the far-side slope.",
   "start": {
@@ -3689,14 +3689,14 @@ Example trail: medium.
 
 ---
 
-## `trails/official/07-elastic-summit.json`
+## `trails/official/09-elastic-summit.json`
 
 Example trail: advanced.
 
 ```json
 {
   "name": "Elastic Summit",
-  "label": "ELASTIC SUMMIT / 07",
+  "label": "ELASTIC SUMMIT / 09",
   "goal": 4080,
   "description": "The final exam: rolling speed, precise braking, steep climbs, controlled airtime, and enough patience to finish in one piece.",
   "start": {

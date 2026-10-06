@@ -14,8 +14,8 @@ const SOURCES = [
   ['js/materials.js', 'js', 'Valid terrain materials'],
   ['trails/custom/README.md', 'markdown', 'Where custom trail files go and how they are loaded'],
   ['trails/official/01-the-orchard.json', 'json', 'Example trail: easy'],
-  ['trails/official/04-skybound.json', 'json', 'Example trail: medium'],
-  ['trails/official/07-elastic-summit.json', 'json', 'Example trail: advanced'],
+  ['trails/official/06-skybound.json', 'json', 'Example trail: medium'],
+  ['trails/official/09-elastic-summit.json', 'json', 'Example trail: advanced'],
 ];
 
 const header = `# Hjulben: trail authoring context
