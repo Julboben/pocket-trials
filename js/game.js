@@ -488,6 +488,11 @@ export function startGame() {
         if (session.preferences.shake === 'on') camera.kick(3);
         vibrate(30);
         break;
+      case 'crack':
+        effects.crack(event);
+        sounds.crack(event.speed);
+        vibrate(12);
+        break;
       case 'crash':
         effects.burst(event.x, event.y, CRASH_COLORS[event.cause], event.cause === 'spike' ? 18 : 15);
         sounds.crash();

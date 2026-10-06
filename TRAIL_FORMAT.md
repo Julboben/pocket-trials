@@ -180,8 +180,21 @@ Material definitions live in `terrainMaterials` at the top of `js/materials.js`.
 Every material collides the same way except `glass`, which is judged by the block's bounding box. Its thickness is the box's shorter side and its span the longer one, so a flat pane is a floor or bridge and an upright pane is a wall:
 
 - **Thick** (16 units or more): never breaks, like any other terrain.
-- **Thin and narrow** (thinner than 16, spanning 96 or less): holds the bike's weight, but shatters when a wheel, the frame or the rider hits it faster than 220 units/s. A landing from a small hop is enough.
-- **Thin and wide** (thinner than 16, spanning more than 96): gives way as soon as anything rests on top of it, and shatters on a fast hit too. As an upright wall nothing rests on it, so only a fast hit breaks it.
+- **Thin** (thinner than 16): has a strength, the speed at which a wheel, the frame or the rider must hit it (straight into the pane) to shatter it. Strength is `280 × (thickness / 8) × √(96 / span)` units/s, so thinner and longer panes are weaker. Riding along a pane barely pushes into it, so driving across thin glass is safe; slamming the wheels down or landing from high up is what breaks it. Resting weight counts as a 40 units/s hit, so only a pane weaker than that cannot carry the bike at all.
+
+| Pane (thickness × span) | Strength (units/s) | Breaks on a landing from about |
+| --- | --- | --- |
+| 12 × 96 | 420 | 230 units up |
+| 8 × 96 | 280 | 100 units up |
+| 8 × 200 | 194 | 50 units up |
+| 8 × 300 | 158 | 33 units up |
+| 4 × 96 | 140 | 26 units up |
+| 4 × 200 | 97 | 12 units up |
+| 2 × 400 | 34 | cannot carry the bike |
+
+A hit that doesn't break a pane but is harder than half the strength it has left cracks it, and the pane loses half the hit's speed from its strength. So landings at under half a pane's strength leave no mark, a landing at 60 % cracks it and the third one breaks it, and a landing at 90 % leaves deep cracks and the next one breaks it. Every hit within a quarter of a second of a crack belongs to the same landing: both wheels coming down count once, by the harder hit. Resting weight never cracks glass, but a pane cracked below 40 units/s gives way under the bike. Cracks show on the pane, and they and the lost strength last until the next attempt.
+
+The same pane always breaks at the same hit, so replays and ghosts stay exact. Upright panes work the same way: riding into an 8 × 300 wall breaks it from about 160 units/s.
 
 A pane that breaks is gone for the rest of the attempt, and the bike loses about a third of its speed into the pane going through. Retrying puts it back. The rider's head breaks thin glass rather than crashing on it. The thresholds are `GLASS_*` in `js/config.js`.
 

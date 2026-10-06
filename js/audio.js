@@ -206,6 +206,12 @@ export function createAudio(getSnapshot) {
         playTone(note, .08, 'triangle', volume * .3, .03 + index * .04, note * .94);
       });
     },
+    crack(speed) {
+      const volume = Math.min(.1, .04 + speed / 6000);
+      playNoise(.05, volume, 5200);
+      playTone(1975, .05, 'square', volume * .35, 0, 1480);
+      playTone(2960, .04, 'triangle', volume * .25, .03, 2490);
+    },
     menuMove: () => playTone(420, .035, 'square', .018, 0, 470),
     menuSelect: () => playTone(520, .07, 'square', .035, 0, 680),
     menuBack: () => playTone(360, .08, 'triangle', .035, 0, 240),

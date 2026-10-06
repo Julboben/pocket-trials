@@ -141,6 +141,7 @@ export function createRide(trail, { seed = 1, start = trail.start } = {}) {
     previousRiderContacts: null,
     splits: [],
     shattered: 0,
+    cracked: 0,
   };
   ride.previousRiderContacts = riderCollisionPoints(ride);
   return ride;
@@ -215,10 +216,15 @@ function headObstacle(trail, from, head) {
   }
 }
 
-/** A shatter event for every pane that broke since the last call. */
-function reportShatters(ride, events) {
-  const broken = ride.trail.brokenBlocks;
-  if (!broken || broken.size === ride.shattered) return;
+/** A crack or shatter event for everything that happened to glass since the last call. */
+function reportGlass(ride, events) {
+  const { brokenBlocks: broken, glassCracks: cracks } = ride.trail;
+  if (!broken) return;
+  for (; ride.cracked < cracks.length; ride.cracked++) {
+    const { blockId, x, y, speed } = cracks[ride.cracked];
+    if (!broken.has(blockId)) events.push({ type: "crack", blockId, x, y, speed });
+  }
+  if (broken.size === ride.shattered) return;
   let index = 0;
   for (const [blockId, pane] of broken)
     if (index++ >= ride.shattered) events.push({ type: "shatter", blockId, ...pane });
@@ -340,8 +346,9 @@ export function stepRide(ride, input = {}, hooks = {}) {
   /** @type {RideEvent[]} */
   const events = [];
   if (ride.status === "won") return events;
+  if (ride.trail.brokenBlocks) ride.trail.glassClock = ride.steps;
   advanceRide(ride, input, hooks, events);
-  reportShatters(ride, events);
+  reportGlass(ride, events);
   return events;
 }
 

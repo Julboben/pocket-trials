@@ -38,6 +38,9 @@ import { createLighting } from "./lighting.js";
 import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
 import { WATER_PROPS, FISH_DART, FISH_RANGE } from "./water-props.js";
 import { SQUIRREL_HIDE_MAX, SQUIRREL_RANGE } from "./forest-props.js";
+import { crackLines, paneBounds } from "./glass.js";
+
+const GLASS_CRACK_COLOR = "#f6fffde6";
 
 /**
  * How far left the camera may look. Blocks can reach into negative x, and the
@@ -484,6 +487,18 @@ export function createRenderer(canvas) {
     ctx.globalAlpha = XRAY_ALPHA;
     ctx.drawImage(xrayRider.canvas, 0, 0, width, height, x0, y0, width, height);
     ctx.restore();
+  }
+
+  // Cracks belong to the ride, not the cached terrain, so they are drawn over it.
+  function drawGlassCracks(rideTrail) {
+    const cracks = rideTrail.glassCracks;
+    if (!cracks?.length) return;
+    for (const crack of cracks) {
+      if (rideTrail.brokenBlocks.has(crack.blockId) || !inView(crack.x, 50, crack.y, 50)) continue;
+      const bounds = paneBounds(rideTrail, crack.blockId);
+      if (!bounds) continue;
+      for (const line of crackLines(crack, bounds)) pixelPath(line, GLASS_CRACK_COLOR, 1, 2);
+    }
   }
 
   function drawSkidMarks(skidMarks) {
@@ -1105,6 +1120,7 @@ export function createRenderer(canvas) {
     backWallRenderer.draw(ctx, trail, cameraX, cameraY, W, H);
     drawProps("back", full);
     terrainRenderer.draw(ctx, ride.trail, cameraX, cameraY, W, H);
+    drawGlassCracks(ride.trail);
     drawWallPaint();
     drawSkidMarks(effects.skidMarks);
     drawSceneryShadows(ride, now, full);

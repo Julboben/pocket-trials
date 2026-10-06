@@ -68,6 +68,12 @@
       "name": "Caves"
     },
     {
+      "id": "custom:glass-demo",
+      "source": "custom",
+      "file": "custom/glass-demo.json",
+      "name": "Glass Demo"
+    },
+    {
       "id": "custom:gravity-fair",
       "source": "custom",
       "file": "custom/gravity-fair.json",

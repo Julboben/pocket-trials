@@ -139,6 +139,21 @@ export function createEffects() {
     }
   }
 
+  /** A few glints flicking off where a pane cracked. */
+  function crack({ x, y, speed }) {
+    const spray = terrainMaterials.glass.spray;
+    const count = Math.round(clamp(speed / 40, 3, 7));
+    for (let index = 0; index < count; index++) {
+      const side = index % 2 ? 1 : -1;
+      const life = .25 + Math.random() * .2;
+      particles.push({
+        x: x + side * Math.random() * 4, y: y - 1,
+        vx: side * (20 + Math.random() * 40), vy: -(30 + Math.random() * 50),
+        life, max: life, color: spray[index % spray.length], size: 2, drag: 3
+      });
+    }
+  }
+
   /** Spray from wheels pushing through the water's surface. */
   function waterWake(ride, speed) {
     const bodies = ride.water;
@@ -204,5 +219,5 @@ export function createEffects() {
     removeExpired(skidMarks, MAX_SKID_MARKS);
   }
 
-  return { particles, skidMarks, weather, reset, burst, dustPuff, brakeMarks, terrainSpray, splash, shatter, waterWake, stepWeather, update, prune };
+  return { particles, skidMarks, weather, reset, burst, dustPuff, brakeMarks, terrainSpray, splash, shatter, crack, waterWake, stepWeather, update, prune };
 }
