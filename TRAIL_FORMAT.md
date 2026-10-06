@@ -173,7 +173,7 @@ Each block sets its own material with its `material` property. Available presets
 | `rock`   | Grey, hard mountain terrain              |
 | `snow`   | Pale surface and cool subsurface         |
 | `brick`  | Brick pattern with a green rideable edge |
-| `glass`  | Pale panes with glints; can break        |
+| `glass`  | See-through panes that let light in; can break |
 
 Material definitions live in `terrainMaterials` at the top of `js/materials.js`. Each preset controls fill, internal layers or pattern, edge colors, vegetation, and wheel-spray colors.
 

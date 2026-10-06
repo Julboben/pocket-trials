@@ -206,7 +206,7 @@ Each block sets its own material with its `material` property. Available presets
 | `rock`   | Grey, hard mountain terrain              |
 | `snow`   | Pale surface and cool subsurface         |
 | `brick`  | Brick pattern with a green rideable edge |
-| `glass`  | Pale panes with glints; can break        |
+| `glass`  | See-through panes that let light in; can break |
 
 Material definitions live in `terrainMaterials` at the top of `js/materials.js`. Each preset controls fill, internal layers or pattern, edge colors, vegetation, and wheel-spray colors.
 
@@ -957,6 +957,9 @@ export function trailToModule(trail) {
 Valid terrain materials.
 
 ```js
+/** Whether a material lets light and the scene behind it through. */
+export const isSeeThrough = (name) => terrainMaterials[name]?.alpha !== undefined;
+
 export const terrainMaterials = {
   grass: {
     fill: '#c5b496', layers: ['#d3c2a2', '#b7a687'], detail: '#ac9c806e',
@@ -991,6 +994,8 @@ export const terrainMaterials = {
   glass: {
     fill: '#9fcfd3', layers: ['#c4e6e6', '#82b6bd'], detail: '#ffffff99', pattern: 'glass',
     edge: '#4f8790', surface: '#d9f1ee', vegetation: null,
+    // See-through: the body lets this much of itself show, its rims and glints more.
+    alpha: .35, rimAlpha: .85,
     spray: ['#d9f1ee','#b4dcdc','#ffffff']
   }
 };

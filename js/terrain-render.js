@@ -140,6 +140,17 @@ function materialColors(name) {
     shadeDeep: mixColor(fill, dark, 0.5),
     crack: mixColor(edge, fill, 0.3),
   };
+  // A see-through material carries its alpha as a fourth channel: the body
+  // faint, the rims and glints that outline it stronger.
+  if (material.alpha !== undefined) {
+    const body = Math.round(material.alpha * 255),
+      rim = Math.round((material.rimAlpha ?? material.alpha) * 255);
+    for (const key of ["fill", "lit", "litSoft", "shade", "shadeDeep"])
+      colors[key] = [...colors[key], body];
+    colors.layers = colors.layers.map((color) => [...color, body]);
+    for (const key of ["edge", "surface", "detail", "glass", "glint", "crack"])
+      if (colors[key]) colors[key] = [...colors[key], rim];
+  }
   materialColorCache.set(name, colors);
   return colors;
 }
@@ -220,7 +231,7 @@ export function rasterizeTerrainChunk(
     data[offset] = color[0];
     data[offset + 1] = color[1];
     data[offset + 2] = color[2];
-    data[offset + 3] = 255;
+    data[offset + 3] = color[3] ?? 255;
     result.opaque = true;
   };
 
