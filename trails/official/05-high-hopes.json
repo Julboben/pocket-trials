@@ -1727,6 +1727,52 @@
         ]
       },
       "inner": []
+    },
+    {
+      "id": "bk9s",
+      "material": "glass",
+      "outer": {
+        "id": "bk9r",
+        "nodes": [
+          {
+            "id": "nk9n",
+            "x": -200.2891,
+            "y": -128.1977,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nk9o",
+            "x": -150.2891,
+            "y": -128.1977,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nk9p",
+            "x": -150.2891,
+            "y": -78.1977,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nk9q",
+            "x": -200.2891,
+            "y": -78.1977,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
     }
   ],
   "apples": [
