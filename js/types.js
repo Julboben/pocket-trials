@@ -30,6 +30,28 @@
  * @property {'hills' | 'mountains' | 'forest' | 'desert' | 'city'} [backdrop] parallax background theme; omitted means hills
  * @property {'morning' | 'noon' | 'evening' | 'night'} [timeOfDay] sky, light and grade preset; omitted keeps the trail's own colours
  * @property {{ gold: number, silver: number, bronze: number }} [medals] target times in seconds
+ * @property {Trail} [terrainSource] on a ride's copy of a trail with glass, the trail it copies
+ * @property {Map<string, GlassBreak>} [brokenBlocks] on a ride's copy, the panes broken so far, in order
+ * @property {Map<string, { strength: number, before: number, until: number }>} [paneStrength] on a ride's copy, the strength each cracked pane has left; `before` is its strength before the landing settling until step `until`
+ * @property {GlassCrack[]} [glassCracks] on a ride's copy, every crack so far, in order
+ * @property {number} [glassClock] on a ride's copy, the ride's step count
+ *
+ * @typedef {object} GlassCrack
+ * @property {string} blockId
+ * @property {number} x where the pane was hit, inside its bounding box
+ * @property {number} y
+ * @property {number} speed px/s into the pane
+ * @property {number} severity the hit as a share of the pane's full strength, 0 … 1
+ *
+ * @typedef {object} GlassBreak
+ * @property {number} x where the pane was hit
+ * @property {number} y
+ * @property {number} speed px/s into the pane
+ * @property {number} left the pane's bounding box
+ * @property {number} right
+ * @property {number} top
+ * @property {number} bottom
+ * @property {number[][][]} rings the pane's outline, outer ring first, then holes
  *
  * @typedef {object} Contact
  * @property {number} nx
@@ -81,11 +103,15 @@
  *   | { type: 'crash', cause: 'spike' | 'head' | 'fall' | 'water', x: number, y: number }
  *   | { type: 'splash', x: number, y: number, speed: number, rider: boolean }
  *   | { type: 'apple', apple: object, collected: number, total: number, split: number }
+ *   | ({ type: 'shatter', blockId: string } & GlassBreak)
+ *   | { type: 'crack', blockId: string, x: number, y: number, speed: number }
  *   | { type: 'goalLocked', missing: number }
  *   | { type: 'win', time: number, x: number, y: number }} RideEvent
  *
  * @typedef {object} Ride
- * @property {Trail} trail
+ * @property {Trail} trail the ride's own copy when the trail has glass, so panes can break
+ * @property {number} shattered panes already reported as shatter events
+ * @property {number} cracked cracks already reported as crack events
  * @property {Wheel} rear
  * @property {Wheel} front
  * @property {Vehicle} vehicle

@@ -20,7 +20,7 @@ import { bindPlaytest } from "./playtest.js";
 import { GAME_ART_KEY, render } from "./render.js";
 import { editor } from "./state.js";
 import { refuse, showStatus } from "./status.js";
-import { TOOL_KEY_LABELS, segmentSelects, setTab, setTool } from "./tools.js";
+import { TOOL_KEY_LABELS, materialLabel, segmentSelects, setTab, setTool } from "./tools.js";
 import {
   announceVersion,
   bindVersions,
@@ -60,7 +60,7 @@ buildPicker();
 for (const name of Object.keys(terrainMaterials)) {
   const option = document.createElement("option");
   option.value = name;
-  option.textContent = name.toUpperCase();
+  option.textContent = materialLabel(name);
   $("selection-material").append(option);
 }
 

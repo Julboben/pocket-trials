@@ -198,6 +198,20 @@ export function createAudio(getSnapshot) {
       playNoise(.18, volume * .6, 3200, .04);
       playTone(240, .12, 'sine', volume * .25, 0, 90);
     },
+    shatter(speed) {
+      const volume = Math.min(.16, .07 + speed / 4000);
+      playNoise(.2, volume, 6500);
+      playNoise(.4, volume * .45, 4200, .05);
+      [2637, 3520, 2349, 3136, 2794].forEach((note, index) => {
+        playTone(note, .08, 'triangle', volume * .3, .03 + index * .04, note * .94);
+      });
+    },
+    crack(speed) {
+      const volume = Math.min(.1, .04 + speed / 6000);
+      playNoise(.05, volume, 5200);
+      playTone(1975, .05, 'square', volume * .35, 0, 1480);
+      playTone(2960, .04, 'triangle', volume * .25, .03, 2490);
+    },
     menuMove: () => playTone(420, .035, 'square', .018, 0, 470),
     menuSelect: () => playTone(520, .07, 'square', .035, 0, 680),
     menuBack: () => playTone(360, .08, 'triangle', .035, 0, 240),

@@ -38,6 +38,9 @@ import { createLighting } from "./lighting.js";
 import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
 import { WATER_PROPS, FISH_DART, FISH_RANGE } from "./water-props.js";
 import { SQUIRREL_HIDE_MAX, SQUIRREL_RANGE } from "./forest-props.js";
+import { crackLines, glassPane } from "./glass.js";
+
+const GLASS_CRACK_COLOR = "#f6fffde6";
 
 /**
  * How far left the camera may look. Blocks can reach into negative x, and the
@@ -486,6 +489,18 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
+  // Cracks belong to the ride, not the cached terrain, so they are drawn over it.
+  function drawGlassCracks(rideTrail) {
+    const cracks = rideTrail.glassCracks;
+    if (!cracks?.length) return;
+    for (const crack of cracks) {
+      if (rideTrail.brokenBlocks.has(crack.blockId) || !inView(crack.x, 50, crack.y, 50)) continue;
+      const pane = glassPane(rideTrail, crack.blockId);
+      if (!pane) continue;
+      for (const line of crackLines(crack, pane)) pixelPath(line, GLASS_CRACK_COLOR, 1, 2);
+    }
+  }
+
   function drawSkidMarks(skidMarks) {
     for (const mark of skidMarks) {
       const length = mark.length * mark.direction;
@@ -579,7 +594,7 @@ export function createRenderer(canvas) {
   function drawBike(ride, rider, flip, state) {
     const geometry = bikeGeometry(ride);
     const { mx, my } = geometry;
-    const ground = terrainAt(trail, mx, my);
+    const ground = terrainAt(ride.trail, mx, my);
     if (ground.solid) {
       const light = sunLight({
         width: W,
@@ -601,7 +616,7 @@ export function createRenderer(canvas) {
       });
       const center = mx + offset;
       const samples = groundShadowSamples(
-        trail,
+        ride.trail,
         mx,
         my,
         shadowWidth,
@@ -1104,7 +1119,8 @@ export function createRenderer(canvas) {
     effects.update(animationDt);
     backWallRenderer.draw(ctx, trail, cameraX, cameraY, W, H);
     drawProps("back", full);
-    terrainRenderer.draw(ctx, trail, cameraX, cameraY, W, H);
+    terrainRenderer.draw(ctx, ride.trail, cameraX, cameraY, W, H);
+    drawGlassCracks(ride.trail);
     drawWallPaint();
     drawSkidMarks(effects.skidMarks);
     drawSceneryShadows(ride, now, full);

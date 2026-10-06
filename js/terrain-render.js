@@ -21,6 +21,7 @@ const CHUNK_PIXELS = CHUNK_SIZE / ART_PIXEL;
 const CHUNK_LIMIT = 96;
 const CHUNK_MARGIN = 24;
 const BRICK_COLOR = "#4e2e2a99";
+const GLASS_GLINT_REPEAT = 48;
 // Back walls are drawn as their material in shadow, a little cool, so they
 // read as rock set back behind the riding surface.
 const BACK_WALL_SHADE = [0.5, 0.52, 0.58];
@@ -126,6 +127,10 @@ function materialColors(name) {
       material.pattern === "brick"
         ? compositeColor(BRICK_COLOR, material.fill)
         : null,
+    glass:
+      material.pattern === "glass"
+        ? compositeColor(material.detail, material.fill)
+        : null,
     vegetation: material.vegetation ? opaque(material.vegetation) : null,
     // Wall faces toward the sun (air on the right) and away from it.
     glint: mixColor(light, SUNLIGHT, 0.3),
@@ -135,6 +140,17 @@ function materialColors(name) {
     shadeDeep: mixColor(fill, dark, 0.5),
     crack: mixColor(edge, fill, 0.3),
   };
+  // A see-through material carries its alpha as a fourth channel: the body
+  // faint, the rims and glints that outline it stronger.
+  if (material.alpha !== undefined) {
+    const body = Math.round(material.alpha * 255),
+      rim = Math.round((material.rimAlpha ?? material.alpha) * 255);
+    for (const key of ["fill", "lit", "litSoft", "shade", "shadeDeep"])
+      colors[key] = [...colors[key], body];
+    colors.layers = colors.layers.map((color) => [...color, body]);
+    for (const key of ["edge", "surface", "detail", "glass", "glint", "crack"])
+      if (colors[key]) colors[key] = [...colors[key], rim];
+  }
   materialColorCache.set(name, colors);
   return colors;
 }
@@ -215,7 +231,7 @@ export function rasterizeTerrainChunk(
     data[offset] = color[0];
     data[offset + 1] = color[1];
     data[offset + 2] = color[2];
-    data[offset + 3] = 255;
+    data[offset + 3] = color[3] ?? 255;
     result.opaque = true;
   };
 
@@ -264,9 +280,10 @@ export function rasterizeTerrainChunk(
         single ||
         materialColors((bodyIn(own, span.top + 0.01) || span.topBody).material);
 
-      // Rim overhanging the floor into the air.
+      // Rim overhanging the floor into the air. Glass has none: its top is
+      // outlined like its sides.
       const airFirst = Math.max(0, rowAt(Math.max(rimTop - 4, above)));
-      const airLast = Math.min(height, rowAt(span.top));
+      const airLast = floor.glass ? 0 : Math.min(height, rowAt(span.top));
       for (let row = airFirst; row < airLast; row++) {
         const y = (row0 + row + 0.5) * pixel;
         put(column, row, y < rimTop - 2 ? floor.edge : floor.surface, 3);
@@ -276,11 +293,15 @@ export function rasterizeTerrainChunk(
         last = Math.min(height, rowAt(span.bottom));
       for (let row = first; row < last; row++) {
         const y = (row0 + row + 0.5) * pixel;
-        if (y < rimBottom + 2) {
+        if (floor.glass && y < rimBottom + pixel) {
+          put(column, row, floor.edge, 3);
+          continue;
+        }
+        if (!floor.glass && y < rimBottom + 2) {
           put(column, row, floor.surface, 3);
           continue;
         }
-        if (y < rimBottom + 4) {
+        if (!floor.glass && y < rimBottom + 4) {
           put(column, row, floor.edge, 3);
           continue;
         }
@@ -301,6 +322,13 @@ export function rasterizeTerrainChunk(
           const joint = (((course % 2) + 2) % 2) * 15;
           if (y - course * 14 < 2 || (((x - joint) % 30) + 30) % 30 < 2) {
             color = colors.brick;
+            what = 2;
+          }
+        } else if (colors.glass) {
+          // Diagonal glints, a wide and a narrow one, in place of strata.
+          const glint = (((x + y) % GLASS_GLINT_REPEAT) + GLASS_GLINT_REPEAT) % GLASS_GLINT_REPEAT;
+          if (glint < 3 || (glint >= 7 && glint < 9)) {
+            color = colors.glass;
             what = 2;
           }
         } else {
@@ -391,7 +419,7 @@ export function rasterizeTerrainChunk(
  */
 function wallShade(colors, reach, lit, faceColumn, y, pixel) {
   const worldRow = Math.floor(y / pixel);
-  if (!colors.brick) {
+  if (!colors.brick && !colors.glass) {
     const course = Math.floor(worldRow / LEDGE_ROWS);
     const group = Math.floor(faceColumn / 3) * 2 + (lit ? 1 : 0);
     if (hash2(course, group) > LEDGE_CHANCE) {
@@ -469,6 +497,7 @@ function drawPebbles(
         const colors = materialColors(
           (terrainBodyAt(compiled, px, cy) || span.topBody).material,
         );
+        if (colors.glass) continue;
         for (
           let column = Math.floor((px - rx) / pixel) - column0;
           column <= Math.ceil((px + rx) / pixel) - column0;
@@ -517,6 +546,7 @@ function drawCliffLips(
       const colors = materialColors(
         (bodyIn(bodiesAt(column), top + 0.01) || span.topBody).material,
       );
+      if (colors.glass) continue;
       for (const direction of [-1, 1]) {
         const beside = spansAt(column + direction);
         // Not a cliff: the ground beside carries on as a slope, or is solid.
@@ -742,9 +772,11 @@ export function createTerrainRenderer({ backWalls = false } = {}) {
   // Draws every chunk overlapping the view. `ctx` must already map world units.
   // The compiled terrain is cached per trail and replaced whenever the trail is
   // invalidated, so an edit is noticed here without the caller doing anything,
-  // and only the chunks in the columns it changed are drawn again.
+  // and only the chunks in the columns it changed are drawn again. A ride's
+  // copy of a trail counts as the trail itself, so a pane breaking or a
+  // restart redraws only the glass.
   function draw(ctx, trail, viewX, viewY, width, height) {
-    if (trail !== currentTrail) invalidate(trail);
+    if ((trail?.terrainSource || trail) !== currentTrail) invalidate(trail);
     else refresh(trail);
     if (!currentGeometry) return;
     const firstColumn = Math.floor(viewX / CHUNK_SIZE),
@@ -793,7 +825,7 @@ export function createTerrainRenderer({ backWalls = false } = {}) {
   }
 
   function invalidate(trail = null) {
-    currentTrail = trail;
+    currentTrail = trail?.terrainSource || trail;
     currentGeometry = trail ? geometryOf(trail) : null;
     chunks = new Map();
     signKey = "";
