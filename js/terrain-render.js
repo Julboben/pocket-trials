@@ -280,9 +280,10 @@ export function rasterizeTerrainChunk(
         single ||
         materialColors((bodyIn(own, span.top + 0.01) || span.topBody).material);
 
-      // Rim overhanging the floor into the air.
+      // Rim overhanging the floor into the air. Glass has none: its top is
+      // outlined like its sides.
       const airFirst = Math.max(0, rowAt(Math.max(rimTop - 4, above)));
-      const airLast = Math.min(height, rowAt(span.top));
+      const airLast = floor.glass ? 0 : Math.min(height, rowAt(span.top));
       for (let row = airFirst; row < airLast; row++) {
         const y = (row0 + row + 0.5) * pixel;
         put(column, row, y < rimTop - 2 ? floor.edge : floor.surface, 3);
@@ -292,11 +293,15 @@ export function rasterizeTerrainChunk(
         last = Math.min(height, rowAt(span.bottom));
       for (let row = first; row < last; row++) {
         const y = (row0 + row + 0.5) * pixel;
-        if (y < rimBottom + 2) {
+        if (floor.glass && y < rimBottom + pixel) {
+          put(column, row, floor.edge, 3);
+          continue;
+        }
+        if (!floor.glass && y < rimBottom + 2) {
           put(column, row, floor.surface, 3);
           continue;
         }
-        if (y < rimBottom + 4) {
+        if (!floor.glass && y < rimBottom + 4) {
           put(column, row, floor.edge, 3);
           continue;
         }
@@ -541,6 +546,7 @@ function drawCliffLips(
       const colors = materialColors(
         (bodyIn(bodiesAt(column), top + 0.01) || span.topBody).material,
       );
+      if (colors.glass) continue;
       for (const direction of [-1, 1]) {
         const beside = spansAt(column + direction);
         // Not a cliff: the ground beside carries on as a slope, or is solid.
