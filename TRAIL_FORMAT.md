@@ -173,8 +173,17 @@ Each block sets its own material with its `material` property. Available presets
 | `rock`   | Grey, hard mountain terrain              |
 | `snow`   | Pale surface and cool subsurface         |
 | `brick`  | Brick pattern with a green rideable edge |
+| `glass`  | Pale panes with glints; can break        |
 
 Material definitions live in `terrainMaterials` at the top of `js/materials.js`. Each preset controls fill, internal layers or pattern, edge colors, vegetation, and wheel-spray colors.
+
+Every material collides the same way except `glass`, which is judged by the block's bounding box. Its thickness is the box's shorter side and its span the longer one, so a flat pane is a floor or bridge and an upright pane is a wall:
+
+- **Thick** (16 units or more): never breaks, like any other terrain.
+- **Thin and narrow** (thinner than 16, spanning 96 or less): holds the bike's weight, but shatters when a wheel, the frame or the rider hits it faster than 220 units/s. A landing from a small hop is enough.
+- **Thin and wide** (thinner than 16, spanning more than 96): gives way as soon as anything rests on top of it, and shatters on a fast hit too. As an upright wall nothing rests on it, so only a fast hit breaks it.
+
+A pane that breaks is gone for the rest of the attempt, and the bike loses about a third of its speed into the pane going through. Retrying puts it back. The rider's head breaks thin glass rather than crashing on it. The thresholds are `GLASS_*` in `js/config.js`.
 
 ## Apples
 

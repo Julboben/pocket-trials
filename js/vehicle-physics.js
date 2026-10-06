@@ -80,6 +80,7 @@ import {
   terrainCollisionsAt,
   terrainSweepCollision,
 } from "./terrain.js";
+import { passThroughGlass, shatterGlass } from "./glass.js";
 import { atan2, exp, hypot } from "./det-math.js";
 
 const distance = (a, b) => hypot(a.x - b.x, a.y - b.y);
@@ -558,18 +559,22 @@ function resolveContact(point, contact, wheelName, hooks) {
   });
 }
 
+// Sweeps a point from where it was, again after each pane of glass it breaks
+// on the way, so it still stops at whatever is behind the glass.
+function sweepPoint(trail, point, radius) {
+  const fromX = point.ox,
+    fromY = point.oy;
+  let hit = terrainSweepCollision(trail, fromX, fromY, point.x, point.y, radius);
+  while (hit && passThroughGlass(trail, point, hit))
+    hit = terrainSweepCollision(trail, fromX, fromY, point.x, point.y, radius);
+  return hit;
+}
+
 function collideWheel(trail, point, wheelName, hooks, sweep = true) {
   if (sweep) {
+    const hit = sweepPoint(trail, point, RADIUS);
     const intendedVx = point.x - point.ox,
       intendedVy = point.y - point.oy;
-    const hit = terrainSweepCollision(
-      trail,
-      point.ox,
-      point.oy,
-      point.x,
-      point.y,
-      RADIUS,
-    );
     if (hit) {
       point.x = hit.x + hit.nx * 0.01;
       point.y = hit.y + hit.ny * 0.01;
@@ -580,7 +585,8 @@ function collideWheel(trail, point, wheelName, hooks, sweep = true) {
     }
   }
   for (const contact of terrainCollisionsAt(trail, point.x, point.y, RADIUS))
-    resolveContact(point, contact, wheelName, hooks);
+    if (!passThroughGlass(trail, point, contact))
+      resolveContact(point, contact, wheelName, hooks);
 }
 
 // Collision for loose points (ragdoll joints, a crashed chassis): bounce off
@@ -627,16 +633,9 @@ export function collideFreePoint(
   { bounce = 0.12, friction = 0.16, grip = 0 } = {},
 ) {
   if (sweep) {
+    const swept = sweepPoint(trail, point, point.radius);
     const intendedVx = point.x - point.ox,
       intendedVy = point.y - point.oy;
-    const swept = terrainSweepCollision(
-      trail,
-      point.ox,
-      point.oy,
-      point.x,
-      point.y,
-      point.radius,
-    );
     if (swept) {
       point.x = swept.x + swept.nx * 0.01;
       point.y = swept.y + swept.ny * 0.01;
@@ -654,7 +653,8 @@ export function collideFreePoint(
     point.y,
     point.radius,
   ))
-    resolveFreeContact(point, contact, bounce, friction, grip);
+    if (!passThroughGlass(trail, point, contact))
+      resolveFreeContact(point, contact, bounce, friction, grip);
 }
 
 // A probe is an affine blend of the chassis points; contact corrections are
@@ -730,18 +730,27 @@ function resolveFrameProbeContact(probe, contact, bounce, friction) {
   }
 }
 
+function probeBreaksGlass(trail, probe, contact) {
+  const from = blendProbe(probe, "ox", "oy");
+  const to = blendProbe(probe, "x", "y");
+  return shatterGlass(trail, contact, to.x - from.x, to.y - from.y);
+}
+
 function collideFrameProbe(trail, probe, sweep, { bounce, friction }) {
   if (sweep) {
     const from = blendProbe(probe, "ox", "oy");
     const to = blendProbe(probe, "x", "y");
-    const swept = terrainSweepCollision(
-      trail,
-      from.x,
-      from.y,
-      to.x,
-      to.y,
-      CRASHED_FRAME_PROBE_RADIUS,
-    );
+    const sweepProbe = () =>
+      terrainSweepCollision(
+        trail,
+        from.x,
+        from.y,
+        to.x,
+        to.y,
+        CRASHED_FRAME_PROBE_RADIUS,
+      );
+    let swept = sweepProbe();
+    while (swept && probeBreaksGlass(trail, probe, swept)) swept = sweepProbe();
     if (swept) resolveFrameProbeContact(probe, swept, bounce, friction);
   }
   const { x, y } = blendProbe(probe, "x", "y");
@@ -751,7 +760,8 @@ function collideFrameProbe(trail, probe, sweep, { bounce, friction }) {
     y,
     CRASHED_FRAME_PROBE_RADIUS,
   ))
-    resolveFrameProbeContact(probe, contact, bounce, friction);
+    if (!probeBreaksGlass(trail, probe, contact))
+      resolveFrameProbeContact(probe, contact, bounce, friction);
 }
 
 function collideCrashedChassis(vehicle, trail, sweep) {

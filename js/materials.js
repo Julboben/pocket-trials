@@ -28,5 +28,10 @@ export const terrainMaterials = {
     fill: '#8d493d', layers: ['#a65a49', '#71392f'], detail: '#492b29aa', pattern: 'brick',
     edge: '#433534', surface: '#74a35a', vegetation: null,
     spray: ['#754239','#9a5748','#bd7961']
+  },
+  glass: {
+    fill: '#9fcfd3', layers: ['#c4e6e6', '#82b6bd'], detail: '#ffffff99', pattern: 'glass',
+    edge: '#4f8790', surface: '#d9f1ee', vegetation: null,
+    spray: ['#d9f1ee','#b4dcdc','#ffffff']
   }
 };

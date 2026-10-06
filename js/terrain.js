@@ -21,16 +21,27 @@ export function invalidateTerrain(trail) {
  * The compiled terrain of a trail, or null when it has no blocks.
  *
  * Compiled once per trail and reused by physics, queries, and rendering until
- * the trail is invalidated.
+ * the trail is invalidated. A ride's copy of a trail with glass (see
+ * glass.js) shares its source's terrain until a pane breaks.
  */
 export function terrainGeometry(trail) {
+  if (trail?.brokenBlocks && !trail.brokenBlocks.size) return terrainGeometry(trail.terrainSource);
   if (!trail || !Array.isArray(trail.terrainBlocks) || !trail.terrainBlocks.length) return null;
   const cached = geometryCache.get(trail);
   if (cached) return cached;
   if (trail.terrainBlocks.every(isBackWall)) return null;
-  const compiled = compileTerrain({ terrainBlocks: trailTerrainBlocks(trail) });
+  const compiled = compileTerrain({ terrainBlocks: trailTerrainBlocks(trail), brokenBlocks: trail.brokenBlocks });
   geometryCache.set(trail, compiled);
   return compiled;
+}
+
+/**
+ * Takes a block out of a ride's copy of a trail, recording `info` about how
+ * it went. The next query compiles the terrain without it.
+ */
+export function breakTerrainBlock(trail, blockId, info) {
+  trail.brokenBlocks.set(blockId, info);
+  geometryCache.delete(trail);
 }
 
 /**
@@ -39,6 +50,7 @@ export function terrainGeometry(trail) {
  * off from the sky behind it, so it stays dark.
  */
 export function backWallGeometry(trail) {
+  if (trail?.terrainSource) return backWallGeometry(trail.terrainSource);
   if (!trail || !Array.isArray(trail.terrainBlocks)) return null;
   if (backWallCache.has(trail)) return backWallCache.get(trail);
   const walls = trailBackWalls(trail);

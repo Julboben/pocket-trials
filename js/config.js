@@ -105,5 +105,16 @@ export const XPBD_CONTACT_RESTITUTION_SCALE = .03;
 export const CONTACT_GROUNDED_NORMAL = -.35;
 export const CONTACT_RESTITUTION_SPEED = 35;
 
+// Glass panes, measured by their bounding box: thickness is the shorter side
+// and span the longer, so upright panes are walls. A pane at least this thick
+// never breaks. A thinner one shatters when anything hits it faster than the
+// shatter speed (along the surface normal, px/s), and when it is also wider
+// than the span it gives way under any weight at all.
+export const GLASS_THIN_THICKNESS = 16;
+export const GLASS_WIDE_SPAN = 96;
+export const GLASS_SHATTER_SPEED = 220;
+// Share of the speed into the pane that is lost going through it.
+export const GLASS_BREAK_DRAG = .35;
+
 export const clamp = (number, minimum, maximum) => Math.max(minimum, Math.min(maximum, number));
 export const lerp = (start, end, amount) => start + (end - start) * amount;

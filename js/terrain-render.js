@@ -21,6 +21,7 @@ const CHUNK_PIXELS = CHUNK_SIZE / ART_PIXEL;
 const CHUNK_LIMIT = 96;
 const CHUNK_MARGIN = 24;
 const BRICK_COLOR = "#4e2e2a99";
+const GLASS_GLINT_REPEAT = 48;
 // Back walls are drawn as their material in shadow, a little cool, so they
 // read as rock set back behind the riding surface.
 const BACK_WALL_SHADE = [0.5, 0.52, 0.58];
@@ -125,6 +126,10 @@ function materialColors(name) {
     brick:
       material.pattern === "brick"
         ? compositeColor(BRICK_COLOR, material.fill)
+        : null,
+    glass:
+      material.pattern === "glass"
+        ? compositeColor(material.detail, material.fill)
         : null,
     vegetation: material.vegetation ? opaque(material.vegetation) : null,
     // Wall faces toward the sun (air on the right) and away from it.
@@ -303,6 +308,13 @@ export function rasterizeTerrainChunk(
             color = colors.brick;
             what = 2;
           }
+        } else if (colors.glass) {
+          // Diagonal glints, a wide and a narrow one, in place of strata.
+          const glint = (((x + y) % GLASS_GLINT_REPEAT) + GLASS_GLINT_REPEAT) % GLASS_GLINT_REPEAT;
+          if (glint < 3 || (glint >= 7 && glint < 9)) {
+            color = colors.glass;
+            what = 2;
+          }
         } else {
           // Strata repeat all the way down; the first four are as before.
           const depth = y - span.top;
@@ -391,7 +403,7 @@ export function rasterizeTerrainChunk(
  */
 function wallShade(colors, reach, lit, faceColumn, y, pixel) {
   const worldRow = Math.floor(y / pixel);
-  if (!colors.brick) {
+  if (!colors.brick && !colors.glass) {
     const course = Math.floor(worldRow / LEDGE_ROWS);
     const group = Math.floor(faceColumn / 3) * 2 + (lit ? 1 : 0);
     if (hash2(course, group) > LEDGE_CHANCE) {
@@ -469,6 +481,7 @@ function drawPebbles(
         const colors = materialColors(
           (terrainBodyAt(compiled, px, cy) || span.topBody).material,
         );
+        if (colors.glass) continue;
         for (
           let column = Math.floor((px - rx) / pixel) - column0;
           column <= Math.ceil((px + rx) / pixel) - column0;
@@ -742,9 +755,11 @@ export function createTerrainRenderer({ backWalls = false } = {}) {
   // Draws every chunk overlapping the view. `ctx` must already map world units.
   // The compiled terrain is cached per trail and replaced whenever the trail is
   // invalidated, so an edit is noticed here without the caller doing anything,
-  // and only the chunks in the columns it changed are drawn again.
+  // and only the chunks in the columns it changed are drawn again. A ride's
+  // copy of a trail counts as the trail itself, so a pane breaking or a
+  // restart redraws only the glass.
   function draw(ctx, trail, viewX, viewY, width, height) {
-    if (trail !== currentTrail) invalidate(trail);
+    if ((trail?.terrainSource || trail) !== currentTrail) invalidate(trail);
     else refresh(trail);
     if (!currentGeometry) return;
     const firstColumn = Math.floor(viewX / CHUNK_SIZE),
@@ -793,7 +808,7 @@ export function createTerrainRenderer({ backWalls = false } = {}) {
   }
 
   function invalidate(trail = null) {
-    currentTrail = trail;
+    currentTrail = trail?.terrainSource || trail;
     currentGeometry = trail ? geometryOf(trail) : null;
     chunks = new Map();
     signKey = "";

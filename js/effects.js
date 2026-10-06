@@ -117,6 +117,28 @@ export function createEffects() {
     }
   }
 
+  /**
+   * Shards from a pane of glass breaking: spread over the pane, thrown away
+   * from where it was hit, more for a bigger pane.
+   */
+  function shatter({ x, y, speed, left, right, top, bottom }) {
+    const spray = terrainMaterials.glass.spray;
+    const width = right - left, height = bottom - top;
+    const count = Math.round(clamp(width * height / 60, 14, 60));
+    const throwSpeed = clamp(speed * .35, 40, 160);
+    for (let index = 0; index < count; index++) {
+      const sx = left + Math.random() * width, sy = top + Math.random() * height;
+      const away = Math.atan2(sy - y, sx - x) + (Math.random() - .5) * 1.2;
+      const push = throwSpeed * (.4 + Math.random() * .8);
+      const life = .5 + Math.random() * .5;
+      particles.push({
+        x: sx, y: sy,
+        vx: Math.cos(away) * push, vy: Math.sin(away) * push - 20 - Math.random() * 40,
+        life, max: life, color: spray[index % spray.length], size: Math.random() < .75 ? 2 : 4, drag: 1.2
+      });
+    }
+  }
+
   /** Spray from wheels pushing through the water's surface. */
   function waterWake(ride, speed) {
     const bodies = ride.water;
@@ -182,5 +204,5 @@ export function createEffects() {
     removeExpired(skidMarks, MAX_SKID_MARKS);
   }
 
-  return { particles, skidMarks, weather, reset, burst, dustPuff, brakeMarks, terrainSpray, splash, waterWake, stepWeather, update, prune };
+  return { particles, skidMarks, weather, reset, burst, dustPuff, brakeMarks, terrainSpray, splash, shatter, waterWake, stepWeather, update, prune };
 }

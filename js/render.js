@@ -579,7 +579,7 @@ export function createRenderer(canvas) {
   function drawBike(ride, rider, flip, state) {
     const geometry = bikeGeometry(ride);
     const { mx, my } = geometry;
-    const ground = terrainAt(trail, mx, my);
+    const ground = terrainAt(ride.trail, mx, my);
     if (ground.solid) {
       const light = sunLight({
         width: W,
@@ -601,7 +601,7 @@ export function createRenderer(canvas) {
       });
       const center = mx + offset;
       const samples = groundShadowSamples(
-        trail,
+        ride.trail,
         mx,
         my,
         shadowWidth,
@@ -1104,7 +1104,7 @@ export function createRenderer(canvas) {
     effects.update(animationDt);
     backWallRenderer.draw(ctx, trail, cameraX, cameraY, W, H);
     drawProps("back", full);
-    terrainRenderer.draw(ctx, trail, cameraX, cameraY, W, H);
+    terrainRenderer.draw(ctx, ride.trail, cameraX, cameraY, W, H);
     drawWallPaint();
     drawSkidMarks(effects.skidMarks);
     drawSceneryShadows(ride, now, full);

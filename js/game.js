@@ -482,6 +482,12 @@ export function startGame() {
           splashSoundCooldown = .15;
         }
         break;
+      case 'shatter':
+        effects.shatter(event);
+        sounds.shatter(event.speed);
+        if (session.preferences.shake === 'on') camera.kick(3);
+        vibrate(30);
+        break;
       case 'crash':
         effects.burst(event.x, event.y, CRASH_COLORS[event.cause], event.cause === 'spike' ? 18 : 15);
         sounds.crash();

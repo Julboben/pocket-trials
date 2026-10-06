@@ -30,6 +30,17 @@
  * @property {'hills' | 'mountains' | 'forest' | 'desert' | 'city'} [backdrop] parallax background theme; omitted means hills
  * @property {'morning' | 'noon' | 'evening' | 'night'} [timeOfDay] sky, light and grade preset; omitted keeps the trail's own colours
  * @property {{ gold: number, silver: number, bronze: number }} [medals] target times in seconds
+ * @property {Trail} [terrainSource] on a ride's copy of a trail with glass, the trail it copies
+ * @property {Map<string, GlassBreak>} [brokenBlocks] on a ride's copy, the panes broken so far, in order
+ *
+ * @typedef {object} GlassBreak
+ * @property {number} x where the pane was hit
+ * @property {number} y
+ * @property {number} speed px/s into the pane
+ * @property {number} left the pane's bounding box
+ * @property {number} right
+ * @property {number} top
+ * @property {number} bottom
  *
  * @typedef {object} Contact
  * @property {number} nx
@@ -81,11 +92,13 @@
  *   | { type: 'crash', cause: 'spike' | 'head' | 'fall' | 'water', x: number, y: number }
  *   | { type: 'splash', x: number, y: number, speed: number, rider: boolean }
  *   | { type: 'apple', apple: object, collected: number, total: number, split: number }
+ *   | ({ type: 'shatter', blockId: string } & GlassBreak)
  *   | { type: 'goalLocked', missing: number }
  *   | { type: 'win', time: number, x: number, y: number }} RideEvent
  *
  * @typedef {object} Ride
- * @property {Trail} trail
+ * @property {Trail} trail the ride's own copy when the trail has glass, so panes can break
+ * @property {number} shattered panes already reported as shatter events
  * @property {Wheel} rear
  * @property {Wheel} front
  * @property {Vehicle} vehicle

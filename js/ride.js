@@ -24,6 +24,7 @@ import { normalizeSpike, finishFlower } from "./trail-schema.js";
 import { bikeTouchesFlower } from "./finish.js";
 import { createRagdoll, stepRagdoll } from "./ragdoll.js";
 import { atan2, cos, exp, hypot, sin } from "./det-math.js";
+import { rideTerrain, shatterGlass } from "./glass.js";
 import {
   BIKE_WATER,
   CHASSIS_WATER_RADIUS,
@@ -101,7 +102,7 @@ export function createRide(trail, { seed = 1, start = trail.start } = {}) {
   const front = makeWheel(trail, startX + WHEELBASE / 2, startY);
   /** @type {Ride} */
   const ride = {
-    trail,
+    trail: rideTerrain(trail),
     rear,
     front,
     vehicle: createVehicle(rear, front),
@@ -139,6 +140,7 @@ export function createRide(trail, { seed = 1, start = trail.start } = {}) {
     lastGateNotice: -10,
     previousRiderContacts: null,
     splits: [],
+    shattered: 0,
   };
   ride.previousRiderContacts = riderCollisionPoints(ride);
   return ride;
@@ -194,6 +196,33 @@ function touchedSpike(spikes, points) {
     }
   }
   return null;
+}
+
+/**
+ * Whether the head hits terrain on its way from `from` to `head`. Glass that
+ * breaks as the head goes into it is no obstacle.
+ */
+function headObstacle(trail, from, head) {
+  const vx = from ? head.x - from.x : 0,
+    vy = from ? head.y - from.y : 0;
+  for (;;) {
+    const hit =
+      (from &&
+        terrainSweepCollision(trail, from.x, from.y, head.x, head.y, head.radius)) ||
+      terrainCollisionsAt(trail, head.x, head.y, head.radius)[0];
+    if (!hit) return false;
+    if (!shatterGlass(trail, hit, vx, vy)) return true;
+  }
+}
+
+/** A shatter event for every pane that broke since the last call. */
+function reportShatters(ride, events) {
+  const broken = ride.trail.brokenBlocks;
+  if (!broken || broken.size === ride.shattered) return;
+  let index = 0;
+  for (const [blockId, pane] of broken)
+    if (index++ >= ride.shattered) events.push({ type: "shatter", blockId, ...pane });
+  ride.shattered = broken.size;
 }
 
 /**
@@ -311,6 +340,18 @@ export function stepRide(ride, input = {}, hooks = {}) {
   /** @type {RideEvent[]} */
   const events = [];
   if (ride.status === "won") return events;
+  advanceRide(ride, input, hooks, events);
+  reportShatters(ride, events);
+  return events;
+}
+
+/**
+ * @param {Ride} ride
+ * @param {RideInput} input
+ * @param {object} hooks
+ * @param {RideEvent[]} events
+ */
+function advanceRide(ride, input, hooks, events) {
   const { trail, rear, front } = ride;
   const running = ride.status === "running";
   if (Number(input.facing)) ride.facing = input.facing < 0 ? -1 : 1;
@@ -402,19 +443,7 @@ export function stepRide(ride, input = {}, hooks = {}) {
   const { x: mx, y: my } = bikeMidpoint(ride);
   // Only the head crashes on terrain; the body may brush corners that poke
   // between the wheels. Spikes still hurt the whole rider below.
-  const previousHead = ride.previousRiderContacts?.head;
-  const riderObstacle = Boolean(
-    (previousHead &&
-      terrainSweepCollision(
-        trail,
-        previousHead.x,
-        previousHead.y,
-        head.x,
-        head.y,
-        head.radius,
-      )) ||
-      terrainCollisionsAt(trail, head.x, head.y, head.radius)[0],
-  );
+  const riderObstacle = headObstacle(trail, ride.previousRiderContacts?.head, head);
   ride.previousRiderContacts = riderContacts;
   const spikeHit = touchedSpike(ride.spikes, [
     { x: rear.x, y: rear.y, radius: RADIUS },

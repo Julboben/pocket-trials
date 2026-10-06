@@ -55,14 +55,18 @@ export const TERRAIN_COMPILER_VERSION = 2;
 /**
  * Compile a trail's blocks into collision and query geometry. Deterministic:
  * the same blocks in the same order always produce the same compiled result.
+ * Blocks whose ids are in `brokenBlocks` are left out but keep their place in
+ * the order, so every other body compiles exactly as it would with them in.
  *
- * @param {{ terrainBlocks?: object[] }} trail
+ * @param {{ terrainBlocks?: object[], brokenBlocks?: { has(id: string): boolean } }} trail
  */
 export function compileTerrain(trail) {
   const blocks = Array.isArray(trail?.terrainBlocks) ? trail.terrainBlocks : [];
+  const broken = trail?.brokenBlocks;
   /** @type {TerrainBody[]} */
   const bodies = [];
   blocks.forEach((block, blockIndex) => {
+    if (broken?.has(String(block?.id ?? `block-${blockIndex}`))) return;
     const body = buildBody(block, blockIndex);
     if (body) { body.order = bodies.length; bodies.push(body); }
   });
