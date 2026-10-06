@@ -1,11 +1,11 @@
 {
   "name": "Windfall",
   "label": "WINDFALL / 03",
-  "goal": 2177,
+  "goal": 396.15010819050997,
   "description": "Turn around (Space) to go the other way. The first apple floats too high to reach from the slope below it: ride down into the bowl and up the long ramp, turn, and come back down fast enough for the kicker to throw you up to it. The last apple waits at the hay bales, and the flower hangs over the dip behind the kicker you passed, so turn once more and hop to it.",
   "start": {
     "x": -300,
-    "y": null,
+    "y": 333,
     "facing": 1
   },
   "terrainBlocks": [
@@ -19,7 +19,7 @@
             "id": "n0",
             "x": -1100,
             "y": 345,
-            "mode": "smooth",
+            "mode": "independent",
             "in": null,
             "out": [
               -673.33,
@@ -229,7 +229,7 @@
             "id": "n15",
             "x": 3400,
             "y": 322,
-            "mode": "smooth",
+            "mode": "corner",
             "in": [
               3140,
               322
@@ -260,97 +260,6 @@
       "inner": []
     },
     {
-      "id": "outcrop",
-      "material": "concrete",
-      "outer": {
-        "id": "outcrop-outer",
-        "nodes": [
-          {
-            "id": "o0",
-            "x": -482,
-            "y": 195,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "o1",
-            "x": -436,
-            "y": 157,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "o2",
-            "x": -384,
-            "y": 165,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "o3",
-            "x": -378,
-            "y": 187,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "o4",
-            "x": -404,
-            "y": 205,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "o5",
-            "x": -408,
-            "y": 295,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "o6",
-            "x": -402,
-            "y": 375,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "o7",
-            "x": -488,
-            "y": 375,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "o8",
-            "x": -492,
-            "y": 275,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          }
-        ]
-      },
-      "inner": []
-    },
-    {
       "id": "bale-1",
       "material": "sand",
       "outer": {
@@ -358,63 +267,63 @@
         "nodes": [
           {
             "id": "bale-1-0",
-            "mode": "smooth",
-            "edge": "curve",
-            "x": 2858,
+            "x": 2868,
             "y": 230,
+            "mode": "smooth",
             "in": [
-              2831.4896,
+              2841.4896,
               230
             ],
             "out": [
-              2884.5104,
+              2894.5104,
               230
-            ]
+            ],
+            "edge": "curve"
           },
           {
             "id": "bale-1-1",
-            "mode": "smooth",
-            "edge": "curve",
-            "x": 2906,
+            "x": 2916,
             "y": 278,
+            "mode": "smooth",
             "in": [
-              2906,
+              2916,
               251.4896
             ],
             "out": [
-              2906,
+              2916,
               304.5104
-            ]
+            ],
+            "edge": "curve"
           },
           {
             "id": "bale-1-2",
-            "mode": "smooth",
-            "edge": "curve",
-            "x": 2858,
+            "x": 2868,
             "y": 326,
+            "mode": "smooth",
             "in": [
-              2884.5104,
+              2894.5104,
               326
             ],
             "out": [
-              2831.4896,
+              2841.4896,
               326
-            ]
+            ],
+            "edge": "curve"
           },
           {
             "id": "bale-1-3",
-            "mode": "smooth",
-            "edge": "curve",
-            "x": 2810,
+            "x": 2820,
             "y": 278,
+            "mode": "smooth",
             "in": [
-              2810,
+              2820,
               304.5104
             ],
             "out": [
-              2810,
+              2820,
               251.4896
-            ]
+            ],
+            "edge": "curve"
           }
         ]
       },
@@ -428,63 +337,63 @@
         "nodes": [
           {
             "id": "bale-2-0",
-            "mode": "smooth",
-            "edge": "curve",
-            "x": 2952,
+            "x": 2962,
             "y": 230,
+            "mode": "smooth",
             "in": [
-              2925.4896,
+              2935.4896,
               230
             ],
             "out": [
-              2978.5104,
+              2988.5104,
               230
-            ]
+            ],
+            "edge": "curve"
           },
           {
             "id": "bale-2-1",
-            "mode": "smooth",
-            "edge": "curve",
-            "x": 3000,
+            "x": 3010,
             "y": 278,
+            "mode": "smooth",
             "in": [
-              3000,
+              3010,
               251.4896
             ],
             "out": [
-              3000,
+              3010,
               304.5104
-            ]
+            ],
+            "edge": "curve"
           },
           {
             "id": "bale-2-2",
-            "mode": "smooth",
-            "edge": "curve",
-            "x": 2952,
+            "x": 2962,
             "y": 326,
+            "mode": "smooth",
             "in": [
-              2978.5104,
+              2988.5104,
               326
             ],
             "out": [
-              2925.4896,
+              2935.4896,
               326
-            ]
+            ],
+            "edge": "curve"
           },
           {
             "id": "bale-2-3",
-            "mode": "smooth",
-            "edge": "curve",
-            "x": 2904,
+            "x": 2914,
             "y": 278,
+            "mode": "smooth",
             "in": [
-              2904,
+              2914,
               304.5104
             ],
             "out": [
-              2904,
+              2914,
               251.4896
-            ]
+            ],
+            "edge": "curve"
           }
         ]
       },
@@ -498,63 +407,127 @@
         "nodes": [
           {
             "id": "bale-3-0",
-            "mode": "smooth",
-            "edge": "curve",
-            "x": 2905,
+            "x": 2915,
             "y": 148,
+            "mode": "smooth",
             "in": [
-              2878.4896,
+              2888.4896,
               148
             ],
             "out": [
-              2931.5104,
+              2941.5104,
               148
-            ]
+            ],
+            "edge": "curve"
           },
           {
             "id": "bale-3-1",
-            "mode": "smooth",
-            "edge": "curve",
-            "x": 2953,
+            "x": 2963,
             "y": 196,
+            "mode": "smooth",
             "in": [
-              2953,
+              2963,
               169.4896
             ],
             "out": [
-              2953,
+              2963,
               222.5104
-            ]
+            ],
+            "edge": "curve"
           },
           {
             "id": "bale-3-2",
-            "mode": "smooth",
-            "edge": "curve",
-            "x": 2905,
+            "x": 2915,
             "y": 244,
+            "mode": "smooth",
             "in": [
-              2931.5104,
+              2941.5104,
               244
             ],
             "out": [
-              2878.4896,
+              2888.4896,
               244
-            ]
+            ],
+            "edge": "curve"
           },
           {
             "id": "bale-3-3",
-            "mode": "smooth",
-            "edge": "curve",
-            "x": 2857,
+            "x": 2867,
             "y": 196,
+            "mode": "smooth",
             "in": [
-              2857,
+              2867,
               222.5104
             ],
             "out": [
-              2857,
+              2867,
               169.4896
-            ]
+            ],
+            "edge": "curve"
+          }
+        ]
+      },
+      "inner": []
+    },
+    {
+      "id": "b2g9u",
+      "material": "stone",
+      "outer": {
+        "id": "b2g9t",
+        "nodes": [
+          {
+            "id": "n2g9p",
+            "x": -541.6872,
+            "y": 277.8576,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n2kzy",
+            "x": -533.1863,
+            "y": 270.2698,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n2h6s",
+            "x": -516.294,
+            "y": 270.2006,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n2gjj",
+            "x": -507.6593,
+            "y": 277.0643,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n2g9r",
+            "x": -507.6593,
+            "y": 344.8737,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n2g9s",
+            "x": -541.2226,
+            "y": 344.8737,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
           }
         ]
       },
@@ -563,20 +536,16 @@
   ],
   "apples": [
     {
-      "x": 340,
-      "y": 160
+      "x": 2177.7308060740816,
+      "y": 224.12194540519113
     },
     {
-      "x": 1880,
-      "y": null
+      "x": 755.3442622722295,
+      "y": 283.1235445508205
     },
     {
-      "x": 2490,
-      "y": null
-    },
-    {
-      "x": 2770,
-      "y": null
+      "x": 2762,
+      "y": 260
     }
   ],
   "props": [
@@ -617,20 +586,14 @@
       "layer": "back"
     },
     {
-      "x": -404,
-      "y": 275,
+      "x": -516.324699556962,
+      "y": 279.28178812782454,
       "type": "moss",
       "layer": "front"
     },
     {
-      "x": -405,
-      "y": 315,
-      "type": "roots",
-      "layer": "front"
-    },
-    {
       "x": -340,
-      "y": null,
+      "y": 345,
       "type": "flowers",
       "layer": "front"
     },
@@ -710,12 +673,6 @@
       "x": 700,
       "y": null,
       "type": "flowers",
-      "layer": "front"
-    },
-    {
-      "x": 840,
-      "y": null,
-      "type": "tyre",
       "layer": "front"
     },
     {
@@ -815,12 +772,6 @@
       "layer": "front"
     },
     {
-      "x": 1840,
-      "y": null,
-      "type": "beehive",
-      "layer": "back"
-    },
-    {
       "x": 1990,
       "y": null,
       "type": "tree",
@@ -881,43 +832,43 @@
       "layer": "back"
     },
     {
-      "x": 2560,
-      "y": null,
+      "x": 2762.666357742421,
+      "y": 321.979173864816,
       "type": "wheelbarrow",
       "layer": "back"
     },
     {
-      "x": 2660,
-      "y": null,
+      "x": 2620,
+      "y": 322,
       "type": "bush",
       "layer": "back"
     },
     {
-      "x": 2700,
-      "y": null,
+      "x": 2660,
+      "y": 322,
       "type": "tree",
       "layer": "back"
     },
     {
-      "x": 2668,
+      "x": 2628,
       "y": 319,
       "type": "apple",
       "layer": "front"
     },
     {
-      "x": 2681,
+      "x": 2641,
       "y": 319,
       "type": "apple",
       "layer": "front"
     },
     {
-      "x": 2696,
+      "x": 2656,
       "y": 319,
       "type": "apple",
       "layer": "front"
     },
     {
-      "x": 2709,
+      "x": 2669,
       "y": 319,
       "type": "apple",
       "layer": "front"
@@ -951,6 +902,12 @@
       "y": 197,
       "type": "apple",
       "layer": "back"
+    },
+    {
+      "x": -512.97186196147,
+      "y": 340.32154156322554,
+      "type": "bush",
+      "layer": "back"
     }
   ],
   "spikes": [],
@@ -959,12 +916,12 @@
     "sun": 0.7,
     "clouds": 0.35
   },
-  "timeOfDay": "noon",
   "fallY": 620,
+  "timeOfDay": "noon",
   "medals": {
     "gold": 32,
     "silver": 42,
     "bronze": 55
   },
-  "finishY": 228
+  "finishY": 185.43663423391195
 }
