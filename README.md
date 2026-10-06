@@ -31,7 +31,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Collectibles, finish gates, timers, and best times
 - Persisted settings and trail progression
 - Seven progressively longer trails with gaps, caves, and floating blocks to ride across
-- Grass, dirt, rock, snow, and brick terrain materials
+- Grass, dirt, sand, concrete, stone, snow, brick, and glass terrain materials
 - Per-trail rain, snow, and lightning configuration with procedural rain and storm-wind ambience and distance-aware thunder
 - Water you can ride through: shallow fords drag the bike and slow it down, deeper water wipes the rider out, and the ragdoll floats on the surface with splashes, wakes and sound; water lilies, reeds, seaweed, fish that dart off and ducks that take off when you come close
 - Squirrels that run to the nearest tree, climb it and hide in the crown when you come close
@@ -318,7 +318,7 @@ When changing physics values, validate at least these cases:
 - [ ] Map called Meteor Crater - you drive down a crater and then up again.
 - [ ] Make the ragdoll controllable
 - [x] Sound Effects
-- [x] Different terrain types (grass, dirt, rock, snow, and brick)
+- [x] Different terrain types (grass, dirt, concrete, stone, snow, and brick)
 - [x] Splatter behind the bike when you drive on different terrain
 - [x] Add weather effects (rain, lightning, and procedural ambience)
 - [x] Add day / night

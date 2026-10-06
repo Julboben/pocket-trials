@@ -17,10 +17,15 @@ export const terrainMaterials = {
     edge: '#8f7550', surface: '#e9d8a8', vegetation: null,
     spray: ['#c9b07e','#dcc59a','#eddcb5']
   },
-  rock: {
+  concrete: {
     fill: '#727a78', layers: ['#89918d', '#606866'], detail: '#4d565466',
     edge: '#3f4d4b', surface: '#9aa49e', vegetation: null,
     spray: ['#626b69','#858e8a','#aeb5ad']
+  },
+  stone: {
+    fill: '#8b8982', layers: ['#a7a49a', '#6b6964'], detail: '#3b3a37cc', pattern: 'stone',
+    edge: '#403e3a', surface: '#b3afa3', vegetation: null,
+    spray: ['#75736d','#9a978e','#bfbbb0']
   },
   snow: {
     fill: '#aebbc0', layers: ['#cbd5d6', '#929fa5'], detail: '#74838a55',

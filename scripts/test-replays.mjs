@@ -194,7 +194,7 @@ for (const entry of entries) {
   const probes = riderCollisionPoints(settled);
   for (const [name, crashes] of [['hip', false], ['head', true]]) {
     const { x, y } = probes[name];
-    const trail = flatTrail({ terrainBlocks: [rectangle(0, 320, 3000, 620), rectangle(x - 3, y - 3, x + 3, y + 3, 'rock', 'corner')] });
+    const trail = flatTrail({ terrainBlocks: [rectangle(0, 320, 3000, 620), rectangle(x - 3, y - 3, x + 3, y + 3, 'concrete', 'corner')] });
     const ride = createRide(trail);
     for (let step = 0; step < 60 && ride.status === 'running'; step++) stepRide(ride, {});
     assert.equal(ride.status === 'crashed', crashes, `terrain at the ${name} ${crashes ? 'crashes' : 'does not crash'}`);

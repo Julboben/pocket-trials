@@ -84,7 +84,7 @@
   "terrainBlocks": [
     {
       "id": "back-1",
-      "material": "rock",
+      "material": "concrete",
       "layer": "back",
       "outer": {
         "id": "back-boundary-1",
@@ -177,7 +177,7 @@
     },
     {
       "id": "b2",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "r2",
         "nodes": [

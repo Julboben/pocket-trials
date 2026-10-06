@@ -261,7 +261,7 @@
     },
     {
       "id": "outcrop",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "outcrop-outer",
         "nodes": [

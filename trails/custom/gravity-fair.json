@@ -1677,7 +1677,7 @@
     },
     {
       "id": "b2z",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "b30",
         "nodes": [
@@ -1991,7 +1991,7 @@
     },
     {
       "id": "b3x",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "b3y",
         "nodes": [

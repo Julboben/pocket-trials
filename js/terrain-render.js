@@ -22,6 +22,13 @@ const CHUNK_LIMIT = 96;
 const CHUNK_MARGIN = 24;
 const BRICK_COLOR = "#4e2e2a99";
 const GLASS_GLINT_REPEAT = 48;
+// Stones sit on a jittered grid this many art pixels apart, alternate rows
+// shifted half a stone like masonry; distances count rows this much more than
+// columns, so the stones come out wider than they are tall.
+const STONE_WIDTH = 15;
+const STONE_HEIGHT = 10;
+const STONE_FLATTEN = 1.4;
+const STONE_GROWTH = 3;
 // Back walls are drawn as their material in shadow, a little cool, so they
 // read as rock set back behind the riding surface.
 const BACK_WALL_SHADE = [0.5, 0.52, 0.58];
@@ -130,6 +137,16 @@ function materialColors(name) {
     glass:
       material.pattern === "glass"
         ? compositeColor(material.detail, material.fill)
+        : null,
+    // Each stone gets one of three face tones, a lit top and a shaded bottom.
+    stone:
+      material.pattern === "stone"
+        ? {
+            mortar: compositeColor(material.detail, material.fill),
+            faces: [fill, mixColor(fill, light, 0.4), mixColor(fill, dark, 0.35)],
+            top: light,
+            bottom: dark,
+          }
         : null,
     vegetation: material.vegetation ? opaque(material.vegetation) : null,
     // Wall faces toward the sun (air on the right) and away from it.
@@ -246,6 +263,7 @@ export function rasterizeTerrainChunk(
   }
   const spansAt = (column) => spans[column + WALL_REACH] || [];
   const bodiesAt = (column) => bodySpans[column + WALL_REACH] || [];
+  const stoneCell = cachedStoneCells(column0, row0, width, height);
   // Columns from `column` to the nearest air at `y` in one direction, or 0.
   const airDistance = (column, y, direction) => {
     for (let step = 1; step <= WALL_REACH; step++)
@@ -331,6 +349,9 @@ export function rasterizeTerrainChunk(
             color = colors.glass;
             what = 2;
           }
+        } else if (colors.stone) {
+          color = stoneShade(stoneCell, column0 + column, row0 + row, colors.stone);
+          if (color !== colors.fill) what = 2;
         } else {
           // Strata repeat all the way down; the first four are as before.
           const depth = y - span.top;
@@ -413,13 +434,81 @@ export function rasterizeTerrainChunk(
   return result;
 }
 
+/** Which stone the world art pixel (`column`, `row`) belongs to, as an id. */
+function stoneCellAt(column, row) {
+  const near = Math.floor(row / STONE_HEIGHT);
+  let best = Infinity,
+    id = 0;
+  for (let r = near - 1; r <= near + 1; r++) {
+    const shift = (r & 1) * (STONE_WIDTH >> 1);
+    const across = Math.floor((column - shift) / STONE_WIDTH);
+    for (let c = across - 1; c <= across + 1; c++) {
+      const dx =
+        column - (c + 0.2 + hash2(c, r) * 0.6) * STONE_WIDTH - shift;
+      const dy =
+        (row - (r + 0.2 + hash2(r + 4099, c) * 0.6) * STONE_HEIGHT) *
+        STONE_FLATTEN;
+      // A squarish distance gives blocky stones with clipped corners, and a
+      // per-stone weight makes some stones bigger than their neighbours.
+      const distance =
+        Math.sqrt(Math.sqrt(dx ** 4 + dy ** 4)) -
+        hash2(c + 7919, r) * STONE_GROWTH;
+      if (distance < best) {
+        best = distance;
+        id = Math.imul(c, 73856093) ^ Math.imul(r, 19349663);
+      }
+    }
+  }
+  return id;
+}
+
+/**
+ * `stoneCellAt`, remembered for the pixels of one chunk and a margin of two,
+ * since every pixel's shade looks at the stones around it.
+ */
+function cachedStoneCells(column0, row0, width, height) {
+  const span = width + 4;
+  let cells = null,
+    known = null;
+  return (column, row) => {
+    const x = column - column0 + 2,
+      y = row - row0 + 2;
+    if (x < 0 || x >= span || y < 0 || y >= height + 4)
+      return stoneCellAt(column, row);
+    if (!cells) {
+      cells = new Int32Array(span * (height + 4));
+      known = new Uint8Array(cells.length);
+    }
+    const index = y * span + x;
+    if (!known[index]) {
+      cells[index] = stoneCellAt(column, row);
+      known[index] = 1;
+    }
+    return cells[index];
+  };
+}
+
+/**
+ * The colour of a stone-pattern pixel: mortar where one stone meets the next
+ * to its right or below, a lit row under the mortar above a stone and a shaded
+ * one over the mortar below it, and the stone's own face tone between.
+ */
+function stoneShade(cellAt, column, row, stone) {
+  const mortar = (c, r, id) => id !== cellAt(c + 1, r) || id !== cellAt(c, r + 1);
+  const id = cellAt(column, row);
+  if (mortar(column, row, id)) return stone.mortar;
+  if (mortar(column, row - 1, cellAt(column, row - 1))) return stone.top;
+  if (mortar(column, row + 1, id)) return stone.bottom;
+  return stone.faces[Math.floor(hash2(id, 7) * stone.faces.length)];
+}
+
 /**
  * The colour of a wall-face pixel `reach` columns in from the air, or null to
  * keep the fill. Ledges are seeded by world position, so chunks agree.
  */
 function wallShade(colors, reach, lit, faceColumn, y, pixel) {
   const worldRow = Math.floor(y / pixel);
-  if (!colors.brick && !colors.glass) {
+  if (!colors.brick && !colors.glass && !colors.stone) {
     const course = Math.floor(worldRow / LEDGE_ROWS);
     const group = Math.floor(faceColumn / 3) * 2 + (lit ? 1 : 0);
     if (hash2(course, group) > LEDGE_CHANCE) {
@@ -497,7 +586,7 @@ function drawPebbles(
         const colors = materialColors(
           (terrainBodyAt(compiled, px, cy) || span.topBody).material,
         );
-        if (colors.glass) continue;
+        if (colors.glass || colors.stone) continue;
         for (
           let column = Math.floor((px - rx) / pixel) - column0;
           column <= Math.ceil((px + rx) / pixel) - column0;

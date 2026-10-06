@@ -11,7 +11,7 @@
   "terrainBlocks": [
     {
       "id": "b1",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "b1gh",
         "nodes": [
@@ -1491,7 +1491,7 @@
     },
     {
       "id": "b3s",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "b3t",
         "nodes": [
@@ -1684,7 +1684,7 @@
     },
     {
       "id": "bwr4",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "bwr5",
         "nodes": [

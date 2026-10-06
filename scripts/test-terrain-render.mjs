@@ -116,13 +116,30 @@ const pixelAt = (raster, left, top, x, y) => {
 
 // 3. A cave stays open and its floor and roof are drawn.
 {
-  const carved = cutBlock(rectangle(0, 300, 800, 600, 'rock'), [[300, 360], [500, 360], [500, 460], [300, 460]]);
+  const carved = cutBlock(rectangle(0, 300, 800, 600, 'concrete'), [[300, 360], [500, 360], [500, 460], [300, 460]]);
   assert.ok(carved.changed, 'the cave cut works');
   const compiled = terrainGeometry(normalizeTrail(blockTrail([carved.blocks[0]])));
   const raster = rasterizeTerrainChunk(compiled, 256, 256, 160, 160);
   check('the middle of the cave is open', pixelAt(raster, 256, 256, 400, 410) === null);
   check('the rock around the cave is drawn', pixelAt(raster, 256, 256, 400, 480) !== null);
-  check('the cave floor gets a surface rim', pixelAt(raster, 256, 256, 400, 461) === rgb(terrainMaterials.rock.surface));
+  check('the cave floor gets a surface rim', pixelAt(raster, 256, 256, 400, 461) === rgb(terrainMaterials.concrete.surface));
+}
+
+// 3b. Stone is drawn as stones: mortar between them, lit tops and shaded
+// bottoms, and it continues across chunk edges.
+{
+  const compiled = terrainGeometry(normalizeTrail(blockTrail([rectangle(0, 300, 800, 700, 'stone')])));
+  const whole = rasterizeTerrainChunk(compiled, 256, 320, 128, 128);
+  const stone = terrainMaterials.stone;
+  const colors = new Set();
+  for (let offset = 0; offset < whole.data.length; offset += 4) colors.add(whole.data.slice(offset, offset + 3).join(','));
+  const mortar = compositeColor(stone.detail, stone.fill).join(',');
+  check('stone has mortar', colors.has(mortar));
+  check('stone has lit tops and shaded bottoms', colors.has(rgb(stone.layers[0])) && colors.has(rgb(stone.layers[1])));
+  const top = rasterizeTerrainChunk(compiled, 256, 320, 128, 64);
+  const bottom = rasterizeTerrainChunk(compiled, 256, 448, 128, 64);
+  const joined = [...top.data, ...bottom.data];
+  check('stone matches across chunk edges', joined.every((value, index) => value === whole.data[index]));
 }
 
 // 4. Where two blocks overlap, the later block's material shows.
@@ -159,7 +176,7 @@ const drawCalls = (renderer, trail, x, y, w, h) => {
   check('a second frame reuses every chunk', !again.includes('putImageData'));
 
   // An edit in one place rebuilds only the chunks in the columns it touched.
-  trail.terrainBlocks.push(rectangle(1600, 200, 1700, 600, 'rock', 'far'));
+  trail.terrainBlocks.push(rectangle(1600, 200, 1700, 600, 'concrete', 'far'));
   invalidateTerrain(trail);
   drawCalls(renderer, trail, 0, 0, 900, 600);
   const rebuilt = drawCalls(renderer, trail, 0, 0, 900, 600).filter(name => name === 'putImageData').length;

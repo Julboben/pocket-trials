@@ -165,7 +165,7 @@ Authoring guidelines:
 A block with `"layer": "back"` is a back wall. It sits in `terrainBlocks` in the same format as any other block, but it is scenery: nothing collides with it, it is drawn darkened behind the props and the terrain, it doesn't count as the trail's terrain and it doesn't change the trail's hash or medals. Back walls decide what is a cave. Air with no back wall behind it looks through to the sky at the back of the scene, so the hollow of a ring, the space under a ledge or a window in a building is lit like open air. Air in front of a back wall only gets the light that reaches in from open air, so give an enclosed cave a back wall to keep it dark:
 
 ```json
-{ "id": "cave-back", "material": "rock", "layer": "back", "outer": { "id": "cave-back-boundary", "nodes": [
+{ "id": "cave-back", "material": "concrete", "layer": "back", "outer": { "id": "cave-back-boundary", "nodes": [
   { "x": 470, "y": 205 }, { "x": 1265, "y": 205 }, { "x": 1265, "y": 325 }, { "x": 470, "y": 325 }
 ] }, "inner": [] }
 ```
@@ -203,13 +203,13 @@ Each block sets its own material with its `material` property. Available presets
 | `grass`  | Green surface with soil underneath       |
 | `dirt`   | Warm loose-earth trail                   |
 | `sand`   | Pale warm sand, bare by default          |
-| `rock`   | Grey, hard mountain terrain              |
+| `concrete` | Grey, hard terrain                     |
+| `stone`  | Cobbled stone wall with a pale capstone edge |
 | `snow`   | Pale surface and cool subsurface         |
 | `brick`  | Brick pattern with a green rideable edge |
 | `glass`  | See-through panes that let light in; can break |
 
 Material definitions live in `terrainMaterials` at the top of `js/materials.js`. Each preset controls fill, internal layers or pattern, edge colors, vegetation, and wheel-spray colors.
-
 Every material collides the same way except `glass`, which is judged by the block's shape. Its thickness and span are the short and long sides of the rectangle with the same area and perimeter as the block. That's exact for a rectangle at any angle, so a flat pane, an upright wall and a tilted plank all measure the same way. A bent or curved strip measures about as thick and as long as the strip itself, and a round or square blob measures as thick as it is wide:
 
 - **Thick** (16 units or more): never breaks, like any other terrain.
@@ -989,10 +989,15 @@ export const terrainMaterials = {
     edge: '#8f7550', surface: '#e9d8a8', vegetation: null,
     spray: ['#c9b07e','#dcc59a','#eddcb5']
   },
-  rock: {
+  concrete: {
     fill: '#727a78', layers: ['#89918d', '#606866'], detail: '#4d565466',
     edge: '#3f4d4b', surface: '#9aa49e', vegetation: null,
     spray: ['#626b69','#858e8a','#aeb5ad']
+  },
+  stone: {
+    fill: '#8b8982', layers: ['#a7a49a', '#6b6964'], detail: '#3b3a37cc', pattern: 'stone',
+    edge: '#403e3a', surface: '#b3afa3', vegetation: null,
+    spray: ['#75736d','#9a978e','#bfbbb0']
   },
   snow: {
     fill: '#aebbc0', layers: ['#cbd5d6', '#929fa5'], detail: '#74838a55',
@@ -3739,7 +3744,7 @@ Example trail: advanced.
   "terrainBlocks": [
     {
       "id": "b1",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "b2",
         "nodes": [
@@ -4325,7 +4330,7 @@ Example trail: advanced.
     },
     {
       "id": "b1-2",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "b17",
         "nodes": [
@@ -4707,7 +4712,7 @@ Example trail: advanced.
     },
     {
       "id": "b1-3",
-      "material": "rock",
+      "material": "concrete",
       "outer": {
         "id": "b1y",
         "nodes": [

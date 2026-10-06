@@ -977,7 +977,7 @@ const BEAM_PACKING = 40;
 
 /** Ceiling-prop colours taken from the rock they grow out of. */
 function rockColors(material) {
-  const m = terrainMaterials[material] || terrainMaterials.rock;
+  const m = terrainMaterials[material] || terrainMaterials.concrete;
   return { dark: m.layers[m.layers.length - 1], base: m.fill, light: m.layers[0] };
 }
 

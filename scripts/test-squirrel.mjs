@@ -9,7 +9,7 @@ import { SQUIRREL_FLEE, SQUIRREL_HIDE_MAX, SQUIRREL_LENGTH, SQUIRREL_RANGE, SQUI
 // Ground at 320 from 0 to 3000, with a wall rising to 200 from x 1000 to 1100.
 const trail = (props) => normalizeTrail({
   name: 'test', fallY: 820, goal: 2800, apples: [], spikes: [],
-  terrainBlocks: [rectangle(0, 320, 3000, 620, 'grass', 'ground'), rectangle(1000, 200, 1100, 320, 'rock', 'wall')],
+  terrainBlocks: [rectangle(0, 320, 3000, 620, 'grass', 'ground'), rectangle(1000, 200, 1100, 320, 'concrete', 'wall')],
   start: { x: 120, y: null, facing: 1 }, props,
 });
 const prop = (type, x, extra = {}) => ({ type, x, y: null, layer: 'back', ...extra });
