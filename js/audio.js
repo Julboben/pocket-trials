@@ -1,4 +1,4 @@
-import { STEP, MAX_POINT_SPEED, TAU, clamp } from './config.js';
+import { STEP, MAX_POINT_SPEED, RADIUS, TAU, clamp } from './config.js';
 
 /** Overall gearing per gear: engine revs (0 idle … 1 redline) per unit of speed. */
 const GEAR_RATIOS = [3.2, 2.3, 1.75, 1.35, 1];
@@ -32,7 +32,7 @@ function shaperCurve(shape, points = 1024) {
 export function createAudio(getSnapshot) {
   let audio = null;
   let enabled = true, volume = 1;
-  const motor = { gear: 0, revs: 0, time: 0, shiftCutUntil: 0, liftedAt: -1, lastThrottle: 0, nextPop: 0 };
+  const motor = { gear: 0, revs: 0, time: 0, shiftCutUntil: 0, liftedAt: -1, lastThrottle: 0, nextPop: 0, grip: 0, phase: 'off', startedAt: -10, stalledAt: 0 };
 
   function init() {
     if (audio) {
@@ -224,44 +224,76 @@ export function createAudio(getSnapshot) {
     playTone(70 + Math.random() * 40, .06, 'triangle', .03 * strength, 0, 40);
   }
 
-  function updateEngine(running, grounded, speed, throttle) {
+  function kickStart() {
+    playTone(48, .12, 'triangle', .06, 0, 30);
+    playNoise(.06, .03, 500);
+  }
+
+  /**
+   * The engine runs while riding and after the finish. A new run kicks it
+   * into life with a couple of blips; a crash stalls it.
+   * @param {{ angularVelocity?: number, grounded?: boolean } | undefined} drivenWheel
+   * @param {boolean} fresh the run has not begun moving yet
+   */
+  function updateEngine(state, drivenWheel, gas, fresh) {
     const { context, engine, engineDrive, engineFilter, enginePipe, engineGain, raspFilter, raspLevel, pitchDrift, levelDrift } = audio;
     const time = context.currentTime;
     const dt = clamp(time - motor.time, 0, .1);
     motor.time = time;
-    if (!running) {
-      Object.assign(motor, { gear: 0, revs: 0, liftedAt: -1, lastThrottle: 0 });
+    const on = (state === 'running' || state === 'won') && drivenWheel;
+    if (on && motor.phase !== 'on') {
+      if (fresh) kickStart();
+      Object.assign(motor, { phase: 'on', startedAt: fresh ? time : -10, gear: 0, revs: 0, grip: 0, lastThrottle: 0, liftedAt: -1 });
+    } else if (state === 'ragdoll' && motor.phase === 'on') {
+      Object.assign(motor, { phase: 'stalling', stalledAt: time });
+    } else if (state === 'menu') motor.phase = 'off';
+    const stall = motor.phase === 'stalling' ? clamp((time - motor.stalledAt) / .8, 0, 1) : 0;
+    if (stall >= 1) motor.phase = 'off';
+    if (!(on || motor.phase === 'stalling') || !drivenWheel || state === 'paused') {
       engineGain.gain.setTargetAtTime(0, time, .045);
       return;
     }
+    // After the kick it catches with a sharp blip, settles and blips again.
+    const sinceStart = time - motor.startedAt;
+    const bump = (at, width) => Math.exp(-(((sinceStart - at) / width) ** 2));
+    const startRevs = sinceStart < 1.4 ? .5 * bump(.33, .09) + .22 * bump(.95, .07) : 0;
+    const caught = clamp((sinceStart - .2) / .05, 0, 1);
+    // The engine answers the twist of the grip at once; the physics' throttle
+    // eases in to keep traction soft, which would make the engine sluggish.
+    motor.grip += ((gas && !stall ? 1 : 0) - motor.grip) * (1 - Math.exp(-dt * (gas ? 22 : 14)));
+    const throttle = motor.grip;
+    // The engine is geared to the driven wheel, so it follows that wheel's
+    // spin: wheelspin, a wheel spun up in the air and a wheel hanging free
+    // all rev it, whatever the other wheel is doing.
+    const wheelSpeed = Math.abs((drivenWheel.angularVelocity || 0) * RADIUS);
+    const free = !drivenWheel.grounded;
+    const wheelRevs = () => wheelSpeed / MAX_POINT_SPEED * GEAR_RATIOS[motor.gear];
     // The gearbox shifts up near the top of each gear on the gas, and back
-    // down as the bike slows.
-    const roadRevs = () => speed / MAX_POINT_SPEED * GEAR_RATIOS[motor.gear];
-    if (grounded && time - motor.shiftCutUntil > .2) {
-      if (motor.gear < GEAR_RATIOS.length - 1 && throttle > .3 && roadRevs() > UPSHIFT_REVS) {
+    // down as the bike slows; the rider only shifts with the wheel on the ground.
+    if (!free && time - motor.shiftCutUntil > .2) {
+      if (motor.gear < GEAR_RATIOS.length - 1 && throttle > .3 && wheelRevs() > UPSHIFT_REVS) {
         motor.gear++;
         motor.shiftCutUntil = time + .07;
-      } else if (motor.gear > 0 && roadRevs() < DOWNSHIFT_REVS) {
+      } else if (motor.gear > 0 && wheelRevs() < DOWNSHIFT_REVS) {
         motor.gear--;
         motor.shiftCutUntil = time;
       }
     }
-    // On the gas the rear wheel ties the revs to the road speed, though the
-    // clutch lets them flare; in the air the engine spins free. Off the gas
-    // the rider coasts on the clutch and the engine settles to idle.
+    // With the wheel loaded the clutch only lets the revs flare a little above
+    // the wheel; with nothing to push against the engine spins straight up.
+    // Off the gas the rider coasts on the clutch and the engine settles to idle.
     const engaged = clamp(throttle * 4, 0, 1);
-    const road = roadRevs();
-    const target = clamp(grounded
-      ? Math.max(road * engaged, throttle * (motor.gear === 0 ? .55 : .25))
-      : Math.max(road * .85 * engaged, throttle), 0, 1);
-    motor.revs += (target - motor.revs) * (1 - Math.exp(-dt * (target > motor.revs ? 5 + throttle * 9 : 9)));
+    const flare = free ? 1 : motor.gear === 0 ? .55 : .25;
+    const target = clamp(Math.max(wheelRevs() * engaged, throttle * flare, startRevs), 0, 1) * (1 - stall);
+    const rise = (free ? 10 : 5) + throttle * 8;
+    motor.revs += (target - motor.revs) * (1 - Math.exp(-dt * (target > motor.revs ? rise : 9)));
     const revs = motor.revs;
 
     // Holding the gas at the top bounces the engine off its rev limiter.
     const redline = throttle * clamp((revs - .95) / .05, 0, 1);
     const limiterCut = redline * (Math.sin(time * TAU * 13) > .45 ? .6 : 0);
     const cut = Math.max(time < motor.shiftCutUntil ? 1 : 0, limiterCut);
-    const load = throttle * (1 - cut);
+    const load = Math.max(throttle, clamp(startRevs * 1.6, 0, 1)) * (1 - cut);
 
     // Snapping the gas shut from high revs crackles and pops in the pipe.
     const easing = throttle < motor.lastThrottle;
@@ -278,27 +310,30 @@ export function createAudio(getSnapshot) {
     // The expansion chamber is tuned to the top of the rev range: there the
     // engine comes on the pipe and screams.
     const powerband = clamp(1 - Math.abs(revs - .8) / .32, 0, 1);
-    engine.frequency.setTargetAtTime(28 + revs * 155, time, .03);
-    pitchDrift.gain.setTargetAtTime(900 * (1.2 - revs) * (1 - load * .4), time, .1);
+    // A stalling engine sputters down below idle before it dies.
+    engine.frequency.setTargetAtTime((30 + revs * 153) * (1 - stall * .55), time, .03);
+    pitchDrift.gain.setTargetAtTime(900 * (1.2 - revs) * (1 - load * .4) * (1 + stall * 2), time, .1);
     levelDrift.gain.setTargetAtTime(4 * (1.1 - revs * .8), time, .1);
     engineDrive.gain.setTargetAtTime(.8 + load * .9, time, .03);
-    engineFilter.frequency.setTargetAtTime(260 + load * (500 + revs * 700) + revs * 200, time, .04);
+    // At idle the filter stays open enough that small speakers, which cannot
+    // play the deep firing note, still carry its upper harmonics.
+    engineFilter.frequency.setTargetAtTime(480 + load * (400 + revs * 700) + revs * 100, time, .04);
     enginePipe.frequency.setTargetAtTime(280 + revs * 420, time, .05);
     enginePipe.gain.setTargetAtTime(1 + powerband * load * 5, time, .05);
-    raspFilter.frequency.setTargetAtTime(400 + load * revs * 700, time, .05);
-    raspLevel.gain.setTargetAtTime(.3 + load * 1.1, time, .05);
-    const level = .028 + load * (.04 + revs * .03 + powerband * .01) + revs * .006;
-    engineGain.gain.setTargetAtTime(level * (1 - cut * .6), time, cut ? .012 : .03);
+    raspFilter.frequency.setTargetAtTime(450 + load * revs * 650, time, .05);
+    raspLevel.gain.setTargetAtTime(.5 + load * .9, time, .05);
+    const level = .042 + load * (.03 + revs * .03 + powerband * .01) + revs * .006;
+    engineGain.gain.setTargetAtTime(level * (1 - cut * .6) * caught * (1 - stall) ** 1.5, time, cut ? .012 : .03);
   }
 
   function update() {
     if (!audio) return;
-    const { state, rear, front, throttle, brakePressure, weather } = getSnapshot();
+    const { state, rear, front, facing, gas, started, brakePressure, weather } = getSnapshot();
     const { context, skidGain, rainGain, windFilter, windGain } = audio;
     const speed = rear && front ? Math.abs(((rear.x - rear.ox) + (front.x - front.ox)) / (2 * STEP)) : 0;
     const running = state === 'running';
     const grounded = rear && front && (rear.grounded || front.grounded);
-    updateEngine(running, grounded, speed, throttle);
+    updateEngine(state, facing < 0 ? front : rear, Boolean(gas), !started);
     const skidLevel = running && grounded && speed > 24 ? brakePressure * clamp(speed / 220, 0, 1) * .16 : 0;
     skidGain.gain.setTargetAtTime(skidLevel, context.currentTime, .025);
     const rainIntensity = clamp(Number(weather?.rain) || 0, 0, 1);

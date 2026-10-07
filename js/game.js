@@ -33,9 +33,14 @@ export function startGame() {
   const camera = createCamera();
   const effects = createEffects();
   const overlay = createOverlay();
+  // The rider's hand on the grip, ahead of the physics' smoothed throttle.
+  let gasHeld = false;
   const sounds = createAudio(() => {
     const ride = session.ride;
-    return { state: session.state, rear: ride?.rear, front: ride?.front, throttle: ride?.throttle ?? 0, brakePressure: ride?.brakePressure ?? 0, weather: session.trail?.weather };
+    return {
+      state: session.state, rear: ride?.rear, front: ride?.front, facing: ride?.facing ?? 1, gas: gasHeld && session.state === 'running', started: ride?.started ?? false,
+      brakePressure: ride?.brakePressure ?? 0, weather: session.trail?.weather,
+    };
   });
   const input = createInput({
     element: game,
@@ -551,6 +556,7 @@ export function startGame() {
       braking: !holding && input.held('down')
     };
     const running = ride.status === 'running';
+    gasHeld = running && stepInput.accelerating && !stepInput.braking;
     physicsDebug.recordInput({ ...stepInput, accelerating: running && stepInput.accelerating, braking: running && stepInput.braking });
     if (running) recorded.push(stepInput);
     const speed = bikeSpeed(ride);
