@@ -1,8 +1,38 @@
 import { STEP, MAX_POINT_SPEED, TAU, clamp } from './config.js';
 
+/** Overall gearing per gear: engine revs (0 idle … 1 redline) per unit of speed. */
+const GEAR_RATIOS = [3.2, 2.3, 1.75, 1.35, 1];
+const UPSHIFT_REVS = .9, DOWNSHIFT_REVS = .42;
+
+/**
+ * One cycle of exhaust pressure: a sharp spike as the port opens, the
+ * suction dip behind it, and a small reflection back from the pipe.
+ */
+function exhaustPulseWave(context) {
+  const harmonics = 40, samples = 2048;
+  const real = new Float32Array(harmonics), imag = new Float32Array(harmonics);
+  const bump = (t, at, width) => Math.exp(-(((t - at) / width) ** 2));
+  for (let index = 0; index < samples; index++) {
+    const t = index / samples;
+    const pressure = bump(t, .05, .045) - .55 * bump(t, .22, .1) + .1 * bump(t, .48, .08);
+    for (let n = 1; n < harmonics; n++) {
+      real[n] += pressure * Math.cos(TAU * n * t) * 2 / samples;
+      imag[n] += pressure * Math.sin(TAU * n * t) * 2 / samples;
+    }
+  }
+  return context.createPeriodicWave(real, imag);
+}
+
+function shaperCurve(shape, points = 1024) {
+  const curve = new Float32Array(points);
+  for (let index = 0; index < points; index++) curve[index] = shape(index / (points - 1) * 2 - 1);
+  return curve;
+}
+
 export function createAudio(getSnapshot) {
   let audio = null;
   let enabled = true, volume = 1;
+  const motor = { gear: 0, revs: 0, time: 0, shiftCutUntil: 0, liftedAt: -1, lastThrottle: 0, nextPop: 0 };
 
   function init() {
     if (audio) {
@@ -17,17 +47,66 @@ export function createAudio(getSnapshot) {
     master.gain.value = masterLevel();
     master.connect(compressor); compressor.connect(context.destination);
 
-    const engine = context.createOscillator();
-    const engineFilter = context.createBiquadFilter();
-    const engineGain = context.createGain();
-    engine.type = 'sawtooth'; engine.frequency.value = 55;
-    engineFilter.type = 'lowpass'; engineFilter.frequency.value = 260;
-    engineGain.gain.value = 0;
-    engine.connect(engineFilter); engineFilter.connect(engineGain); engineGain.connect(master); engine.start();
-
     const noiseBuffer = context.createBuffer(1, context.sampleRate, context.sampleRate);
     const noiseData = noiseBuffer.getChannelData(0);
     for (let i = 0; i < noiseData.length; i++) noiseData[i] = Math.random() * 2 - 1;
+
+    // Engine: a single-cylinder two-stroke. Each firing is an exhaust pulse,
+    // lightly saturated, shaped by a resonant expansion chamber and a muffler
+    // and roughened by combustion noise that bursts with each pulse.
+    const engine = context.createOscillator();
+    engine.setPeriodicWave(exhaustPulseWave(context));
+    engine.frequency.value = 30;
+    const engineDrive = context.createGain();
+    const engineShaper = context.createWaveShaper();
+    engineShaper.curve = shaperCurve((x) => Math.tanh(x));
+    engineShaper.oversample = '2x';
+    const engineHighpass = context.createBiquadFilter();
+    engineHighpass.type = 'highpass'; engineHighpass.frequency.value = 38;
+    const engineFilter = context.createBiquadFilter();
+    engineFilter.type = 'lowpass'; engineFilter.frequency.value = 400; engineFilter.Q.value = .7;
+    const enginePipe = context.createBiquadFilter();
+    enginePipe.type = 'peaking'; enginePipe.frequency.value = 360; enginePipe.Q.value = 1.2; enginePipe.gain.value = 1;
+    const engineMuffler = context.createBiquadFilter();
+    engineMuffler.type = 'lowpass'; engineMuffler.frequency.value = 1600; engineMuffler.Q.value = .5;
+    const engineWobble = context.createGain();
+    const engineGain = context.createGain();
+    engineGain.gain.value = 0;
+    engine.connect(engineDrive); engineDrive.connect(engineShaper); engineShaper.connect(engineHighpass);
+    engineHighpass.connect(engineFilter); engineFilter.connect(enginePipe); enginePipe.connect(engineWobble);
+    engineWobble.connect(engineMuffler); engineMuffler.connect(engineGain); engineGain.connect(master);
+
+    const rasp = context.createBufferSource();
+    const raspFilter = context.createBiquadFilter();
+    const raspPulse = context.createGain();
+    const raspLevel = context.createGain();
+    const pulseEnvelope = context.createWaveShaper();
+    pulseEnvelope.curve = shaperCurve((x) => (x > 0 ? x * x : 0));
+    rasp.buffer = noiseBuffer; rasp.loop = true;
+    raspFilter.type = 'lowpass'; raspFilter.frequency.value = 600; raspFilter.Q.value = .5;
+    raspPulse.gain.value = 0;
+    raspLevel.gain.value = 1;
+    engine.connect(pulseEnvelope); pulseEnvelope.connect(raspPulse.gain);
+    rasp.connect(raspFilter); raspFilter.connect(raspPulse); raspPulse.connect(raspLevel); raspLevel.connect(engineWobble);
+
+    // No two firings are quite alike: slow random drift in timing and
+    // strength, strongest at idle where the engine lopes.
+    const driftBuffer = context.createBuffer(1, context.sampleRate * 5, context.sampleRate);
+    const driftData = driftBuffer.getChannelData(0);
+    for (let i = 0; i < driftData.length; i++) driftData[i] = Math.random() * 2 - 1;
+    const drift = context.createBufferSource();
+    drift.buffer = driftBuffer; drift.loop = true;
+    const pitchDriftFilter = context.createBiquadFilter();
+    pitchDriftFilter.type = 'lowpass'; pitchDriftFilter.frequency.value = 8;
+    const pitchDrift = context.createGain();
+    pitchDrift.gain.value = 900;
+    const levelDriftFilter = context.createBiquadFilter();
+    levelDriftFilter.type = 'lowpass'; levelDriftFilter.frequency.value = 6;
+    const levelDrift = context.createGain();
+    levelDrift.gain.value = 4;
+    drift.connect(pitchDriftFilter); pitchDriftFilter.connect(pitchDrift); pitchDrift.connect(engine.detune);
+    drift.connect(levelDriftFilter); levelDriftFilter.connect(levelDrift); levelDrift.connect(engineWobble.gain);
+    engine.start(); rasp.start(); drift.start();
     const skid = context.createBufferSource();
     const skidFilter = context.createBiquadFilter();
     const skidGain = context.createGain();
@@ -89,7 +168,8 @@ export function createAudio(getSnapshot) {
     echo.buffer = impulse;
     echo.connect(master);
     audio = {
-      context, master, engine, engineFilter, engineGain, noiseBuffer, skidGain, rainGain,
+      context, master, engine, engineDrive, engineFilter, enginePipe, engineGain, raspFilter, raspLevel,
+      pitchDrift, levelDrift, noiseBuffer, skidGain, rainGain,
       windFilter, windGain, brownBuffer: windBuffer, echo,
     };
   }
@@ -139,23 +219,86 @@ export function createAudio(getSnapshot) {
     source.start(start); source.stop(start + duration);
   }
 
+  function backfire(strength) {
+    playNoise(.04 + Math.random() * .03, (.025 + Math.random() * .025) * strength, 500 + Math.random() * 600);
+    playTone(70 + Math.random() * 40, .06, 'triangle', .03 * strength, 0, 40);
+  }
+
+  function updateEngine(running, grounded, speed, throttle) {
+    const { context, engine, engineDrive, engineFilter, enginePipe, engineGain, raspFilter, raspLevel, pitchDrift, levelDrift } = audio;
+    const time = context.currentTime;
+    const dt = clamp(time - motor.time, 0, .1);
+    motor.time = time;
+    if (!running) {
+      Object.assign(motor, { gear: 0, revs: 0, liftedAt: -1, lastThrottle: 0 });
+      engineGain.gain.setTargetAtTime(0, time, .045);
+      return;
+    }
+    // The gearbox shifts up near the top of each gear on the gas, and back
+    // down as the bike slows.
+    const roadRevs = () => speed / MAX_POINT_SPEED * GEAR_RATIOS[motor.gear];
+    if (grounded && time - motor.shiftCutUntil > .2) {
+      if (motor.gear < GEAR_RATIOS.length - 1 && throttle > .3 && roadRevs() > UPSHIFT_REVS) {
+        motor.gear++;
+        motor.shiftCutUntil = time + .07;
+      } else if (motor.gear > 0 && roadRevs() < DOWNSHIFT_REVS) {
+        motor.gear--;
+        motor.shiftCutUntil = time;
+      }
+    }
+    // On the gas the rear wheel ties the revs to the road speed, though the
+    // clutch lets them flare; in the air the engine spins free. Off the gas
+    // the rider coasts on the clutch and the engine settles to idle.
+    const engaged = clamp(throttle * 4, 0, 1);
+    const road = roadRevs();
+    const target = clamp(grounded
+      ? Math.max(road * engaged, throttle * (motor.gear === 0 ? .55 : .25))
+      : Math.max(road * .85 * engaged, throttle), 0, 1);
+    motor.revs += (target - motor.revs) * (1 - Math.exp(-dt * (target > motor.revs ? 5 + throttle * 9 : 9)));
+    const revs = motor.revs;
+
+    // Holding the gas at the top bounces the engine off its rev limiter.
+    const redline = throttle * clamp((revs - .95) / .05, 0, 1);
+    const limiterCut = redline * (Math.sin(time * TAU * 13) > .45 ? .6 : 0);
+    const cut = Math.max(time < motor.shiftCutUntil ? 1 : 0, limiterCut);
+    const load = throttle * (1 - cut);
+
+    // Snapping the gas shut from high revs crackles and pops in the pipe.
+    const easing = throttle < motor.lastThrottle;
+    if (easing && throttle < .7 && motor.lastThrottle >= .7 && revs > .45) {
+      motor.liftedAt = time;
+      motor.nextPop = time + .04 + Math.random() * .08;
+    }
+    if (easing && time - motor.liftedAt < .9 && time >= motor.nextPop) {
+      if (Math.random() < .7) backfire(clamp(revs * 1.3, .4, 1));
+      motor.nextPop = time + .05 + Math.random() * .17;
+    }
+    motor.lastThrottle = throttle;
+
+    // The expansion chamber is tuned to the top of the rev range: there the
+    // engine comes on the pipe and screams.
+    const powerband = clamp(1 - Math.abs(revs - .8) / .32, 0, 1);
+    engine.frequency.setTargetAtTime(28 + revs * 155, time, .03);
+    pitchDrift.gain.setTargetAtTime(900 * (1.2 - revs) * (1 - load * .4), time, .1);
+    levelDrift.gain.setTargetAtTime(4 * (1.1 - revs * .8), time, .1);
+    engineDrive.gain.setTargetAtTime(.8 + load * .9, time, .03);
+    engineFilter.frequency.setTargetAtTime(260 + load * (500 + revs * 700) + revs * 200, time, .04);
+    enginePipe.frequency.setTargetAtTime(280 + revs * 420, time, .05);
+    enginePipe.gain.setTargetAtTime(1 + powerband * load * 5, time, .05);
+    raspFilter.frequency.setTargetAtTime(400 + load * revs * 700, time, .05);
+    raspLevel.gain.setTargetAtTime(.3 + load * 1.1, time, .05);
+    const level = .028 + load * (.04 + revs * .03 + powerband * .01) + revs * .006;
+    engineGain.gain.setTargetAtTime(level * (1 - cut * .6), time, cut ? .012 : .03);
+  }
+
   function update() {
     if (!audio) return;
     const { state, rear, front, throttle, brakePressure, weather } = getSnapshot();
-    const { context, engine, engineFilter, engineGain, skidGain, rainGain, windFilter, windGain } = audio;
+    const { context, skidGain, rainGain, windFilter, windGain } = audio;
     const speed = rear && front ? Math.abs(((rear.x - rear.ox) + (front.x - front.ox)) / (2 * STEP)) : 0;
     const running = state === 'running';
     const grounded = rear && front && (rear.grounded || front.grounded);
-    // Revs climb with speed up to the bike's top speed. Holding the gas there
-    // bounces the engine off its rev limiter, since it cannot go any faster.
-    const revs = clamp(speed, 0, 340) * .32 + clamp(speed - 340, 0, MAX_POINT_SPEED - 340) * .2;
-    const redline = running ? throttle * clamp((speed - MAX_POINT_SPEED * .95) / (MAX_POINT_SPEED * .05), 0, 1) : 0;
-    const limiterCut = redline * (Math.sin(context.currentTime * TAU * 11) > 0 ? 1 : 0);
-    const engineLevel = running ? (.018 + throttle * .065) * (1 - limiterCut * .45) : 0;
-    const enginePitch = 48 + revs + throttle * 42 - limiterCut * 18;
-    engine.frequency.setTargetAtTime(enginePitch, context.currentTime, .035);
-    engineFilter.frequency.setTargetAtTime(180 + throttle * 360 + speed * .35, context.currentTime, .04);
-    engineGain.gain.setTargetAtTime(engineLevel, context.currentTime, .045);
+    updateEngine(running, grounded, speed, throttle);
     const skidLevel = running && grounded && speed > 24 ? brakePressure * clamp(speed / 220, 0, 1) * .16 : 0;
     skidGain.gain.setTargetAtTime(skidLevel, context.currentTime, .025);
     const rainIntensity = clamp(Number(weather?.rain) || 0, 0, 1);
