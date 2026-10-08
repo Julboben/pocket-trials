@@ -1,6 +1,8 @@
 // Online riders: passkey sign-up and login against /api/account, and the
 // cloud copy of the savegame. Passkeys live in the OS keychain or password
 // manager, so clearing site data never logs a rider out for good.
+import { NAME_HINT } from './rider-name.js';
+
 const API = '/api/account/';
 const SAVE_SYNC_DELAY_MS = 1500;
 
@@ -128,7 +130,7 @@ export function accountErrorText(error) {
   switch (error?.message) {
     case 'name taken': return 'That name is taken. If it’s yours, log in with your passkey instead.';
     case 'name not allowed': return 'That name isn’t allowed. Please pick another.';
-    case 'invalid name': return 'Use 1–16 letters, numbers, spaces, _ . or -.';
+    case 'invalid name': return NAME_HINT + '.';
     case 'cancelled': return 'Passkey cancelled.';
     case 'passkey exists': return 'This device already has a passkey for that rider. Log in instead.';
     case 'unknown passkey': return 'That passkey isn’t linked to a rider here. Create a new online rider instead.';

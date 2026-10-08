@@ -11,6 +11,7 @@ import {
 import { ONLINE_LEADERBOARD_EVENT, isOnlineBoardLoading, submitOnlineRun } from '../online-leaderboard.js';
 import { registerRider, loginRider, accountErrorText, passkeysSupported, queueSaveSync } from '../account.js';
 import { isSandbox } from '../local-store.js';
+import { NAME_HINT, disallowedNameChars } from '../rider-name.js';
 import { RIDE_VERSION } from '../ride.js';
 import { normalizeTrail, validateTrail, medalFor } from '../trail-schema.js';
 import { ACTION_LABELS, keyLabel } from '../input.js';
@@ -83,7 +84,13 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
   nameInput.addEventListener('keydown', event => {
     if (event.key === 'Enter') { event.preventDefault(); $('create-save').click(); }
   });
-  nameInput.addEventListener('input', () => nameInput.classList.remove('invalid'));
+  // Says which characters won't be kept, instead of dropping them silently.
+  nameInput.addEventListener('input', () => {
+    nameInput.classList.remove('invalid');
+    const bad = disallowedNameChars(nameInput.value);
+    setStatus('save-status', bad.length ? `Can’t use ${bad.join(' ')} in names. ${NAME_HINT}.` : '', bad.length > 0);
+    if (bad.length) nameInput.classList.add('invalid');
+  });
 
   /** A ride is only resumable while it still belongs to the active save. */
   function canResume() {
@@ -832,7 +839,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
   $('create-save').addEventListener('click', () => {
     if (accountBusy) return;
     const name = cleanRiderName($('new-save-name').value);
-    if (!name) {
+    if (!name || disallowedNameChars($('new-save-name').value).length) {
       $('new-save-name').classList.add('invalid');
       $('new-save-name').focus();
       return;

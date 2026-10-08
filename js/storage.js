@@ -1,6 +1,7 @@
 import { clamp } from './config.js';
 import { store } from './local-store.js';
 import { cachedOnlineBoard, refreshOnlineBoard } from './online-leaderboard.js';
+import { cleanRiderName } from './rider-name.js';
 
 const SETTINGS_KEY = 'hjulben-settings-v1';
 const SAVE_SLOTS_KEY = 'hjulben-saves-v2';
@@ -11,9 +12,7 @@ export const LEADERBOARD_SIZE = 10;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Letters, digits, space, _ . -  (max 16). Same rule as the server, and safe for innerHTML. */
-export const cleanRiderName = raw => String(raw ?? '')
-  .replace(/[^\p{L}\p{N} _.\-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 16);
+export { cleanRiderName };
 
 // crypto.randomUUID only exists on https/localhost, so fall back for LAN testing.
 const newPlayerId = () => globalThis.crypto?.randomUUID?.() ??
