@@ -14,7 +14,7 @@ import { bindClipboard } from "./clipboard.js";
 import { $, wrap } from "./dom.js";
 import { pushHistory, redo, undo, updateHistoryButtons } from "./history.js";
 import { bindInput } from "./input.js";
-import { bindInspector, renameTrail, syncInspector } from "./inspector.js";
+import { bindInspector, rememberedAuthor, renameTrail, syncInspector } from "./inspector.js";
 import { bindMenu } from "./menu.js";
 import { pickerSelect } from "./picker.js";
 import { bindPlaytest } from "./playtest.js";
@@ -100,7 +100,10 @@ $("save-trail").addEventListener("click", saveTrail);
 
 $("new-trail").addEventListener("click", () =>
   createCustomTrail(
-    normalizeTrail(createBlankTrail(trailEntries.length), trailEntries.length),
+    normalizeTrail(
+      { ...createBlankTrail(trailEntries.length), author: rememberedAuthor() },
+      trailEntries.length,
+    ),
   ),
 );
 

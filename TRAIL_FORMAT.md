@@ -340,7 +340,8 @@ Sign text wraps at word boundaries onto up to 4 lines of 10 characters, and the 
 ## Other fields
 
 - `fallY`: vertical position at which the bike is considered lost. Increase it for deep gaps or trails that descend far. It also sets how low the camera can look.
-- `description`: design notes for the trail. It is not currently shown during gameplay.
+- `description`: design notes for the trail. It is not shown during gameplay; the editor lists it as **Notes**.
+- `author`: optional credit for whoever made the trail, up to 40 characters on one line. The trail menu, the Hall of Fame and the results screen show it as "BY …" / "TRAIL BY …". It does not change the trail's hash, so adding or editing credit keeps its times. The editor remembers the last author you typed and fills it in on new trails.
 
 ## Medals
 

@@ -670,6 +670,7 @@ export function bindInput() {
     }
     if ((event.metaKey || event.ctrlKey) && event.code === "KeyS") {
       event.preventDefault();
+      /** @type {HTMLElement} */ (document.activeElement)?.blur?.();
       if (!event.shiftKey) saveDraft();
       else if (canSave()) saveTrail();
       return;

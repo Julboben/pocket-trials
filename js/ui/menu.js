@@ -13,7 +13,7 @@ import { registerRider, loginRider, accountErrorText, passkeysSupported, queueSa
 import { isSandbox } from '../local-store.js';
 import { NAME_HINT, disallowedNameChars } from '../rider-name.js';
 import { RIDE_VERSION } from '../ride.js';
-import { normalizeTrail, validateTrail, medalFor } from '../trail-schema.js';
+import { normalizeAuthor, normalizeTrail, validateTrail, medalFor } from '../trail-schema.js';
 import { ACTION_LABELS, keyLabel } from '../input.js';
 import { VERSION } from '../version.js';
 import {
@@ -224,7 +224,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
       button.className = 'save-slot';
       button.setAttribute('aria-pressed', String(Boolean(save) && index === session.activeSaveSlot));
       const active = save && index === session.activeSaveSlot ? ' · ACTIVE' : '';
-      const mode = save ? (save.token ? ' · ONLINE' : ' · OFFLINE') : '';
+      const mode = save ? (save.token ? ' · ONLINE' : save.online ? ' · SIGNED OUT' : ' · OFFLINE') : '';
       button.innerHTML = save
         ? '<span class="save-avatar ' + save.rider + '">' + riderSymbolMarkup(save.rider) + '</span>'
           + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + active + mode + '</span><strong>' + save.name + '</strong><small>'
@@ -238,13 +238,14 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
       });
       row.append(button);
       if (save && !save.token && onlineAvailable) {
+        // A signed-out online rider logs back in; an offline one claims its name.
         const link = document.createElement('button');
         link.className = 'link-save';
         link.type = 'button';
-        link.textContent = 'GO ONLINE';
+        link.textContent = save.online ? 'LOG IN' : 'GO ONLINE';
         link.disabled = accountBusy;
-        link.setAttribute('aria-label', 'Take ' + save.name + ' online with a passkey');
-        link.addEventListener('click', () => goOnline(index));
+        link.setAttribute('aria-label', (save.online ? 'Log ' + save.name + ' back in' : 'Take ' + save.name + ' online') + ' with a passkey');
+        link.addEventListener('click', () => (save.online ? logIn('riders-status') : goOnline(index)));
         row.classList.add('has-link');
         row.append(link);
       }
@@ -354,7 +355,8 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     $('menu-first-ride').hidden = hasSave;
     $('menu-first-ride').classList.toggle('menu-action-primary', !resumable);
     $('menu-riders').hidden = !hasSave;
-    $('menu-login').hidden = !onlineAvailable || Boolean(session.saveGame?.token);
+    // Without a save, START RIDING covers logging in too.
+    $('menu-login').hidden = !onlineAvailable || !hasSave || Boolean(session.saveGame?.token);
     if (resumable) {
       $('menu-resume-detail').textContent = 'Back to ' + (session.trail?.name ?? 'the trail')
         + (session.stateBeforeMenu === 'paused' ? ' · paused' : '');
@@ -400,7 +402,8 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     $('menu-scroll').scrollTop = 0;
     requestAnimationFrame(() => {
       const list = controls();
-      selectControl(list.find(button => !button.matches('[data-menu-back]')) || list[0]);
+      // The login shortcut is for returning riders, so a new rider starts on the form.
+      selectControl(list.find(button => !button.matches('[data-menu-back], #save-login-button')) || list[0]);
     });
   }
 
@@ -444,7 +447,8 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     const name = document.createElement('strong');
     name.textContent = trail.name.toUpperCase();
     const detail = document.createElement('small');
-    detail.textContent = status;
+    const author = normalizeAuthor(trail.author);
+    detail.textContent = author ? status + ' · BY ' + author.toUpperCase() : status;
     copy.append(name, detail);
     const bestLabel = document.createElement('span');
     bestLabel.className = 'trail-best';
@@ -535,7 +539,9 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     const loading = isOnlineBoardLoading(key);
     $('leaderboard-trail-number').textContent = trailMarker(leaderboardTrail);
     $('leaderboard-trail-name').textContent = entry.name.toUpperCase();
+    const author = normalizeAuthor(entry.trail?.author);
     $('leaderboard-trail-meta').textContent = (entry.source === 'custom' ? 'CUSTOM TRAIL' : 'OFFICIAL TRAIL')
+      + (author ? ' · BY ' + author.toUpperCase() : '')
       + ' · ' + (leaderboardTrail + 1) + ' / ' + trails.length;
     const rows = Array.from({ length: LEADERBOARD_SIZE }, (_, index) => leaderboardRow(loading ? undefined : runs[index], index + 1, loading));
     $('leaderboard-list').replaceChildren(...rows);
@@ -557,6 +563,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     $('new-save-name').value = '';
     $('new-save-name').classList.remove('invalid');
     setStatus('save-status', '');
+    setStatus('save-login-status', '');
     setSaveMode(saveMode);
     showView('save');
   }
@@ -799,9 +806,10 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     showView('riders');
     logIn('riders-status');
   });
-  $('save-login-button').addEventListener('click', () => logIn('save-status'));
+  $('save-login-button').addEventListener('click', () => logIn('save-login-status'));
   $('riders-login-button').addEventListener('click', () => logIn('riders-status'));
   $('riders-login').hidden = !onlineAvailable;
+  if (onlineAvailable) $('menu-first-ride').querySelector('small').textContent = 'New rider, or log in with your passkey';
   document.querySelectorAll('[data-save-mode]').forEach(button => button.addEventListener('click', () => {
     setSaveMode(button.dataset.saveMode);
     setStatus('save-status', '');

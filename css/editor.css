@@ -80,7 +80,8 @@ button:hover, .back-game:hover { background: #3a535b; }
 .tool-hint { margin: 0 0 10px; color: #becbc6; font-size: 8px; line-height: 1.5; }
 .side-panel label { margin-bottom: 10px; display: grid; gap: 5px; color: var(--muted); font-size: 8px; font-weight: 800; letter-spacing: .5px; }
 .side-panel label.checkbox-row { grid-template-columns: 1fr auto; align-items: center; }
-.side-panel input, .side-panel select { width: 100%; }
+.side-panel input, .side-panel select, .side-panel textarea { width: 100%; }
+.side-panel textarea { padding: 6px; resize: vertical; font-size: 10px; font-weight: 400; letter-spacing: 0; }
 .side-panel input[type="checkbox"] { width: auto; min-height: 0; }
 .side-panel fieldset:not(.tool-settings) { margin: 15px 0 0; padding: 13px; border: 1px solid var(--border); }
 .side-panel fieldset:not(.tool-settings) legend { padding: 0 5px; color: var(--muted); font-size: 8px; font-weight: 900; letter-spacing: 1.5px; }

@@ -373,7 +373,8 @@ Sign text wraps at word boundaries onto up to 4 lines of 10 characters, and the 
 ## Other fields
 
 - `fallY`: vertical position at which the bike is considered lost. Increase it for deep gaps or trails that descend far. It also sets how low the camera can look.
-- `description`: design notes for the trail. It is not currently shown during gameplay.
+- `description`: design notes for the trail. It is not shown during gameplay; the editor lists it as **Notes**.
+- `author`: optional credit for whoever made the trail, up to 40 characters on one line. The trail menu, the Hall of Fame and the results screen show it as "BY …" / "TRAIL BY …". It does not change the trail's hash, so adding or editing credit keeps its times. The editor remembers the last author you typed and fills it in on new trails.
 
 ## Medals
 
@@ -610,6 +611,15 @@ export function normalizeSpike(spike, groundY = null) {
   return { x, y, radius, spin: Number.isFinite(spin) ? spin : 1 };
 }
 
+export const AUTHOR_MAX_LENGTH = 40;
+
+/** Who made the trail: one line of text, whitespace collapsed, or "". */
+export function normalizeAuthor(author) {
+  return typeof author === "string"
+    ? author.replace(/\s+/g, " ").trim().slice(0, AUTHOR_MAX_LENGTH)
+    : "";
+}
+
 export function normalizeTrail(input, index = 0) {
   const fallback = createBlankTrail(index);
   const trail = { ...fallback, ...cloneTrail(input || {}) };
@@ -618,6 +628,12 @@ export function normalizeTrail(input, index = 0) {
     trail.label ||
       `${trail.name.toUpperCase()} / ${String(index + 1).padStart(2, "0")}`,
   );
+  // Credits are optional; an empty author is not stored.
+  const author = normalizeAuthor(trail.author);
+  if (author) trail.author = author;
+  else delete trail.author;
+  trail.description =
+    typeof trail.description === "string" ? trail.description : "";
   trail.goal = Number(trail.goal) || fallback.goal;
   // The finish is a point. A null finishY means it stands on the surface below,
   // which is what a plain ground finish wants; a number pins it in the air.

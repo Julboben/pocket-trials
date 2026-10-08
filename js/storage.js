@@ -63,7 +63,9 @@ function normalizeSave(save, trailCount) {
     rider: save.rider, createdAt: Number(save.createdAt) || Date.now(), trail, unlocked, bestTimes,
     name, playerId: save.playerId,
     // Online riders carry the server's session token; offline saves have none.
-    token: typeof save.token === 'string' && TOKEN_RE.test(save.token) ? save.token : null
+    token: typeof save.token === 'string' && TOKEN_RE.test(save.token) ? save.token : null,
+    // Stays true after the session expires, so the rider is shown as signed out, not offline.
+    online: Boolean(save.online || save.token)
   };
 }
 
@@ -125,7 +127,8 @@ export function createSave(slotIndex, rider, trailCount, name, account = null) {
     bestTimes: {},
     name: cleanName,
     playerId: account?.playerId ?? newPlayerId(),
-    token: account?.token ?? null
+    token: account?.token ?? null,
+    online: Boolean(account)
   };
   next[index] = save;
   persistSlots(trailCount, next);
@@ -138,6 +141,7 @@ export function linkSave(slotIndex, trailCount, { playerId, token, name }) {
   updateSave(slotIndex, trailCount, save => {
     save.playerId = playerId;
     save.token = token;
+    save.online = true;
     save.name = cleanRiderName(name) || save.name;
   });
   return cloneSave(slots(trailCount)[slotIndex]);
@@ -145,7 +149,10 @@ export function linkSave(slotIndex, trailCount, { playerId, token, name }) {
 
 /** Forgets an online save's expired session; the rider logs in again to get a new one. */
 export function clearSaveToken(slotIndex, trailCount) {
-  updateSave(slotIndex, trailCount, save => { save.token = null; });
+  updateSave(slotIndex, trailCount, save => {
+    if (save.token) save.online = true;
+    save.token = null;
+  });
 }
 
 /**

@@ -198,9 +198,152 @@
           ]
         }
       ]
+    },
+    {
+      "id": "b4i",
+      "material": "glass",
+      "outer": {
+        "id": "b4h",
+        "nodes": [
+          {
+            "id": "n4d",
+            "x": 200,
+            "y": 20.1071,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n4e",
+            "x": 575.1262,
+            "y": 20.3006,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n4f",
+            "x": 575.1965,
+            "y": 34.086,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n4g",
+            "x": 200.0703,
+            "y": 33.8924,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    },
+    {
+      "id": "b4e",
+      "material": "glass",
+      "outer": {
+        "id": "b4d",
+        "nodes": [
+          {
+            "id": "n49",
+            "x": 1553.166,
+            "y": 0,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n4a",
+            "x": 1562.0011,
+            "y": 0,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n4b",
+            "x": 1562.0011,
+            "y": 261.266,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n4c",
+            "x": 1553.166,
+            "y": 261.266,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    },
+    {
+      "id": "byd",
+      "material": "glass",
+      "outer": {
+        "id": "bye",
+        "nodes": [
+          {
+            "id": "nyf",
+            "x": 581.2275,
+            "y": 20.5708,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nyg",
+            "x": 956.3536,
+            "y": 20.6273,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nyh",
+            "x": 956.4241,
+            "y": 36.2399,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nyi",
+            "x": 581.2977,
+            "y": 36.1834,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
     }
   ],
-  "apples": [],
+  "apples": [
+    {
+      "x": 189.56133963972627,
+      "y": 267.82184731328
+    }
+  ],
   "props": [
     {
       "x": 1057.9994697250168,
@@ -269,7 +412,14 @@
       "layer": "back"
     }
   ],
-  "spikes": [],
+  "spikes": [
+    {
+      "x": -38.35012899661717,
+      "y": 263.5758389070432,
+      "radius": 18,
+      "spin": 1
+    }
+  ],
   "water": [
     {
       "x": 420.40193576252335,
@@ -296,5 +446,6 @@
   },
   "fallY": 620,
   "finishY": 156.40731334060365,
-  "timeOfDay": "noon"
+  "timeOfDay": "noon",
+  "author": "Julben"
 }

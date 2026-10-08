@@ -403,7 +403,16 @@ h2 {
     color: #ffd0bd;
 }
 
+.modal .results-credit {
+    margin: -6px 0 0;
+    color: var(--color-accent);
+    font-size: 9px;
+    font-weight: 850;
+    letter-spacing: 1.5px;
+    overflow-wrap: anywhere;
+}
 .results[hidden],
+.results-credit[hidden],
 .results-hint[hidden] {
     display: none;
 }
@@ -1838,6 +1847,16 @@ kbd {
 .account-login small {
     color: var(--color-text-muted);
     font-size: 9px;
+}
+/* Returning riders log in here before the new-rider form. */
+.account-login-top {
+    margin: 0 0 14px;
+    padding: 0 0 12px;
+    border-top: 0;
+    border-bottom: 1px solid var(--color-border);
+}
+#save-login-status {
+    margin: -6px 0 14px;
 }
 .save-slot-row.has-link .save-slot {
     padding-right: 150px;

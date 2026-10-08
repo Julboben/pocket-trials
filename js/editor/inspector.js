@@ -8,7 +8,8 @@ import {
   setBoundaryEdge,
   setNodeMode,
 } from "../terrain-geometry.js";
-import { SPIKE_RADIUS, validateTrail } from "../trail-schema.js";
+import { SPIKE_RADIUS, normalizeAuthor, validateTrail } from "../trail-schema.js";
+import { store } from "../local-store.js";
 import {
   blocks,
   boundariesOf,
@@ -129,6 +130,10 @@ const BLOCK_KINDS = [
 export function syncInspector({ live = false } = {}) {
   syncTerrain();
   $("trail-name").value = editor.trail.name;
+  $("trail-author").value = editor.trail.author || "";
+  // Don't overwrite notes the author is typing.
+  if (document.activeElement !== $("trail-description"))
+    $("trail-description").value = editor.trail.description || "";
   $("goal-x").value = Math.round(editor.trail.goal);
   $("fall-y").value = Math.round(editor.trail.fallY);
   $("time-of-day").value = editor.trail.timeOfDay || "noon";
@@ -354,6 +359,25 @@ function showWeatherValue(key) {
   $(`weather-${key}-value`).textContent = `${Math.round(value * 100)}%`;
 }
 
+const AUTHOR_KEY = "hjulben-editor-author";
+
+/** The author last typed in, so new trails are credited to them too. */
+export function rememberedAuthor() {
+  try {
+    return normalizeAuthor(store().getItem(AUTHOR_KEY) || "");
+  } catch (_) {
+    return "";
+  }
+}
+
+function rememberAuthor(author) {
+  try {
+    if (author) store().setItem(AUTHOR_KEY, author);
+  } catch (_) {
+    // Storage can be full or blocked; the trail still keeps its author.
+  }
+}
+
 /** Give the trail a new name, as one undoable edit. */
 export function renameTrail(name) {
   name = String(name).trim();
@@ -383,6 +407,17 @@ let propTextPending = false;
 
 export function bindInspector() {
   bindTrailInput("trail-name", setTrailName);
+
+  bindTrailInput("trail-author", (value) => {
+    const author = normalizeAuthor(value);
+    if (author) editor.trail.author = author;
+    else delete editor.trail.author;
+    rememberAuthor(author);
+  });
+
+  bindTrailInput("trail-description", (value) => {
+    editor.trail.description = value;
+  });
 
   bindTrailInput("goal-x", (value) => {
     editor.trail.goal = Number(value);
