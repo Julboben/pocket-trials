@@ -3,6 +3,8 @@ import { STEP, MAX_POINT_SPEED, RADIUS, TAU, clamp } from './config.js';
 /** Overall gearing per gear: engine revs (0 idle … 1 redline) per unit of speed. */
 const GEAR_RATIOS = [3.2, 2.3, 1.75, 1.35, 1];
 const UPSHIFT_REVS = .9, DOWNSHIFT_REVS = .42;
+/** Highest revs (0 … 1) the engine reaches with the driven wheel off the ground. */
+const FREE_REV_CEILING = .86;
 
 /**
  * One cycle of exhaust pressure: a sharp spike as the port opens, the
@@ -280,20 +282,24 @@ export function createAudio(getSnapshot) {
       }
     }
     // With the wheel loaded the clutch only lets the revs flare a little above
-    // the wheel; with nothing to push against the engine spins straight up.
-    // Off the gas the rider coasts on the clutch and the engine settles to idle.
+    // the wheel. With nothing to push against the engine spins up on its own,
+    // slowed by the wheel's weight, and a rider eases off short of the top
+    // rather than holding it flat out. Off the gas the rider coasts on the
+    // clutch and the engine settles to idle.
     const engaged = clamp(throttle * 4, 0, 1);
-    const flare = free ? 1 : motor.gear === 0 ? .55 : .25;
-    const target = clamp(Math.max(wheelRevs() * engaged, throttle * flare, startRevs), 0, 1) * (1 - stall);
-    const rise = (free ? 10 : 5) + throttle * 8;
+    const flare = free ? FREE_REV_CEILING : motor.gear === 0 ? .55 : .25;
+    const wheel = free ? Math.min(wheelRevs(), FREE_REV_CEILING) : wheelRevs();
+    const target = clamp(Math.max(wheel * engaged, throttle * flare, startRevs), 0, 1) * (1 - stall);
+    const rise = free ? 3.5 + throttle * 2 : 5 + throttle * 8;
     motor.revs += (target - motor.revs) * (1 - Math.exp(-dt * (target > motor.revs ? rise : 9)));
     const revs = motor.revs;
 
-    // Holding the gas at the top bounces the engine off its rev limiter.
-    const redline = throttle * clamp((revs - .95) / .05, 0, 1);
-    const limiterCut = redline * (Math.sin(time * TAU * 13) > .45 ? .6 : 0);
+    // Holding top speed on the ground taps the rev limiter now and then. In
+    // the air the engine is unloaded: it screams thinner instead of barking.
+    const redline = free ? 0 : throttle * clamp((revs - .95) / .05, 0, 1);
+    const limiterCut = redline * (Math.sin(time * TAU * 9) > .7 ? .35 : 0);
     const cut = Math.max(time < motor.shiftCutUntil ? 1 : 0, limiterCut);
-    const load = Math.max(throttle, clamp(startRevs * 1.6, 0, 1)) * (1 - cut);
+    const load = Math.max(throttle * (free ? .6 : 1), clamp(startRevs * 1.6, 0, 1)) * (1 - cut);
 
     // Snapping the gas shut from high revs crackles and pops in the pipe.
     const easing = throttle < motor.lastThrottle;
