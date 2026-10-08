@@ -45,7 +45,7 @@ The world uses Canvas coordinates:
 - `y` increases downward.
 - A smaller `y` value therefore means higher terrain.
 - Distances are expressed in world-space pixels.
-- There is no height limit. `y` may go as far negative as you like, and the camera follows the rider all the way up. Downward, the camera stops a little below `fallY`.
+- There is no height limit. `y` may go as far negative as you like, and the camera follows the rider all the way up. Downward, the camera stops a little below the fall line (see below).
 - With the default start at `x = 90`, the bike's wheels begin near `x = 65` and `x = 115`.
 
 ## Complete example
@@ -54,8 +54,8 @@ The world uses Canvas coordinates:
 {
   name: 'Example Trail',
   label: 'EXAMPLE TRAIL / 08',
-  goal: 1800,
   start: { x: 90, y: null, facing: 1 },
+  finish: { x: 1800, y: null },
 
   terrainBlocks: [
     {
@@ -110,9 +110,7 @@ The world uses Canvas coordinates:
     clouds: 0.9,
     rain: 0.5,
     lightning: 0.35
-  },
-
-  fallY: 800
+  }
 }
 ```
 
@@ -153,7 +151,7 @@ Blocks are drawn and collide in list order, and later blocks win where they over
 
 Authoring guidelines:
 
-- **Ground**: one wide block whose top edge is the route and whose bottom sits well below it. Keep the opening section relatively flat so both wheels spawn safely, and keep terrain beyond `goal`.
+- **Ground**: one wide block whose top edge is the route and whose bottom sits well below it. Keep the opening section relatively flat so both wheels spawn safely, and keep terrain beyond the finish.
 - **Slopes**: broad curved edges ride well. Spans of `140–190` units per hill are forgiving; short spans with large height changes create abrupt geometry.
 - **Gaps**: a break between two blocks. The walls either side are solid, so a rider who falls in can hit the cliff face. Start around `80–100` units wide for introductory jumps; wider gaps need a clear launch ramp and a landing below the takeoff height.
 - **Ledges and islands**: a separate block above the ground. Leave at least one wheel diameter between it and the ground, and more when the rider is expected to pass underneath.
@@ -190,9 +188,13 @@ start: { x: 90, y: null, facing: 1 }
 
 The editor's **Start** tool places an explicit start position. Select the start marker to move it or change its facing in the inspector. A trail always has one start, so it cannot be deleted.
 
-## Finish: `goal`
+## Finish: `finish`
 
-The finish is a flower at (goal, finishY), floating 22 units above that point. finishY: null means it stands on the surface below. The run ends when the bike or rider touches the flower, from any side, once every apple is collected. The finish may be left or right of the start.
+```js
+finish: { x: 1800, y: null }
+```
+
+Like the start, the finish is a point. It is a flower at (`x`, `y`), floating 22 units above that point; `y: null` means it stands on the surface below. Place it with the editor's **Finish** tool, or select it and drag it. The run ends when the bike or rider touches the flower, from any side, once every apple is collected. The finish may be left or right of the start.
 
 ## Terrain materials
 
@@ -372,7 +374,7 @@ Sign text wraps at word boundaries onto up to 4 lines of 10 characters, and the 
 
 ## Other fields
 
-- `fallY`: vertical position at which the bike is considered lost. Increase it for deep gaps or trails that descend far. It also sets how low the camera can look.
+- The fall line, where the bike is considered lost, is not set by the trail: it is worked out as 200 units below the lowest solid terrain, so it follows the trail however deep it goes. It also sets how low the camera can look.
 - `description`: design notes for the trail. It is not shown during gameplay; the editor lists it as **Notes**.
 - `author`: optional credit for whoever made the trail, up to 40 characters on one line. The trail menu, the Hall of Fame and the results screen show it as "BY …" / "TRAIL BY …". It does not change the trail's hash, so adding or editing credit keeps its times. The editor remembers the last author you typed and fills it in on new trails.
 
@@ -428,7 +430,7 @@ That would let apples and props follow a block automatically after its shape cha
 Schema, normalization and validation rules (the code is authoritative if it disagrees with the spec).
 
 ```js
-import { terrainAt, terrainGeometry } from "./terrain.js";
+import { fallLine, terrainAt, terrainGeometry } from "./terrain.js";
 import { hypot } from "./det-math.js";
 import {
   signLines,
@@ -526,7 +528,7 @@ export function createBlankTrail(index = 0) {
   return {
     name: "New Trail",
     label: `NEW TRAIL / ${number}`,
-    goal: 1200,
+    finish: { x: 1200, y: null },
     description: "",
     start: { x: 90, y: null, facing: 1 },
     terrainBlocks: createBlankTerrainBlocks(),
@@ -541,7 +543,6 @@ export function createBlankTrail(index = 0) {
     spikes: [],
     water: [],
     weather: { sun: 1, clouds: 0.2 },
-    fallY: 620,
   };
 }
 
@@ -565,7 +566,7 @@ function allTrailBlocks(trail) {
 /**
  * Where the finish stands, in world units.
  *
- * A finish is a point, not just an x. `trail.finishY` holds an explicit height
+ * Like the start, a finish is a point: `trail.finish.y` holds an explicit height
  * once the author has placed it somewhere other than the ground, and null means
  * "stand on whatever surface is here". That is what lets a finish sit on a
  * floating block, or high above a cave, instead of being pinned to the ground.
@@ -574,15 +575,15 @@ function allTrailBlocks(trail) {
  * when the bike touches it, wherever the bike comes from.
  */
 export function finishHeight(trail) {
-  if (Number.isFinite(trail?.finishY)) return trail.finishY;
+  if (Number.isFinite(trail?.finish?.y)) return trail.finish.y;
   return (
-    surfaceBelow(trail, trail?.goal ?? 0, null)?.y ?? (trail?.fallY || 620)
+    surfaceBelow(trail, trail?.finish?.x ?? 0, null)?.y ?? fallLine(trail)
   );
 }
 
 /** The centre of the finish flower, which is what the bike has to touch. */
 export function finishFlower(trail) {
-  return { x: trail.goal, y: finishHeight(trail) - FINISH_FLOWER_LIFT };
+  return { x: trail.finish.x, y: finishHeight(trail) - FINISH_FLOWER_LIFT };
 }
 
 /**
@@ -598,7 +599,7 @@ export function surfaceBelow(trail, x, referenceY = null) {
 /** A surface's height at an x, falling back to the trail's kill plane. */
 function groundHeight(trail, x) {
   const surface = surfaceBelow(trail, x, null);
-  return surface ? surface.y : trail.fallY || 620;
+  return surface ? surface.y : fallLine(trail);
 }
 
 export const SPIKE_RADIUS = { min: 8, max: 64, default: 18 };
@@ -628,6 +629,11 @@ export function normalizeAuthor(author) {
     : "";
 }
 
+// A null y means "on the surface below". The null check has to come first:
+// Number(null) is 0, which would silently pin the point to the top of the world.
+const optionalY = (y) =>
+  y === null || y === undefined || !Number.isFinite(Number(y)) ? null : Number(y);
+
 export function normalizeTrail(input, index = 0) {
   const fallback = createBlankTrail(index);
   const trail = { ...fallback, ...cloneTrail(input || {}) };
@@ -642,18 +648,14 @@ export function normalizeTrail(input, index = 0) {
   else delete trail.author;
   trail.description =
     typeof trail.description === "string" ? trail.description : "";
-  trail.goal = Number(trail.goal) || fallback.goal;
-  // The finish is a point. A null finishY means it stands on the surface below,
-  // which is what a plain ground finish wants; a number pins it in the air.
-  // The null check has to come first: Number(null) is 0, which would silently
-  // pin every ground finish to the top of the world.
-  trail.finishY =
-    trail.finishY === null || trail.finishY === undefined
-      ? null
-      : Number.isFinite(Number(trail.finishY))
-        ? Number(trail.finishY)
-        : null;
-  trail.fallY = Number(trail.fallY) || fallback.fallY;
+  // The finish is a point, like the start. A null y means it stands on the
+  // surface below, which is what a plain ground finish wants; a number pins it
+  // in the air.
+  const finish = trail.finish || fallback.finish;
+  trail.finish = {
+    x: Number(finish.x) || fallback.finish.x,
+    y: optionalY(finish.y),
+  };
   // Terrain comes from the input only: a trail without blocks has no terrain,
   // which validation reports, rather than silently getting the blank slab.
   trail.terrainBlocks =
@@ -661,12 +663,7 @@ export function normalizeTrail(input, index = 0) {
   const start = trail.start || fallback.start;
   trail.start = {
     x: Number(start.x) || 90,
-    y:
-      start.y === null || start.y === undefined
-        ? null
-        : Number.isFinite(Number(start.y))
-          ? Number(start.y)
-          : null,
+    y: optionalY(start.y),
     facing: Number(start.facing) < 0 ? -1 : 1,
   };
   trail.apples = Array.isArray(trail.apples)
@@ -847,15 +844,15 @@ export function validateTrail(trail) {
   // A finish off the end of the terrain is already reported by the range check
   // below, so the "no terrain under it" check must not repeat the same problem.
   let finishOffTerrain = false;
-  if (Number.isFinite(firstX) && trail.goal <= firstX) {
+  if (Number.isFinite(firstX) && trail.finish.x <= firstX) {
     finishOffTerrain = true;
     error(
-      `The finish at x ${Math.round(trail.goal)} is before the start of the terrain (x ${Math.round(firstX)}). Move it onto the trail, or extend the blocks.`,
+      `The finish at x ${Math.round(trail.finish.x)} is before the start of the terrain (x ${Math.round(firstX)}). Move it onto the trail, or extend the blocks.`,
     );
-  } else if (Number.isFinite(finalX) && trail.goal >= finalX) {
+  } else if (Number.isFinite(finalX) && trail.finish.x >= finalX) {
     finishOffTerrain = true;
     error(
-      `The finish at x ${Math.round(trail.goal)} is past the end of the terrain (x ${Math.round(finalX)}). Move it onto the trail, or extend the blocks.`,
+      `The finish at x ${Math.round(trail.finish.x)} is past the end of the terrain (x ${Math.round(finalX)}). Move it onto the trail, or extend the blocks.`,
     );
   }
   if (Number.isFinite(trail.start?.x) && startTouchesFinish(trail)) {
@@ -865,6 +862,14 @@ export function validateTrail(trail) {
   }
   if (!Number.isFinite(trail.start?.x))
     error("The trail needs a valid start position.");
+  else if (compiled && Number.isFinite(trail.start?.y) && trail.start.y >= fallLine(trail))
+    error(
+      `The start (y ${Math.round(trail.start.y)}) is below all the terrain, so the bike is lost at once. Move it onto the trail.`,
+    );
+  if (compiled && Number.isFinite(trail.finish.y) && trail.finish.y >= fallLine(trail))
+    error(
+      `The finish (y ${Math.round(trail.finish.y)}) is below all the terrain, so it can never be reached. Move it onto the trail.`,
+    );
   for (const [index, prop] of (trail.props || []).entries()) {
     if (
       ![
@@ -1030,8 +1035,8 @@ export function validateTrail(trail) {
     }
     if (
       !finishOffTerrain &&
-      !Number.isFinite(trail.finishY) &&
-      noGround(trail.goal)
+      !Number.isFinite(trail.finish.y) &&
+      noGround(trail.finish.x)
     )
       error(
         "The ground-anchored finish has no terrain under it. Drag it onto a block, or lift it into the air.",
@@ -1148,12 +1153,15 @@ Example trail: easy.
 {
   "name": "The Orchard",
   "label": "THE ORCHARD / 01",
-  "goal": 2109.276035710421,
   "description": "Learn the rhythm: build speed on gentle rollers, lean forward on climbs, and settle the bike before each landing.",
   "start": {
     "x": 271.93445286745373,
     "y": 303.45703530867854,
     "facing": 1
+  },
+  "finish": {
+    "x": 2109.276035710421,
+    "y": 290.1897147270387
   },
   "terrainBlocks": [
     {
@@ -1987,13 +1995,11 @@ Example trail: easy.
     "sun": 0.7,
     "clouds": 0.15
   },
-  "fallY": 620,
   "medals": {
     "gold": 11,
     "silver": 14.5,
     "bronze": 19
   },
-  "finishY": 290.1897147270387,
   "timeOfDay": "noon"
 }
 ```
@@ -2008,12 +2014,15 @@ Example trail: medium.
 {
   "name": "Skybound",
   "label": "SKYBOUND / 06",
-  "goal": 3244.3685535694976,
   "description": "Commit to the jumps. Build speed before each lip, stay calm in the air, and line both wheels up with the far-side slope.",
   "start": {
     "x": 126.00276453217202,
     "y": 262.99729187990346,
     "facing": 1
+  },
+  "finish": {
+    "x": 3244.3685535694976,
+    "y": 131.62977237070947
   },
   "terrainBlocks": [
     {
@@ -3860,13 +3869,11 @@ Example trail: medium.
     "sun": 0.85,
     "clouds": 0.24
   },
-  "fallY": 560,
   "medals": {
     "gold": 14.5,
     "silver": 19,
     "bronze": 25
   },
-  "finishY": 131.62977237070947,
   "timeOfDay": "noon",
   "backdrop": "desert"
 }
@@ -3882,12 +3889,15 @@ Example trail: advanced.
 {
   "name": "Elastic Summit",
   "label": "ELASTIC SUMMIT / 09",
-  "goal": 4080,
   "description": "The final exam: rolling speed, precise braking, steep climbs, controlled airtime, and enough patience to finish in one piece.",
   "start": {
     "x": 90,
     "y": null,
     "facing": 1
+  },
+  "finish": {
+    "x": 4080,
+    "y": null
   },
   "terrainBlocks": [
     {
@@ -5549,8 +5559,6 @@ Example trail: advanced.
     "lightning": 0.65,
     "fog": 0.2
   },
-  "fallY": 570,
-  "finishY": null,
   "timeOfDay": "night"
 }
 ```

@@ -13,7 +13,7 @@ function paneTrail(width, thickness) {
   return blockTrail([
     rectangle(0, GROUND, 1400, GROUND + 200, 'grass', 'ground'),
     rectangle(400 - width / 2, PANE_TOP, 400 + width / 2, PANE_TOP + thickness, 'glass', 'pane'),
-  ], { goal: 1300, start: { x: 400, y: null, facing: 1 } });
+  ], { finish: { x: 1300, y: null }, start: { x: 400, y: null, facing: 1 } });
 }
 
 // Drop height in units for a given landing speed.
@@ -58,7 +58,7 @@ const wheelsBelowPane = current => current.rear.y > PANE_TOP + 20 && current.fro
   const angle = -20 * Math.PI / 180, c = Math.cos(angle), s = Math.sin(angle);
   const outline = [[0, 0], [120, 0], [120, 7], [0, 7]].map(([x, y]) => [x * c - y * s, x * s + y * c]);
   const trail = blockTrail([rectangle(0, GROUND, 1400, GROUND + 200, 'grass', 'ground'), pane(outline)],
-    { goal: 1300, start: { x: 400, y: null, facing: 1 } });
+    { finish: { x: 1300, y: null }, start: { x: 400, y: null, facing: 1 } });
   const current = createRide(trail, { start: { x: 400, y: PANE_TOP - 140, facing: 1 } });
   const events = [];
   for (let step = 0; step < 2 / STEP; step++) events.push(...stepRide(current, {}));
@@ -171,7 +171,7 @@ const wheelsBelowPane = current => current.rear.y > PANE_TOP + 20 && current.fro
     rectangle(0, PANE_TOP, 400, GROUND, 'grass', 'left'),
     rectangle(400, PANE_TOP, 700, PANE_TOP + 8, 'glass', 'bridge'),
     rectangle(700, PANE_TOP, 1400, GROUND, 'grass', 'right'),
-  ], { goal: 1300, fallY: 900, start: { x: 150, y: null, facing: 1 } });
+  ], { finish: { x: 1300, y: null }, start: { x: 150, y: null, facing: 1 } });
   const current = createRide(trail);
   const events = [];
   for (let step = 0; step < 5 / STEP && current.status === 'running'; step++)
@@ -186,7 +186,7 @@ const wheelsBelowPane = current => current.rear.y > PANE_TOP + 20 && current.fro
   const wallTrail = startX => blockTrail([
     rectangle(0, GROUND, 1400, GROUND + 200, 'grass', 'ground'),
     rectangle(700, 300, 708, GROUND, 'glass', 'wall'),
-  ], { goal: 1300, start: { x: startX, y: null, facing: 1 } });
+  ], { finish: { x: 1300, y: null }, start: { x: startX, y: null, facing: 1 } });
   const rideInto = (startX, input) => {
     const current = createRide(wallTrail(startX));
     const events = [];

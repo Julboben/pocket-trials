@@ -1,12 +1,15 @@
 {
   "name": "Glass Demo",
   "label": "GLASS DEMO",
-  "goal": 2060,
   "description": "Thin glass cracks and breaks, thick glass holds.",
   "start": {
     "x": 90,
     "y": 288,
     "facing": 1
+  },
+  "finish": {
+    "x": 2060,
+    "y": null
   },
   "terrainBlocks": [
     {
@@ -572,7 +575,5 @@
     "sun": 0.65,
     "clouds": 0.25
   },
-  "fallY": 700,
-  "finishY": null,
   "timeOfDay": "noon"
 }

@@ -20,9 +20,7 @@
  * @property {string} [description] design notes; not shown during gameplay
  * @property {object[]} terrainBlocks terrain; see terrain-geometry.js. Blocks with `layer: "back"` are back walls: scenery that keeps caves dark and never collides
  * @property {{ x: number, y?: number | null, facing: 1 | -1 }} start
- * @property {number} goal x coordinate of the finish flower, which may be on either side of the start
- * @property {number | null} [finishY] height the finish stands at; null means on the surface below it
- * @property {number} [fallY]
+ * @property {{ x: number, y?: number | null }} finish where the finish flower stands, on either side of the start; a null y means on the surface below it
  * @property {{ x: number, y?: number | null }[]} apples
  * @property {Array<Partial<Spike>>} [spikes]
  * @property {Array<Partial<Water>>} [water]

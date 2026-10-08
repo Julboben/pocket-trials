@@ -49,7 +49,7 @@ function target(ride) {
     if (apple.taken) continue;
     if (!best || Math.abs(apple.x - mx) < Math.abs(best.x - mx)) best = apple;
   }
-  return best || { x: ride.trail.goal + 40, y: terrainAt(ride.trail, ride.trail.goal).y - 30 };
+  return best || { x: ride.trail.finish.x + 40, y: terrainAt(ride.trail, ride.trail.finish.x).y - 30 };
 }
 
 function score(ride, goalTarget, crashedAt) {

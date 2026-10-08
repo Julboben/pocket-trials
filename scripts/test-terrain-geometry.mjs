@@ -121,8 +121,8 @@ check("hole outside its region is rejected", validateBlock({
   ],
 }).some(m => m.type === "error"));
 const blockTrail = blocks => normalizeTrail({
-  version: 2, name: "Buried", start: { x: 0, y: -40 }, goal: 60, finishY: -40,
-  fallY: 1000, apples: [], terrainBlocks: blocks,
+  version: 2, name: "Buried", start: { x: 0, y: -40 }, finish: { x: 60, y: -40 },
+  apples: [], terrainBlocks: blocks,
 });
 const buriedWarnings = blocks => validateTrail(blockTrail(blocks)).filter(m => /buried/.test(m.text));
 check("a block inside a later block is buried", /^Block 1 /.test(buriedWarnings([square, rectangleBlock(-20, -20, 120, 120)])[0]?.text || ""));

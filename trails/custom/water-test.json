@@ -1,12 +1,15 @@
 {
   "name": "Water test",
   "label": "WATER TEST / 13",
-  "goal": 2219.4391539915796,
   "description": "",
   "start": {
     "x": 90,
     "y": null,
     "facing": 1
+  },
+  "finish": {
+    "x": 2219.4391539915796,
+    "y": 156.40731334060365
   },
   "terrainBlocks": [
     {
@@ -444,8 +447,6 @@
     "sun": 0.6,
     "clouds": 0.2
   },
-  "fallY": 620,
-  "finishY": 156.40731334060365,
   "timeOfDay": "noon",
   "author": "Julben"
 }

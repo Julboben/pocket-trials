@@ -8,7 +8,7 @@ import {
 import { FINISH_FLOWER_RADIUS } from "../finish.js";
 import { SPIKE_TIP } from "../spike.js";
 import { store } from "../local-store.js";
-import { invalidateTerrain, terrainGeometry } from "../terrain.js";
+import { fallLine, invalidateTerrain, terrainGeometry } from "../terrain.js";
 import { terrainColumnSpans } from "../terrain-runtime.js";
 import { finishFlower, finishHeight, surfaceBelow } from "../trail-schema.js";
 import { terrainMaterials } from "../trails.js";
@@ -52,7 +52,6 @@ export function syncTerrain() {
     for (let index = 0; index < value.length; index++)
       mix(value.charCodeAt(index));
   };
-  mix(editor.trail.fallY || 0);
   for (const block of blocks()) {
     text(String(block.material));
     text(block.layer || "");
@@ -102,8 +101,8 @@ function groundAnchoredObjects() {
   };
   if (trail.start && !Number.isFinite(trail.start.y))
     add(trail.start.x, (y) => (trail.start.y = y - 12));
-  if (!Number.isFinite(trail.finishY))
-    add(trail.goal, (y) => (trail.finishY = y));
+  if (!Number.isFinite(trail.finish.y))
+    add(trail.finish.x, (y) => (trail.finish.y = y));
   for (const prop of trail.props || [])
     if (!Number.isFinite(prop.y)) add(prop.x, (y) => (prop.y = y));
   for (const apple of trail.apples || [])
@@ -299,7 +298,7 @@ export function objectY(object, offset = 0) {
 /** The ground height at an x: the topmost surface at or below `referenceY`. */
 export function groundY(x, referenceY = null) {
   const surface = surfaceBelow(editor.trail, x, referenceY);
-  return surface ? surface.y : editor.trail.fallY || 620;
+  return surface ? surface.y : fallLine(editor.trail);
 }
 
 /**
@@ -388,8 +387,8 @@ function drawObjects() {
   drawSpikes();
   for (const apple of editor.trail.apples)
     art.drawApple(apple.x, objectY(apple, 60));
-  art.drawFlag(editor.trail.goal, finishY(), true, 0);
-  if (editor.selection?.kind === "goal") {
+  art.drawFlag(editor.trail.finish.x, finishY(), true, 0);
+  if (editor.selection?.kind === "finish") {
     // The petals the bike has to touch.
     const flower = finishFlower(editor.trail);
     ctx.beginPath();
@@ -530,7 +529,7 @@ function drawHandles() {
     ? editor.trail.start.y
     : groundY(editor.trail.start.x) - 12;
   drawHandle(editor.trail.start.x, startY, isSelected("start"), "#c6dfa9");
-  drawHandle(editor.trail.goal, finishY(), isSelected("goal"), "#c6dfa9");
+  drawHandle(editor.trail.finish.x, finishY(), isSelected("finish"), "#c6dfa9");
 }
 
 let viewOnly = false;

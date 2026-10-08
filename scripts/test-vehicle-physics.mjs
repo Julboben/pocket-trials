@@ -39,8 +39,7 @@ function bandBlock(points, thickness, id = 'band') {
   return polygonBlock([...offset(1), ...offset(-1).reverse()], 'grass', id);
 }
 const groundTrail = (points, extra = {}) => ({
-  name: 'test', fallY: Math.max(...points.map(point => point[1])) + 500,
-  terrainBlocks: [groundBlock(points)], ...extra
+  name: 'test', terrainBlocks: [groundBlock(points)], ...extra
 });
 const flatTrail = (y = 320) => groundTrail([[0, y], [1400, y]]);
 
@@ -174,7 +173,7 @@ function brakingScenario(braking) {
 function brakeHoldScenario() {
   const creepOn = degrees => {
     const drop = Math.tan(degrees * Math.PI / 180) * 1200;
-    const trail = groundTrail([[0, 320], [1400, 320 + drop]], { fallY: 320 + drop + 500 });
+    const trail = groundTrail([[0, 320], [1400, 320 + drop]]);
     const simulation = createSimulation(trail, { x: 400 });
     run(simulation, 240, { brake: true });
     const startX = vehicleMetrics(simulation.vehicle).center.x;

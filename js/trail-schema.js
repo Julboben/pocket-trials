@@ -1,4 +1,4 @@
-import { terrainAt, terrainGeometry } from "./terrain.js";
+import { fallLine, terrainAt, terrainGeometry } from "./terrain.js";
 import { hypot } from "./det-math.js";
 import {
   signLines,
@@ -96,7 +96,7 @@ export function createBlankTrail(index = 0) {
   return {
     name: "New Trail",
     label: `NEW TRAIL / ${number}`,
-    goal: 1200,
+    finish: { x: 1200, y: null },
     description: "",
     start: { x: 90, y: null, facing: 1 },
     terrainBlocks: createBlankTerrainBlocks(),
@@ -111,7 +111,6 @@ export function createBlankTrail(index = 0) {
     spikes: [],
     water: [],
     weather: { sun: 1, clouds: 0.2 },
-    fallY: 620,
   };
 }
 
@@ -135,7 +134,7 @@ function allTrailBlocks(trail) {
 /**
  * Where the finish stands, in world units.
  *
- * A finish is a point, not just an x. `trail.finishY` holds an explicit height
+ * Like the start, a finish is a point: `trail.finish.y` holds an explicit height
  * once the author has placed it somewhere other than the ground, and null means
  * "stand on whatever surface is here". That is what lets a finish sit on a
  * floating block, or high above a cave, instead of being pinned to the ground.
@@ -144,15 +143,15 @@ function allTrailBlocks(trail) {
  * when the bike touches it, wherever the bike comes from.
  */
 export function finishHeight(trail) {
-  if (Number.isFinite(trail?.finishY)) return trail.finishY;
+  if (Number.isFinite(trail?.finish?.y)) return trail.finish.y;
   return (
-    surfaceBelow(trail, trail?.goal ?? 0, null)?.y ?? (trail?.fallY || 620)
+    surfaceBelow(trail, trail?.finish?.x ?? 0, null)?.y ?? fallLine(trail)
   );
 }
 
 /** The centre of the finish flower, which is what the bike has to touch. */
 export function finishFlower(trail) {
-  return { x: trail.goal, y: finishHeight(trail) - FINISH_FLOWER_LIFT };
+  return { x: trail.finish.x, y: finishHeight(trail) - FINISH_FLOWER_LIFT };
 }
 
 /**
@@ -168,7 +167,7 @@ export function surfaceBelow(trail, x, referenceY = null) {
 /** A surface's height at an x, falling back to the trail's kill plane. */
 function groundHeight(trail, x) {
   const surface = surfaceBelow(trail, x, null);
-  return surface ? surface.y : trail.fallY || 620;
+  return surface ? surface.y : fallLine(trail);
 }
 
 export const SPIKE_RADIUS = { min: 8, max: 64, default: 18 };
@@ -198,6 +197,11 @@ export function normalizeAuthor(author) {
     : "";
 }
 
+// A null y means "on the surface below". The null check has to come first:
+// Number(null) is 0, which would silently pin the point to the top of the world.
+const optionalY = (y) =>
+  y === null || y === undefined || !Number.isFinite(Number(y)) ? null : Number(y);
+
 export function normalizeTrail(input, index = 0) {
   const fallback = createBlankTrail(index);
   const trail = { ...fallback, ...cloneTrail(input || {}) };
@@ -212,18 +216,14 @@ export function normalizeTrail(input, index = 0) {
   else delete trail.author;
   trail.description =
     typeof trail.description === "string" ? trail.description : "";
-  trail.goal = Number(trail.goal) || fallback.goal;
-  // The finish is a point. A null finishY means it stands on the surface below,
-  // which is what a plain ground finish wants; a number pins it in the air.
-  // The null check has to come first: Number(null) is 0, which would silently
-  // pin every ground finish to the top of the world.
-  trail.finishY =
-    trail.finishY === null || trail.finishY === undefined
-      ? null
-      : Number.isFinite(Number(trail.finishY))
-        ? Number(trail.finishY)
-        : null;
-  trail.fallY = Number(trail.fallY) || fallback.fallY;
+  // The finish is a point, like the start. A null y means it stands on the
+  // surface below, which is what a plain ground finish wants; a number pins it
+  // in the air.
+  const finish = trail.finish || fallback.finish;
+  trail.finish = {
+    x: Number(finish.x) || fallback.finish.x,
+    y: optionalY(finish.y),
+  };
   // Terrain comes from the input only: a trail without blocks has no terrain,
   // which validation reports, rather than silently getting the blank slab.
   trail.terrainBlocks =
@@ -231,12 +231,7 @@ export function normalizeTrail(input, index = 0) {
   const start = trail.start || fallback.start;
   trail.start = {
     x: Number(start.x) || 90,
-    y:
-      start.y === null || start.y === undefined
-        ? null
-        : Number.isFinite(Number(start.y))
-          ? Number(start.y)
-          : null,
+    y: optionalY(start.y),
     facing: Number(start.facing) < 0 ? -1 : 1,
   };
   trail.apples = Array.isArray(trail.apples)
@@ -417,15 +412,15 @@ export function validateTrail(trail) {
   // A finish off the end of the terrain is already reported by the range check
   // below, so the "no terrain under it" check must not repeat the same problem.
   let finishOffTerrain = false;
-  if (Number.isFinite(firstX) && trail.goal <= firstX) {
+  if (Number.isFinite(firstX) && trail.finish.x <= firstX) {
     finishOffTerrain = true;
     error(
-      `The finish at x ${Math.round(trail.goal)} is before the start of the terrain (x ${Math.round(firstX)}). Move it onto the trail, or extend the blocks.`,
+      `The finish at x ${Math.round(trail.finish.x)} is before the start of the terrain (x ${Math.round(firstX)}). Move it onto the trail, or extend the blocks.`,
     );
-  } else if (Number.isFinite(finalX) && trail.goal >= finalX) {
+  } else if (Number.isFinite(finalX) && trail.finish.x >= finalX) {
     finishOffTerrain = true;
     error(
-      `The finish at x ${Math.round(trail.goal)} is past the end of the terrain (x ${Math.round(finalX)}). Move it onto the trail, or extend the blocks.`,
+      `The finish at x ${Math.round(trail.finish.x)} is past the end of the terrain (x ${Math.round(finalX)}). Move it onto the trail, or extend the blocks.`,
     );
   }
   if (Number.isFinite(trail.start?.x) && startTouchesFinish(trail)) {
@@ -435,6 +430,14 @@ export function validateTrail(trail) {
   }
   if (!Number.isFinite(trail.start?.x))
     error("The trail needs a valid start position.");
+  else if (compiled && Number.isFinite(trail.start?.y) && trail.start.y >= fallLine(trail))
+    error(
+      `The start (y ${Math.round(trail.start.y)}) is below all the terrain, so the bike is lost at once. Move it onto the trail.`,
+    );
+  if (compiled && Number.isFinite(trail.finish.y) && trail.finish.y >= fallLine(trail))
+    error(
+      `The finish (y ${Math.round(trail.finish.y)}) is below all the terrain, so it can never be reached. Move it onto the trail.`,
+    );
   for (const [index, prop] of (trail.props || []).entries()) {
     if (
       ![
@@ -600,8 +603,8 @@ export function validateTrail(trail) {
     }
     if (
       !finishOffTerrain &&
-      !Number.isFinite(trail.finishY) &&
-      noGround(trail.goal)
+      !Number.isFinite(trail.finish.y) &&
+      noGround(trail.finish.x)
     )
       error(
         "The ground-anchored finish has no terrain under it. Drag it onto a block, or lift it into the air.",

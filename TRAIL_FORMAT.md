@@ -12,7 +12,7 @@ The world uses Canvas coordinates:
 - `y` increases downward.
 - A smaller `y` value therefore means higher terrain.
 - Distances are expressed in world-space pixels.
-- There is no height limit. `y` may go as far negative as you like, and the camera follows the rider all the way up. Downward, the camera stops a little below `fallY`.
+- There is no height limit. `y` may go as far negative as you like, and the camera follows the rider all the way up. Downward, the camera stops a little below the fall line (see below).
 - With the default start at `x = 90`, the bike's wheels begin near `x = 65` and `x = 115`.
 
 ## Complete example
@@ -21,8 +21,8 @@ The world uses Canvas coordinates:
 {
   name: 'Example Trail',
   label: 'EXAMPLE TRAIL / 08',
-  goal: 1800,
   start: { x: 90, y: null, facing: 1 },
+  finish: { x: 1800, y: null },
 
   terrainBlocks: [
     {
@@ -77,9 +77,7 @@ The world uses Canvas coordinates:
     clouds: 0.9,
     rain: 0.5,
     lightning: 0.35
-  },
-
-  fallY: 800
+  }
 }
 ```
 
@@ -120,7 +118,7 @@ Blocks are drawn and collide in list order, and later blocks win where they over
 
 Authoring guidelines:
 
-- **Ground**: one wide block whose top edge is the route and whose bottom sits well below it. Keep the opening section relatively flat so both wheels spawn safely, and keep terrain beyond `goal`.
+- **Ground**: one wide block whose top edge is the route and whose bottom sits well below it. Keep the opening section relatively flat so both wheels spawn safely, and keep terrain beyond the finish.
 - **Slopes**: broad curved edges ride well. Spans of `140–190` units per hill are forgiving; short spans with large height changes create abrupt geometry.
 - **Gaps**: a break between two blocks. The walls either side are solid, so a rider who falls in can hit the cliff face. Start around `80–100` units wide for introductory jumps; wider gaps need a clear launch ramp and a landing below the takeoff height.
 - **Ledges and islands**: a separate block above the ground. Leave at least one wheel diameter between it and the ground, and more when the rider is expected to pass underneath.
@@ -157,9 +155,13 @@ start: { x: 90, y: null, facing: 1 }
 
 The editor's **Start** tool places an explicit start position. Select the start marker to move it or change its facing in the inspector. A trail always has one start, so it cannot be deleted.
 
-## Finish: `goal`
+## Finish: `finish`
 
-The finish is a flower at (goal, finishY), floating 22 units above that point. finishY: null means it stands on the surface below. The run ends when the bike or rider touches the flower, from any side, once every apple is collected. The finish may be left or right of the start.
+```js
+finish: { x: 1800, y: null }
+```
+
+Like the start, the finish is a point. It is a flower at (`x`, `y`), floating 22 units above that point; `y: null` means it stands on the surface below. Place it with the editor's **Finish** tool, or select it and drag it. The run ends when the bike or rider touches the flower, from any side, once every apple is collected. The finish may be left or right of the start.
 
 ## Terrain materials
 
@@ -339,7 +341,7 @@ Sign text wraps at word boundaries onto up to 4 lines of 10 characters, and the 
 
 ## Other fields
 
-- `fallY`: vertical position at which the bike is considered lost. Increase it for deep gaps or trails that descend far. It also sets how low the camera can look.
+- The fall line, where the bike is considered lost, is not set by the trail: it is worked out as 200 units below the lowest solid terrain, so it follows the trail however deep it goes. It also sets how low the camera can look.
 - `description`: design notes for the trail. It is not shown during gameplay; the editor lists it as **Notes**.
 - `author`: optional credit for whoever made the trail, up to 40 characters on one line. The trail menu, the Hall of Fame and the results screen show it as "BY …" / "TRAIL BY …". It does not change the trail's hash, so adding or editing credit keeps its times. The editor remembers the last author you typed and fills it in on new trails.
 

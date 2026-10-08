@@ -16,6 +16,7 @@ import {
 } from "./config.js";
 import { createVehicle, stepVehicle } from "./vehicle-physics.js";
 import {
+  fallLine,
   terrainAt,
   terrainCollisionsAt,
   terrainSweepCollision,
@@ -467,7 +468,7 @@ function advanceRide(ride, input, hooks, events) {
     crash(ride, "head", head.x, head.y, events);
     return events;
   }
-  if (my > (trail.fallY || 620)) {
+  if (my > fallLine(trail)) {
     crash(ride, "fall", head.x, head.y, events);
     return events;
   }

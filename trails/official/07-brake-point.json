@@ -1,12 +1,15 @@
 {
   "name": "Brake Point",
   "label": "BRAKE POINT / 07",
-  "goal": 3220,
   "description": "Speed alone will not solve this trail. Brake before steep drops, lean back to resist stoppies, and accelerate cleanly out of bowls.",
   "start": {
     "x": 90,
     "y": null,
     "facing": 1
+  },
+  "finish": {
+    "x": 3220,
+    "y": null
   },
   "apples": [
     {
@@ -85,13 +88,11 @@
     "sun": 0.82,
     "clouds": 0.24
   },
-  "fallY": 620,
   "medals": {
     "gold": 18,
     "silver": 23.5,
     "bronze": 31
   },
-  "finishY": null,
   "terrainBlocks": [
     {
       "id": "b1",

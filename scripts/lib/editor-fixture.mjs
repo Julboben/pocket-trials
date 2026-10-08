@@ -11,7 +11,7 @@ const blockNodes = [
 ];
 
 const base = () => ({
-  name: 'Test', goal: 700, fallY: 900,
+  name: 'Test', finish: { x: 700, y: null },
   terrainBlocks: [{
     id: 'b1',
     material: 'grass',
@@ -28,7 +28,7 @@ const base = () => ({
  */
 export function loadTrailShape(kind) {
   const trail = base();
-  if (kind === 'badgoal') Object.assign(trail, { goal: 3000 });
+  if (kind === 'badgoal') Object.assign(trail, { finish: { x: 3000, y: null } });
   if (kind === 'covered') trail.props = [
     { x: 500, y: null, type: 'tree', layer: 'back' },
     { x: 250, y: null, type: 'tree', layer: 'back' },

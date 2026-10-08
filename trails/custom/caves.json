@@ -1,12 +1,15 @@
 {
   "name": "Caves",
   "label": "CAVES / 13",
-  "goal": 80.01326970747712,
   "description": "",
   "start": {
     "x": 1313.3717524680903,
     "y": 284.82159007361787,
     "facing": -1
+  },
+  "finish": {
+    "x": 80.01326970747712,
+    "y": 319.55128055976496
   },
   "terrainBlocks": [
     {
@@ -277,8 +280,6 @@
     "sun": 1,
     "clouds": 0.2
   },
-  "fallY": 620,
-  "finishY": 319.55128055976496,
   "timeOfDay": "night",
   "author": "Julben"
 }

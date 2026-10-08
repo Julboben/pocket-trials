@@ -1,12 +1,15 @@
 {
   "name": "Splinter Ridge",
   "label": "SPLINTER RIDGE / 04",
-  "goal": 3100.1576858626395,
   "description": "Momentum is your friend. Carry speed through valleys, ease over crests, and lean forward when the front wheel gets light.",
   "start": {
     "x": 43.90625,
     "y": 300,
     "facing": 1
+  },
+  "finish": {
+    "x": 3100.1576858626395,
+    "y": 196.54878537336776
   },
   "terrainBlocks": [
     {
@@ -1479,13 +1482,11 @@
     "sun": 0.75,
     "clouds": 0.4
   },
-  "fallY": 620,
   "medals": {
     "gold": 16.5,
     "silver": 21,
     "bronze": 28
   },
-  "finishY": 196.54878537336776,
   "timeOfDay": "noon",
   "backdrop": "forest"
 }

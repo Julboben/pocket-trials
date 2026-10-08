@@ -1,232 +1,16 @@
 {
   "name": "Gravity Fair",
   "label": "GRAVITY FAIR / EXPERT",
-  "goal": 5850,
+  "finish": {
+    "x": 5850,
+    "y": 345
+  },
   "description": "Seven rides, one ticket. 1) WARM-UP ROLLERS: pump the bumps; the last crest pops you into a floating apple. 2) THE CATAPULT: the gap lip sits mid-ramp and acts as a kicker, so grab the air apple and land on the downslope. 3) THE BIG WALL: drop into the bowl and power up the 62-degree wall to the summit apple. If you stall, roll back, flip, use the left wall and pump again. Do not overshoot into the killer above. 4) KILLER STEPPING STONES: hop three small islands over a pit lined with spinning killers, one apple per island. 5) THE CRAWLSPACE: rollers under a low rock ceiling with hanging killers; keep the front down. 6) THE BIG SEND: long run-in to a 40-degree kicker over a 160-unit gap; the air apple is just past the lip. If you miss it, the far edge also kicks leftward: flip and jump back. 7) VICTORY HOP: one last small gap to the flag. Not playtested; jump distances, head clearances and medal times are estimates.",
   "start": {
     "x": 90,
     "y": null,
     "facing": 1
   },
-  "apples": [
-    {
-      "x": 360,
-      "y": null
-    },
-    {
-      "x": 640,
-      "y": null
-    },
-    {
-      "x": 920,
-      "y": 262
-    },
-    {
-      "x": 1350,
-      "y": 245
-    },
-    {
-      "x": 2030,
-      "y": null
-    },
-    {
-      "x": 2340,
-      "y": null
-    },
-    {
-      "x": 2790,
-      "y": 230
-    },
-    {
-      "x": 3040,
-      "y": 242
-    },
-    {
-      "x": 3290,
-      "y": 256
-    },
-    {
-      "x": 3780,
-      "y": 320
-    },
-    {
-      "x": 3940,
-      "y": 350
-    },
-    {
-      "x": 4515,
-      "y": 212
-    },
-    {
-      "x": 5160,
-      "y": null
-    },
-    {
-      "x": 5700,
-      "y": null
-    }
-  ],
-  "props": [
-    {
-      "x": 170,
-      "y": null,
-      "type": "fence",
-      "layer": "back"
-    },
-    {
-      "x": 500,
-      "y": null,
-      "type": "tree",
-      "layer": "back"
-    },
-    {
-      "x": 780,
-      "y": null,
-      "type": "flowers",
-      "layer": "back"
-    },
-    {
-      "x": 1100,
-      "y": null,
-      "type": "rock",
-      "layer": "back"
-    },
-    {
-      "x": 1680,
-      "y": null,
-      "type": "crystal",
-      "layer": "back"
-    },
-    {
-      "x": 2060,
-      "y": null,
-      "type": "stump",
-      "layer": "back"
-    },
-    {
-      "x": 2330,
-      "y": null,
-      "type": "tree",
-      "layer": "back"
-    },
-    {
-      "x": 2790,
-      "y": 288,
-      "type": "flowers",
-      "layer": "back"
-    },
-    {
-      "x": 3040,
-      "y": 300,
-      "type": "flowers",
-      "layer": "back"
-    },
-    {
-      "x": 3290,
-      "y": 314,
-      "type": "flowers",
-      "layer": "back"
-    },
-    {
-      "x": 3480,
-      "y": null,
-      "type": "rock",
-      "layer": "back"
-    },
-    {
-      "x": 4230,
-      "y": null,
-      "type": "fence",
-      "layer": "back"
-    },
-    {
-      "x": 4900,
-      "y": null,
-      "type": "crystal",
-      "layer": "back"
-    },
-    {
-      "x": 5100,
-      "y": null,
-      "type": "tree",
-      "layer": "back"
-    },
-    {
-      "x": 5620,
-      "y": null,
-      "type": "flowers",
-      "layer": "back"
-    },
-    {
-      "x": 5920,
-      "y": null,
-      "type": "fence",
-      "layer": "back"
-    }
-  ],
-  "spikes": [
-    {
-      "x": 2380,
-      "y": 120,
-      "radius": 18,
-      "spin": 0.6
-    },
-    {
-      "x": 2800,
-      "y": 592,
-      "radius": 28,
-      "spin": 1
-    },
-    {
-      "x": 2960,
-      "y": 592,
-      "radius": 28,
-      "spin": -1
-    },
-    {
-      "x": 3120,
-      "y": 592,
-      "radius": 28,
-      "spin": 1
-    },
-    {
-      "x": 3270,
-      "y": 583,
-      "radius": 26,
-      "spin": -1
-    },
-    {
-      "x": 3700,
-      "y": 274,
-      "radius": 14,
-      "spin": 0.8
-    },
-    {
-      "x": 4020,
-      "y": 280,
-      "radius": 14,
-      "spin": -0.8
-    },
-    {
-      "x": 4560,
-      "y": 90,
-      "radius": 20,
-      "spin": 0.7
-    }
-  ],
-  "weather": {
-    "sun": 0.9,
-    "clouds": 0.35,
-    "rain": 0,
-    "lightning": 0
-  },
-  "fallY": 820,
-  "medals": {
-    "gold": 34,
-    "silver": 45,
-    "bronze": 65
-  },
-  "finishY": null,
   "terrainBlocks": [
     {
       "id": "b1",
@@ -2166,5 +1950,215 @@
       "inner": []
     }
   ],
+  "apples": [
+    {
+      "x": 360,
+      "y": 310
+    },
+    {
+      "x": 640,
+      "y": 295
+    },
+    {
+      "x": 920,
+      "y": 292
+    },
+    {
+      "x": 1390,
+      "y": 255
+    },
+    {
+      "x": 2030,
+      "y": 520
+    },
+    {
+      "x": 2790,
+      "y": 240
+    },
+    {
+      "x": 3040,
+      "y": 252
+    },
+    {
+      "x": 3290,
+      "y": 266
+    },
+    {
+      "x": 3860,
+      "y": 350
+    },
+    {
+      "x": 4515,
+      "y": 212
+    },
+    {
+      "x": 5160,
+      "y": 320
+    },
+    {
+      "x": 5700,
+      "y": 327.42866597769256
+    }
+  ],
+  "props": [
+    {
+      "x": 170,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 500,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 780,
+      "y": null,
+      "type": "flowers",
+      "layer": "back"
+    },
+    {
+      "x": 1100,
+      "y": null,
+      "type": "rock",
+      "layer": "back"
+    },
+    {
+      "x": 1680,
+      "y": null,
+      "type": "crystal",
+      "layer": "back"
+    },
+    {
+      "x": 2060,
+      "y": null,
+      "type": "stump",
+      "layer": "back"
+    },
+    {
+      "x": 2330,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 2790,
+      "y": 288,
+      "type": "flowers",
+      "layer": "back"
+    },
+    {
+      "x": 3040,
+      "y": 300,
+      "type": "flowers",
+      "layer": "back"
+    },
+    {
+      "x": 3290,
+      "y": 314,
+      "type": "flowers",
+      "layer": "back"
+    },
+    {
+      "x": 3480,
+      "y": null,
+      "type": "rock",
+      "layer": "back"
+    },
+    {
+      "x": 4230,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 4900,
+      "y": null,
+      "type": "crystal",
+      "layer": "back"
+    },
+    {
+      "x": 5100,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 5620,
+      "y": null,
+      "type": "flowers",
+      "layer": "back"
+    },
+    {
+      "x": 5920,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    }
+  ],
+  "spikes": [
+    {
+      "x": 2490,
+      "y": 190,
+      "radius": 18,
+      "spin": 0.6
+    },
+    {
+      "x": 2800,
+      "y": 592,
+      "radius": 28,
+      "spin": 1
+    },
+    {
+      "x": 2960,
+      "y": 592,
+      "radius": 28,
+      "spin": -1
+    },
+    {
+      "x": 3120,
+      "y": 592,
+      "radius": 28,
+      "spin": 1
+    },
+    {
+      "x": 3270,
+      "y": 583,
+      "radius": 26,
+      "spin": -1
+    },
+    {
+      "x": 3700,
+      "y": 274,
+      "radius": 14,
+      "spin": 0.8
+    },
+    {
+      "x": 4020,
+      "y": 280,
+      "radius": 14,
+      "spin": -0.8
+    },
+    {
+      "x": 4560,
+      "y": 90,
+      "radius": 20,
+      "spin": 0.7
+    }
+  ],
+  "water": [],
+  "weather": {
+    "sun": 0.9,
+    "clouds": 0.35,
+    "rain": 0,
+    "lightning": 0
+  },
+  "medals": {
+    "gold": 34,
+    "silver": 45,
+    "bronze": 65
+  },
   "timeOfDay": "noon"
 }

@@ -1,12 +1,15 @@
 {
   "name": "Long Way Up",
   "label": "LONG WAY UP / 08",
-  "goal": 3652.5174036597296,
   "description": "Link everything together across a long climb: preserve momentum, control wheelies, and recover your balance without losing speed.",
   "start": {
     "x": 90,
     "y": null,
     "facing": 1
+  },
+  "finish": {
+    "x": 3652.5174036597296,
+    "y": -521.8983294629307
   },
   "terrainBlocks": [
     {
@@ -1430,13 +1433,11 @@
     "clouds": 0.35,
     "snow": 1
   },
-  "fallY": 620,
   "medals": {
     "gold": 20,
     "silver": 26,
     "bronze": 34
   },
-  "finishY": -521.8983294629307,
   "timeOfDay": "noon",
   "backdrop": "mountains"
 }

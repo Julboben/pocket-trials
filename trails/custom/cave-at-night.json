@@ -1,12 +1,15 @@
 {
   "name": "Cave at Night",
   "label": "CAVE AT NIGHT",
-  "goal": 2200,
   "description": "A short night ride through a lantern-lit cave. Built to try the lighting.",
   "start": {
     "x": 640,
     "y": 307,
     "facing": 1
+  },
+  "finish": {
+    "x": 2200,
+    "y": null
   },
   "apples": [
     {
@@ -79,8 +82,6 @@
     "sun": 0,
     "clouds": 0.3
   },
-  "fallY": 700,
-  "finishY": null,
   "terrainBlocks": [
     {
       "id": "back-1",

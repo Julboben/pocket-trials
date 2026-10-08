@@ -35,6 +35,20 @@ export function terrainGeometry(trail) {
   return compiled;
 }
 
+/** How far below the lowest terrain the bike is considered lost. */
+export const FALL_MARGIN = 200;
+const NO_TERRAIN_FALL_Y = 620;
+
+/**
+ * The height below which the bike is lost: a little under the lowest solid
+ * terrain, so it follows the trail wherever it is built. It reads the intact
+ * source terrain, so breaking a glass pane never moves it mid-ride.
+ */
+export function fallLine(trail) {
+  const bottom = terrainGeometry(trail?.terrainSource || trail)?.bounds.bottom;
+  return Number.isFinite(bottom) ? bottom + FALL_MARGIN : NO_TERRAIN_FALL_Y;
+}
+
 /**
  * Takes a block out of a ride's copy of a trail, recording `info` about how
  * it went. The next query compiles the terrain without it.
@@ -93,7 +107,7 @@ export function terrainAt(trail, x, referenceY = null) {
   const blocks = terrainGeometry(trail);
   const surface = blocks && terrainSurfaceBelow(blocks, x, referenceY);
   if (surface) return { y: surface.y, slope: surface.slope, solid: true, material: surface.material };
-  return { y: trail?.fallY || 620, slope: 0, solid: false, material: 'grass' };
+  return { y: fallLine(trail), slope: 0, solid: false, material: 'grass' };
 }
 
 export function groundShadowSamples(trail, x, referenceY, width, step = 2, center = x) {

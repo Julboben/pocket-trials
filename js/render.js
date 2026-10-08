@@ -20,7 +20,7 @@ import {
   sunShadowOffset,
   waterPropAt,
 } from "./drawing.js";
-import { terrainAt, groundShadowSamples, terrainGeometry, terrainRaycastAt } from "./terrain.js";
+import { fallLine, terrainAt, groundShadowSamples, terrainGeometry, terrainRaycastAt } from "./terrain.js";
 import { finishHeight } from "./trail-schema.js";
 import { waterBodies, waterColumns, surfaceWave } from "./water.js";
 import { createTerrainRenderer } from "./terrain-render.js";
@@ -49,11 +49,6 @@ const GLASS_CRACK_COLOR = "#f6fffde6";
  * finish may be out there, so the camera follows the bike as far as the
  * terrain goes.
  */
-function cameraLeftLimit(trail) {
-  const blocks = terrainGeometry(trail);
-  return blocks ? Math.min(0, blocks.bounds.left - 150) : 0;
-}
-
 const SCENERY_SHADOWS = {
   tree: { width: 16, alpha: 0.15, thickness: 3, lift: 36 },
   pine: { width: 14, alpha: 0.15, thickness: 3, lift: 38 },
@@ -1035,11 +1030,11 @@ export function createRenderer(canvas) {
   }
 
   function drawGoal(ride) {
-    if (!inView(trail.goal, 65)) return;
+    if (!inView(trail.finish.x, 65)) return;
     const goalY = finishHeight(trail);
-    if (inView(trail.goal, 65, goalY, 115))
+    if (inView(trail.finish.x, 65, goalY, 115))
       gameArt.drawFlag(
-        trail.goal,
+        trail.finish.x,
         goalY,
         ride.collected === ride.apples.length,
         reducedMotion ? 0 : ride.time,
@@ -1127,8 +1122,7 @@ export function createRenderer(canvas) {
       width: W,
       height: H,
       dt,
-      fallY: trail.fallY || 620,
-      minX: cameraLeftLimit(trail),
+      fallY: fallLine(trail),
     });
     const flipSmoothing = reducedMotion ? 1 : 1 - Math.exp(-18 * dt);
     flipVisual = lerp(flipVisual, ride.facing, flipSmoothing);

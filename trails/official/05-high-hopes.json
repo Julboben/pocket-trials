@@ -1,12 +1,15 @@
 {
   "name": "High Hopes",
   "label": "HIGH HOPES / 05",
-  "goal": 3312.5687986229404,
   "description": "Steeper faces create wheelies and bigger airtime. Shift your weight early, then use small lean inputs to match the landing slope.",
   "start": {
     "x": 90,
     "y": null,
     "facing": 1
+  },
+  "finish": {
+    "x": 3312.5687986229404,
+    "y": -69.98383381447223
   },
   "terrainBlocks": [
     {
@@ -1892,13 +1895,11 @@
     "clouds": 0.15,
     "rain": 0.28
   },
-  "fallY": 620,
   "medals": {
     "gold": 18.5,
     "silver": 24.5,
     "bronze": 32
   },
-  "finishY": -69.98383381447223,
   "timeOfDay": "evening",
   "backdrop": "city"
 }

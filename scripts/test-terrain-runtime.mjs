@@ -11,7 +11,7 @@ const check = (label, condition) => {
   if (!condition) { failures++; console.log("FAIL", label); }
   else console.log("ok  ", label);
 };
-const trail = blocks => ({ terrainBlocks: blocks, fallY: 2000 });
+const trail = blocks => ({ terrainBlocks: blocks });
 const R = 12;
 
 // 1. A solid block: floor, walls, and ceiling all collide.
