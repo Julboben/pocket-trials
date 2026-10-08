@@ -1,12 +1,15 @@
 {
   "name": "The Wrong-Way Circus",
   "label": "THE WRONG-WAY CIRCUS / EXPERT",
-  "goal": 6280,
   "description": "Five different challenges, not five copies of one jump. 1) FALSE START: you spawn on an elevated shelf facing right, but an apple is behind you. Flip left to collect it, then turn right and ride off the shelf. 2) THE CAMEL: jump right onto a crowned island, collect its summit apple, and control the descent. 3) RETURN TO SENDER: pass beneath the brick island, climb the hill at x3080, turn in the bowl near x3250, then jump LEFT onto the island to collect its two apples. Drop from its left end and turn right to continue. 4) HEADROOM: descend into a sheltered hollow and collect the low apple without bouncing into the hanging killer. 5) THE FALLING STAIRCASE: cross two descending islands, collecting an apple on each, then negotiate the final rollers and gap. Crystal props mark useful turnaround areas. Apple order is not enforced. This is an unplaytested expert layout: transfers, recovery routes, explicit start height and head clearances need in-game testing. Medal times are rough estimates.",
   "start": {
     "x": 55.52455357142901,
     "y": -1029.6093750000105,
     "facing": 1
+  },
+  "finish": {
+    "x": 6280,
+    "y": null
   },
   "terrainBlocks": [
     {
@@ -3085,12 +3088,10 @@
     "rain": 0,
     "lightning": 0
   },
-  "fallY": 800,
   "medals": {
     "gold": 65,
     "silver": 95,
     "bronze": 145
   },
-  "finishY": null,
   "timeOfDay": "noon"
 }

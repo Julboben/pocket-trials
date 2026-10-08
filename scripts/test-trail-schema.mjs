@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { terrainAt } from '../js/terrain.js';
+import { FALL_MARGIN, fallLine, terrainAt } from '../js/terrain.js';
+import { rectangle } from './lib/terrain-fixtures.mjs';
 import {
   SPIKE_RADIUS, createBlankTrail, normalizeTrail, normalizeSpike, validateTrail, medalFor, normalizeMedals,
   trailTerrainBlocks, trailBackWalls, AUTHOR_MAX_LENGTH, normalizeUnlock, unlockStatus
@@ -77,7 +78,7 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bon
 {
   const a = normalizeTrail(createBlankTrail(0));
   const b = normalizeTrail({ ...a, name: 'Renamed', label: 'X' });
-  const c = normalizeTrail({ ...a, goal: a.goal - 10 });
+  const c = normalizeTrail({ ...a, finish: { ...a.finish, x: a.finish.x - 10 } });
   assert.equal(trailHash(a), trailHash(b));
   assert.notEqual(trailHash(a), trailHash(c));
   assert.match(trailHash(a), /^[0-9a-f]{8}$/);
@@ -144,6 +145,19 @@ assert.ok(!isOnlineTrail('custom:caves@0123abcd'), 'custom file trails stay offl
   assert.equal(unlockStatus({ trails: 3 }, { trails: 3, golds: 0 }).open, true);
   assert.equal(unlockStatus({ trails: 3, golds: 2 }, { trails: 5, golds: 1 }).open, false, 'every rule must be met');
   assert.equal(unlockStatus({ trails: 1, golds: 2 }, null).hint, 'FINISH 1 TRAIL & WIN 2 GOLD MEDALS TO UNLOCK');
+}
+
+// The fall line follows the terrain: a little below its lowest point, however
+// deep the trail is built.
+{
+  const deep = normalizeTrail({
+    ...createBlankTrail(0), finish: { x: 2800, y: null }, start: { x: 100, y: 3400, facing: 1 },
+    terrainBlocks: [rectangle(0, 3440, 3000, 5000)],
+  });
+  assert.equal(fallLine(deep), 5000 + FALL_MARGIN);
+  assert.deepEqual(errors(deep), [], 'a deep trail validates');
+  const below = normalizeTrail({ ...deep, start: { x: 100, y: 5400, facing: 1 } });
+  assert.ok(errors(below).some(text => text.includes('below all the terrain')), 'a start under the terrain is reported');
 }
 
 console.log('Trail schema tests passed.');

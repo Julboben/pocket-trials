@@ -128,8 +128,8 @@ export function findHighlight(trail, width) {
  * than its roof, and up walls; `y` is null over gaps.
  */
 function surfaceProfile(trail, step = 8) {
-  const direction = trail.goal >= trail.start.x ? 1 : -1;
-  const count = Math.floor(Math.abs(trail.goal - trail.start.x) / step);
+  const direction = trail.finish.x >= trail.start.x ? 1 : -1;
+  const count = Math.floor(Math.abs(trail.finish.x - trail.start.x) / step);
   const points = [];
   let previous = trail.start.y ?? surfaceY(trail, trail.start.x);
   for (let index = 0; index <= count; index++) {
@@ -189,7 +189,7 @@ export function findJump(trailList, minDrop = 40) {
 
 /** A rider arriving at the finish of `trail` with every apple collected. */
 export function finishScene(trail) {
-  const goal = { x: trail.goal, y: finishHeight(trail) };
+  const goal = { x: trail.finish.x, y: finishHeight(trail) };
   const facing = goal.x >= trail.start.x ? 1 : -1;
   const ride = posedRide(trail, { x: goal.x - facing * 70, facing });
   for (const apple of ride.apples) apple.taken = true;

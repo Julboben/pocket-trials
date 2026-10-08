@@ -10,8 +10,8 @@ import { polygonBlock, rectangle } from './lib/terrain-fixtures.mjs';
 
 const FINISH_TOLERANCE = .05;
 const flatTrail = (overrides = {}) => ({
-  name: 'test', terrainBlocks: [rectangle(0, 320, 3000, 620)], fallY: 820,
-  start: { x: 120, y: null, facing: 1 }, goal: 2800, apples: [], spikes: [], ...overrides
+  name: 'test', terrainBlocks: [rectangle(0, 320, 3000, 620)],
+  start: { x: 120, y: null, facing: 1 }, finish: { x: 2800, y: null }, apples: [], spikes: [], ...overrides
 });
 const hold = (steps, input) => Array.from({ length: steps }, () => ({ facing: 1, leanInput: 0, accelerating: false, braking: false, ...input }));
 const deepestPenetration = (trail, points, radius) => Math.max(0, ...points.flatMap(point =>
@@ -134,7 +134,7 @@ for (const entry of entries) {
   check(flatTrail({ spikes: [{ x: 400, y: 300, radius: 18 }] }), 'flat');
   check(flatTrail({
     terrainBlocks: [polygonBlock([[0, 320], [300, 320], [1300, 720], [3000, 720], [3000, 1200], [0, 1200]])],
-    fallY: 1400, spikes: [{ x: 500, y: 380, radius: 18 }],
+    spikes: [{ x: 500, y: 380, radius: 18 }],
   }), 'slope');
 }
 
@@ -143,7 +143,7 @@ for (const entry of entries) {
 // rider high into the air.
 {
   const trail = {
-    name: 'kicker', fallY: 820, goal: 2800, apples: [], spikes: [],
+    name: 'kicker', finish: { x: 2800, y: null }, apples: [], spikes: [],
     start: { x: 120, y: null, facing: 1 },
     terrainBlocks: [polygonBlock([[0, 320], [400, 320], [600, 220], [640, 220], [640, 320], [3000, 320], [3000, 620], [0, 620]])],
   };
@@ -192,7 +192,6 @@ for (const entry of entries) {
   const slope = (degrees) => {
     const drop = 5800 * Math.tan(degrees * Math.PI / 180);
     return flatTrail({
-      fallY: 99999,
       terrainBlocks: [polygonBlock([[0, 320], [200, 320], [6000, 320 + drop], [6000, 720 + drop], [0, 720 + drop]])],
     });
   };
@@ -302,14 +301,14 @@ for (const entry of entries) {
 
 // Falling below the trail ends the run.
 {
-  const trail = flatTrail({ terrainBlocks: [rectangle(0, 320, 300, 620)], fallY: 700 });
+  const trail = flatTrail({ terrainBlocks: [rectangle(0, 320, 300, 620)] });
   const { ride } = simulateRun(trail, hold(900, { accelerating: true }));
   assert.equal(ride.crashCause, 'fall');
 }
 
 // The goal stays locked until every apple is collected.
 {
-  const trail = flatTrail({ goal: 500, apples: [{ x: 1800, y: null }] });
+  const trail = flatTrail({ finish: { x: 500, y: null }, apples: [{ x: 1800, y: null }] });
   const { ride, events } = simulateRun(trail, hold(360, { accelerating: true }));
   assert.ok(events.some(event => event.type === 'goalLocked' && event.missing === 1));
   assert.notEqual(ride.status, 'won');

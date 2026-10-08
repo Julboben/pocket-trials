@@ -20,11 +20,10 @@ export function rectangle(left, top, right, bottom, material = 'grass', id = 're
 }
 
 const base = () => ({
-  name: 'Fixture', goal: 1400, fallY: 900,
-  start: { x: 90, y: null, facing: 1 }, apples: [], props: [], spikes: [], weather: { sun: 1, clouds: 0 },
+  name: 'Fixture', finish: { x: 1400, y: null }, start: { x: 90, y: null, facing: 1 }, apples: [], props: [], spikes: [], weather: { sun: 1, clouds: 0 },
 });
 
 /** A trail made of the given blocks. */
 export function blockTrail(blocks, extra = {}) {
-  return { ...base(), finishY: null, terrainBlocks: blocks, ...extra };
+  return { ...base(), terrainBlocks: blocks, ...extra };
 }

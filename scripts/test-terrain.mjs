@@ -21,7 +21,7 @@ const radius = 12;
 // Two slabs with a gap between them.
 const flatGapTrail = trailOf(
   [rectangle(0, 100, 100, 300, "grass", "left"), rectangle(200, 100, 300, 300, "grass", "right")],
-  { fallY: 400, goal: 280, start: { x: 40, y: null, facing: 1 } },
+  { finish: { x: 280, y: null }, start: { x: 40, y: null, facing: 1 } },
 );
 assert.equal(
   terrainCollisionsAt(flatGapTrail, 150, 90, radius).length,
@@ -40,7 +40,7 @@ assert.ok(
 // A floating block above a slab.
 const islandTrail = trailOf(
   [rectangle(0, 500, 400, 700, "grass", "ground"), rectangle(100, 200, 240, 240, "concrete", "island")],
-  { fallY: 900, goal: 380 },
+  { finish: { x: 380, y: null } },
 );
 const hits = (x, y, test) => terrainCollisionsAt(islandTrail, x, y, radius).some(test);
 assert.ok(hits(170, 192, (c) => c.ny < 0), "a floating block's top collides");
@@ -60,7 +60,7 @@ assert.equal(
 // A steep wall pushes sideways rather than snapping the wheel up.
 const steepTrail = trailOf(
   [polygonBlock([[0, 400], [200, 400], [220, 100], [400, 100], [400, 600], [0, 600]], "grass", "steep")],
-  { fallY: 800, goal: 380 },
+  { finish: { x: 380, y: null } },
 );
 const [steep] = terrainCollisionsAt(steepTrail, 202, 300, 8);
 assert.ok(steep, "the steep terrain remains collidable");
@@ -77,7 +77,7 @@ const hillTrail = trailOf(
     polygonBlock([[180, 280], [200, 300], [200, 500], [180, 500]], "grass", "hill-right"),
     polygonBlock([[40, 40], [160, 80], [160, 110], [40, 70]], "concrete", "shelf"),
   ],
-  { fallY: 500, goal: 190, start: { x: 20, y: null, facing: 1 } },
+  { finish: { x: 190, y: null }, start: { x: 20, y: null, facing: 1 } },
 );
 const hillMid = terrainAt(hillTrail, 100, 200);
 assert.ok(Math.abs(hillMid.slope - 1) < 1e-9, "the hill slopes down at 45 degrees");
@@ -168,7 +168,7 @@ const crest = trailOf(
     polygonBlock([[0, 200], [20, 180], [20, 400], [0, 400]], "grass", "crest-left"),
     polygonBlock([[40, 160], [100, 100], [200, 200], [200, 400], [40, 400]], "grass", "crest"),
   ],
-  { fallY: 500, goal: 190, start: { x: 120, y: null, facing: 1 } },
+  { finish: { x: 190, y: null }, start: { x: 120, y: null, facing: 1 } },
 );
 const crestShadow = groundShadowSamples(crest, 100, 80, 30).flat();
 const crestCenter = crestShadow.find((sample) => sample.x === 100);

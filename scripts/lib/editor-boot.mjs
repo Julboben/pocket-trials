@@ -237,7 +237,7 @@ if (kind === 'covered') {
   out.propY = current().props[0].y;
   // Raising the ground under the finish still carries it along.
   drag([800, 300], [800, 250]);
-  out.finishY = current().finishY;
+  out.finishY = current().finish.y;
 
   // A cave under the slab's top, from y 400 to 500.
   toolButton('cut').click();
@@ -248,11 +248,11 @@ if (kind === 'covered') {
   toolButton('finish').click();
   fire('pointerdown', world(650, 450));
   fire('pointerup');
-  out.caveFinishY = current().finishY;
+  out.caveFinishY = current().finish.y;
   // Dragged up into the cave's air, it stays where it was dropped.
   toolButton('select').click();
   drag([650, 500], [650, 420]);
-  out.liftedFinishY = current().finishY;
+  out.liftedFinishY = current().finish.y;
 
   // A ground-anchored prop copied and pasted into the cave lands on its floor.
   const docEvent = (type, data = '') => {
@@ -279,7 +279,7 @@ if (kind === 'covered') {
   key('ArrowRight', { code: 'ArrowRight' });
   const after = current();
   out.selectAllMovesStart = after.start.x === before.start.x + 1;
-  out.selectAllMovesFinish = after.goal === before.goal + 1;
+  out.selectAllMovesFinish = after.finish.x === before.finish.x + 1;
   process.stdout.write(JSON.stringify(out));
   process.exit(0);
 }

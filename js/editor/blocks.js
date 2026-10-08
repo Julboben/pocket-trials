@@ -184,9 +184,9 @@ export function addAt(point) {
   } else if (editor.tool === "finish") {
     // Placed on the floor under the click, so inside a cave it lands on the
     // cave floor rather than the roof, ready to be dragged up or down.
-    editor.trail.goal = point.x;
-    editor.trail.finishY = floorUnder(point.x, point.y) ?? groundY(point.x);
-    editor.selection = { kind: "goal" };
+    editor.trail.finish.x = point.x;
+    editor.trail.finish.y = floorUnder(point.x, point.y) ?? groundY(point.x);
+    editor.selection = { kind: "finish" };
   }
   // Start and finish are one of a kind, so those go back to Select; every
   // other tool stays active for the next click.

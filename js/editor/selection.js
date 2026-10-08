@@ -174,7 +174,7 @@ export function sameItem(a, b) {
 /** The selectable item a hit refers to, or null (edges, rings, handles). */
 export function itemFromHit(hit) {
   if (!hit) return null;
-  if (hit.kind === "start" || hit.kind === "goal") return { type: hit.kind };
+  if (hit.kind === "start" || hit.kind === "finish") return { type: hit.kind };
   if (hit.kind === "block") return { type: "block", index: hit.blockIndex };
   if (hit.kind === "blockPoint") {
     const { blockIndex, boundaryIndex, index } = hit;
@@ -221,7 +221,7 @@ export function makeSelection(list) {
     const { blockIndex, boundaryIndex, index } = item;
     return { kind: "blockPoint", blockIndex, boundaryIndex, index };
   }
-  if (item.type === "start" || item.type === "goal") return { kind: item.type };
+  if (item.type === "start" || item.type === "finish") return { kind: item.type };
   return { kind: item.type, index: item.index };
 }
 
@@ -259,7 +259,7 @@ export function itemPosition(item) {
     const { x, y } = editor.trail.start;
     return [x, Number.isFinite(y) ? y : groundY(x) - 12];
   }
-  if (item.type === "goal") return [editor.trail.goal, finishY()];
+  if (item.type === "finish") return [editor.trail.finish.x, finishY()];
   const object = OBJECT_LISTS()[item.type][item.index];
   if (!object) return null;
   if (item.type === "spike") return [object.x, object.y];
@@ -308,9 +308,9 @@ export function moveItems(x, y) {
       editor.trail.start.y = before[i][1] + dy;
       return;
     }
-    if (item.type === "goal") {
-      editor.trail.goal = before[i][0] + dx;
-      editor.trail.finishY = before[i][1] + dy;
+    if (item.type === "finish") {
+      editor.trail.finish.x = before[i][0] + dx;
+      editor.trail.finish.y = before[i][1] + dy;
       return;
     }
     const object = OBJECT_LISTS()[item.type][item.index];
@@ -357,7 +357,7 @@ function itemsInBox(from, to) {
       if (position && inside(position)) found.push(item);
     });
   }
-  for (const item of [{ type: "start" }, { type: "goal" }])
+  for (const item of [{ type: "start" }, { type: "finish" }])
     if (inside(itemPosition(item))) found.push(item);
   return found;
 }
@@ -420,7 +420,7 @@ export function deleteItems(items) {
 }
 
 export function deleteSelection() {
-  if (!editor.selection || ["goal", "start"].includes(editor.selection.kind)) return;
+  if (!editor.selection || ["finish", "start"].includes(editor.selection.kind)) return;
   const kind = editor.selection.kind;
   if (kind === "items") {
     pushHistory();
@@ -507,7 +507,7 @@ export function selectAll() {
   const items = blocks().map((_, index) => ({ type: "block", index }));
   for (const [type, list] of Object.entries(OBJECT_LISTS()))
     list.forEach((_, index) => items.push({ type, index }));
-  items.push({ type: "start" }, { type: "goal" });
+  items.push({ type: "start" }, { type: "finish" });
   editor.selection = makeSelection(items);
   setTool("select");
   syncInspector();

@@ -1,12 +1,15 @@
 {
   "name": "Skybound",
   "label": "SKYBOUND / 06",
-  "goal": 3244.3685535694976,
   "description": "Commit to the jumps. Build speed before each lip, stay calm in the air, and line both wheels up with the far-side slope.",
   "start": {
     "x": 126.00276453217202,
     "y": 262.99729187990346,
     "facing": 1
+  },
+  "finish": {
+    "x": 3244.3685535694976,
+    "y": 131.62977237070947
   },
   "terrainBlocks": [
     {
@@ -1853,13 +1856,11 @@
     "sun": 0.85,
     "clouds": 0.24
   },
-  "fallY": 560,
   "medals": {
     "gold": 14.5,
     "silver": 19,
     "bronze": 25
   },
-  "finishY": 131.62977237070947,
   "timeOfDay": "noon",
   "backdrop": "desert"
 }

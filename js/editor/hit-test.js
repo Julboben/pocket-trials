@@ -104,7 +104,7 @@ export function hitTest(point, { wholeBoundary = false, preferEdges = false } = 
     ? editor.trail.start.y
     : groundY(editor.trail.start.x) - 12;
   consider({ kind: "start" }, editor.trail.start.x, startY, 1);
-  consider({ kind: "goal" }, editor.trail.goal, finishY(), 1);
+  consider({ kind: "finish" }, editor.trail.finish.x, finishY(), 1);
   if (!preferEdges && best && grabsSelectedBody(best)) {
     const body = selectedBodyAt(point);
     if (body) return body;

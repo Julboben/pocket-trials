@@ -1,12 +1,15 @@
 {
   "name": "Trail 3",
   "label": "TRAIL 3 / 16",
-  "goal": 1791.8854707972,
   "description": "",
   "start": {
     "x": 90,
     "y": null,
     "facing": 1
+  },
+  "finish": {
+    "x": 1791.8854707972,
+    "y": 71.35210265193325
   },
   "terrainBlocks": [
     {
@@ -605,7 +608,5 @@
     "sun": 0.7,
     "clouds": 0.2
   },
-  "fallY": 620,
-  "finishY": 71.35210265193325,
   "timeOfDay": "noon"
 }

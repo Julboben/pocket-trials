@@ -9,8 +9,8 @@ import { propSpan, propWallFit, waterPropAt } from '../js/drawing.js';
 import { FISH_HALF, FISH_RANGE, fishDart, fishSwim } from '../js/water-props.js';
 
 const flatTrail = (overrides = {}) => ({
-  name: 'test', terrainBlocks: [rectangle(0, 320, 3000, 620)], fallY: 820,
-  start: { x: 120, y: null, facing: 1 }, goal: 2800, apples: [], spikes: [], ...overrides
+  name: 'test', terrainBlocks: [rectangle(0, 320, 3000, 620)],
+  start: { x: 120, y: null, facing: 1 }, finish: { x: 2800, y: null }, apples: [], spikes: [], ...overrides
 });
 // Ground at 320, then a pit from x 600 to 1000 whose floor is at 440.
 const pitTrail = water => flatTrail({

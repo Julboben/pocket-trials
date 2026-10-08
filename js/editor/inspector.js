@@ -110,7 +110,7 @@ export function selectedPosition() {
         ? editor.trail.start.y
         : groundY(editor.trail.start.x) - 12,
     ];
-  if (editor.selection.kind === "goal") return [editor.trail.goal, finishY()];
+  if (editor.selection.kind === "finish") return [editor.trail.finish.x, finishY()];
   return null;
 }
 
@@ -134,8 +134,6 @@ export function syncInspector({ live = false } = {}) {
   // Don't overwrite notes the author is typing.
   if (document.activeElement !== $("trail-description"))
     $("trail-description").value = editor.trail.description || "";
-  $("goal-x").value = Math.round(editor.trail.goal);
-  $("fall-y").value = Math.round(editor.trail.fallY);
   $("time-of-day").value = editor.trail.timeOfDay || "noon";
   $("backdrop").value = editor.trail.backdrop || "hills";
   for (const key of ["sun", "clouds", "fog", "rain", "snow", "lightning"]) {
@@ -193,7 +191,7 @@ export function syncInspector({ live = false } = {}) {
     $("selection-water-hint").textContent = waterDepthHint(selectedWater.depth);
   }
   $("delete-selection").hidden =
-    !editor.selection || ["start", "goal"].includes(editor.selection.kind);
+    !editor.selection || ["start", "finish"].includes(editor.selection.kind);
   if (isBlock) {
     const first = blocks()[selectedBlocks()[0]];
     $("selection-material").value = first?.material || "grass";
@@ -344,13 +342,13 @@ export function updateSelectedPosition(x, y) {
   } else if (kind === "start") {
     editor.trail.start.x = x;
     editor.trail.start.y = y;
-  } else if (kind === "goal") {
+  } else if (kind === "finish") {
     // The finish is a point: it can be moved in y as well as x, so a flag can
     // stand on a floating block or hang above a cave instead of being pinned to the
     // surface. Dragging it sets an explicit height, which the inspector can
     // clear to send it back to the ground.
-    editor.trail.goal = x;
-    editor.trail.finishY = y;
+    editor.trail.finish.x = x;
+    editor.trail.finish.y = y;
   }
 }
 
@@ -417,14 +415,6 @@ export function bindInspector() {
 
   bindTrailInput("trail-description", (value) => {
     editor.trail.description = value;
-  });
-
-  bindTrailInput("goal-x", (value) => {
-    editor.trail.goal = Number(value);
-  });
-
-  bindTrailInput("fall-y", (value) => {
-    editor.trail.fallY = Number(value);
   });
 
   bindTrailInput("time-of-day", (value) => {

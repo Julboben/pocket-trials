@@ -233,17 +233,16 @@ const drawCalls = (renderer, trail, x, y, w, h) => {
 {
   const { finishHeight: finishAt, validateTrail } = await import('../js/trail-schema.js');
   const bare = blockTrail([rectangle(0, 300, 2000, 600)]);
-  const onGround = normalizeTrail({ ...bare, goal: 1000, finishY: null });
+  const onGround = normalizeTrail({ ...bare, finish: { x: 1000, y: null } });
   check('a ground finish snaps to the surface', Math.abs(finishAt(onGround) - 300) < 2, `(at ${finishAt(onGround)})`);
-  const inAir = normalizeTrail({ ...bare, goal: 1000, finishY: 120 });
+  const inAir = normalizeTrail({ ...bare, finish: { x: 1000, y: 120 } });
   check('a finish can be placed in the air', finishAt(inAir) === 120);
-  const { finishY: _, ...withoutFinish } = bare;
-  const missing = normalizeTrail({ ...withoutFinish, goal: 1000 });
-  check('a missing finishY means ground, not y=0', Math.abs(finishAt(missing) - 300) < 2, `(at ${finishAt(missing)})`);
-  check('a missing finishY normalizes to null', missing.finishY === null);
-  check('normalizing twice is stable', normalizeTrail(JSON.parse(JSON.stringify(missing))).finishY === null);
-  check('the editor and the game read one height', inAir.finishY === finishAt(inAir));
-  const past = normalizeTrail({ ...bare, goal: 1000, finishY: 120, apples: [{ x: 1400, y: 120 }] });
+  const missing = normalizeTrail({ ...bare, finish: { x: 1000 } });
+  check('a missing finish y means ground, not y=0', Math.abs(finishAt(missing) - 300) < 2, `(at ${finishAt(missing)})`);
+  check('a missing finish y normalizes to null', missing.finish.y === null);
+  check('normalizing twice is stable', normalizeTrail(JSON.parse(JSON.stringify(missing))).finish.y === null);
+  check('the editor and the game read one height', inAir.finish.y === finishAt(inAir));
+  const past = normalizeTrail({ ...bare, finish: { x: 1000, y: 120 }, apples: [{ x: 1400, y: 120 }] });
   // Once the flower became the finish, the run no longer ends at the finish's
   // x, so an apple beyond it is still reachable and must not be reported.
   check('an apple past the finish x is not reported',

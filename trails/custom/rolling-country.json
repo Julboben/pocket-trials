@@ -1,12 +1,15 @@
 {
   "name": "Rolling Country",
   "label": "ROLLING COUNTRY / 15",
-  "goal": 1200,
   "description": "",
   "start": {
     "x": 90,
     "y": null,
     "facing": 1
+  },
+  "finish": {
+    "x": 1200,
+    "y": null
   },
   "terrainBlocks": [
     {
@@ -103,7 +106,5 @@
     "sun": 1,
     "clouds": 0.2
   },
-  "fallY": 620,
-  "finishY": null,
   "timeOfDay": "noon"
 }
