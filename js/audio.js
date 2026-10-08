@@ -317,12 +317,12 @@ export function createAudio(getSnapshot) {
     engineDrive.gain.setTargetAtTime(.8 + load * .9, time, .03);
     // At idle the filter stays open enough that small speakers, which cannot
     // play the deep firing note, still carry its upper harmonics.
-    engineFilter.frequency.setTargetAtTime(480 + load * (400 + revs * 700) + revs * 100, time, .04);
+    engineFilter.frequency.setTargetAtTime(650 + load * (300 + revs * 650) + revs * 100, time, .04);
     enginePipe.frequency.setTargetAtTime(280 + revs * 420, time, .05);
     enginePipe.gain.setTargetAtTime(1 + powerband * load * 5, time, .05);
     raspFilter.frequency.setTargetAtTime(450 + load * revs * 650, time, .05);
     raspLevel.gain.setTargetAtTime(.5 + load * .9, time, .05);
-    const level = .042 + load * (.03 + revs * .03 + powerband * .01) + revs * .006;
+    const level = .06 + load * (.02 + revs * .025 + powerband * .01) + revs * .006;
     engineGain.gain.setTargetAtTime(level * (1 - cut * .6) * caught * (1 - stall) ** 1.5, time, cut ? .012 : .03);
   }
 
