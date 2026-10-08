@@ -7,8 +7,8 @@ const API = '/api/leaderboard';
 const REFRESH_MS = 30_000;
 export const ONLINE_LEADERBOARD_EVENT = 'hjulben:online-leaderboard';
 
-// Official trails only ('official:<id>@<hash>'); custom trails ('trail:<hash>') stay local.
-const TRAIL_RE = /^official:[a-z0-9][a-z0-9-]{0,55}@[0-9a-f]{8}$/;
+// Shipped trails only ('official:<id>@<hash>', 'bonus:<id>@<hash>'); custom trails ('trail:<hash>') stay local.
+const TRAIL_RE = /^(official|bonus):[a-z0-9][a-z0-9-]{0,55}@[0-9a-f]{8}$/;
 
 const boards = new Map();     // trailKey -> runs[]
 const lastFetch = new Map();  // trailKey -> timestamp

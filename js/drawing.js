@@ -1379,6 +1379,12 @@ export const RIDER_PALETTES = {
     sole: "#657a70",
     visor: "#234844",
     visorLight: "#83bcb6",
+    skinShade: "#9a5c40",
+    hair: "#3d2a24",
+    hairLight: "#5e4334",
+    hairShade: "#2e1d19",
+    eye: "#263b36",
+    mouth: "#87483a",
   },
   female: {
     jacket: "#d86f82",
@@ -1398,10 +1404,78 @@ export const RIDER_PALETTES = {
     sole: "#7c8897",
     visor: "#234844",
     visorLight: "#b0dfd4",
+    // Matches the ponytail in rider-hair.js.
+    skinShade: "#9a5c40",
+    hair: "#684438",
+    hairLight: "#8c5d48",
+    hairShade: "#54362d",
+    eye: "#263b36",
+    mouth: "#b0505e",
   },
 };
 export const riderPalette = (rider) =>
   RIDER_PALETTES[rider] || RIDER_PALETTES.male;
+
+const RIDER_OUTLINE = "#263b36";
+
+/**
+ * The first redesign's helmet, centred on (0, 0) and facing right, drawn with
+ * `rect(x, y, width, height, color)` in world units on a 2-unit pixel grid.
+ */
+export function drawHelmetShell(rect, colors) {
+  rect(-7, -4, 16, 8, RIDER_OUTLINE);
+  rect(-5, -6, 12, 12, RIDER_OUTLINE);
+
+  rect(-5, -4, 12, 8, colors.helmet);
+  rect(-3, -6, 8, 2, colors.helmetLight);
+  rect(-5, -4, 4, 4, colors.helmetLight);
+  rect(-5, 2, 8, 2, colors.helmetShade);
+
+  rect(1, -6, 2, 6, colors.stripe);
+
+  rect(-5, -2, 8, 2, colors.panel);
+  rect(3, -2, 8, 6, RIDER_OUTLINE);
+  rect(3, -2, 8, 4, colors.visor);
+  rect(5, -2, 4, 2, colors.visorLight);
+
+  rect(3, -4, 10, 2, colors.helmet);
+  rect(5, -4, 6, 2, colors.helmetLight);
+  rect(3, 4, 8, 2, colors.helmetShade);
+  rect(7, 2, 4, 2, colors.helmet);
+}
+
+/**
+ * The rider's bare head once the helmet has come off, centred where the
+ * helmet's centre was and facing right, in the same units as drawHelmetShell:
+ * hair, ear, eye under a brow, nose, and mouth. She has bangs and her hair
+ * falls to the nape, where the ponytail starts.
+ */
+export function drawBareHead(rect, colors, rider = "male") {
+  // One art pixel at column `c`, row `r` (2 world units each).
+  const dot = (c, r, color, w = 1, h = 1) => rect(c * 2, r * 2, w * 2, h * 2, color);
+  const female = rider === "female";
+
+  // Outline with clipped corners, then the face.
+  dot(-2, -4, RIDER_OUTLINE, 5, 7);
+  dot(-3, -3, RIDER_OUTLINE, 7, 5);
+  dot(-2, -3, colors.skin, 5, 5);
+  dot(0, 0, colors.skinLight);
+  dot(2, -2, colors.skinLight, 1, 2);
+
+  // Hair: a cap over the crown and down the back of the head.
+  dot(-2, -3, colors.hair, 5, 1);
+  dot(-2, -2, colors.hair, female ? 4 : 3, 1);
+  dot(-2, -1, colors.hair, 1, female ? 3 : 1);
+  dot(-1, -3, colors.hairLight, 2, 1);
+  if (female) dot(-3, 0, colors.hair, 1, 2);
+
+  // Ear, eye and brow, nose, mouth.
+  dot(-1, -1, colors.skinShade);
+  dot(1, -1, colors.eye);
+  if (!female) dot(1, -2, colors.hairShade);
+  dot(3, 0, colors.skin);
+  dot(2, 1, colors.mouth);
+}
 
 // Selectable bike models drawn by createGameArt().drawBike. Every model keeps
 // the same seat, peg, and handlebar positions so any rider fits any bike.
@@ -2681,6 +2755,7 @@ export function createGameArt(ctx) {
   const flowerSprites = new Map();
   const backgroundStrips = new Map();
   const ragdollHelmetSprites = new Map();
+  const ragdollHeadSprites = new Map();
   let bikeSprite = null;
   let propLayer = null;
 
@@ -4504,16 +4579,13 @@ export function createGameArt(ctx) {
     ctx.restore();
   }
 
-  // One tiny cached helmet per rider palette.
+  // One tiny cached helmet, and one bare head, per rider palette.
   // Rotating the sprite with nearest-neighbour sampling keeps it sharp.
-  function ragdollHelmetSprite(colors) {
-    if (ragdollHelmetSprites.has(colors)) {
-      return ragdollHelmetSprites.get(colors);
-    }
+  function ragdollHeadSprite(colors, rider, bare) {
+    const cache = bare ? ragdollHeadSprites : ragdollHelmetSprites;
+    if (cache.has(colors)) return cache.get(colors);
 
-    const width = 24;
-    const height = 16;
-    const canvas = createCanvas(width / ART_PIXEL, height / ART_PIXEL);
+    const canvas = createCanvas(24 / ART_PIXEL, 16 / ART_PIXEL);
     const context = canvas.getContext("2d");
 
     // Local helmet anchor is (0, 0).
@@ -4528,35 +4600,28 @@ export function createGameArt(ctx) {
     );
 
     const { pixelRect: rect } = createDrawingTools(context);
-    const outline = "#263b36";
+    if (bare) drawBareHead(rect, colors, rider);
+    else drawHelmetShell(rect, colors);
 
-    // First redesign's helmet, relative to its center at (3, -46).
-    rect(-7, -4, 16, 8, outline);
-    rect(-5, -6, 12, 12, outline);
-
-    rect(-5, -4, 12, 8, colors.helmet);
-    rect(-3, -6, 8, 2, colors.helmetLight);
-    rect(-5, -4, 4, 4, colors.helmetLight);
-    rect(-5, 2, 8, 2, colors.helmetShade);
-
-    rect(1, -6, 2, 6, colors.stripe);
-
-    rect(-5, -2, 8, 2, colors.panel);
-    rect(3, -2, 8, 6, outline);
-    rect(3, -2, 8, 4, colors.visor);
-    rect(5, -2, 4, 2, colors.visorLight);
-
-    rect(3, -4, 10, 2, colors.helmet);
-    rect(5, -4, 6, 2, colors.helmetLight);
-    rect(3, 4, 8, 2, colors.helmetShade);
-    rect(7, 2, 4, 2, colors.helmet);
-
-    ragdollHelmetSprites.set(colors, canvas);
+    cache.set(colors, canvas);
     return canvas;
   }
 
-  function drawRagdoll(points, rider) {
-    const p = points;
+  // A head sprite turned to the nearest of 32 angles, mirrored to `facing`.
+  function drawHeadSprite(sprite, x, y, angle, facing) {
+    const rotationStep = TAU / 32;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    translateToDevice(x, y);
+    ctx.rotate(Math.round(angle / rotationStep) * rotationStep);
+    ctx.scale(facing, 1);
+    ctx.drawImage(sprite, -10, -8, 24, 16);
+    ctx.restore();
+  }
+
+  /** Draws the thrown rider, and the helmet if it has been knocked off. */
+  function drawRagdoll(ragdoll, rider) {
+    const p = ragdoll.points;
     const colors = riderPalette(rider);
     const outline = "#263b36";
     const facing = p.head.drawFacing ?? 1;
@@ -4726,19 +4791,25 @@ export function createGameArt(ctx) {
     );
     pixelRect(p.hand.x - 1, p.hand.y - 1, 2, 2, colors.jacketLight, 2);
 
-    // HELMET
-    // Cached and mirrored correctly; follows the head/shoulder axis.
-    const sprite = ragdollHelmetSprite(colors);
-    const rotationStep = TAU / 32;
-    const pixelAngle = Math.round(headAngle / rotationStep) * rotationStep;
-
-    ctx.save();
-    ctx.imageSmoothingEnabled = false;
-    translateToDevice(p.head.x, p.head.y);
-    ctx.rotate(pixelAngle);
-    ctx.scale(facing, 1);
-    ctx.drawImage(sprite, -10, -8, 24, 16);
-    ctx.restore();
+    // HEAD
+    // Cached and mirrored correctly; follows the head/shoulder axis. Bare
+    // once the helmet has been knocked off, which then tumbles on its own.
+    const { helmet } = ragdoll;
+    drawHeadSprite(
+      ragdollHeadSprite(colors, rider, Boolean(helmet)),
+      p.head.x,
+      p.head.y,
+      headAngle,
+      facing,
+    );
+    if (helmet)
+      drawHeadSprite(
+        ragdollHeadSprite(colors, rider, false),
+        helmet.x,
+        helmet.y,
+        helmet.spin,
+        helmet.facing,
+      );
   }
 
   /** Paints a graffiti prop onto the rock, clipped to it. Draw after the terrain. */

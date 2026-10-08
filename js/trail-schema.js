@@ -282,7 +282,50 @@ export function normalizeTrail(input, index = 0) {
   const medals = normalizeMedals(trail.medals);
   if (medals) trail.medals = medals;
   else delete trail.medals;
+  const unlock = normalizeUnlock(trail.unlock);
+  if (unlock) trail.unlock = unlock;
+  else delete trail.unlock;
   return trail;
+}
+
+export const UNLOCK_RULES = ["trails", "golds"];
+
+/**
+ * What a bonus trail asks of the career before it opens: `trails` official
+ * trails finished and `golds` gold medals won on them. Zero or invalid counts
+ * are dropped, and no rule left means the trail is always open.
+ */
+export function normalizeUnlock(unlock) {
+  if (!unlock || typeof unlock !== "object") return null;
+  const rules = Object.fromEntries(
+    UNLOCK_RULES.map((rule) => [rule, Math.floor(Number(unlock[rule]))]).filter(
+      ([, count]) => Number.isFinite(count) && count > 0,
+    ),
+  );
+  return Object.keys(rules).length ? rules : null;
+}
+
+/**
+ * Checks an unlock rule against a career's progress. `progress` is null
+ * without a savegame, which keeps every rule-locked trail shut.
+ * @param {{ trails?: number, golds?: number } | null | undefined} unlock
+ * @param {{ trails: number, golds: number } | null} progress
+ * @returns {{ open: boolean, hint: string }}
+ */
+export function unlockStatus(unlock, progress) {
+  const rules = normalizeUnlock(unlock);
+  if (!rules) return { open: true, hint: "" };
+  const parts = [];
+  if (rules.trails)
+    parts.push(`FINISH ${rules.trails} TRAIL${rules.trails === 1 ? "" : "S"}`);
+  if (rules.golds)
+    parts.push(`WIN ${rules.golds} GOLD MEDAL${rules.golds === 1 ? "" : "S"}`);
+  const open = Boolean(
+    progress &&
+      (progress.trails >= (rules.trails || 0)) &&
+      (progress.golds >= (rules.golds || 0)),
+  );
+  return { open, hint: parts.join(" & ") + " TO UNLOCK" };
 }
 
 export const MEDALS = ["gold", "silver", "bronze"];
@@ -516,6 +559,21 @@ export function validateTrail(trail) {
       );
     else if (!(times[0] <= times[1] && times[1] <= times[2]))
       error("Medal times must get slower from gold to silver to bronze.");
+  }
+  if (trail.unlock !== undefined) {
+    const unlock = trail.unlock;
+    const counts = unlock && typeof unlock === "object" && !Array.isArray(unlock)
+      ? Object.entries(unlock)
+      : null;
+    if (!counts)
+      error('Unlock must be an object such as { "trails": 3, "golds": 1 }.');
+    else
+      for (const [rule, count] of counts) {
+        if (!UNLOCK_RULES.includes(rule))
+          error(`Unlock.${rule} is not a rule. Use ${UNLOCK_RULES.join(" or ")}.`);
+        else if (!Number.isInteger(count) || count < 0)
+          error(`Unlock.${rule} must be a whole number of 0 or more.`);
+      }
   }
   for (const key of ["sun", "clouds", "fog", "rain", "snow", "lightning"]) {
     const value = trail.weather?.[key];

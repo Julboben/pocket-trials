@@ -117,7 +117,8 @@ export function draftAge(at) {
 export function savedName(entry) {
   const writable = entry?.storage === "browser" || (editor.devServer && entry?.file);
   if (!writable) return "Original";
-  return entry.source === "official" ? "Official file" : "Published version";
+  if (entry.source === "official") return "Official file";
+  return entry.source === "bonus" ? "Bonus file" : "Published version";
 }
 
 /**

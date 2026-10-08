@@ -422,9 +422,9 @@ export function createRenderer(canvas) {
   // Redraws the bike and rider into a scratch layer, keeps only the pixels a
   // front prop covers, and lays them over the scene as a flat silhouette.
   function drawXray(ride, rider, state, full) {
-    const points = ride.ragdoll
-      ? [ride.rear, ride.front, ...ride.ragdoll.list]
-      : [ride.rear, ride.front];
+    const points = [ride.rear, ride.front];
+    if (ride.ragdoll) points.push(...ride.ragdoll.list);
+    if (ride.ragdoll?.helmet) points.push(ride.ragdoll.helmet);
     const area = {
       left: Math.min(...points.map((point) => point.x)) - XRAY_REACH,
       right: Math.max(...points.map((point) => point.x)) + XRAY_REACH,
@@ -467,7 +467,7 @@ export function createRenderer(canvas) {
     if (hair)
       hair.draw(xrayRider.tools.pixelPath, currentHairRoot(ride, false));
     xrayRider.art.drawBike(bikeDrawing(ride, rider, flipVisual, state));
-    if (ride.ragdoll) xrayRider.art.drawRagdoll(ride.ragdoll.points, rider);
+    if (ride.ragdoll) xrayRider.art.drawRagdoll(ride.ragdoll, rider);
 
     const context = xrayRider.context;
     context.setTransform(1, 0, 0, 1, 0, 0);
@@ -715,7 +715,7 @@ export function createRenderer(canvas) {
       leanVisual: ghost.leanVisual,
       rider,
     });
-    if (ghost.ragdoll) gameArt.drawRagdoll(ghost.ragdoll.points, rider);
+    if (ghost.ragdoll) gameArt.drawRagdoll(ghost.ragdoll, rider);
     ctx.globalAlpha = 1;
   }
 
@@ -1145,7 +1145,7 @@ export function createRenderer(canvas) {
     if (hair) hair.draw(pixelPath, currentHairRoot(ride, false));
     drawBike(ride, rider, flipVisual, ride.ragdoll ? "ragdoll" : state);
     if (debug) drawPhysicsOverlay(ride.vehicle);
-    if (ride.ragdoll) gameArt.drawRagdoll(ride.ragdoll.points, rider);
+    if (ride.ragdoll) gameArt.drawRagdoll(ride.ragdoll, rider);
     // Water props in front are drawn before the water, so what is under the
     // surface looks wet.
     drawProps("front", full, gameArt, null, true);

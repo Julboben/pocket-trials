@@ -1,7 +1,7 @@
 // The game loop and state machine: loads trails, steps the ride at a fixed
 // rate, turns ride events into sound, effects and UI, and saves results.
 import { STEP, MAX_STEPS_PER_FRAME, clamp } from './config.js';
-import { trails, customTrailEntries, readPlaytestTrail, PLAYTEST_EXIT_MESSAGE } from './trails.js';
+import { trails, bonusTrailEntries, customTrailEntries, readPlaytestTrail, PLAYTEST_EXIT_MESSAGE } from './trails.js';
 import { createAudio } from './audio.js';
 import { createPhysicsDebugger } from './physics-debug.js';
 import { createFpsMeter } from './fps-meter.js';
@@ -19,9 +19,10 @@ import { createInput, keyLabel } from './input.js';
 import { createCamera } from './camera.js';
 import { createEffects } from './effects.js';
 import { createRenderer } from './render.js';
+import { riderPalette } from './drawing.js';
 import { createOverlay } from './ui/overlay.js';
 import { createMenu, loadStoredState } from './ui/menu.js';
-import { $, session, currentTrailEntry, trailKey, timeText } from './state.js';
+import { $, session, currentTrailEntry, trailKey, timeText, isRankedSource, bonusUnlock } from './state.js';
 
 const LANDING_SOUND_IMPACT = 45;
 const HARD_LANDING_IMPACT = 170;
@@ -51,6 +52,7 @@ export function startGame() {
   const menu = createMenu({
     sounds, input,
     onStartTrail: index => startSelectedTrail(() => loadTrail(index)),
+    onStartBonus: index => startSelectedTrail(() => loadBonusTrail(index), false),
     onStartCustom: index => startSelectedTrail(() => loadCustomTrail(index), false),
     onClose: closeMainMenu,
     onRetry: retryFromMenu,
@@ -223,7 +225,7 @@ export function startGame() {
     const mode = session.preferences.ghost;
     if (mode === 'off') return;
     useGhost(trail, session.trailSource === 'playtest' ? playtestBest : readGhost(trailKey(currentTrailEntry())));
-    if (mode !== 'world' || session.trailSource !== 'official') return;
+    if (mode !== 'world' || !isRankedSource(session.trailSource)) return;
     const ride = session.ride;
     fetchWorldGhost(trailKey(currentTrailEntry())).then(world => {
       // The player may have restarted, switched trail or changed the setting meanwhile.
@@ -262,20 +264,28 @@ export function startGame() {
 
   function loadTrail(index) {
     index = clamp(index, 0, session.unlockedTrail);
-    session.trailSource = 'official'; session.customTrailIndex = -1; session.trailIndex = index;
+    session.trailSource = 'official'; session.bonusTrailIndex = -1; session.customTrailIndex = -1; session.trailIndex = index;
     initializeTrail(trails[index], String(index + 1).padStart(2, '0'));
     saveProgress();
+  }
+
+  function loadBonusTrail(index) {
+    const entry = bonusTrailEntries[index];
+    // A locked bonus trail stays shut, even if the menu was bypassed.
+    if (!entry || !bonusUnlock(entry).open) return;
+    session.trailSource = 'bonus'; session.bonusTrailIndex = index; session.customTrailIndex = -1;
+    initializeTrail(entry.trail, `B${String(index + 1).padStart(2, '0')}`);
   }
 
   function loadCustomTrail(index) {
     const entry = customTrailEntries[index];
     if (!entry) return;
-    session.trailSource = 'custom'; session.customTrailIndex = index;
+    session.trailSource = 'custom'; session.bonusTrailIndex = -1; session.customTrailIndex = index;
     initializeTrail(entry.trail, `C${String(index + 1).padStart(2, '0')}`);
   }
 
   function loadPlaytestTrail() {
-    session.trailSource = 'playtest'; session.customTrailIndex = -1;
+    session.trailSource = 'playtest'; session.bonusTrailIndex = -1; session.customTrailIndex = -1;
     initializeTrail(playtestTrail, 'TEST');
   }
 
@@ -301,6 +311,7 @@ export function startGame() {
 
   function startFresh() {
     if (session.trailSource === 'playtest') loadPlaytestTrail();
+    else if (session.trailSource === 'bonus') loadBonusTrail(session.bonusTrailIndex);
     else if (session.trailSource === 'custom') loadCustomTrail(session.customTrailIndex);
     else loadTrail(session.trailIndex);
     setState('running'); focusGame();
@@ -411,10 +422,15 @@ export function startGame() {
     const key = trailKey(entry);
     const time = ride.elapsed;
     const official = session.trailSource === 'official';
+    // Official and bonus times are save bests and go online; only official ones progress the career.
+    const ranked = isRankedSource(session.trailSource);
     const { saveGame } = session;
     const previousBest = official
       ? (saveGame ? readBest(session.activeSaveSlot, key, trails.length) : null)
-      : readLeaderboard(key)[0]?.time ?? null;
+      : ranked && saveGame
+        ? readBest(session.activeSaveSlot, key, trails.length)
+        // An open bonus trail can be ridden without a save, like a custom one.
+        : readLeaderboard(key)[0]?.time ?? null;
     const rank = recordLeaderboardRun(key, {
       time, rider: session.rider, name: saveGame?.name,
       slot: saveGame ? session.activeSaveSlot : null, saveId: saveGame?.createdAt
@@ -422,6 +438,8 @@ export function startGame() {
     if (official) {
       session.unlockedTrail = Math.max(session.unlockedTrail, Math.min(session.trailIndex + 1, trails.length - 1));
       saveProgress();
+    }
+    if (ranked) {
       if (saveGame && (previousBest === null || time < previousBest)) {
         saveBest(session.activeSaveSlot, key, time, trails.length);
         saveGame.bestTimes[key] = time;
@@ -436,13 +454,13 @@ export function startGame() {
     const medals = session.trail.medals;
     const last = session.trailIndex === trails.length - 1;
     overlay.showResults({
-      official, time, previousBest, rank, medals, medal: medalFor(medals, time), flips,
+      official, bonus: session.trailSource === 'bonus', time, previousBest, rank, medals, medal: medalFor(medals, time), flips,
       apples: ride.apples.length, author: session.trail.author,
       primaryLabel: official && !last ? 'Next Trail' : 'Play Again',
       restartKey: keyLabel(session.preferences.bindings.restart[0] || 'KeyR')
     });
     // Only a run the player actually rode is sent to the world board.
-    if (official && session.state === 'running' && saveGame?.token) {
+    if (ranked && session.state === 'running' && saveGame?.token) {
       // Offline saves stay local-only. The server replays the inputs to time the run.
       const slot = session.activeSaveSlot;
       submitOnlineRun(key, { rider: session.rider, token: saveGame.token, run: { inputs, seed: ride.seed, physics: RIDE_VERSION } }).then(result => {
@@ -506,6 +524,12 @@ export function startGame() {
         setState('ragdoll');
         overlay.announce('Rider down. Press ' + keyLabel(session.preferences.bindings.restart[0] || 'KeyR') + ' or select Retry to try again.');
         overlay.toast('Rider down · Press ' + keyLabel(session.preferences.bindings.restart[0] || 'KeyR') + ' to retry', Infinity);
+        break;
+      case 'helmet':
+        effects.burst(event.x, event.y, riderPalette(session.rider).helmet, 8);
+        sounds.helmet(event.speed);
+        vibrate(25);
+        overlay.announce('The helmet came off.');
         break;
       case 'apple': {
         effects.burst(event.apple.x, event.apple.y, '#ef8150');

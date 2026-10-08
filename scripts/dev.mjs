@@ -9,7 +9,7 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const trailsRoot = path.join(projectRoot, 'trails');
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT) || 8080;
-const TRAIL_FILE = /^(official|custom)\/([a-z0-9][a-z0-9_-]*)\.json$/i;
+const TRAIL_FILE = /^(official|bonus|custom)\/([a-z0-9][a-z0-9_-]*)\.json$/i;
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -45,7 +45,7 @@ async function readBody(request) {
 
 async function handleTrailRequest(request, response, file) {
   const match = TRAIL_FILE.exec(file);
-  if (!match) return sendJson(response, 400, { error: 'Trail files must be official/<name>.json or custom/<name>.json using letters, numbers, - and _.' });
+  if (!match) return sendJson(response, 400, { error: 'Trail files must be official/<name>.json, bonus/<name>.json or custom/<name>.json using letters, numbers, - and _.' });
   const [, source, name] = match;
   const target = path.join(trailsRoot, source, `${name}.json`);
   const entry = { id: `${source}:${name}`, source, file: `${source}/${name}.json` };
@@ -60,7 +60,7 @@ async function handleTrailRequest(request, response, file) {
     return sendJson(response, 200, { entry: { ...entry, name: trail.name } });
   }
   if (request.method === 'DELETE') {
-    if (source !== 'custom') return sendJson(response, 403, { error: 'Official trails cannot be deleted from the editor.' });
+    if (source !== 'custom') return sendJson(response, 403, { error: 'Official and bonus trails cannot be deleted from the editor.' });
     await unlink(target).catch(error => { if (error.code !== 'ENOENT') throw error; });
     await generateTrailCatalog();
     console.log(`Deleted trails/${entry.file}`);
@@ -105,5 +105,5 @@ const server = http.createServer(async (request, response) => {
 
 server.listen(port, host, () => {
   console.log(`Hjulben dev server running at http://${host}:${port}`);
-  console.log('Editor saves write directly to trails/official and trails/custom. Refresh the browser manually after code changes.');
+  console.log('Editor saves write directly to trails/official, trails/bonus and trails/custom. Refresh the browser manually after code changes.');
 });

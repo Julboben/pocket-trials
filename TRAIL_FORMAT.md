@@ -1,10 +1,10 @@
 # Hjulben trail format
 
-All trails use the same JSON schema. Shipped career trails live in `trails/official/`, while locally authored standalone trails live in `trails/custom/`. The editor's JSON export can be placed directly in `trails/custom/`.
+All trails use the same JSON schema. Shipped career trails live in `trails/official/`, shipped bonus trails in `trails/bonus/`, and locally authored standalone trails in `trails/custom/`. The editor's JSON export can be placed directly in `trails/custom/`.
 
-`npm run dev` watches both folders and regenerates `trails/catalog.json` whenever a JSON file changes. The browser loads that catalog through `js/trails.js`, so new files appear after the next page refresh. Trails saved or imported in the browser outside dev mode are kept in localStorage and listed alongside the file-based custom trails.
+`npm run dev` watches all three folders and regenerates `trails/catalog.json` whenever a JSON file changes. The browser loads that catalog through `js/trails.js`, so new files appear after the next page refresh. Trails saved or imported in the browser outside dev mode are kept in localStorage and listed alongside the file-based custom trails.
 
-A trail cannot declare itself official inside its JSON. The generated catalog assigns source from the containing folder: official trails participate in career progression and official best times; custom trails are clearly labeled and never alter career progress.
+A trail cannot declare itself official inside its JSON. The generated catalog assigns source from the containing folder: official trails participate in career progression and official best times; bonus trails are handpicked extras, often made by another rider, that keep save best times, medals and the online board but sit outside career progression; custom trails are clearly labeled, stay on the device and never alter career progress. Promoting a custom trail to a bonus trail is a matter of moving its file to `trails/bonus/`. Its times start over under the new `bonus:<file>` id, and the file name must then stay put, because the online board knows the trail by it.
 
 The world uses Canvas coordinates:
 
@@ -350,6 +350,14 @@ medals: { gold: 11, silver: 14.5, bronze: 19 }
 ```
 
 These optional target times are in seconds. The results screen and trail cards award the best medal whose time the run beats or matches. Times must be positive and ordered `gold ≤ silver ≤ bronze`. Any medal can be left out, and an invalid `medals` object is dropped during normalization. The official trails' gold times are based on the replay bot's finishing times in `tests/replays/`.
+
+## Unlocking bonus trails
+
+```js
+unlock: { trails: 3, golds: 1 }
+```
+
+This optional rule is for bonus trails. They stay locked until the active save has finished `trails` official trails and won `golds` gold medals on official trails. Both counts are whole numbers, every rule given must be met, and a count of 0 is the same as leaving it out. A bonus trail without a rule is open to everyone, even without a savegame, while a locked one is shown with a hint such as "FINISH 3 TRAILS & WIN 1 GOLD MEDAL TO UNLOCK". Invalid rules are dropped during normalization, and the rule does not change the trail's hash. Other trails ignore it.
 
 ## Recommended authoring workflow
 

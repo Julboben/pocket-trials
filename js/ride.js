@@ -368,7 +368,7 @@ function advanceRide(ride, input, hooks, events) {
     point.py = point.y;
   }
   if (ride.ragdoll)
-    for (const point of ride.ragdoll.list) {
+    for (const point of ragdollPoints(ride.ragdoll)) {
       point.px = point.x;
       point.py = point.y;
     }
@@ -434,8 +434,10 @@ function advanceRide(ride, input, hooks, events) {
   if (ride.water.length) splash(ride, [rear, front], false, events);
 
   if (!running) {
-    stepRagdoll(ride.ragdoll, trail, ride.water, ride.vehicle);
-    if (ride.water.length) splash(ride, ride.ragdoll.list, true, events);
+    const knock = stepRagdoll(ride.ragdoll, trail, ride.water, ride.vehicle);
+    if (knock) events.push({ type: "helmet", ...knock });
+    if (ride.water.length)
+      splash(ride, ragdollPoints(ride.ragdoll), true, events);
     return events;
   }
 
@@ -510,10 +512,15 @@ function advanceRide(ride, input, hooks, events) {
   return events;
 }
 
+/** The thrown rider's joints, and the helmet once it has come off. */
+function ragdollPoints(ragdoll) {
+  return ragdoll.helmet ? [...ragdoll.list, ragdoll.helmet] : ragdoll.list;
+}
+
 /** All simulated points. */
 export function ridePoints(ride) {
   const points = ride.vehicle.bikePoints.slice();
-  if (ride.ragdoll) points.push(...ride.ragdoll.list);
+  if (ride.ragdoll) points.push(...ragdollPoints(ride.ragdoll));
   return points;
 }
 

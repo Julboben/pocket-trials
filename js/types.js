@@ -104,6 +104,7 @@
  *   | { type: 'land', impact: number }
  *   | { type: 'crash', cause: 'spike' | 'head' | 'fall' | 'water', x: number, y: number }
  *   | { type: 'splash', x: number, y: number, speed: number, rider: boolean }
+ *   | { type: 'helmet', x: number, y: number, speed: number }
  *   | { type: 'apple', apple: object, collected: number, total: number, split: number }
  *   | ({ type: 'shatter', blockId: string } & GlassBreak)
  *   | { type: 'crack', blockId: string, x: number, y: number, speed: number }

@@ -1,8 +1,9 @@
 // @ts-check
 // Session state shared by the browser modules. Only game.js changes the
 // ride and the state machine; the menu changes saves and preferences.
-import { trails, officialTrailEntries, customTrailEntries } from './trails.js';
+import { trails, officialTrailEntries, bonusTrailEntries, customTrailEntries } from './trails.js';
 import { trailHash } from './trail-hash.js';
+import { unlockStatus } from './trail-schema.js';
 
 /** @typedef {import('./types.js').Ride} Ride */
 /** @typedef {'menu' | 'running' | 'paused' | 'ragdoll' | 'won'} GameState */
@@ -65,7 +66,8 @@ export const session = {
   /** @type {GameState} */ stateBeforeMenu: 'running',
   trailIndex: 0,
   trail: trails[0],
-  /** @type {'official' | 'custom' | 'playtest'} */ trailSource: 'official',
+  /** @type {'official' | 'bonus' | 'custom' | 'playtest'} */ trailSource: 'official',
+  bonusTrailIndex: -1,
   customTrailIndex: -1,
   rider: 'male',
   unlockedTrail: 0,
@@ -81,23 +83,49 @@ export const session = {
 };
 
 export const officialTrailIds = officialTrailEntries.map(entry => entry.id);
-export const leaderboardTrails = () => [...officialTrailEntries, ...customTrailEntries];
+export const leaderboardTrails = () => [...officialTrailEntries, ...bonusTrailEntries, ...customTrailEntries];
+
+/** Shipped trails: their times are save bests and go to the online board. */
+export const isRankedSource = source => source === 'official' || source === 'bonus';
 
 /**
  * Leaderboard, ghost and best-time key for a trail. It includes a hash of
  * everything that decides a run, so an edit that changes the ride starts fresh
- * boards while a rename or new props keep them. Official trails keep their id
- * in front, so the online board can tell which trail it is.
+ * boards while a rename or new props keep them. Official and bonus trails keep
+ * their id in front, so the online board can tell which trail it is.
  */
 export function trailKey(entry) {
   const hash = trailHash(entry.trail);
-  return entry.source === 'official' ? `${entry.id}@${hash}` : 'trail:' + hash;
+  return isRankedSource(entry.source) ? `${entry.id}@${hash}` : 'trail:' + hash;
 }
 
 export function currentTrailEntry() {
-  return session.trailSource === 'official'
-    ? officialTrailEntries[session.trailIndex]
-    : customTrailEntries[session.customTrailIndex];
+  if (session.trailSource === 'official') return officialTrailEntries[session.trailIndex];
+  if (session.trailSource === 'bonus') return bonusTrailEntries[session.bonusTrailIndex];
+  return customTrailEntries[session.customTrailIndex];
+}
+
+/**
+ * The career progress bonus trails unlock with: official trails finished and
+ * gold medals won on them. Null without a savegame.
+ * @param {any} save
+ */
+export function careerProgress(save) {
+  if (!save) return null;
+  let finished = 0, golds = 0;
+  officialTrailEntries.forEach((entry, index) => {
+    const best = save.bestTimes?.[trailKey(entry)];
+    // Reaching the next trail means this one was finished, even if an edit
+    // has since moved its best time to a new key.
+    if (index < (save.unlocked || 0) || best) finished++;
+    if (best && entry.trail.medals && best <= entry.trail.medals.gold) golds++;
+  });
+  return { trails: finished, golds };
+}
+
+/** Whether a bonus trail is open for this save, and what opens it if not. */
+export function bonusUnlock(entry, save = session.saveGame) {
+  return unlockStatus(entry.trail.unlock, careerProgress(save));
 }
 
 export function timeText(seconds) {
@@ -116,8 +144,10 @@ export function deltaText(seconds) {
   return sign + Math.abs(seconds).toFixed(2);
 }
 
+/** A trail's number, by its index in leaderboardTrails(): 01, B01 or C01. */
 export function trailMarker(index) {
-  return index < officialTrailEntries.length
-    ? String(index + 1).padStart(2, '0')
-    : `C${String(index - officialTrailEntries.length + 1).padStart(2, '0')}`;
+  if (index < officialTrailEntries.length) return String(index + 1).padStart(2, '0');
+  index -= officialTrailEntries.length;
+  if (index < bonusTrailEntries.length) return `B${String(index + 1).padStart(2, '0')}`;
+  return `C${String(index - bonusTrailEntries.length + 1).padStart(2, '0')}`;
 }

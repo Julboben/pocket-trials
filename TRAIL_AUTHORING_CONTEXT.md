@@ -33,11 +33,11 @@ Trail format specification.
 ````markdown
 # Hjulben trail format
 
-All trails use the same JSON schema. Shipped career trails live in `trails/official/`, while locally authored standalone trails live in `trails/custom/`. The editor's JSON export can be placed directly in `trails/custom/`.
+All trails use the same JSON schema. Shipped career trails live in `trails/official/`, shipped bonus trails in `trails/bonus/`, and locally authored standalone trails in `trails/custom/`. The editor's JSON export can be placed directly in `trails/custom/`.
 
-`npm run dev` watches both folders and regenerates `trails/catalog.json` whenever a JSON file changes. The browser loads that catalog through `js/trails.js`, so new files appear after the next page refresh. Trails saved or imported in the browser outside dev mode are kept in localStorage and listed alongside the file-based custom trails.
+`npm run dev` watches all three folders and regenerates `trails/catalog.json` whenever a JSON file changes. The browser loads that catalog through `js/trails.js`, so new files appear after the next page refresh. Trails saved or imported in the browser outside dev mode are kept in localStorage and listed alongside the file-based custom trails.
 
-A trail cannot declare itself official inside its JSON. The generated catalog assigns source from the containing folder: official trails participate in career progression and official best times; custom trails are clearly labeled and never alter career progress.
+A trail cannot declare itself official inside its JSON. The generated catalog assigns source from the containing folder: official trails participate in career progression and official best times; bonus trails are handpicked extras, often made by another rider, that keep save best times, medals and the online board but sit outside career progression; custom trails are clearly labeled, stay on the device and never alter career progress. Promoting a custom trail to a bonus trail is a matter of moving its file to `trails/bonus/`. Its times start over under the new `bonus:<file>` id, and the file name must then stay put, because the online board knows the trail by it.
 
 The world uses Canvas coordinates:
 
@@ -384,6 +384,14 @@ medals: { gold: 11, silver: 14.5, bronze: 19 }
 
 These optional target times are in seconds. The results screen and trail cards award the best medal whose time the run beats or matches. Times must be positive and ordered `gold ≤ silver ≤ bronze`. Any medal can be left out, and an invalid `medals` object is dropped during normalization. The official trails' gold times are based on the replay bot's finishing times in `tests/replays/`.
 
+## Unlocking bonus trails
+
+```js
+unlock: { trails: 3, golds: 1 }
+```
+
+This optional rule is for bonus trails. They stay locked until the active save has finished `trails` official trails and won `golds` gold medals on official trails. Both counts are whole numbers, every rule given must be met, and a count of 0 is the same as leaving it out. A bonus trail without a rule is open to everyone, even without a savegame, while a locked one is shown with a hint such as "FINISH 3 TRAILS & WIN 1 GOLD MEDAL TO UNLOCK". Invalid rules are dropped during normalization, and the rule does not change the trail's hash. Other trails ignore it.
+
 ## Recommended authoring workflow
 
 1. Build the base route as one ground block, with no gaps.
@@ -704,7 +712,50 @@ export function normalizeTrail(input, index = 0) {
   const medals = normalizeMedals(trail.medals);
   if (medals) trail.medals = medals;
   else delete trail.medals;
+  const unlock = normalizeUnlock(trail.unlock);
+  if (unlock) trail.unlock = unlock;
+  else delete trail.unlock;
   return trail;
+}
+
+export const UNLOCK_RULES = ["trails", "golds"];
+
+/**
+ * What a bonus trail asks of the career before it opens: `trails` official
+ * trails finished and `golds` gold medals won on them. Zero or invalid counts
+ * are dropped, and no rule left means the trail is always open.
+ */
+export function normalizeUnlock(unlock) {
+  if (!unlock || typeof unlock !== "object") return null;
+  const rules = Object.fromEntries(
+    UNLOCK_RULES.map((rule) => [rule, Math.floor(Number(unlock[rule]))]).filter(
+      ([, count]) => Number.isFinite(count) && count > 0,
+    ),
+  );
+  return Object.keys(rules).length ? rules : null;
+}
+
+/**
+ * Checks an unlock rule against a career's progress. `progress` is null
+ * without a savegame, which keeps every rule-locked trail shut.
+ * @param {{ trails?: number, golds?: number } | null | undefined} unlock
+ * @param {{ trails: number, golds: number } | null} progress
+ * @returns {{ open: boolean, hint: string }}
+ */
+export function unlockStatus(unlock, progress) {
+  const rules = normalizeUnlock(unlock);
+  if (!rules) return { open: true, hint: "" };
+  const parts = [];
+  if (rules.trails)
+    parts.push(`FINISH ${rules.trails} TRAIL${rules.trails === 1 ? "" : "S"}`);
+  if (rules.golds)
+    parts.push(`WIN ${rules.golds} GOLD MEDAL${rules.golds === 1 ? "" : "S"}`);
+  const open = Boolean(
+    progress &&
+      (progress.trails >= (rules.trails || 0)) &&
+      (progress.golds >= (rules.golds || 0)),
+  );
+  return { open, hint: parts.join(" & ") + " TO UNLOCK" };
 }
 
 export const MEDALS = ["gold", "silver", "bronze"];
@@ -938,6 +989,21 @@ export function validateTrail(trail) {
       );
     else if (!(times[0] <= times[1] && times[1] <= times[2]))
       error("Medal times must get slower from gold to silver to bronze.");
+  }
+  if (trail.unlock !== undefined) {
+    const unlock = trail.unlock;
+    const counts = unlock && typeof unlock === "object" && !Array.isArray(unlock)
+      ? Object.entries(unlock)
+      : null;
+    if (!counts)
+      error('Unlock must be an object such as { "trails": 3, "golds": 1 }.');
+    else
+      for (const [rule, count] of counts) {
+        if (!UNLOCK_RULES.includes(rule))
+          error(`Unlock.${rule} is not a rule. Use ${UNLOCK_RULES.join(" or ")}.`);
+        else if (!Number.isInteger(count) || count < 0)
+          error(`Unlock.${rule} must be a whole number of 0 or more.`);
+      }
   }
   for (const key of ["sun", "clouds", "fog", "rain", "snow", "lightning"]) {
     const value = trail.weather?.[key];
@@ -3288,9 +3354,54 @@ Example trail: medium.
             "edge": "straight"
           },
           {
+            "id": "n1hte",
+            "x": 3584.3042,
+            "y": 235.6799,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
             "id": "n3c",
-            "x": 3564.5,
-            "y": 6.3289,
+            "x": 3607.0579,
+            "y": 198.006,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nf4j",
+            "x": 3599.5376,
+            "y": 106.5655,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nnig",
+            "x": 3622.3187,
+            "y": 89.3548,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ntuh",
+            "x": 3629.4918,
+            "y": 41.8388,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nxrh",
+            "x": 3638.9808,
+            "y": 13.4725,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -3298,8 +3409,26 @@ Example trail: medium.
           },
           {
             "id": "n3d",
-            "x": 3723.0335,
-            "y": -70.2897,
+            "x": 3754.443,
+            "y": -4.3129,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n2bvi",
+            "x": 3768.3432,
+            "y": 116.2982,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n2k3j",
+            "x": 3798.499859442815,
+            "y": 124.42865459174996,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -3307,8 +3436,8 @@ Example trail: medium.
           },
           {
             "id": "n3e",
-            "x": 3793.6579,
-            "y": 259.8748,
+            "x": 3822.633359442815,
+            "y": 261.3059545917499,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -3510,8 +3639,8 @@ Example trail: medium.
         "nodes": [
           {
             "id": "n6fo0",
-            "x": 923.0516580231927,
-            "y": 309.0869318733427,
+            "x": 923.0517,
+            "y": 309.0869,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -3519,8 +3648,8 @@ Example trail: medium.
           },
           {
             "id": "n75u4",
-            "x": 1290.7444893777208,
-            "y": 369.6808585084145,
+            "x": 1290.7445,
+            "y": 369.6809,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -3528,8 +3657,8 @@ Example trail: medium.
           },
           {
             "id": "n6fo1",
-            "x": 1640.480971105309,
-            "y": 340.47336732592214,
+            "x": 1640.481,
+            "y": 340.4734,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -3569,12 +3698,12 @@ Example trail: medium.
   ],
   "apples": [
     {
-      "x": 345,
-      "y": null
+      "x": 349,
+      "y": 237.46666666666664
     },
     {
-      "x": 1047.4219110547317,
-      "y": 179.9511114362549
+      "x": 1049.4219110547317,
+      "y": 196.9511114362549
     },
     {
       "x": 2092.995904040369,
@@ -3689,8 +3818,8 @@ Example trail: medium.
       "layer": "back"
     },
     {
-      "x": 3232.2215292191077,
-      "y": 140.95897178611412,
+      "x": 3387.6497484726588,
+      "y": 276.13888610068784,
       "type": "pebbles",
       "layer": "back"
     },
@@ -3707,8 +3836,8 @@ Example trail: medium.
       "layer": "back"
     },
     {
-      "x": 3373.2397555160396,
-      "y": 301.77235900994003,
+      "x": 3690.9212255205603,
+      "y": 3.562773238475188,
       "type": "boulder",
       "layer": "back"
     },
@@ -3726,8 +3855,9 @@ Example trail: medium.
     }
   ],
   "spikes": [],
+  "water": [],
   "weather": {
-    "sun": 0.82,
+    "sun": 0.85,
     "clouds": 0.24
   },
   "fallY": 560,

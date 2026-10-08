@@ -74,6 +74,9 @@ export function slugify(name) {
 export const trailEntries = [...loadedEntries, ...readBrowserLibrary().map(browserEntry)];
 
 export const officialTrailEntries = trailEntries.filter(entry => entry.source === 'official');
+// Shipped trails outside the career: best times, medals and the online board,
+// but no progression. They can ask for career progress first (trail.unlock).
+export const bonusTrailEntries = trailEntries.filter(entry => entry.source === 'bonus');
 export const customTrailEntries = trailEntries.filter(entry => entry.source === 'custom');
 export const officialTrails = officialTrailEntries.map(entry => entry.trail);
 
@@ -88,6 +91,7 @@ export function registerTrailEntry(entry) {
   }
   trailEntries.push(entry);
   if (entry.source === 'custom') customTrailEntries.push(entry);
+  else if (entry.source === 'bonus') bonusTrailEntries.push(entry);
   return entry;
 }
 
@@ -108,7 +112,7 @@ export function saveBrowserTrail(trail, key = null) {
 }
 
 export function removeTrailEntry(id) {
-  for (const list of [trailEntries, customTrailEntries]) {
+  for (const list of [trailEntries, bonusTrailEntries, customTrailEntries]) {
     const index = list.findIndex(entry => entry.id === id);
     if (index >= 0) list.splice(index, 1);
   }

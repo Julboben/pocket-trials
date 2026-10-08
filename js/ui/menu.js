@@ -1,6 +1,6 @@
 // Main menu: savegames, trail select, leaderboard, settings and how-to-play.
 import { clamp } from '../config.js';
-import { trails, officialTrailEntries, customTrailEntries, saveBrowserTrail } from '../trails.js';
+import { trails, officialTrailEntries, bonusTrailEntries, customTrailEntries, saveBrowserTrail } from '../trails.js';
 import { createGameArt } from '../drawing.js';
 import { drawScene, posedRide, parkedRide, findClimb, findJump, finishScene, findHighlight } from '../scene-preview.js';
 import {
@@ -18,7 +18,7 @@ import { ACTION_LABELS, keyLabel } from '../input.js';
 import { VERSION } from '../version.js';
 import {
   $, session, DEFAULT_BINDINGS, DEFAULT_PREFERENCES, sanitizePreferences,
-  leaderboardTrails, trailKey, trailMarker, runTimeText
+  leaderboardTrails, trailKey, trailMarker, runTimeText, bonusUnlock
 } from '../state.js';
 
 // Runs made without a savegame have no name.
@@ -51,13 +51,14 @@ export function loadStoredState() {
  * @param {{
  *   sounds: any, input: any,
  *   onStartTrail: (index: number) => void,
+ *   onStartBonus: (index: number) => void,
  *   onStartCustom: (index: number) => void,
  *   onClose: () => void,
  *   onRetry: () => void,
  *   onPreferences: () => void
  * }} hooks
  */
-export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose, onRetry, onPreferences }) {
+export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartCustom, onClose, onRetry, onPreferences }) {
   let pendingSaveSlot = 0, selectedNewRider = 'male';
   $('app-version').textContent = 'v' + VERSION;
   let deleteArmedSlot = -1, deleteArmTimer = 0, leaderboardTrail = 0;
@@ -102,6 +103,11 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
   function startTrail(index) {
     session.rideSaveId = session.saveGame?.createdAt ?? null;
     onStartTrail(index);
+  }
+
+  function startBonus(index) {
+    session.rideSaveId = session.saveGame?.createdAt ?? null;
+    onStartBonus(index);
   }
 
   function startCustom(index) {
@@ -343,7 +349,8 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     $('active-save-slot').textContent = 'SLOT ' + (session.activeSaveSlot + 1);
     $('active-save-rider').textContent = hasSave ? session.saveGame.name : '';
     $('active-save-progress').textContent = hasSave ? (session.unlockedTrail + 1) + ' / ' + trails.length + ' trails · ' + trails[session.savedTrail].name : '';
-    $('menu-trails').disabled = !hasSave && customTrailEntries.length === 0;
+    $('menu-trails').disabled = !hasSave && customTrailEntries.length === 0
+      && !bonusTrailEntries.some(entry => bonusUnlock(entry).open);
     // One orange call to action: resume a ride, else continue the save, else start one.
     const resumable = canResume();
     $('menu-resume').hidden = !resumable;
@@ -427,9 +434,9 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     return heading;
   }
 
-  function trailCard({ trail, key, number, status, best = null, locked = false, custom = false, onSelect }) {
+  function trailCard({ trail, key, number, status, best = null, locked = false, kind = 'official', onSelect }) {
     const button = document.createElement('button');
-    button.className = `trail-card${custom ? ' custom-trail-card' : ''}`;
+    button.className = `trail-card${kind === 'official' ? '' : ` ${kind}-trail-card`}`;
     button.disabled = locked;
     const preview = document.createElement('canvas');
     preview.className = 'trail-preview';
@@ -478,6 +485,23 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
         onSelect: () => startTrail(index)
       }));
     });
+    if (bonusTrailEntries.length) {
+      cards.push(trailSection('BONUS TRAILS', 'Extra trails outside career progression, with best times and world boards'));
+      bonusTrailEntries.forEach((entry, index) => {
+        const key = trailKey(entry);
+        const { open, hint } = bonusUnlock(entry);
+        cards.push(trailCard({
+          trail: entry.trail,
+          key,
+          number: `B${String(index + 1).padStart(2, '0')}`,
+          status: open ? 'BONUS TRAIL' : hint,
+          best: session.saveGame ? readBest(session.activeSaveSlot, key, trails.length) : readLeaderboard(key)[0]?.time ?? null,
+          locked: !open,
+          kind: 'bonus',
+          onSelect: () => startBonus(index)
+        }));
+      });
+    }
     if (customTrailEntries.length) {
       cards.push(trailSection('CUSTOM TRAILS', 'Local trails outside career progression'));
       customTrailEntries.forEach((entry, index) => cards.push(trailCard({
@@ -486,7 +510,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
         number: `C${String(index + 1).padStart(2, '0')}`,
         status: entry.storage === 'browser' ? 'CUSTOM · SAVED IN BROWSER' : 'CUSTOM TRAIL',
         best: readLeaderboard(trailKey(entry))[0]?.time ?? null,
-        custom: true,
+        kind: 'custom',
         onSelect: () => startCustom(index)
       })));
     }
@@ -540,7 +564,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
     $('leaderboard-trail-number').textContent = trailMarker(leaderboardTrail);
     $('leaderboard-trail-name').textContent = entry.name.toUpperCase();
     const author = normalizeAuthor(entry.trail?.author);
-    $('leaderboard-trail-meta').textContent = (entry.source === 'custom' ? 'CUSTOM TRAIL' : 'OFFICIAL TRAIL')
+    $('leaderboard-trail-meta').textContent = entry.source.toUpperCase() + ' TRAIL'
       + (author ? ' · BY ' + author.toUpperCase() : '')
       + ' · ' + (leaderboardTrail + 1) + ' / ' + trails.length;
     const rows = Array.from({ length: LEADERBOARD_SIZE }, (_, index) => leaderboardRow(loading ? undefined : runs[index], index + 1, loading));
@@ -553,7 +577,10 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
   }
 
   function currentLeaderboardTrail() {
-    if (session.trailSource === 'custom' && session.customTrailIndex >= 0) return officialTrailEntries.length + session.customTrailIndex;
+    if (session.trailSource === 'bonus' && session.bonusTrailIndex >= 0) return officialTrailEntries.length + session.bonusTrailIndex;
+    if (session.trailSource === 'custom' && session.customTrailIndex >= 0) {
+      return officialTrailEntries.length + bonusTrailEntries.length + session.customTrailIndex;
+    }
     return session.gameLoopStarted ? session.trailIndex : session.savedTrail;
   }
 
@@ -660,7 +687,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartCustom, onClose
       buildSaveSlots();
       setStatus('riders-status', `${linked.name} is online. Sending best runs…`);
       let sent = 0;
-      for (const entry of officialTrailEntries) {
+      for (const entry of [...officialTrailEntries, ...bonusTrailEntries]) {
         const key = trailKey(entry);
         const ghost = readGhost(key);
         // Ghosts are shared by every save on this device, so only send the

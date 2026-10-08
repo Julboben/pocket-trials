@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync } from 'node:fs';
 import { RADIUS, STEP, WHEELBASE } from '../js/config.js';
 import { createRide, stepRide, riderCollisionPoints, simulateRun } from '../js/ride.js';
-import { createRagdoll, stepRagdoll } from '../js/ragdoll.js';
+import { createRagdoll, stepRagdoll, HELMET_KNOCK_MAX, HELMET_RADIUS } from '../js/ragdoll.js';
 import { decodeInputs, encodeInputs } from '../js/replay-codec.js';
 import { terrainCollisionsAt, terrainAt } from '../js/terrain.js';
 import { loadCatalogTrails, readJson, repoRoot } from './lib/trails.mjs';
@@ -184,6 +184,105 @@ for (const entry of entries) {
     slide += (ragdoll.points.hip.x - landX) / 10;
   }
   assert.ok(slide > 140, `thrown rider glides after landing (${slide.toFixed(0)} px)`);
+}
+
+// Once sliding, the rider skids a good way on flat ground and further down a
+// hill, then still comes to rest instead of creeping on.
+{
+  const slope = (degrees) => {
+    const drop = 5800 * Math.tan(degrees * Math.PI / 180);
+    return flatTrail({
+      fallY: 99999,
+      terrainBlocks: [polygonBlock([[0, 320], [200, 320], [6000, 320 + drop], [6000, 720 + drop], [0, 720 + drop]])],
+    });
+  };
+  const slide = (degrees) => {
+    const trail = slope(degrees);
+    let total = 0;
+    for (let throwIndex = 0; throwIndex < 6; throwIndex++) {
+      let seed = throwIndex * 7919 + 1;
+      const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      const dx = 600 * STEP;
+      const wheel = (x, y) => ({ x, y, ox: x - dx, oy: y - 2 });
+      const ragdoll = createRagdoll(wheel(175, 280), wheel(225, 280 - (throwIndex % 3 - 1) * 6), 1, random);
+      let landX = null, steps = 0;
+      for (; steps < 1200 && !ragdoll.asleep; steps++) {
+        stepRagdoll(ragdoll, trail);
+        if (landX === null && ragdoll.list.some(point => point.grounded)) landX = ragdoll.points.hip.x;
+      }
+      assert.ok(ragdoll.asleep, `${degrees}°: thrown rider ${throwIndex} comes to rest (still moving after ${steps} steps)`);
+      total += (ragdoll.points.hip.x - landX) / 6;
+    }
+    return total;
+  };
+  const flat = slide(0), hill = slide(20);
+  assert.ok(flat > 300, `thrown rider skids along flat ground (${flat.toFixed(0)} px)`);
+  assert.ok(hill > flat + 50, `and further down a hill (${hill.toFixed(0)} px vs ${flat.toFixed(0)} px)`);
+}
+
+// A bike tumbling over the rider it has just thrown must not fling them: the
+// body only collides with the bike once all of it is clear, so a free arm
+// caught on the bike can't drag the rest along. This crash used to launch the
+// rider upwards at over 200 px/s.
+{
+  const entry = entries.find(candidate => candidate.id === 'official:07-brake-point');
+  let seed = 2 * 31 + 7 + 6000;
+  const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const ride = createRide(entry.trail, { seed: 2 });
+  let leanInput = 0;
+  for (let step = 0; step < 4000 && ride.status === 'running'; step++) {
+    if (step % 40 === 0) leanInput = random() < .5 ? 0 : random() * 2 - 1;
+    stepRide(ride, { facing: 1, accelerating: random() < .9, leanInput });
+  }
+  assert.equal(ride.status, 'crashed', 'brake-point bot run crashes (update this scenario if the trail changed)');
+  let rising = 0;
+  for (let step = 0; step < 400; step++) {
+    stepRide(ride, {});
+    if (step < 10) continue;
+    let momentum = 0, mass = 0;
+    for (const point of ride.ragdoll.list) {
+      momentum += (point.y - point.oy) / point.inverseMass;
+      mass += 1 / point.inverseMass;
+    }
+    rising = Math.max(rising, -momentum / mass / STEP);
+  }
+  assert.ok(rising < 100, `tumbling bike doesn't fling the rider (rose at ${rising.toFixed(0)} px/s)`);
+}
+
+// Riding face-first into a beam knocks the helmet off; it tumbles away on its
+// own, comes to rest on the ground, and does so the same way every time.
+{
+  const trail = flatTrail({ terrainBlocks: [rectangle(0, 320, 3000, 620), rectangle(600, 100, 800, 270)] });
+  const run = () => {
+    const ride = createRide(trail, { seed: 3 });
+    const knocks = [];
+    for (let step = 0; step < 2400; step++)
+      knocks.push(...stepRide(ride, { facing: 1, accelerating: ride.status === 'running' }).filter(event => event.type === 'helmet'));
+    return { ride, knocks };
+  };
+  const { ride, knocks } = run();
+  assert.equal(ride.crashCause, 'head', 'the beam stops the rider by the head');
+  assert.equal(knocks.length, 1, 'the helmet comes off once');
+  assert.ok(knocks[0].speed > HELMET_KNOCK_MAX, `a hard hit knocks it off (${knocks[0].speed.toFixed(0)})`);
+  const { helmet, points } = ride.ragdoll;
+  assert.ok(points.head.radius < HELMET_RADIUS, 'the bare head is smaller than the helmet');
+  assert.ok([helmet.x, helmet.y, helmet.spin].every(Number.isFinite), 'helmet stays finite');
+  assert.ok(helmet.asleep, 'the helmet comes to rest');
+  assert.ok(deepestPenetration(trail, [helmet]) < 1, 'the helmet rests on the ground');
+  const again = run().ride.ragdoll.helmet;
+  assert.deepEqual([again.x, again.y, again.spin], [helmet.x, helmet.y, helmet.spin], 'the helmet comes off the same way every time');
+}
+
+// A gentle backward loop at walking pace puts the rider down with the helmet on.
+{
+  for (const seed of [1, 2, 3]) {
+    const ride = createRide(flatTrail(), { seed });
+    for (let step = 0; step < 1500; step++)
+      for (const event of stepRide(ride, { facing: 1, accelerating: step < 300, leanInput: -1 }))
+        assert.notEqual(event.type, 'helmet', `seed ${seed}: a soft fall keeps the helmet on`);
+    assert.equal(ride.status, 'crashed');
+    assert.equal(ride.ragdoll.helmet, null);
+  }
 }
 
 // Only the head crashes on terrain: a corner poking up between the wheels to

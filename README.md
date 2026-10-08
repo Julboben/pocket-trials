@@ -13,7 +13,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Rider weight transfer, wheelies, and stoppies
 - Independent front and rear suspension animation
 - Impact-sensitive suspension compression and landing rebound
-- Live post-crash rider ragdoll that keeps the bike's spin when thrown, with a weighted body, limited neck, hip, elbow and knee joints, ground grip, and collisions with the crashed bike, which keeps colliding with the ground and can still hang from a ledge
+- Live post-crash rider ragdoll that keeps the bike's spin when thrown, with a weighted body, limited neck, hip, elbow and knee joints, ground grip, and collisions with the crashed bike, which keeps colliding with the ground and can still hang from a ledge; a hard enough hit to the head knocks the helmet off, which tumbles, rolls, floats and bumps into the bike on its own, leaving the rider bare-headed
 - Direction flipping with an animated rider and bike transition
 - Code-drawn pixel presentation with smooth terrain, mountains, and apples for readability
 - Responsive mobile and expanded desktop layouts with optional fullscreen play
@@ -31,6 +31,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Collectibles, finish gates, timers, and best times
 - Persisted settings and trail progression
 - Seven progressively longer trails with gaps, caves, and floating blocks to ride across
+- Bonus trails outside the career, often made by other riders, with their own best times and world boards, some unlocked by finishing trails or winning gold medals
 - Grass, dirt, sand, concrete, stone, snow, brick, and glass terrain materials
 - Per-trail rain, snow, and lightning configuration with procedural rain and storm-wind ambience and distance-aware thunder
 - Water you can ride through: shallow fords drag the bike and slow it down, deeper water wipes the rider out, and the ragdoll floats on the surface with splashes, wakes and sound; water lilies, reeds, seaweed, fish that dart off and ducks that take off when you come close
@@ -44,7 +45,7 @@ Run a local static server from the project directory:
 npm run dev
 ```
 
-This starts a small dependency-free Node server at `http://127.0.0.1:8080` (override with `PORT=…`). It generates `trails/catalog.json`, regenerates it when a trail JSON file changes, and lets the editor save trails straight into `trails/official/` and `trails/custom/`. It never reloads the page on its own, so a running game is not interrupted; refresh manually after changing code.
+This starts a small dependency-free Node server at `http://127.0.0.1:8080` (override with `PORT=…`). It generates `trails/catalog.json`, regenerates it when a trail JSON file changes, and lets the editor save trails straight into `trails/official/`, `trails/bonus/` and `trails/custom/`. It never reloads the page on its own, so a running game is not interrupted; refresh manually after changing code.
 
 A local server is required because the game uses native JavaScript modules and fetches trail JSON, which browsers block on `file://`. Any static server also works for playing, for example on a static host, but only `npm run dev` enables saving trail files from the editor.
 
@@ -93,7 +94,7 @@ Open the visual editor from **Trail Editor** on the main dashboard or navigate d
 
 The inspector on the right edits the current selection. The editor supports:
 
-- Loading every official and custom trail, with its source clearly labeled
+- Loading every official, bonus and custom trail, with its source clearly labeled
 - Drawing terrain blocks and cutting caves, entrances, and gaps into them, freehand or, holding `Alt`, as rectangles and, holding `Cmd`/`Ctrl`, as circles; `Shift` snaps to the grid
 - Drawing and cutting back walls: the Block and Cut tools have a **Layer** picker (Terrain or Back wall), the inspector switches a selected block between layers, and **Fill caves with back walls** closes off the selected block's caves
 - Dragging block points and curve handles, switching edges between straight and curved, and moving whole blocks (once selected, a block drags from anywhere inside it; `Esc` or `Cmd`/`Ctrl`+`D` deselects, and `Shift`-click adds or removes a block, point or object); holding `Shift` snaps the point or corner you hold to 15° steps and the grid
@@ -121,10 +122,10 @@ The inspector on the right edits the current selection. The editor supports:
 
 Where **Publish** writes depends on how the editor is served:
 
-- Under `npm run dev`, official and file-based custom trails are written directly to their JSON file, and new trails are created in `trails/custom/`. For an official trail the menu item reads **Overwrite official file…** and asks for confirmation first.
+- Under `npm run dev`, official, bonus and file-based custom trails are written directly to their JSON file, and new trails are created in `trails/custom/`. For an official or bonus trail the menu item reads **Overwrite official file…** or **Overwrite bonus file…** and asks for confirmation first.
 - On any other server, official and file-based trails are read-only. **New** and **Duplicate** create custom trails stored in the browser (localStorage), which then appear under **Custom Trails** in the game. Players can also add trails with **Import trail** in the game's trail menu.
 
-Editor drafts do not overwrite trail files. Official trails live in `trails/official/`; locally authored trails belong in `trails/custom/`. Both use the exact JSON format produced by **Export JSON**. Source classification comes from the generated catalog and folder—not from a user-editable property inside the trail. See [`TRAIL_FORMAT.md`](./TRAIL_FORMAT.md) for the full schema and design guidelines.
+Editor drafts do not overwrite trail files. Official trails live in `trails/official/`, bonus trails in `trails/bonus/`, and locally authored trails belong in `trails/custom/`. Both use the exact JSON format produced by **Export JSON**. Source classification comes from the generated catalog and folder—not from a user-editable property inside the trail. See [`TRAIL_FORMAT.md`](./TRAIL_FORMAT.md) for the full schema and design guidelines.
 
 ## Settings and saved data
 
@@ -151,7 +152,7 @@ Current storage keys:
 - `hjulben-leaderboard-v1`
 - `hjulben-ghost-v1:<trail>` (inputs of the best run, re-simulated as the ghost)
 
-The dashboard's Leaderboard view ranks the ten fastest finishes per official and custom trail across all savegames on the device. Runs remain on the board after their savegame is deleted. Every trail is keyed by a hash of what decides a run (terrain, start, finish, apples, spikes, water and the fall line), and official trails also by their id (`official:<id>@<hash>`). Editing a trail's gameplay starts fresh leaderboards, ghosts and best times, online and local, while renaming it or changing its props keeps them.
+The dashboard's Leaderboard view ranks the ten fastest finishes per official, bonus and custom trail across all savegames on the device. Runs remain on the board after their savegame is deleted. Every trail is keyed by a hash of what decides a run (terrain, start, finish, apples, spikes, water and the fall line), and official and bonus trails also by their id (`official:<id>@<hash>`, `bonus:<id>@<hash>`). Editing a trail's gameplay starts fresh leaderboards, ghosts and best times, online and local, while renaming it or changing its props keeps them.
 
 Clearing site data resets settings, progression, and recorded times. Online riders can get theirs back by logging in (see below).
 
@@ -162,7 +163,7 @@ When creating a rider, players choose **Online** (the default) or **Offline**:
 - **Online** riders sign up with a **passkey** (fingerprint, face or device PIN). No email or password is involved. The name is reserved for them on the world leaderboard. Names are unique regardless of case, accents, spaces, `_`, `.` and `-`, and offensive or reserved names are refused. Progress is backed up to the server. After clearing site data, or on another device with the same passkey (synced through iCloud, Google or a password manager), **Log in with passkey** on the dashboard or in Riders restores the save, best times and ghosts.
 - **Offline** riders stay in the browser and never appear on the world board. **Go Online** in Riders claims the name later and uploads the rider's best runs.
 
-The world board doesn't trust times sent by the browser. A finished run is sent as its recorded inputs. The server replays them through the same deterministic simulation (`js/ride.js`) against the official trail, checks that it finishes, and uses its own time. It keeps each rider's best run per trail, and its replay becomes the ghost when restoring a save.
+The world board doesn't trust times sent by the browser. A finished run is sent as its recorded inputs. The server replays them through the same deterministic simulation (`js/ride.js`) against the official or bonus trail, checks that it finishes, and uses its own time. It keeps each rider's best run per trail, and its replay becomes the ghost when restoring a save.
 
 Server code lives in `netlify/functions/` (`account.mjs`, `leaderboard.mjs`) and `netlify/lib/`. It uses Neon Postgres and keeps no server-side sessions: logins and passkey challenges are HMAC-signed tokens.
 
@@ -188,6 +189,7 @@ Tables are created automatically on first use. A rider without a passkey (for ex
 ├── design/             # Unused design drafts kept for later (not cached by the game)
 ├── trails/
 │   ├── official/       # Shipped career trails
+│   ├── bonus/          # Shipped extra trails outside the career, unlocked by progress
 │   ├── custom/         # Locally authored standalone trails
 │   └── catalog.json    # Generated trail index
 ├── netlify/            # Serverless API: passkey accounts, cloud saves, verified leaderboard

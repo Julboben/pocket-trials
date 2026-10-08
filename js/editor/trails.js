@@ -266,7 +266,7 @@ export function download(filename, content, type) {
 }
 
 // The trail picker groups its options natively: official trails first, then
-// custom ones split by where they are stored. The group heading says which is
+// bonus trails, then custom ones split by where they are stored. The group heading says which is
 // which, so each option needs only its name. Option values stay the entry's
 // index in trailEntries, which is what selectEntry() expects.
 export function buildPicker() {
@@ -274,6 +274,7 @@ export function buildPicker() {
   const entries = trailEntries.map((entry, index) => ({ entry, index }));
   const groups = [
     ["OFFICIAL", (entry) => entry.source === "official"],
+    ["BONUS", (entry) => entry.source === "bonus"],
     ["CUSTOM · FILE", (entry) => entry.source === "custom" && entry.storage !== "browser"],
     ["CUSTOM · BROWSER", (entry) => entry.source === "custom" && entry.storage === "browser"],
   ];
@@ -307,14 +308,16 @@ export function canSave(entry = currentEntry()) {
   return entry?.storage === "browser" || (editor.devServer && Boolean(entry?.file));
 }
 
+const isShipped = (entry) => entry?.source === "official" || entry?.source === "bonus";
+
 export function updateTrailControls() {
   const entry = currentEntry();
   $("save-trail").hidden = !canSave(entry);
-  // Publishing over an official trail rewrites a shipped file, so it is named
-  // for what it does and asks first.
-  const official = entry?.source === "official";
-  $("save-trail-label").textContent = official ? "Overwrite official file…" : "Publish";
-  $("save-trail").classList.toggle("danger-item", official);
+  // Publishing over an official or bonus trail rewrites a shipped file, so it
+  // is named for what it does and asks first.
+  const shipped = isShipped(entry);
+  $("save-trail-label").textContent = shipped ? `Overwrite ${entry.source} file…` : "Publish";
+  $("save-trail").classList.toggle("danger-item", shipped);
   $("save-trail").title =
     entry?.storage === "browser"
       ? "Save to this browser's trail library, where the game plays it (Cmd/Ctrl+Shift+S)"
@@ -353,6 +356,7 @@ export function selectEntry(index) {
 
 function confirmOverwrite(entry) {
   const dialog = /** @type {HTMLDialogElement} */ ($("publish-confirm"));
+  $("publish-kind").textContent = entry.source.toUpperCase();
   $("publish-file").textContent = `trails/${entry.file}`;
   dialog.returnValue = "";
   return new Promise((resolve) => {
@@ -365,8 +369,8 @@ function confirmOverwrite(entry) {
 
 async function persist(entry, data) {
   if (entry.storage === "browser") return saveBrowserTrail(data, entry.key);
-  // A renamed custom trail moves to a file named after it. Official files keep
-  // their names: the online leaderboard knows them by it.
+  // A renamed custom trail moves to a file named after it. Official and bonus
+  // files keep their names: the online leaderboard knows them by it.
   const file = entry.source === "custom" ? customFileFor(entry, data.name) : entry.file;
   if (file === entry.file) return saveTrailFile(entry.file, data);
   const oldId = entry.id;
@@ -388,7 +392,7 @@ export async function saveTrail() {
     (message) => message.type === "error",
   );
   if (errors.length && !refuse("publishing", errors)) return;
-  if (entry.source === "official" && !(await confirmOverwrite(entry))) return;
+  if (isShipped(entry) && !(await confirmOverwrite(entry))) return;
   try {
     const saved = await persist(entry, editor.trail);
     markSaved(entry.id);

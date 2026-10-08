@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { generateTrailCatalog } from './generate-trail-catalog.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const directories = ['official', 'custom'].map(source => path.join(projectRoot, 'trails', source));
+const directories = ['official', 'bonus', 'custom'].map(source => path.join(projectRoot, 'trails', source));
 let timer = null;
 
 await generateTrailCatalog();
@@ -15,4 +15,4 @@ for (const directory of directories) {
     timer = setTimeout(() => generateTrailCatalog().catch(error => console.error(error.message)), 80);
   });
 }
-console.log('Watching trails/official and trails/custom for JSON changes.');
+console.log('Watching trails/official, trails/bonus and trails/custom for JSON changes.');
