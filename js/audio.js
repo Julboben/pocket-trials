@@ -232,8 +232,8 @@ export function createAudio(getSnapshot) {
   }
 
   /**
-   * The engine runs while riding and after the finish. A new run kicks it
-   * into life with a couple of blips; a crash stalls it.
+   * The engine runs while riding. A new run kicks it into life with a couple
+   * of blips; a crash stalls it and the finish switches it off.
    * @param {{ angularVelocity?: number, grounded?: boolean } | undefined} drivenWheel
    * @param {boolean} fresh the run has not begun moving yet
    */
@@ -242,17 +242,18 @@ export function createAudio(getSnapshot) {
     const time = context.currentTime;
     const dt = clamp(time - motor.time, 0, .1);
     motor.time = time;
-    const on = (state === 'running' || state === 'won') && drivenWheel;
+    const on = state === 'running' && drivenWheel;
     if (on && motor.phase !== 'on') {
       if (fresh) kickStart();
       Object.assign(motor, { phase: 'on', startedAt: fresh ? time : -10, gear: 0, revs: 0, grip: 0, lastThrottle: 0, liftedAt: -1 });
     } else if (state === 'ragdoll' && motor.phase === 'on') {
       Object.assign(motor, { phase: 'stalling', stalledAt: time });
-    } else if (state === 'menu') motor.phase = 'off';
+    } else if (state === 'menu' || state === 'won') motor.phase = 'off';
     const stall = motor.phase === 'stalling' ? clamp((time - motor.stalledAt) / .8, 0, 1) : 0;
     if (stall >= 1) motor.phase = 'off';
     if (!(on || motor.phase === 'stalling') || !drivenWheel || state === 'paused') {
-      engineGain.gain.setTargetAtTime(0, time, .045);
+      // The rider switches off at the finish; elsewhere the engine just cuts.
+      engineGain.gain.setTargetAtTime(0, time, state === 'won' ? .12 : .045);
       return;
     }
     // After the kick it catches with a sharp blip, settles and blips again.

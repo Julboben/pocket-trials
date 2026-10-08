@@ -602,7 +602,8 @@ export function startGame() {
       overlay.tick(now);
       const restore = interpolateRide(ride, alpha);
       const ghostRide = ghost?.ride;
-      const restoreGhost = ghostRide ? interpolateRide(ghostRide, alpha) : null;
+      // A finished ghost is no longer stepped: hold it where it stopped.
+      const restoreGhost = ghostRide ? interpolateRide(ghostRide, ghostRide.status === 'won' ? 1 : alpha) : null;
       renderer.draw({
         ride, ghost: ghostRide, camera, effects, rider: session.rider, state: session.state,
         full: session.preferences.scenery === 'full', now, dt, debug: physicsDebugEnabled

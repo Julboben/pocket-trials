@@ -684,8 +684,9 @@ export function createRenderer(canvas) {
       ghostHair = null;
       return;
     }
-    // Simulated off screen too, so the hair has settled when the ghost reappears.
-    ghostHair = updateHair(ghostHair, ghost, rider, dt, ghost.facing);
+    // Simulated off screen too, so the hair has settled when the ghost
+    // reappears; frozen with the ghost once it has finished.
+    ghostHair = updateHair(ghostHair, ghost, rider, ghost.status === "won" ? 0 : dt, ghost.facing);
     if (
       !inView(
         (ghost.rear.x + ghost.front.x) / 2,
