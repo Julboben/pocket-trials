@@ -3354,9 +3354,54 @@ Example trail: medium.
             "edge": "straight"
           },
           {
+            "id": "n1hte",
+            "x": 3584.3042,
+            "y": 235.6799,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
             "id": "n3c",
-            "x": 3564.5,
-            "y": 6.3289,
+            "x": 3607.0579,
+            "y": 198.006,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nf4j",
+            "x": 3599.5376,
+            "y": 106.5655,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nnig",
+            "x": 3622.3187,
+            "y": 89.3548,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ntuh",
+            "x": 3629.4918,
+            "y": 41.8388,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nxrh",
+            "x": 3638.9808,
+            "y": 13.4725,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -3364,8 +3409,26 @@ Example trail: medium.
           },
           {
             "id": "n3d",
-            "x": 3723.0335,
-            "y": -70.2897,
+            "x": 3754.443,
+            "y": -4.3129,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n2bvi",
+            "x": 3768.3432,
+            "y": 116.2982,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n2k3j",
+            "x": 3798.499859442815,
+            "y": 124.42865459174996,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -3373,8 +3436,8 @@ Example trail: medium.
           },
           {
             "id": "n3e",
-            "x": 3793.6579,
-            "y": 259.8748,
+            "x": 3822.633359442815,
+            "y": 261.3059545917499,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -3576,8 +3639,8 @@ Example trail: medium.
         "nodes": [
           {
             "id": "n6fo0",
-            "x": 923.0516580231927,
-            "y": 309.0869318733427,
+            "x": 923.0517,
+            "y": 309.0869,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -3585,8 +3648,8 @@ Example trail: medium.
           },
           {
             "id": "n75u4",
-            "x": 1290.7444893777208,
-            "y": 369.6808585084145,
+            "x": 1290.7445,
+            "y": 369.6809,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -3594,8 +3657,8 @@ Example trail: medium.
           },
           {
             "id": "n6fo1",
-            "x": 1640.480971105309,
-            "y": 340.47336732592214,
+            "x": 1640.481,
+            "y": 340.4734,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -3635,12 +3698,12 @@ Example trail: medium.
   ],
   "apples": [
     {
-      "x": 345,
-      "y": null
+      "x": 349,
+      "y": 237.46666666666664
     },
     {
-      "x": 1047.4219110547317,
-      "y": 179.9511114362549
+      "x": 1049.4219110547317,
+      "y": 196.9511114362549
     },
     {
       "x": 2092.995904040369,
@@ -3755,8 +3818,8 @@ Example trail: medium.
       "layer": "back"
     },
     {
-      "x": 3232.2215292191077,
-      "y": 140.95897178611412,
+      "x": 3387.6497484726588,
+      "y": 276.13888610068784,
       "type": "pebbles",
       "layer": "back"
     },
@@ -3773,8 +3836,8 @@ Example trail: medium.
       "layer": "back"
     },
     {
-      "x": 3373.2397555160396,
-      "y": 301.77235900994003,
+      "x": 3690.9212255205603,
+      "y": 3.562773238475188,
       "type": "boulder",
       "layer": "back"
     },
@@ -3792,8 +3855,9 @@ Example trail: medium.
     }
   ],
   "spikes": [],
+  "water": [],
   "weather": {
-    "sun": 0.82,
+    "sun": 0.85,
     "clouds": 0.24
   },
   "fallY": 560,
