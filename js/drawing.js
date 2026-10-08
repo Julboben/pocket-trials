@@ -2964,33 +2964,69 @@ export function createGameArt(ctx) {
           pixelRect(x * 2, y * 2, 2, 2, c.rim);
       }
     const spin = point.spin || 0;
+    const blur = wheelBlur(point);
+    if (blur > 0)
+      withAlpha(blur, () => {
+        drawWheelRing(5, 6.2, c.tread);
+        drawWheelRing(0, 4, c.spoke, 0.3);
+      });
     const treadPhase = Math.round(spin / (TAU / 32)) * (TAU / 32);
-    for (let i = 0; i < 8; i++) {
-      const tread = treadPhase + (i * TAU) / 8;
-      pixelRect(
-        Math.round(Math.cos(tread) * 5.6) * 2,
-        Math.round(Math.sin(tread) * 5.6) * 2,
-        2,
-        2,
-        c.tread,
-      );
-    }
+    withAlpha(1 - blur, () => {
+      for (let i = 0; i < 8; i++) {
+        const tread = treadPhase + (i * TAU) / 8;
+        pixelRect(
+          Math.round(Math.cos(tread) * 5.6) * 2,
+          Math.round(Math.sin(tread) * 5.6) * 2,
+          2,
+          2,
+          c.tread,
+        );
+      }
+    });
     const spokePhase = Math.round(spin / (TAU / 24)) * (TAU / 24);
-    for (let i = 0; i < 6; i++) {
-      const spoke = spokePhase + (i * TAU) / 6;
-      pixelPath(
-        [
-          [0, 0],
-          [Math.cos(spoke) * 8, Math.sin(spoke) * 8],
-        ],
-        c.spoke,
-        1,
-      );
-    }
+    withAlpha(1 - blur * 0.8, () => {
+      for (let i = 0; i < 6; i++) {
+        const spoke = spokePhase + (i * TAU) / 6;
+        pixelPath(
+          [
+            [0, 0],
+            [Math.cos(spoke) * 8, Math.sin(spoke) * 8],
+          ],
+          c.spoke,
+          1,
+        );
+      }
+    });
     pixelRect(-4, -2, 8, 4, c.hub);
     pixelRect(-2, -4, 4, 8, c.hub);
     pixelRect(-2, -2, 4, 4, c.hubLight);
     ctx.restore();
+  }
+
+  // Past about a quarter of the tread spacing per frame, the tread and spokes
+  // would seem to stand still or run backwards; they smear into a blur instead.
+  function wheelBlur(point) {
+    const spin = Math.abs(point.angularVelocity || 0);
+    return Math.min(1, Math.max(0, (spin - 18) / 12));
+  }
+
+  function withAlpha(alpha, draw) {
+    if (alpha <= 0) return;
+    const base = ctx.globalAlpha;
+    ctx.globalAlpha = base * Math.min(1, alpha);
+    draw();
+    ctx.globalAlpha = base;
+  }
+
+  /** Fills the wheel's art pixels between two radii, `density` of them in an even dither. */
+  function drawWheelRing(inner, outer, color, density = 1) {
+    for (let y = -6; y <= 6; y++)
+      for (let x = -6; x <= 6; x++) {
+        const distance = Math.hypot(x, y);
+        if (distance < inner || distance > outer) continue;
+        if (density < 1 && ((x * 7 + y * 13) & 7) >= density * 8) continue;
+        pixelRect(x * 2, y * 2, 2, 2, color);
+      }
   }
 
   function drawClassicWheel(point) {
@@ -3006,18 +3042,22 @@ export function createGameArt(ctx) {
         else if (distance < 4.7 && distance >= 3.5)
           pixelRect(cx + x * 2, cy + y * 2, 2, 2, "#b9c4af");
       }
-    const phase = (Math.round((point.spin || 0) / (Math.PI / 4)) * Math.PI) / 4;
-    for (let i = 0; i < 4; i++) {
-      const spoke = phase + (i * Math.PI) / 2;
-      pixelPath(
-        [
-          [cx, cy],
-          [cx + Math.cos(spoke) * 8, cy + Math.sin(spoke) * 8],
-        ],
-        "#657a70",
-        1,
-      );
-    }
+    const phase = Math.round((point.spin || 0) / (TAU / 32)) * (TAU / 32);
+    const blur = wheelBlur(point);
+    if (blur > 0) withAlpha(blur, () => drawWheelRing(0, 3.5, "#657a70", 0.35));
+    withAlpha(1 - blur * 0.8, () => {
+      for (let i = 0; i < 4; i++) {
+        const spoke = phase + (i * Math.PI) / 2;
+        pixelPath(
+          [
+            [cx, cy],
+            [cx + Math.cos(spoke) * 8, cy + Math.sin(spoke) * 8],
+          ],
+          "#657a70",
+          1,
+        );
+      }
+    });
     pixelRect(cx - 2, cy - 2, 4, 4, "#f1cb91");
     ctx.restore();
   }
