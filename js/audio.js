@@ -436,6 +436,13 @@ export function createAudio(getSnapshot) {
       playNoise(.35, .18, 700);
       playTone(120, .32, 'sawtooth', .09, 0, 42);
     },
+    /** A hollow knock of the helmet shell coming off, louder the harder the hit. */
+    helmet(speed) {
+      const strength = clamp((speed - 150) / 300, 0, 1);
+      playNoise(.05, .05 + strength * .05, 2400);
+      playTone(330, .09, 'triangle', .05 + strength * .04, 0, 210);
+      playTone(520, .06, 'square', .02, .015, 380);
+    },
     /**
      * Thunder. The sound lags the flash by the strike's distance. A close
      * strike tears with a run of sharp snaps and a heavy bang; every strike

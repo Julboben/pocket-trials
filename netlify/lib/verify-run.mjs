@@ -5,20 +5,21 @@ import { encodeInputs, decodeInputs } from '../../js/replay-codec.js';
 import { trailHash } from '../../js/trail-hash.js';
 import { HttpError } from './auth.mjs';
 
-export const TRAIL_RE = /^official:[a-z0-9][a-z0-9-]{0,55}@[0-9a-f]{8}$/;
+// Shipped trails only: official and bonus. Custom trails never reach the server.
+export const TRAIL_RE = /^(official|bonus):[a-z0-9][a-z0-9-]{0,55}@[0-9a-f]{8}$/;
 const MAX_STEPS = 600 * 120;      // ten minutes at 120 steps per second
 const MAX_ROWS = 20_000;
 
 const trailCache = new Map();
 let trailLoader = null;
 
-/** Swaps where official trails come from, for tests. */
+/** Swaps where shipped trails come from, for tests. */
 export function useTrailLoader(loader) {
   trailLoader = loader;
 }
 
-/** Official trails, fetched from the deployed site so they always match the game build. */
-async function fetchOfficialTrail(id, origin) {
+/** Shipped trails, fetched from the deployed site so they always match the game build. */
+async function fetchShippedTrail(id, origin) {
   if (trailLoader) return trailLoader(id);
   if (!trailCache.has(id)) {
     trailCache.set(id, (async () => {
@@ -28,7 +29,7 @@ async function fetchOfficialTrail(id, origin) {
         return res.json();
       };
       const catalog = await load('/trails/catalog.json');
-      const entry = catalog.trails?.find(item => item.id === id && item.source === 'official');
+      const entry = catalog.trails?.find(item => item.id === id && ['official', 'bonus'].includes(item.source));
       return entry ? load('/trails/' + entry.file) : null;
     })().catch(error => { trailCache.delete(id); throw error; }));
   }
@@ -52,7 +53,7 @@ function validRows(rows) {
 }
 
 /**
- * @param {string} trailKey  'official:<id>@<hash>'
+ * @param {string} trailKey  'official:<id>@<hash>' or 'bonus:<id>@<hash>'
  * @param {{ inputs: number[][], seed: number, physics: number }} run
  * @param {string} origin  the site to load the trail from
  * @returns {Promise<{ timeMs: number, replay: object }>}
@@ -64,7 +65,7 @@ export async function verifyRun(trailKey, run, origin) {
   const seed = Number(run.seed) >>> 0;
 
   const [id, hash] = trailKey.split('@');
-  const trail = await fetchOfficialTrail(id, origin);
+  const trail = await fetchShippedTrail(id, origin);
   if (!trail) throw new HttpError(400, 'unknown trail');
   if (trailHash(trail) !== hash) throw new HttpError(409, 'outdated trail');
 

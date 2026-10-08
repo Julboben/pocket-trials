@@ -1274,6 +1274,13 @@ h2 {
 .custom-trail-card .trail-best {
     color: var(--color-green);
 }
+.bonus-trail-card {
+    border-color: #8f7a52;
+    background: #3d3324;
+}
+.bonus-trail-card .trail-number {
+    color: #f0c45a;
+}
 .trail-number {
     color: var(--color-accent);
     font-size: 17px;

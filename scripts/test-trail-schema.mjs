@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { terrainAt } from '../js/terrain.js';
 import {
   SPIKE_RADIUS, createBlankTrail, normalizeTrail, normalizeSpike, validateTrail, medalFor, normalizeMedals,
-  trailTerrainBlocks, trailBackWalls, AUTHOR_MAX_LENGTH
+  trailTerrainBlocks, trailBackWalls, AUTHOR_MAX_LENGTH, normalizeUnlock, unlockStatus
 } from '../js/trail-schema.js';
 import { trailHash } from '../js/trail-hash.js';
 import { isOnlineTrail } from '../js/online-leaderboard.js';
@@ -11,7 +11,7 @@ import { loadCatalogTrails } from './lib/trails.mjs';
 const errors = trail => validateTrail(trail).filter(message => message.type === 'error').map(message => message.text);
 
 // Every shipped trail validates, and normalizing is idempotent.
-for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('custom')]) {
+for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bonus'), ...loadCatalogTrails('custom')]) {
   const trail = normalizeTrail(entry.trail);
   assert.deepEqual(errors(trail), [], `${entry.id} validates`);
   assert.deepEqual(normalizeTrail(trail), trail, `${entry.id} normalizes idempotently`);
@@ -84,8 +84,8 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('cus
   const d = normalizeTrail({ ...a, props: [{ x: 100, y: null, type: 'fence' }] });
   assert.equal(trailHash(a), trailHash(d), 'props do not change the identity');
 }
-// Only official trails, keyed by id and gameplay hash, go to the online board.
-for (const entry of loadCatalogTrails('official')) {
+// Only shipped trails (official and bonus), keyed by id and gameplay hash, go to the online board.
+for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bonus')]) {
   assert.ok(isOnlineTrail(`${entry.id}@${trailHash(entry.trail)}`), entry.id);
 }
 // Back walls: blocks on the back layer keep their layer, are left out of the
@@ -118,5 +118,32 @@ for (const entry of loadCatalogTrails('official')) {
 }
 assert.ok(!isOnlineTrail('official:01-the-orchard'), 'an official id without its hash stays offline');
 assert.ok(!isOnlineTrail('trail:0123abcd'), 'custom trails stay offline');
+assert.ok(isOnlineTrail('bonus:01-the-bonny-tyler@0123abcd'), 'bonus trails go online');
+assert.ok(!isOnlineTrail('custom:caves@0123abcd'), 'custom file trails stay offline');
+
+// Bonus unlock rules: counts are whole and positive, and an empty rule is dropped.
+{
+  const blank = normalizeTrail(createBlankTrail());
+  assert.ok(!('unlock' in blank), 'a blank trail has no unlock rule');
+  assert.deepEqual(normalizeUnlock({ trails: 3.7, golds: 0, extra: 2 }), { trails: 3 });
+  assert.equal(normalizeUnlock({ trails: -1 }), null);
+  assert.equal(normalizeUnlock('3'), null);
+  const gated = normalizeTrail({ ...blank, unlock: { trails: 3, golds: 1 } });
+  assert.deepEqual(gated.unlock, { trails: 3, golds: 1 });
+  assert.deepEqual(normalizeTrail(gated), gated, 'unlock normalizes idempotently');
+  assert.ok(!('unlock' in normalizeTrail({ ...blank, unlock: {} })), 'an empty unlock is dropped');
+  assert.equal(trailHash(gated), trailHash(blank), 'unlock does not change the trail hash');
+  assert.deepEqual(errors(gated), []);
+  assert.ok(errors({ ...blank, unlock: { laps: 2 } }).some(text => text.includes('Unlock.laps')));
+  assert.ok(errors({ ...blank, unlock: { trails: 1.5 } }).some(text => text.includes('whole number')));
+  assert.ok(errors({ ...blank, unlock: 3 }).some(text => text.includes('must be an object')));
+
+  assert.deepEqual(unlockStatus(undefined, null), { open: true, hint: '' }, 'no rule is open, even without a save');
+  assert.equal(unlockStatus({ trails: 3 }, null).open, false, 'a rule keeps the trail shut without a save');
+  assert.equal(unlockStatus({ trails: 3 }, { trails: 2, golds: 9 }).open, false);
+  assert.equal(unlockStatus({ trails: 3 }, { trails: 3, golds: 0 }).open, true);
+  assert.equal(unlockStatus({ trails: 3, golds: 2 }, { trails: 5, golds: 1 }).open, false, 'every rule must be met');
+  assert.equal(unlockStatus({ trails: 1, golds: 2 }, null).hint, 'FINISH 1 TRAIL & WIN 2 GOLD MEDALS TO UNLOCK');
+}
 
 console.log('Trail schema tests passed.');

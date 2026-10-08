@@ -1,6 +1,6 @@
 // Network-first service worker: online loads always get the latest files,
 // and everything fetched is kept so the game also starts offline.
-const CACHE = 'hjulben-9e124941';
+const CACHE = 'hjulben-531f5743';
 const CORE = [
   './',
   './css/editor.css',

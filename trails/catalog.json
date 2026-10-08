@@ -56,6 +56,12 @@
       "name": "Elastic Summit"
     },
     {
+      "id": "bonus:01-the-bonny-tyler",
+      "source": "bonus",
+      "file": "bonus/01-the-bonny-tyler.json",
+      "name": "THE BONNY TYLER"
+    },
+    {
       "id": "custom:cave-at-night",
       "source": "custom",
       "file": "custom/cave-at-night.json",

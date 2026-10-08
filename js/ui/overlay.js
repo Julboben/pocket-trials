@@ -121,7 +121,7 @@ export function createOverlay() {
 
   /**
    * @param {{
-   *   official: boolean, time: number, previousBest: number | null, rank: number | null,
+   *   official: boolean, bonus?: boolean, time: number, previousBest: number | null, rank: number | null,
    *   medals?: { gold: number, silver: number, bronze: number }, medal: string | null,
    *   flips: number, apples: number, primaryLabel: string, restartKey: string,
    *   author?: string
@@ -132,7 +132,13 @@ export function createOverlay() {
     const record = previousBest === null || time < previousBest;
     $("overlay-badge").textContent = result.official
       ? "TRAIL COMPLETED"
-      : "CUSTOM TRAIL COMPLETED";
+      : result.bonus
+        ? "BONUS TRAIL COMPLETED"
+        : "CUSTOM TRAIL COMPLETED";
+    const sideNote = result.official
+      ? ""
+      : (result.bonus ? "Bonus" : "Custom") +
+        " trails do not affect career progression.";
     $("overlay-title").textContent =
       record && previousBest !== null ? "New Best!" : "Goal Reached!";
     const author = normalizeAuthor(result.author);
@@ -175,12 +181,8 @@ export function createOverlay() {
       ? "Shave " +
         (Math.ceil((time - next) * 10 - 1e-9) / 10).toFixed(1) +
         "s for the next medal." +
-        (result.official
-          ? ""
-          : " Custom trails do not affect career progression.")
-      : result.official
-        ? ""
-        : "Custom trails do not affect career progression.";
+        (sideNote ? " " + sideNote : "")
+      : sideNote;
     $("overlay-description").hidden = !$("overlay-description").textContent;
     $("primary").textContent = result.primaryLabel;
     $("secondary").textContent = "Retry Trail";

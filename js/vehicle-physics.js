@@ -595,9 +595,18 @@ function collideWheel(trail, point, wheelName, hooks, sweep = true) {
 // to how hard the point presses on the surface, so a body can rest on a slope.
 // The press counted is capped near a resting body's weight (about two steps of
 // gravity), so a hard landing doesn't brake a slide dead and bodies still glide.
+// With `slide` set, a sliding point loses only `slide` times the press
+// (kinetic friction), so it slows evenly and keeps going down slopes steeper
+// than `slide` allows. Below `settle` speed (px per step) the friction rises
+// back towards `grip` and the `friction` drag fades in, so a body that has all
+// but stopped settles instead of creeping.
 const GRIP_PRESS_LIMIT = 0.05;
 
-function resolveFreeContact(point, contact, bounce, friction, grip = 0) {
+function resolveFreeContact(
+  point,
+  contact,
+  { bounce, friction, grip = 0, slide = null, settle = 0 },
+) {
   if (!contact || (contact.penetration <= 0 && !contact.swept)) return;
   const { nx, ny, penetration } = contact;
   let vx = point.x - point.ox,
@@ -614,9 +623,14 @@ function resolveFreeContact(point, contact, bounce, friction, grip = 0) {
     Math.max(0, -normal) + Math.max(0, penetration),
     GRIP_PRESS_LIMIT,
   );
-  const slip =
-    Math.sign(tangent) *
-    Math.min(Math.abs(tangent), Math.max(Math.abs(tangent) * friction, grip * press));
+  const speed = Math.abs(tangent);
+  let loss;
+  if (slide === null) loss = Math.max(speed * friction, grip * press);
+  else {
+    const slow = Math.max(0, 1 - speed / settle);
+    loss = speed * friction * slow + (slide + (grip - slide) * slow) * press;
+  }
+  const slip = Math.sign(tangent) * Math.min(speed, loss);
   vx -= tangentX * slip;
   vy -= tangentY * slip;
   point.x += nx * penetration;
@@ -630,8 +644,9 @@ export function collideFreePoint(
   trail,
   point,
   sweep,
-  { bounce = 0.12, friction = 0.16, grip = 0 } = {},
+  { bounce = 0.12, friction = 0.16, grip = 0, slide = null, settle = 0 } = {},
 ) {
+  const surface = { bounce, friction, grip, slide, settle };
   if (sweep) {
     const swept = sweepPoint(trail, point, point.radius);
     const intendedVx = point.x - point.ox,
@@ -641,7 +656,7 @@ export function collideFreePoint(
       point.y = swept.y + swept.ny * 0.01;
       point.ox = point.x - intendedVx;
       point.oy = point.y - intendedVy;
-      resolveFreeContact(point, swept, bounce, friction, grip);
+      resolveFreeContact(point, swept, surface);
       // Continue through the rest of the substep with the resolved velocity;
       // stopping at the time of impact would glue sliding points in place.
       advanceAfterTimeOfImpact(point, swept.time);
@@ -654,7 +669,7 @@ export function collideFreePoint(
     point.radius,
   ))
     if (!passThroughGlass(trail, point, contact))
-      resolveFreeContact(point, contact, bounce, friction, grip);
+      resolveFreeContact(point, contact, surface);
 }
 
 // A probe is an affine blend of the chassis points; contact corrections are

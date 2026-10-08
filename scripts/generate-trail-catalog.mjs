@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const trailsRoot = path.join(projectRoot, 'trails');
-const sources = ['official', 'custom'];
+const sources = ['official', 'bonus', 'custom'];
 
 export async function generateTrailCatalog() {
   const catalog = { schemaVersion: 1, trails: [] };
