@@ -127,6 +127,8 @@ export function createRenderer(canvas) {
   let W = 380,
     H = 410,
     pixelScale = 1;
+  /** The player's tyre dirt from the effects; the ghost's wheels stay clean. */
+  let wheelDirt = null;
   let hair = null,
     ghostHair = null,
     flipVisual = 1,
@@ -652,6 +654,7 @@ export function createRenderer(canvas) {
       state,
       leanVisual: ride.leanVisual,
       rider,
+      dirt: wheelDirt,
     };
   }
 
@@ -1118,6 +1121,7 @@ export function createRenderer(canvas) {
     ctx.save();
     ctx.translate(-cameraX, -cameraY);
     effects.update(animationDt);
+    wheelDirt = effects.wheelDirt;
     backWallRenderer.draw(ctx, trail, cameraX, cameraY, W, H);
     drawProps("back", full);
     terrainRenderer.draw(ctx, ride.trail, cameraX, cameraY, W, H);

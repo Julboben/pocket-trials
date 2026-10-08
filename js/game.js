@@ -573,6 +573,7 @@ export function startGame() {
     effects.terrainSpray(ride, speed, stepInput.braking);
     effects.waterWake(ride, speed);
     effects.brakeMarks(ride, speed, stepInput.braking);
+    effects.wheelGrime(ride, stepInput.braking);
     for (const event of events) handleEvent(ride, event);
   }
 

@@ -10,6 +10,11 @@ import { WATER_COLORS, submergedFraction, waterAt } from './water.js';
 
 const MAX_PARTICLES = 400;
 const MAX_SKID_MARKS = 120;
+const MAX_CLUMPS = 6;
+/** How readily each loose surface sticks to a tyre; the rest wipe it clean. */
+const DIRT_PICKUP = { dirt: 1, grass: .7, sand: .6, snow: .8 };
+/** Spin (rad/s) above which clumps start to fly off the tyre. */
+const FLING_SPIN = 40;
 
 // Compacts live entries to the front in place, keeping draw order, and drops
 // the oldest entries beyond `limit`.
@@ -27,11 +32,16 @@ export function createEffects() {
   /** @type {any[]} */ const skidMarks = [];
   const weather = { time: 0, nextLightning: Infinity, flash: 0, x: .5, distance: .5 };
   let trail = null, sprayAccumulator = 0, skidAccumulator = 0, wakeAccumulator = 0;
+  /** Clumps stuck to each tyre, at angles fixed to the tyre so they turn with it. */
+  const wheelDirt = { rear: /** @type {any[]} */ ([]), front: /** @type {any[]} */ ([]) };
+  const dirtAccumulator = { rear: 0, front: 0 };
 
   function reset(nextTrail) {
     trail = nextTrail;
     particles.length = 0; skidMarks.length = 0;
     sprayAccumulator = 0; skidAccumulator = 0; wakeAccumulator = 0;
+    wheelDirt.rear.length = 0; wheelDirt.front.length = 0;
+    dirtAccumulator.rear = 0; dirtAccumulator.front = 0;
     weather.time = 0; weather.flash = 0; weather.x = .5; weather.distance = .5;
     weather.nextLightning = trail.weather?.lightning ? 2.5 + Math.random() * 4 : Infinity;
   }
@@ -186,6 +196,70 @@ export function createEffects() {
     }
   }
 
+  /**
+   * Loose ground sticks to the tyres as they roll, more when they skid under
+   * the brake or spin up. Clumps dry and drop off with time, wear away on
+   * hard ground, wash off in water and fly off a fast-spinning wheel.
+   */
+  function wheelGrime(ride, braking) {
+    if (ride.status !== 'running') return;
+    for (const name of /** @type {const} */ (['rear', 'front'])) {
+      const wheel = ride[name], clumps = wheelDirt[name];
+      const spin = wheel.angularVelocity || 0;
+      const rolled = Math.abs(spin) * RADIUS * STEP;
+      const wet = ride.water?.length ? submergedFraction(ride.water, wheel.x, wheel.y, RADIUS) : 0;
+      const pickup = wheel.grounded && !wet ? DIRT_PICKUP[wheel.material] || 0 : 0;
+      const wear = STEP + wet * STEP * 6 + (wheel.grounded && !pickup ? rolled * .008 : 0);
+      for (const clump of clumps) {
+        clump.life -= wear;
+        if (Math.abs(spin) > FLING_SPIN && Math.random() < STEP * (Math.abs(spin) - FLING_SPIN) * .04) {
+          fling(wheel, clump);
+          clump.life = 0;
+        }
+      }
+      removeExpired(clumps, MAX_CLUMPS);
+      if (!pickup) continue;
+      const groundSpeed = Math.hypot(wheel.x - wheel.ox, wheel.y - wheel.oy) / STEP;
+      const slip = Math.abs(Math.abs(spin) * RADIUS - groundSpeed);
+      const skid = braking ? ride.brakePressure * clamp(groundSpeed / 120, 0, 1) : 0;
+      dirtAccumulator[name] += pickup * (rolled * .006 + slip * STEP * .02 + skid * STEP * 3);
+      while (dirtAccumulator[name] >= 1) {
+        dirtAccumulator[name]--;
+        stick(wheel, clumps);
+      }
+    }
+  }
+
+  /** A clump where the tyre meets the ground, replacing the driest one when the tyre is full. */
+  function stick(wheel, clumps) {
+    const normal = wheel.contact;
+    const down = normal ? Math.atan2(-normal.ny, -normal.nx) : TAU / 4;
+    const spray = terrainMaterials[wheel.material].spray;
+    const life = 7 + Math.random() * 4;
+    const clump = {
+      angle: down - (wheel.spin || 0), life, max: life,
+      color: spray[Math.floor(Math.random() * 2)], size: Math.random() < .35 ? 2 : 1,
+    };
+    if (clumps.length < MAX_CLUMPS) clumps.push(clump);
+    else {
+      let driest = 0;
+      for (let index = 1; index < clumps.length; index++) if (clumps[index].life < clumps[driest].life) driest = index;
+      clumps[driest] = clump;
+    }
+  }
+
+  function fling(wheel, clump) {
+    const angle = (wheel.spin || 0) + clump.angle;
+    const spin = wheel.angularVelocity || 0;
+    const life = .35 + Math.random() * .2;
+    particles.push({
+      x: wheel.x + Math.cos(angle) * RADIUS, y: wheel.y + Math.sin(angle) * RADIUS,
+      vx: (wheel.x - wheel.ox) / STEP - Math.sin(angle) * spin * RADIUS * .6,
+      vy: (wheel.y - wheel.oy) / STEP + Math.cos(angle) * spin * RADIUS * .6 - 20,
+      life, max: life, color: clump.color, size: 2, drag: 2, splatter: true
+    });
+  }
+
   /** Advances weather by one step; returns a thunder strike when one happens. */
   function stepWeather() {
     weather.time += STEP;
@@ -225,5 +299,5 @@ export function createEffects() {
     removeExpired(skidMarks, MAX_SKID_MARKS);
   }
 
-  return { particles, skidMarks, weather, reset, burst, dustPuff, brakeMarks, terrainSpray, splash, shatter, crack, waterWake, stepWeather, update, prune };
+  return { particles, skidMarks, wheelDirt, weather, reset, burst, dustPuff, brakeMarks, terrainSpray, splash, shatter, crack, waterWake, wheelGrime, stepWeather, update, prune };
 }
