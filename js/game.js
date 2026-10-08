@@ -395,7 +395,7 @@ export function startGame() {
     const medals = session.trail.medals;
     overlay.showResults({
       official: false, time, previousBest, rank: null, medals, medal: medalFor(medals, time), flips,
-      apples: ride.apples.length,
+      apples: ride.apples.length, author: session.trail.author,
       primaryLabel: 'Play Again',
       restartKey: keyLabel(session.preferences.bindings.restart[0] || 'KeyR')
     });
@@ -437,7 +437,7 @@ export function startGame() {
     const last = session.trailIndex === trails.length - 1;
     overlay.showResults({
       official, time, previousBest, rank, medals, medal: medalFor(medals, time), flips,
-      apples: ride.apples.length,
+      apples: ride.apples.length, author: session.trail.author,
       primaryLabel: official && !last ? 'Next Trail' : 'Play Again',
       restartKey: keyLabel(session.preferences.bindings.restart[0] || 'KeyR')
     });
@@ -448,7 +448,7 @@ export function startGame() {
       submitOnlineRun(key, { rider: session.rider, token: saveGame.token, run: { inputs, seed: ride.seed, physics: RIDE_VERSION } }).then(result => {
         if (result && 'signedOut' in result) {
           clearSaveToken(slot, trails.length);
-          if (session.saveSlots[slot]) session.saveSlots[slot].token = null;
+          if (session.saveSlots[slot]) Object.assign(session.saveSlots[slot], { token: null, online: true });
           overlay.toast('Signed out · Log in from the menu to post world times', 5000);
         } else if (result?.rank) overlay.toast(`WORLD RANK #${result.rank} OF ${result.total}`, 4000);
       });

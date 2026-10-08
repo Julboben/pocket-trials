@@ -6,6 +6,7 @@ import {
   propWallFit,
 } from "../drawing.js";
 import { FINISH_FLOWER_RADIUS } from "../finish.js";
+import { SPIKE_TIP } from "../spike.js";
 import { store } from "../local-store.js";
 import { invalidateTerrain, terrainGeometry } from "../terrain.js";
 import { terrainColumnSpans } from "../terrain-runtime.js";
@@ -350,7 +351,7 @@ function drawSpikes() {
     art.drawSpike(spike.x, spike.y, spike.radius);
     if (!isSelected("spike", index)) continue;
     ctx.beginPath();
-    ctx.arc(spike.x, spike.y, spike.radius * 0.8, 0, Math.PI * 2);
+    ctx.arc(spike.x, spike.y, spike.radius + SPIKE_TIP, 0, Math.PI * 2);
     ctx.strokeStyle = "#fff3be";
     ctx.lineWidth = 2 / editor.zoom;
     ctx.setLineDash([6 / editor.zoom, 4 / editor.zoom]);

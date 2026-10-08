@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { terrainAt } from '../js/terrain.js';
 import {
   SPIKE_RADIUS, createBlankTrail, normalizeTrail, normalizeSpike, validateTrail, medalFor, normalizeMedals,
-  trailTerrainBlocks, trailBackWalls
+  trailTerrainBlocks, trailBackWalls, AUTHOR_MAX_LENGTH
 } from '../js/trail-schema.js';
 import { trailHash } from '../js/trail-hash.js';
 import { isOnlineTrail } from '../js/online-leaderboard.js';
@@ -103,6 +103,18 @@ for (const entry of loadCatalogTrails('official')) {
   assert.equal(terrainAt(walled, 50, 20).y, terrainAt(blank, 50, 20).y, 'back walls do not collide');
   assert.deepEqual(errors(walled), []);
   assert.ok(errors(normalizeTrail({ ...blank, terrainBlocks: [wall] })).some(text => text.includes('needs terrain')), 'back walls alone are not terrain');
+}
+{
+  const blank = normalizeTrail(createBlankTrail());
+  assert.ok(!('author' in blank), 'a blank trail has no author');
+  const credited = normalizeTrail({ ...blank, author: '  Ada \n  Lovelace  ' });
+  assert.equal(credited.author, 'Ada Lovelace', 'the author is one trimmed line');
+  assert.deepEqual(normalizeTrail(credited), credited, 'the author normalizes idempotently');
+  assert.equal(normalizeTrail({ ...blank, author: 'x'.repeat(99) }).author.length, AUTHOR_MAX_LENGTH);
+  assert.ok(!('author' in normalizeTrail({ ...blank, author: '   ' })), 'an empty author is dropped');
+  assert.ok(!('author' in normalizeTrail({ ...blank, author: 42 })), 'a non-string author is dropped');
+  assert.equal(trailHash(credited), trailHash(blank), 'credit does not change the trail hash');
+  assert.equal(normalizeTrail({ ...blank, description: 7 }).description, '');
 }
 assert.ok(!isOnlineTrail('official:01-the-orchard'), 'an official id without its hash stays offline');
 assert.ok(!isOnlineTrail('trail:0123abcd'), 'custom trails stay offline');

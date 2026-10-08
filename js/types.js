@@ -16,6 +16,8 @@
  * @typedef {object} Trail
  * @property {string} name
  * @property {string} [label]
+ * @property {string} [author] who made the trail, credited in the menu and on the results screen
+ * @property {string} [description] design notes; not shown during gameplay
  * @property {object[]} terrainBlocks terrain; see terrain-geometry.js. Blocks with `layer: "back"` are back walls: scenery that keeps caves dark and never collides
  * @property {{ x: number, y?: number | null, facing: 1 | -1 }} start
  * @property {number} goal x coordinate of the finish flower, which may be on either side of the start

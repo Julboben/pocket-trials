@@ -1,7 +1,7 @@
 // @ts-check
 // In-game DOM: HUD pills, toast, pause screen and the results screen.
 import { $, timeText, runTimeText, deltaText } from "../state.js";
-import { MEDALS } from "../trail-schema.js";
+import { MEDALS, normalizeAuthor } from "../trail-schema.js";
 
 export function createOverlay() {
   const dialog = /** @type {HTMLDialogElement} */ ($("overlay"));
@@ -123,7 +123,8 @@ export function createOverlay() {
    * @param {{
    *   official: boolean, time: number, previousBest: number | null, rank: number | null,
    *   medals?: { gold: number, silver: number, bronze: number }, medal: string | null,
-   *   flips: number, apples: number, primaryLabel: string, restartKey: string
+   *   flips: number, apples: number, primaryLabel: string, restartKey: string,
+   *   author?: string
    * }} result
    */
   function showResults(result) {
@@ -134,6 +135,9 @@ export function createOverlay() {
       : "CUSTOM TRAIL COMPLETED";
     $("overlay-title").textContent =
       record && previousBest !== null ? "New Best!" : "Goal Reached!";
+    const author = normalizeAuthor(result.author);
+    $("results-credit").textContent = author ? "TRAIL BY " + author.toUpperCase() : "";
+    $("results-credit").hidden = !author;
     $("results").hidden = false;
     $("results-time").textContent = runTimeText(time);
     const delta = $("results-delta");
@@ -194,7 +198,8 @@ export function createOverlay() {
         " apples collected." +
         (record ? " New best time." : "") +
         (rank ? " Leaderboard rank " + rank + "." : "") +
-        (medal ? " " + medal + " medal." : ""),
+        (medal ? " " + medal + " medal." : "") +
+        (author ? " Trail by " + author + "." : ""),
     );
   }
 

@@ -6,6 +6,8 @@ import {
 } from "./terrain.js";
 import { terrainMaterials } from "./materials.js";
 import { FINISH_FLOWER_LIFT } from "./finish.js";
+import { APPLE_SPRITE } from "./apple.js";
+import { SPIKE_CORE, SPIKE_TIP, spikePoints } from "./spike.js";
 import { WATER_COLORS, surfaceWave, waterBodies } from "./water.js";
 import {
   WATER_PROPS,
@@ -1773,18 +1775,6 @@ export function drawStartPennant(ctx, x, y, groundOffset = () => 0) {
   rect(2, -62, 2, 4, "#66543f");
 }
 
-const APPLE_SPRITE = [
-  ".....S.LL..",
-  ".....SLL...",
-  "..RRRSRRR..",
-  ".RRRRRRRRR.",
-  "RRHRRRRRRRR",
-  "RHRRRRRRRRD",
-  "RHRRRRRRRRD",
-  "RRRRRRRRRRD",
-  ".RRRRRRRRD.",
-  "..RRDRRDD..",
-];
 const APPLE_COLORS = {
   R: "#ed774e",
   D: "#c9573a",
@@ -2847,9 +2837,9 @@ export function createGameArt(ctx) {
       size / 2,
       size / 2,
     );
-    const points = Math.max(7, Math.min(12, Math.round(radius * 0.4)));
-    const core = radius * 0.56;
-    starPath(context, points, radius + 2, core);
+    const points = spikePoints(radius);
+    const core = radius * SPIKE_CORE;
+    starPath(context, points, radius + SPIKE_TIP, core);
     context.fillStyle = "#263b36";
     context.fill();
     starPath(context, points, radius - 0.5, core * 0.9);
@@ -2875,7 +2865,7 @@ export function createGameArt(ctx) {
   }
 
   function drawSpike(x, y, radius = 18, angle = 0) {
-    const core = radius * 0.56;
+    const core = radius * SPIKE_CORE;
     const cx = Math.round(x / ART_PIXEL) * ART_PIXEL,
       cy = Math.round(y / ART_PIXEL) * ART_PIXEL;
     const sprite = spikeSprite(radius);

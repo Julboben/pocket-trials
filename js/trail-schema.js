@@ -189,6 +189,15 @@ export function normalizeSpike(spike, groundY = null) {
   return { x, y, radius, spin: Number.isFinite(spin) ? spin : 1 };
 }
 
+export const AUTHOR_MAX_LENGTH = 40;
+
+/** Who made the trail: one line of text, whitespace collapsed, or "". */
+export function normalizeAuthor(author) {
+  return typeof author === "string"
+    ? author.replace(/\s+/g, " ").trim().slice(0, AUTHOR_MAX_LENGTH)
+    : "";
+}
+
 export function normalizeTrail(input, index = 0) {
   const fallback = createBlankTrail(index);
   const trail = { ...fallback, ...cloneTrail(input || {}) };
@@ -197,6 +206,12 @@ export function normalizeTrail(input, index = 0) {
     trail.label ||
       `${trail.name.toUpperCase()} / ${String(index + 1).padStart(2, "0")}`,
   );
+  // Credits are optional; an empty author is not stored.
+  const author = normalizeAuthor(trail.author);
+  if (author) trail.author = author;
+  else delete trail.author;
+  trail.description =
+    typeof trail.description === "string" ? trail.description : "";
   trail.goal = Number(trail.goal) || fallback.goal;
   // The finish is a point. A null finishY means it stands on the surface below,
   // which is what a plain ground finish wants; a number pins it in the air.

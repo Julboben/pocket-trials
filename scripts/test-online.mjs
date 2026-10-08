@@ -154,6 +154,19 @@ let julianToken;
     assert.equal(result.body.error, 'name taken');
   }
 
+  for (const markup of ['a&b', 'a"b', "a'b", 'a`b', 'a>b']) {
+    assert.equal((await api('register-options', { body: { name: markup } })).status, 400, `${markup} is not a valid name`);
+  }
+  assert.equal((await api('register-options', { body: { name: '$$$' } })).status, 400, 'a name needs a letter or number');
+  assert.equal((await api('register-options', { body: { name: 'f$uck' } })).status, 400, 'symbols don\'t get around the filter');
+  assert.equal((await api('register-options', { body: { name: 'admin!' } })).status, 400, 'symbols don\'t get around reserved names');
+
+  const soren = await registerRider('$øren', createAuthenticator());
+  assert.equal(soren.status, 200, JSON.stringify(soren.body));
+  assert.equal(soren.body.player.name, '$øren', 'symbols like $ are kept');
+  assert.equal((await api('register-options', { body: { name: '$Øren' } })).status, 409, 'case still doesn\'t make a new name');
+  assert.equal((await api('register-options', { body: { name: 'øren' } })).status, 200, 'a symbol makes a different name');
+
   // Two people racing for one name: the second insert loses.
   const a = await api('register-options', { body: { name: 'Racer' } });
   const b = await api('register-options', { body: { name: 'racer' } });

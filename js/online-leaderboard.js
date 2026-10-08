@@ -1,6 +1,7 @@
 // Talks to the online leaderboard. Everything fails quietly so the game
 // keeps working offline (and on GitHub Pages) with the local board.
 import { isSandbox } from './local-store.js';
+import { cleanRiderName as cleanName } from './rider-name.js';
 
 const API = '/api/leaderboard';
 const REFRESH_MS = 30_000;
@@ -15,8 +16,6 @@ const pending = new Set();    // trailKeys with a fetch in flight
 
 export const isOnlineTrail = trail => typeof trail === 'string' && TRAIL_RE.test(trail);
 
-const cleanName = raw => String(raw ?? '')
-  .replace(/[^\p{L}\p{N} _.\-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 16);
 
 function toRuns(runs) {
   return (Array.isArray(runs) ? runs : [])

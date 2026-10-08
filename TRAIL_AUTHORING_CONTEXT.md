@@ -244,6 +244,8 @@ apples: [
 
 A numeric `y` is the apple's center and allows it to be placed freely in the world, including over gaps, on ledges, or in caves. `y: null` anchors the apple 60 units above the topmost surface at `x`; do not put a ground-anchored apple over a gap. The editor's **Apple** tool always places an apple at the exact clicked position.
 
+An apple is collected the moment the player's hitbox touches the apple as drawn: the wheels' tyres, the frame between the axles, or the rider's head and body. A tyre overlapping the apple by a single pixel is enough, but riding close by is not, so place an apple where the route actually touches it. A ground-anchored apple is collected by riding underneath it; anything higher needs a hop or a wheelie.
+
 ## Props
 
 ```js
@@ -262,7 +264,7 @@ Use the editor's **Prop** tool to place a prop. Select it to drag it, edit its t
 
 ## Spikes
 
-Spikes are spinning spiked balls, similar to the killers in Elasto Mania. Touching one with either wheel or the rider's body ends the run.
+Spikes are spinning spiked balls, similar to the killers in Elasto Mania. Touching the spike as drawn with the player's hitbox (the tyres, the frame between the axles, or the rider's head and body) ends the run. The tips are lethal, the gaps between them are not.
 
 ```js
 spikes: [
@@ -272,10 +274,10 @@ spikes: [
 ```
 
 - `x` and `y` are the center of the spike in world space. A missing or `null` `y` rests the spike on the topmost surface at `x`.
-- `radius` is the distance from the center to the spike tips, between `8` and `64` (default `18`). Only the inner 80% is lethal, so grazing a tip is forgiven.
-- `spin` is rotations per second. Positive values spin clockwise, negative values spin counter-clockwise, and `0` keeps the spike still. Spin is purely visual and does not change the hit area.
+- `radius` is the distance from the center to the spike tips, between `8` and `64` (default `18`). The drawn star's dark outline reaches 2 units past the radius, and its valleys sit at 56% of the radius around a solid round core.
+- `spin` is rotations per second. Positive values spin clockwise, negative values spin counter-clockwise, and `0` keeps the spike still. The spin is part of the hit area: a rider can pass close to a gap that a tip is about to sweep through, or not.
 
-Spikes float freely and do not collide with terrain. Use the editor's **Spike** tool to place one at the clicked position; the inspector edits its radius and spin, and the selected spike shows its lethal area as a dashed circle. Leave at least one bike length of clearance around the start position.
+Spikes float freely and do not collide with terrain. Use the editor's **Spike** tool to place one at the clicked position; the inspector edits its radius and spin, and the selected spike shows the reach of its tips as a dashed circle. Leave at least one bike length of clearance around the start position.
 
 ## Water
 
@@ -371,7 +373,8 @@ Sign text wraps at word boundaries onto up to 4 lines of 10 characters, and the 
 ## Other fields
 
 - `fallY`: vertical position at which the bike is considered lost. Increase it for deep gaps or trails that descend far. It also sets how low the camera can look.
-- `description`: design notes for the trail. It is not currently shown during gameplay.
+- `description`: design notes for the trail. It is not shown during gameplay; the editor lists it as **Notes**.
+- `author`: optional credit for whoever made the trail, up to 40 characters on one line. The trail menu, the Hall of Fame and the results screen show it as "BY …" / "TRAIL BY …". It does not change the trail's hash, so adding or editing credit keeps its times. The editor remembers the last author you typed and fills it in on new trails.
 
 ## Medals
 
@@ -608,6 +611,15 @@ export function normalizeSpike(spike, groundY = null) {
   return { x, y, radius, spin: Number.isFinite(spin) ? spin : 1 };
 }
 
+export const AUTHOR_MAX_LENGTH = 40;
+
+/** Who made the trail: one line of text, whitespace collapsed, or "". */
+export function normalizeAuthor(author) {
+  return typeof author === "string"
+    ? author.replace(/\s+/g, " ").trim().slice(0, AUTHOR_MAX_LENGTH)
+    : "";
+}
+
 export function normalizeTrail(input, index = 0) {
   const fallback = createBlankTrail(index);
   const trail = { ...fallback, ...cloneTrail(input || {}) };
@@ -616,6 +628,12 @@ export function normalizeTrail(input, index = 0) {
     trail.label ||
       `${trail.name.toUpperCase()} / ${String(index + 1).padStart(2, "0")}`,
   );
+  // Credits are optional; an empty author is not stored.
+  const author = normalizeAuthor(trail.author);
+  if (author) trail.author = author;
+  else delete trail.author;
+  trail.description =
+    typeof trail.description === "string" ? trail.description : "";
   trail.goal = Number(trail.goal) || fallback.goal;
   // The finish is a point. A null finishY means it stands on the surface below,
   // which is what a plain ground finish wants; a number pins it in the air.
