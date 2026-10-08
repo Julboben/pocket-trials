@@ -26,6 +26,8 @@ import { waterBodies, waterColumns, surfaceWave } from "./water.js";
 import { createTerrainRenderer } from "./terrain-render.js";
 import { vehicleMetrics } from "./vehicle-physics.js";
 import { ragdollCenter } from "./ragdoll.js";
+import { appleBob } from "./apple.js";
+import { spikeAngle } from "./spike.js";
 import {
   createRiderHair,
   hairRoot,
@@ -217,8 +219,10 @@ export function createRenderer(canvas) {
     }
   }
 
-  const appleDrawY = (apple, now) =>
-    apple.y + (reducedMotion ? 0 : Math.sin(now * 0.0025 + apple.x) * 2);
+  // The bob follows the ride clock, as the pickup does, so a touch is taken
+  // exactly where the apple is drawn. It is gameplay, so it stays with
+  // reduced motion.
+  const appleDrawY = (apple, ride) => apple.y + appleBob(apple, ride.time);
 
   function drawSceneryShadow(
     x,
@@ -270,7 +274,7 @@ export function createRenderer(canvas) {
     }
     for (const apple of ride.apples) {
       if (apple.taken || !inView(apple.x, 40)) continue;
-      drawSceneryShadow(apple.x, appleDrawY(apple, now), light, {
+      drawSceneryShadow(apple.x, appleDrawY(apple, ride), light, {
         width: 8,
         alpha: 0.18,
         thickness: 3,
@@ -1018,7 +1022,7 @@ export function createRenderer(canvas) {
   function drawApples(ride, now) {
     for (const apple of ride.apples) {
       if (apple.taken) continue;
-      const appleY = appleDrawY(apple, now);
+      const appleY = appleDrawY(apple, ride);
       if (!inView(apple.x, 30, appleY)) continue;
       gameArt.drawApple(apple.x, appleY);
     }
@@ -1031,7 +1035,8 @@ export function createRenderer(canvas) {
         spike.x,
         spike.y,
         spike.radius,
-        reducedMotion ? 0 : ride.spikeTime * spike.spin * TAU,
+        // The spin is gameplay: the star kills where it is drawn.
+        spikeAngle(spike, ride.spikeTime),
       );
     }
   }

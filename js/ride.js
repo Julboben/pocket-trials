@@ -21,7 +21,10 @@ import {
   terrainSweepCollision,
 } from "./terrain.js";
 import { normalizeSpike, finishFlower } from "./trail-schema.js";
-import { bikeTouchesFlower } from "./finish.js";
+import { FRAME_REACH, bikeTouchesFlower } from "./finish.js";
+import { playerTouchesApple } from "./apple.js";
+import { playerTouch } from "./player-shape.js";
+import { spikeShape } from "./spike.js";
 import { createRagdoll, stepRagdoll } from "./ragdoll.js";
 import { atan2, cos, exp, hypot, sin } from "./det-math.js";
 import { rideTerrain, shatterGlass } from "./glass.js";
@@ -181,20 +184,11 @@ export function riderCollisionPoints(ride) {
   return probes;
 }
 
-// Only the solid core and inner part of each spike are lethal, so grazing a tip is forgiven.
-function touchedSpike(spikes, points) {
+// A spike kills the moment the player's hitbox touches the drawn, spinning star.
+function touchedSpike(spikes, time, player) {
   for (const spike of spikes) {
-    for (const point of points) {
-      const dx = point.x - spike.x,
-        dy = point.y - spike.y,
-        distance = hypot(dx, dy) || 1;
-      if (distance < spike.radius * 0.8 + point.radius) {
-        return {
-          x: spike.x + (dx / distance) * spike.radius * 0.8,
-          y: spike.y + (dy / distance) * spike.radius * 0.8,
-        };
-      }
-    }
+    const touch = playerTouch(spikeShape(spike, time), player);
+    if (touch) return touch;
   }
   return null;
 }
@@ -452,13 +446,9 @@ function advanceRide(ride, input, hooks, events) {
   // between the wheels. Spikes still hurt the whole rider below.
   const riderObstacle = headObstacle(trail, ride.previousRiderContacts?.head, head);
   ride.previousRiderContacts = riderContacts;
-  const spikeHit = touchedSpike(ride.spikes, [
-    { x: rear.x, y: rear.y, radius: RADIUS },
-    { x: front.x, y: front.y, radius: RADIUS },
-    riderContacts.head,
-    riderContacts.shoulder,
-    riderContacts.hip,
-  ]);
+  const bikeContacts = { rear, front, probes: Object.values(riderContacts) };
+  const player = { ...bikeContacts, frameReach: FRAME_REACH };
+  const spikeHit = touchedSpike(ride.spikes, ride.spikeTime, player);
   if (spikeHit) {
     crash(ride, "spike", spikeHit.x, spikeHit.y, events);
     return events;
@@ -480,12 +470,10 @@ function advanceRide(ride, input, hooks, events) {
     return events;
   }
 
+  // Like Elasto Mania, any touch of the player's hitbox takes an apple, even
+  // just the edge of a wheel.
   for (const apple of ride.apples) {
-    if (
-      !apple.taken &&
-      (hypot(head.x - apple.x, head.y - apple.y) < 25 ||
-        hypot(mx - apple.x, my - 18 - apple.y) < 34)
-    ) {
+    if (!apple.taken && playerTouchesApple(apple, ride.time, player)) {
       apple.taken = true;
       ride.collected++;
       ride.splits.push(ride.elapsed);
@@ -500,7 +488,7 @@ function advanceRide(ride, input, hooks, events) {
   }
 
   // The finish is a flower: the bike has to touch it, from either side.
-  if (bikeTouchesFlower(ride.flower, { rear, front, probes: Object.values(riderContacts) })) {
+  if (bikeTouchesFlower(ride.flower, bikeContacts)) {
     if (ride.collected === ride.apples.length) {
       ride.status = "won";
       events.push({ type: "win", time: ride.elapsed, x: mx, y: my });

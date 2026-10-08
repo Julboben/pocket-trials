@@ -10,7 +10,7 @@ export const FINISH_FLOWER_LIFT = 22;
 /** The reach of the flower's petals; touching them finishes the run. */
 export const FINISH_FLOWER_RADIUS = 16;
 // The frame between the axles counts as part of the bike, a little thicker than a line.
-const FRAME_REACH = 6;
+export const FRAME_REACH = 6;
 
 /**
  * The distance from a point to a segment.
