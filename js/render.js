@@ -1132,7 +1132,7 @@ export function createRenderer(canvas) {
     const fog = fogAmount(trail.weather);
     if (fog) drawFog(fog, focus, ride.facing);
     drawGhost(ghost, rider, animationDt);
-    hair = updateHair(hair, ride, rider, animationDt);
+    hair = updateHair(hair, ride, rider, ride.status === "won" ? 0 : animationDt);
     if (hair) hair.draw(pixelPath, currentHairRoot(ride, false));
     drawBike(ride, rider, flipVisual, ride.ragdoll ? "ragdoll" : state);
     if (debug) drawPhysicsOverlay(ride.vehicle);
