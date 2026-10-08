@@ -577,6 +577,51 @@ export function terrainSweep(compiled, fromX, fromY, toX, toY, radius) {
   };
 }
 
+/**
+ * Where a straight line from (fromX, fromY) to (toX, toY) first enters the
+ * combined terrain, as { x, y, blockId, material }, or null. An exact
+ * zero-width cast: cheaper than a sweep, and it never grazes a vertex or
+ * wall it only passes beside.
+ */
+export function terrainRaycast(compiled, fromX, fromY, toX, toY) {
+  const motionX = toX - fromX, motionY = toY - fromY;
+  const left = Math.min(fromX, toX), right = Math.max(fromX, toX);
+  const top = Math.min(fromY, toY), bottom = Math.max(fromY, toY);
+  let earliest = Infinity, hitBody = null;
+  for (const body of bodiesNear(compiled, left, right, top, bottom)) {
+    const live = body.live;
+    const [first, end] = [
+      Math.max(0, Math.floor((left - body.bounds.left) / EDGE_BUCKET_WIDTH)),
+      Math.min(body.liveBuckets.length - 1, Math.floor((right - body.bounds.left) / EDGE_BUCKET_WIDTH)),
+    ];
+    for (let bucket = first; bucket <= end; bucket++) {
+      // An edge listed in several buckets gives the same time each time.
+      for (const index of body.liveBuckets[bucket] || []) {
+        const offset = index * 6;
+        // Only pieces faced from outside: the line is entering the solid.
+        if (motionX * live[offset + 4] + motionY * live[offset + 5] >= 0) continue;
+        const ax = live[offset], ay = live[offset + 1];
+        const sx = live[offset + 2] - ax, sy = live[offset + 3] - ay;
+        const denominator = motionX * sy - motionY * sx;
+        if (Math.abs(denominator) < 1e-12) continue;
+        const rx = ax - fromX, ry = ay - fromY;
+        const time = (rx * sy - ry * sx) / denominator;
+        const along = (rx * motionY - ry * motionX) / denominator;
+        if (time < 0 || time > 1 || along < 0 || along > 1 || time >= earliest) continue;
+        earliest = time;
+        hitBody = body;
+      }
+    }
+  }
+  if (!hitBody) return null;
+  return {
+    x: fromX + motionX * earliest,
+    y: fromY + motionY * earliest,
+    blockId: hitBody.blockId,
+    material: hitBody.material,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Surface queries
 // ---------------------------------------------------------------------------

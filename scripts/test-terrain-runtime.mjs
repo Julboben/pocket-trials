@@ -2,7 +2,7 @@
 // and surface queries read, covering the plan's Runtime acceptance criteria.
 import {
   compileTerrain, terrainContacts, terrainSweep, terrainSurfaceBelow, terrainSurfaceNear,
-  terrainSolidAt, terrainShadowSamples, terrainSurfaces,
+  terrainSolidAt, terrainShadowSamples, terrainSurfaces, terrainRaycast,
 } from "../js/terrain-runtime.js";
 import { rectangleBlock, cutBlock, normalizeBlock, setBoundaryEdge } from "../js/terrain-geometry.js";
 
@@ -101,6 +101,22 @@ const R = 12;
   // Sweeping left into the right-hand wall is pushed back to the right.
   const wall = terrainSweep(compiled, 2400, 700, 1990, 700, R);
   check("a fast sideways sweep hits the wall", wall && wall.nx > 0.9);
+}
+
+// 6b. Raycasts, as slanted weather uses them to find where it lands.
+{
+  // Ground at y 500 and an overhang above it from x 400 to 800, y 200 to 250.
+  const compiled = compileTerrain(trail([
+    rectangleBlock(-200, 500, 2000, 1500),
+    rectangleBlock(400, 200, 800, 250),
+  ]));
+  check("a straight-down ray lands on the overhang", terrainRaycast(compiled, 600, 0, 600, 2000)?.y === 200);
+  check("a ray beside the overhang lands on the ground", terrainRaycast(compiled, 300, 0, 300, 2000)?.y === 500);
+  // Falling down-left from the right of the overhang reaches the ground under it.
+  const slanted = terrainRaycast(compiled, 1100, 0, 100, 1000);
+  check("a slanted ray reaches the ground under an overhang", slanted && slanted.y === 500 && slanted.x === 600);
+  check("a ray leaving the terrain does not hit it", terrainRaycast(compiled, 600, 700, 600, 2000) === null);
+  check("a ray inside a block finds nothing to enter", terrainRaycast(compiled, 600, 220, 600, 240) === null);
 }
 
 // 7. Surfaces and shadow samples.

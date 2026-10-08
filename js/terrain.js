@@ -1,6 +1,6 @@
 import {
   compileTerrain, terrainContacts, terrainSweep, terrainSurfaceBelow, terrainSurfaces,
-  terrainShadowSamples,
+  terrainShadowSamples, terrainRaycast,
 } from './terrain-runtime.js';
 import { isBackWall, trailTerrainBlocks, trailBackWalls } from './trail-schema.js';
 
@@ -76,6 +76,12 @@ export function terrainCollisionsAt(trail, x, y, radius) {
 export function terrainSweepCollision(trail, fromX, fromY, toX, toY, radius) {
   const blocks = terrainGeometry(trail);
   return blocks ? terrainSweep(blocks, fromX, fromY, toX, toY, radius) : null;
+}
+
+/** Where a line first enters the terrain, or null; see terrainRaycast. */
+export function terrainRaycastAt(trail, fromX, fromY, toX, toY) {
+  const blocks = terrainGeometry(trail);
+  return blocks ? terrainRaycast(blocks, fromX, fromY, toX, toY) : null;
 }
 
 /**

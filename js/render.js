@@ -20,7 +20,7 @@ import {
   sunShadowOffset,
   waterPropAt,
 } from "./drawing.js";
-import { terrainAt, groundShadowSamples, terrainGeometry } from "./terrain.js";
+import { terrainAt, groundShadowSamples, terrainGeometry, terrainRaycastAt } from "./terrain.js";
 import { finishHeight } from "./trail-schema.js";
 import { waterBodies, waterColumns, surfaceWave } from "./water.js";
 import { createTerrainRenderer } from "./terrain-render.js";
@@ -788,24 +788,45 @@ export function createRenderer(canvas) {
    * moves, so the drops never line up into rows. A drop lands somewhere new
    * each time it falls past the bottom.
    */
-  // The first terrain or water surface per world column, for rain to land on.
-  const rainGround = new WeakMap();
-  const RAIN_COLUMN = ART_PIXEL * 2;
+  // The first terrain or water surface along each slanted falling path, for
+  // rain and snow to land on. Weather drifts sideways by `drift` world units
+  // per unit fallen, so every point on one path shares x - drift * y; paths
+  // are cached by that, and each is cast against the terrain only once.
+  const weatherGround = new WeakMap();
+  const WEATHER_COLUMN = ART_PIXEL * 2;
 
-  function rainGroundAt(x) {
-    let cache = rainGround.get(trail);
-    if (!cache)
-      rainGround.set(trail, (cache = { columns: new Map(), water: waterBodies(trail) }));
-    const column = Math.round(x / RAIN_COLUMN);
-    let hit = cache.columns.get(column);
+  function weatherGroundAt(x, y, drift) {
+    const geometry = terrainGeometry(trail);
+    let cache = weatherGround.get(trail);
+    if (!cache || cache.geometry !== geometry)
+      weatherGround.set(
+        trail,
+        (cache = { geometry, water: waterBodies(trail), slants: new Map() }),
+      );
+    const slant = Math.round(drift * 100) / 100;
+    let columns = cache.slants.get(slant);
+    if (!columns) {
+      // Only a slider being dragged changes the slant; keep just the latest few.
+      if (cache.slants.size >= 4) cache.slants.clear();
+      cache.slants.set(slant, (columns = new Map()));
+    }
+    const column = Math.round((x - slant * y) / WEATHER_COLUMN);
+    let hit = columns.get(column);
     if (hit === undefined) {
-      const at = column * RAIN_COLUMN;
-      const ground = terrainAt(trail, at);
-      hit = { y: ground.solid ? ground.y : Infinity, water: false };
-      for (const body of cache.water)
+      const along = (atY) => column * WEATHER_COLUMN + slant * atY;
+      hit = { y: Infinity, water: false };
+      if (geometry) {
+        const top = geometry.bounds.top - 1,
+          bottom = geometry.bounds.bottom + 1;
+        const contact = terrainRaycastAt(trail, along(top), top, along(bottom), bottom);
+        if (contact) hit.y = contact.y;
+      }
+      for (const body of cache.water) {
+        const at = along(body.y);
         if (at >= body.x && at <= body.x + body.width && body.y < hit.y)
           hit = { y: body.y, water: true };
-      cache.columns.set(column, hit);
+      }
+      columns.set(column, hit);
     }
     return hit;
   }
@@ -843,12 +864,16 @@ export function createRenderer(canvas) {
       const left = Math.round(x / ART_PIXEL) * ART_PIXEL,
         top = Math.round(y / ART_PIXEL) * ART_PIXEL;
       // Rain stops at the first terrain or water it reaches, with a splash.
-      const worldX = left - ART_PIXEL / 2 + cameraX;
-      const hit = rainGroundAt(worldX);
-      const surface = hit.water ? hit.y + surfaceWave(worldX, propScene.time) : hit.y;
+      const worldX = left - ART_PIXEL / 2 + cameraX,
+        worldY = top + cameraY;
+      const hit = weatherGroundAt(worldX, worldY, -slant);
+      // Where along its slant this drop meets the ground.
+      const landX = worldX - slant * (hit.y - worldY);
+      const surface = hit.water ? hit.y + surfaceWave(landX, propScene.time) : hit.y;
       const ground = Math.round((surface - cameraY) / ART_PIXEL) * ART_PIXEL;
       const age = top + part * segments - ground;
       if (age >= 0 && age < RAIN_SPLASH) {
+        const left = Math.round((landX + ART_PIXEL / 2 - cameraX) / ART_PIXEL) * ART_PIXEL;
         const phase = Math.floor((age / RAIN_SPLASH) * 2);
         const spread = ART_PIXEL * (1 + phase);
         if (hit.water) {
@@ -915,15 +940,17 @@ export function createRenderer(canvas) {
       const size = (depth > 0.9 - storm * 0.35 ? 2 : 1) * ART_PIXEL;
       const left = Math.round(x / ART_PIXEL) * ART_PIXEL,
         top = Math.round(y / ART_PIXEL) * ART_PIXEL;
-      const worldX = left + size / 2 + cameraX;
-      const hit = rainGroundAt(worldX);
+      const worldX = left + size / 2 + cameraX,
+        worldY = top + size + cameraY;
+      const hit = weatherGroundAt(worldX, worldY, -wind);
       const ground = Math.round((hit.y - cameraY) / ART_PIXEL) * ART_PIXEL;
       ctx.fillStyle = `rgba(246, 249, 250, ${0.45 + depth * 0.4})`;
       if (top + size > ground) {
         if (hit.water || top + size - ground > SNOW_SETTLE) continue;
-        // Resting on the ground until it melts away.
+        // Resting where it landed until it melts away.
+        const rest = Math.round((left + wind * (top + size - ground)) / ART_PIXEL) * ART_PIXEL;
         ctx.globalAlpha = 1 - (top + size - ground) / SNOW_SETTLE;
-        ctx.fillRect(left, ground - ART_PIXEL, size, ART_PIXEL);
+        ctx.fillRect(rest, ground - ART_PIXEL, size, ART_PIXEL);
         ctx.globalAlpha = 1;
         continue;
       }
