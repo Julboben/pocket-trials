@@ -16,10 +16,12 @@ import { pushHistory, redo, undo, updateHistoryButtons } from "./history.js";
 import { bindInput } from "./input.js";
 import { bindInspector, renameTrail, syncInspector } from "./inspector.js";
 import { bindMenu } from "./menu.js";
+import { pickerSelect } from "./picker.js";
 import { bindPlaytest } from "./playtest.js";
 import { GAME_ART_KEY, render } from "./render.js";
 import { editor } from "./state.js";
 import { refuse, showStatus } from "./status.js";
+import { propThumbnail } from "./thumbnails.js";
 import { TOOL_KEY_LABELS, materialLabel, segmentSelects, setTab, setTool } from "./tools.js";
 import {
   announceVersion,
@@ -67,6 +69,10 @@ for (const name of Object.keys(terrainMaterials)) {
 // Two-option dropdowns are shown as button rows; this must run after the
 // material dropdowns above are filled, so those stay dropdowns.
 segmentSelects(document);
+
+pickerSelect($("trail-picker"), { title: "Trail" });
+
+pickerSelect($("selection-prop-type"), { title: "Prop", thumbnail: propThumbnail });
 
 document
   .querySelectorAll("[data-tool]")
