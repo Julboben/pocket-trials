@@ -538,19 +538,24 @@ export function ridePoints(ride) {
  */
 export function interpolateRide(ride, alpha) {
   const points = ridePoints(ride);
-  const saved = new Float64Array(points.length * 2);
+  const saved = new Float64Array(points.length * 3);
   points.forEach((point, index) => {
-    saved[index * 2] = point.x;
-    saved[index * 2 + 1] = point.y;
+    saved[index * 3] = point.x;
+    saved[index * 3 + 1] = point.y;
+    saved[index * 3 + 2] = point.spin ?? NaN;
     if (alpha < 1 && point.px !== undefined) {
       point.x = point.px + (point.x - point.px) * alpha;
       point.y = point.py + (point.y - point.py) * alpha;
     }
+    // Wheels turn by their spin each step; wind it back to match.
+    if (alpha < 1 && point.spin !== undefined)
+      point.spin -= (point.angularVelocity || 0) * STEP * (1 - alpha);
   });
   return () =>
     points.forEach((point, index) => {
-      point.x = saved[index * 2];
-      point.y = saved[index * 2 + 1];
+      point.x = saved[index * 3];
+      point.y = saved[index * 3 + 1];
+      if (point.spin !== undefined) point.spin = saved[index * 3 + 2];
     });
 }
 

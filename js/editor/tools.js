@@ -4,7 +4,9 @@ import { SPIKE_RADIUS } from "../trail-schema.js";
 import { WATER_SIZE, WATER_WIPEOUT_DEPTH } from "../water.js";
 import { terrainMaterials } from "../trails.js";
 import { $, canvas } from "./dom.js";
+import { pickerSelect } from "./picker.js";
 import { editor } from "./state.js";
+import { propThumbnail } from "./thumbnails.js";
 
 const TOOL_SETTINGS_KEY = "hjulben-editor-tool-settings-v1";
 
@@ -106,7 +108,13 @@ const TOOL_INFO = {
     title: "Prop",
     hint: "Click to place decorative scenery. Props do not collide. The tool stays active; Esc returns to Select.",
     fields: [
-      { key: "type", label: "Prop", type: "select", optionsFrom: "selection-prop-type" },
+      {
+        key: "type",
+        label: "Prop",
+        type: "select",
+        optionsFrom: "selection-prop-type",
+        picker: { title: "Prop", thumbnail: propThumbnail },
+      },
       {
         key: "layer",
         label: "Layer",
@@ -341,6 +349,7 @@ export function renderToolSettings() {
         saveToolSettings();
       });
       label.append(field.label, " ", input);
+      if (field.picker) pickerSelect(input, field.picker);
       return label;
     }),
   );

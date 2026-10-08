@@ -720,6 +720,28 @@
                 </div>
             </form>
         </dialog>
+        <dialog class="shortcuts picker-dialog" id="picker" aria-labelledby="picker-title">
+            <div class="shortcuts-head">
+                <strong id="picker-title">CHOOSE</strong>
+                <form method="dialog"><button>CLOSE</button></form>
+            </div>
+            <input
+                id="picker-search"
+                class="picker-search"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="true"
+                aria-controls="picker-results"
+                aria-label="Search"
+            />
+            <div class="picker-groups" id="picker-groups" role="group" aria-label="Filter by group"></div>
+            <div class="picker-results" id="picker-results" role="listbox" aria-labelledby="picker-title"></div>
+            <p class="versions-note picker-empty" id="picker-empty" hidden>Nothing matches. Esc clears the search.</p>
+            <p class="versions-note picker-keys" id="picker-keys"></p>
+        </dialog>
         <dialog class="shortcuts" id="shortcuts" aria-labelledby="shortcuts-title">
             <div class="shortcuts-head">
                 <strong id="shortcuts-title">KEYBOARD SHORTCUTS</strong>

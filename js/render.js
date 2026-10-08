@@ -127,6 +127,8 @@ export function createRenderer(canvas) {
   let W = 380,
     H = 410,
     pixelScale = 1;
+  /** The player's tyre dirt from the effects; the ghost's wheels stay clean. */
+  let wheelDirt = null;
   let hair = null,
     ghostHair = null,
     flipVisual = 1,
@@ -652,6 +654,7 @@ export function createRenderer(canvas) {
       state,
       leanVisual: ride.leanVisual,
       rider,
+      dirt: wheelDirt,
     };
   }
 
@@ -684,8 +687,9 @@ export function createRenderer(canvas) {
       ghostHair = null;
       return;
     }
-    // Simulated off screen too, so the hair has settled when the ghost reappears.
-    ghostHair = updateHair(ghostHair, ghost, rider, dt, ghost.facing);
+    // Simulated off screen too, so the hair has settled when the ghost
+    // reappears; frozen with the ghost once it has finished.
+    ghostHair = updateHair(ghostHair, ghost, rider, ghost.status === "won" ? 0 : dt, ghost.facing);
     if (
       !inView(
         (ghost.rear.x + ghost.front.x) / 2,
@@ -1117,6 +1121,7 @@ export function createRenderer(canvas) {
     ctx.save();
     ctx.translate(-cameraX, -cameraY);
     effects.update(animationDt);
+    wheelDirt = effects.wheelDirt;
     backWallRenderer.draw(ctx, trail, cameraX, cameraY, W, H);
     drawProps("back", full);
     terrainRenderer.draw(ctx, ride.trail, cameraX, cameraY, W, H);
@@ -1131,7 +1136,7 @@ export function createRenderer(canvas) {
     const fog = fogAmount(trail.weather);
     if (fog) drawFog(fog, focus, ride.facing);
     drawGhost(ghost, rider, animationDt);
-    hair = updateHair(hair, ride, rider, animationDt);
+    hair = updateHair(hair, ride, rider, ride.status === "won" ? 0 : animationDt);
     if (hair) hair.draw(pixelPath, currentHairRoot(ride, false));
     drawBike(ride, rider, flipVisual, ride.ragdoll ? "ragdoll" : state);
     if (debug) drawPhysicsOverlay(ride.vehicle);
