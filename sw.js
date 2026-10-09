@@ -1,6 +1,6 @@
 // Network-first service worker: online loads always get the latest files,
 // and everything fetched is kept so the game also starts offline.
-const CACHE = 'hjulben-7f7d4e6d';
+const CACHE = 'hjulben-7302037f';
 const CORE = [
   './',
   './css/editor.css',
@@ -103,6 +103,13 @@ self.addEventListener('install', event => {
       await Promise.allSettled(
         catalog.trails.map(entry => cache.add('./trails/' + entry.file)),
       );
+      // Only exists locally, next to the git-ignored custom trails.
+      const custom = await fetch('./trails/custom-catalog.json').catch(() => null);
+      if (custom?.ok) {
+        await cache.put('./trails/custom-catalog.json', custom.clone());
+        const { trails } = await custom.json();
+        await Promise.allSettled(trails.map(entry => cache.add('./trails/' + entry.file)));
+      }
     } catch (error) {
       console.warn('[sw] could not precache the trail catalog:', error);
     }

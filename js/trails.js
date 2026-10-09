@@ -7,10 +7,25 @@ async function loadJson(url, description) {
   return response.json();
 }
 
+function checkCatalog(catalog) {
+  if (catalog.schemaVersion !== 1 || !Array.isArray(catalog.trails)) throw new Error('Unsupported trail catalog format.');
+  return catalog.trails;
+}
+
+// Local-only: generated next to the custom trail files and absent on deployments.
+async function loadCustomCatalog() {
+  try {
+    const response = await fetch(new URL('../trails/custom-catalog.json', import.meta.url));
+    return response.ok ? checkCatalog(await response.json()) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
 async function loadTrailEntries() {
   const catalog = await loadJson(new URL('../trails/catalog.json', import.meta.url), 'trail catalog');
-  if (catalog.schemaVersion !== 1 || !Array.isArray(catalog.trails)) throw new Error('Unsupported trail catalog format.');
-  return Promise.all(catalog.trails.map(async entry => ({
+  const entries = [...checkCatalog(catalog), ...await loadCustomCatalog()];
+  return Promise.all(entries.map(async entry => ({
     ...entry,
     trail: await loadJson(new URL(`../trails/${entry.file}`, import.meta.url), `trail ${entry.file}`)
   })));

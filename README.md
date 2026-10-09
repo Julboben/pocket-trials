@@ -45,7 +45,7 @@ Run a local static server from the project directory:
 npm run dev
 ```
 
-This starts a small dependency-free Node server at `http://127.0.0.1:8080` (override with `PORT=…`). It generates `trails/catalog.json`, regenerates it when a trail JSON file changes, and lets the editor save trails straight into `trails/official/`, `trails/bonus/` and `trails/custom/`. It never reloads the page on its own, so a running game is not interrupted; refresh manually after changing code.
+This starts a small dependency-free Node server at `http://127.0.0.1:8080` (override with `PORT=…`). It generates `trails/catalog.json` (official and bonus) and the git-ignored `trails/custom-catalog.json` (custom), regenerates them when a trail JSON file changes, and lets the editor save trails straight into `trails/official/`, `trails/bonus/` and `trails/custom/`. It never reloads the page on its own, so a running game is not interrupted; refresh manually after changing code.
 
 A local server is required because the game uses native JavaScript modules and fetches trail JSON, which browsers block on `file://`. Any static server also works for playing, for example on a static host, but only `npm run dev` enables saving trail files from the editor.
 
@@ -192,8 +192,9 @@ Tables are created automatically on first use. A rider without a passkey (for ex
 ├── trails/
 │   ├── official/       # Shipped career trails
 │   ├── bonus/          # Shipped extra trails outside the career, unlocked by progress
-│   ├── custom/         # Locally authored standalone trails
-│   └── catalog.json    # Generated trail index
+│   ├── custom/         # Locally authored standalone trails (git-ignored)
+│   ├── catalog.json    # Generated index of official and bonus trails
+│   └── custom-catalog.json # Generated local index of custom trails (git-ignored)
 ├── netlify/            # Serverless API: passkey accounts, cloud saves, verified leaderboard
 ├── scripts/            # Catalog generator, dev server, tests, and replay recorder
 ├── tests/replays/      # One recorded replay per official trail (regression fixtures)
