@@ -31,20 +31,68 @@ import { waterHandle } from "./water.js";
  * that off, for a double-click that adds a point to an edge.
  */
 export function hitTest(point, { wholeBoundary = false, preferEdges = false } = {}) {
+  const hits = collectHits(point, wholeBoundary);
+  // A lower rank wins outright; within a rank the nearer one, then the first.
+  let best = null;
+  for (const hit of hits)
+    if (
+      !best ||
+      hit.rank < best.rank ||
+      (hit.rank === best.rank && hit.distance < best.distance)
+    )
+      best = hit;
+  if (wholeBoundary) return best?.selection || ringAt(point);
+  if (!preferEdges && best && grabsSelectedBody(best)) {
+    const body = selectedBodyAt(point);
+    if (body) return body;
+  }
+  if (best) return best.selection;
+
+  // Bodies: a spike's own disc, then the topmost solid block under the cursor.
+  for (let index = editor.trail.spikes.length - 1; index >= 0; index--) {
+    const spike = editor.trail.spikes[index];
+    if (Math.hypot(point.x - spike.x, point.y - spike.y) <= spike.radius)
+      return { kind: "spike", index };
+  }
+  const selectedBody = preferEdges ? null : selectedBodyAt(point);
+  if (selectedBody) return selectedBody;
+  const water = openWaterAt(point);
+  if (water !== null) return { kind: "water", index: water };
+  for (const blockIndex of frontToBack()) {
+    if (pointInRegion(blocks()[blockIndex], point.x, point.y))
+      return { kind: "block", blockIndex };
+  }
+  return null;
+}
+
+/**
+ * Every point, handle and object within reach of a point, in the order
+ * clicking there cycles through them: by priority, then nearest first.
+ */
+export function hitStack(point) {
+  return collectHits(point, false)
+    .filter((hit) => hit.rank < 2)
+    .sort((a, b) => a.rank - b.rank || a.distance - b.distance)
+    .map((hit) => hit.selection);
+}
+
+/** Do two hits pick the same thing? */
+export function sameHit(a, b) {
+  if (!a || !b || a.kind !== b.kind) return false;
+  return ["index", "blockIndex", "boundaryIndex", "side"].every(
+    (key) => a[key] === b[key],
+  );
+}
+
+/** Everything grabbable near a point, with its distance and priority rank. */
+function collectHits(point, wholeBoundary) {
   syncTerrain();
   const threshold = HIT_REACH / editor.zoom;
   const edgeReach = EDGE_REACH / editor.zoom;
-  let best = null;
+  const hits = [];
   const consider = (value, x, y, rank) => {
     const distance = Math.hypot(point.x - x, point.y - y);
-    if (distance > threshold) return;
-    // A lower rank wins outright; within a rank the nearer point wins.
-    if (
-      best &&
-      (rank > best.rank || (rank === best.rank && distance >= best.distance))
-    )
-      return;
-    best = { selection: value, distance, rank };
+    if (distance <= threshold) hits.push({ selection: value, distance, rank });
   };
 
   for (const [blockIndex, block] of blocks().entries()) {
@@ -86,7 +134,7 @@ export function hitTest(point, { wholeBoundary = false, preferEdges = false } = 
       },
     );
   }
-  if (wholeBoundary) return best?.selection || ringAt(point);
+  if (wholeBoundary) return hits;
 
   editor.trail.apples.forEach((apple, index) =>
     consider({ kind: "apple", index }, apple.x, objectY(apple, 60), 1),
@@ -105,27 +153,7 @@ export function hitTest(point, { wholeBoundary = false, preferEdges = false } = 
     : groundY(editor.trail.start.x) - 12;
   consider({ kind: "start" }, editor.trail.start.x, startY, 1);
   consider({ kind: "finish" }, editor.trail.finish.x, finishY(), 1);
-  if (!preferEdges && best && grabsSelectedBody(best)) {
-    const body = selectedBodyAt(point);
-    if (body) return body;
-  }
-  if (best) return best.selection;
-
-  // Bodies: a spike's own disc, then the topmost solid block under the cursor.
-  for (let index = editor.trail.spikes.length - 1; index >= 0; index--) {
-    const spike = editor.trail.spikes[index];
-    if (Math.hypot(point.x - spike.x, point.y - spike.y) <= spike.radius)
-      return { kind: "spike", index };
-  }
-  const selectedBody = preferEdges ? null : selectedBodyAt(point);
-  if (selectedBody) return selectedBody;
-  const water = openWaterAt(point);
-  if (water !== null) return { kind: "water", index: water };
-  for (const blockIndex of frontToBack()) {
-    if (pointInRegion(blocks()[blockIndex], point.x, point.y))
-      return { kind: "block", blockIndex };
-  }
-  return null;
+  return hits;
 }
 
 /**

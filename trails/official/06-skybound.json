@@ -1,15 +1,15 @@
 {
   "name": "Skybound",
   "label": "SKYBOUND / 06",
+  "finish": {
+    "x": 3244.3685535694976,
+    "y": 131.62977237070947
+  },
   "description": "Commit to the jumps. Build speed before each lip, stay calm in the air, and line both wheels up with the far-side slope.",
   "start": {
     "x": 126.00276453217202,
     "y": 262.99729187990346,
     "facing": 1
-  },
-  "finish": {
-    "x": 3244.3685535694976,
-    "y": 131.62977237070947
   },
   "terrainBlocks": [
     {
@@ -1423,8 +1423,8 @@
           },
           {
             "id": "n2k3j",
-            "x": 3798.499859442815,
-            "y": 124.42865459174996,
+            "x": 3798.4999,
+            "y": 124.4287,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -1432,8 +1432,8 @@
           },
           {
             "id": "n3e",
-            "x": 3822.633359442815,
-            "y": 261.3059545917499,
+            "x": 3822.6334,
+            "y": 261.306,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -1814,12 +1814,6 @@
       "layer": "back"
     },
     {
-      "x": 3387.6497484726588,
-      "y": 276.13888610068784,
-      "type": "pebbles",
-      "layer": "back"
-    },
-    {
       "x": 3538.506973554784,
       "y": 296.28030280705275,
       "type": "cactus",
@@ -1848,6 +1842,18 @@
       "y": 317.19558907761575,
       "type": "boulder",
       "layer": "back"
+    },
+    {
+      "x": 1391.0260714965505,
+      "y": 292.80224591312566,
+      "type": "skull",
+      "layer": "back"
+    },
+    {
+      "x": 3435.8403478350497,
+      "y": 299.3229656573563,
+      "type": "car-wreck",
+      "layer": "front"
     }
   ],
   "spikes": [],

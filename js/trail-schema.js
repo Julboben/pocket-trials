@@ -483,6 +483,13 @@ export function validateTrail(trail) {
         "drip",
         "lantern",
         "bats",
+        "skull",
+        "tumbleweed",
+        "car-wreck",
+        "water-tower",
+        "windmill",
+        "heat-haze",
+        "vulture",
         ...WATER_PROPS,
       ].includes(prop.type)
     )

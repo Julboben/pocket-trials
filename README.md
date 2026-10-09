@@ -109,6 +109,8 @@ The inspector on the right edits the current selection. The editor supports:
 - Editing sun, cloud, fog, rain, snow, and lightning values
 - Trackpad navigation: two-finger scrolling pans and pinch gestures zoom around the pointer
 - Mouse navigation: wheel panning, `Ctrl`/`Cmd` + wheel zooming, and middle-button or `Space`-drag panning
+- Zooming from 10% up to 600%, with a finer snap grid when zoomed in
+- Clicking again where points and objects overlap selects the next one there
 - Undo and redo
 - Copy, cut and paste (`Cmd`/`Ctrl` + `C`, `X`, `V`) for blocks, apples, props, spikes and water. The copy goes to the system clipboard, so it can be pasted into another trail or tab; it lands under the cursor, or in the middle of the view.
 - Box-select picks up whole blocks along with points and objects; `Shift`-click adds or removes one (for example a prop inside a selected block), `Cmd`/`Ctrl` + `A` selects everything, and `Cmd`/`Ctrl` + `D` selects nothing. Undo and redo restore the selection too.

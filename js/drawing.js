@@ -88,6 +88,38 @@ import {
   drawSquirrelSitting,
   drawSquirrelRunning,
 } from "./forest-props.js";
+import {
+  HAZE,
+  HAZE_HALF,
+  HAZE_RISE,
+  ROTOR,
+  TOWER_BODY_BOTTOM,
+  TOWER_LADDER,
+  TOWER_LEGS,
+  TOWER_PLATFORM,
+  TUMBLEWEED_RADIUS,
+  TUMBLEWEED_RUN,
+  TUMBLEWEED_STEP,
+  TUMBLEWEED_STEP_UP,
+  VULTURE_HEIGHT,
+  VULTURE_ORBIT,
+  WINDMILL_BODY_BOTTOM,
+  WINDMILL_FEET,
+  WRECK_SINK,
+  drawCarWreck,
+  drawCowSkull,
+  drawTumbleweed,
+  drawVultureBanking,
+  drawVultureSoaring,
+  drawWaterTower,
+  drawWindmillRotor,
+  drawWindmillTower,
+  hazeShift,
+  hazeStreaks,
+  tumbleweedRoll,
+  vultureOrbit,
+  windmillAngle,
+} from "./desert-props.js";
 
 const GROUND_ALIGNED_PROP_SPANS = {
   bush: [-28, 28],
@@ -101,6 +133,8 @@ const GROUND_ALIGNED_PROP_SPANS = {
   cone: [-8, 8],
   barrier: [-34, 34],
   dumpster: [-36, 32],
+  skull: [-14, 14],
+  "car-wreck": [-48, 48],
 };
 
 /**
@@ -915,6 +949,9 @@ const wallFits = new WeakMap();
 export function propWallFit(trail, prop) {
   if (WATER_PROPS.has(prop.type)) return waterFit(trail, prop);
   if (prop.type === "squirrel") return squirrelFit(trail, prop);
+  if (prop.type === "tumbleweed") return tumbleweedFit(trail, prop);
+  // A vulture with no y of its own circles high over the ground.
+  if (prop.type === "vulture") return { centre: Number.isFinite(prop.y) ? 0 : -VULTURE_HEIGHT };
   if (!WALL_PROPS.has(prop.type) && !CAVE_FITTED_PROPS.has(prop.type)) return null;
   const geometry = terrainGeometry(trail);
   const cached = wallFits.get(prop);
@@ -1165,6 +1202,35 @@ function squirrelFit(trail, prop) {
   return fit;
 }
 
+const tumbleweedFits = new WeakMap();
+
+/**
+ * The ground a tumbleweed rolls over, as offsets from its anchor every
+ * TUMBLEWEED_STEP units in the way it rolls (right, or left when flipped), up
+ * to a wall, a drop or TUMBLEWEED_RUN. Cached per prop until it or the
+ * terrain changes.
+ */
+function tumbleweedFit(trail, prop) {
+  const geometry = terrainGeometry(trail);
+  const flip = Boolean(prop.flip);
+  const cached = tumbleweedFits.get(prop);
+  if (cached && cached.x === prop.x && cached.y === prop.y
+    && cached.flip === flip && cached.geometry === geometry) return cached.fit;
+  const y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
+  const dir = flip ? -1 : 1;
+  const path = [0];
+  let groundY = y;
+  for (let d = TUMBLEWEED_STEP; d <= TUMBLEWEED_RUN; d += TUMBLEWEED_STEP) {
+    const ground = terrainAt(trail, prop.x + dir * d, groundY - TUMBLEWEED_STEP_UP);
+    if (!ground.solid || Math.abs(ground.y - groundY) > TUMBLEWEED_STEP_UP) break;
+    groundY = ground.y;
+    path.push(groundY - y);
+  }
+  const fit = { path };
+  tumbleweedFits.set(prop, { x: prop.x, y: prop.y, flip, geometry, fit });
+  return fit;
+}
+
 /**
  * Where a water prop is at `time`, for startling it: a fish where it has swum
  * to (with its `swim` offset), anything else where it floats or stands.
@@ -1200,6 +1266,14 @@ export function propSpan(type, fit) {
     const ground = [...(fit?.left ?? [0]), ...(fit?.right ?? [0])];
     const top = Math.min(...ground, (fit?.tree?.leaves ?? 0) - SQUIRREL_LENGTH);
     return [Math.max(0, -top) + 32, Math.max(0, ...ground) + 4];
+  }
+  if (type === "tumbleweed") {
+    const path = fit?.path ?? [0];
+    return [Math.max(0, -Math.min(...path)) + TUMBLEWEED_RADIUS * 2 + 12, Math.max(0, ...path) + 4];
+  }
+  if (type === "vulture") {
+    const centre = fit?.centre ?? 0;
+    return [Math.max(0, -centre) + VULTURE_ORBIT.y + 16, Math.max(0, centre + VULTURE_ORBIT.y + 12)];
   }
   if (type === "beams") return [BEAM_REACH + 12, 4];
   if (type === "minecart") return [54, 4];
@@ -2586,6 +2660,10 @@ const CANOPY_SPRITES = {
   scaffolding: { bounds: [-52, -142, 52, 0], draw: drawScaffoldDecks },
   graffiti: { bounds: GRAFFITI_BOUNDS, draw: drawGraffiti },
   minecart: { bounds: [-24, -40, 24, 0], draw: drawMinecart },
+  skull: { bounds: [-22, -26, 22, 0], draw: drawCowSkull },
+  "car-wreck": { bounds: [-70, -44, 70, WRECK_SINK], draw: drawCarWreck },
+  "water-tower": { bounds: [-38, -178, 40, TOWER_BODY_BOTTOM], draw: drawWaterTower },
+  windmill: { bounds: [-62, -172, 24, WINDMILL_BODY_BOTTOM], draw: drawWindmillTower },
 };
 const canopySprites = new Map();
 
@@ -2677,6 +2755,13 @@ const PROP_EXTENTS = {
   fish: [-FISH_RANGE - 14, -SURFACE_REACH, FISH_RANGE + 14],
   seaweed: [-16, -SEAWEED_MAX - 16, 16],
   reeds: [-24, -REED_MAX - 20, 28],
+  skull: [-22, -26, 22],
+  tumbleweed: [-16, -TUMBLEWEED_RADIUS * 2 - 12, TUMBLEWEED_RUN + 16],
+  "car-wreck": [-70, -46, 70],
+  "water-tower": [-38, -178, 42],
+  windmill: [-62, ROTOR.y - ROTOR.radius - 4, ROTOR.radius + 4],
+  "heat-haze": [-HAZE_HALF - 4, -HAZE_RISE - 8, HAZE_HALF + 4],
+  vulture: [-VULTURE_ORBIT.x - 30, -VULTURE_HEIGHT - VULTURE_ORBIT.y - 16, VULTURE_ORBIT.x + 30],
 };
 // How far below its anchor each ceiling prop's art can reach.
 const CEILING_HANG = { "hanging-roots": 72, stalactites: 36, drip: 260, lantern: 4, bats: 20 };
@@ -2728,6 +2813,8 @@ function propBounds(type, angle, groundOffset, text, flip = false) {
     groundOffset(right),
   );
   if (type === "tyre") bottom = Math.max(bottom, TYRE_SINK);
+  if (type === "car-wreck") bottom = Math.max(bottom, WRECK_SINK);
+  if (type === "vulture") bottom = Math.max(bottom, VULTURE_ORBIT.y + 12);
   if (type === "graffiti") bottom = Math.max(bottom, GRAFFITI_BOUNDS[3]);
   if (CEILING_HANG[type]) bottom = Math.max(bottom, CEILING_HANG[type]);
   if (WATER_HANG[type]) bottom = Math.max(bottom, WATER_HANG[type]);
@@ -3588,6 +3675,54 @@ export function createGameArt(ctx) {
     else drawSeaweed(tools, height, time, x, ground);
   }
 
+  // Heat haze: in play (time > 0) the rows of the scene already drawn behind
+  // it are nudged one art pixel to and fro, strongest near the ground, under
+  // faint rising glare and a mirage of sky lying on the ground. Standing still
+  // (in the editor) only the glare and mirage show.
+  function drawHeatHaze(x, scene, groundOffset) {
+    const time = scene.time || 0;
+    const phase = propNoise(x, 9);
+    const snap = (value) => Math.round(value / ART_PIXEL) * ART_PIXEL;
+    const base = snap(groundOffset(0));
+    const rows = HAZE_RISE / ART_PIXEL;
+    const transform = ctx.getTransform();
+    if (time > 0 && !transform.b && !transform.c && ctx.canvas) {
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      for (let row = 0; row < rows; row++) {
+        const shift = hazeShift(row, time, phase);
+        if (!shift) continue;
+        // The shimmer narrows as it rises.
+        const half = snap(HAZE_HALF * (1 - (row / rows) * 0.45));
+        const ends = [-half, half].map((local) => Math.round(transform.a * local + transform.e));
+        const top = Math.round(transform.d * (base - (row + 1) * ART_PIXEL) + transform.f);
+        const height = Math.round(transform.d * ART_PIXEL);
+        const left = Math.max(0, Math.min(...ends));
+        const width = Math.min(ctx.canvas.width, Math.max(...ends)) - left;
+        if (width <= 0 || height <= 0 || top < 0 || top + height > ctx.canvas.height) continue;
+        const nudge = Math.round(shift * Math.abs(transform.a) * ART_PIXEL);
+        ctx.drawImage(ctx.canvas, left, top, width, height, left + nudge, top, width, height);
+      }
+      ctx.restore();
+    }
+    const alpha = ctx.globalAlpha;
+    for (const streak of hazeStreaks(time, phase)) {
+      if (streak.alpha <= 0.01) continue;
+      ctx.globalAlpha = alpha * streak.alpha;
+      pixelRect(streak.x - streak.width / 2, base + streak.y, streak.width, 2, HAZE.glare, 2);
+    }
+    // The mirage: patches of pale sky lying on the ground, fading at the ends.
+    for (let sx = -HAZE_HALF + 16; sx < HAZE_HALF - 16; sx += 8) {
+      const edge = 1 - Math.abs(sx + 4) / (HAZE_HALF - 12);
+      const flicker = 0.6 + 0.4 * Math.sin(time * 2.4 + sx * 0.13 + phase * 6);
+      ctx.globalAlpha = alpha * Math.max(0, edge) * flicker * 0.4;
+      const ground = snap(groundOffset(sx + 4));
+      pixelRect(sx, ground - 2, 8, 2, HAZE.mirage, 2);
+      if (edge > 0.5) pixelRect(sx + 2, ground - 4, 4, 2, HAZE.mirage, 2);
+    }
+    ctx.globalAlpha = alpha;
+  }
+
   // Framed board lit from the right, growing upward from `bottom`. `x` must be
   // even; the board and every line centre on x + 1, the middle of the post.
   function drawBoard(x, bottom, text) {
@@ -4114,6 +4249,67 @@ export function createGameArt(ctx) {
         // Now and then it nibbles a nut.
         const time = scene.time || 0;
         drawSquirrelSitting(tools, time > 0 && (time + propNoise(x, 2) * 9) % 5 < 1.2);
+      }
+    } else if (type === "skull" || type === "car-wreck") {
+      drawCanopy(type);
+    } else if (type === "tumbleweed") {
+      const roll = tumbleweedRoll(wall?.path, scene.time || 0, propNoise(x, 6));
+      if (roll.alpha > 0) {
+        ctx.globalAlpha *= roll.alpha;
+        const snap = (value) => Math.round(value / ART_PIXEL) * ART_PIXEL;
+        ctx.translate(snap(roll.distance), snap(roll.dy - roll.lift) - TUMBLEWEED_RADIUS);
+        drawTumbleweed({ pixelPath, pixelRect }, roll.angle);
+      }
+    } else if (type === "water-tower") {
+      drawCanopy(type);
+      // Legs and ladder run down from the platform to the ground.
+      const top = TOWER_PLATFORM + 4;
+      for (const [lx, width, shaded] of TOWER_LEGS) {
+        if (shaded) {
+          rectDownTo(lx, top, width, width > 2 ? FARM_WOOD.base : FARM_WOOD.dark, 2, groundOffset);
+          rectDownTo(lx, top, 2, FARM_WOOD.dark, 2, groundOffset);
+        } else {
+          rectDownTo(lx, top, width, FARM_WOOD.light, 2, groundOffset);
+          rectDownTo(lx + width - 2, top, 2, FARM_WOOD.tip, 2, groundOffset);
+        }
+        if (width > 2) {
+          const foot = Math.round(groundOffset(lx + width / 2) / 2) * 2;
+          pixelRect(lx - 2, foot - 2, width + 4, 2, "#697872", 2);
+          pixelRect(lx + width, foot - 2, 2, 2, "#8b978c", 2);
+        }
+      }
+      const { left, right, top: ladderTop, step } = TOWER_LADDER;
+      rectDownTo(left, ladderTop, 2, FARM_WOOD.base, 2, groundOffset);
+      rectDownTo(right - 2, ladderTop, 2, FARM_WOOD.light, 2, groundOffset);
+      for (let ry = ladderTop + 4; ry < 0; ry += step)
+        rectAboveGround(left + 2, ry, right - left - 4, 2, FARM_WOOD.tip, 2, groundOffset);
+    } else if (type === "windmill") {
+      drawCanopy(type);
+      // Feet on concrete footings that follow the ground.
+      for (const fx of WINDMILL_FEET) {
+        rectDownTo(fx, WINDMILL_BODY_BOTTOM, 2, STEEL.dark, 2, groundOffset);
+        rectDownTo(fx + 2, WINDMILL_BODY_BOTTOM, 2, STEEL.base, 2, groundOffset);
+        const foot = Math.round(groundOffset(fx + 2) / 2) * 2;
+        pixelRect(fx - 4, foot - 4, 12, 4, "#8b978c", 2);
+        pixelRect(fx - 4, foot - 4, 12, 2, "#aeb5a7", 2);
+        pixelRect(fx - 4, foot - 2, 2, 2, "#697872", 2);
+      }
+      // The rotor turns with the wind.
+      ctx.translate(ROTOR.x, ROTOR.y);
+      drawWindmillRotor(
+        { pixelRect, pixelPath },
+        windmillAngle(scene.time || 0, scene.wind, propNoise(x, 3)),
+      );
+    } else if (type === "heat-haze") {
+      drawHeatHaze(x, scene, groundOffset);
+    } else if (type === "vulture") {
+      const orbit = vultureOrbit(scene.time || 0, propNoise(x, 7));
+      const snap = (value) => Math.round(value / ART_PIXEL) * ART_PIXEL;
+      ctx.translate(snap(orbit.dx), snap((wall?.centre ?? 0) + orbit.dy));
+      if (orbit.banking) drawVultureBanking({ pixelRect });
+      else {
+        ctx.scale(orbit.dir, 1);
+        drawVultureSoaring({ pixelRect }, orbit.flap);
       }
     } else if (CEILING_PROPS.has(type)) {
       const tools = { pixelRect };

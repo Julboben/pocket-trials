@@ -12,7 +12,7 @@ import { isCurvedEdge } from "../terrain-geometry.js";
 import { typingInField } from "./clipboard.js";
 import { $, canvas } from "./dom.js";
 import { pushHistory, redo, snapshot, undo } from "./history.js";
-import { hitTest } from "./hit-test.js";
+import { hitStack, hitTest, sameHit } from "./hit-test.js";
 import {
   endScale,
   scaleCursor,
@@ -77,6 +77,9 @@ let dragOrigin = null;
 let lastDragPointer = null;
 
 let pendingKind = null;
+// Pressing a selected item that shares its spot with others: a click without
+// a drag moves the selection on to this next one.
+let cycleNext = null;
 
 // How far, in screen pixels, a press must move before it drags or scales, so
 // the wobble of a click or double-click moves nothing.
@@ -270,6 +273,7 @@ function resetPointerState() {
   altPress = null;
   scalePoint = null;
   pressClient = null;
+  cycleNext = null;
   endScale();
 }
 
@@ -315,6 +319,13 @@ export const endPointer = () => {
   if (altPress) {
     // Alt-click without a drag keeps its old meaning: select the whole ring.
     editor.selection = hitTest(altPress.point, { wholeBoundary: true });
+    resetPointerState();
+    syncInspector();
+    render();
+    return;
+  }
+  if (cycleNext && !lastDragPointer) {
+    editor.selection = cycleNext;
     resetPointerState();
     syncInspector();
     render();
@@ -484,10 +495,19 @@ export function bindInput() {
       syncInspector();
       render();
       return;
+    }
+    // Several things share this spot and one of them is selected: keep it
+    // (so a drag moves it), and a plain click picks the next one.
+    const stack = hitStack(point);
+    const current = stack.findIndex((entry) => sameHit(entry, editor.selection));
+    if (stack.length > 1 && current >= 0) {
+      cycleNext = stack[(current + 1) % stack.length];
     } else if (!(hitItem && inGroup(hitItem))) {
       // Pressing something that's part of the group drags the whole group;
       // anything else selects what was hit.
       editor.selection = hit;
+      if (stack.length > 1 && sameHit(stack[0], hit))
+        showStatus("info", `${stack.length} things here. Click again to select the next one.`);
     }
     if (editor.selection) {
       pressClient = { clientX: event.clientX, clientY: event.clientY };
