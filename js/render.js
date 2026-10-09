@@ -40,6 +40,12 @@ import { createLighting } from "./lighting.js";
 import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
 import { WATER_PROPS, FISH_DART, FISH_RANGE } from "./water-props.js";
 import { SQUIRREL_HIDE_MAX, SQUIRREL_RANGE } from "./forest-props.js";
+import {
+  HAZE_HALF,
+  TUMBLEWEED_RUN,
+  VULTURE_ORBIT,
+  windStrength,
+} from "./desert-props.js";
 import { crackLines, glassPane } from "./glass.js";
 
 const GLASS_CRACK_COLOR = "#f6fffde6";
@@ -65,6 +71,10 @@ const SCENERY_SHADOWS = {
   cone: { width: 7, alpha: 0.14, thickness: 3, lift: 8 },
   dumpster: { width: 30, alpha: 0.15, thickness: 3, lift: 20 },
   lamp: { width: 6, alpha: 0.15, thickness: 3, lift: 40 },
+  skull: { width: 12, alpha: 0.13, thickness: 3, lift: 6 },
+  "car-wreck": { width: 54, alpha: 0.15, thickness: 3, lift: 16 },
+  "water-tower": { width: 36, alpha: 0.15, thickness: 3, lift: 70 },
+  windmill: { width: 24, alpha: 0.14, thickness: 3, lift: 60 },
 };
 const GHOST_ALPHA = 0.38;
 // World units around the hair root that the ghost's hair can reach.
@@ -86,6 +96,11 @@ const PROP_RISE = {
   lamp: 130,
   crane: 282,
   scaffolding: 146,
+  skull: 28,
+  "car-wreck": 48,
+  "water-tower": 180,
+  windmill: 196,
+  "heat-haze": 56,
 };
 // How far each prop's art hangs below its anchor, for culling.
 const PROP_HANG = { vines: 148, roots: 28, moss: 28, graffiti: 38 };
@@ -96,6 +111,9 @@ const PROP_REACH = {
   bats: 220,
   fish: FISH_RANGE + 120,
   squirrel: SQUIRREL_RANGE + 40,
+  tumbleweed: TUMBLEWEED_RUN + 30,
+  vulture: VULTURE_ORBIT.x + 40,
+  "heat-haze": HAZE_HALF + 10,
 };
 // Perched birds and ducks take off, roosting bats scatter, fish dart off and
 // squirrels run for a tree when the rider comes within `x` and `y` of them;
@@ -107,6 +125,9 @@ const STARTLE = {
   fish: { x: 90, y: 70, flight: FISH_DART },
   squirrel: { x: 140, y: 120, flight: SQUIRREL_HIDE_MAX },
 };
+// Heat haze shimmers the scene behind it, so it stays out of the x-ray mask,
+// and it is left out with reduced motion and in the lighter graphics mode.
+const HAZE_PROPS = new Set(["heat-haze"]);
 // Props that glow, and how far their light reaches either side, for culling.
 const GLOW_REACH = { lamp: 70, crane: 180, lantern: 100, mushrooms: 40 };
 // How far a hair strand may sink into a floor and still be lifted back onto it.
@@ -136,7 +157,7 @@ export function createRenderer(canvas) {
     xrayRider = null,
     ghostHairLayer = null;
   // What props react to this frame; see drawProp.
-  let propScene = { time: 0, riderX: null };
+  let propScene = { time: 0, riderX: null, wind: 0 };
   let frameNow = 0;
   // Birds and bats that have taken off, with when and which way, for the
   // current ride.
@@ -355,6 +376,7 @@ export function createRenderer(canvas) {
         (wet !== null && wet !== WATER_PROPS.has(prop.type)) ||
         PAINTED_PROPS.has(prop.type) ||
         (!full && (prop.type === "tree" || prop.type === "pine")) ||
+        (HAZE_PROPS.has(prop.type) && (reducedMotion || !full || area)) ||
         !inView(prop.x, reach) ||
         (area && (prop.x < area.left - reach || prop.x > area.right + reach))
       )
@@ -1113,6 +1135,7 @@ export function createRenderer(canvas) {
     propScene = {
       time: reducedMotion ? 0 : now / 1000,
       riderX: focus.x,
+      wind: windStrength(trail.weather),
     };
     frameNow = now;
     startleProps(ride, focus, now);

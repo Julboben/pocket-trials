@@ -2,7 +2,7 @@
 // that owns it.
 // How far the view can zoom out and in.
 export const ZOOM_MIN = 0.1;
-export const ZOOM_MAX = 2.5;
+export const ZOOM_MAX = 6;
 
 /** Keep a zoom level within the editor's range. */
 export function clampZoom(zoom) {

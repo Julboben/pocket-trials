@@ -86,5 +86,14 @@ check('the cut branch requires a closed outline', /if \(!closed \|\| points\.len
 // 7. A block is only created if the drag was big enough to be one.
 check('a too-small drag is rejected', /right - left < 8 \|\| bottom - top < 8/.test(commit));
 
+// 8. Clicking again where several things overlap selects the next one: the
+// press keeps the selected one (so a drag still moves it), and only a release
+// without a drag moves the selection on.
+check('the press looks for a stack of hits', /hitStack\(point\)/.test(down));
+check('the press only remembers the next hit', /cycleNext = stack\[/.test(down) && !/editor\.selection = cycleNext/.test(down));
+const cycleAt = release.indexOf('cycleNext && !lastDragPointer');
+check('a release without a drag selects the next hit', cycleAt >= 0
+  && release.indexOf('editor.selection = cycleNext', cycleAt) > cycleAt);
+
 console.log(failures ? `${failures} failing` : '\nEditor gesture source tests passed.');
 process.exit(failures ? 1 : 0);

@@ -8,7 +8,10 @@ export function gridSpacing(zoom) {
   // Coarser when zoomed out, so lines stay at least ~35px apart on screen.
   if (zoom < .18) return 500;
   if (zoom < .35) return 200;
-  return zoom < .65 ? 100 : 50;
+  if (zoom < .65) return 100;
+  // Finer when zoomed right in, for placing things precisely.
+  if (zoom >= 4) return 10;
+  return zoom >= 2 ? 25 : 50;
 }
 
 /**

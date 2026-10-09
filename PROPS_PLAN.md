@@ -36,13 +36,14 @@ A plan for the props to add to each level theme, plus guidelines for making them
 ## 🏜️ Desert
 *Goes with the existing cactus and sand.*
 
-- [ ] **Cow skull**
-- [ ] **Tumbleweed**: rolls slowly and is purely visual.
+- [x] **Cow skull**
+- [x] **Tumbleweed**: rolls slowly and is purely visual.
 - [x] **Barrel cactus**: a smaller cactus variant.
-- [ ] **Rusted car wreck**: half-buried in sand.
-- [ ] **Wooden water tower**
-- [ ] **Windmill water pump**: the blades spin with the wind.
-- [ ] **Heat haze**: shimmers near the horizon and is turned off when reduced motion is on.
+- [x] **Rusted car wreck**: half-buried in sand.
+- [x] **Wooden water tower**
+- [x] **Windmill water pump**: the blades spin with the wind.
+- [x] **Heat haze**: shimmers and is turned off when reduced motion is on.
+- [x] **Vulture**: circles in the air.
 
 ## 🏔️ Mountain / snow
 
