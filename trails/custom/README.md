@@ -10,7 +10,7 @@ You can also add a file by hand:
 
 1. Build a trail in the **Trail Editor** and click **Export JSON**.
 2. Save the exported file here, e.g. `trails/custom/my-trail.json`.
-3. With `npm run dev` running, the catalog regenerates automatically. Without the dev server, run `npm run trails` once to rebuild `trails/catalog.json`.
+3. With `npm run dev` running, the catalog regenerates automatically. Without the dev server, run `npm run trails` once to rebuild the catalogs.
 
 Trails created or imported without the dev server, for example on a deployed copy, are stored in the browser instead of this folder.
 
@@ -23,4 +23,4 @@ Trails created or imported without the dev server, for example on a deployed cop
 
 ## Git
 
-The contents of this folder are git-ignored (except this README), so your trails stay local to your machine.
+The contents of this folder are git-ignored (except this README), so your trails stay local to your machine. They are listed in `trails/custom-catalog.json`, which is git-ignored too, so the committed `trails/catalog.json` only holds official and bonus trails.

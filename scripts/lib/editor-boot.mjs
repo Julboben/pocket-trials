@@ -22,7 +22,9 @@ canvas.getContext = () => context;
 dom.element('canvas-wrap');
 dom.element('trail-picker');
 
-globalThis.fetch = async url => (String(url).includes('catalog.json')
+globalThis.fetch = async url => (String(url).includes('custom-catalog.json')
+  ? { ok: false, status: 404, json: async () => ({}) }
+  : String(url).includes('catalog.json')
   ? { ok: true, json: async () => ({ schemaVersion: 1, trails: [{ id: 't1', file: 'custom/t1.json', name: 'Test' }] }) }
   : { ok: true, json: async () => trail });
 

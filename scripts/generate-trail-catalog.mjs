@@ -5,9 +5,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const trailsRoot = path.join(projectRoot, 'trails');
 const sources = ['official', 'bonus', 'custom'];
+// Custom trails are git-ignored, so they get their own (also ignored) catalog
+// and the committed catalog.json is the same on every machine.
+export const CUSTOM_CATALOG = 'custom-catalog.json';
 
 export async function generateTrailCatalog() {
   const catalog = { schemaVersion: 1, trails: [] };
+  const customCatalog = { schemaVersion: 1, trails: [] };
   for (const source of sources) {
     const directory = path.join(trailsRoot, source);
     await mkdir(directory, { recursive: true });
@@ -21,7 +25,7 @@ export async function generateTrailCatalog() {
         throw new Error(`Could not parse trails/${relativePath}: ${error.message}`);
       }
       if (!trail.name || typeof trail.name !== 'string') throw new Error(`trails/${relativePath} needs a string name.`);
-      catalog.trails.push({
+      (source === 'custom' ? customCatalog : catalog).trails.push({
         id: `${source}:${file.replace(/\.json$/i, '')}`,
         source,
         file: relativePath,
@@ -30,7 +34,8 @@ export async function generateTrailCatalog() {
     }
   }
   await writeFile(path.join(trailsRoot, 'catalog.json'), `${JSON.stringify(catalog, null, 2)}\n`);
-  console.log(`Generated trails/catalog.json with ${catalog.trails.length} trails.`);
+  await writeFile(path.join(trailsRoot, CUSTOM_CATALOG), `${JSON.stringify(customCatalog, null, 2)}\n`);
+  console.log(`Generated trails/catalog.json with ${catalog.trails.length} trails and trails/${CUSTOM_CATALOG} with ${customCatalog.trails.length}.`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {

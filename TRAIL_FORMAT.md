@@ -2,7 +2,7 @@
 
 All trails use the same JSON schema. Shipped career trails live in `trails/official/`, shipped bonus trails in `trails/bonus/`, and locally authored standalone trails in `trails/custom/`. The editor's JSON export can be placed directly in `trails/custom/`.
 
-`npm run dev` watches all three folders and regenerates `trails/catalog.json` whenever a JSON file changes. The browser loads that catalog through `js/trails.js`, so new files appear after the next page refresh. Trails saved or imported in the browser outside dev mode are kept in localStorage and listed alongside the file-based custom trails.
+`npm run dev` watches all three folders and regenerates `trails/catalog.json` (official and bonus) and the local, git-ignored `trails/custom-catalog.json` whenever a JSON file changes. The browser loads both catalogs through `js/trails.js`, so new files appear after the next page refresh. Trails saved or imported in the browser outside dev mode are kept in localStorage and listed alongside the file-based custom trails.
 
 A trail cannot declare itself official inside its JSON. The generated catalog assigns source from the containing folder: official trails participate in career progression and official best times; bonus trails are handpicked extras, often made by another rider, that keep save best times, medals and the online board but sit outside career progression; custom trails are clearly labeled, stay on the device and never alter career progress. Promoting a custom trail to a bonus trail is a matter of moving its file to `trails/bonus/`. Its times start over under the new `bonus:<file>` id, and the file name must then stay put, because the online board knows the trail by it.
 

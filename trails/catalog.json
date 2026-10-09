@@ -60,66 +60,6 @@
       "source": "bonus",
       "file": "bonus/01-the-bonny-tyler.json",
       "name": "THE BONNY TYLER"
-    },
-    {
-      "id": "custom:cave-at-night",
-      "source": "custom",
-      "file": "custom/cave-at-night.json",
-      "name": "Cave at Night"
-    },
-    {
-      "id": "custom:caves",
-      "source": "custom",
-      "file": "custom/caves.json",
-      "name": "Caves"
-    },
-    {
-      "id": "custom:glass-demo",
-      "source": "custom",
-      "file": "custom/glass-demo.json",
-      "name": "Glass Demo"
-    },
-    {
-      "id": "custom:gravity-fair",
-      "source": "custom",
-      "file": "custom/gravity-fair.json",
-      "name": "Gravity Fair"
-    },
-    {
-      "id": "custom:hanging-gardens",
-      "source": "custom",
-      "file": "custom/hanging-gardens.json",
-      "name": "The Hanging Gardens"
-    },
-    {
-      "id": "custom:mind-your-head",
-      "source": "custom",
-      "file": "custom/mind-your-head.json",
-      "name": "Mind Your Head"
-    },
-    {
-      "id": "custom:rolling-country",
-      "source": "custom",
-      "file": "custom/rolling-country.json",
-      "name": "Rolling Country"
-    },
-    {
-      "id": "custom:the-wrong-way-circus",
-      "source": "custom",
-      "file": "custom/the-wrong-way-circus.json",
-      "name": "The Wrong-Way Circus"
-    },
-    {
-      "id": "custom:trail-3",
-      "source": "custom",
-      "file": "custom/trail-3.json",
-      "name": "Trail 3"
-    },
-    {
-      "id": "custom:water-test",
-      "source": "custom",
-      "file": "custom/water-test.json",
-      "name": "Water test"
     }
   ]
 }

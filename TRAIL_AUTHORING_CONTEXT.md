@@ -35,7 +35,7 @@ Trail format specification.
 
 All trails use the same JSON schema. Shipped career trails live in `trails/official/`, shipped bonus trails in `trails/bonus/`, and locally authored standalone trails in `trails/custom/`. The editor's JSON export can be placed directly in `trails/custom/`.
 
-`npm run dev` watches all three folders and regenerates `trails/catalog.json` whenever a JSON file changes. The browser loads that catalog through `js/trails.js`, so new files appear after the next page refresh. Trails saved or imported in the browser outside dev mode are kept in localStorage and listed alongside the file-based custom trails.
+`npm run dev` watches all three folders and regenerates `trails/catalog.json` (official and bonus) and the local, git-ignored `trails/custom-catalog.json` whenever a JSON file changes. The browser loads both catalogs through `js/trails.js`, so new files appear after the next page refresh. Trails saved or imported in the browser outside dev mode are kept in localStorage and listed alongside the file-based custom trails.
 
 A trail cannot declare itself official inside its JSON. The generated catalog assigns source from the containing folder: official trails participate in career progression and official best times; bonus trails are handpicked extras, often made by another rider, that keep save best times, medals and the online board but sit outside career progression; custom trails are clearly labeled, stay on the device and never alter career progress. Promoting a custom trail to a bonus trail is a matter of moving its file to `trails/bonus/`. Its times start over under the new `bonus:<file>` id, and the file name must then stay put, because the online board knows the trail by it.
 
@@ -1136,7 +1136,7 @@ You can also add a file by hand:
 
 1. Build a trail in the **Trail Editor** and click **Export JSON**.
 2. Save the exported file here, e.g. `trails/custom/my-trail.json`.
-3. With `npm run dev` running, the catalog regenerates automatically. Without the dev server, run `npm run trails` once to rebuild `trails/catalog.json`.
+3. With `npm run dev` running, the catalog regenerates automatically. Without the dev server, run `npm run trails` once to rebuild the catalogs.
 
 Trails created or imported without the dev server, for example on a deployed copy, are stored in the browser instead of this folder.
 
@@ -1149,7 +1149,7 @@ Trails created or imported without the dev server, for example on a deployed cop
 
 ## Git
 
-The contents of this folder are git-ignored (except this README), so your trails stay local to your machine.
+The contents of this folder are git-ignored (except this README), so your trails stay local to your machine. They are listed in `trails/custom-catalog.json`, which is git-ignored too, so the committed `trails/catalog.json` only holds official and bonus trails.
 ```
 
 ---
