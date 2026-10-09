@@ -202,7 +202,8 @@ function propSlope(trail, prop, reference) {
 }
 
 export function propAlignmentSlope(trail, prop) {
-  if (!GROUND_ALIGNED_PROP_SPANS[prop.type]) return 0;
+  // A rotated prop is posed by hand, so its rotation replaces the slope.
+  if (!GROUND_ALIGNED_PROP_SPANS[prop.type] || propRotation(prop)) return 0;
   const standing = propGroundHeight(trail, prop);
   if (standing === null) return 0;
   if (!isPlanted(trail, prop)) return 0;
@@ -937,6 +938,34 @@ export const canFlip = (type) =>
   !WALL_PROPS.has(type) &&
   !PAINTED_PROPS.has(type) &&
   !CEILING_PROPS.has(type);
+// Props that fit themselves to the world or move through it keep their own
+// angle: wall, ceiling, cave-fitted, painted and water props, and the animals
+// and effects that wander, fly or shimmer.
+const UNROTATABLE_PROPS = new Set(["squirrel", "tumbleweed", "vulture", "bird", "heat-haze"]);
+export const canRotate = (type) =>
+  !WALL_PROPS.has(type) &&
+  !PAINTED_PROPS.has(type) &&
+  !CAVE_FITTED_PROPS.has(type) &&
+  !WATER_PROPS.has(type) &&
+  !UNROTATABLE_PROPS.has(type);
+/** A prop's hand-set rotation in radians, clockwise; 0 where it can't turn. */
+export function propRotation(prop) {
+  const degrees = Number(prop?.rotation);
+  return degrees && Number.isFinite(degrees) && canRotate(prop.type)
+    ? (degrees * Math.PI) / 180
+    : 0;
+}
+/**
+ * Where a point of a prop's art, given in its local coordinates (x to the
+ * right, y down from the anchor at `y`), lands in the world once the prop is
+ * flipped and rotated.
+ */
+export function propPoint(prop, y, localX, localY) {
+  const lx = prop.flip && canFlip(prop.type) ? -localX : localX;
+  const angle = propRotation(prop);
+  const c = Math.cos(angle), s = Math.sin(angle);
+  return { x: prop.x + lx * c - localY * s, y: y + lx * s + localY * c };
+}
 // Longest vines can hang, in world units.
 export const VINE_MAX = 140;
 const wallFits = new WeakMap();
@@ -1408,6 +1437,9 @@ function graffitiSprite(trail, prop) {
 }
 
 export function propGroundOffset(trail, prop) {
+  // A rotated prop is posed by hand: its trunks and posts no longer reach for
+  // the ground, which they would find along the wrong axis.
+  if (propRotation(prop)) return () => 0;
   const standing = propGroundHeight(trail, prop);
   if (standing === null) return () => 0;
   const originY = Number.isFinite(prop.y) ? prop.y : standing;
@@ -3767,12 +3799,13 @@ export function createGameArt(ctx) {
     wall,
     flip,
     scene,
+    rotation,
   ) {
     const transform = ctx.getTransform();
     if (transform.b || transform.c) return false;
     const [left, top, right, bottom] = propBounds(
       type,
-      propDrawAngle(type, slope),
+      propDrawAngle(type, slope) + rotation,
       groundOffset,
       text,
       flip,
@@ -3814,7 +3847,7 @@ export function createGameArt(ctx) {
       transform.e - x0,
       transform.f - y0,
     );
-    art.drawProp(type, x, y, 1, slope, groundOffset, text, wall, flip, scene);
+    art.drawProp(type, x, y, 1, slope, groundOffset, text, wall, flip, scene, rotation);
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = alpha;
@@ -3834,9 +3867,11 @@ export function createGameArt(ctx) {
     wall = null,
     flip = false,
     scene = NO_SCENE,
+    rotation = 0,
   ) {
     if (isStartSign(type, text)) type = "start";
     const mirrored = Boolean(flip) && canFlip(type);
+    if (!canRotate(type) || !Number.isFinite(rotation)) rotation = 0;
     if (
       alpha < 1 &&
       drawPropLayer(
@@ -3850,12 +3885,14 @@ export function createGameArt(ctx) {
         wall,
         mirrored,
         scene,
+        rotation,
       )
     )
       return;
     ctx.save();
     ctx.translate(Math.round(x / 2) * 2, Math.round(y / 2) * 2);
-    ctx.rotate(propDrawAngle(type, slope));
+    // Rotate before mirroring, so a turn is clockwise either way round.
+    ctx.rotate(propDrawAngle(type, slope) + rotation);
     if (mirrored) {
       // Mirror around the anchor. Ground lookups still use world positions,
       // so trunks and posts keep following the slope.
@@ -5033,7 +5070,7 @@ export function createGameArt(ctx) {
     groundOffset = () => 0,
     flip = false,
     time = 0,
-    { dark = true, trail = null, prop = null, fit = null, emissive = false } = {},
+    { dark = true, trail = null, prop = null, fit = null, emissive = false, rotation = 0 } = {},
   ) {
     const dir = flip ? -1 : 1;
     const strength = dark ? 1 : 0.5;
@@ -5064,6 +5101,7 @@ export function createGameArt(ctx) {
     }
     ctx.save();
     ctx.translate(Math.round(x / 2) * 2, Math.round(y / 2) * 2);
+    if (rotation && canRotate(type)) ctx.rotate(rotation);
     if (type === "mushrooms") {
       ctx.scale(dir, 1);
       const caps = mushroomCaps((local) => groundOffset(local * dir));

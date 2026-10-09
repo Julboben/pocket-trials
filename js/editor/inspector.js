@@ -1,5 +1,5 @@
 // The selection and trail panels on the right.
-import { canFlip } from "../drawing.js";
+import { canFlip, canRotate } from "../drawing.js";
 import {
   cubicPoint,
   edgeCurve,
@@ -8,7 +8,12 @@ import {
   setBoundaryEdge,
   setNodeMode,
 } from "../terrain-geometry.js";
-import { SPIKE_RADIUS, normalizeAuthor, validateTrail } from "../trail-schema.js";
+import {
+  SPIKE_RADIUS,
+  normalizeAuthor,
+  normalizeRotation,
+  validateTrail,
+} from "../trail-schema.js";
 import { store } from "../local-store.js";
 import {
   blocks,
@@ -22,7 +27,8 @@ import {
   selectedBlocks,
   selectedCaves,
 } from "./blocks.js";
-import { $ } from "./dom.js";
+import { $, canvas } from "./dom.js";
+import { canRotateSelection, rotateSelected } from "./rotate.js";
 import { pushHistory, updateHistoryButtons } from "./history.js";
 import { scheduleAutosave } from "./autosave.js";
 import { updateVersionChip } from "./drafts.js";
@@ -178,6 +184,11 @@ export function syncInspector({ live = false } = {}) {
   const selectedProp = editor.selection?.kind === "prop" ? editor.trail.props[editor.selection.index] : null;
   $("selection-flip-row").hidden = !selectedProp || !canFlip(selectedProp.type);
   if (selectedProp) $("selection-flip").value = String(Boolean(selectedProp.flip));
+  $("selection-rotation-row").hidden = !selectedProp || !canRotate(selectedProp.type);
+  if (selectedProp && document.activeElement !== $("selection-rotation"))
+    $("selection-rotation").value = selectedProp.rotation || 0;
+  // A lone prop has its own Rotation field; blocks and groups turn by a quarter.
+  $("selection-rotate-row").hidden = Boolean(selectedProp) || !canRotateSelection();
   $("selection-radius-row").hidden = editor.selection?.kind !== "spike";
   $("selection-spin-row").hidden = editor.selection?.kind !== "spike";
   const selectedWater =
@@ -555,6 +566,27 @@ export function bindInspector() {
     syncInspector();
     render();
   });
+
+  $("selection-rotation").addEventListener("change", (event) => {
+    if (editor.selection?.kind !== "prop") return;
+    const prop = editor.trail.props[editor.selection.index];
+    if (!canRotate(prop.type)) return;
+    const rotation = normalizeRotation(event.target.value);
+    if (rotation !== prop.rotation) {
+      pushHistory();
+      if (rotation === undefined) delete prop.rotation;
+      else prop.rotation = rotation;
+    }
+    syncInspector();
+    render();
+  });
+
+  for (const [id, degrees] of [["rotate-ccw", -90], ["rotate-cw", 90]])
+    $(id).addEventListener("click", () => {
+      rotateSelected(degrees);
+      // Hand focus back so the canvas shortcuts keep working.
+      canvas.focus({ preventScroll: true });
+    });
 
   $("selection-prop-type").addEventListener("change", (event) => {
     if (editor.selection?.kind !== "prop") return;

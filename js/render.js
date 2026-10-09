@@ -14,6 +14,8 @@ import {
   paintedPropY,
   propAlignmentSlope,
   propGroundOffset,
+  propPoint,
+  propRotation,
   propSpan,
   propWallFit,
   sunLight,
@@ -337,16 +339,19 @@ export function createRenderer(canvas) {
   // around them; lanterns and mushrooms always.
   function drawPropGlows() {
     for (const prop of trail.props || []) {
-      const reach = GLOW_REACH[prop.type];
+      const rotation = propRotation(prop);
+      const reach = GLOW_REACH[prop.type] && GLOW_REACH[prop.type] + (rotation ? PROP_RISE[prop.type] ?? 90 : 0);
       if (!reach || !inView(prop.x, reach)) continue;
       const ground = terrainAt(trail, prop.x);
       if (!ground.solid && !Number.isFinite(prop.y)) continue;
       const y = Number.isFinite(prop.y) ? prop.y : ground.y;
-      const head = prop.type === "crane" ? CRANE_LIGHTS[0][1] : prop.type === "lamp" ? LAMP_HEAD.y : -10;
-      const dark = lighting.isDark(trail, prop.x, y + head);
+      const [hx, hy] = prop.type === "crane" ? CRANE_LIGHTS[0] : prop.type === "lamp" ? [0, LAMP_HEAD.y] : [0, -10];
+      const head = propPoint(prop, y, hx, hy);
+      const dark = lighting.isDark(trail, head.x, head.y);
       if (!dark && (prop.type === "lamp" || prop.type === "crane")) continue;
       const fit = propWallFit(trail, prop);
-      const [rise, hang] = propSpan(prop.type, fit) || [PROP_RISE[prop.type] ?? 90, 0];
+      let [rise, hang] = propSpan(prop.type, fit) || [PROP_RISE[prop.type] ?? 90, 0];
+      if (rotation) rise = hang = Math.max(rise, hang);
       if (!inView(prop.x, reach, y + hang + reach, rise + hang + reach * 2)) continue;
       gameArt.drawPropGlow(
         prop.type,
@@ -355,7 +360,7 @@ export function createRenderer(canvas) {
         propGroundOffset(trail, prop),
         prop.flip,
         propScene.time,
-        { dark, trail, prop, fit, emissive: true },
+        { dark, trail, prop, fit, emissive: true, rotation },
       );
     }
   }
@@ -370,7 +375,12 @@ export function createRenderer(canvas) {
     for (const squirrels of [false, true])
     for (const prop of props) {
       if ((prop.type === "squirrel") !== squirrels) continue;
-      const reach = PROP_REACH[prop.type] ?? 70;
+      const rotation = propRotation(prop);
+      // A rotated prop can reach as far as its tallest side in any direction.
+      const reach = Math.max(
+        PROP_REACH[prop.type] ?? 70,
+        rotation ? PROP_RISE[prop.type] ?? 90 : 0,
+      );
       if (
         prop.layer !== layer ||
         (wet !== null && wet !== WATER_PROPS.has(prop.type)) ||
@@ -386,8 +396,9 @@ export function createRenderer(canvas) {
       const y = Number.isFinite(prop.y) ? prop.y : ground.y;
       const fit = propWallFit(trail, prop);
       const span = propSpan(prop.type, fit);
-      const rise = span ? span[0] : PROP_RISE[prop.type] ?? 90;
-      const hang = span ? span[1] : PROP_HANG[prop.type] ?? 0;
+      let rise = span ? span[0] : PROP_RISE[prop.type] ?? 90;
+      let hang = span ? span[1] : PROP_HANG[prop.type] ?? 0;
+      if (rotation) rise = hang = Math.max(rise, hang, reach);
       if (!inView(prop.x, reach, y + hang, rise + hang)) continue;
       if (area && (y - rise > area.bottom || y + hang + 70 < area.top)) continue;
       let scene = propScene;
@@ -409,6 +420,7 @@ export function createRenderer(canvas) {
         fit,
         prop.flip,
         scene,
+        rotation,
       );
       drawn++;
     }

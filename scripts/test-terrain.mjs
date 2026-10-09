@@ -12,6 +12,9 @@ import {
   propAlignmentSlope,
   propDrawAngle,
   propGroundOffset,
+  propRotation,
+  propPoint,
+  canRotate,
 } from "../js/drawing.js";
 import { polygonBlock, rectangle, blockTrail } from "./lib/terrain-fixtures.mjs";
 
@@ -162,6 +165,23 @@ assert.ok(
   "each flower is planted on the slope under it",
 );
 assert.equal(floatingTree(8), 0, "a floating prop keeps a trail base");
+
+// A rotated prop is posed by hand: its rotation replaces the slope, and its
+// trunks and posts no longer reach for the ground.
+const tiltedFence = { ...fence, rotation: 30 };
+assert.equal(propAlignmentSlope(hillTrail, tiltedFence), 0, "a rotated prop ignores the slope");
+assert.equal(propGroundOffset(hillTrail, { ...tree, rotation: -20 })(8), 0, "a rotated prop has a flat base");
+assert.ok(Math.abs(propRotation(tiltedFence) - Math.PI / 6) < 1e-9, "rotation is read in degrees");
+assert.equal(propRotation({ ...fence, rotation: 0 }), 0, "no rotation is no rotation");
+for (const type of ["vines", "graffiti", "stalactites", "beams", "minecart", "lily", "fish", "squirrel", "tumbleweed", "vulture", "bird", "heat-haze"]) {
+  assert.ok(!canRotate(type), `${type} keeps its own angle`);
+  assert.equal(propRotation({ x: 0, y: 0, type, rotation: 45 }), 0, `${type} ignores rotation`);
+}
+for (const type of ["tree", "crates", "sign", "lamp", "rock"]) assert.ok(canRotate(type), `${type} can rotate`);
+const turnedLamp = propPoint({ x: 100, type: "lamp", rotation: 90 }, 200, 22, -114);
+assert.ok(Math.abs(turnedLamp.x - 214) < 1e-9 && Math.abs(turnedLamp.y - 222) < 1e-9, "a quarter turn clockwise swings the lamp head to the right");
+const flippedLamp = propPoint({ x: 100, type: "lamp", flip: true }, 200, 22, -114);
+assert.ok(Math.abs(flippedLamp.x - 78) < 1e-9 && flippedLamp.y === 86, "a flipped lamp mirrors its head");
 
 const crest = trailOf(
   [

@@ -190,6 +190,21 @@ export function normalizeSpike(spike, groundY = null) {
 
 export const AUTHOR_MAX_LENGTH = 40;
 
+/**
+ * A prop's rotation in degrees, clockwise: wrapped to (-180, 180] and rounded
+ * to a tenth of a degree. No rotation, or none worth keeping, is undefined so
+ * it isn't stored.
+ */
+export function normalizeRotation(rotation) {
+  if (rotation === null || rotation === undefined || rotation === "") return undefined;
+  const value = Number(rotation);
+  if (!Number.isFinite(value)) return undefined;
+  let wrapped = Math.round((value % 360) * 10) / 10;
+  if (wrapped <= -180) wrapped += 360;
+  else if (wrapped > 180) wrapped -= 360;
+  return wrapped === 0 ? undefined : wrapped;
+}
+
 /** Who made the trail: one line of text, whitespace collapsed, or "". */
 export function normalizeAuthor(author) {
   return typeof author === "string"
@@ -256,6 +271,7 @@ export function normalizeTrail(input, index = 0) {
             ? prop.text
             : undefined,
         flip: prop.flip === true ? true : undefined,
+        rotation: normalizeRotation(prop.rotation),
       }))
     : [];
   trail.spikes = Array.isArray(trail.spikes)

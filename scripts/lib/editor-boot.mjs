@@ -216,6 +216,96 @@ if (kind === 'water') {
   process.exit(0);
 }
 
+// Turning blocks, props and mixed selections with the rotate handle, R and
+// the inspector.
+if (kind === 'rotate') {
+  toolButton('apple').click();
+  fire('pointerdown', { clientX: 0, clientY: 0 });
+  fire('pointerup');
+  const probe = current().apples.at(-1);
+  cameraX = probe.x;
+  cameraY = probe.y;
+  document.getElementById('undo').click();
+  toolButton('select').click();
+
+  const { rotateHandle } = await import('../../js/editor/rotate.js');
+  const out = { errors: [] };
+  const undo = document.getElementById('undo');
+  const bounds = block => {
+    const xs = block.outer.nodes.map(node => node.x), ys = block.outer.nodes.map(node => node.y);
+    return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+  };
+  // Grab the knob and swing it a quarter turn clockwise about the pivot.
+  const turnHandle = (pivot, degrees, extra = {}) => {
+    const knob = rotateHandle();
+    const radius = Math.hypot(knob.x - pivot[0], knob.y - pivot[1]);
+    const from = Math.atan2(knob.y - pivot[1], knob.x - pivot[0]) + degrees * Math.PI / 180;
+    fire('pointerdown', world(knob.x, knob.y));
+    fire('pointermove', { ...world(pivot[0] + Math.cos(from) * radius, pivot[1] + Math.sin(from) * radius), ...extra });
+    fire('pointerup');
+  };
+
+  // The 800 by 300 slab turns about its centre into a 300 by 800 one.
+  drag([200, 450], [200, 450]);
+  out.blockRowShown = document.getElementById('selection-rotate-row').hidden === false;
+  out.blockHandle = Boolean(rotateHandle());
+  const slab = bounds(current().terrainBlocks[0]);
+  turnHandle([400, 450], 90);
+  out.blockTurned = bounds(current().terrainBlocks[0]);
+  undo.click();
+  out.oneUndo = JSON.stringify(bounds(current().terrainBlocks[0])) === JSON.stringify(slab);
+  // The inspector's quarter-turn button does the same.
+  document.getElementById('rotate-cw').click();
+  out.buttonTurned = bounds(current().terrainBlocks[0]);
+  undo.click();
+
+  // A lone prop has its own Rotation field and turns about its anchor.
+  drag([600, 290], [600, 290]);
+  out.propTitle = document.getElementById('selection-title').textContent;
+  out.propFieldShown = document.getElementById('selection-rotation-row').hidden === false;
+  out.propButtonsHidden = document.getElementById('selection-rotate-row').hidden === true;
+  turnHandle([600, 300], 20, { shiftKey: true });
+  out.snapped = current().props[0].rotation;
+  undo.click();
+  turnHandle([600, 300], 20);
+  out.free = current().props[0].rotation;
+  undo.click();
+  out.undone = current().props[0].rotation;
+  key('r', { code: 'KeyR' });
+  out.keyR = current().props[0].rotation;
+  key('R', { code: 'KeyR', shiftKey: true });
+  key('R', { code: 'KeyR', shiftKey: true });
+  out.keyShiftR = current().props[0].rotation;
+  const field = document.getElementById('selection-rotation');
+  field.value = '200';
+  field.dispatch('change');
+  out.fieldWrapped = current().props[0].rotation;
+  field.value = '0';
+  field.dispatch('change');
+  out.fieldCleared = 'rotation' in current().props[0];
+
+  // Turning everything orbits the start and water without turning them.
+  const before = current();
+  key('a', { metaKey: true, code: 'KeyA' });
+  document.getElementById('rotate-cw').click();
+  const after = current();
+  out.startFacing = after.start.facing === before.start.facing;
+  out.startMoved = after.start.x !== before.start.x;
+  out.waterShape = after.water[0].width === 200 && after.water[0].depth === 60;
+  out.waterMoved = after.water[0].x !== before.water[0].x;
+  out.propTurned = after.props[0].rotation;
+  undo.click();
+
+  // Water alone has no handle.
+  key('Escape');
+  drag([1100, 230], [1100, 230]);
+  out.waterTitle = document.getElementById('selection-title').textContent;
+  out.waterHandle = rotateHandle();
+  out.waterRowHidden = document.getElementById('selection-rotate-row').hidden === true;
+  process.stdout.write(JSON.stringify(out));
+  process.exit(0);
+}
+
 // A roof or cave ceiling placed or dragged over something standing on the
 // ground must not lift it onto the new top.
 if (kind === 'covered') {

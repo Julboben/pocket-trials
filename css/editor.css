@@ -113,7 +113,7 @@ button:hover, .back-game:hover { background: #3a535b; }
 .panel-head { margin-bottom: 14px; display: flex; flex-direction: column; gap: 4px; }
 .panel-head span, .inspector legend { color: var(--muted); font-size: 8px; font-weight: 900; letter-spacing: 1.5px; }
 .panel-head strong { font-size: 18px; }
-.inspector > label, .inspector fieldset label { margin-bottom: 10px; display: grid; gap: 5px; color: var(--muted); font-size: 8px; font-weight: 800; letter-spacing: .5px; }
+.inspector > label, .inspector fieldset label, .inspector fieldset .field-row { margin-bottom: 10px; display: grid; gap: 5px; color: var(--muted); font-size: 8px; font-weight: 800; letter-spacing: .5px; }
 .inspector input, .inspector select { width: 100%; }
 .inspector fieldset { margin: 15px 0 0; padding: 13px; border: 1px solid var(--border); }
 .inspector legend { padding: 0 5px; }

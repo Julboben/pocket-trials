@@ -33,5 +33,9 @@ export function loadTrailShape(kind) {
     { x: 500, y: null, type: 'tree', layer: 'back' },
     { x: 250, y: null, type: 'tree', layer: 'back' },
   ];
+  if (kind === 'rotate') {
+    trail.props = [{ x: 600, y: null, type: 'rock', layer: 'back' }];
+    trail.water = [{ x: 1000, y: 200, width: 200, depth: 60 }];
+  }
   return { html: html(), trail };
 }

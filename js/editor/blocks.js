@@ -1,6 +1,6 @@
 // Terrain block geometry: boundaries, points, drawn shapes and cuts.
-import { canFlip } from "../drawing.js";
-import { isBackWall } from "../trail-schema.js";
+import { canFlip, canRotate } from "../drawing.js";
+import { isBackWall, normalizeRotation } from "../trail-schema.js";
 import {
   cutBlock,
   edgeCurve,
@@ -171,6 +171,8 @@ export function addAt(point) {
     };
     if (prop.type === "sign") prop.text = "";
     if (toolSettings.prop.flip && canFlip(prop.type)) prop.flip = true;
+    const rotation = normalizeRotation(toolSettings.prop.rotation);
+    if (rotation && canRotate(prop.type)) prop.rotation = rotation;
     editor.trail.props.push(prop);
     editor.selection = { kind: "prop", index: editor.trail.props.length - 1 };
   } else if (editor.tool === "spike") {

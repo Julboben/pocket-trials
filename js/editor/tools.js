@@ -36,7 +36,7 @@ const LAYER_FIELD = {
 const TOOL_INFO = {
   select: {
     title: "Select",
-    hint: "Click a block, a point on its edge, or an object to select it, and drag to move it; a selected block drags from anywhere inside it, and Esc or Cmd/Ctrl+D deselects. Where points and objects overlap, click again to select the next one. Hold Shift to snap the point or corner you hold to 15° and the grid. A selected point shows its curve handles. Drag from empty space to box-select, and Shift-click to add or remove a block, point or object. Alt-click selects a whole ring or cave. Empty cave space selects nothing, so a cave never picks the block around it. The square handles around selected blocks scale them: corners keep the shape, sides stretch it, and Alt scales from the centre. Press ? for every shortcut.",
+    hint: "Click a block, a point on its edge, or an object to select it, and drag to move it; a selected block drags from anywhere inside it, and Esc or Cmd/Ctrl+D deselects. Where points and objects overlap, click again to select the next one. Hold Shift to snap the point or corner you hold to 15° and the grid. A selected point shows its curve handles. Drag from empty space to box-select, and Shift-click to add or remove a block, point or object. Alt-click selects a whole ring or cave. Empty cave space selects nothing, so a cave never picks the block around it. The square handles around selected blocks scale them: corners keep the shape, sides stretch it, and Alt scales from the centre. The round handle above them rotates the selection, Shift snaps it to 15°, and R or Shift+R turns it 15° at a time. Press ? for every shortcut.",
   },
   pan: {
     title: "Pan",
@@ -106,7 +106,7 @@ const TOOL_INFO = {
   },
   prop: {
     title: "Prop",
-    hint: "Click to place decorative scenery. Props do not collide. The tool stays active; Esc returns to Select.",
+    hint: "Click to place decorative scenery. Props do not collide. X flips the next prop and R or Shift+R turns it 15°. The tool stays active; Esc returns to Select.",
     fields: [
       {
         key: "type",
@@ -132,6 +132,14 @@ const TOOL_INFO = {
           ["false", "Normal"],
           ["true", "Flipped"],
         ],
+      },
+      {
+        key: "rotation",
+        label: "Rotation (°, clockwise)",
+        type: "number",
+        min: -180,
+        max: 180,
+        step: 1,
       },
     ],
   },
@@ -162,7 +170,7 @@ const DEFAULT_TOOL_SETTINGS = {
   cut: { layer: "terrain" },
   spike: { radius: SPIKE_RADIUS.default, spin: 1 },
   water: { width: WATER_SIZE.width, depth: WATER_SIZE.depth },
-  prop: { type: "tree", layer: "back", flip: false },
+  prop: { type: "tree", layer: "back", flip: false, rotation: 0 },
   start: { facing: "1" },
 };
 

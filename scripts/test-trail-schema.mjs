@@ -3,7 +3,7 @@ import { FALL_MARGIN, fallLine, terrainAt } from '../js/terrain.js';
 import { rectangle } from './lib/terrain-fixtures.mjs';
 import {
   SPIKE_RADIUS, createBlankTrail, normalizeTrail, normalizeSpike, validateTrail, medalFor, normalizeMedals,
-  trailTerrainBlocks, trailBackWalls, AUTHOR_MAX_LENGTH, normalizeUnlock, unlockStatus
+  trailTerrainBlocks, trailBackWalls, AUTHOR_MAX_LENGTH, normalizeUnlock, unlockStatus, normalizeRotation
 } from '../js/trail-schema.js';
 import { trailHash } from '../js/trail-hash.js';
 import { isOnlineTrail } from '../js/online-leaderboard.js';
@@ -158,6 +158,28 @@ assert.ok(!isOnlineTrail('custom:caves@0123abcd'), 'custom file trails stay offl
   assert.deepEqual(errors(deep), [], 'a deep trail validates');
   const below = normalizeTrail({ ...deep, start: { x: 100, y: 5400, facing: 1 } });
   assert.ok(errors(below).some(text => text.includes('below all the terrain')), 'a start under the terrain is reported');
+}
+
+// Prop rotation: degrees clockwise, wrapped to (-180, 180], a tenth of a degree, omitted when 0.
+{
+  assert.equal(normalizeRotation(20), 20);
+  assert.equal(normalizeRotation(-45.04), -45);
+  assert.equal(normalizeRotation(12.345), 12.3);
+  assert.equal(normalizeRotation(270), -90);
+  assert.equal(normalizeRotation(-180), 180);
+  assert.equal(normalizeRotation(540), 180);
+  assert.equal(normalizeRotation(360), undefined);
+  assert.equal(normalizeRotation(0), undefined);
+  assert.equal(normalizeRotation('15'), 15);
+  assert.equal(normalizeRotation('tilted'), undefined);
+  assert.equal(normalizeRotation(null), undefined);
+  const trail = normalizeTrail({ ...createBlankTrail(0), props: [
+    { x: 100, y: null, type: 'crates', rotation: 30 },
+    { x: 200, y: null, type: 'rock', rotation: 0 },
+  ] });
+  assert.equal(trail.props[0].rotation, 30);
+  assert.ok(!('rotation' in JSON.parse(JSON.stringify(trail.props[1]))), 'no rotation is not stored');
+  assert.equal(trailHash(trail), trailHash({ ...trail, props: [] }), 'rotating props never changes the hash');
 }
 
 console.log('Trail schema tests passed.');
