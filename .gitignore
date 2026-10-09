@@ -1,2 +1,4 @@
 .DS_Store
 node_modules/
+trails/custom/*
+!trails/custom/README.md
