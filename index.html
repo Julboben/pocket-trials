@@ -443,23 +443,32 @@
                                 >
                                     <span data-icon="arrow-left" aria-hidden="true"></span>
                                 </button>
-                                <div
+                                <button
+                                    type="button"
                                     class="leaderboard-trail-copy"
-                                    aria-live="polite"
+                                    id="leaderboard-trail-pick"
+                                    aria-expanded="false"
+                                    aria-controls="leaderboard-picker"
+                                    title="Choose a trail"
                                 >
                                     <span
                                         class="trail-number"
                                         id="leaderboard-trail-number"
                                         >01</span
                                     >
-                                    <span class="trail-copy"
+                                    <span class="trail-copy" aria-live="polite"
                                         ><strong id="leaderboard-trail-name"
                                             >THE ORCHARD</strong
                                         ><small id="leaderboard-trail-meta"
                                             >OFFICIAL TRAIL</small
                                         ></span
                                     >
-                                </div>
+                                    <span
+                                        class="leaderboard-trail-chevron"
+                                        data-icon="chevron-down"
+                                        aria-hidden="true"
+                                    ></span>
+                                </button>
                                 <button
                                     type="button"
                                     class="leaderboard-step"
@@ -469,6 +478,13 @@
                                     <span data-icon="arrow-right" aria-hidden="true"></span>
                                 </button>
                             </div>
+                            <div
+                                class="leaderboard-picker"
+                                id="leaderboard-picker"
+                                role="group"
+                                aria-label="Choose a trail"
+                                hidden
+                            ></div>
                             <ol
                                 class="leaderboard-list"
                                 id="leaderboard-list"

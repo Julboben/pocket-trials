@@ -399,6 +399,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
 
   function showView(view) {
     disarmDelete();
+    setTrailPicker(false);
     $('menu-home').hidden = view !== 'home';
     $('menu-riders-view').hidden = view !== 'riders';
     $('menu-trail-view').hidden = view !== 'trails';
@@ -543,7 +544,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     const name = document.createElement('strong');
     name.textContent = runnerName(run.name) + (mine ? ' · YOU' : '');
     const detail = document.createElement('small');
-    const date = run.date ? new Date(run.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }).toUpperCase() : 'CAREER BEST';
+    const date = run.date ? new Date(run.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase() : 'CAREER BEST';
     detail.textContent = (run.name && run.slot === null ? 'ONLINE' : run.slot === null ? 'NO SAVE' : 'SLOT ' + (run.slot + 1)) + ' · ' + date;
     copy.append(name, detail);
     const time = document.createElement('span');
@@ -572,8 +573,72 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   }
 
   function stepLeaderboard(direction) {
+    closeTrailPicker();
     leaderboardTrail += direction;
     buildLeaderboard();
+  }
+
+  const isTrailPickerOpen = () => !$('leaderboard-picker').hidden;
+
+  function setTrailPicker(open) {
+    $('leaderboard-picker').hidden = !open;
+    $('leaderboard-list').hidden = open;
+    $('menu-leaderboard-view').querySelector('.leaderboard-help').hidden = open;
+    $('leaderboard-trail-pick').setAttribute('aria-expanded', String(open));
+  }
+
+  function closeTrailPicker(focusTrail = false) {
+    if (!isTrailPickerOpen()) return false;
+    setTrailPicker(false);
+    if (focusTrail) selectControl($('leaderboard-trail-pick'));
+    return true;
+  }
+
+  function pickerSection(source) {
+    return {
+      official: ['OFFICIAL TRAILS', 'Career trails'],
+      bonus: ['BONUS TRAILS', 'Extra shipped trails'],
+      custom: ['CUSTOM TRAILS', 'Runs on this device']
+    }[source] || [source.toUpperCase() + ' TRAILS', ''];
+  }
+
+  /** Lists every trail with a board, so one can be picked without stepping through the rest. */
+  function openTrailPicker() {
+    const items = [];
+    let section = null;
+    let current = null;
+    leaderboardTrails().forEach((entry, index) => {
+      if (entry.source !== section) {
+        section = entry.source;
+        items.push(trailSection(...pickerSection(section)));
+      }
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `leaderboard-pick ${entry.source}-pick`;
+      const number = document.createElement('span');
+      number.className = 'trail-number';
+      number.textContent = trailMarker(index);
+      const name = document.createElement('strong');
+      name.textContent = entry.name.toUpperCase();
+      const best = document.createElement('span');
+      best.className = 'trail-best';
+      const top = readLeaderboard(trailKey(entry))[0]?.time;
+      best.textContent = top == null ? '—' : runTimeText(top);
+      button.append(number, name, best);
+      if (index === leaderboardTrail) {
+        button.setAttribute('aria-current', 'true');
+        current = button;
+      }
+      button.addEventListener('click', () => {
+        leaderboardTrail = index;
+        buildLeaderboard();
+        closeTrailPicker(true);
+      });
+      items.push(button);
+    });
+    $('leaderboard-picker').replaceChildren(...items);
+    setTrailPicker(true);
+    requestAnimationFrame(() => selectControl(current));
   }
 
   function currentLeaderboardTrail() {
@@ -768,16 +833,17 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   /** Gamepad navigation while the menu is open. */
   function handlePad(action) {
     if (action === 'nav-up' || action === 'nav-left') {
-      if (action === 'nav-left' && !$('menu-leaderboard-view').hidden) { stepLeaderboard(-1); sounds.menuMove(); return; }
+      if (action === 'nav-left' && !$('menu-leaderboard-view').hidden && !isTrailPickerOpen()) { stepLeaderboard(-1); sounds.menuMove(); return; }
       moveSelection(-1);
     } else if (action === 'nav-down' || action === 'nav-right') {
-      if (action === 'nav-right' && !$('menu-leaderboard-view').hidden) { stepLeaderboard(1); sounds.menuMove(); return; }
+      if (action === 'nav-right' && !$('menu-leaderboard-view').hidden && !isTrailPickerOpen()) { stepLeaderboard(1); sounds.menuMove(); return; }
       moveSelection(1);
     } else if (action === 'confirm') {
       const selected = $('menu-screen').querySelector('.menu-selected');
       if (selected instanceof HTMLButtonElement) selected.click();
     } else if (action === 'cancel') {
-      if ($('menu-home').hidden) { sounds.menuBack(); goBack(); } else onClose();
+      if (closeTrailPicker(true)) sounds.menuBack();
+      else if ($('menu-home').hidden) { sounds.menuBack(); goBack(); } else onClose();
     }
   }
 
@@ -790,7 +856,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     // Left and right adjust a focused slider instead of moving the selection.
     if (event.target.type === 'range' && (event.code === 'ArrowLeft' || event.code === 'ArrowRight')) return;
     const trailStep = { ArrowLeft: -1, KeyA: -1, ArrowRight: 1, KeyD: 1 }[event.code];
-    if (trailStep && !$('menu-leaderboard-view').hidden) {
+    if (trailStep && !$('menu-leaderboard-view').hidden && !isTrailPickerOpen()) {
       event.preventDefault();
       stepLeaderboard(trailStep);
       sounds.menuMove();
@@ -866,6 +932,10 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   });
   $('leaderboard-prev').addEventListener('click', () => stepLeaderboard(-1));
   $('leaderboard-next').addEventListener('click', () => stepLeaderboard(1));
+  $('leaderboard-trail-pick').addEventListener('click', () => {
+    if (isTrailPickerOpen()) closeTrailPicker(true);
+    else openTrailPicker();
+  });
   document.querySelectorAll('[data-menu-back]').forEach(button => button.addEventListener('click', goBack));
   document.querySelectorAll('[data-rider]').forEach(button => button.addEventListener('click', () => {
     selectedNewRider = button.dataset.rider;
@@ -922,6 +992,10 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     drawBackground();
   });
 
-  const back = () => { if ($('menu-home').hidden) { goBack(); return true; } return false; };
+  const back = () => {
+    if (closeTrailPicker(true)) return true;
+    if ($('menu-home').hidden) { goBack(); return true; }
+    return false;
+  };
   return { open, close, isOpen, updateDashboard, drawBackground, syncSettings, handlePad, showView, canResume, back };
 }
