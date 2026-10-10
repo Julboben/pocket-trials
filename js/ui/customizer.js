@@ -72,12 +72,11 @@ function icon(name) {
   return node;
 }
 
-/** A section heading: an optional icon, a title, and a note on the right. */
-function sectionHead(iconName) {
+/** A section heading: a title, and a note on the right. */
+function sectionHead() {
   const head = element('div', 'look-section-head');
   const title = element('h4');
   const note = element('small');
-  if (iconName) head.append(icon(iconName));
   head.append(title, note);
   return { head, title, note };
 }
@@ -154,7 +153,7 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
 
   // The part's styles, with the selected one described.
   const styles = element('section', 'look-section');
-  const styleHead = sectionHead(null);
+  const styleHead = sectionHead();
   const detail = element('div', 'look-detail');
   const detailName = element('b');
   const detailBlurb = element('small');
@@ -165,7 +164,7 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
 
   // The part's colours, in their own panel.
   const colors = element('section', 'look-section look-colors');
-  const colorHead = sectionHead('palette');
+  const colorHead = sectionHead();
   const chips = element('div', 'look-chips');
   chips.setAttribute('role', 'radiogroup');
   colors.append(colorHead.head, chips);
@@ -292,7 +291,7 @@ export function createIdentityPicker(root, { paint, previewKey, onChange = () =>
   root.classList.add('look-identity');
 
   const genderSection = element('section', 'look-section');
-  const genderHead = sectionHead(null);
+  const genderHead = sectionHead();
   genderHead.title.textContent = 'GENDER';
   const genders = element('div', 'look-genders');
   genders.setAttribute('role', 'radiogroup');
@@ -300,7 +299,7 @@ export function createIdentityPicker(root, { paint, previewKey, onChange = () =>
   genderSection.append(genderHead.head, genders);
 
   const skinSection = element('section', 'look-section');
-  const skinHead = sectionHead(null);
+  const skinHead = sectionHead();
   skinHead.title.textContent = 'SKIN TONE';
   const skinDetail = element('div', 'look-detail');
   const skinName = element('b');

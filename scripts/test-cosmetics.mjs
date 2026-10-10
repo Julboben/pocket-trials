@@ -29,7 +29,8 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
     assert.equal(lookItem(item.slot, item.id), item);
   }
   for (const slot of LOOK_SLOTS) {
-    assert.ok(itemsForSlot(slot).length >= 2, `${slot} has a choice`);
+    // Outfits have a single style for now; only their colour changes.
+    assert.ok(itemsForSlot(slot).length >= (slot === 'outfit' ? 1 : 2), `${slot} has a choice`);
     assert.ok(SLOT_LABELS[slot], `${slot} has a label`);
     for (const look of Object.values(STARTER_LOOKS)) assert.ok(isDefaultItem(slot, look[slot]), `the starter ${slot} is everyone's`);
   }
@@ -69,7 +70,8 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
 
 {
   // The palettes from before looks existed: the legacy looks must draw the
-  // same riders.
+  // same riders, except that both now wear the one outfit's trousers, gloves
+  // and boots.
   const OLD = {
     male: {
       jacket: '#e8e5d9', jacketLight: '#fff8e7', jacketShade: '#b5bcae', panel: '#29464e', trousers: '#29464e',
@@ -79,9 +81,9 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
       eye: '#263b36', mouth: '#87483a',
     },
     female: {
-      jacket: '#d86f82', jacketLight: '#ef9aa8', jacketShade: '#a94f69', panel: '#59415c', trousers: '#39435d',
-      trousersLight: '#596681', helmet: '#63aa98', helmetLight: '#a8dfcf', helmetShade: '#3c786e', stripe: '#fff8e7',
-      skin: '#bd7954', skinLight: '#dfa078', gloves: '#59415c', boots: '#2b3347', sole: '#7c8897', visor: '#234844',
+      jacket: '#d86f82', jacketLight: '#ef9aa8', jacketShade: '#a94f69', panel: '#59415c', trousers: '#29464e',
+      trousersLight: '#42616a', helmet: '#63aa98', helmetLight: '#a8dfcf', helmetShade: '#3c786e', stripe: '#fff8e7',
+      skin: '#bd7954', skinLight: '#dfa078', gloves: '#304a42', boots: '#263b36', sole: '#657a70', visor: '#234844',
       visorLight: '#b0dfd4', skinShade: '#9a5c40', hair: '#684438', hairLight: '#8c5d48', hairShade: '#54362d',
       eye: '#263b36', mouth: '#b0505e',
     },
@@ -141,7 +143,7 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
 {
   const look = {
     gender: 'female', skin: 'deep', hair: 'bob', hairColor: 'blonde', helmet: 'none', helmetColor: 'teal',
-    outfit: 'denim', outfitColor: 'yellow', bike: 'classic', bikeColor: 'blue'
+    outfit: 'street', outfitColor: 'yellow', bike: 'classic', bikeColor: 'blue'
   };
   assert.deepEqual(normalizeLook(look), look);
   assert.ok(isCompleteLook(look));
@@ -153,15 +155,15 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
   // Slots never borrow ids from each other.
   assert.equal(normalizeLook({ ...look, hairColor: 'teal' }).hairColor, DEFAULT_LOOK.hairColor);
   // Items the rider doesn't own are refused, which is how won items will be guarded.
-  const owns = (slot, id) => !(slot === 'outfit' && id === 'denim');
-  assert.equal(normalizeLook(look, { owns }).outfit, DEFAULT_LOOK.outfit);
+  const owns = (slot, id) => !(slot === 'bike' && id === 'classic');
+  assert.equal(normalizeLook(look, { owns }).bike, DEFAULT_LOOK.bike);
   assert.ok(!Object.hasOwn(normalizeLook({ ...look, extra: 1 }), 'extra'));
 
   assert.deepEqual(lookOf({ rider: 'female' }), legacyLook('female'), 'old records keep their rider');
   assert.deepEqual(lookOf({ rider: 'female', look }), look, 'a look wins over the old rider');
   assert.deepEqual(lookOf({}), legacyLook('male'));
 
-  assert.equal(lookKey(look), 'female.deep.bob.blonde.none.teal.denim.yellow.classic.blue');
+  assert.equal(lookKey(look), 'female.deep.bob.blonde.none.teal.street.yellow.classic.blue');
   assert.ok(sameLook(look, { ...look }));
   assert.ok(!sameLook(look, DEFAULT_LOOK));
   assert.equal(lookParts(look), lookParts({ ...look }), 'equal looks share their parts');
@@ -199,7 +201,7 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
   assert.equal(broken, null, 'saves with neither a look nor a rider are dropped');
   assert.deepEqual(newer.look, { ...DEFAULT_LOOK, skin: 'deep', helmet: 'none' });
 
-  const look = { ...starterLook('male', 'fair'), hair: 'buzz', hairColor: 'red', helmet: 'none', outfit: 'denim', bike: 'classic', bikeColor: 'black' };
+  const look = { ...starterLook('male', 'fair'), hair: 'buzz', hairColor: 'red', helmet: 'none', bike: 'classic', bikeColor: 'black' };
   const created = storage.createSave(1, look, 9, 'NEWBIE');
   assert.deepEqual(created.look, look);
   assert.equal(created.rider, 'male');

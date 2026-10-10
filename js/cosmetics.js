@@ -75,14 +75,9 @@ const hairStyle = (id, name, style, blurb, extra = {}) =>
 const helmetColor = (id, name, [helmet, helmetLight, helmetShade], stripe, visorLight, lean) =>
   ({ id, slot: 'helmetColor', name, lean, chip: [helmet, helmetShade], colors: { helmet, helmetLight, helmetShade, stripe, visor: '#234844', visorLight } });
 
-// Outfit colour: the jacket or jersey, and the panel that trims it. Gloves
-// match the panel unless the style has its own.
+// Outfit colour: the jacket, and the panel that trims it.
 const outfitColor = (id, name, [jacket, jacketLight, jacketShade], panel, lean) =>
-  ({ id, slot: 'outfitColor', name, lean, chip: [jacket, panel], colors: { jacket, jacketLight, jacketShade, panel, gloves: panel } });
-
-// Outfit style: what goes with the jacket, from the trousers down.
-const outfitStyle = (id, name, shape, [trousers, trousersLight], gloves, [boots, sole], blurb, lean) =>
-  ({ id, slot: 'outfit', name, shape, blurb, lean, colors: { trousers, trousersLight, ...(gloves ? { gloves } : {}), boots, sole } });
+  ({ id, slot: 'outfitColor', name, lean, chip: [jacket, panel], colors: { jacket, jacketLight, jacketShade, panel } });
 
 // Bike colour: the plastics, their highlight and shadow, and the frame.
 const bikeColor = (id, name, [base, light, dark], shade, lean) =>
@@ -128,12 +123,11 @@ export const LOOK_ITEMS = /** @type {LookItem[]} */ ([
   helmetColor('pink', 'Pink', ['#e07a9a', '#f7b0c6', '#a8506e'], '#fff8e7', '#b0dfd4', 'female'),
   helmetColor('purple', 'Purple', ['#7b5cc0', '#a98be6', '#53398a'], '#fff8e7', '#b0dfd4', 'female'),
 
-  outfitStyle('street', 'Street jacket', 'jacket', ['#29464e', '#42616a'], '#304a42', ['#263b36', '#657a70'], 'Dark jeans, sturdy boots.', 'male'),
-  outfitStyle('casual', 'Casual jacket', 'jacket', ['#39435d', '#596681'], null, ['#2b3347', '#7c8897'], 'Gloves to match the trim.', 'female'),
-  outfitStyle('motocross', 'Motocross', 'jersey', ['#2f3a3f', '#4b5a60'], '#263b36', ['#1f2a2c', '#5f6e6a'], 'Made for the dirt.'),
-  outfitStyle('racing', 'Racing suit', 'suit', ['#2f2a33', '#4d4654'], '#1f1d22', ['#1f1d22', '#6b6670'], 'Every second counts.'),
-  outfitStyle('leather', 'Leathers', 'jacket', ['#2a2d30', '#464b4f'], '#202325', ['#17191a', '#5d6468'], 'Old-school road gear.', 'male'),
-  outfitStyle('denim', 'Denim & boots', 'jacket', ['#3b4a63', '#59698a'], '#6b4a33', ['#4a3326', '#8c7a66'], 'Brown gloves, work boots.'),
+  // The one outfit for now: what goes with the jacket, from the gloves down.
+  {
+    id: 'street', slot: 'outfit', name: 'Street jacket', shape: 'jacket', blurb: 'Dark jeans, sturdy boots.',
+    colors: { trousers: '#29464e', trousersLight: '#42616a', gloves: '#304a42', boots: '#263b36', sole: '#657a70' }
+  },
 
   outfitColor('white', 'White', ['#e8e5d9', '#fff8e7', '#b5bcae'], '#29464e', 'male'),
   outfitColor('pink', 'Pink', ['#d86f82', '#ef9aa8', '#a94f69'], '#59415c', 'female'),
@@ -177,7 +171,7 @@ export const STARTER_LOOKS = Object.freeze({
   female: Object.freeze({
     gender: 'female', skin: 'light',
     hair: 'ponytail', hairColor: 'auburn', helmet: 'classic', helmetColor: 'teal',
-    outfit: 'casual', outfitColor: 'pink', bike: 'elasto', bikeColor: 'green'
+    outfit: 'street', outfitColor: 'pink', bike: 'elasto', bikeColor: 'green'
   }),
   male: Object.freeze({
     gender: 'male', skin: 'light',

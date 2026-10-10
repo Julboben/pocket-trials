@@ -268,7 +268,7 @@ const run = (replay = firstTrailRun) => ({ inputs: replay.inputs, seed: replay.s
   // A run's look is kept with it, and the board falls back for unknown items.
   // Julian was created female with tan skin, and a run can't change that.
   const bareLook = {
-    ...legacyLook('female'), hair: 'bob', hairColor: 'blonde', helmet: 'none', outfit: 'denim', outfitColor: 'yellow',
+    ...legacyLook('female'), hair: 'bob', hairColor: 'blonde', helmet: 'none', outfitColor: 'yellow',
     bike: 'classic', bikeColor: 'blue'
   };
   await sql`update runs set time_ms = 60000 where trail = ${firstKey}`;
@@ -308,7 +308,7 @@ const run = (replay = firstTrailRun) => ({ inputs: replay.inputs, seed: replay.s
   assert.deepEqual(body.player.look, legacyLook('female'));
 
   // A look changed in the Garage reaches the player and their next login.
-  const look = { ...legacyLook('female'), hair: 'buzz', hairColor: 'red', helmet: 'none', outfit: 'leather', outfitColor: 'black', bikeColor: 'purple' };
+  const look = { ...legacyLook('female'), hair: 'buzz', hairColor: 'red', helmet: 'none', outfitColor: 'black', bikeColor: 'purple' };
   assert.equal((await api('save', { method: 'PUT', body: { save: { ...save, look: { ...look, gender: 'male', skin: 'fair' } } }, token: julianToken })).status, 200);
   ({ body } = await loginRider(julian));
   assert.deepEqual(body.save.look, look, 'gender and skin stay as they were created');
