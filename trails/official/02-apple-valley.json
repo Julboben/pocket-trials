@@ -1,15 +1,15 @@
 {
   "name": "Apple Valley",
   "label": "APPLE VALLEY / 02",
+  "finish": {
+    "x": 3301.20703125,
+    "y": 230.0234375
+  },
   "description": "Let the hills do the work: roll into each dip with speed and it carries you up the next rise. The big hill goes easily with a run-up, and slowly without one. The flower hangs over the dip past the last kicker, so arrive with speed and hop to it.",
   "start": {
     "x": 200,
     "y": null,
     "facing": 1
-  },
-  "finish": {
-    "x": 3301.20703125,
-    "y": 230.0234375
   },
   "terrainBlocks": [
     {
@@ -593,7 +593,7 @@
     },
     {
       "x": 1999.4574291356753,
-      "y": 155.38480944803138
+      "y": 171.38480944803138
     },
     {
       "x": 2830,
