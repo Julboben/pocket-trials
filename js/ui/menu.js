@@ -252,9 +252,38 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     showView('look');
   }
 
+  /** True while the Garage shows a look that differs from the saved one. */
+  function garageUnsaved() {
+    return !$('menu-look-view').hidden && Boolean(session.saveGame) && !sameLook(garage.look(), session.look);
+  }
+
+  const lookConfirm = /** @type {HTMLDialogElement} */ ($('look-confirm'));
+  const isLookConfirmOpen = () => lookConfirm.open;
+
+  // Leaving the Garage with an unsaved look asks first, so Back never silently drops it.
+  function setLookConfirm(open) {
+    if (open && !lookConfirm.open) lookConfirm.showModal();
+    else if (!open && lookConfirm.open) lookConfirm.close();
+    if (open) requestAnimationFrame(() => selectControl($('look-confirm-save')));
+  }
+
+  function closeLookConfirm() {
+    if (!isLookConfirmOpen()) return false;
+    setLookConfirm(false);
+    selectControl($('save-look'));
+    return true;
+  }
+
+  function discardGarageLook() {
+    setLookConfirm(false);
+    updateDashboard();
+    showView('home');
+  }
+
   function saveGarageLook() {
     if (!session.saveGame) return;
     const saved = saveLook(session.activeSaveSlot, trails.length, garage.look(), garageOwns);
+    setLookConfirm(false);
     if (!saved) return;
     session.saveSlots[session.activeSaveSlot] = saved;
     session.saveGame = saved;
@@ -353,6 +382,8 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   }
 
   function goBack() {
+    if (closeLookConfirm()) return;
+    if (garageUnsaved()) { setLookConfirm(true); return; }
     if (!$('menu-save-view').hidden && $('new-save-identity-step').hidden) { showSaveStep(1); return; }
     if (!$('menu-save-view').hidden && creatorFromRiders) { showView('riders'); return; }
     updateDashboard();
@@ -459,6 +490,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   }
 
   function controls() {
+    if (isLookConfirmOpen()) return [...$('look-confirm').querySelectorAll('button')];
     const visibleView = document.querySelector('.menu-view:not([hidden])');
     return visibleView ? [...visibleView.querySelectorAll('button:not([disabled]):not([hidden]), input:not([disabled])')] : [];
   }
@@ -484,6 +516,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   function showView(view) {
     disarmDelete();
     setTrailPicker(false);
+    setLookConfirm(false);
     $('menu-home').hidden = view !== 'home';
     $('menu-riders-view').hidden = view !== 'riders';
     $('menu-trail-view').hidden = view !== 'trails';
@@ -507,7 +540,10 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     requestAnimationFrame(() => selectControl($(canResume() ? 'menu-resume' : session.saveGame ? 'menu-continue' : 'menu-first-ride')));
   }
 
-  function close() { $('menu-screen').hidden = true; }
+  function close() {
+    setLookConfirm(false);
+    $('menu-screen').hidden = true;
+  }
 
   function trailSection(title, description) {
     const heading = document.createElement('div');
@@ -958,22 +994,22 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   });
   $('menu-screen').addEventListener('focusin', event => {
     const control = event.target.closest('button, input');
-    if (!control?.closest('.menu-view')) return;
+    if (!control?.closest('.menu-view, .menu-confirm')) return;
     document.querySelectorAll('.menu-selected').forEach(item => item.classList.remove('menu-selected'));
     control.classList.add('menu-selected');
   });
   $('menu-screen').addEventListener('pointerover', event => {
     const button = event.target.closest('button');
     if (event.pointerType === 'mouse' && button && !button.contains(event.relatedTarget)) {
-      if (button.closest('.menu-view')) selectControl(button);
+      if (button.closest('.menu-view, .menu-confirm')) selectControl(button);
       sounds.menuMove();
     }
   });
   $('menu-screen').addEventListener('click', event => {
     const button = event.target.closest('button');
     if (!button) return;
-    if (button.matches('[data-menu-back]')) sounds.menuBack();
-    else if (button.id === 'create-save' || button.id === 'save-look' || button.id === 'new-save-next' || button.id === 'menu-continue' || button.id === 'menu-first-ride' || button.id === 'menu-resume' || button.id === 'menu-retry') sounds.menuConfirm();
+    if (button.matches('[data-menu-back], #look-confirm-discard, #look-confirm-cancel')) sounds.menuBack();
+    else if (button.id === 'create-save' || button.id === 'save-look' || button.id === 'look-confirm-save' || button.id === 'new-save-next' || button.id === 'menu-continue' || button.id === 'menu-first-ride' || button.id === 'menu-resume' || button.id === 'menu-retry') sounds.menuConfirm();
     else sounds.menuSelect();
   });
   $('menu-continue').addEventListener('click', () => startTrail(session.savedTrail));
@@ -993,6 +1029,12 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   $('riders-login-button').addEventListener('click', () => logIn('riders-status'));
   $('menu-garage').addEventListener('click', openGarage);
   $('save-look').addEventListener('click', saveGarageLook);
+  $('look-confirm-save').addEventListener('click', saveGarageLook);
+  $('look-confirm-discard').addEventListener('click', discardGarageLook);
+  $('look-confirm-cancel').addEventListener('click', closeLookConfirm);
+  // Escape is handled by the game; other close requests (such as a phone's
+  // back gesture) mean Keep Editing too.
+  lookConfirm.addEventListener('cancel', event => { event.preventDefault(); closeLookConfirm(); });
   $('riders-login').hidden = !onlineAvailable;
   if (onlineAvailable) $('menu-first-ride').querySelector('small').textContent = 'New rider, or log in with your passkey';
   document.querySelectorAll('[data-save-mode]').forEach(button => button.addEventListener('click', () => {

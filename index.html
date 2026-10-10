@@ -1138,6 +1138,41 @@
                         </div>
                     </div>
                 </div>
+                <dialog
+                    class="menu-confirm"
+                    id="look-confirm"
+                    role="alertdialog"
+                    aria-labelledby="look-confirm-title"
+                    aria-describedby="look-confirm-text"
+                >
+                    <div class="modal">
+                        <span class="modal-badge" data-icon-before="garage"
+                            >GARAGE</span
+                        >
+                        <h2 id="look-confirm-title">Save your look?</h2>
+                        <p id="look-confirm-text">
+                            You changed your rider’s look but haven’t saved it
+                            yet.
+                        </p>
+                        <button type="button" class="primary" id="look-confirm-save">
+                            Save Look
+                        </button>
+                        <button
+                            type="button"
+                            class="menu-back"
+                            id="look-confirm-discard"
+                        >
+                            DISCARD CHANGES
+                        </button>
+                        <button
+                            type="button"
+                            class="menu-back"
+                            id="look-confirm-cancel"
+                        >
+                            KEEP EDITING
+                        </button>
+                    </div>
+                </dialog>
             </section>
         </main>
         <script type="module" src="./js/main.js"></script>
