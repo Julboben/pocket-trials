@@ -1672,17 +1672,17 @@ const ELASTO_COLORS = {
 // at its own centre so the body pitches with the suspension. G/L/D are the
 // bike paint; see drawElastoFrame for the other keys.
 const ELASTO_TAIL = [
-  "LLLL               ",
-  "BGGGLLLLLL         ",
-  " DWWWWRRRGGkkkkkkkk",
-  "   DDDWWRRGKKKKKKKK",
-  "KSS     DWWWWWWW   ",
-  "KssSS    WWKKKWW   ",
-  "   ssSS  WWKWKWW   ",
-  "     ssSSWWKKKWW   ",
-  "       ssWWKWKWW   ",
-  "         WWKKKWW   ",
-  "          wwwwww   ",
+  "  LL               ",
+  "  BGLLLLLL         ",
+  "   DWWRRRGGkkkkkkkk",
+  "     DWWRRGKKKKKKKK",
+  "   KSSSSDDWWWWW    ",
+  "   KssssSSWKKKW    ",
+  "        ssWKWKW    ",
+  "          WKKKW    ",
+  "          WKWKW    ",
+  "          WKKKW    ",
+  "          wwwww    ",
 ];
 
 const ELASTO_TANK = [
