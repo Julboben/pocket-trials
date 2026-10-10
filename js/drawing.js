@@ -1615,12 +1615,11 @@ const ELASTO_COLORS = {
 // at its own centre so the body pitches with the suspension. G/L/D are the
 // bike paint; see drawElastoFrame for the other keys.
 const ELASTO_TAIL = [
-  "LLL                ",
-  "BGGLLL             ",
-  " DWWGGLLL          ",
-  "  DRRWWGGLLkkkkkkkk",
-  "    DRRWWGGKKKKKKKK",
-  "KSS   DRRWWWWWWW   ",
+  "LLLL               ",
+  "BGGGLLLLLL         ",
+  " DWWWWRRRGGkkkkkkkk",
+  "   DDDWWRRGKKKKKKKK",
+  "KSS     DWWWWWWW   ",
   "KssSS    WWKKKWW   ",
   "   ssSS  WWKWKWW   ",
   "     ssSSWWKKKWW   ",
@@ -1639,26 +1638,23 @@ const ELASTO_TANK = [
   "      DDDDD ",
 ];
 
-const ELASTO_ENGINE = [
-  "      SSS  ",
-  "      ssss ",
-  "     SSSSS ",
-  "     sssss ",
-  "    SSSSSs ",
-  "eeeeeeeeee ",
-  "eeeSSSeeee ",
-  "eeeSSSeeee ",
-  " KKKKKKKK  ",
+// Under the seat and tank: airbox, frame spar, finned cylinder, radiator and
+// engine cases with the clutch cover.
+const ELASTO_MID = [
+  " kkksS        ",
+  " kkksS        ",
+  " kkksSSSSS    ",
+  " kkksSeeee    ",
+  " kkksSSSSS    ",
+  " kkksSeeeeKkK ",
+  " kkksSSSSSKkK ",
+  "kkkksSeHHHee  ",
+  " kkksSeHhHee  ",
+  "  kksSeHHHee  ",
+  "   kseeeeeee  ",
+  "     KKKKKK   ",
 ];
 
-const ELASTO_FRONT = [
-  "LL  ",
-  "LLG ",
-  "GGG ",
-  " GGG",
-  " GGG",
-  " DD ",
-];
 
 function parseColor(color) {
   const hex = color.replace("#", "");
@@ -4544,6 +4540,8 @@ export function createGameArt(ctx) {
       S: c.silver,
       s: c.silverDark,
       e: c.rim,
+      h: c.hub,
+      H: c.hubLight,
       K: c.black,
       k: c.tread,
       R: c.red,
@@ -4555,12 +4553,11 @@ export function createGameArt(ctx) {
             : "#713c35",
     };
     const pivot = bodyPoint(-4, -6),
-      shockTop = bodyPoint(-12, -18),
-      forkTop = bodyPoint(14, -22);
+      shockTop = bodyPoint(-6, -20),
+      forkTop = bodyPoint(16, -26);
     const shockBase = [-half + (pivot[0] + half) * 0.45, pivot[1] * 0.45];
     const forkSlider = [half + (forkTop[0] - half) * 0.45, forkTop[1] * 0.45];
 
-    spring(shockBase[0], shockBase[1], shockTop[0], shockTop[1], c.orange);
     path([[-half, 0], pivot], c.silver, 2);
     path(
       [
@@ -4571,51 +4568,47 @@ export function createGameArt(ctx) {
       1,
     );
 
-    bodyRows(-8, -20, ELASTO_ENGINE, colors);
+    bodyRows(-10, -24, ELASTO_MID, colors);
     bodyPath(
       [
         [14, -22],
-        [8, -12],
-        [6, -2],
+        [16, -12],
+        [12, -2],
       ],
       c.black,
       1,
     );
-    bodyRows(-40, -32, ELASTO_TAIL, colors);
+    spring(shockBase[0], shockBase[1], shockTop[0], shockTop[1], c.orange);
+    bodyRows(-40, -30, ELASTO_TAIL, colors);
     bodyRows(-4, -28, ELASTO_TANK, colors);
 
     path([[half, 0], forkTop], c.silverDark, 2);
     path([forkSlider, forkTop], c.silver, 2);
     path([[half, 0], forkSlider], c.hubLight, 1);
-    path(
+    bodyPath(
       [
-        [half - 1, -1],
-        [half + 1, -1],
+        [16, -26],
+        [22, -26],
       ],
       c.black,
       2,
     );
     path(
       [
-        [half - 8, -17],
-        [half, -18],
-        [half + 10, -16],
-        [half + 16, -13],
+        [half - 6, -16],
+        [half + 8, -16],
       ],
       paint.base,
-      2,
+      1,
     );
     path(
       [
-        [half - 8, -19],
-        [half, -20],
-        [half + 10, -18],
-        [half + 14, -16],
+        [half - 4, -18],
+        [half + 6, -18],
       ],
       paint.light,
       1,
     );
-    bodyRows(14, -30, ELASTO_FRONT, colors);
   }
 
   const BIKES = {
