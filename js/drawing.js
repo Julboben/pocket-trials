@@ -1588,6 +1588,24 @@ export function drawBareHead(rect, colors, hair, face = null) {
   dot(2, 1, colors.mouth);
 }
 
+// The riding pose, in bike body coordinates before lean: where the helmet's
+// centre sits, and the hand on the handlebar every bike model shares.
+const RIDER_HEAD = [-1, -52];
+const RIDER_HAND = [18, -34];
+
+// The jersey, leaning forward from the hip on the seat to the shoulder. Top
+// left at (-14, -44), moved with the lean.
+const RIDER_TORSO = [
+  "    OPPPPO ",
+  "   OjjjjjJO",
+  "   OdjjJJJO",
+  "  OddJJJJJO",
+  "  OdJJJJJO ",
+  " OddJJJJO  ",
+  " OPPPPPO   ",
+  "OPPPPO     ",
+];
+
 // Selectable bike models drawn by createGameArt().drawBike. Every model keeps
 // the same seat, peg, and handlebar positions so any rider fits any bike.
 export const BIKE_MODELS = ["elasto", "classic"];
@@ -4503,14 +4521,15 @@ export function createGameArt(ctx) {
     spring(half, 0, frontMount[0], frontMount[1], "#f0b45f");
 
     bodyRect(-9, -20, 24, 4, paint.base);
-    bodyRect(-17, -24, 14, 4, "#263a35");
-    bodyRect(-20, -27, 5, 5, brakePressure > 0.08 ? "#ff6045" : "#713c35", 2);
-    if (brakePressure > 0.6) bodyRect(-19, -26, 2, 2, "#ffd0a2", 2);
+    bodyRect(-9, -24, 4, 4, "#263a35");
+    bodyRect(-17, -28, 14, 4, "#263a35");
+    bodyRect(-20, -31, 5, 5, brakePressure > 0.08 ? "#ff6045" : "#713c35", 2);
+    if (brakePressure > 0.6) bodyRect(-19, -30, 2, 2, "#ffd0a2", 2);
     bodyPath(
       [
         [10, -23],
-        [18, -26],
-        [24, -26],
+        [14, -34],
+        [21, -34],
       ],
       "#263a35",
       2,
@@ -4554,7 +4573,7 @@ export function createGameArt(ctx) {
     };
     const pivot = bodyPoint(-4, -6),
       shockTop = bodyPoint(-6, -20),
-      forkTop = bodyPoint(16, -26);
+      forkTop = bodyPoint(14, -32);
     const shockBase = [-half + (pivot[0] + half) * 0.45, pivot[1] * 0.45];
     const forkSlider = [half + (forkTop[0] - half) * 0.45, forkTop[1] * 0.45];
 
@@ -4585,10 +4604,19 @@ export function createGameArt(ctx) {
     path([[half, 0], forkTop], c.silverDark, 2);
     path([forkSlider, forkTop], c.silver, 2);
     path([[half, 0], forkSlider], c.hubLight, 1);
+    // Top clamp, riser and handlebar, raised clear of the tank.
     bodyPath(
       [
-        [16, -26],
-        [22, -26],
+        [14, -32],
+        [15, -34],
+      ],
+      c.black,
+      2,
+    );
+    bodyPath(
+      [
+        [13, -34],
+        [21, -34],
       ],
       c.black,
       2,
@@ -4719,77 +4747,52 @@ export function createGameArt(ctx) {
       const colors = parts.palette;
       const outline = "#263b36";
 
-      const hip = [-8 + shift, -24];
-      const knee = [4 + shift * 0.45, -14];
+      const hip = [-12 + shift, -30];
+      const knee = [2 + shift * 0.45, -22];
       const ankle = [-2, -3];
 
-      const shoulder = [2 + shift, -36];
-      const elbow = [11 + shift * 0.45, -30];
-      const hand = [20, -25];
+      const shoulder = [-2 + shift, -42];
+      const elbow = [10 + shift * 0.45, -38];
+      const hand = RIDER_HAND;
 
       // Trousers: outlined silhouette with a narrow lit edge.
-      bodyPath([hip, knee, ankle], outline, 4);
-      bodyPath([hip, knee, ankle], colors.trousers, 3);
-
+      bodyPath([hip, knee, ankle], outline, 3);
+      bodyPath([hip, knee, ankle], colors.trousers, 2);
       bodyPath(
         [
-          [-7 + shift, -25],
-          [4 + shift * 0.45, -16],
+          [-11 + shift, -31],
+          [knee[0] - 2, knee[1] - 2],
         ],
         colors.trousersLight,
         1,
       );
 
       // Compact reinforced knee.
-      bodyRect(2 + shift * 0.45, -16, 6, 4, colors.trousersLight);
-      bodyRect(4 + shift * 0.45, -14, 4, 2, colors.panel);
+      bodyRect(knee[0] - 2, knee[1] - 2, 4, 4, colors.trousersLight);
+      bodyRect(knee[0], knee[1], 2, 2, colors.panel);
 
       // Boot stays anchored at the existing foot / peg position.
-      bodyRect(-5, -7, 6, 6, colors.boots);
-      bodyRect(-5, -5, 10, 4, colors.boots);
-      bodyRect(-5, -3, 10, 2, colors.sole);
-      bodyRect(-3, -7, 4, 2, colors.trousersLight);
+      bodyRect(-5, -7, 4, 6, colors.boots);
+      bodyRect(-5, -5, 8, 4, colors.boots);
+      bodyRect(-5, -3, 8, 2, colors.sole);
+      bodyRect(-5, -7, 4, 2, colors.trousersLight);
 
-      // Jacket silhouette follows the existing leaning torso.
-      bodyPath(
-        [
-          [-8 + shift, -25],
-          [1 + shift, -37],
-        ],
-        outline,
-        5,
-      );
-      bodyPath(
-        [
-          [-7 + shift, -25],
-          [2 + shift, -37],
-        ],
-        colors.jacket,
-        3,
-      );
+      // Jersey leaning over the tank, clear of the arm and tank in front.
+      bodyRows(-14 + shift, -44, RIDER_TORSO, {
+        O: outline,
+        J: colors.jacket,
+        j: colors.jacketLight,
+        d: colors.jacketShade,
+        P: colors.panel,
+      });
 
-      bodyRect(-6 + shift, -38, 14, 12, colors.jacket);
-
-      // Shadow down the back, bright shoulder, contrasting hem.
-      bodyRect(-6 + shift, -36, 4, 10, colors.jacketShade);
-      bodyRect(-4 + shift, -38, 10, 4, colors.jacketLight);
-      bodyRect(-8 + shift, -28, 10, 4, colors.panel);
-      bodyRect(-6 + shift, -28, 6, 2, colors.jacketShade);
-
-      // Small collar and front seam.
-      bodyRect(2 + shift, -40, 6, 4, colors.panel);
-      bodyRect(4 + shift, -34, 2, 6, colors.jacketShade);
-      bodyRect(-2 + shift, -34, 4, 2, colors.panel);
-
-      // Arm silhouette; hand remains at the original handlebar.
+      // Arm sloping down to the raised handlebar, bent at a dropped elbow.
       bodyPath([shoulder, elbow, hand], outline, 3);
-
-      // Rolled jacket sleeve.
       bodyPath([shoulder, elbow], colors.jacket, 2);
       bodyPath(
         [
-          [2 + shift, -37],
-          [9 + shift * 0.45, -32],
+          [-2 + shift, -44],
+          [8 + shift * 0.45, -40],
         ],
         colors.jacketLight,
         1,
@@ -4797,62 +4800,28 @@ export function createGameArt(ctx) {
 
       // Forearm, cuff and glove.
       bodyPath([elbow, hand], colors.skin, 2);
-      bodyRect(9 + shift * 0.45, -32, 4, 4, colors.panel);
+      bodyRect(elbow[0] - 2, elbow[1] - 2, 4, 4, colors.panel);
       bodyPath(
         [
-          [13 + shift * 0.3, -29],
-          [17, -27],
+          [12 + shift * 0.3, -39],
+          [15, -37],
         ],
         colors.skinLight,
         1,
       );
-      bodyRect(18, -28, 6, 4, colors.gloves);
-      bodyRect(20, -28, 4, 2, colors.jacketLight);
+      bodyRect(hand[0] - 2, hand[1] - 2, 6, 4, colors.gloves);
+      bodyRect(hand[0], hand[1] - 2, 4, 2, colors.jacketLight);
 
       // Neck, partly tucked into the helmet and collar.
-      bodyRect(0 + shift, -44, 8, 6, colors.skin);
-      bodyRect(4 + shift, -42, 4, 2, colors.skinLight);
+      bodyRect(-4 + shift, -50, 8, 6, colors.skin);
+      bodyRect(0 + shift, -48, 4, 2, colors.skinLight);
 
-      if (!parts.helmet) {
-        // Bare-headed: the same head the ragdoll shows, where the helmet sits.
-        drawBareHead(
-          (x, y, width, height, color) =>
-            bodyRect(x + 3 + shift, y - 46, width, height, color),
-          colors,
-          parts.hair,
-          parts.face,
-        );
-      } else if (parts.shapes.helmet === "mx") {
-        drawMxHelmet(
-          (x, y, width, height, color) =>
-            bodyRect(x + 3 + shift, y - 46, width, height, color),
-          colors,
-        );
-      } else {
-        // Stepped helmet shell: rounded without antialiasing.
-        bodyRect(-4 + shift, -50, 16, 8, outline);
-        bodyRect(-2 + shift, -52, 12, 12, outline);
-
-        bodyRect(-2 + shift, -50, 12, 8, colors.helmet);
-        bodyRect(0 + shift, -52, 8, 2, colors.helmetLight);
-        bodyRect(-2 + shift, -50, 4, 4, colors.helmetLight);
-        bodyRect(-2 + shift, -44, 8, 2, colors.helmetShade);
-
-        // Shared racing stripe, different shell colors.
-        bodyRect(4 + shift, -52, 2, 6, colors.stripe);
-
-        // Goggle strap, dark frame and reflected sky.
-        bodyRect(-2 + shift, -48, 8, 2, colors.panel);
-        bodyRect(6 + shift, -48, 8, 6, outline);
-        bodyRect(6 + shift, -48, 8, 4, colors.visor);
-        bodyRect(8 + shift, -48, 4, 2, colors.visorLight);
-
-        // Small forward peak and protective chin guard.
-        bodyRect(6 + shift, -50, 10, 2, colors.helmet);
-        bodyRect(8 + shift, -50, 6, 2, colors.helmetLight);
-        bodyRect(6 + shift, -42, 8, 2, colors.helmetShade);
-        bodyRect(10 + shift, -44, 4, 2, colors.helmet);
-      }
+      // The head is the same one the ragdoll shows, centred on the neck.
+      const head = (x, y, width, height, color) =>
+        bodyRect(x + RIDER_HEAD[0] + shift, y + RIDER_HEAD[1], width, height, color);
+      if (!parts.helmet) drawBareHead(head, colors, parts.hair, parts.face);
+      else if (parts.shapes.helmet === "mx") drawMxHelmet(head, colors);
+      else drawHelmetShell(head, colors);
     }
 
     ctx.save();
