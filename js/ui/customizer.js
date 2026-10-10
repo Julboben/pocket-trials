@@ -16,7 +16,7 @@ import {
 
 // What each view frames, in world units around the bike's axles.
 const SWATCH_VIEWS = {
-  head: { dx: 2, dy: -45, width: 30, height: 30 },
+  head: { dx: 6, dy: -45, width: 30, height: 30 },
   outfit: { dx: -8, dy: -30, width: 44, height: 44 },
   bike: { dx: 0, dy: -22, width: 88, height: 70 },
   // The big preview: the whole rider and bike, wheels and floor included.
@@ -115,11 +115,12 @@ function radio(className, checked, label) {
  * @param {HTMLElement} root  emptied and filled with the customizer
  * @param {PaintHooks & {
  *   onChange?: (look: any) => void,
- *   owns?: (slot: string, id: string) => boolean
- * }} hooks  `owns` says which items the rider may wear; every item is a
- *   default one for now, and locked items are shown but cannot be picked.
+ *   owns?: (slot: string, id: string) => boolean,
+ *   hint?: (item: any) => string
+ * }} hooks  `owns` says which items the rider may wear; locked items are
+ *   shown but cannot be picked, with `hint` saying what unlocks them.
  */
-export function createCustomizer(root, { paint, previewKey, onChange = () => {}, owns = isDefaultItem }) {
+export function createCustomizer(root, { paint, previewKey, onChange = () => {}, owns = isDefaultItem, hint = () => '' }) {
   let look = { ...DEFAULT_LOOK };
   // The look the customizer was opened with, which Revert goes back to.
   let original = look;
@@ -197,6 +198,12 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
     return button;
   }
 
+  function lockedLabel(item, locked) {
+    if (!locked) return item.name;
+    const how = hint(item);
+    return how ? `${item.name} (locked: ${how.toLowerCase()})` : `${item.name} (locked)`;
+  }
+
   function set(nextLook) {
     look = normalizeLook(nextLook, { fallback: look, owns });
     render();
@@ -219,8 +226,8 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
     const view = PART_VIEWS[part.id];
     options.replaceChildren(...items.map(item => {
       const locked = !owns(slot, item.id);
-      const option = radio('look-option', look[slot] === item.id, locked ? `${item.name} (locked)` : item.name);
-      option.disabled = locked;
+      const option = radio('look-option', look[slot] === item.id, lockedLabel(item, locked));
+      option.setAttribute('aria-disabled', String(locked));
       option.classList.toggle('locked', locked);
       const swatch = element('canvas');
       swatch.setAttribute('aria-hidden', 'true');
@@ -228,7 +235,12 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
       paintLook(swatch, shown, view);
       option.append(swatch, element('small', '', item.name));
       if (locked) option.append(icon('lock'));
-      option.addEventListener('click', () => set({ ...look, [slot]: item.id }));
+      // A locked style can't be worn, but tapping it says what unlocks it.
+      option.addEventListener('click', () => {
+        if (!locked) { set({ ...look, [slot]: item.id }); return; }
+        detailName.textContent = item.name.toUpperCase();
+        detailBlurb.textContent = hint(item) || 'Locked';
+      });
       return option;
     }));
   }
@@ -243,7 +255,7 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
     chips.setAttribute('aria-label', SLOT_LABELS[slot]);
     chips.replaceChildren(...itemsForSlot(slot).map(item => {
       const locked = !owns(slot, item.id);
-      const option = radio('look-chip', look[slot] === item.id, locked ? `${item.name} (locked)` : item.name);
+      const option = radio('look-chip', look[slot] === item.id, lockedLabel(item, locked));
       option.disabled = locked || colorless;
       option.classList.toggle('locked', locked);
       option.append(chip(item));

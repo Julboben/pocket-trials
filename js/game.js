@@ -20,10 +20,10 @@ import { createCamera } from './camera.js';
 import { createEffects } from './effects.js';
 import { createRenderer } from './render.js';
 import { riderPalette } from './drawing.js';
-import { DEFAULT_LOOK, legacyRider, lookOf, lookParts } from './cosmetics.js';
+import { legacyRider, lookOf, lookParts } from './cosmetics.js';
 import { createOverlay } from './ui/overlay.js';
 import { createMenu, loadStoredState } from './ui/menu.js';
-import { $, session, currentTrailEntry, trailKey, timeText, isRankedSource, bonusUnlock } from './state.js';
+import { $, session, currentTrailEntry, trailKey, timeText, isRankedSource, bonusUnlock, riderLook } from './state.js';
 
 const LANDING_SOUND_IMPACT = 45;
 const HARD_LANDING_IMPACT = 170;
@@ -184,7 +184,7 @@ export function startGame() {
 
   function applyPreferences() {
     const { preferences } = session;
-    session.look = session.saveGame?.look ?? DEFAULT_LOOK;
+    session.look = riderLook();
     $('control-area').hidden = preferences.controls === 'hide';
     sounds.setEnabled(preferences.sound === 'on');
     sounds.setVolume(preferences.volume / 100);

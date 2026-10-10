@@ -2,7 +2,7 @@ import { clamp } from './config.js';
 import { store } from './local-store.js';
 import { cachedOnlineBoard, refreshOnlineBoard } from './online-leaderboard.js';
 import { cleanRiderName } from './rider-name.js';
-import { keepIdentity, legacyRider, lookOf, normalizeLook } from './cosmetics.js';
+import { isDefaultItem, keepIdentity, legacyRider, lookOf, normalizeLook, ownedLook } from './cosmetics.js';
 
 const SETTINGS_KEY = 'hjulben-settings-v1';
 const SAVE_SLOTS_KEY = 'hjulben-saves-v2';
@@ -123,7 +123,8 @@ export function createSave(slotIndex, look, trailCount, name, account = null) {
   const index = clamp(slotIndex, 0, SLOT_COUNT - 1);
   const cleanName = cleanRiderName(name);
   if (next[index] || !cleanName) return null;
-  const clean = normalizeLook(look);
+  // A new rider has won nothing yet, so only default items are theirs.
+  const clean = ownedLook(look, isDefaultItem);
   const save = {
     look: clean,
     rider: legacyRider(clean),
@@ -143,12 +144,14 @@ export function createSave(slotIndex, look, trailCount, name, account = null) {
 }
 
 /**
- * Changes a save's look; items the rider does not own fall back to its
- * current ones, and gender and skin, picked when it was created, stay.
+ * Changes a save's look. Unknown items keep the current ones, items the rider
+ * doesn't `own` go back to their starter ones, and gender and skin, picked
+ * when it was created, stay.
+ * @param {(slot: string, id: string) => boolean} owns
  */
-export function saveLook(slotIndex, trailCount, look) {
+export function saveLook(slotIndex, trailCount, look, owns) {
   updateSave(slotIndex, trailCount, save => {
-    save.look = keepIdentity(normalizeLook(look, { fallback: save.look }), save.look);
+    save.look = ownedLook(keepIdentity(normalizeLook(look, { fallback: save.look }), save.look), owns);
     save.rider = legacyRider(save.look);
   });
   return cloneSave(slots(trailCount)[slotIndex]);

@@ -4,7 +4,7 @@
 import { trails, officialTrailEntries, bonusTrailEntries, customTrailEntries } from './trails.js';
 import { trailHash } from './trail-hash.js';
 import { unlockStatus } from './trail-schema.js';
-import { DEFAULT_LOOK } from './cosmetics.js';
+import { DEFAULT_LOOK, ownedLook, ownsWith } from './cosmetics.js';
 
 /** @typedef {import('./types.js').Ride} Ride */
 /** @typedef {'menu' | 'running' | 'paused' | 'ragdoll' | 'won'} GameState */
@@ -122,6 +122,45 @@ export function careerProgress(save) {
     if (best && entry.trail.medals && best <= entry.trail.medals.gold) golds++;
   });
   return { trails: finished, golds };
+}
+
+/**
+ * What a save has done towards rider items: gold medals and finished trails.
+ * A shipped trail counts as finished under any version of it, so an edit
+ * that moves its best time to a new key keeps the item.
+ * @returns {import('./cosmetics.js').LookProgress | null}
+ */
+export function lookProgress(save) {
+  const progress = careerProgress(save);
+  if (!progress) return null;
+  const keys = Object.keys(save.bestTimes || {});
+  const officialIndex = new Map(officialTrailEntries.map((entry, index) => [entry.id, index]));
+  return {
+    golds: progress.golds,
+    finished: trailId => (officialIndex.get(trailId) ?? Infinity) < (save.unlocked || 0)
+      || keys.some(key => key.startsWith(trailId + '@')),
+  };
+}
+
+/** Which rider items a save may wear. */
+export const lookOwner = save => ownsWith(lookProgress(save));
+
+/** The look a save rides in: its own, with any item it hasn't unlocked swapped for a starter one. */
+export const riderLook = (save = session.saveGame) => (save ? ownedLook(save.look, lookOwner(save)) : DEFAULT_LOOK);
+
+/**
+ * What unlocks a rider item, in the words the trail list uses, or '' for
+ * items everyone has.
+ * @param {import('./cosmetics.js').LookItem} item
+ */
+export function lookItemHint(item) {
+  const { unlock } = item;
+  if (unlock.type === 'golds') return `WIN ${unlock.count} GOLD MEDAL${unlock.count === 1 ? '' : 'S'} TO UNLOCK`;
+  if (unlock.type === 'trail') {
+    const entry = [...officialTrailEntries, ...bonusTrailEntries].find(candidate => candidate.id === unlock.trail);
+    return `FINISH ${(entry?.name ?? 'A TRAIL').toUpperCase()} TO UNLOCK`;
+  }
+  return '';
 }
 
 /** Whether a bonus trail is open for this save, and what opens it if not. */
