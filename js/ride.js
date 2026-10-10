@@ -96,11 +96,13 @@ function makeWheel(trail, x, startY) {
 
 /**
  * @param {Trail} trail
- * @param {{ seed?: number, start?: { x: number, y?: number | null, facing: number } }} [options]
+ * @param {{ seed?: number, start?: { x: number, y?: number | null, facing: number }, helmet?: boolean }} [options]
  *   `start` places the bike somewhere other than the trail's start, for posed scenes.
+ *   `helmet: false` is a rider who wears none; it only changes how a crash
+ *   looks, never the run itself.
  * @returns {Ride}
  */
-export function createRide(trail, { seed = 1, start = trail.start } = {}) {
+export function createRide(trail, { seed = 1, start = trail.start, helmet = true } = {}) {
   const { x: startX, y: startY, facing } = start;
   const rear = makeWheel(trail, startX - WHEELBASE / 2, startY);
   const front = makeWheel(trail, startX + WHEELBASE / 2, startY);
@@ -121,6 +123,7 @@ export function createRide(trail, { seed = 1, start = trail.start } = {}) {
     ),
     water: waterBodies(trail),
     seed,
+    helmet,
     random: seededRandom(seed),
     status: "running",
     started: false,
@@ -255,6 +258,7 @@ function crash(ride, cause, x, y, events) {
   // Capture the rider's lean before changing the crash state.
   const visual = {
     leanVisual: ride.leanVisual ?? 0,
+    helmet: ride.helmet !== false,
   };
 
   const ragdoll = createRagdoll(

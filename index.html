@@ -44,7 +44,11 @@
                 </canvas>
                 <div class="hud">
                     <div class="hud-pill timer-pill">
-                        <span class="timer-icon" data-icon="clock" aria-hidden="true"></span
+                        <span
+                            class="timer-icon"
+                            data-icon="clock"
+                            aria-hidden="true"
+                        ></span
                         ><span id="timer">0:00.0</span>
                     </div>
                     <div class="hud-pill apple-pill">
@@ -55,7 +59,12 @@
                 </div>
                 <div class="toast-stack">
                     <div class="toast" id="toast" role="status"></div>
-                    <button class="primary crash-retry" id="crash-retry" data-icon-after="retry" hidden>
+                    <button
+                        class="primary crash-retry"
+                        id="crash-retry"
+                        data-icon-after="retry"
+                        hidden
+                    >
                         Retry
                     </button>
                 </div>
@@ -76,13 +85,21 @@
                     </button>
                 </div>
 
-                <dialog class="overlay" id="overlay" aria-labelledby="overlay-title">
+                <dialog
+                    class="overlay"
+                    id="overlay"
+                    aria-labelledby="overlay-title"
+                >
                     <div class="modal">
                         <div class="modal-badge" id="overlay-badge">
                             CRASHED
                         </div>
                         <h2 id="overlay-title">Wiped Out</h2>
-                        <p class="results-credit" id="results-credit" hidden></p>
+                        <p
+                            class="results-credit"
+                            id="results-credit"
+                            hidden
+                        ></p>
                         <div class="results" id="results" hidden>
                             <div class="results-time">
                                 <strong id="results-time">0:00.0</strong
@@ -120,7 +137,12 @@
                             Your helmet hit the ground. Reset and give the trail
                             another run.
                         </p>
-                        <button class="primary" id="primary" data-icon-after="arrow-right" autofocus>
+                        <button
+                            class="primary"
+                            id="primary"
+                            data-icon-after="arrow-right"
+                            autofocus
+                        >
                             Play Again
                         </button>
                         <button class="secondary" id="secondary" hidden="">
@@ -147,7 +169,11 @@
                             data-action="back"
                             aria-label="Lean back, left arrow"
                         >
-                            <span class="symbol" data-icon="rotate-left" aria-hidden="true"></span
+                            <span
+                                class="symbol"
+                                data-icon="rotate-left"
+                                aria-hidden="true"
+                            ></span
                             ><span class="caption">LEAN BACK</span>
                         </button>
                         <button
@@ -156,7 +182,11 @@
                             data-action="forward"
                             aria-label="Lean forward, right arrow"
                         >
-                            <span class="symbol" data-icon="rotate-right" aria-hidden="true"></span
+                            <span
+                                class="symbol"
+                                data-icon="rotate-right"
+                                aria-hidden="true"
+                            ></span
                             ><span class="caption">LEAN FWD</span>
                         </button>
                         <button
@@ -165,7 +195,11 @@
                             data-action="flip"
                             aria-label="Flip direction, Space"
                         >
-                            <span class="symbol" data-icon="swap" aria-hidden="true"></span
+                            <span
+                                class="symbol"
+                                data-icon="swap"
+                                aria-hidden="true"
+                            ></span
                             ><span class="caption">FLIP</span>
                         </button>
                         <button
@@ -174,7 +208,11 @@
                             aria-label="Headlight"
                             aria-pressed="true"
                         >
-                            <span class="symbol" data-icon="headlight" aria-hidden="true"></span>
+                            <span
+                                class="symbol"
+                                data-icon="headlight"
+                                aria-hidden="true"
+                            ></span>
                             <span class="caption">LIGHTS</span>
                         </button>
                         <button
@@ -183,7 +221,11 @@
                             data-action="down"
                             aria-label="Brake, down arrow"
                         >
-                            <span class="symbol" data-icon="arrow-down" aria-hidden="true"></span
+                            <span
+                                class="symbol"
+                                data-icon="arrow-down"
+                                aria-hidden="true"
+                            ></span
                             ><span class="caption">BRAKE</span>
                         </button>
                         <button
@@ -192,7 +234,11 @@
                             data-action="up"
                             aria-label="Accelerate, up arrow"
                         >
-                            <span class="symbol" data-icon="arrow-up" aria-hidden="true"></span
+                            <span
+                                class="symbol"
+                                data-icon="arrow-up"
+                                aria-hidden="true"
+                            ></span
                             ><span class="caption">GAS</span>
                         </button>
                     </div>
@@ -277,8 +323,7 @@
                                         class="continue-arrow"
                                         data-icon="arrow-right"
                                         aria-hidden="true"
-                                        ></span
-                                    >
+                                    ></span>
                                 </button>
                                 <button
                                     class="menu-action"
@@ -318,12 +363,24 @@
                                 </button>
                                 <button
                                     class="menu-action menu-action-row"
+                                    id="menu-garage"
+                                    hidden
+                                >
+                                    <span>GARAGE</span
+                                    ><small
+                                        >Change your rider’s look and
+                                        bike</small
+                                    >
+                                </button>
+                                <button
+                                    class="menu-action menu-action-row"
                                     id="menu-riders"
                                     hidden
                                 >
                                     <span>RIDERS</span
                                     ><small>Switch or add a rider</small>
                                 </button>
+
                                 <button
                                     class="menu-action menu-action-row menu-action-editor"
                                     id="menu-editor"
@@ -354,7 +411,11 @@
                                     <span class="save-label">SAVEGAMES</span>
                                     <h3>Riders</h3>
                                 </div>
-                                <button class="menu-back" data-menu-back data-icon-before="arrow-left">
+                                <button
+                                    class="menu-back"
+                                    data-menu-back
+                                    data-icon-before="arrow-left"
+                                >
                                     BACK
                                 </button>
                             </div>
@@ -375,7 +436,10 @@
                                 hidden
                             ></p>
                             <div class="account-login" id="riders-login">
-                                <small>Riding online on another day or device?</small>
+                                <small
+                                    >Riding online on another day or
+                                    device?</small
+                                >
                                 <button
                                     type="button"
                                     class="menu-back"
@@ -392,7 +456,11 @@
                                     <span class="save-label">TRAIL SELECT</span>
                                     <h3>Choose a trail</h3>
                                 </div>
-                                <button class="menu-back" data-menu-back data-icon-before="arrow-left">
+                                <button
+                                    class="menu-back"
+                                    data-menu-back
+                                    data-icon-before="arrow-left"
+                                >
                                     BACK
                                 </button>
                             </div>
@@ -430,7 +498,11 @@
                                     <span class="save-label">HALL OF FAME</span>
                                     <h3>Leaderboard</h3>
                                 </div>
-                                <button class="menu-back" data-menu-back data-icon-before="arrow-left">
+                                <button
+                                    class="menu-back"
+                                    data-menu-back
+                                    data-icon-before="arrow-left"
+                                >
                                     BACK
                                 </button>
                             </div>
@@ -441,7 +513,10 @@
                                     id="leaderboard-prev"
                                     aria-label="Previous trail"
                                 >
-                                    <span data-icon="arrow-left" aria-hidden="true"></span>
+                                    <span
+                                        data-icon="arrow-left"
+                                        aria-hidden="true"
+                                    ></span>
                                 </button>
                                 <button
                                     type="button"
@@ -475,7 +550,10 @@
                                     id="leaderboard-next"
                                     aria-label="Next trail"
                                 >
-                                    <span data-icon="arrow-right" aria-hidden="true"></span>
+                                    <span
+                                        data-icon="arrow-right"
+                                        aria-hidden="true"
+                                    ></span>
                                 </button>
                             </div>
                             <div
@@ -491,9 +569,9 @@
                                 aria-label="Fastest runs"
                             ></ol>
                             <p class="load-game-help leaderboard-help">
-                                Each rider's best time. Official and bonus trails show
-                                the online board; custom trails and offline play use
-                                the runs on this device.
+                                Each rider's best time. Official and bonus
+                                trails show the online board; custom trails and
+                                offline play use the runs on this device.
                             </p>
                         </div>
 
@@ -505,113 +583,151 @@
                                         id="new-save-slot-label"
                                         >SAVE SLOT 1</span
                                     >
-                                    <h3>Choose your rider</h3>
+                                    <h3 id="new-save-title">Who are you?</h3>
                                 </div>
-                                <button class="menu-back" data-menu-back data-icon-before="arrow-left">
+                                <button
+                                    class="menu-back"
+                                    data-menu-back
+                                    data-icon-before="arrow-left"
+                                >
                                     BACK
                                 </button>
                             </div>
-                            <div class="account-login account-login-top" id="save-login">
-                                <small>Already have an online rider?</small>
-                                <button
-                                    type="button"
-                                    class="menu-back"
-                                    id="save-login-button"
+                            <div class="save-steps" aria-hidden="true">
+                                <span id="new-save-step-1" class="active"
+                                    >1 · RIDER</span
                                 >
-                                    LOG IN WITH PASSKEY
-                                </button>
+                                <span id="new-save-step-2">2 · STYLE</span>
                             </div>
-                            <p
-                                class="account-status"
-                                id="save-login-status"
-                                role="status"
-                                hidden
-                            ></p>
-                            <p class="save-warning" id="save-warning">
-                                Your rider is permanently tied to this savegame.
-                                Each slot keeps its own progression and best
-                                times.
-                            </p>
-                            <div class="rider-grid">
-                                <button
-                                    class="rider-card"
-                                    data-rider="male"
-                                    aria-pressed="true"
+                            <div id="new-save-identity-step">
+                                <div
+                                    class="account-login account-login-top"
+                                    id="save-login"
                                 >
-                                    <span class="rider-portrait male"
-                                        ><span data-icon="male" aria-hidden="true"></span></span
-                                    ><strong>MALE</strong
-                                    ><small
-                                        >Orange helmet and white jacket</small
-                                    >
-                                </button>
-                                <button
-                                    class="rider-card"
-                                    data-rider="female"
-                                    aria-pressed="false"
-                                >
-                                    <span class="rider-portrait female"
-                                        ><span data-icon="female" aria-hidden="true"></span></span
-                                    ><strong>FEMALE</strong
-                                    ><small>Teal helmet and pink jacket</small>
-                                </button>
-                            </div>
-                            <label class="save-name-field" for="new-save-name">
-                                <span class="save-label">RIDER NAME</span>
-                                <input
-                                    id="new-save-name"
-                                    type="text"
-                                    maxlength="16"
-                                    autocomplete="nickname"
-                                    spellcheck="false"
-                                    placeholder="Your name"
-                                    required
-                                />
-                            </label>
-                            <div
-                                class="save-mode"
-                                id="save-mode"
-                                role="group"
-                                aria-label="Online or offline"
-                            >
-                                <div class="setting-options" style="--options: 2">
+                                    <small>Already have an online rider?</small>
                                     <button
                                         type="button"
-                                        class="setting-option"
-                                        data-save-mode="online"
-                                        aria-pressed="true"
+                                        class="menu-back"
+                                        id="save-login-button"
                                     >
-                                        Online
-                                    </button>
-                                    <button
-                                        type="button"
-                                        class="setting-option"
-                                        data-save-mode="offline"
-                                        aria-pressed="false"
-                                    >
-                                        Offline
+                                        LOG IN WITH PASSKEY
                                     </button>
                                 </div>
-                                <small id="save-mode-help"
-                                    >Your name is yours alone on the world
-                                    leaderboard. You sign in with a passkey
-                                    (fingerprint, face or device PIN), and your
-                                    progress is backed up.</small
+                                <p
+                                    class="account-status"
+                                    id="save-login-status"
+                                    role="status"
+                                    hidden
+                                ></p>
+                                <p class="save-warning" id="save-warning">
+                                    Each slot keeps its own progression and best
+                                    times. Gender and skin tone are picked once;
+                                    everything else can be changed any time in
+                                    the Garage.
+                                </p>
+                                <label
+                                    class="save-name-field"
+                                    for="new-save-name"
                                 >
+                                    <span class="save-label">RIDER NAME</span>
+                                    <input
+                                        id="new-save-name"
+                                        type="text"
+                                        maxlength="16"
+                                        autocomplete="nickname"
+                                        spellcheck="false"
+                                        placeholder="Your name"
+                                        required
+                                    />
+                                </label>
+                                <div id="new-save-identity"></div>
+                                <div
+                                    class="save-mode"
+                                    id="save-mode"
+                                    role="group"
+                                    aria-label="Online or offline"
+                                >
+                                    <div
+                                        class="setting-options"
+                                        style="--options: 2"
+                                    >
+                                        <button
+                                            type="button"
+                                            class="setting-option"
+                                            data-save-mode="online"
+                                            aria-pressed="true"
+                                        >
+                                            Online
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="setting-option"
+                                            data-save-mode="offline"
+                                            aria-pressed="false"
+                                        >
+                                            Offline
+                                        </button>
+                                    </div>
+                                    <small id="save-mode-help"
+                                        >Your name is yours alone on the world
+                                        leaderboard. You sign in with a passkey
+                                        (fingerprint, face or device PIN), and
+                                        your progress is backed up.</small
+                                    >
+                                </div>
+                                <button
+                                    class="primary create-save-button"
+                                    data-icon-after="arrow-right"
+                                    id="new-save-next"
+                                >
+                                    Next: Style
+                                </button>
                             </div>
-                            <button
-                                class="primary create-save-button"
-                                data-icon-after="arrow-right"
-                                id="create-save"
-                            >
-                                Create Passkey &amp; Ride
-                            </button>
+                            <div id="new-save-style-step" hidden>
+                                <div id="new-save-look"></div>
+                                <button
+                                    class="primary create-save-button"
+                                    data-icon-after="arrow-right"
+                                    id="create-save"
+                                >
+                                    Create Passkey &amp; Ride
+                                </button>
+                            </div>
                             <p
                                 class="account-status"
                                 id="save-status"
                                 role="status"
                                 hidden
                             ></p>
+                        </div>
+
+                        <div class="menu-view" id="menu-look-view" hidden>
+                            <div class="menu-view-head">
+                                <div>
+                                    <span
+                                        class="save-label"
+                                        data-icon-before="garage"
+                                        >GARAGE</span
+                                    >
+                                    <h3 id="garage-rider">Your rider</h3>
+                                </div>
+                                <button
+                                    class="menu-back"
+                                    data-menu-back
+                                    data-icon-before="arrow-left"
+                                >
+                                    BACK
+                                </button>
+                            </div>
+                            <div id="garage-look"></div>
+                            <button
+                                class="primary"
+                                data-icon-after="arrow-right"
+                                id="save-look"
+                                disabled
+                            >
+                                Save Look
+                            </button>
                         </div>
 
                         <div class="menu-view" id="menu-how-view" hidden>
@@ -622,7 +738,11 @@
                                     >
                                     <h3>How to play</h3>
                                 </div>
-                                <button class="menu-back" data-menu-back data-icon-before="arrow-left">
+                                <button
+                                    class="menu-back"
+                                    data-menu-back
+                                    data-icon-before="arrow-left"
+                                >
                                     BACK
                                 </button>
                             </div>
@@ -713,7 +833,11 @@
                                     <span class="save-label">PREFERENCES</span>
                                     <h3>Settings</h3>
                                 </div>
-                                <button class="menu-back" data-menu-back data-icon-before="arrow-left">
+                                <button
+                                    class="menu-back"
+                                    data-menu-back
+                                    data-icon-before="arrow-left"
+                                >
                                     BACK
                                 </button>
                             </div>

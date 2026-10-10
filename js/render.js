@@ -37,6 +37,7 @@ import {
   freeHairRestDirection,
   hairBackSupport,
 } from "./rider-hair.js";
+import { lookParts } from "./cosmetics.js";
 import { reducedMotion } from "./state.js";
 import { createLighting } from "./lighting.js";
 import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
@@ -450,7 +451,7 @@ export function createRenderer(canvas) {
 
   // Redraws the bike and rider into a scratch layer, keeps only the pixels a
   // front prop covers, and lays them over the scene as a flat silhouette.
-  function drawXray(ride, rider, state, full) {
+  function drawXray(ride, look, state, full) {
     const points = [ride.rear, ride.front];
     if (ride.ragdoll) points.push(...ride.ragdoll.list);
     if (ride.ragdoll?.helmet) points.push(ride.ragdoll.helmet);
@@ -494,9 +495,9 @@ export function createRenderer(canvas) {
 
     place(xrayRider);
     if (hair)
-      hair.draw(xrayRider.tools.pixelPath, currentHairRoot(ride, false));
-    xrayRider.art.drawBike(bikeDrawing(ride, rider, flipVisual, state));
-    if (ride.ragdoll) xrayRider.art.drawRagdoll(ride.ragdoll, rider);
+      hair.draw(xrayRider.tools.pixelPath, currentHairRoot(ride, false, flipVisual, look));
+    xrayRider.art.drawBike(bikeDrawing(ride, look, flipVisual, state));
+    if (ride.ragdoll) xrayRider.art.drawRagdoll(ride.ragdoll, look);
 
     const context = xrayRider.context;
     context.setTransform(1, 0, 0, 1, 0, 0);
@@ -572,18 +573,18 @@ export function createRenderer(canvas) {
     };
   }
 
-  function currentHairRoot(ride, exact, flip = flipVisual) {
+  function currentHairRoot(ride, exact, flip = flipVisual, look = null) {
     if (ride.ragdoll) {
       const head = ride.ragdoll.points.head;
       return { x: head.x - ride.facing * 6, y: head.y };
     }
-    return hairRoot(riderPose(ride, flip), exact);
+    return hairRoot(riderPose(ride, flip), exact, !lookParts(look).helmet);
   }
 
-  function hairState(ride, flip) {
+  function hairState(ride, flip, look) {
     const pose = riderPose(ride, flip);
     return {
-      root: currentHairRoot(ride, true, flip),
+      root: currentHairRoot(ride, true, flip, look),
       rest: ride.ragdoll
         ? freeHairRestDirection(ride.facing)
         : hairRestDirection(pose),
@@ -595,25 +596,27 @@ export function createRenderer(canvas) {
     };
   }
 
-  /** Steps a hair simulation for `ride`; returns it, or null for riders without hair. */
-  function updateHair(current, ride, rider, dt, flip = flipVisual) {
-    if (rider !== "female") return null;
-    const state = hairState(ride, flip);
+  /** Steps a hair simulation for `ride`; returns it, or null for cuts without a ponytail. */
+  function updateHair(current, ride, look, dt, flip = flipVisual) {
+    const parts = lookParts(look);
+    if (!parts.hair.ponytail) return null;
+    const state = hairState(ride, flip, look);
     let next = current;
     if (
       !next ||
+      next.lookKey !== parts.key ||
       Math.hypot(state.root.x - next.root.x, state.root.y - next.root.y) > 60
     )
-      next = createRiderHair(state.root, state.rest);
+      next = Object.assign(createRiderHair(state.root, state.rest, parts.hair), { lookKey: parts.key });
     next.update(dt, state);
     return next;
   }
 
   /** Lets the rider's hair come to rest around a ride held still, for posed scenes. */
-  function settleHair(ride, rider, seconds = 1.5) {
+  function settleHair(ride, look, seconds = 1.5) {
     flipVisual = ride.facing;
-    hair = updateHair(null, ride, rider, 0);
-    hair?.settle(seconds, hairState(ride, flipVisual));
+    hair = updateHair(null, ride, look, 0);
+    hair?.settle(seconds, hairState(ride, flipVisual, look));
   }
 
   function bikeGeometry(ride) {
@@ -626,7 +629,7 @@ export function createRenderer(canvas) {
     };
   }
 
-  function drawBike(ride, rider, flip, state) {
+  function drawBike(ride, look, flip, state) {
     const geometry = bikeGeometry(ride);
     const { mx, my } = geometry;
     const ground = terrainAt(ride.trail, mx, my);
@@ -667,12 +670,12 @@ export function createRenderer(canvas) {
         2,
       );
     }
-    gameArt.drawBike(bikeDrawing(ride, rider, flip, state, geometry));
+    gameArt.drawBike(bikeDrawing(ride, look, flip, state, geometry));
   }
 
   function bikeDrawing(
     ride,
-    rider,
+    look,
     flip,
     state,
     geometry = bikeGeometry(ride),
@@ -686,7 +689,7 @@ export function createRenderer(canvas) {
       brakePressure: ride.brakePressure,
       state,
       leanVisual: ride.leanVisual,
-      rider,
+      look,
       dirt: wheelDirt,
     };
   }
@@ -715,14 +718,14 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  function drawGhost(ghost, rider, dt) {
+  function drawGhost(ghost, look, dt) {
     if (!ghost) {
       ghostHair = null;
       return;
     }
     // Simulated off screen too, so the hair has settled when the ghost
     // reappears; frozen with the ghost once it has finished.
-    ghostHair = updateHair(ghostHair, ghost, rider, ghost.status === "won" ? 0 : dt, ghost.facing);
+    ghostHair = updateHair(ghostHair, ghost, look, ghost.status === "won" ? 0 : dt, ghost.facing);
     if (
       !inView(
         (ghost.rear.x + ghost.front.x) / 2,
@@ -731,7 +734,7 @@ export function createRenderer(canvas) {
       )
     )
       return;
-    if (ghostHair) drawGhostHair(currentHairRoot(ghost, false, ghost.facing));
+    if (ghostHair) drawGhostHair(currentHairRoot(ghost, false, ghost.facing, look));
     ctx.globalAlpha = GHOST_ALPHA;
     gameArt.drawBike({
       rear: ghost.rear,
@@ -742,9 +745,9 @@ export function createRenderer(canvas) {
       brakePressure: ghost.brakePressure,
       state: ghost.ragdoll ? "ragdoll" : "running",
       leanVisual: ghost.leanVisual,
-      rider,
+      look,
     });
-    if (ghost.ragdoll) gameArt.drawRagdoll(ghost.ragdoll, rider);
+    if (ghost.ragdoll) gameArt.drawRagdoll(ghost.ragdoll, look);
     ctx.globalAlpha = 1;
   }
 
@@ -1123,16 +1126,18 @@ export function createRenderer(canvas) {
 
   /**
    * @param {{
-   *   ride: any, ghost: any, camera: any, effects: any, rider: string, state: string,
+   *   ride: any, ghost: any, camera: any, effects: any, state: string,
+   *   look?: import('./cosmetics.js').Look | null, ghostLook?: import('./cosmetics.js').Look | null,
    *   full: boolean, now: number, dt: number, debug: boolean
-   * }} frame
+   * }} frame  `look` is the rider's, `ghostLook` the ghost's (the rider's by default)
    */
   function draw({
     ride,
     ghost,
     camera,
     effects,
-    rider,
+    look = null,
+    ghostLook = null,
     state,
     full,
     now,
@@ -1196,18 +1201,18 @@ export function createRenderer(canvas) {
     drawApples(ride, now);
     const fog = fogAmount(trail.weather);
     if (fog) drawFog(fog, focus, ride.facing);
-    drawGhost(ghost, rider, animationDt);
-    hair = updateHair(hair, ride, rider, ride.status === "won" ? 0 : animationDt);
-    if (hair) hair.draw(pixelPath, currentHairRoot(ride, false));
-    drawBike(ride, rider, flipVisual, ride.ragdoll ? "ragdoll" : state);
+    drawGhost(ghost, ghostLook ?? look, animationDt);
+    hair = updateHair(hair, ride, look, ride.status === "won" ? 0 : animationDt);
+    if (hair) hair.draw(pixelPath, currentHairRoot(ride, false, flipVisual, look));
+    drawBike(ride, look, flipVisual, ride.ragdoll ? "ragdoll" : state);
     if (debug) drawPhysicsOverlay(ride.vehicle);
-    if (ride.ragdoll) gameArt.drawRagdoll(ride.ragdoll, rider);
+    if (ride.ragdoll) gameArt.drawRagdoll(ride.ragdoll, look);
     // Water props in front are drawn before the water, so what is under the
     // surface looks wet.
     drawProps("front", full, gameArt, null, true);
     drawWater(ride);
     drawProps("front", full, gameArt, null, false);
-    drawXray(ride, rider, ride.ragdoll ? "ragdoll" : state, full);
+    drawXray(ride, look, ride.ragdoll ? "ragdoll" : state, full);
     drawParticles(effects.particles, false);
     // Light the scene, then the glowing parts of props on top.
     lighting.draw(ctx, {
@@ -1228,12 +1233,40 @@ export function createRenderer(canvas) {
     drawWeather(effects.weather);
   }
 
+  /**
+   * Only the bike and rider, standing still, for menu scenes with art of their
+   * own: no trail, props, shadow, weather or lighting. `backdrop` paints first,
+   * in world units, given the view (`x`, `y`, `width`, `height`); without one
+   * the rest of the canvas stays transparent.
+   * @param {{ ride: any, look?: import('./cosmetics.js').Look | null, view: { x: number, y: number },
+   *   backdrop?: ((ctx: CanvasRenderingContext2D, view: { x: number, y: number, width: number, height: number }) => void) | null }} frame
+   */
+  function drawFigure({ ride, look = null, view, backdrop = null }) {
+    const worldToDevice = pixelScale / ART_PIXEL;
+    cameraX = Math.round(view.x * worldToDevice) / worldToDevice;
+    cameraY = Math.round(view.y * worldToDevice) / worldToDevice;
+    flipVisual = ride.facing;
+    wheelDirt = null;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(worldToDevice, 0, 0, worldToDevice, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.save();
+    ctx.translate(-cameraX, -cameraY);
+    backdrop?.(ctx, { x: cameraX, y: cameraY, width: W, height: H });
+    hair = updateHair(hair, ride, look, 0);
+    if (hair) hair.draw(pixelPath, currentHairRoot(ride, false, flipVisual, look));
+    gameArt.drawBike(bikeDrawing(ride, look, flipVisual, "ready"));
+    ctx.restore();
+  }
+
   return {
     resize,
     setViewport,
     settleHair,
     reset,
     draw,
+    drawFigure,
     popup,
     setHeadlights: lighting.setHeadlights,
     get width() {

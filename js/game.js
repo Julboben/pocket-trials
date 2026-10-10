@@ -20,6 +20,7 @@ import { createCamera } from './camera.js';
 import { createEffects } from './effects.js';
 import { createRenderer } from './render.js';
 import { riderPalette } from './drawing.js';
+import { DEFAULT_LOOK, legacyRider, lookOf, lookParts } from './cosmetics.js';
 import { createOverlay } from './ui/overlay.js';
 import { createMenu, loadStoredState } from './ui/menu.js';
 import { $, session, currentTrailEntry, trailKey, timeText, isRankedSource, bonusUnlock } from './state.js';
@@ -183,7 +184,7 @@ export function startGame() {
 
   function applyPreferences() {
     const { preferences } = session;
-    session.rider = session.saveGame?.rider || 'male';
+    session.look = session.saveGame?.look ?? DEFAULT_LOOK;
     $('control-area').hidden = preferences.controls === 'hide';
     sounds.setEnabled(preferences.sound === 'on');
     sounds.setVolume(preferences.volume / 100);
@@ -239,16 +240,18 @@ export function startGame() {
   function useGhost(trail, data, catchUp = 0) {
     if (!data || data.physics !== RIDE_VERSION) return;
     const inputs = decodeInputs(data.inputs);
-    const ride = createRide(trail, { seed: data.seed });
+    // Ghosts from before looks existed were always drawn as the player.
+    const look = data.look || data.rider ? lookOf(data) : session.look;
+    const ride = createRide(trail, { seed: data.seed, helmet: lookParts(look).helmet });
     // Play the idle lead-in now so the ghost sets off with the player.
     const lead = Math.min(data.startStep + catchUp, inputs.length);
     for (let index = 0; index < lead; index++) stepRide(ride, inputs[index]);
-    ghost = { ride, inputs, index: lead, data };
+    ghost = { ride, inputs, index: lead, data, look };
   }
 
   function initializeTrail(trail, marker) {
     session.trail = trail;
-    const ride = createRide(trail, { seed: (Math.random() * 2 ** 31) >>> 0 });
+    const ride = createRide(trail, { seed: (Math.random() * 2 ** 31) >>> 0, helmet: lookParts(session.look).helmet });
     session.ride = ride;
     recorded = []; startStep = 0; flips = 0;
     accumulator = 0; landingSoundCooldown = 0; splashSoundCooldown = 0;
@@ -432,7 +435,7 @@ export function startGame() {
         // An open bonus trail can be ridden without a save, like a custom one.
         : readLeaderboard(key)[0]?.time ?? null;
     const rank = recordLeaderboardRun(key, {
-      time, rider: session.rider, name: saveGame?.name,
+      time, look: session.look, rider: legacyRider(session.look), name: saveGame?.name,
       slot: saveGame ? session.activeSaveSlot : null, saveId: saveGame?.createdAt
     });
     if (official) {
@@ -449,7 +452,7 @@ export function startGame() {
     const storedGhost = readGhost(key);
     const inputs = encodeInputs(recorded);
     if (!storedGhost || storedGhost.physics !== RIDE_VERSION || time < storedGhost.time) {
-      saveGhost(key, { time, splits: ride.splits.slice(), startStep, seed: ride.seed, inputs, physics: RIDE_VERSION });
+      saveGhost(key, { time, splits: ride.splits.slice(), startStep, seed: ride.seed, inputs, physics: RIDE_VERSION, look: session.look });
     }
     const medals = session.trail.medals;
     const last = session.trailIndex === trails.length - 1;
@@ -463,7 +466,7 @@ export function startGame() {
     if (ranked && session.state === 'running' && saveGame?.token) {
       // Offline saves stay local-only. The server replays the inputs to time the run.
       const slot = session.activeSaveSlot;
-      submitOnlineRun(key, { rider: session.rider, token: saveGame.token, run: { inputs, seed: ride.seed, physics: RIDE_VERSION } }).then(result => {
+      submitOnlineRun(key, { look: session.look, token: saveGame.token, run: { inputs, seed: ride.seed, physics: RIDE_VERSION } }).then(result => {
         if (result && 'signedOut' in result) {
           clearSaveToken(slot, trails.length);
           if (session.saveSlots[slot]) Object.assign(session.saveSlots[slot], { token: null, online: true });
@@ -526,7 +529,7 @@ export function startGame() {
         overlay.toast('Rider down · Press ' + keyLabel(session.preferences.bindings.restart[0] || 'KeyR') + ' to retry', Infinity);
         break;
       case 'helmet':
-        effects.burst(event.x, event.y, riderPalette(session.rider).helmet, 8);
+        effects.burst(event.x, event.y, riderPalette(session.look).helmet, 8);
         sounds.helmet(event.speed);
         vibrate(25);
         overlay.announce('The helmet came off.');
@@ -630,7 +633,7 @@ export function startGame() {
       // A finished ghost is no longer stepped: hold it where it stopped.
       const restoreGhost = ghostRide ? interpolateRide(ghostRide, ghostRide.status === 'won' ? 1 : alpha) : null;
       renderer.draw({
-        ride, ghost: ghostRide, camera, effects, rider: session.rider, state: session.state,
+        ride, ghost: ghostRide, camera, effects, look: session.look, ghostLook: ghost?.look, state: session.state,
         full: session.preferences.scenery === 'full', now, dt, debug: physicsDebugEnabled
       });
       restoreGhost?.();
