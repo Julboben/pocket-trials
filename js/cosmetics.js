@@ -114,6 +114,7 @@ export const LOOK_ITEMS = /** @type {LookItem[]} */ ([
   hairColor('pink', 'Pink', ['#d97a9c', '#f2a6c0', '#ab5576', '#5e2a3d'], 'female'),
 
   { id: 'classic', slot: 'helmet', name: 'Full face', shape: 'classic', blurb: 'Tinted visor, stripe on top.' },
+  { id: 'mx', slot: 'helmet', name: 'Motocross', shape: 'mx', blurb: 'Long peak, goggles, chin bar out front.' },
   // No helmet: the bare head shows while riding, and a crash has none to knock off.
   { id: 'none', slot: 'helmet', name: 'No helmet', bare: true, colorless: true, blurb: 'Wind in your hair. Mind the rocks.' },
 

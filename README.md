@@ -22,7 +22,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Results screen with rank, personal best, flips, and gold/silver/bronze medal targets
 - The run timer starts on your first input
 - Installable as an offline-capable web app
-- Rider customization: gender and skin tone picked once when creating a rider, then hair, helmet (or none), outfit and bike, each with its own colour, changeable any time in the Garage, plus a custom rider name
+- Rider customization: gender and skin tone picked once when creating a rider, then hair, helmet (full face, motocross or none), outfit and bike, each with its own colour, changeable any time in the Garage, plus a custom rider name
 - Elasto Mania-style pixel dirt bike, with the original Pocket Classic bike kept for future biker customization
 - Layered foreground and background scenery
 - Pixel lighting at every time of day: ground stays bright by day and sinks into darkness at night, caves closed off by a back wall are dark at any hour while open hollows let the sky through, a headlight you can switch off that stays on the bike through flips and loops, lanterns, lamps, glowing mushrooms, and lightning light the way

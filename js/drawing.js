@@ -1473,6 +1473,54 @@ export const riderPalette = (look) => lookParts(look).palette;
 const RIDER_OUTLINE = "#263b36";
 
 /**
+ * Draws pixel art from `rows` of characters with its top left at (x, y), in
+ * world units on a 2-unit pixel grid. Each character is a key of `colors`;
+ * spaces and unknown characters are left clear. Runs of one colour along a row
+ * are drawn as one rectangle.
+ */
+export function drawPixelRows(rect, x, y, rows, colors) {
+  rows.forEach((row, r) => {
+    for (let c = 0; c < row.length; ) {
+      const key = row[c];
+      let end = c + 1;
+      while (end < row.length && row[end] === key) end++;
+      const color = colors[key];
+      if (color) rect(x + c * 2, y + r * 2, (end - c) * 2, 2, color);
+      c = end;
+    }
+  });
+}
+
+// Motocross helmet facing right: a long peak over the goggles, a chin bar
+// jutting forward, and a stripe over the crown. Top left at (-9, -8), so
+// its centre lines up with the full-face shell.
+const MX_HELMET = [
+  "  OOOOO    ",
+  " OLLsLHOOOO",
+  "OLHHsHHHLLO",
+  "OHHHsHOOOO ",
+  "OHHggOvVVO ",
+  "OHHHHOVVVO ",
+  "OSHHHHOOHHO",
+  " OSSHHHSSO ",
+  "  OOOOOOO  ",
+];
+
+/** The motocross helmet, centred on (0, 0) and facing right, like drawHelmetShell. */
+export function drawMxHelmet(rect, colors) {
+  drawPixelRows(rect, -9, -8, MX_HELMET, {
+    O: RIDER_OUTLINE,
+    H: colors.helmet,
+    L: colors.helmetLight,
+    S: colors.helmetShade,
+    s: colors.stripe,
+    g: colors.panel,
+    V: colors.visor,
+    v: colors.visorLight,
+  });
+}
+
+/**
  * The first redesign's helmet, centred on (0, 0) and facing right, drawn with
  * `rect(x, y, width, height, color)` in world units on a 2-unit pixel grid.
  */
@@ -4742,6 +4790,12 @@ export function createGameArt(ctx) {
           parts.hair,
           parts.face,
         );
+      } else if (parts.shapes.helmet === "mx") {
+        drawMxHelmet(
+          (x, y, width, height, color) =>
+            bodyRect(x + 3 + shift, y - 46, width, height, color),
+          colors,
+        );
       } else {
         // Stepped helmet shell: rounded without antialiasing.
         bodyRect(-4 + shift, -50, 16, 8, outline);
@@ -4790,11 +4844,11 @@ export function createGameArt(ctx) {
     const key = parts.key + (bare ? "|bare" : "|helmet");
     if (headSprites.has(key)) return headSprites.get(key);
 
-    const canvas = createCanvas(24 / ART_PIXEL, 16 / ART_PIXEL);
+    const canvas = createCanvas(24 / ART_PIXEL, 20 / ART_PIXEL);
     const context = canvas.getContext("2d");
 
     // Local helmet anchor is (0, 0).
-    // Sprite bounds: x -10..14, y -8..8.
+    // Sprite bounds: x -10..14, y -8..12 (room for the motocross chin bar).
     context.setTransform(
       1 / ART_PIXEL,
       0,
@@ -4806,6 +4860,7 @@ export function createGameArt(ctx) {
 
     const { pixelRect: rect } = createDrawingTools(context);
     if (bare) drawBareHead(rect, parts.palette, parts.hair, parts.face);
+    else if (parts.shapes.helmet === "mx") drawMxHelmet(rect, parts.palette);
     else drawHelmetShell(rect, parts.palette);
 
     headSprites.set(key, canvas);
@@ -4820,7 +4875,7 @@ export function createGameArt(ctx) {
     translateToDevice(x, y);
     ctx.rotate(Math.round(angle / rotationStep) * rotationStep);
     ctx.scale(facing, 1);
-    ctx.drawImage(sprite, -10, -8, 24, 16);
+    ctx.drawImage(sprite, -10, -8, 24, 20);
     ctx.restore();
   }
 
