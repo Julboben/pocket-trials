@@ -2,6 +2,7 @@
 // keeps working offline (and on GitHub Pages) with the local board.
 import { isSandbox } from './local-store.js';
 import { cleanRiderName as cleanName } from './rider-name.js';
+import { legacyRider, lookOf } from './cosmetics.js';
 
 const API = '/api/leaderboard';
 const REFRESH_MS = 30_000;
@@ -21,6 +22,7 @@ function toRuns(runs) {
   return (Array.isArray(runs) ? runs : [])
     .map(r => ({
       time: Number(r.time),
+      look: lookOf(r),
       rider: r.rider === 'female' ? 'female' : 'male',
       name: cleanName(r.name) || null,
       slot: null, saveId: null,
@@ -62,7 +64,7 @@ const worldGhosts = new Map();  // trailKey -> Promise<ghost | null>
  * The world's fastest verified run on a trail, in ghost format plus who rode
  * it. Cached for the session, so restarts don't refetch it.
  * @param {string} trail
- * @returns {Promise<{ name: string, rider: string, time: number, splits: number[], startStep: number, seed: number, inputs: number[][], physics: number } | null>}
+ * @returns {Promise<{ name: string, look: import('./cosmetics.js').Look, rider: string, time: number, splits: number[], startStep: number, seed: number, inputs: number[][], physics: number } | null>}
  */
 export function fetchWorldGhost(trail) {
   if (typeof window === 'undefined' || isSandbox() || !isOnlineTrail(trail)) return Promise.resolve(null);
@@ -72,7 +74,7 @@ export function fetchWorldGhost(trail) {
       .then(({ ghost }) => {
         const replay = ghost?.replay;
         if (!replay || !Number.isFinite(replay.time) || !Array.isArray(replay.inputs)) return null;
-        return { ...replay, name: cleanName(ghost.name) || null, rider: ghost.rider === 'female' ? 'female' : 'male' };
+        return { ...replay, name: cleanName(ghost.name) || null, look: lookOf(ghost), rider: ghost.rider === 'female' ? 'female' : 'male' };
       })
       .catch(() => { worldGhosts.delete(trail); return null; }));
   }
@@ -82,17 +84,18 @@ export function fetchWorldGhost(trail) {
 /**
  * Sends a finished run's inputs; the server replays them to get the time.
  * @param {string} trail
- * @param {{ rider: string, token: string, run: { inputs: number[][], seed: number, physics: number } }} submission
+ * @param {{ look: import('./cosmetics.js').Look, token: string, run: { inputs: number[][], seed: number, physics: number } }} submission
+ *   `look` is shown with the run; `rider` is still sent for servers from before looks.
  * @returns {Promise<{rank:number,total:number,time:number,best:number,improved:boolean}|{signedOut:true}|null>}
  */
-export async function submitOnlineRun(trail, { rider, token, run }) {
+export async function submitOnlineRun(trail, { look, token, run }) {
   // Sandbox riders are throwaway, so they never reach the shared board.
   if (typeof window === 'undefined' || isSandbox() || !isOnlineTrail(trail) || !token) return null;
   try {
     const res = await fetch(API, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
-      body: JSON.stringify({ trail, rider, run }),
+      body: JSON.stringify({ trail, look, rider: legacyRider(look), run }),
       signal: AbortSignal.timeout(20000),
     });
     if (res.status === 401) return { signedOut: true };

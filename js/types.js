@@ -133,6 +133,7 @@
  * @property {any} ragdoll
  * @property {number[]} splits timer value at each apple pickup
  * @property {number} seed
+ * @property {boolean} [helmet]  false for a rider without one; only changes the crash
  * @property {() => number} random
  * @property {number} steps
  * @property {number} spikeTime

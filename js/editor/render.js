@@ -424,7 +424,6 @@ function drawObjects() {
     length: 50,
     facing: editor.trail.start.facing,
     flipVisual: editor.trail.start.facing,
-    rider: "male",
   });
   ctx.restore();
 }

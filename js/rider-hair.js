@@ -2,13 +2,18 @@ const TAU = Math.PI * 2;
 const HAIR_STEP = 1 / 120;
 const HAIR_MAX_STEPS = 4;
 const HAIR_LENGTHS = [4, 4, 4, 4, 4];
+// Where the ponytail leaves the head: under the back of the helmet, or at the
+// nape of a bare head, which sits further forward.
 const HAIR_ROOT = [-6, -44];
+const BARE_HAIR_ROOT = [-4, -42];
 const HAIR_REST = [-.55, .84];
+// Each strand's colour is the matching entry of the cut's `strands`.
 const HAIR_STRANDS = [
-  { offset: -1, reach: .7, width: 2, color: '#54362d' },
-  { offset: 1, reach: 1, width: 2, color: '#54362d' },
-  { offset: 0, reach: .9, width: 3, color: '#684438' }
+  { offset: -1, reach: .7, width: 2 },
+  { offset: 1, reach: 1, width: 2 },
+  { offset: 0, reach: .9, width: 3 }
 ];
+const DEFAULT_COLORS = { strands: ['#54362d', '#54362d', '#684438'], outline: '#2e1d19', shine: '#8c5d48' };
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -46,8 +51,9 @@ export function riderBodyFrame({ rear, front, facing = 1, flipVisual = facing, l
   };
 }
 
-export function hairRoot(pose, exact) {
-  return riderBodyFrame(pose, exact).point(HAIR_ROOT[0], HAIR_ROOT[1]);
+export function hairRoot(pose, exact, bare = false) {
+  const [x, y] = bare ? BARE_HAIR_ROOT : HAIR_ROOT;
+  return riderBodyFrame(pose, exact).point(x, y);
 }
 
 export function hairRestDirection(pose) {
@@ -95,7 +101,11 @@ function catmullRom(points, samplesPerSegment) {
   return curve;
 }
 
-export function createRiderHair(root, rest) {
+/**
+ * @param {{ strands: string[], outline: string, shine: string }} [colors]
+ *   the ponytail's colours, as in lookParts().hair
+ */
+export function createRiderHair(root, rest, colors = DEFAULT_COLORS) {
   let { x, y } = root;
   const hair = {
     accumulator: 0,
@@ -201,12 +211,12 @@ export function createRiderHair(root, rest) {
       for (const pass of ['outline', 'fill']) strands.forEach((strand, strandIndex) => {
         for (let i = 1; i < strand.length; i++) {
           const a = strand[i - 1], b = strand[i];
-          if (pass === 'outline') pixelPath([[a.x, a.y], [b.x, b.y]], '#2e1d19', a.width + 1, 2);
-          else pixelPath([[a.x, a.y], [b.x, b.y]], HAIR_STRANDS[strandIndex].color, a.width, 2);
+          if (pass === 'outline') pixelPath([[a.x, a.y], [b.x, b.y]], colors.outline, a.width + 1, 2);
+          else pixelPath([[a.x, a.y], [b.x, b.y]], colors.strands[strandIndex], a.width, 2);
         }
       });
       const shine = strands[2];
-      pixelPath(shine.slice(0, Math.ceil(shine.length * .35)).map(point => [point.x, point.y]), '#8c5d48', 1, 2);
+      pixelPath(shine.slice(0, Math.ceil(shine.length * .35)).map(point => [point.x, point.y]), colors.shine, 1, 2);
     }
   };
 }

@@ -42,6 +42,11 @@ begin
     constraint runs_verified_pkey primary key (trail, player_id)
   );
   create index if not exists runs_verified_rank_idx on runs (trail, time_ms, updated_at);
+
+  -- The rider's look (see js/cosmetics.js); null for riders and runs from
+  -- before looks existed, whose look follows from their rider column.
+  alter table players add column if not exists look jsonb;
+  alter table runs add column if not exists look jsonb;
 end $$`;
 
 /** Swaps the database for tests. `fake` must work as a tagged template and have `.query(text, params)`. */

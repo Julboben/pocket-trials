@@ -5,6 +5,7 @@ import {
   terrainSurfacesAt,
 } from "./terrain.js";
 import { terrainMaterials } from "./materials.js";
+import { lookParts } from "./cosmetics.js";
 import { FINISH_FLOWER_LIFT } from "./finish.js";
 import { APPLE_SPRITE } from "./apple.js";
 import { SPIKE_CORE, SPIKE_TIP, spikePoints } from "./spike.js";
@@ -1466,61 +1467,8 @@ export function createCanvas(width, height) {
   return element;
 }
 
-export const RIDER_PALETTES = {
-  male: {
-    jacket: "#e8e5d9",
-    jacketLight: "#fff8e7",
-    jacketShade: "#b5bcae",
-    panel: "#29464e",
-    trousers: "#29464e",
-    trousersLight: "#42616a",
-    helmet: "#f4a442",
-    helmetLight: "#ffd078",
-    helmetShade: "#bd7034",
-    stripe: "#fff8e7",
-    skin: "#bd7954",
-    skinLight: "#dfa078",
-    gloves: "#304a42",
-    boots: "#263b36",
-    sole: "#657a70",
-    visor: "#234844",
-    visorLight: "#83bcb6",
-    skinShade: "#9a5c40",
-    hair: "#3d2a24",
-    hairLight: "#5e4334",
-    hairShade: "#2e1d19",
-    eye: "#263b36",
-    mouth: "#87483a",
-  },
-  female: {
-    jacket: "#d86f82",
-    jacketLight: "#ef9aa8",
-    jacketShade: "#a94f69",
-    panel: "#59415c",
-    trousers: "#39435d",
-    trousersLight: "#596681",
-    helmet: "#63aa98",
-    helmetLight: "#a8dfcf",
-    helmetShade: "#3c786e",
-    stripe: "#fff8e7",
-    skin: "#bd7954",
-    skinLight: "#dfa078",
-    gloves: "#59415c",
-    boots: "#2b3347",
-    sole: "#7c8897",
-    visor: "#234844",
-    visorLight: "#b0dfd4",
-    // Matches the ponytail in rider-hair.js.
-    skinShade: "#9a5c40",
-    hair: "#684438",
-    hairLight: "#8c5d48",
-    hairShade: "#54362d",
-    eye: "#263b36",
-    mouth: "#b0505e",
-  },
-};
-export const riderPalette = (rider) =>
-  RIDER_PALETTES[rider] || RIDER_PALETTES.male;
+/** The flat colour palette the rider art reads, for a look (see cosmetics.js). */
+export const riderPalette = (look) => lookParts(look).palette;
 
 const RIDER_OUTLINE = "#263b36";
 
@@ -1551,15 +1499,18 @@ export function drawHelmetShell(rect, colors) {
 }
 
 /**
- * The rider's bare head once the helmet has come off, centred where the
- * helmet's centre was and facing right, in the same units as drawHelmetShell:
- * hair, ear, eye under a brow, nose, and mouth. She has bangs and her hair
- * falls to the nape, where the ponytail starts.
+ * The rider's bare head, without a helmet or once it has come off, centred
+ * where the helmet's centre is and facing right, in the same units as
+ * drawHelmetShell: hair, ear, eye under a brow, nose, and mouth. `hair` is the
+ * cut from lookParts: a 'short' cap stops above the ear, a 'long' one has
+ * bangs and falls to the nape, where a ponytail starts, a 'buzz' is the top
+ * row only, and 'bald' has none. `face.lash` adds a lash flick by the eye.
  */
-export function drawBareHead(rect, colors, rider = "male") {
+export function drawBareHead(rect, colors, hair, face = null) {
   // One art pixel at column `c`, row `r` (2 world units each).
   const dot = (c, r, color, w = 1, h = 1) => rect(c * 2, r * 2, w * 2, h * 2, color);
-  const female = rider === "female";
+  const { cap = "short", brow = true } = hair ?? {};
+  const long = cap === "long";
 
   // Outline with clipped corners, then the face.
   dot(-2, -4, RIDER_OUTLINE, 5, 7);
@@ -1569,16 +1520,22 @@ export function drawBareHead(rect, colors, rider = "male") {
   dot(2, -2, colors.skinLight, 1, 2);
 
   // Hair: a cap over the crown and down the back of the head.
-  dot(-2, -3, colors.hair, 5, 1);
-  dot(-2, -2, colors.hair, female ? 4 : 3, 1);
-  dot(-2, -1, colors.hair, 1, female ? 3 : 1);
-  dot(-1, -3, colors.hairLight, 2, 1);
-  if (female) dot(-3, 0, colors.hair, 1, 2);
+  if (cap === "bald") dot(-1, -3, colors.skinLight, 2, 1);
+  else {
+    dot(-2, -3, colors.hair, 5, 1);
+    if (cap !== "buzz") {
+      dot(-2, -2, colors.hair, long ? 4 : 3, 1);
+      dot(-2, -1, colors.hair, 1, long ? 3 : 1);
+    }
+    dot(-1, -3, colors.hairLight, 2, 1);
+    if (long) dot(-3, 0, colors.hair, 1, 2);
+  }
 
   // Ear, eye and brow, nose, mouth.
   dot(-1, -1, colors.skinShade);
   dot(1, -1, colors.eye);
-  if (!female) dot(1, -2, colors.hairShade);
+  if (brow) dot(1, -2, cap === "bald" ? colors.skinShade : colors.hairShade);
+  if (face?.lash) dot(2, -2, RIDER_OUTLINE);
   dot(3, 0, colors.skin);
   dot(2, 1, colors.mouth);
 }
@@ -2873,8 +2830,8 @@ export function createGameArt(ctx) {
   const spikeSprites = new Map();
   const flowerSprites = new Map();
   const backgroundStrips = new Map();
-  const ragdollHelmetSprites = new Map();
-  const ragdollHeadSprites = new Map();
+  // Head sprites by look key and helmet state.
+  const headSprites = new Map();
   let bikeSprite = null;
   let propLayer = null;
 
@@ -4430,6 +4387,7 @@ export function createGameArt(ctx) {
   // axle at (half, 0). Parts joined to an axle use `path`; parts on the sprung
   // body use `bodyPoint`, `bodyRect`, and `bodyPath` so they pitch and drop.
   function drawClassicFrame({
+    paint,
     path,
     spring,
     half,
@@ -4444,16 +4402,16 @@ export function createGameArt(ctx) {
 
     path(
       [[-half, 0], bodyPoint(-7, -18), bodyPoint(13, -17), [half, 0]],
-      "#d95832",
+      paint.shade,
       2,
     );
-    path([[-half, 0], crank, [half, 0]], "#ed7842", 2);
+    path([[-half, 0], crank, [half, 0]], paint.base, 2);
     path([[-half, 0], backMount], "#819084", 1);
     path([[half, 0], frontMount], "#b9c4af", 2);
     spring(-half, 0, backMount[0], backMount[1], "#f0b45f");
     spring(half, 0, frontMount[0], frontMount[1], "#f0b45f");
 
-    bodyRect(-9, -20, 24, 4, "#ee6f3f");
+    bodyRect(-9, -20, 24, 4, paint.base);
     bodyRect(-17, -24, 14, 4, "#263a35");
     bodyRect(-20, -27, 5, 5, brakePressure > 0.08 ? "#ff6045" : "#713c35", 2);
     if (brakePressure > 0.6) bodyRect(-19, -26, 2, 2, "#ffd0a2", 2);
@@ -4472,6 +4430,7 @@ export function createGameArt(ctx) {
   }
 
   function drawElastoFrame({
+    paint,
     path,
     spring,
     half,
@@ -4529,7 +4488,7 @@ export function createGameArt(ctx) {
         [-18, -28],
         [-28, -30],
       ],
-      c.green,
+      paint.base,
       2,
     );
     bodyPath(
@@ -4551,11 +4510,11 @@ export function createGameArt(ctx) {
     bodyRect(-32, -32, 4, 4, brakePressure > 0.08 ? "#ff6045" : "#713c35");
     if (brakePressure > 0.6) bodyRect(-32, -32, 2, 2, "#ffd0a2");
 
-    bodyRect(-4, -28, 18, 8, c.green);
-    bodyRect(-2, -28, 12, 2, c.greenLight);
-    bodyRect(-4, -22, 18, 2, c.greenDark);
+    bodyRect(-4, -28, 18, 8, paint.base);
+    bodyRect(-2, -28, 12, 2, paint.light);
+    bodyRect(-4, -22, 18, 2, paint.dark);
     bodyRect(6, -22, 10, 8, c.white);
-    bodyRect(8, -18, 8, 2, c.green);
+    bodyRect(8, -18, 8, 2, paint.base);
 
     path([[half, 0], forkTop], c.black, 2);
     path([[half, 0], forkSlider], c.silver, 2);
@@ -4565,7 +4524,7 @@ export function createGameArt(ctx) {
         [half - 2, -16],
         [half + 6, -14],
       ],
-      c.green,
+      paint.base,
       2,
     );
     path(
@@ -4573,7 +4532,7 @@ export function createGameArt(ctx) {
         [half - 6, -12],
         [half + 4, -12],
       ],
-      c.greenDark,
+      paint.dark,
       1,
     );
     bodyPath(
@@ -4605,11 +4564,12 @@ export function createGameArt(ctx) {
     brakePressure = 0,
     state = "ready",
     leanVisual = 0,
-    rider = "male",
-    bike = DEFAULT_BIKE,
+    look = null,
+    bike = null,
     dirt = null,
   }) {
-    const model = BIKES[bike] || BIKES[DEFAULT_BIKE];
+    const parts = lookParts(look);
+    const model = BIKES[bike ?? parts.bike] || BIKES[DEFAULT_BIKE];
     model.wheel(rear, dirt?.rear);
     model.wheel(front, dirt?.front);
     const pixelAngle = Math.round(angle / (TAU / 32)) * (TAU / 32);
@@ -4664,6 +4624,7 @@ export function createGameArt(ctx) {
         thickness,
       );
     model.frame({
+      paint: parts.bikeColors,
       path,
       spring,
       half,
@@ -4675,7 +4636,7 @@ export function createGameArt(ctx) {
 
     if (state !== "ragdoll") {
       const shift = Math.round(leanVisual * 4.5) * 2;
-      const colors = riderPalette(rider);
+      const colors = parts.palette;
       const outline = "#263b36";
 
       const hip = [-8 + shift, -24];
@@ -4772,29 +4733,40 @@ export function createGameArt(ctx) {
       bodyRect(0 + shift, -44, 8, 6, colors.skin);
       bodyRect(4 + shift, -42, 4, 2, colors.skinLight);
 
-      // Stepped helmet shell: rounded without antialiasing.
-      bodyRect(-4 + shift, -50, 16, 8, outline);
-      bodyRect(-2 + shift, -52, 12, 12, outline);
+      if (!parts.helmet) {
+        // Bare-headed: the same head the ragdoll shows, where the helmet sits.
+        drawBareHead(
+          (x, y, width, height, color) =>
+            bodyRect(x + 3 + shift, y - 46, width, height, color),
+          colors,
+          parts.hair,
+          parts.face,
+        );
+      } else {
+        // Stepped helmet shell: rounded without antialiasing.
+        bodyRect(-4 + shift, -50, 16, 8, outline);
+        bodyRect(-2 + shift, -52, 12, 12, outline);
 
-      bodyRect(-2 + shift, -50, 12, 8, colors.helmet);
-      bodyRect(0 + shift, -52, 8, 2, colors.helmetLight);
-      bodyRect(-2 + shift, -50, 4, 4, colors.helmetLight);
-      bodyRect(-2 + shift, -44, 8, 2, colors.helmetShade);
+        bodyRect(-2 + shift, -50, 12, 8, colors.helmet);
+        bodyRect(0 + shift, -52, 8, 2, colors.helmetLight);
+        bodyRect(-2 + shift, -50, 4, 4, colors.helmetLight);
+        bodyRect(-2 + shift, -44, 8, 2, colors.helmetShade);
 
-      // Shared racing stripe, different shell colors.
-      bodyRect(4 + shift, -52, 2, 6, colors.stripe);
+        // Shared racing stripe, different shell colors.
+        bodyRect(4 + shift, -52, 2, 6, colors.stripe);
 
-      // Goggle strap, dark frame and reflected sky.
-      bodyRect(-2 + shift, -48, 8, 2, colors.panel);
-      bodyRect(6 + shift, -48, 8, 6, outline);
-      bodyRect(6 + shift, -48, 8, 4, colors.visor);
-      bodyRect(8 + shift, -48, 4, 2, colors.visorLight);
+        // Goggle strap, dark frame and reflected sky.
+        bodyRect(-2 + shift, -48, 8, 2, colors.panel);
+        bodyRect(6 + shift, -48, 8, 6, outline);
+        bodyRect(6 + shift, -48, 8, 4, colors.visor);
+        bodyRect(8 + shift, -48, 4, 2, colors.visorLight);
 
-      // Small forward peak and protective chin guard.
-      bodyRect(6 + shift, -50, 10, 2, colors.helmet);
-      bodyRect(8 + shift, -50, 6, 2, colors.helmetLight);
-      bodyRect(6 + shift, -42, 8, 2, colors.helmetShade);
-      bodyRect(10 + shift, -44, 4, 2, colors.helmet);
+        // Small forward peak and protective chin guard.
+        bodyRect(6 + shift, -50, 10, 2, colors.helmet);
+        bodyRect(8 + shift, -50, 6, 2, colors.helmetLight);
+        bodyRect(6 + shift, -42, 8, 2, colors.helmetShade);
+        bodyRect(10 + shift, -44, 4, 2, colors.helmet);
+      }
     }
 
     ctx.save();
@@ -4812,11 +4784,11 @@ export function createGameArt(ctx) {
     ctx.restore();
   }
 
-  // One tiny cached helmet, and one bare head, per rider palette.
+  // One tiny cached helmet, and one bare head, per look.
   // Rotating the sprite with nearest-neighbour sampling keeps it sharp.
-  function ragdollHeadSprite(colors, rider, bare) {
-    const cache = bare ? ragdollHeadSprites : ragdollHelmetSprites;
-    if (cache.has(colors)) return cache.get(colors);
+  function ragdollHeadSprite(parts, bare) {
+    const key = parts.key + (bare ? "|bare" : "|helmet");
+    if (headSprites.has(key)) return headSprites.get(key);
 
     const canvas = createCanvas(24 / ART_PIXEL, 16 / ART_PIXEL);
     const context = canvas.getContext("2d");
@@ -4833,10 +4805,10 @@ export function createGameArt(ctx) {
     );
 
     const { pixelRect: rect } = createDrawingTools(context);
-    if (bare) drawBareHead(rect, colors, rider);
-    else drawHelmetShell(rect, colors);
+    if (bare) drawBareHead(rect, parts.palette, parts.hair, parts.face);
+    else drawHelmetShell(rect, parts.palette);
 
-    cache.set(colors, canvas);
+    headSprites.set(key, canvas);
     return canvas;
   }
 
@@ -4853,9 +4825,10 @@ export function createGameArt(ctx) {
   }
 
   /** Draws the thrown rider, and the helmet if it has been knocked off. */
-  function drawRagdoll(ragdoll, rider) {
+  function drawRagdoll(ragdoll, look) {
     const p = ragdoll.points;
-    const colors = riderPalette(rider);
+    const parts = lookParts(look);
+    const colors = parts.palette;
     const outline = "#263b36";
     const facing = p.head.drawFacing ?? 1;
 
@@ -5026,10 +4999,11 @@ export function createGameArt(ctx) {
 
     // HEAD
     // Cached and mirrored correctly; follows the head/shoulder axis. Bare
-    // once the helmet has been knocked off, which then tumbles on its own.
+    // without a helmet, or once it has been knocked off, which then tumbles
+    // on its own.
     const { helmet } = ragdoll;
     drawHeadSprite(
-      ragdollHeadSprite(colors, rider, Boolean(helmet)),
+      ragdollHeadSprite(parts, Boolean(helmet) || !parts.helmet),
       p.head.x,
       p.head.y,
       headAngle,
@@ -5037,7 +5011,7 @@ export function createGameArt(ctx) {
     );
     if (helmet)
       drawHeadSprite(
-        ragdollHeadSprite(colors, rider, false),
+        ragdollHeadSprite(parts, false),
         helmet.x,
         helmet.y,
         helmet.spin,

@@ -325,6 +325,14 @@
                                     ><small>Switch or add a rider</small>
                                 </button>
                                 <button
+                                    class="menu-action menu-action-row"
+                                    id="menu-garage"
+                                    hidden
+                                >
+                                    <span>GARAGE</span
+                                    ><small>Change your rider’s look and bike</small>
+                                </button>
+                                <button
                                     class="menu-action menu-action-row menu-action-editor"
                                     id="menu-editor"
                                 >
@@ -505,113 +513,128 @@
                                         id="new-save-slot-label"
                                         >SAVE SLOT 1</span
                                     >
-                                    <h3>Choose your rider</h3>
+                                    <h3 id="new-save-title">Who are you?</h3>
                                 </div>
                                 <button class="menu-back" data-menu-back data-icon-before="arrow-left">
                                     BACK
                                 </button>
                             </div>
-                            <div class="account-login account-login-top" id="save-login">
-                                <small>Already have an online rider?</small>
-                                <button
-                                    type="button"
-                                    class="menu-back"
-                                    id="save-login-button"
-                                >
-                                    LOG IN WITH PASSKEY
-                                </button>
+                            <div class="save-steps" aria-hidden="true">
+                                <span id="new-save-step-1" class="active">1 · RIDER</span>
+                                <span id="new-save-step-2">2 · STYLE</span>
                             </div>
-                            <p
-                                class="account-status"
-                                id="save-login-status"
-                                role="status"
-                                hidden
-                            ></p>
-                            <p class="save-warning" id="save-warning">
-                                Your rider is permanently tied to this savegame.
-                                Each slot keeps its own progression and best
-                                times.
-                            </p>
-                            <div class="rider-grid">
-                                <button
-                                    class="rider-card"
-                                    data-rider="male"
-                                    aria-pressed="true"
-                                >
-                                    <span class="rider-portrait male"
-                                        ><span data-icon="male" aria-hidden="true"></span></span
-                                    ><strong>MALE</strong
-                                    ><small
-                                        >Orange helmet and white jacket</small
-                                    >
-                                </button>
-                                <button
-                                    class="rider-card"
-                                    data-rider="female"
-                                    aria-pressed="false"
-                                >
-                                    <span class="rider-portrait female"
-                                        ><span data-icon="female" aria-hidden="true"></span></span
-                                    ><strong>FEMALE</strong
-                                    ><small>Teal helmet and pink jacket</small>
-                                </button>
-                            </div>
-                            <label class="save-name-field" for="new-save-name">
-                                <span class="save-label">RIDER NAME</span>
-                                <input
-                                    id="new-save-name"
-                                    type="text"
-                                    maxlength="16"
-                                    autocomplete="nickname"
-                                    spellcheck="false"
-                                    placeholder="Your name"
-                                    required
-                                />
-                            </label>
-                            <div
-                                class="save-mode"
-                                id="save-mode"
-                                role="group"
-                                aria-label="Online or offline"
-                            >
-                                <div class="setting-options" style="--options: 2">
+                            <div id="new-save-identity-step">
+                                <div class="account-login account-login-top" id="save-login">
+                                    <small>Already have an online rider?</small>
                                     <button
                                         type="button"
-                                        class="setting-option"
-                                        data-save-mode="online"
-                                        aria-pressed="true"
+                                        class="menu-back"
+                                        id="save-login-button"
                                     >
-                                        Online
-                                    </button>
-                                    <button
-                                        type="button"
-                                        class="setting-option"
-                                        data-save-mode="offline"
-                                        aria-pressed="false"
-                                    >
-                                        Offline
+                                        LOG IN WITH PASSKEY
                                     </button>
                                 </div>
-                                <small id="save-mode-help"
-                                    >Your name is yours alone on the world
-                                    leaderboard. You sign in with a passkey
-                                    (fingerprint, face or device PIN), and your
-                                    progress is backed up.</small
+                                <p
+                                    class="account-status"
+                                    id="save-login-status"
+                                    role="status"
+                                    hidden
+                                ></p>
+                                <p class="save-warning" id="save-warning">
+                                    Each slot keeps its own progression and best
+                                    times. Gender and skin tone are picked once;
+                                    everything else can be changed any time in the
+                                    Garage.
+                                </p>
+                                <label class="save-name-field" for="new-save-name">
+                                    <span class="save-label">RIDER NAME</span>
+                                    <input
+                                        id="new-save-name"
+                                        type="text"
+                                        maxlength="16"
+                                        autocomplete="nickname"
+                                        spellcheck="false"
+                                        placeholder="Your name"
+                                        required
+                                    />
+                                </label>
+                                <div id="new-save-identity"></div>
+                                <div
+                                    class="save-mode"
+                                    id="save-mode"
+                                    role="group"
+                                    aria-label="Online or offline"
                                 >
+                                    <div class="setting-options" style="--options: 2">
+                                        <button
+                                            type="button"
+                                            class="setting-option"
+                                            data-save-mode="online"
+                                            aria-pressed="true"
+                                        >
+                                            Online
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="setting-option"
+                                            data-save-mode="offline"
+                                            aria-pressed="false"
+                                        >
+                                            Offline
+                                        </button>
+                                    </div>
+                                    <small id="save-mode-help"
+                                        >Your name is yours alone on the world
+                                        leaderboard. You sign in with a passkey
+                                        (fingerprint, face or device PIN), and your
+                                        progress is backed up.</small
+                                    >
+                                </div>
+                                <button
+                                    class="primary create-save-button"
+                                    data-icon-after="arrow-right"
+                                    id="new-save-next"
+                                >
+                                    Next: Style
+                                </button>
                             </div>
-                            <button
-                                class="primary create-save-button"
-                                data-icon-after="arrow-right"
-                                id="create-save"
-                            >
-                                Create Passkey &amp; Ride
-                            </button>
+                            <div id="new-save-style-step" hidden>
+                                <div id="new-save-look"></div>
+                                <button
+                                    class="primary create-save-button"
+                                    data-icon-after="arrow-right"
+                                    id="create-save"
+                                >
+                                    Create Passkey &amp; Ride
+                                </button>
+                            </div>
                             <p
                                 class="account-status"
                                 id="save-status"
                                 role="status"
                                 hidden
                             ></p>
+                        </div>
+
+                        <div class="menu-view" id="menu-look-view" hidden>
+                            <div class="menu-view-head">
+                                <div>
+                                    <span class="save-label" data-icon-before="garage">GARAGE</span>
+                                    <h3 id="garage-rider">Your rider</h3>
+                                </div>
+                                <button class="menu-back" data-menu-back data-icon-before="arrow-left">
+                                    BACK
+                                </button>
+                            </div>
+                            <div id="garage-look"></div>
+                            <button
+                                class="primary"
+                                data-icon-after="arrow-right"
+                                id="save-look"
+                                disabled
+                            >
+                                Save Look
+                            </button>
                         </div>
 
                         <div class="menu-view" id="menu-how-view" hidden>

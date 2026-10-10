@@ -2,6 +2,7 @@
 // cloud copy of the savegame. Passkeys live in the OS keychain or password
 // manager, so clearing site data never logs a rider out for good.
 import { NAME_HINT } from './rider-name.js';
+import { legacyRider } from './cosmetics.js';
 
 const API = '/api/account/';
 const SAVE_SYNC_DELAY_MS = 1500;
@@ -97,14 +98,16 @@ async function usePasskey(options) {
 
 /**
  * Claims `name` and creates a passkey for it.
- * @returns {Promise<{ token: string, player: { id: string, name: string, rider: string } }>}
+ * @param {string} name
+ * @param {import('./cosmetics.js').Look} look
+ * @returns {Promise<{ token: string, player: { id: string, name: string, rider: string, look?: object } }>}
  */
-export async function registerRider(name, rider) {
+export async function registerRider(name, look) {
   if (!passkeysSupported()) throw new AccountError('unsupported');
   try {
     const { options, state } = await call('register-options', { name });
     const response = await createPasskey(options);
-    return await call('register', { state, response, rider });
+    return await call('register', { state, response, look, rider: legacyRider(look) });
   } catch (error) {
     throw passkeyError(error);
   }
@@ -112,7 +115,7 @@ export async function registerRider(name, rider) {
 
 /**
  * Signs in with any passkey this site owns.
- * @returns {Promise<{ token: string, player: { id: string, name: string, rider: string }, save: object | null, runs: { trail: string, ghost: object }[] }>}
+ * @returns {Promise<{ token: string, player: { id: string, name: string, rider: string, look?: object }, save: object | null, runs: { trail: string, ghost: object }[] }>}
  */
 export async function loginRider() {
   if (!passkeysSupported()) throw new AccountError('unsupported');
@@ -148,8 +151,8 @@ const pendingSaves = new Map();   // token -> { timer, save }
 const lastSent = new Map();       // token -> payload JSON, so retries don't rewrite an unchanged save
 
 function sendSave(save, keepalive = false) {
-  const { rider, createdAt, trail, unlocked, bestTimes } = save;
-  const body = JSON.stringify({ save: { rider, createdAt, trail, unlocked, bestTimes } });
+  const { look, rider, createdAt, trail, unlocked, bestTimes } = save;
+  const body = JSON.stringify({ save: { look, rider, createdAt, trail, unlocked, bestTimes } });
   if (lastSent.get(save.token) === body) return;
   lastSent.set(save.token, body);
   fetch(API + 'save', {

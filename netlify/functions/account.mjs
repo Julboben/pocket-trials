@@ -1,6 +1,6 @@
 // Online riders: passkey sign-up and login, and the cloud copy of a savegame.
 //   POST /api/account/register-options  { name }                     -> { options, state }
-//   POST /api/account/register          { state, response, rider }   -> { token, player }
+//   POST /api/account/register          { state, response, look }    -> { token, player }
 //   POST /api/account/login-options     {}                           -> { options, state }
 //   POST /api/account/login             { state, response }          -> { token, player, save, runs }
 //   PUT  /api/account/save              { save }  (Bearer token)     -> { ok }
@@ -15,10 +15,9 @@ import {
 } from '../lib/auth.mjs';
 import { cleanName, validName, nameKey, blockedName } from '../lib/names.mjs';
 import { TRAIL_RE } from '../lib/verify-run.mjs';
+import { lookOf, legacyRider, playerLook } from '../lib/looks.mjs';
 
 const RP_NAME = 'Hjulben';
-const RIDERS = new Set(['male', 'female']);
-const riderOf = value => (RIDERS.has(value) ? value : 'male');
 
 async function registerOptions(req) {
   const body = await readBody(req, 2_000);
@@ -66,16 +65,17 @@ async function register(req) {
   if (!verification.verified) throw new HttpError(400, 'passkey rejected');
 
   const { credential } = verification.registrationInfo;
-  const rider = riderOf(body.rider);
+  const look = lookOf(body);
+  const rider = legacyRider(look);
   const sql = await db();
   let rows;
   try {
     // Takes over an unclaimed rider of the same name, keeping its times.
     rows = await sql`
       with player as (
-        insert into players (id, name, name_key, rider)
-        values (${state.player}, ${state.name}, ${nameKey(state.name)}, ${rider})
-        on conflict (name_key) do update set name = excluded.name, rider = excluded.rider
+        insert into players (id, name, name_key, rider, look)
+        values (${state.player}, ${state.name}, ${nameKey(state.name)}, ${rider}, ${JSON.stringify(look)}::jsonb)
+        on conflict (name_key) do update set name = excluded.name, rider = excluded.rider, look = excluded.look
           where not exists (select 1 from credentials c where c.player_id = players.id)
         returning id
       )
@@ -89,7 +89,7 @@ async function register(req) {
   }
   if (!rows.length) throw new HttpError(409, 'name taken');
   const playerId = rows[0].player_id;
-  return json({ token: sessionToken(playerId), player: { id: playerId, name: state.name, rider } });
+  return json({ token: sessionToken(playerId), player: { id: playerId, name: state.name, rider, look } });
 }
 
 async function loginOptions(req) {
@@ -106,7 +106,7 @@ async function login(req) {
   const credentialId = String(body.response?.id ?? '');
   const sql = await db();
   const [row] = await sql`
-    select c.id, c.public_key, c.counter, c.transports, p.id as player_id, p.name, p.rider, p.save
+    select c.id, c.public_key, c.counter, c.transports, p.id as player_id, p.name, p.rider, p.look, p.save
     from credentials c join players p on p.id = c.player_id
     where c.id = ${credentialId}`;
   if (!row) throw new HttpError(404, 'unknown passkey');
@@ -135,7 +135,7 @@ async function login(req) {
   const runs = await sql`select trail, replay from runs where player_id = ${row.player_id} and replay is not null`;
   return json({
     token: sessionToken(row.player_id),
-    player: { id: row.player_id, name: row.name, rider: row.rider },
+    player: { id: row.player_id, name: row.name, rider: row.rider, look: lookOf(row) },
     save: row.save ?? null,
     runs: runs.map(run => ({ trail: run.trail, ghost: run.replay })),
   });
@@ -152,8 +152,10 @@ function sanitizeSave(save) {
       if (TRAIL_RE.test(key) && Number.isFinite(time) && time > 0) bestTimes[key] = time;
     }
   }
+  const look = lookOf(save);
   return {
-    rider: riderOf(save.rider),
+    look,
+    rider: legacyRider(look),
     createdAt: int(save.createdAt, Number.MAX_SAFE_INTEGER),
     trail: int(save.trail, 999),
     unlocked: int(save.unlocked, 999),
@@ -166,8 +168,13 @@ async function putSave(req) {
   const body = await readBody(req, 32_000);
   const save = sanitizeSave(body.save);
   const sql = await db();
+  const [player] = await sql`select look, rider from players where id = ${playerId}`;
+  if (!player) throw new HttpError(401, 'not signed in');
+  save.look = playerLook(save, player);
+  save.rider = legacyRider(save.look);
   const rows = await sql`
-    update players set save = ${JSON.stringify(save)}::jsonb, rider = ${save.rider}, save_updated_at = now()
+    update players set save = ${JSON.stringify(save)}::jsonb, rider = ${save.rider},
+      look = ${JSON.stringify(save.look)}::jsonb, save_updated_at = now()
     where id = ${playerId} returning id`;
   if (!rows.length) throw new HttpError(401, 'not signed in');
   return json({ ok: true });

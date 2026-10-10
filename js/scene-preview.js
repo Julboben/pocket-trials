@@ -55,7 +55,7 @@ export function posedRide(trail, { x = trail.start.x, facing = trail.start.facin
  * Draws `trail` with `ride` onto `target`, resizing it to fit.
  * @param {HTMLCanvasElement} target
  * @param {{
- *   trail: any, ride?: any, rider?: string, full?: boolean, headlights?: boolean,
+ *   trail: any, ride?: any, look?: import('./cosmetics.js').Look | null, full?: boolean, headlights?: boolean,
  *   width: number, height: number, scale?: number,
  *   focus?: { x: number, y: number }, anchor?: [number, number]
  * }} options  A view of `width` × `height` world units, `scale` device pixels per
@@ -64,25 +64,51 @@ export function posedRide(trail, { x = trail.start.x, facing = trail.start.facin
  * @returns {{ x: number, y: number, worldToDevice: number }} the camera used
  */
 export function drawScene(target, {
-  trail, ride = posedRide(trail), rider = 'male', full = true, headlights = true,
+  trail, ride = posedRide(trail), look = null, full = true, headlights = true,
   width, height, scale = 4, focus = null, anchor = [0.5, 0.72]
 }) {
   const { canvas, renderer, effects } = shared();
   renderer.setViewport(width, height, scale);
   renderer.reset(trail, ride.facing);
   renderer.setHeadlights(headlights);
-  renderer.settleHair(ride, rider);
+  renderer.settleHair(ride, look);
   effects.reset(trail);
   const point = focus || { x: (ride.rear.x + ride.front.x) / 2, y: (ride.rear.y + ride.front.y) / 2 };
   const view = { x: point.x - renderer.width * anchor[0], y: point.y - renderer.height * anchor[1] };
   const camera = { follow() {}, view: () => view };
-  renderer.draw({ ride, ghost: null, camera, effects, rider, state: 'ready', full, now: 0, dt: 0, debug: false });
+  renderer.draw({ ride, ghost: null, camera, effects, look, state: 'ready', full, now: 0, dt: 0, debug: false });
   target.width = canvas.width;
   target.height = canvas.height;
   const context = target.getContext('2d');
   context.imageSmoothingEnabled = false;
   context.drawImage(canvas, 0, 0);
   return { ...view, worldToDevice: canvas.width / renderer.width };
+}
+
+/**
+ * Draws only `ride`'s bike and rider onto `target`, over `backdrop` (see the
+ * renderer's drawFigure), framed as in drawScene. For menu scenes with a
+ * setting of their own instead of the trail.
+ * @param {HTMLCanvasElement} target
+ * @param {{
+ *   ride: any, look?: import('./cosmetics.js').Look | null, backdrop?: ((ctx: CanvasRenderingContext2D, view: { x: number, y: number, width: number, height: number }) => void) | null,
+ *   width: number, height: number, scale?: number, focus?: { x: number, y: number }, anchor?: [number, number]
+ * }} options
+ */
+export function drawFigure(target, { ride, look = null, backdrop = null, width, height, scale = 4, focus = null, anchor = [0.5, 0.72] }) {
+  const { canvas, renderer } = shared();
+  renderer.setViewport(width, height, scale);
+  renderer.reset(ride.trail, ride.facing);
+  renderer.settleHair(ride, look);
+  const point = focus || { x: (ride.rear.x + ride.front.x) / 2, y: (ride.rear.y + ride.front.y) / 2 };
+  const view = { x: point.x - renderer.width * anchor[0], y: point.y - renderer.height * anchor[1] };
+  renderer.drawFigure({ ride, look, view, backdrop });
+  target.width = canvas.width;
+  target.height = canvas.height;
+  const context = target.getContext('2d');
+  context.imageSmoothingEnabled = false;
+  context.clearRect(0, 0, target.width, target.height);
+  context.drawImage(canvas, 0, 0);
 }
 
 /**

@@ -22,7 +22,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Results screen with rank, personal best, flips, and gold/silver/bronze medal targets
 - The run timer starts on your first input
 - Installable as an offline-capable web app
-- Two rider styles and a custom rider name
+- Rider customization: gender and skin tone picked once when creating a rider, then hair, helmet (or none), outfit and bike, each with its own colour, changeable any time in the Garage, plus a custom rider name
 - Elasto Mania-style pixel dirt bike, with the original Pocket Classic bike kept for future biker customization
 - Layered foreground and background scenery
 - Pixel lighting at every time of day: ground stays bright by day and sinks into darkness at night, caves closed off by a back wall are dark at any hour while open hollows let the sky through, a headlight you can switch off that stays on the bike through flips and loops, lanterns, lamps, glowing mushrooms, and lightning light the way
@@ -142,7 +142,7 @@ The dashboard's Settings view includes:
 - Keyboard bindings
 - Fullscreen mode
 
-The game opens on a dedicated dashboard before any trail is loaded or rendered. Settings, trail selection, and an illustrated How to Play guide are full dashboard views rather than separate modals. Control instructions are centralized in the guide instead of being repeated around the gameplay interface. It provides three independent savegame slots. The dashboard has one orange call to action: Resume Ride while a ride is paused, otherwise Continue for the active rider, or Start Riding on a first visit, which goes straight to naming a rider. The Riders view lists every slot: pick a rider to make it active, use an empty slot to create a new one, or delete a rider to free its slot. Saves are never overwritten. A rider is chosen when a slot is created and is permanently tied to that save.
+The game opens on a dedicated dashboard before any trail is loaded or rendered. Settings, trail selection, and an illustrated How to Play guide are full dashboard views rather than separate modals. Control instructions are centralized in the guide instead of being repeated around the gameplay interface. It provides three independent savegame slots. The dashboard has one orange call to action: Resume Ride while a ride is paused, otherwise Continue for the active rider, or Start Riding on a first visit, which goes straight to naming a rider. The Riders view lists every slot: pick a rider to make it active, use an empty slot to create a new one, or delete a rider to free its slot. Saves are never overwritten. A new rider first picks a name, gender and skin tone (Light by default); these are fixed once the rider exists. Gender also sets face details and a suggested starting look, but every style stays open to everyone. The rider then picks a style and colour for hair, helmet, outfit and bike, and can change those any time from **Garage** on the dashboard. Riding without a helmet only changes how a crash looks, never the run. Saves from before looks existed keep their old rider as a look.
 
 Preferences and all three rider profiles—including each slot's current trail, unlocks, and best times—are stored in browser `localStorage`.
 
@@ -223,6 +223,7 @@ Tables are created automatically on first use. A rider without a passkey (for ex
 │   ├── drawing.js      # Shared canvas primitives and reusable game-art renderers
 │   ├── trails.js       # Terrain materials and generated-catalog loader
 │   ├── storage.js      # Preferences, progression, and best times
+│   ├── cosmetics.js    # DOM-free catalog of rider looks (gender, skin, hair, helmet, outfit, bike, and their colours)
 │   ├── account.js      # Passkey sign-up/login and cloud save sync
 │   ├── online-leaderboard.js # World leaderboard client
 │   └── terrain.js      # Heightfield and collision sampling
@@ -271,7 +272,7 @@ Everything is rendered with the Canvas 2D API. The gameplay and illustrated How 
 
 - Terrain blocks, caves, and floating ledges
 - Back walls: scenery behind the terrain that keeps caves dark
-- Modular pixel bike, rider, wheels, and suspension. Bike models are listed in `BIKE_MODELS` in `js/drawing.js` and chosen with the `bike` option of `drawBike`. `elasto` is the default and `classic` is the original bike
+- Modular pixel bike, rider, wheels, and suspension. Bike models are listed in `BIKE_MODELS` in `js/drawing.js` and chosen with the `bike` option of `drawBike`, or by the rider's look (`js/cosmetics.js`). `elasto` is the default and `classic` is the original bike
 - Smooth vector apples and pixel finish gates
 - Layered pixel props and particles
 - Pixel terrain with anchored pixel mountain silhouettes
