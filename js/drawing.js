@@ -1631,7 +1631,7 @@ export function drawBareHead(rect, colors, hair, face = null) {
 // The riding pose, in bike body coordinates before lean: where the helmet's
 // centre sits, and the hand on the handlebar every bike model shares.
 const RIDER_HEAD = [-3, -46];
-const RIDER_HAND = [16, -30];
+const RIDER_HAND = [16, -28];
 
 // The jersey, leaning forward from the hip on the seat to the shoulder. Top
 // left at (-16, -38), moved with the lean.
@@ -4567,8 +4567,8 @@ export function createGameArt(ctx) {
     bodyPath(
       [
         [10, -23],
-        [12, -30],
-        [19, -30],
+        [12, -28],
+        [19, -28],
       ],
       "#263a35",
       2,
@@ -4612,7 +4612,7 @@ export function createGameArt(ctx) {
     };
     const pivot = bodyPoint(-4, -6),
       shockTop = bodyPoint(-6, -20),
-      forkTop = bodyPoint(14, -28);
+      forkTop = bodyPoint(14, -26);
     const shockBase = [-half + (pivot[0] + half) * 0.45, pivot[1] * 0.45];
     const forkSlider = [half + (forkTop[0] - half) * 0.45, forkTop[1] * 0.45];
 
@@ -4646,16 +4646,16 @@ export function createGameArt(ctx) {
     // Top clamp, riser and handlebar, raised clear of the tank.
     bodyPath(
       [
-        [14, -28],
-        [13, -30],
+        [14, -26],
+        [13, -28],
       ],
       c.black,
       2,
     );
     bodyPath(
       [
-        [11, -30],
-        [19, -30],
+        [11, -28],
+        [19, -28],
       ],
       c.black,
       2,
@@ -4843,7 +4843,7 @@ export function createGameArt(ctx) {
       bodyPath(
         [
           [10 + shift * 0.3, -33],
-          [13, -31],
+          [13, -29],
         ],
         colors.skinLight,
         1,
