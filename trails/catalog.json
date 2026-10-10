@@ -60,6 +60,12 @@
       "source": "bonus",
       "file": "bonus/01-the-bonny-tyler.json",
       "name": "THE BONNY TYLER"
+    },
+    {
+      "id": "bonus:02-the-mining-cave",
+      "source": "bonus",
+      "file": "bonus/02-the-mining-cave.json",
+      "name": "The Mining Cave"
     }
   ]
 }

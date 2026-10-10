@@ -4,8 +4,8 @@ const HAIR_MAX_STEPS = 4;
 const HAIR_LENGTHS = [4, 4, 4, 4, 4];
 // Where the ponytail leaves the head: under the back of the helmet, or at the
 // nape of a bare head, which sits further forward.
-const HAIR_ROOT = [-6, -44];
-const BARE_HAIR_ROOT = [-4, -42];
+const HAIR_ROOT = [-12, -44];
+const BARE_HAIR_ROOT = [-10, -42];
 const HAIR_REST = [-.55, .84];
 // Each strand's colour is the matching entry of the cut's `strands`.
 const HAIR_STRANDS = [
@@ -67,10 +67,10 @@ export function freeHairRestDirection(facing) {
 
 export function hairBackSupport(pose) {
   const frame = riderBodyFrame(pose, true);
-  const top = frame.point(-7, -39);
-  const bottom = frame.point(-8, -27);
-  const outside = frame.point(-9, -33);
-  const inside = frame.point(-7, -33);
+  const top = frame.point(-9, -35);
+  const bottom = frame.point(-15, -25);
+  const outside = frame.point(-14, -30);
+  const inside = frame.point(-12, -29);
   const dx = outside.x - inside.x, dy = outside.y - inside.y;
   const length = Math.hypot(dx, dy) || 1;
   const bx = bottom.x - top.x, by = bottom.y - top.y;

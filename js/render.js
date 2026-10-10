@@ -11,6 +11,7 @@ import {
   fogAmount,
   fogColor,
   PAINTED_PROPS,
+  graffitiTurnedBounds,
   paintedPropY,
   propAlignmentSlope,
   propGroundOffset,
@@ -40,7 +41,7 @@ import {
 import { lookParts } from "./cosmetics.js";
 import { reducedMotion } from "./state.js";
 import { createLighting } from "./lighting.js";
-import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
+import { CRANE_LIGHTS, GRAFFITI_BOUNDS, LAMP_HEAD } from "./city-props.js";
 import { WATER_PROPS, FISH_DART, FISH_RANGE } from "./water-props.js";
 import { SQUIRREL_HIDE_MAX, SQUIRREL_RANGE } from "./forest-props.js";
 import {
@@ -330,7 +331,9 @@ export function createRenderer(canvas) {
     for (const prop of trail.props || []) {
       if (!PAINTED_PROPS.has(prop.type) || !inView(prop.x, 70)) continue;
       const y = paintedPropY(trail, prop);
-      if (y === null || !inView(prop.x, 70, y + 38, 64)) continue;
+      if (y === null) continue;
+      const [, top, , bottom] = propRotation(prop) ? graffitiTurnedBounds() : GRAFFITI_BOUNDS;
+      if (!inView(prop.x, 70, y + bottom + 2, bottom - top + 2)) continue;
       gameArt.drawWallPaint(trail, prop);
     }
   }
@@ -377,10 +380,10 @@ export function createRenderer(canvas) {
     for (const prop of props) {
       if ((prop.type === "squirrel") !== squirrels) continue;
       const rotation = propRotation(prop);
-      // A rotated prop can reach as far as its tallest side in any direction.
+      // A rotated prop can reach as far as its longest side in any direction.
       const reach = Math.max(
         PROP_REACH[prop.type] ?? 70,
-        rotation ? PROP_RISE[prop.type] ?? 90 : 0,
+        rotation ? Math.max(PROP_RISE[prop.type] ?? 90, PROP_HANG[prop.type] ?? 0) : 0,
       );
       if (
         prop.layer !== layer ||
