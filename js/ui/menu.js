@@ -477,8 +477,6 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     $('menu-first-ride').classList.toggle('menu-action-primary', !resumable);
     $('menu-riders').hidden = !hasSave;
     $('menu-garage').hidden = !hasSave;
-    // Without a save, START RIDING covers logging in too.
-    $('menu-login').hidden = !onlineAvailable || !hasSave || Boolean(session.saveGame?.token);
     if (resumable) {
       $('menu-resume-detail').textContent = 'Back to ' + (session.trail?.name ?? 'the trail')
         + (session.stateBeforeMenu === 'paused' ? ' · paused' : '');
@@ -1020,11 +1018,6 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     showSaveCreator(Math.max(0, session.saveSlots.findIndex(save => !save)));
   });
   $('menu-riders').addEventListener('click', () => { buildSaveSlots(); setStatus('riders-status', ''); showView('riders'); });
-  $('menu-login').addEventListener('click', () => {
-    buildSaveSlots();
-    showView('riders');
-    logIn('riders-status');
-  });
   $('save-login-button').addEventListener('click', () => logIn('save-login-status'));
   $('riders-login-button').addEventListener('click', () => logIn('riders-status'));
   $('menu-garage').addEventListener('click', openGarage);
@@ -1036,7 +1029,10 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   // back gesture) mean Keep Editing too.
   lookConfirm.addEventListener('cancel', event => { event.preventDefault(); closeLookConfirm(); });
   $('riders-login').hidden = !onlineAvailable;
-  if (onlineAvailable) $('menu-first-ride').querySelector('small').textContent = 'New rider, or log in with your passkey';
+  if (onlineAvailable) {
+    $('menu-first-ride').querySelector('small').textContent = 'New rider, or log in with your passkey';
+    $('menu-riders').querySelector('small').textContent = 'Switch, add or log in';
+  }
   document.querySelectorAll('[data-save-mode]').forEach(button => button.addEventListener('click', () => {
     setSaveMode(button.dataset.saveMode);
     setStatus('save-status', '');
