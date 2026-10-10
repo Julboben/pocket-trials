@@ -4596,7 +4596,8 @@ export function createGameArt(ctx) {
     path(
       [
         [half - 6, -16],
-        [half + 8, -16],
+        [half + 2, -16],
+        [half + 9, -14],
       ],
       paint.base,
       1,
@@ -4604,7 +4605,7 @@ export function createGameArt(ctx) {
     path(
       [
         [half - 4, -18],
-        [half + 6, -18],
+        [half + 5, -18],
       ],
       paint.light,
       1,
