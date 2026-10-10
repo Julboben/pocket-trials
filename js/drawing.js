@@ -940,12 +940,10 @@ export const canFlip = (type) =>
   !PAINTED_PROPS.has(type) &&
   !CEILING_PROPS.has(type);
 // Props that fit themselves to the world or move through it keep their own
-// angle: wall, ceiling, cave-fitted, painted and water props, and the animals
-// and effects that wander, fly or shimmer.
+// angle: ceiling, cave-fitted and water props, and the animals and effects
+// that wander, fly or shimmer. Wall props and graffiti turn about their anchor.
 const UNROTATABLE_PROPS = new Set(["squirrel", "tumbleweed", "vulture", "bird", "heat-haze"]);
 export const canRotate = (type) =>
-  !WALL_PROPS.has(type) &&
-  !PAINTED_PROPS.has(type) &&
   !CAVE_FITTED_PROPS.has(type) &&
   !WATER_PROPS.has(type) &&
   !UNROTATABLE_PROPS.has(type);
@@ -1399,18 +1397,23 @@ function graffitiSprite(trail, prop) {
   const y = paintedPropY(trail, prop);
   if (y === null) return null;
   const geometry = terrainGeometry(trail);
+  const angle = propRotation(prop);
   const cached = graffitiPaint.get(prop);
-  if (cached && cached.x === prop.x && cached.y === y && cached.geometry === geometry)
+  if (cached && cached.x === prop.x && cached.y === y && cached.angle === angle
+    && cached.geometry === geometry)
     return cached.sprite;
 
-  const [left, top, right, bottom] = GRAFFITI_BOUNDS;
+  const [left, top, right, bottom] = angle ? graffitiTurnedBounds() : GRAFFITI_BOUNDS;
   const columns = (right - left) / ART_PIXEL;
   const rows = (bottom - top) / ART_PIXEL;
   const canvas = createCanvas(columns, rows);
   const context = canvas.getContext("2d");
-  context.setTransform(1 / ART_PIXEL, 0, 0, 1 / ART_PIXEL, -left / ART_PIXEL, -top / ART_PIXEL);
-  drawGraffiti(createDrawingTools(context));
-  context.setTransform(1, 0, 0, 1, 0, 0);
+  if (angle) context.putImageData(turnedGraffiti(angle, columns, rows, left, top), 0, 0);
+  else {
+    context.setTransform(1 / ART_PIXEL, 0, 0, 1 / ART_PIXEL, -left / ART_PIXEL, -top / ART_PIXEL);
+    drawGraffiti(createDrawingTools(context));
+    context.setTransform(1, 0, 0, 1, 0, 0);
+  }
 
   const anchorX = Math.round(prop.x / ART_PIXEL) * ART_PIXEL;
   const anchorY = Math.round(y / ART_PIXEL) * ART_PIXEL;
@@ -1433,8 +1436,45 @@ function graffitiSprite(trail, prop) {
     }
   }
   const sprite = { canvas, left: anchorX + left, top: anchorY + top, width: right - left, height: bottom - top };
-  graffitiPaint.set(prop, { x: prop.x, y, geometry, sprite });
+  graffitiPaint.set(prop, { x: prop.x, y, angle, geometry, sprite });
   return sprite;
+}
+
+/** A square around the anchor that holds the graffiti at any angle. */
+export function graffitiTurnedBounds() {
+  const [left, top, right, bottom] = GRAFFITI_BOUNDS;
+  const reach = Math.ceil(Math.hypot(Math.max(-left, right), Math.max(-top, bottom)) / ART_PIXEL) * ART_PIXEL;
+  return [-reach, -reach, reach, reach];
+}
+
+/**
+ * The graffiti turned clockwise by `angle` about its anchor, one art pixel per
+ * canvas pixel, each taken from the nearest pixel of the upright art so the
+ * paint stays crisp.
+ */
+function turnedGraffiti(angle, columns, rows, left, top) {
+  const [artLeft, artTop, artRight, artBottom] = GRAFFITI_BOUNDS;
+  const artColumns = (artRight - artLeft) / ART_PIXEL;
+  const artRows = (artBottom - artTop) / ART_PIXEL;
+  const upright = createCanvas(artColumns, artRows).getContext("2d");
+  upright.setTransform(1 / ART_PIXEL, 0, 0, 1 / ART_PIXEL, -artLeft / ART_PIXEL, -artTop / ART_PIXEL);
+  drawGraffiti(createDrawingTools(upright));
+  const source = upright.getImageData(0, 0, artColumns, artRows).data;
+  const turned = upright.createImageData(columns, rows);
+  const c = Math.cos(angle), s = Math.sin(angle);
+  for (let row = 0; row < rows; row++) {
+    for (let column = 0; column < columns; column++) {
+      // The centre of this pixel, turned back onto the upright art.
+      const x = left + (column + 0.5) * ART_PIXEL;
+      const y = top + (row + 0.5) * ART_PIXEL;
+      const sx = Math.floor((x * c + y * s - artLeft) / ART_PIXEL);
+      const sy = Math.floor((-x * s + y * c - artTop) / ART_PIXEL);
+      if (sx < 0 || sy < 0 || sx >= artColumns || sy >= artRows) continue;
+      const from = (sy * artColumns + sx) * 4, to = (row * columns + column) * 4;
+      for (let k = 0; k < 4; k++) turned.data[to + k] = source[from + k];
+    }
+  }
+  return turned;
 }
 
 export function propGroundOffset(trail, prop) {
