@@ -4560,10 +4560,11 @@ export function createGameArt(ctx) {
     spring(half, 0, frontMount[0], frontMount[1], "#f0b45f");
 
     bodyRect(-9, -20, 24, 4, paint.base);
-    bodyRect(-9, -22, 4, 2, "#263a35");
-    bodyRect(-17, -26, 14, 4, "#263a35");
-    bodyRect(-20, -29, 5, 5, brakePressure > 0.08 ? "#ff6045" : "#713c35", 2);
-    if (brakePressure > 0.6) bodyRect(-19, -28, 2, 2, "#ffd0a2", 2);
+    // Seat under the rider: a lit top over a dark base, rounded at the tail.
+    bodyRect(-17, -24, 18, 2, "#3e5750");
+    bodyRect(-19, -22, 20, 2, "#263a35");
+    bodyRect(-23, -24, 4, 4, brakePressure > 0.08 ? "#ff6045" : "#713c35");
+    if (brakePressure > 0.6) bodyRect(-23, -24, 2, 2, "#ffd0a2");
     bodyPath(
       [
         [10, -23],
@@ -4662,17 +4663,17 @@ export function createGameArt(ctx) {
     );
     path(
       [
-        [half - 6, -16],
-        [half + 2, -16],
-        [half + 9, -14],
+        [half - 6, -18],
+        [half + 2, -18],
+        [half + 9, -16],
       ],
       paint.base,
       1,
     );
     path(
       [
-        [half - 4, -18],
-        [half + 5, -18],
+        [half - 4, -20],
+        [half + 5, -20],
       ],
       paint.light,
       1,

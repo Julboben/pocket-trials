@@ -5,8 +5,9 @@ import assert from 'node:assert/strict';
 import {
   LOOK_SLOTS, IDENTITY_SLOTS, LOOK_PARTS, SLOT_LABELS, LOOK_ITEMS, DEFAULT_LOOK, STARTER_LOOKS, lookItem, itemsForSlot,
   isDefaultItem, starterLook, legacyLook, legacyRider, normalizeLook, keepIdentity, lookOf, isCompleteLook, lookKey,
-  sameLook, isColorless, partName, randomLook, lookParts
+  sameLook, isColorless, partName, randomLook, lookParts, isUnlocked, ownsWith, ownedLook, MX_HELMET_TRAIL
 } from '../js/cosmetics.js';
+import { readFileSync } from 'node:fs';
 import { BIKE_MODELS } from '../js/drawing.js';
 import { createRagdoll } from '../js/ragdoll.js';
 
@@ -24,8 +25,7 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
     ids.add(item.slot + ':' + item.id);
     assert.ok(item.name, `${item.id} has a name`);
     assert.ok(Object.isFrozen(item), `${item.id} is frozen`);
-    // Rewards will add more unlock types; for now every item is everyone's.
-    assert.equal(item.unlock.type, 'default', `${item.id} is a default item`);
+    assert.ok(['default', 'golds', 'trail'].includes(item.unlock.type), `${item.id} has a known unlock rule`);
     assert.equal(lookItem(item.slot, item.id), item);
   }
   for (const slot of LOOK_SLOTS) {
@@ -138,6 +138,30 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
   for (let index = 0; index < 50; index++) assert.notEqual(randomLook(female, { random, owns }).outfitColor, 'yellow');
 }
 
+// --- Unlocks --------------------------------------------------------------------
+
+{
+  // The Pocket Classic takes 8 gold medals; the motocross helmet, The Bonny Tyler.
+  assert.deepEqual(lookItem('bike', 'classic').unlock, { type: 'golds', count: 8 });
+  assert.deepEqual(lookItem('helmet', 'mx').unlock, { type: 'trail', trail: MX_HELMET_TRAIL });
+  const catalog = JSON.parse(readFileSync(new URL('../trails/catalog.json', import.meta.url), 'utf8'));
+  assert.ok(catalog.trails.some(entry => entry.id === MX_HELMET_TRAIL), 'the helmet\'s trail is in the catalog');
+
+  const progress = (golds, finished = []) => ({ golds, finished: id => finished.includes(id) });
+  assert.ok(isUnlocked({ type: 'default' }, null), 'default items need no career');
+  assert.ok(!isUnlocked({ type: 'golds', count: 8 }, null), 'won items need a career');
+  assert.ok(!isUnlocked({ type: 'golds', count: 8 }, progress(7)));
+  assert.ok(isUnlocked({ type: 'golds', count: 8 }, progress(8)));
+  assert.ok(!isUnlocked({ type: 'trail', trail: MX_HELMET_TRAIL }, progress(20)));
+  assert.ok(isUnlocked({ type: 'trail', trail: MX_HELMET_TRAIL }, progress(0, [MX_HELMET_TRAIL])));
+
+  const fresh = ownsWith(progress(0));
+  assert.ok(fresh('bike', 'elasto') && !fresh('bike', 'classic') && !fresh('helmet', 'mx'));
+  assert.ok(!fresh('bike', 'rocket'), 'unknown items are never owned');
+  const veteran = ownsWith(progress(8, [MX_HELMET_TRAIL]));
+  assert.ok(veteran('bike', 'classic') && veteran('helmet', 'mx'));
+}
+
 // --- Cleaning looks --------------------------------------------------------------
 
 {
@@ -154,9 +178,12 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
   assert.deepEqual(normalizeLook({ skin: 'fair' }, { fallback: legacyLook('female') }), { ...legacyLook('female'), skin: 'fair' });
   // Slots never borrow ids from each other.
   assert.equal(normalizeLook({ ...look, hairColor: 'teal' }).hairColor, DEFAULT_LOOK.hairColor);
-  // Items the rider doesn't own are refused, which is how won items will be guarded.
+  // Items the rider doesn't own are refused.
   const owns = (slot, id) => !(slot === 'bike' && id === 'classic');
   assert.equal(normalizeLook(look, { owns }).bike, DEFAULT_LOOK.bike);
+  // A worn look keeps the rider's identity and swaps locked items for their starter ones.
+  const worn = ownedLook({ ...look, helmet: 'mx' }, isDefaultItem);
+  assert.deepEqual(worn, { ...look, helmet: STARTER_LOOKS.female.helmet, bike: STARTER_LOOKS.female.bike });
   assert.ok(!Object.hasOwn(normalizeLook({ ...look, extra: 1 }), 'extra'));
 
   assert.deepEqual(lookOf({ rider: 'female' }), legacyLook('female'), 'old records keep their rider');
@@ -203,20 +230,22 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
 
   const look = { ...starterLook('male', 'fair'), hair: 'buzz', hairColor: 'red', helmet: 'none', bike: 'classic', bikeColor: 'black' };
   const created = storage.createSave(1, look, 9, 'NEWBIE');
-  assert.deepEqual(created.look, look);
+  assert.deepEqual(created.look, { ...look, bike: STARTER_LOOKS.male.bike }, 'a new rider has won nothing yet');
   assert.equal(created.rider, 'male');
 
+  const everything = () => true;
   const restyled = { ...look, hair: 'ponytail', outfitColor: 'pink' };
-  const saved = storage.saveLook(1, 9, restyled);
+  assert.equal(storage.saveLook(1, 9, restyled, isDefaultItem).look.bike, STARTER_LOOKS.male.bike, 'locked items are not saved');
+  const saved = storage.saveLook(1, 9, restyled, everything);
   assert.deepEqual(saved.look, restyled);
   assert.equal(saved.rider, 'male', 'a ponytail does not change who the rider is');
-  assert.deepEqual(storage.saveLook(1, 9, { ...restyled, gender: 'female', skin: 'deep' }).look, restyled, 'gender and skin are fixed');
-  assert.deepEqual(storage.saveLook(1, 9, { ...restyled, helmet: 'crown' }).look, restyled, 'a bad item keeps the current one');
+  assert.deepEqual(storage.saveLook(1, 9, { ...restyled, gender: 'female', skin: 'deep' }, everything).look, restyled, 'gender and skin are fixed');
+  assert.deepEqual(storage.saveLook(1, 9, { ...restyled, helmet: 'crown' }, everything).look, restyled, 'a bad item keeps the current one');
   assert.deepEqual(JSON.parse(items.get('hjulben-saves-v2'))[1].look, restyled, 'looks are written to storage');
   saved.look.hair = 'bald';
   assert.equal(storage.loadSaveSlots(9)[1].look.hair, 'ponytail', 'loaded saves are copies');
 
-  const oldRestyled = storage.saveLook(0, 9, { ...STARTER_LOOKS.male, hair: 'bob' });
+  const oldRestyled = storage.saveLook(0, 9, { ...STARTER_LOOKS.male, hair: 'bob' }, everything);
   assert.equal(oldRestyled.look.gender, 'female', 'old riders keep their gender');
   assert.equal(oldRestyled.look.skin, 'tan', 'and their skin');
   assert.equal(oldRestyled.look.hair, 'bob');

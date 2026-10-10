@@ -6,8 +6,9 @@
 // plus a colour, each its own slot, so a colour can be won on its own later.
 // Item ids are stored in saves, runs and ghosts, so they are never renamed or
 // reused: retire an item with `hidden: true` instead. Every item has an
-// `unlock` rule. Only 'default' exists for now, but the rule is data so later
-// rewards can add their own types without changing what a look is.
+// `unlock` rule: 'default' items are everyone's from the start, 'golds' asks
+// for gold medals on that many official trails, and 'trail' for a finished
+// trail. Rules are data, so new rewards don't change what a look is.
 
 export const LOOK_SLOTS = /** @type {const} */ ([
   'gender', 'skin',
@@ -45,6 +46,9 @@ export const LOOK_ART = 'pocket';
 
 const DEFAULT_UNLOCK = Object.freeze({ type: 'default' });
 
+/** The bonus trail that wins the motocross helmet. */
+export const MX_HELMET_TRAIL = 'bonus:01-the-bonny-tyler';
+
 /**
  * @typedef {{
  *   gender: string, skin: string,
@@ -52,10 +56,14 @@ const DEFAULT_UNLOCK = Object.freeze({ type: 'default' });
  *   outfit: string, outfitColor: string, bike: string, bikeColor: string
  * }} Look
  * @typedef {{
- *   id: string, slot: string, name: string, unlock: { type: string },
+ *   id: string, slot: string, name: string, unlock: Unlock,
  *   hidden?: boolean, colorless?: boolean, lean?: string, blurb?: string, chip?: string[],
  *   [key: string]: any
  * }} LookItem
+ * @typedef {{ type: 'default' } | { type: 'golds', count: number } | { type: 'trail', trail: string }} Unlock
+ * @typedef {{ golds: number, finished: (trailId: string) => boolean }} LookProgress
+ *   what a career has done: gold medals won on official trails, and whether
+ *   a trail (by catalog id) has been finished
  */
 
 // Skin: the face, its highlight and shadow, a plain mouth and a rosier one.
@@ -109,7 +117,10 @@ export const LOOK_ITEMS = /** @type {LookItem[]} */ ([
   hairColor('pink', 'Pink', ['#d97a9c', '#f2a6c0', '#ab5576', '#5e2a3d'], 'female'),
 
   { id: 'classic', slot: 'helmet', name: 'Full face', shape: 'classic', blurb: 'Tinted visor, stripe on top.' },
-  { id: 'mx', slot: 'helmet', name: 'Motocross', shape: 'mx', blurb: 'Long peak, goggles, chin bar out front.' },
+  {
+    id: 'mx', slot: 'helmet', name: 'Motocross', shape: 'mx', blurb: 'Long peak, goggles, chin bar out front.',
+    unlock: { type: 'trail', trail: MX_HELMET_TRAIL }
+  },
   // No helmet: the bare head shows while riding, and a crash has none to knock off.
   { id: 'none', slot: 'helmet', name: 'No helmet', bare: true, colorless: true, blurb: 'Wind in your hair. Mind the rocks.' },
 
@@ -142,7 +153,10 @@ export const LOOK_ITEMS = /** @type {LookItem[]} */ ([
 
   // Bikes only change the art: every model shares the seat, pegs and bars.
   { id: 'elasto', slot: 'bike', name: 'Elasto', model: 'elasto', shape: 'elasto', blurb: 'Long-travel trials bike.' },
-  { id: 'classic', slot: 'bike', name: 'Pocket Classic', model: 'classic', shape: 'classic', blurb: 'The original. Still rides.' },
+  {
+    id: 'classic', slot: 'bike', name: 'Pocket Classic', model: 'classic', shape: 'classic', blurb: 'The original. Still rides.',
+    unlock: { type: 'golds', count: 8 }
+  },
 
   bikeColor('green', 'Green', ['#3aa63c', '#8fdc6e', '#1f6b2c'], '#2e8a34'),
   bikeColor('orange', 'Orange', ['#ee6f3f', '#f39a63', '#a8461f'], '#d95832'),
@@ -165,6 +179,29 @@ export const itemsForSlot = slot => LOOK_ITEMS.filter(item => item.slot === slot
 
 /** Whether every rider has this item from the start. */
 export const isDefaultItem = (slot, id) => lookItem(slot, id)?.unlock.type === 'default';
+
+/**
+ * Whether a career with `progress` has met an unlock rule. Without a career
+ * (null), only default items are open.
+ * @param {Unlock} unlock
+ * @param {LookProgress | null} progress
+ */
+export function isUnlocked(unlock, progress) {
+  if (unlock.type === 'default') return true;
+  if (!progress) return false;
+  if (unlock.type === 'golds') return progress.golds >= unlock.count;
+  if (unlock.type === 'trail') return progress.finished(unlock.trail);
+  return false;
+}
+
+/** The `owns` check for a career with `progress`: the items it has unlocked. */
+export const ownsWith = progress => (slot, id) => {
+  const item = lookItem(slot, id);
+  return Boolean(item && isUnlocked(item.unlock, progress));
+};
+
+/** Any item in the catalog: for looks already worn in a save, run or ghost. */
+const anyItem = (slot, id) => Boolean(lookItem(slot, id));
 
 /** Each gender's first look: what a new rider starts from, before any change. */
 export const STARTER_LOOKS = Object.freeze({
@@ -201,13 +238,14 @@ export const legacyRider = look => (look?.gender === 'female' ? 'female' : 'male
 
 /**
  * A complete, valid look. Each slot keeps its item if it exists and the rider
- * `owns` it, and otherwise falls back to `fallback`'s item for that slot, so a
- * bad or retired id never breaks the rest of the look.
+ * `owns` it (any catalog item, unless given), and otherwise falls back to
+ * `fallback`'s item for that slot, so a bad or retired id never breaks the
+ * rest of the look.
  * @param {any} raw
  * @param {{ fallback?: Look, owns?: (slot: string, id: string) => boolean }} [options]
  * @returns {Look}
  */
-export function normalizeLook(raw, { fallback = DEFAULT_LOOK, owns = isDefaultItem } = {}) {
+export function normalizeLook(raw, { fallback = DEFAULT_LOOK, owns = anyItem } = {}) {
   const source = raw && typeof raw === 'object' ? raw : {};
   const look = /** @type {Look} */ ({});
   for (const slot of LOOK_SLOTS) {
@@ -215,6 +253,16 @@ export function normalizeLook(raw, { fallback = DEFAULT_LOOK, owns = isDefaultIt
     look[slot] = typeof id === 'string' && lookItem(slot, id) && owns(slot, id) ? id : fallback[slot];
   }
   return look;
+}
+
+/**
+ * `look` with only items the rider `owns`: any other slot goes back to their
+ * starter item, which every rider has.
+ * @returns {Look}
+ */
+export function ownedLook(look, owns) {
+  const valid = normalizeLook(look);
+  return normalizeLook(valid, { fallback: starterLook(valid.gender, valid.skin), owns });
 }
 
 /** `next`, keeping `current`'s gender and skin: identity is never changed after creation. */

@@ -20,7 +20,7 @@ import { ACTION_LABELS, keyLabel } from '../input.js';
 import { VERSION } from '../version.js';
 import {
   $, session, DEFAULT_BINDINGS, DEFAULT_PREFERENCES, sanitizePreferences,
-  leaderboardTrails, trailKey, trailMarker, runTimeText, bonusUnlock
+  leaderboardTrails, trailKey, trailMarker, runTimeText, bonusUnlock, lookOwner, riderLook, lookItemHint
 } from '../state.js';
 
 // Runs made without a savegame have no name.
@@ -42,7 +42,7 @@ export function loadStoredState() {
   }
   session.unlockedTrail = session.saveGame?.unlocked || 0;
   session.savedTrail = session.saveGame?.trail || 0;
-  session.look = session.saveGame?.look ?? DEFAULT_LOOK;
+  session.look = riderLook();
 }
 
 /**
@@ -200,7 +200,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
 
   // Creating a rider takes two steps: who they are (name, gender, skin), then
   // their style. The Garage changes the active rider's style later.
-  const customizerHooks = { paint: paintPreview, previewKey: sceneKey };
+  const customizerHooks = { paint: paintPreview, previewKey: sceneKey, hint: lookItemHint };
   // Until the style step is changed by hand, it follows the gender picked.
   let creatorTouched = false;
   const identityPicker = createIdentityPicker($('new-save-identity'), {
@@ -213,7 +213,11 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     ...customizerHooks,
     onChange: look => { creatorTouched = !sameLook(look, starterLook(look.gender, look.skin)); }
   });
-  const garage = createCustomizer($('garage-look'), { ...customizerHooks, onChange: syncGarage });
+  // The Garage offers what the active rider has unlocked, checked when it opens.
+  let garageOwns = lookOwner(null);
+  const garage = createCustomizer($('garage-look'), {
+    ...customizerHooks, onChange: syncGarage, owns: (slot, id) => garageOwns(slot, id)
+  });
   garage.actions.append($('save-look'));
 
   function showSaveStep(step) {
@@ -242,6 +246,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   function openGarage() {
     if (!session.saveGame) return;
     $('garage-rider').textContent = session.saveGame.name;
+    garageOwns = lookOwner(session.saveGame);
     garage.setLook(session.look, { tab: 'hair' });
     syncGarage();
     showView('look');
@@ -249,7 +254,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
 
   function saveGarageLook() {
     if (!session.saveGame) return;
-    const saved = saveLook(session.activeSaveSlot, trails.length, garage.look());
+    const saved = saveLook(session.activeSaveSlot, trails.length, garage.look(), garageOwns);
     if (!saved) return;
     session.saveSlots[session.activeSaveSlot] = saved;
     session.saveGame = saved;
@@ -265,7 +270,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     session.saveGame = session.saveSlots[session.activeSaveSlot];
     session.unlockedTrail = session.saveGame?.unlocked || 0;
     session.savedTrail = session.saveGame?.trail || 0;
-    session.look = session.saveGame?.look ?? DEFAULT_LOOK;
+    session.look = riderLook();
     updateDashboard();
   }
 

@@ -5,8 +5,9 @@ import { keepIdentity, legacyLook, legacyRider, normalizeLook } from '../../js/c
 /**
  * The look a request or row stands for: its `look`, with any missing or
  * unknown item taken from its old `rider` ('male' or 'female'), so clients
- * and rows from before looks existed keep the rider they had. Only items every
- * rider owns are accepted for now; won items will be checked here too.
+ * and rows from before looks existed keep the rider they had. Any catalog
+ * item is accepted: items are won from career progress kept on the device,
+ * like bonus trails, so the server can't check them, and they are cosmetic.
  */
 export const lookOf = record => normalizeLook(record?.look, { fallback: legacyLook(record?.rider) });
 
