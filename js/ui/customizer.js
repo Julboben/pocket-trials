@@ -34,9 +34,12 @@ function posed() {
   if (!pose) {
     const trail = trails[0];
     const ride = posedRide(trail);
+    // The garage floor is flat, so level the bike the start's slope tipped.
+    const axle = Math.max(ride.rear.y, ride.front.y);
+    ride.rear.y = ride.front.y = axle;
     const x = (ride.rear.x + ride.front.x) / 2;
-    const floor = Math.max(ride.rear.y, ride.front.y) + RADIUS;
-    pose = { trail, ride, x, y: (ride.rear.y + ride.front.y) / 2, backdrop: (ctx, view) => drawGarage(ctx, view, { x, floor }) };
+    const floor = axle + RADIUS;
+    pose = { trail, ride, x, y: axle, backdrop: (ctx, view) => drawGarage(ctx, view, { x, floor }) };
   }
   return pose;
 }
