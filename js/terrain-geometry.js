@@ -850,6 +850,33 @@ export function scaleBlock(block, px, py, sx, sy) {
   return { ...block, outer: scale(block.outer), inner: block.inner.map(scale) };
 }
 
+/**
+ * Turn a point about (px, py) by `angle` radians, clockwise on screen (the
+ * canvas y axis points down).
+ */
+export function rotatePoint(x, y, px, py, angle) {
+  const c = Math.cos(angle), s = Math.sin(angle);
+  const dx = x - px, dy = y - py;
+  return [px + dx * c - dy * s, py + dx * s + dy * c];
+}
+
+/**
+ * Rotate a block and every boundary it owns about (px, py) by `angle` radians,
+ * clockwise on screen. Curve handles turn with their points, so curves keep
+ * their shape exactly.
+ */
+export function rotateBlock(block, px, py, angle) {
+  const at = ([x, y]) => rotatePoint(x, y, px, py, angle).map(round);
+  const rotate = boundary => ({
+    ...boundary,
+    nodes: boundary.nodes.map(node => {
+      const [x, y] = at([node.x, node.y]);
+      return { ...node, x, y, in: node.in ? at(node.in) : null, out: node.out ? at(node.out) : null };
+    }),
+  });
+  return { ...block, outer: rotate(block.outer), inner: block.inner.map(rotate) };
+}
+
 /** Insert a node into an edge without changing the edge's shape. */
 export function insertBoundaryNode(boundary, edgeIndex, t) {
   const nodes = boundary.nodes;

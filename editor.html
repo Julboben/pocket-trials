@@ -597,6 +597,22 @@
                                     <option value="true">Flipped</option>
                                 </select></label
                             >
+                            <label id="selection-rotation-row" hidden
+                                >Rotation (°, clockwise)
+                                <input
+                                    id="selection-rotation"
+                                    type="number"
+                                    min="-180"
+                                    max="180"
+                                    step="1"
+                            /></label>
+                            <div class="field-row" id="selection-rotate-row" hidden>
+                                Rotate
+                                <span class="segmented">
+                                    <button type="button" id="rotate-ccw">↺ 90°</button>
+                                    <button type="button" id="rotate-cw">↻ 90°</button>
+                                </span>
+                            </div>
                             <label id="selection-radius-row" hidden
                                 >Radius
                                 <input
@@ -837,6 +853,8 @@
                         <dd>Change prop type</dd>
                         <dt><kbd>X</kbd></dt>
                         <dd>Flip prop</dd>
+                        <dt><kbd>R</kbd></dt>
+                        <dd>Rotate 15° clockwise; <kbd>Shift</kbd> for counter-clockwise</dd>
                         <dt><kbd>⌘/Ctrl</kbd> <kbd>Z</kbd></dt>
                         <dd>Undo; <kbd>Shift</kbd> to redo</dd>
                     </dl>
@@ -852,6 +870,8 @@
                         <dd>Scale from the centre</dd>
                         <dt><kbd>Shift</kbd></dt>
                         <dd>Snap to the grid</dd>
+                        <dt>Round handle</dt>
+                        <dd>Rotate; <kbd>Shift</kbd> snaps to 15°</dd>
                     </dl>
                 </section>
                 <section>

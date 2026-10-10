@@ -76,6 +76,8 @@ export const HELMET_KNOCK_MAX = 240;
 export const HELMET_RADIUS = 6;
 // The bare head is a little smaller than the helmet around it.
 const BARE_HEAD_RADIUS = 4.5;
+// A rider without a helmet has no strap to break.
+const strap = (strength, helmeted) => (helmeted ? strength : Infinity);
 const HELMET_INVERSE_MASS = 1 / 0.2;
 // A hard shell: bouncier and slicker than the body. `grip` still lets it
 // settle on gentle slopes instead of rolling forever.
@@ -110,10 +112,13 @@ const cross = (a, b, c) =>
  *   my?: number,
  *   angle?: number,
  *   flipVisual?: number,
- *   leanVisual?: number
- * }} [visual]
+ *   leanVisual?: number,
+ *   helmet?: boolean
+ * }} [visual]  `helmet: false` throws a rider who wears none: a bare head
+ *   from the start, and nothing to knock off.
  */
 export function createRagdoll(rear, front, facing, random, visual = {}) {
+  const helmeted = visual.helmet !== false;
   const mx = visual.mx ?? (rear.x + front.x) / 2;
   const my = visual.my ?? (rear.y + front.y) / 2;
 
@@ -184,7 +189,7 @@ export function createRagdoll(rear, front, facing, random, visual = {}) {
       y,
       ox: x - pvx,
       oy: y - pvy,
-      radius: name === "head" ? 6 : 3,
+      radius: name === "head" ? (helmeted ? HELMET_RADIUS : BARE_HEAD_RADIUS) : 3,
       inverseMass: 1 / MASS[name],
     };
   }
@@ -236,8 +241,11 @@ export function createRagdoll(rear, front, facing, random, visual = {}) {
     asleep: false,
     clearOfBike: false,
     // Drawn after the joints, so a thrown rider's tumble is unchanged.
-    helmetStrap:
+    // Drawn either way, so the joints that follow get the same random numbers.
+    helmetStrap: strap(
       HELMET_KNOCK_MIN + random() * (HELMET_KNOCK_MAX - HELMET_KNOCK_MIN),
+      helmeted,
+    ),
     // The loose helmet once it has come off, else null.
     helmet: null,
   };

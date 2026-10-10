@@ -10,6 +10,8 @@ import {
   createCanvas,
   lanternFlicker,
   mushroomPulse,
+  propPoint,
+  propRotation,
   propWallFit,
   sunLight,
   timeOfDayPalette,
@@ -239,24 +241,28 @@ export function createLighting() {
       const ground = terrainAt(trail, prop.x);
       if (!ground.solid && !Number.isFinite(prop.y)) continue;
       const y = Number.isFinite(prop.y) ? prop.y : ground.y;
-      const dir = prop.flip ? -1 : 1;
+      // Points on the prop's art, flipped and rotated with it.
+      const at = (lx, ly) => propPoint(prop, y, lx, ly);
+      const angle = propRotation(prop);
       if (type === "lantern") {
         const fit = propWallFit(trail, prop);
         const cy = y + (fit?.body || 0) + LANTERN_CENTRE;
         lights.push({ kind: type, phase: prop.x, x: prop.x, y: cy, radius: 150, color: LANTERN, core: 12 });
       } else if (type === "mushrooms") {
-        lights.push({ kind: type, phase: prop.x, x: prop.x, y: y - 6, radius: 64, color: GLOW, strength: 0.8 });
+        const glow = at(0, -6);
+        lights.push({ kind: type, phase: prop.x, x: glow.x, y: glow.y, radius: 64, color: GLOW, strength: 0.8 });
       } else if (type === "lamp") {
-        const hx = prop.x + dir * LAMP_HEAD.x,
-          hy = y + LAMP_HEAD.y;
+        const { x: hx, y: hy } = at(LAMP_HEAD.x, LAMP_HEAD.y);
         if (!darkAt(entry, hx, hy)) continue;
-        lights.push({ x: hx, y: hy, radius: 170, color: LAMP, angle: Math.PI / 2, spread: 0.42 });
+        lights.push({ x: hx, y: hy, radius: 170, color: LAMP, angle: Math.PI / 2 + angle, spread: 0.42 });
         lights.push({ x: hx, y: hy, radius: 40, color: LAMP, strength: 0.6, core: 6 });
       } else {
-        if (!darkAt(entry, prop.x, y + CRANE_LIGHTS[0][1])) continue;
-        CRANE_LIGHTS.forEach(([lx, ly], index) =>
-          lights.push({ kind: type, phase: index, x: prop.x + dir * lx, y: y + ly, radius: 40, color: CRANE, strength: 0.7, core: 4 }),
-        );
+        const top = at(...CRANE_LIGHTS[0]);
+        if (!darkAt(entry, top.x, top.y)) continue;
+        CRANE_LIGHTS.forEach(([lx, ly], index) => {
+          const light = at(lx, ly);
+          lights.push({ kind: type, phase: index, x: light.x, y: light.y, radius: 40, color: CRANE, strength: 0.7, core: 4 });
+        });
       }
     }
     return lights;

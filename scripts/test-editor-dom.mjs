@@ -118,6 +118,31 @@ const reported = (report, label) => {
 }
 
 // ---------------------------------------------------------------------------
+// Rotation: the handle, R and the inspector.
+// ---------------------------------------------------------------------------
+{
+  const report = await boot('rotate');
+  const json = JSON.stringify;
+  check('a selected block shows the rotate handle and quarter-turn buttons', report.blockHandle === true && report.blockRowShown === true);
+  check('dragging the handle a quarter turn turns the block about its centre', json(report.blockTurned) === json([250, 50, 550, 850]), `(${json(report.blockTurned)})`);
+  check('one rotate drag is one undo step', report.oneUndo === true);
+  check('the quarter-turn button turns the block', json(report.buttonTurned) === json([250, 50, 550, 850]), `(${json(report.buttonTurned)})`);
+  check('a lone prop shows its Rotation field instead of the buttons', /PROP/i.test(report.propTitle || '') && report.propFieldShown === true && report.propButtonsHidden === true, `("${report.propTitle}")`);
+  check('Shift snaps a prop to 15 degrees', report.snapped === 15, `(${report.snapped})`);
+  check('without Shift a prop turns freely', Math.abs(report.free - 20) < 0.2, `(${report.free})`);
+  check('undo restores an unrotated prop', report.undone === undefined, `(${report.undone})`);
+  check('R turns a prop 15 degrees clockwise', report.keyR === 15, `(${report.keyR})`);
+  check('Shift+R turns it back counter-clockwise', report.keyShiftR === -15, `(${report.keyShiftR})`);
+  check('the Rotation field wraps to -180..180', report.fieldWrapped === -160, `(${report.fieldWrapped})`);
+  check('a rotation of 0 is left out of the trail', report.fieldCleared === false);
+  check('turning everything moves the start but keeps its facing', report.startMoved === true && report.startFacing === true);
+  check('turning everything moves water but keeps it level', report.waterMoved === true && report.waterShape === true);
+  check('turning everything turns the props', report.propTurned === 90, `(${report.propTurned})`);
+  check('water alone has no rotate handle', /WATER/i.test(report.waterTitle || '') && report.waterHandle === null && report.waterRowHidden === true, `("${report.waterTitle}")`);
+  check('rotating raises no errors', report.errors.length === 0);
+}
+
+// ---------------------------------------------------------------------------
 // The Water tool draws, places and edits water bodies like the other tools.
 // ---------------------------------------------------------------------------
 {

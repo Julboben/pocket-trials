@@ -4,6 +4,7 @@
 import { trails, officialTrailEntries, bonusTrailEntries, customTrailEntries } from './trails.js';
 import { trailHash } from './trail-hash.js';
 import { unlockStatus } from './trail-schema.js';
+import { DEFAULT_LOOK } from './cosmetics.js';
 
 /** @typedef {import('./types.js').Ride} Ride */
 /** @typedef {'menu' | 'running' | 'paused' | 'ragdoll' | 'won'} GameState */
@@ -69,7 +70,7 @@ export const session = {
   /** @type {'official' | 'bonus' | 'custom' | 'playtest'} */ trailSource: 'official',
   bonusTrailIndex: -1,
   customTrailIndex: -1,
-  rider: 'male',
+  /** @type {import('./cosmetics.js').Look} */ look: DEFAULT_LOOK,
   unlockedTrail: 0,
   savedTrail: 0,
   /** @type {any} */ saveGame: null,

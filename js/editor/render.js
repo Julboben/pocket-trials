@@ -3,6 +3,7 @@ import {
   PAINTED_PROPS,
   propAlignmentSlope,
   propGroundOffset,
+  propRotation,
   propWallFit,
 } from "../drawing.js";
 import { FINISH_FLOWER_RADIUS } from "../finish.js";
@@ -23,6 +24,7 @@ import {
 } from "./blocks.js";
 import { $, art, backWallArt, canvas, ctx, terrainArt } from "./dom.js";
 import { scaleFrame } from "./scale.js";
+import { rotateHandle, rotationAngle } from "./rotate.js";
 import { gridSpacing } from "./snap.js";
 import { editor, waters } from "./state.js";
 import { PLACING_TOOLS, toolSettings } from "./tools.js";
@@ -323,6 +325,8 @@ function drawProps(layer) {
       prop.text,
       propWallFit(editor.trail, prop),
       prop.flip,
+      undefined,
+      propRotation(prop),
     );
   }
 }
@@ -340,7 +344,13 @@ function drawPropGlows(dark) {
       propGroundOffset(editor.trail, prop),
       prop.flip,
       0,
-      { dark, trail: editor.trail, prop, fit: propWallFit(editor.trail, prop) },
+      {
+        dark,
+        trail: editor.trail,
+        prop,
+        fit: propWallFit(editor.trail, prop),
+        rotation: propRotation(prop),
+      },
     );
   }
 }
@@ -414,7 +424,6 @@ function drawObjects() {
     length: 50,
     facing: editor.trail.start.facing,
     flipVisual: editor.trail.start.facing,
-    rider: "male",
   });
   ctx.restore();
 }
@@ -583,6 +592,7 @@ export function render() {
   );
   drawHandles();
   drawScaleFrame();
+  drawRotateHandle();
   drawSnapGuide();
   drawMarquee();
   ctx.restore();
@@ -606,6 +616,41 @@ function drawScaleFrame() {
     ctx.strokeStyle = "#17262b";
     ctx.fillRect(x - size / 2, y - size / 2, size, size);
     ctx.strokeRect(x - size / 2, y - size / 2, size, size);
+  }
+  ctx.restore();
+}
+
+/** The round handle that rotates the selection, and the angle while it turns. */
+function drawRotateHandle() {
+  const handle = rotateHandle();
+  if (!handle) return;
+  const { from, x, y } = handle;
+  const radius = 5 / editor.zoom;
+  ctx.save();
+  ctx.strokeStyle = "#fff3be99";
+  ctx.lineWidth = 1 / editor.zoom;
+  ctx.beginPath();
+  ctx.moveTo(from.x, from.y);
+  ctx.lineTo(x, y);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fillStyle = "#fff3be";
+  ctx.strokeStyle = "#17262b";
+  ctx.lineWidth = 2 / editor.zoom;
+  ctx.fill();
+  ctx.stroke();
+  const angle = rotationAngle();
+  if (angle !== null) {
+    ctx.font = `${12 / editor.zoom}px system-ui, sans-serif`;
+    const label = `${angle > 0 ? "+" : ""}${Math.round(angle * 10) / 10}\u00b0`;
+    const lx = x + 12 / editor.zoom,
+      ly = y - 12 / editor.zoom;
+    ctx.lineWidth = 3 / editor.zoom;
+    ctx.strokeStyle = "#17262b";
+    ctx.strokeText(label, lx, ly);
+    ctx.fillStyle = "#fff3be";
+    ctx.fillText(label, lx, ly);
   }
   ctx.restore();
 }
@@ -660,7 +705,13 @@ function drawPlacementPreview() {
   }
   if (!PLACING_TOOLS.has(editor.tool)) return;
   if (editor.tool === "prop") {
-    const prop = { x, y, type: toolSettings.prop.type, layer: "back" };
+    const prop = {
+      x,
+      y,
+      type: toolSettings.prop.type,
+      layer: "back",
+      rotation: toolSettings.prop.rotation,
+    };
     art.drawProp(
       prop.type,
       x,
@@ -671,6 +722,8 @@ function drawPlacementPreview() {
       "",
       propWallFit(editor.trail, prop),
       toolSettings.prop.flip,
+      undefined,
+      propRotation(prop),
     );
     return;
   }

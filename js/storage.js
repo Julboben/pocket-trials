@@ -2,6 +2,7 @@ import { clamp } from './config.js';
 import { store } from './local-store.js';
 import { cachedOnlineBoard, refreshOnlineBoard } from './online-leaderboard.js';
 import { cleanRiderName } from './rider-name.js';
+import { keepIdentity, legacyRider, lookOf, normalizeLook } from './cosmetics.js';
 
 const SETTINGS_KEY = 'hjulben-settings-v1';
 const SAVE_SLOTS_KEY = 'hjulben-saves-v2';
@@ -45,11 +46,14 @@ function writeJson(key, value) {
 }
 
 const emptySlots = () => Array(SLOT_COUNT).fill(null);
-const cloneSave = save => save && { ...save, bestTimes: { ...save.bestTimes } };
+const cloneSave = save => save && { ...save, look: { ...save.look }, bestTimes: { ...save.bestTimes } };
 const TOKEN_RE = /^[\w-]+\.[\w-]+$/;
 
+// Saves from before looks existed only have a `rider` of 'male' or 'female',
+// which becomes the matching look; `rider` is still written for older clients.
 function normalizeSave(save, trailCount) {
-  if (!save || !['male', 'female'].includes(save.rider)) return null;
+  if (!save || !(save.look && typeof save.look === 'object') && !['male', 'female'].includes(save.rider)) return null;
+  const look = lookOf(save);
   const name = cleanRiderName(save.name);
   if (!name || typeof save.playerId !== 'string' || !UUID_RE.test(save.playerId)) return null;
   const unlocked = clamp(Number(save.unlocked) || 0, 0, trailCount - 1);
@@ -60,7 +64,7 @@ function normalizeSave(save, trailCount) {
     .map(([key, value]) => [key, Number(value)])
     .filter(([, value]) => Number.isFinite(value) && value > 0));
   return {
-    rider: save.rider, createdAt: Number(save.createdAt) || Date.now(), trail, unlocked, bestTimes,
+    look, rider: legacyRider(look), createdAt: Number(save.createdAt) || Date.now(), trail, unlocked, bestTimes,
     name, playerId: save.playerId,
     // Online riders carry the server's session token; offline saves have none.
     token: typeof save.token === 'string' && TOKEN_RE.test(save.token) ? save.token : null,
@@ -114,13 +118,15 @@ export function saveActiveSlot(slotIndex) {
 /**
  * @param {{ playerId: string, token: string } | null} [account] the online rider, or null for an offline save
  */
-export function createSave(slotIndex, rider, trailCount, name, account = null) {
+export function createSave(slotIndex, look, trailCount, name, account = null) {
   const next = [...slots(trailCount)];
   const index = clamp(slotIndex, 0, SLOT_COUNT - 1);
   const cleanName = cleanRiderName(name);
   if (next[index] || !cleanName) return null;
+  const clean = normalizeLook(look);
   const save = {
-    rider: rider === 'female' ? 'female' : 'male',
+    look: clean,
+    rider: legacyRider(clean),
     createdAt: Date.now(),
     trail: 0,
     unlocked: 0,
@@ -134,6 +140,18 @@ export function createSave(slotIndex, rider, trailCount, name, account = null) {
   persistSlots(trailCount, next);
   saveActiveSlot(index);
   return cloneSave(save);
+}
+
+/**
+ * Changes a save's look; items the rider does not own fall back to its
+ * current ones, and gender and skin, picked when it was created, stay.
+ */
+export function saveLook(slotIndex, trailCount, look) {
+  updateSave(slotIndex, trailCount, save => {
+    save.look = keepIdentity(normalizeLook(look, { fallback: save.look }), save.look);
+    save.rider = legacyRider(save.look);
+  });
+  return cloneSave(slots(trailCount)[slotIndex]);
 }
 
 /** Turns an offline save into the online rider that was just created for it. */
@@ -177,7 +195,9 @@ export function restoreOnlineSave(trailCount, { token, player, save: cloud, runs
     if (!stored || stored.physics !== ghost.physics || time < stored.time) saveGhost(trail, ghost);
   }
   const unlocked = Math.max(Number(local?.unlocked) || 0, Number(cloud?.unlocked) || 0);
+  // The server's look wins: it is what the rider last saved on any device.
   next[index] = normalizeSave({
+    look: player.look ?? cloud?.look ?? local?.look,
     rider: player.rider,
     createdAt: local?.createdAt ?? cloud?.createdAt ?? Date.now(),
     trail: local?.trail ?? cloud?.trail ?? 0,
@@ -225,6 +245,7 @@ function normalizeRun(run) {
   const slot = run.slot === null || run.slot === undefined ? null : Number(run.slot);
   return {
     time,
+    look: lookOf(run),
     rider: run.rider === 'female' ? 'female' : 'male',
     name: cleanRiderName(run.name) || null,
     slot: Number.isInteger(slot) && slot >= 0 && slot < SLOT_COUNT ? slot : null,
@@ -262,7 +283,8 @@ const GHOST_KEY_PREFIX = 'hjulben-ghost-v1:';
 
 /**
  * The fastest finished run on a trail, as encoded inputs for ghost playback.
- * @returns {{ time: number, splits: number[], startStep: number, seed: number, inputs: number[][], physics: number } | null}
+ * Ghosts saved since looks existed also carry the rider's `look` (see lookOf).
+ * @returns {{ time: number, splits: number[], startStep: number, seed: number, inputs: number[][], physics: number, look?: object, rider?: string } | null}
  */
 export function readGhost(trailKey) {
   const ghost = readJson(GHOST_KEY_PREFIX + trailKey, null);

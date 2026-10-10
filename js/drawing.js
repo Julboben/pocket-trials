@@ -5,6 +5,7 @@ import {
   terrainSurfacesAt,
 } from "./terrain.js";
 import { terrainMaterials } from "./materials.js";
+import { lookParts } from "./cosmetics.js";
 import { FINISH_FLOWER_LIFT } from "./finish.js";
 import { APPLE_SPRITE } from "./apple.js";
 import { SPIKE_CORE, SPIKE_TIP, spikePoints } from "./spike.js";
@@ -202,7 +203,8 @@ function propSlope(trail, prop, reference) {
 }
 
 export function propAlignmentSlope(trail, prop) {
-  if (!GROUND_ALIGNED_PROP_SPANS[prop.type]) return 0;
+  // A rotated prop is posed by hand, so its rotation replaces the slope.
+  if (!GROUND_ALIGNED_PROP_SPANS[prop.type] || propRotation(prop)) return 0;
   const standing = propGroundHeight(trail, prop);
   if (standing === null) return 0;
   if (!isPlanted(trail, prop)) return 0;
@@ -937,6 +939,32 @@ export const canFlip = (type) =>
   !WALL_PROPS.has(type) &&
   !PAINTED_PROPS.has(type) &&
   !CEILING_PROPS.has(type);
+// Props that fit themselves to the world or move through it keep their own
+// angle: ceiling, cave-fitted and water props, and the animals and effects
+// that wander, fly or shimmer. Wall props and graffiti turn about their anchor.
+const UNROTATABLE_PROPS = new Set(["squirrel", "tumbleweed", "vulture", "bird", "heat-haze"]);
+export const canRotate = (type) =>
+  !CAVE_FITTED_PROPS.has(type) &&
+  !WATER_PROPS.has(type) &&
+  !UNROTATABLE_PROPS.has(type);
+/** A prop's hand-set rotation in radians, clockwise; 0 where it can't turn. */
+export function propRotation(prop) {
+  const degrees = Number(prop?.rotation);
+  return degrees && Number.isFinite(degrees) && canRotate(prop.type)
+    ? (degrees * Math.PI) / 180
+    : 0;
+}
+/**
+ * Where a point of a prop's art, given in its local coordinates (x to the
+ * right, y down from the anchor at `y`), lands in the world once the prop is
+ * flipped and rotated.
+ */
+export function propPoint(prop, y, localX, localY) {
+  const lx = prop.flip && canFlip(prop.type) ? -localX : localX;
+  const angle = propRotation(prop);
+  const c = Math.cos(angle), s = Math.sin(angle);
+  return { x: prop.x + lx * c - localY * s, y: y + lx * s + localY * c };
+}
 // Longest vines can hang, in world units.
 export const VINE_MAX = 140;
 const wallFits = new WeakMap();
@@ -1369,18 +1397,23 @@ function graffitiSprite(trail, prop) {
   const y = paintedPropY(trail, prop);
   if (y === null) return null;
   const geometry = terrainGeometry(trail);
+  const angle = propRotation(prop);
   const cached = graffitiPaint.get(prop);
-  if (cached && cached.x === prop.x && cached.y === y && cached.geometry === geometry)
+  if (cached && cached.x === prop.x && cached.y === y && cached.angle === angle
+    && cached.geometry === geometry)
     return cached.sprite;
 
-  const [left, top, right, bottom] = GRAFFITI_BOUNDS;
+  const [left, top, right, bottom] = angle ? graffitiTurnedBounds() : GRAFFITI_BOUNDS;
   const columns = (right - left) / ART_PIXEL;
   const rows = (bottom - top) / ART_PIXEL;
   const canvas = createCanvas(columns, rows);
   const context = canvas.getContext("2d");
-  context.setTransform(1 / ART_PIXEL, 0, 0, 1 / ART_PIXEL, -left / ART_PIXEL, -top / ART_PIXEL);
-  drawGraffiti(createDrawingTools(context));
-  context.setTransform(1, 0, 0, 1, 0, 0);
+  if (angle) context.putImageData(turnedGraffiti(angle, columns, rows, left, top), 0, 0);
+  else {
+    context.setTransform(1 / ART_PIXEL, 0, 0, 1 / ART_PIXEL, -left / ART_PIXEL, -top / ART_PIXEL);
+    drawGraffiti(createDrawingTools(context));
+    context.setTransform(1, 0, 0, 1, 0, 0);
+  }
 
   const anchorX = Math.round(prop.x / ART_PIXEL) * ART_PIXEL;
   const anchorY = Math.round(y / ART_PIXEL) * ART_PIXEL;
@@ -1403,11 +1436,51 @@ function graffitiSprite(trail, prop) {
     }
   }
   const sprite = { canvas, left: anchorX + left, top: anchorY + top, width: right - left, height: bottom - top };
-  graffitiPaint.set(prop, { x: prop.x, y, geometry, sprite });
+  graffitiPaint.set(prop, { x: prop.x, y, angle, geometry, sprite });
   return sprite;
 }
 
+/** A square around the anchor that holds the graffiti at any angle. */
+export function graffitiTurnedBounds() {
+  const [left, top, right, bottom] = GRAFFITI_BOUNDS;
+  const reach = Math.ceil(Math.hypot(Math.max(-left, right), Math.max(-top, bottom)) / ART_PIXEL) * ART_PIXEL;
+  return [-reach, -reach, reach, reach];
+}
+
+/**
+ * The graffiti turned clockwise by `angle` about its anchor, one art pixel per
+ * canvas pixel, each taken from the nearest pixel of the upright art so the
+ * paint stays crisp.
+ */
+function turnedGraffiti(angle, columns, rows, left, top) {
+  const [artLeft, artTop, artRight, artBottom] = GRAFFITI_BOUNDS;
+  const artColumns = (artRight - artLeft) / ART_PIXEL;
+  const artRows = (artBottom - artTop) / ART_PIXEL;
+  const upright = createCanvas(artColumns, artRows).getContext("2d");
+  upright.setTransform(1 / ART_PIXEL, 0, 0, 1 / ART_PIXEL, -artLeft / ART_PIXEL, -artTop / ART_PIXEL);
+  drawGraffiti(createDrawingTools(upright));
+  const source = upright.getImageData(0, 0, artColumns, artRows).data;
+  const turned = upright.createImageData(columns, rows);
+  const c = Math.cos(angle), s = Math.sin(angle);
+  for (let row = 0; row < rows; row++) {
+    for (let column = 0; column < columns; column++) {
+      // The centre of this pixel, turned back onto the upright art.
+      const x = left + (column + 0.5) * ART_PIXEL;
+      const y = top + (row + 0.5) * ART_PIXEL;
+      const sx = Math.floor((x * c + y * s - artLeft) / ART_PIXEL);
+      const sy = Math.floor((-x * s + y * c - artTop) / ART_PIXEL);
+      if (sx < 0 || sy < 0 || sx >= artColumns || sy >= artRows) continue;
+      const from = (sy * artColumns + sx) * 4, to = (row * columns + column) * 4;
+      for (let k = 0; k < 4; k++) turned.data[to + k] = source[from + k];
+    }
+  }
+  return turned;
+}
+
 export function propGroundOffset(trail, prop) {
+  // A rotated prop is posed by hand: its trunks and posts no longer reach for
+  // the ground, which they would find along the wrong axis.
+  if (propRotation(prop)) return () => 0;
   const standing = propGroundHeight(trail, prop);
   if (standing === null) return () => 0;
   const originY = Number.isFinite(prop.y) ? prop.y : standing;
@@ -1434,63 +1507,58 @@ export function createCanvas(width, height) {
   return element;
 }
 
-export const RIDER_PALETTES = {
-  male: {
-    jacket: "#e8e5d9",
-    jacketLight: "#fff8e7",
-    jacketShade: "#b5bcae",
-    panel: "#29464e",
-    trousers: "#29464e",
-    trousersLight: "#42616a",
-    helmet: "#f4a442",
-    helmetLight: "#ffd078",
-    helmetShade: "#bd7034",
-    stripe: "#fff8e7",
-    skin: "#bd7954",
-    skinLight: "#dfa078",
-    gloves: "#304a42",
-    boots: "#263b36",
-    sole: "#657a70",
-    visor: "#234844",
-    visorLight: "#83bcb6",
-    skinShade: "#9a5c40",
-    hair: "#3d2a24",
-    hairLight: "#5e4334",
-    hairShade: "#2e1d19",
-    eye: "#263b36",
-    mouth: "#87483a",
-  },
-  female: {
-    jacket: "#d86f82",
-    jacketLight: "#ef9aa8",
-    jacketShade: "#a94f69",
-    panel: "#59415c",
-    trousers: "#39435d",
-    trousersLight: "#596681",
-    helmet: "#63aa98",
-    helmetLight: "#a8dfcf",
-    helmetShade: "#3c786e",
-    stripe: "#fff8e7",
-    skin: "#bd7954",
-    skinLight: "#dfa078",
-    gloves: "#59415c",
-    boots: "#2b3347",
-    sole: "#7c8897",
-    visor: "#234844",
-    visorLight: "#b0dfd4",
-    // Matches the ponytail in rider-hair.js.
-    skinShade: "#9a5c40",
-    hair: "#684438",
-    hairLight: "#8c5d48",
-    hairShade: "#54362d",
-    eye: "#263b36",
-    mouth: "#b0505e",
-  },
-};
-export const riderPalette = (rider) =>
-  RIDER_PALETTES[rider] || RIDER_PALETTES.male;
+/** The flat colour palette the rider art reads, for a look (see cosmetics.js). */
+export const riderPalette = (look) => lookParts(look).palette;
 
 const RIDER_OUTLINE = "#263b36";
+
+/**
+ * Draws pixel art from `rows` of characters with its top left at (x, y), in
+ * world units on a 2-unit pixel grid. Each character is a key of `colors`;
+ * spaces and unknown characters are left clear. Runs of one colour along a row
+ * are drawn as one rectangle.
+ */
+export function drawPixelRows(rect, x, y, rows, colors) {
+  rows.forEach((row, r) => {
+    for (let c = 0; c < row.length; ) {
+      const key = row[c];
+      let end = c + 1;
+      while (end < row.length && row[end] === key) end++;
+      const color = colors[key];
+      if (color) rect(x + c * 2, y + r * 2, (end - c) * 2, 2, color);
+      c = end;
+    }
+  });
+}
+
+// Motocross helmet facing right: a long peak over the goggles, a chin bar
+// jutting forward, and a stripe over the crown. Top left at (-9, -8), so
+// its centre lines up with the full-face shell.
+const MX_HELMET = [
+  "  OOOOO    ",
+  " OLLsLHOOOO",
+  "OLHHsHHHLLO",
+  "OHHHsHOOOO ",
+  "OHHggOvVVO ",
+  "OHHHHOVVVO ",
+  "OSHHHHOOHHO",
+  " OSSHHHSSO ",
+  "  OOOOOOO  ",
+];
+
+/** The motocross helmet, centred on (0, 0) and facing right, like drawHelmetShell. */
+export function drawMxHelmet(rect, colors) {
+  drawPixelRows(rect, -9, -8, MX_HELMET, {
+    O: RIDER_OUTLINE,
+    H: colors.helmet,
+    L: colors.helmetLight,
+    S: colors.helmetShade,
+    s: colors.stripe,
+    g: colors.panel,
+    V: colors.visor,
+    v: colors.visorLight,
+  });
+}
 
 /**
  * The first redesign's helmet, centred on (0, 0) and facing right, drawn with
@@ -1519,15 +1587,18 @@ export function drawHelmetShell(rect, colors) {
 }
 
 /**
- * The rider's bare head once the helmet has come off, centred where the
- * helmet's centre was and facing right, in the same units as drawHelmetShell:
- * hair, ear, eye under a brow, nose, and mouth. She has bangs and her hair
- * falls to the nape, where the ponytail starts.
+ * The rider's bare head, without a helmet or once it has come off, centred
+ * where the helmet's centre is and facing right, in the same units as
+ * drawHelmetShell: hair, ear, eye under a brow, nose, and mouth. `hair` is the
+ * cut from lookParts: a 'short' cap stops above the ear, a 'long' one has
+ * bangs and falls to the nape, where a ponytail starts, a 'buzz' is the top
+ * row only, and 'bald' has none. `face.lash` adds a lash flick by the eye.
  */
-export function drawBareHead(rect, colors, rider = "male") {
+export function drawBareHead(rect, colors, hair, face = null) {
   // One art pixel at column `c`, row `r` (2 world units each).
   const dot = (c, r, color, w = 1, h = 1) => rect(c * 2, r * 2, w * 2, h * 2, color);
-  const female = rider === "female";
+  const { cap = "short", brow = true } = hair ?? {};
+  const long = cap === "long";
 
   // Outline with clipped corners, then the face.
   dot(-2, -4, RIDER_OUTLINE, 5, 7);
@@ -1537,19 +1608,42 @@ export function drawBareHead(rect, colors, rider = "male") {
   dot(2, -2, colors.skinLight, 1, 2);
 
   // Hair: a cap over the crown and down the back of the head.
-  dot(-2, -3, colors.hair, 5, 1);
-  dot(-2, -2, colors.hair, female ? 4 : 3, 1);
-  dot(-2, -1, colors.hair, 1, female ? 3 : 1);
-  dot(-1, -3, colors.hairLight, 2, 1);
-  if (female) dot(-3, 0, colors.hair, 1, 2);
+  if (cap === "bald") dot(-1, -3, colors.skinLight, 2, 1);
+  else {
+    dot(-2, -3, colors.hair, 5, 1);
+    if (cap !== "buzz") {
+      dot(-2, -2, colors.hair, long ? 4 : 3, 1);
+      dot(-2, -1, colors.hair, 1, long ? 3 : 1);
+    }
+    dot(-1, -3, colors.hairLight, 2, 1);
+    if (long) dot(-3, 0, colors.hair, 1, 2);
+  }
 
   // Ear, eye and brow, nose, mouth.
   dot(-1, -1, colors.skinShade);
   dot(1, -1, colors.eye);
-  if (!female) dot(1, -2, colors.hairShade);
+  if (brow) dot(1, -2, cap === "bald" ? colors.skinShade : colors.hairShade);
+  if (face?.lash) dot(2, -2, RIDER_OUTLINE);
   dot(3, 0, colors.skin);
   dot(2, 1, colors.mouth);
 }
+
+// The riding pose, in bike body coordinates before lean: where the helmet's
+// centre sits, and the hand on the handlebar every bike model shares.
+const RIDER_HEAD = [-3, -46];
+const RIDER_HAND = [16, -30];
+
+// The jersey, leaning forward from the hip on the seat to the shoulder. Top
+// left at (-16, -38), moved with the lean.
+const RIDER_TORSO = [
+  "    OPPPPO ",
+  "   OjjjjjJO",
+  "   OdjjJJJO",
+  "  OddJJJJJO",
+  " OddJJJJO  ",
+  "OPPPPPPO   ",
+  " OPPPPO    ",
+];
 
 // Selectable bike models drawn by createGameArt().drawBike. Every model keeps
 // the same seat, peg, and handlebar positions so any rider fits any bike.
@@ -1574,7 +1668,50 @@ const ELASTO_COLORS = {
   hubLight: "#c9d0d2",
 };
 
-const NUMBER_EIGHT = "111101111101111";
+// The Elasto's sprung body as pixel art, one grid per rigid piece, each placed
+// at its own centre so the body pitches with the suspension. G/L/D are the
+// bike paint; see drawElastoFrame for the other keys.
+const ELASTO_TAIL = [
+  "LLLL               ",
+  "BGGGLLLLLL         ",
+  " DWWWWRRRGGkkkkkkkk",
+  "   DDDWWRRGKKKKKKKK",
+  "KSS     DWWWWWWW   ",
+  "KssSS    WWKKKWW   ",
+  "   ssSS  WWKWKWW   ",
+  "     ssSSWWKKKWW   ",
+  "       ssWWKWKWW   ",
+  "         WWKKKWW   ",
+  "          wwwwww   ",
+];
+
+const ELASTO_TANK = [
+  "  LLLLLLG   ",
+  " LGGGGGGGG  ",
+  " GGGGWWGGGG ",
+  "  GGGGWWGGGG",
+  "    GGGWWGGG",
+  "     GGGWWGD",
+  "      DDDDD ",
+];
+
+// Under the seat and tank: airbox, frame spar, finned cylinder, radiator and
+// engine cases with the clutch cover.
+const ELASTO_MID = [
+  " kkksS        ",
+  " kkksS        ",
+  " kkksSSSSS    ",
+  " kkksSeeee    ",
+  " kkksSSSSS    ",
+  " kkksSeeeeKkK ",
+  " kkksSSSSSKkK ",
+  "kkkksSeHHHee  ",
+  " kkksSeHhHee  ",
+  "  kksSeHHHee  ",
+  "   kseeeeeee  ",
+  "     KKKKKK   ",
+];
+
 
 function parseColor(color) {
   const hex = color.replace("#", "");
@@ -2841,8 +2978,8 @@ export function createGameArt(ctx) {
   const spikeSprites = new Map();
   const flowerSprites = new Map();
   const backgroundStrips = new Map();
-  const ragdollHelmetSprites = new Map();
-  const ragdollHeadSprites = new Map();
+  // Head sprites by look key and helmet state.
+  const headSprites = new Map();
   let bikeSprite = null;
   let propLayer = null;
 
@@ -3767,12 +3904,13 @@ export function createGameArt(ctx) {
     wall,
     flip,
     scene,
+    rotation,
   ) {
     const transform = ctx.getTransform();
     if (transform.b || transform.c) return false;
     const [left, top, right, bottom] = propBounds(
       type,
-      propDrawAngle(type, slope),
+      propDrawAngle(type, slope) + rotation,
       groundOffset,
       text,
       flip,
@@ -3814,7 +3952,7 @@ export function createGameArt(ctx) {
       transform.e - x0,
       transform.f - y0,
     );
-    art.drawProp(type, x, y, 1, slope, groundOffset, text, wall, flip, scene);
+    art.drawProp(type, x, y, 1, slope, groundOffset, text, wall, flip, scene, rotation);
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = alpha;
@@ -3834,9 +3972,11 @@ export function createGameArt(ctx) {
     wall = null,
     flip = false,
     scene = NO_SCENE,
+    rotation = 0,
   ) {
     if (isStartSign(type, text)) type = "start";
     const mirrored = Boolean(flip) && canFlip(type);
+    if (!canRotate(type) || !Number.isFinite(rotation)) rotation = 0;
     if (
       alpha < 1 &&
       drawPropLayer(
@@ -3850,12 +3990,14 @@ export function createGameArt(ctx) {
         wall,
         mirrored,
         scene,
+        rotation,
       )
     )
       return;
     ctx.save();
     ctx.translate(Math.round(x / 2) * 2, Math.round(y / 2) * 2);
-    ctx.rotate(propDrawAngle(type, slope));
+    // Rotate before mirroring, so a turn is clockwise either way round.
+    ctx.rotate(propDrawAngle(type, slope) + rotation);
     if (mirrored) {
       // Mirror around the anchor. Ground lookups still use world positions,
       // so trunks and posts keep following the slope.
@@ -4393,6 +4535,7 @@ export function createGameArt(ctx) {
   // axle at (half, 0). Parts joined to an axle use `path`; parts on the sprung
   // body use `bodyPoint`, `bodyRect`, and `bodyPath` so they pitch and drop.
   function drawClassicFrame({
+    paint,
     path,
     spring,
     half,
@@ -4407,24 +4550,25 @@ export function createGameArt(ctx) {
 
     path(
       [[-half, 0], bodyPoint(-7, -18), bodyPoint(13, -17), [half, 0]],
-      "#d95832",
+      paint.shade,
       2,
     );
-    path([[-half, 0], crank, [half, 0]], "#ed7842", 2);
+    path([[-half, 0], crank, [half, 0]], paint.base, 2);
     path([[-half, 0], backMount], "#819084", 1);
     path([[half, 0], frontMount], "#b9c4af", 2);
     spring(-half, 0, backMount[0], backMount[1], "#f0b45f");
     spring(half, 0, frontMount[0], frontMount[1], "#f0b45f");
 
-    bodyRect(-9, -20, 24, 4, "#ee6f3f");
-    bodyRect(-17, -24, 14, 4, "#263a35");
-    bodyRect(-20, -27, 5, 5, brakePressure > 0.08 ? "#ff6045" : "#713c35", 2);
-    if (brakePressure > 0.6) bodyRect(-19, -26, 2, 2, "#ffd0a2", 2);
+    bodyRect(-9, -20, 24, 4, paint.base);
+    bodyRect(-9, -22, 4, 2, "#263a35");
+    bodyRect(-17, -26, 14, 4, "#263a35");
+    bodyRect(-20, -29, 5, 5, brakePressure > 0.08 ? "#ff6045" : "#713c35", 2);
+    if (brakePressure > 0.6) bodyRect(-19, -28, 2, 2, "#ffd0a2", 2);
     bodyPath(
       [
         [10, -23],
-        [18, -26],
-        [24, -26],
+        [12, -30],
+        [19, -30],
       ],
       "#263a35",
       2,
@@ -4435,120 +4579,104 @@ export function createGameArt(ctx) {
   }
 
   function drawElastoFrame({
+    paint,
     path,
     spring,
     half,
     bodyPoint,
-    bodyRect,
+    bodyRows,
     bodyPath,
     brakePressure,
   }) {
     const c = ELASTO_COLORS;
+    const colors = {
+      G: paint.base,
+      L: paint.light,
+      D: paint.dark,
+      W: c.white,
+      w: c.silver,
+      S: c.silver,
+      s: c.silverDark,
+      e: c.rim,
+      h: c.hub,
+      H: c.hubLight,
+      K: c.black,
+      k: c.tread,
+      R: c.red,
+      B:
+        brakePressure > 0.6
+          ? "#ffd0a2"
+          : brakePressure > 0.08
+            ? "#ff6045"
+            : "#713c35",
+    };
     const pivot = bodyPoint(-4, -6),
-      shockTop = bodyPoint(-12, -18),
-      forkTop = bodyPoint(14, -22);
+      shockTop = bodyPoint(-6, -20),
+      forkTop = bodyPoint(14, -28);
     const shockBase = [-half + (pivot[0] + half) * 0.45, pivot[1] * 0.45];
     const forkSlider = [half + (forkTop[0] - half) * 0.45, forkTop[1] * 0.45];
 
-    spring(shockBase[0], shockBase[1], shockTop[0], shockTop[1], c.orange);
     path([[-half, 0], pivot], c.silver, 2);
     path(
       [
         [-half, 2],
         [pivot[0], pivot[1] + 2],
       ],
-      c.silverDark,
+      c.spoke,
       1,
     );
 
-    bodyRect(-8, -14, 14, 12, c.silverDark);
-    bodyRect(-6, -14, 10, 4, c.silver);
-    bodyRect(-4, -4, 8, 4, c.black);
+    bodyRows(-10, -24, ELASTO_MID, colors);
     bodyPath(
       [
         [14, -22],
-        [6, -14],
-        [4, -4],
+        [16, -12],
+        [12, -2],
+      ],
+      c.black,
+      1,
+    );
+    spring(shockBase[0], shockBase[1], shockTop[0], shockTop[1], c.orange);
+    bodyRows(-40, -28, ELASTO_TAIL, colors);
+    bodyRows(-4, -26, ELASTO_TANK, colors);
+
+    path([[half, 0], forkTop], c.silverDark, 2);
+    path([forkSlider, forkTop], c.silver, 2);
+    path([[half, 0], forkSlider], c.hubLight, 1);
+    // Top clamp, riser and handlebar, raised clear of the tank.
+    bodyPath(
+      [
+        [14, -28],
+        [13, -30],
       ],
       c.black,
       2,
     );
-
-    bodyRect(-20, -22, 12, 14, c.white);
-    for (let cell = 0; cell < 15; cell++) {
-      if (NUMBER_EIGHT[cell] === "1")
-        bodyRect(
-          -18 + (cell % 3) * 2,
-          -20 + Math.floor(cell / 3) * 2,
-          2,
-          2,
-          c.black,
-        );
-    }
-    bodyRect(-22, -26, 20, 4, c.black);
-    bodyRect(-20, -26, 12, 2, c.silverDark);
     bodyPath(
       [
-        [-18, -28],
-        [-28, -30],
-      ],
-      c.green,
-      2,
-    );
-    bodyPath(
-      [
-        [-18, -26],
-        [-28, -28],
-      ],
-      c.white,
-      1,
-    );
-    bodyPath(
-      [
-        [-18, -24],
-        [-28, -26],
-      ],
-      c.red,
-      1,
-    );
-    bodyRect(-32, -32, 4, 4, brakePressure > 0.08 ? "#ff6045" : "#713c35");
-    if (brakePressure > 0.6) bodyRect(-32, -32, 2, 2, "#ffd0a2");
-
-    bodyRect(-4, -28, 18, 8, c.green);
-    bodyRect(-2, -28, 12, 2, c.greenLight);
-    bodyRect(-4, -22, 18, 2, c.greenDark);
-    bodyRect(6, -22, 10, 8, c.white);
-    bodyRect(8, -18, 8, 2, c.green);
-
-    path([[half, 0], forkTop], c.black, 2);
-    path([[half, 0], forkSlider], c.silver, 2);
-    path(
-      [
-        [half - 8, -14],
-        [half - 2, -16],
-        [half + 6, -14],
-      ],
-      c.green,
-      2,
-    );
-    path(
-      [
-        [half - 6, -12],
-        [half + 4, -12],
-      ],
-      c.greenDark,
-      1,
-    );
-    bodyPath(
-      [
-        [14, -22],
-        [16, -26],
-        [22, -26],
+        [11, -30],
+        [19, -30],
       ],
       c.black,
       2,
     );
-    bodyRect(-4, -4, 4, 2, c.black);
+    path(
+      [
+        [half - 6, -16],
+        [half + 2, -16],
+        [half + 9, -14],
+      ],
+      paint.base,
+      1,
+    );
+    path(
+      [
+        [half - 4, -18],
+        [half + 5, -18],
+      ],
+      paint.light,
+      1,
+    );
   }
 
   const BIKES = {
@@ -4568,11 +4696,12 @@ export function createGameArt(ctx) {
     brakePressure = 0,
     state = "ready",
     leanVisual = 0,
-    rider = "male",
-    bike = DEFAULT_BIKE,
+    look = null,
+    bike = null,
     dirt = null,
   }) {
-    const model = BIKES[bike] || BIKES[DEFAULT_BIKE];
+    const parts = lookParts(look);
+    const model = BIKES[bike ?? parts.bike] || BIKES[DEFAULT_BIKE];
     model.wheel(rear, dirt?.rear);
     model.wheel(front, dirt?.front);
     const pixelAngle = Math.round(angle / (TAU / 32)) * (TAU / 32);
@@ -4626,45 +4755,60 @@ export function createGameArt(ctx) {
         color,
         thickness,
       );
+    // A rigid pixel-art piece with its top left at (x, y), moved by its centre.
+    const bodyRows = (x, y, rows, colors) => {
+      const width = Math.max(...rows.map((row) => row.length)) * 2,
+        height = rows.length * 2;
+      const cx = x + width / 2,
+        cy = y + height / 2;
+      drawPixelRows(
+        rect,
+        cx * pc - cy * ps - width / 2,
+        cx * ps + cy * pc - height / 2 + drop,
+        rows,
+        colors,
+      );
+    };
     model.frame({
+      paint: parts.bikeColors,
       path,
       spring,
       half,
       bodyPoint,
       bodyRect,
+      bodyRows,
       bodyPath,
       brakePressure,
     });
 
     if (state !== "ragdoll") {
       const shift = Math.round(leanVisual * 4.5) * 2;
-      const colors = riderPalette(rider);
+      const colors = parts.palette;
       const outline = "#263b36";
 
-      const hip = [-8 + shift, -24];
-      const knee = [4 + shift * 0.45, -14];
+      const hip = [-11 + shift, -26];
+      const knee = [2 + shift * 0.45, -16];
       const ankle = [-2, -3];
 
-      const shoulder = [2 + shift, -36];
-      const elbow = [11 + shift * 0.45, -30];
-      const hand = [20, -25];
+      const shoulder = [-4 + shift, -36];
+      const elbow = [8 + shift * 0.45, -32];
+      const hand = RIDER_HAND;
 
       // Trousers: outlined silhouette with a narrow lit edge.
       bodyPath([hip, knee, ankle], outline, 4);
       bodyPath([hip, knee, ankle], colors.trousers, 3);
-
       bodyPath(
         [
-          [-7 + shift, -25],
-          [4 + shift * 0.45, -16],
+          [-10 + shift, -27],
+          [knee[0] - 2, knee[1] - 2],
         ],
         colors.trousersLight,
         1,
       );
 
       // Compact reinforced knee.
-      bodyRect(2 + shift * 0.45, -16, 6, 4, colors.trousersLight);
-      bodyRect(4 + shift * 0.45, -14, 4, 2, colors.panel);
+      bodyRect(knee[0] - 2, knee[1] - 2, 6, 4, colors.trousersLight);
+      bodyRect(knee[0], knee[1], 4, 2, colors.panel);
 
       // Boot stays anchored at the existing foot / peg position.
       bodyRect(-5, -7, 6, 6, colors.boots);
@@ -4672,46 +4816,22 @@ export function createGameArt(ctx) {
       bodyRect(-5, -3, 10, 2, colors.sole);
       bodyRect(-3, -7, 4, 2, colors.trousersLight);
 
-      // Jacket silhouette follows the existing leaning torso.
-      bodyPath(
-        [
-          [-8 + shift, -25],
-          [1 + shift, -37],
-        ],
-        outline,
-        5,
-      );
-      bodyPath(
-        [
-          [-7 + shift, -25],
-          [2 + shift, -37],
-        ],
-        colors.jacket,
-        3,
-      );
+      // Jersey leaning over the tank, clear of the arm and tank in front.
+      bodyRows(-16 + shift, -38, RIDER_TORSO, {
+        O: outline,
+        J: colors.jacket,
+        j: colors.jacketLight,
+        d: colors.jacketShade,
+        P: colors.panel,
+      });
 
-      bodyRect(-6 + shift, -38, 14, 12, colors.jacket);
-
-      // Shadow down the back, bright shoulder, contrasting hem.
-      bodyRect(-6 + shift, -36, 4, 10, colors.jacketShade);
-      bodyRect(-4 + shift, -38, 10, 4, colors.jacketLight);
-      bodyRect(-8 + shift, -28, 10, 4, colors.panel);
-      bodyRect(-6 + shift, -28, 6, 2, colors.jacketShade);
-
-      // Small collar and front seam.
-      bodyRect(2 + shift, -40, 6, 4, colors.panel);
-      bodyRect(4 + shift, -34, 2, 6, colors.jacketShade);
-      bodyRect(-2 + shift, -34, 4, 2, colors.panel);
-
-      // Arm silhouette; hand remains at the original handlebar.
+      // Arm sloping down to the raised handlebar, bent at a dropped elbow.
       bodyPath([shoulder, elbow, hand], outline, 3);
-
-      // Rolled jacket sleeve.
       bodyPath([shoulder, elbow], colors.jacket, 2);
       bodyPath(
         [
-          [2 + shift, -37],
-          [9 + shift * 0.45, -32],
+          [-4 + shift, -38],
+          [6 + shift * 0.45, -34],
         ],
         colors.jacketLight,
         1,
@@ -4719,45 +4839,28 @@ export function createGameArt(ctx) {
 
       // Forearm, cuff and glove.
       bodyPath([elbow, hand], colors.skin, 2);
-      bodyRect(9 + shift * 0.45, -32, 4, 4, colors.panel);
+      bodyRect(elbow[0] - 2, elbow[1] - 2, 4, 4, colors.panel);
       bodyPath(
         [
-          [13 + shift * 0.3, -29],
-          [17, -27],
+          [10 + shift * 0.3, -33],
+          [13, -31],
         ],
         colors.skinLight,
         1,
       );
-      bodyRect(18, -28, 6, 4, colors.gloves);
-      bodyRect(20, -28, 4, 2, colors.jacketLight);
+      bodyRect(hand[0] - 2, hand[1] - 2, 6, 4, colors.gloves);
+      bodyRect(hand[0], hand[1] - 2, 4, 2, colors.jacketLight);
 
       // Neck, partly tucked into the helmet and collar.
-      bodyRect(0 + shift, -44, 8, 6, colors.skin);
-      bodyRect(4 + shift, -42, 4, 2, colors.skinLight);
+      bodyRect(-6 + shift, -44, 8, 6, colors.skin);
+      bodyRect(-2 + shift, -42, 4, 2, colors.skinLight);
 
-      // Stepped helmet shell: rounded without antialiasing.
-      bodyRect(-4 + shift, -50, 16, 8, outline);
-      bodyRect(-2 + shift, -52, 12, 12, outline);
-
-      bodyRect(-2 + shift, -50, 12, 8, colors.helmet);
-      bodyRect(0 + shift, -52, 8, 2, colors.helmetLight);
-      bodyRect(-2 + shift, -50, 4, 4, colors.helmetLight);
-      bodyRect(-2 + shift, -44, 8, 2, colors.helmetShade);
-
-      // Shared racing stripe, different shell colors.
-      bodyRect(4 + shift, -52, 2, 6, colors.stripe);
-
-      // Goggle strap, dark frame and reflected sky.
-      bodyRect(-2 + shift, -48, 8, 2, colors.panel);
-      bodyRect(6 + shift, -48, 8, 6, outline);
-      bodyRect(6 + shift, -48, 8, 4, colors.visor);
-      bodyRect(8 + shift, -48, 4, 2, colors.visorLight);
-
-      // Small forward peak and protective chin guard.
-      bodyRect(6 + shift, -50, 10, 2, colors.helmet);
-      bodyRect(8 + shift, -50, 6, 2, colors.helmetLight);
-      bodyRect(6 + shift, -42, 8, 2, colors.helmetShade);
-      bodyRect(10 + shift, -44, 4, 2, colors.helmet);
+      // The head is the same one the ragdoll shows, centred on the neck.
+      const head = (x, y, width, height, color) =>
+        bodyRect(x + RIDER_HEAD[0] + shift, y + RIDER_HEAD[1], width, height, color);
+      if (!parts.helmet) drawBareHead(head, colors, parts.hair, parts.face);
+      else if (parts.shapes.helmet === "mx") drawMxHelmet(head, colors);
+      else drawHelmetShell(head, colors);
     }
 
     ctx.save();
@@ -4775,17 +4878,17 @@ export function createGameArt(ctx) {
     ctx.restore();
   }
 
-  // One tiny cached helmet, and one bare head, per rider palette.
+  // One tiny cached helmet, and one bare head, per look.
   // Rotating the sprite with nearest-neighbour sampling keeps it sharp.
-  function ragdollHeadSprite(colors, rider, bare) {
-    const cache = bare ? ragdollHeadSprites : ragdollHelmetSprites;
-    if (cache.has(colors)) return cache.get(colors);
+  function ragdollHeadSprite(parts, bare) {
+    const key = parts.key + (bare ? "|bare" : "|helmet");
+    if (headSprites.has(key)) return headSprites.get(key);
 
-    const canvas = createCanvas(24 / ART_PIXEL, 16 / ART_PIXEL);
+    const canvas = createCanvas(24 / ART_PIXEL, 20 / ART_PIXEL);
     const context = canvas.getContext("2d");
 
     // Local helmet anchor is (0, 0).
-    // Sprite bounds: x -10..14, y -8..8.
+    // Sprite bounds: x -10..14, y -8..12 (room for the motocross chin bar).
     context.setTransform(
       1 / ART_PIXEL,
       0,
@@ -4796,10 +4899,11 @@ export function createGameArt(ctx) {
     );
 
     const { pixelRect: rect } = createDrawingTools(context);
-    if (bare) drawBareHead(rect, colors, rider);
-    else drawHelmetShell(rect, colors);
+    if (bare) drawBareHead(rect, parts.palette, parts.hair, parts.face);
+    else if (parts.shapes.helmet === "mx") drawMxHelmet(rect, parts.palette);
+    else drawHelmetShell(rect, parts.palette);
 
-    cache.set(colors, canvas);
+    headSprites.set(key, canvas);
     return canvas;
   }
 
@@ -4811,14 +4915,15 @@ export function createGameArt(ctx) {
     translateToDevice(x, y);
     ctx.rotate(Math.round(angle / rotationStep) * rotationStep);
     ctx.scale(facing, 1);
-    ctx.drawImage(sprite, -10, -8, 24, 16);
+    ctx.drawImage(sprite, -10, -8, 24, 20);
     ctx.restore();
   }
 
   /** Draws the thrown rider, and the helmet if it has been knocked off. */
-  function drawRagdoll(ragdoll, rider) {
+  function drawRagdoll(ragdoll, look) {
     const p = ragdoll.points;
-    const colors = riderPalette(rider);
+    const parts = lookParts(look);
+    const colors = parts.palette;
     const outline = "#263b36";
     const facing = p.head.drawFacing ?? 1;
 
@@ -4989,10 +5094,11 @@ export function createGameArt(ctx) {
 
     // HEAD
     // Cached and mirrored correctly; follows the head/shoulder axis. Bare
-    // once the helmet has been knocked off, which then tumbles on its own.
+    // without a helmet, or once it has been knocked off, which then tumbles
+    // on its own.
     const { helmet } = ragdoll;
     drawHeadSprite(
-      ragdollHeadSprite(colors, rider, Boolean(helmet)),
+      ragdollHeadSprite(parts, Boolean(helmet) || !parts.helmet),
       p.head.x,
       p.head.y,
       headAngle,
@@ -5000,7 +5106,7 @@ export function createGameArt(ctx) {
     );
     if (helmet)
       drawHeadSprite(
-        ragdollHeadSprite(colors, rider, false),
+        ragdollHeadSprite(parts, false),
         helmet.x,
         helmet.y,
         helmet.spin,
@@ -5033,7 +5139,7 @@ export function createGameArt(ctx) {
     groundOffset = () => 0,
     flip = false,
     time = 0,
-    { dark = true, trail = null, prop = null, fit = null, emissive = false } = {},
+    { dark = true, trail = null, prop = null, fit = null, emissive = false, rotation = 0 } = {},
   ) {
     const dir = flip ? -1 : 1;
     const strength = dark ? 1 : 0.5;
@@ -5064,6 +5170,7 @@ export function createGameArt(ctx) {
     }
     ctx.save();
     ctx.translate(Math.round(x / 2) * 2, Math.round(y / 2) * 2);
+    if (rotation && canRotate(type)) ctx.rotate(rotation);
     if (type === "mushrooms") {
       ctx.scale(dir, 1);
       const caps = mushroomCaps((local) => groundOffset(local * dir));

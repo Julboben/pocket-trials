@@ -342,11 +342,17 @@ Lighting comes from the terrain and its back walls (see below). Air open to the 
 
 The theme sets the shapes and the time of day sets the colours, so all combinations work.
 
-## Props: `flip` and wall props
+## Props: `flip`, `rotation` and wall props
 
 Props sit under `props`, alongside the `terrainBlocks` terrain.
 
 Every prop may carry `flip: true`, which mirrors it left to right. It is omitted when the prop is not flipped. Signs cannot be flipped, because their text would come out mirrored.
+
+A prop may also carry `rotation`, in degrees clockwise about its anchor, from -180 to 180 (other values wrap into that range, and it is rounded to 0.1°). It is omitted when the prop is not rotated. Unrotated props tilt with the slope they stand on and sink a little into it; a rotated prop does neither, so its `rotation` is its whole angle. It turns after any `flip`. Wall props (`vines`, `roots` and `moss`) still find their wall and then turn about their anchor, and `graffiti` turns about its anchor before it is clipped to the rock. Props that move about, hang from a ceiling or sit in water ignore it: `tumbleweed`, `heat-haze`, `vulture`, `squirrel`, `bird`, `hanging-roots`, `stalactites`, `drip`, `lantern`, `bats`, `minecart`, `beams`, `lily`, `reeds`, `seaweed`, `fish` and `duck`. Rotation is decoration only and does not change the trail's hash.
+
+```js
+{ x: 640, y: 300, type: "rock", layer: "front", rotation: 30 }
+```
 
 Three props attach to a wall rather than standing on the ground, and grow toward the open air:
 
@@ -411,6 +417,8 @@ This optional rule is for bonus trails. They stay locked until the active save h
 Open `editor.html` or choose **Trail Editor** from the game dashboard. The **Block** tool draws a new block, and the **Cut** tool carves caves, entrances, and gaps out of existing blocks. Drag a block's points and curve handles to reshape it, or drag inside its filled body to move it whole. Double-click an edge to add a point. The inspector edits a block's material, whether an edge is straight or curved, and whether a point is a corner or smooth.
 
 The **Apple**, **Start**, and **Prop** tools place those objects at the exact clicked world position, and the **Water** tool draws a water body as a rectangle. Select an object to move it numerically or by dragging; the inspector also changes start direction and prop type/layer. Apples and props can be removed, while the required start and finish markers can only be moved.
+
+To rotate, drag the round handle above a selection, or press `R` to turn it 15° clockwise and `Shift+R` to turn it back; hold `Shift` while dragging to snap to 15°. Blocks have no rotation field: turning one moves its points and curve handles, so it changes the trail's hash like any other reshaping. A lone prop turns about its anchor, its handle shows its angle, and the inspector has a **Rotation** field for it; for anything else the inspector has 90° buttons. In a mixed selection, blocks, points and props turn about the middle of the selection, while apples, spikes, water and the start and finish only move around it, keeping their own shape and direction. Water alone cannot be rotated. With the **Prop** tool active, `R` and the tool's **Rotation** setting choose the angle for the next prop.
 
 ## Suggested future format improvement
 
@@ -624,6 +632,21 @@ export function normalizeSpike(spike, groundY = null) {
 
 export const AUTHOR_MAX_LENGTH = 40;
 
+/**
+ * A prop's rotation in degrees, clockwise: wrapped to (-180, 180] and rounded
+ * to a tenth of a degree. No rotation, or none worth keeping, is undefined so
+ * it isn't stored.
+ */
+export function normalizeRotation(rotation) {
+  if (rotation === null || rotation === undefined || rotation === "") return undefined;
+  const value = Number(rotation);
+  if (!Number.isFinite(value)) return undefined;
+  let wrapped = Math.round((value % 360) * 10) / 10;
+  if (wrapped <= -180) wrapped += 360;
+  else if (wrapped > 180) wrapped -= 360;
+  return wrapped === 0 ? undefined : wrapped;
+}
+
 /** Who made the trail: one line of text, whitespace collapsed, or "". */
 export function normalizeAuthor(author) {
   return typeof author === "string"
@@ -690,6 +713,7 @@ export function normalizeTrail(input, index = 0) {
             ? prop.text
             : undefined,
         flip: prop.flip === true ? true : undefined,
+        rotation: normalizeRotation(prop.rotation),
       }))
     : [];
   trail.spikes = Array.isArray(trail.spikes)
@@ -3758,12 +3782,6 @@ Example trail: medium.
       "layer": "back"
     },
     {
-      "x": 1880,
-      "y": null,
-      "type": "fence",
-      "layer": "back"
-    },
-    {
       "x": 2760,
       "y": null,
       "type": "rock",
@@ -3771,7 +3789,7 @@ Example trail: medium.
     },
     {
       "x": 424.11976333581566,
-      "y": 304.32379051363966,
+      "y": 308.32379051363966,
       "type": "cactus",
       "layer": "back"
     },
@@ -3806,8 +3824,8 @@ Example trail: medium.
       "layer": "back"
     },
     {
-      "x": 1421.750921816678,
-      "y": 290.47669319465797,
+      "x": 1494.3748902214106,
+      "y": 294.6887156151288,
       "type": "cactus",
       "layer": "back"
     },
@@ -3830,8 +3848,8 @@ Example trail: medium.
       "layer": "back"
     },
     {
-      "x": 1367.8436579044856,
-      "y": 292.559728871435,
+      "x": 1407.6281057207793,
+      "y": 289.73657894411167,
       "type": "cactus-small",
       "layer": "back"
     },
@@ -3848,8 +3866,8 @@ Example trail: medium.
       "layer": "back"
     },
     {
-      "x": 3690.9212255205603,
-      "y": 3.562773238475188,
+      "x": 3689.3455071105873,
+      "y": 5.977868510736897,
       "type": "boulder",
       "layer": "back"
     },
@@ -3860,14 +3878,15 @@ Example trail: medium.
       "layer": "back"
     },
     {
-      "x": 941.1822246982472,
-      "y": 317.19558907761575,
+      "x": 943.5553234434419,
+      "y": 323.25486581404107,
       "type": "boulder",
-      "layer": "back"
+      "layer": "back",
+      "rotation": 39.7
     },
     {
-      "x": 1391.0260714965505,
-      "y": 292.80224591312566,
+      "x": 1461.5832229994705,
+      "y": 299.69215666349044,
       "type": "skull",
       "layer": "back"
     },

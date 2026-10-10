@@ -7,7 +7,7 @@ import {
   rectangleBlock, cutBlock, normalizeBlock, regionRings, pointInRegion,
   regionArea, flattenBoundary, moveBlock, insertBoundaryNode, validateBlock, addInnerBoundary,
   createNode, createBoundary, createRegion, hitTestBlock, removeBoundaryNodes, setBoundaryEdge,
-  setNodeMode, blockSolidArea, isCurvedEdge, scaleBlock,
+  setNodeMode, blockSolidArea, isCurvedEdge, scaleBlock, rotateBlock,
 } from "../js/terrain-geometry.js";
 import { normalizeTrail, validateTrail } from "../js/trail-schema.js";
 
@@ -106,6 +106,24 @@ const roundish = { ...holed.blocks[0], outer: { ...holed.blocks[0].outer, nodes:
 ] }, inner: [] };
 const curvedScaled = scaleBlock(roundish, 0, 0, 2, 2).outer.nodes[0];
 check("scaling moves curve handles", curvedScaled.in[1] === -10 && curvedScaled.out[0] === 20);
+
+// Rotating a block turns its caves and curve handles about the pivot.
+const wide = rectangleBlock(0, 0, 200, 100);
+const turned = rotateBlock(wide, 100, 50, Math.PI / 2);
+const xs = turned.outer.nodes.map(n => n.x), ys = turned.outer.nodes.map(n => n.y);
+check("a quarter turn swaps width and height",
+  Math.max(...xs) - Math.min(...xs) === 100 && Math.max(...ys) - Math.min(...ys) === 200);
+check("rotation keeps the ids", turned.id === wide.id
+  && turned.outer.nodes.every((n, i) => n.id === wide.outer.nodes[i].id));
+const rotatedHoled = rotateBlock(holed.blocks[0], 13, 7, 0.7);
+check("rotation keeps the area", Math.abs(area(rotatedHoled) - area(holed.blocks[0])) < 1);
+check("rotation keeps the cave", rotatedHoled.inner.length === 1);
+const back = rotateBlock(rotatedHoled, 13, 7, -0.7);
+check("turning back restores the block", back.outer.nodes.every((n, i) =>
+  Math.abs(n.x - holed.blocks[0].outer.nodes[i].x) < 0.05 && Math.abs(n.y - holed.blocks[0].outer.nodes[i].y) < 0.05));
+const curvedTurned = rotateBlock(roundish, 0, 0, Math.PI / 2).outer.nodes[0];
+check("rotation turns curve handles", curvedTurned.x === 0 && curvedTurned.y === 10
+  && curvedTurned.in[0] === 5 && curvedTurned.in[1] === 10 && curvedTurned.out[0] === -5);
 
 // 8. Validation catches malformed geometry.
 check("non-finite is rejected", validateBlock({ material: "grass", outer: { nodes: [

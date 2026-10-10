@@ -22,6 +22,15 @@ import {
   updateScale,
 } from "./scale.js";
 import {
+  ROTATE_STEP,
+  endRotate,
+  rotateHandleAt,
+  rotateSelection,
+  rotating,
+  startRotate,
+  updateRotate,
+} from "./rotate.js";
+import {
   flushInspector,
   selectedPosition,
   syncInspector,
@@ -107,6 +116,17 @@ let scalePoint = null;
 
 function applyScale(event) {
   const before = updateScale(scalePoint, { alt: event.altKey, shift: event.shiftKey });
+  if (before) pushHistory(before);
+  syncInspector({ live: true });
+  render();
+}
+
+// Where the pointer is while the rotate handle is dragged, so Shift can
+// re-apply the turn without the pointer moving.
+let rotatePoint = null;
+
+function applyRotate(event) {
+  const before = updateRotate(rotatePoint, { shift: event.shiftKey });
   if (before) pushHistory(before);
   syncInspector({ live: true });
   render();
@@ -236,6 +256,11 @@ const onShiftChange = (event) => {
     applyScale(event);
     return;
   }
+  if (rotating() && rotatePoint && event.key === "Shift") {
+    event.preventDefault();
+    applyRotate(event);
+    return;
+  }
   if (
     event.key !== "Shift" ||
     !dragging ||
@@ -272,9 +297,11 @@ function resetPointerState() {
   editor.marquee = null;
   altPress = null;
   scalePoint = null;
+  rotatePoint = null;
   pressClient = null;
   cycleNext = null;
   endScale();
+  endRotate();
 }
 
 export const endPointer = () => {
@@ -303,7 +330,7 @@ export const endPointer = () => {
     render();
     return;
   }
-  if (scaling()) {
+  if (scaling() || rotating()) {
     resetPointerState();
     flushInspector();
     render();
@@ -439,6 +466,13 @@ export function bindInput() {
     }
     if (editor.tool !== "select") {
       addAt(point);
+      return;
+    }
+    if (rotateHandleAt(point) && startRotate(point, snapshot())) {
+      pressClient = { clientX: event.clientX, clientY: event.clientY };
+      dragging = true;
+      canvas.style.cursor = "grabbing";
+      canvas.setPointerCapture(event.pointerId);
       return;
     }
     const scaleHandle = scaleHandleAt(point);
@@ -587,9 +621,20 @@ export function bindInput() {
       applyScale(event);
       return;
     }
+    if (rotating()) {
+      if (!pastSlop(event)) return;
+      rotatePoint = pointerWorld(event);
+      applyRotate(event);
+      return;
+    }
     if (editor.tool === "select" && !dragging && !panning) {
-      const handle = scaleHandleAt(pointerWorld(event));
-      canvas.style.cursor = handle ? scaleCursor(handle) : "default";
+      const point = pointerWorld(event);
+      const handle = scaleHandleAt(point);
+      canvas.style.cursor = rotateHandleAt(point)
+        ? "grab"
+        : handle
+          ? scaleCursor(handle)
+          : "default";
     }
     if (!dragging || !editor.selection || !pastSlop(event)) return;
     lastDragPointer = { clientX: event.clientX, clientY: event.clientY };
@@ -765,6 +810,10 @@ export function bindInput() {
     }
     if (event.code === "KeyX") {
       toggleFlip();
+      return;
+    }
+    if (event.code === "KeyR") {
+      rotateSelection(event.shiftKey ? -ROTATE_STEP : ROTATE_STEP);
       return;
     }
     if (event.key === "=" || event.key === "+") {

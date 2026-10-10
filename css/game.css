@@ -24,8 +24,6 @@
     --color-backdrop: #102822cc;
     --color-male-bg: #dce4d8;
     --color-male: #4f695d;
-    --color-female-bg: #ead7dd;
-    --color-female: #9b5269;
     --color-focus: #ffad76;
 
     /* Shape, spacing, and elevation tokens */
@@ -1036,9 +1034,9 @@ h2 {
     height: 67px;
     image-rendering: pixelated;
 }
-.save-avatar,
-.rider-portrait {
+.save-avatar {
     flex: 0 0 auto;
+    overflow: hidden;
     width: 46px;
     height: 46px;
     display: grid;
@@ -1050,18 +1048,17 @@ h2 {
     font-size: 18px;
     font-weight: 950;
 }
-.save-avatar.female,
-.rider-portrait.female {
-    background: var(--color-female-bg);
-    color: var(--color-female);
+.save-avatar canvas {
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
 }
 .save-avatar.empty {
     background: #17262b;
     color: var(--color-text-muted);
     border-style: dashed;
 }
-.save-avatar [data-icon],
-.rider-portrait [data-icon] {
+.save-avatar [data-icon] {
     --px: 3px;
 }
 .menu-actions {
@@ -1125,7 +1122,7 @@ h2 {
 }
 .menu-action:hover,
 .trail-card:hover,
-.rider-card:hover {
+.look-option:not(:disabled):hover {
     background: var(--color-surface-hover);
 }
 
@@ -1502,37 +1499,313 @@ h2 {
     line-height: 1.6;
 }
 
-.rider-grid {
+.look-editor,
+.look-identity {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    gap: 12px;
+    margin-bottom: 4px;
 }
-.rider-card {
-    min-height: 142px;
-    padding: 18px;
+.look-identity {
+    margin-top: 14px;
+}
+.look-top {
+    display: grid;
+    grid-template-columns: 128px minmax(0, 1fr);
+    gap: 8px;
+}
+.look-tabs {
+    display: grid;
+    gap: 4px;
+    align-content: start;
+}
+.look-tab {
+    --px: 2px;
+    min-height: 44px;
+    padding: 6px 8px;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    justify-content: center;
     gap: 8px;
     border: 1px solid var(--color-border);
     background: var(--color-surface);
     color: var(--color-text);
+    text-align: left;
+}
+.look-tab:not([aria-selected="true"]):hover {
+    background: var(--color-surface-hover);
+}
+.look-tab-text {
+    min-width: 0;
+    display: grid;
+    gap: 2px;
+}
+.look-tab b {
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1px;
+}
+.look-tab small {
+    overflow: hidden;
+    color: var(--color-text-muted);
+    font-size: 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.look-tab[aria-selected="true"] {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+    color: #241710;
+}
+.look-tab[aria-selected="true"] small {
+    color: #5a2c14;
+}
+.look-stage {
+    position: relative;
+    align-self: start;
+}
+.look-preview {
+    display: block;
+    width: 100%;
+    aspect-ratio: 2;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    image-rendering: pixelated;
     box-shadow: var(--shadow-pixel);
 }
-.rider-card[aria-pressed="true"] {
+.look-step {
+    position: absolute;
+    top: 50%;
+    width: 28px;
+    height: 32px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    transform: translateY(-50%);
+    border: 1px solid var(--color-border);
+    background: #17262bdd;
+    color: var(--color-text);
+}
+.look-step:first-of-type {
+    left: 6px;
+}
+.look-step:last-of-type {
+    right: 6px;
+}
+.look-step:hover {
+    background: var(--color-surface-hover);
+}
+/* Each block of the customizer sits on its own dark panel. */
+.look-tabs,
+.look-section,
+.look-actions {
+    padding: 10px;
+    border: 1px solid var(--color-border);
+    background: #15232899;
+    box-shadow: var(--shadow-pixel);
+}
+.look-tabs {
+    padding: 6px;
+}
+.look-section {
+    display: grid;
+    gap: 8px;
+}
+.look-section-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-green);
+}
+.look-section-head h4 {
+    margin: 0;
+    flex: 1;
+    font-size: 10px;
+    font-weight: 950;
+    letter-spacing: 1.5px;
+}
+.look-section-head small {
+    color: var(--color-text-muted);
+    font-size: 8px;
+    letter-spacing: 1px;
+}
+.look-detail {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+}
+.look-detail b {
+    color: var(--color-text);
+    font-size: 10px;
+    letter-spacing: 1px;
+}
+.look-detail small {
+    color: var(--color-text-muted);
+    font-size: 9px;
+}
+.look-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+    gap: 6px;
+}
+.look-option {
+    position: relative;
+    padding: 5px 4px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+}
+.look-option canvas {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: contain;
+    image-rendering: pixelated;
+}
+.look-option small {
+    max-width: 100%;
+    overflow: hidden;
+    color: var(--color-text-muted);
+    font-size: 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.look-option[aria-checked="true"],
+.look-chip[aria-checked="true"],
+.look-gender[aria-checked="true"] {
     border-color: var(--color-accent);
     background: #3a3b36;
     outline: 2px solid var(--color-accent);
     outline-offset: -4px;
 }
-.rider-card strong {
-    font-size: 12px;
-    letter-spacing: 1px;
+.look-option[aria-checked="true"] small {
+    color: var(--color-text);
 }
-.rider-card small {
+/* The orange check badge on the picked style or colour. */
+.look-option[aria-checked="true"]::after,
+.look-chip[aria-checked="true"]::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 14px;
+    height: 12px;
+    background: var(--color-accent);
+}
+.look-option[aria-checked="true"]::before,
+.look-chip[aria-checked="true"]::before {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    right: 3px;
+    bottom: 3px;
+    width: 9px;
+    height: 6px;
+    background: #241710;
+    -webkit-mask: var(--icon-check) center / 100% 100% no-repeat;
+    mask: var(--icon-check) center / 100% 100% no-repeat;
+}
+/* Items a rider has yet to win: shown, but not wearable. */
+.look-option.locked canvas,
+.look-chip.locked .look-chip-colors {
+    filter: grayscale(1) brightness(0.6);
+}
+.look-option [data-icon="lock"],
+.look-chip [data-icon="lock"] {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    --px: 1px;
+}
+.look-chips {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+    gap: 6px;
+}
+.look-chip {
+    position: relative;
+    height: 34px;
+    padding: 5px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+}
+.look-chip-colors {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, var(--chip-a) 50%, var(--chip-b) 50%);
+    box-shadow: inset 0 0 0 1px #0003;
+}
+.look-colors.disabled .look-chips {
+    opacity: 0.35;
+}
+.look-actions {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+}
+.look-actions > * {
+    margin: 0;
+}
+.look-actions .primary {
+    flex: 1;
+}
+/* Save Look waits for a change. */
+.look-actions .primary:disabled {
+    opacity: 0.45;
+    cursor: default;
+    box-shadow: none;
+}
+.look-revert {
+    --px: 2px;
+}
+.look-genders {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+.look-gender {
+    --px: 3px;
+    min-height: 54px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: 11px;
+    letter-spacing: 1.5px;
+}
+.look-gender:not([aria-checked="true"]):hover,
+.look-chip:not([aria-checked="true"]):not(:disabled):hover,
+.look-option:not([aria-checked="true"]):not(:disabled):hover {
+    background: var(--color-surface-hover);
+}
+.look-skins {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.save-steps {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+.save-steps span {
+    flex: 1;
+    padding: 5px 8px 4px;
+    border-bottom: 3px solid var(--color-border);
     color: var(--color-text-muted);
     font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+}
+.save-steps span.active {
+    border-color: var(--color-accent);
+    color: var(--color-text);
 }
 .create-save-button {
     margin-top: 16px;
@@ -1758,9 +2031,24 @@ kbd {
         min-height: 52px;
         padding-block: 10px;
     }
-    .rider-card {
-        min-height: 126px;
-        padding: 12px 8px;
+    .look-options {
+        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    }
+    .look-top {
+        grid-template-columns: 1fr;
+    }
+    .look-tabs {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    .look-tab {
+        flex-direction: column;
+        justify-content: flex-end;
+        gap: 4px;
+        padding: 6px 2px;
+        text-align: center;
+    }
+    .look-tab small {
+        display: none;
     }
     .setting-group {
         grid-template-columns: 1fr;

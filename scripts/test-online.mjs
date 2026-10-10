@@ -12,6 +12,7 @@ import account from '../netlify/functions/account.mjs';
 import leaderboard from '../netlify/functions/leaderboard.mjs';
 import { trailHash } from '../js/trail-hash.js';
 import { RIDE_VERSION } from '../js/ride.js';
+import { DEFAULT_LOOK, legacyLook } from '../js/cosmetics.js';
 import { loadCatalogTrails, readJson } from './lib/trails.mjs';
 
 process.env.AUTH_SECRET = randomBytes(32).toString('hex');
@@ -146,6 +147,7 @@ let julianToken;
   assert.equal(status, 200, JSON.stringify(body));
   assert.equal(body.player.name, 'Julian');
   assert.equal(body.player.rider, 'female');
+  assert.deepEqual(body.player.look, legacyLook('female'), 'a client sending only a rider gets its look');
   julianToken = body.token;
 
   for (const lookalike of ['julian', 'JULIAN', 'Jülian', 'Ju_lian', 'Ju lian']) {
@@ -261,6 +263,23 @@ const run = (replay = firstTrailRun) => ({ inputs: replay.inputs, seed: replay.s
   const faster = await submit({ body: { trail: firstKey, rider: 'female', run: run() }, token: julianToken });
   assert.equal(faster.body.improved, true);
   assert.equal(faster.body.runs.length, 1, 'one row per rider');
+  assert.deepEqual(faster.body.runs[0].look, legacyLook('female'), 'rows from rider-only clients show that rider');
+
+  // A run's look is kept with it, and the board falls back for unknown items.
+  // Julian was created female with tan skin, and a run can't change that.
+  const bareLook = {
+    ...legacyLook('female'), hair: 'bob', hairColor: 'blonde', helmet: 'none', outfitColor: 'yellow',
+    bike: 'classic', bikeColor: 'blue'
+  };
+  await sql`update runs set time_ms = 60000 where trail = ${firstKey}`;
+  const styled = await submit({ body: { trail: firstKey, look: { ...bareLook, gender: 'male', skin: 'deep' }, run: run() }, token: julianToken });
+  assert.deepEqual(styled.body.runs[0].look, bareLook, 'the board shows the look a run was ridden in, with the rider\'s own gender and skin');
+  assert.equal(styled.body.runs[0].rider, 'female', 'and a rider for older clients');
+  await sql`update runs set time_ms = 60000 where trail = ${firstKey}`;
+  const odd = await submit({ body: { trail: firstKey, look: { ...bareLook, helmet: 'golden-crown', outfit: 7 }, run: run() }, token: julianToken });
+  assert.deepEqual(odd.body.runs[0].look, { ...bareLook, helmet: DEFAULT_LOOK.helmet, outfit: DEFAULT_LOOK.outfit }, 'unknown items fall back to the defaults');
+  await sql`update runs set time_ms = 60000 where trail = ${firstKey}`;
+  await submit({ body: { trail: firstKey, rider: 'female', run: run() }, token: julianToken });
 
   const ghost = await call(leaderboard, '/api/leaderboard?ghost=1&trail=' + encodeURIComponent(firstKey), { method: 'GET' });
   assert.equal(ghost.status, 200);
@@ -284,8 +303,17 @@ const run = (replay = firstTrailRun) => ({ inputs: replay.inputs, seed: replay.s
   assert.equal((await api('save', { method: 'PUT', body: { save }, token: julianToken })).status, 200);
   assert.equal((await api('save', { method: 'PUT', body: { save: { ...save, extra: 'x'.repeat(40_000) } }, token: julianToken })).status, 413);
 
-  const { body } = await loginRider(julian);
-  assert.deepEqual(body.save, { rider: 'female', createdAt: 1700000000000, trail: 1, unlocked: 2, bestTimes: { [firstKey]: 8.192 } }, 'only savegame fields are kept');
+  let { body } = await loginRider(julian);
+  assert.deepEqual(body.save, { look: legacyLook('female'), rider: 'female', createdAt: 1700000000000, trail: 1, unlocked: 2, bestTimes: { [firstKey]: 8.192 } }, 'only savegame fields are kept');
+  assert.deepEqual(body.player.look, legacyLook('female'));
+
+  // A look changed in the Garage reaches the player and their next login.
+  const look = { ...legacyLook('female'), hair: 'buzz', hairColor: 'red', helmet: 'none', outfitColor: 'black', bikeColor: 'purple' };
+  assert.equal((await api('save', { method: 'PUT', body: { save: { ...save, look: { ...look, gender: 'male', skin: 'fair' } } }, token: julianToken })).status, 200);
+  ({ body } = await loginRider(julian));
+  assert.deepEqual(body.save.look, look, 'gender and skin stay as they were created');
+  assert.equal(body.save.rider, 'female', 'a buzz cut does not change who the rider is');
+  assert.deepEqual(body.player.look, look);
   assert.equal(body.runs.length, 1);
   const { trail, ghost } = body.runs[0];
   assert.equal(trail, firstKey);
