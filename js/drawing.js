@@ -1554,7 +1554,7 @@ export function drawMxHelmet(rect, colors) {
     L: colors.helmetLight,
     S: colors.helmetShade,
     s: colors.stripe,
-    g: colors.panel,
+    g: colors.visor,
     V: colors.visor,
     v: colors.visorLight,
   });
@@ -1575,7 +1575,7 @@ export function drawHelmetShell(rect, colors) {
 
   rect(1, -6, 2, 6, colors.stripe);
 
-  rect(-5, -2, 8, 2, colors.panel);
+  rect(-5, -2, 8, 2, colors.helmetShade);
   rect(3, -2, 8, 6, RIDER_OUTLINE);
   rect(3, -2, 8, 4, colors.visor);
   rect(5, -2, 4, 2, colors.visorLight);
@@ -1630,7 +1630,7 @@ export function drawBareHead(rect, colors, hair, face = null) {
 
 // The riding pose, in bike body coordinates before lean: where the helmet's
 // centre sits, and the hand on the handlebar every bike model shares.
-const RIDER_HEAD = [-3, -46];
+const RIDER_HEAD = [1, -46];
 const RIDER_HAND = [16, -28];
 
 // The jersey, leaning forward from the hip on the seat to the shoulder. Top
@@ -4852,8 +4852,8 @@ export function createGameArt(ctx) {
       bodyRect(hand[0], hand[1] - 2, 4, 2, colors.jacketLight);
 
       // Neck, partly tucked into the helmet and collar.
-      bodyRect(-6 + shift, -44, 8, 6, colors.skin);
-      bodyRect(-2 + shift, -42, 4, 2, colors.skinLight);
+      bodyRect(-2 + shift, -44, 8, 6, colors.skin);
+      bodyRect(2 + shift, -42, 4, 2, colors.skinLight);
 
       // The head is the same one the ragdoll shows, centred on the neck.
       const head = (x, y, width, height, color) =>

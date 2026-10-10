@@ -16,7 +16,7 @@ import {
 
 // What each view frames, in world units around the bike's axles.
 const SWATCH_VIEWS = {
-  head: { dx: 2, dy: -45, width: 30, height: 30 },
+  head: { dx: 6, dy: -45, width: 30, height: 30 },
   outfit: { dx: -8, dy: -30, width: 44, height: 44 },
   bike: { dx: 0, dy: -22, width: 88, height: 70 },
   // The big preview: the whole rider and bike, wheels and floor included.
