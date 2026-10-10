@@ -3312,6 +3312,9 @@
     "clouds": 0,
     "lightning": 0
   },
+  "unlock": {
+    "golds": 4
+  },
   "timeOfDay": "morning",
   "backdrop": "forest",
   "author": "Nikolaj Gunge"

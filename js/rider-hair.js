@@ -4,8 +4,8 @@ const HAIR_MAX_STEPS = 4;
 const HAIR_LENGTHS = [4, 4, 4, 4, 4];
 // Where the ponytail leaves the head: under the back of the helmet, or at the
 // nape of a bare head, which sits further forward.
-const HAIR_ROOT = [-12, -44];
-const BARE_HAIR_ROOT = [-10, -42];
+const HAIR_ROOT = [-8, -44];
+const BARE_HAIR_ROOT = [-6, -42];
 const HAIR_REST = [-.55, .84];
 // Each strand's colour is the matching entry of the cut's `strands`.
 const HAIR_STRANDS = [
