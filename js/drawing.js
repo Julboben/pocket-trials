@@ -1590,11 +1590,11 @@ export function drawBareHead(rect, colors, hair, face = null) {
 
 // The riding pose, in bike body coordinates before lean: where the helmet's
 // centre sits, and the hand on the handlebar every bike model shares.
-const RIDER_HEAD = [-1, -52];
-const RIDER_HAND = [18, -34];
+const RIDER_HEAD = [-1, -50];
+const RIDER_HAND = [18, -32];
 
 // The jersey, leaning forward from the hip on the seat to the shoulder. Top
-// left at (-14, -44), moved with the lean.
+// left at (-14, -42), moved with the lean.
 const RIDER_TORSO = [
   "    OPPPPO ",
   "   OjjjjjJO",
@@ -4521,15 +4521,15 @@ export function createGameArt(ctx) {
     spring(half, 0, frontMount[0], frontMount[1], "#f0b45f");
 
     bodyRect(-9, -20, 24, 4, paint.base);
-    bodyRect(-9, -24, 4, 4, "#263a35");
-    bodyRect(-17, -28, 14, 4, "#263a35");
-    bodyRect(-20, -31, 5, 5, brakePressure > 0.08 ? "#ff6045" : "#713c35", 2);
-    if (brakePressure > 0.6) bodyRect(-19, -30, 2, 2, "#ffd0a2", 2);
+    bodyRect(-9, -22, 4, 2, "#263a35");
+    bodyRect(-17, -26, 14, 4, "#263a35");
+    bodyRect(-20, -29, 5, 5, brakePressure > 0.08 ? "#ff6045" : "#713c35", 2);
+    if (brakePressure > 0.6) bodyRect(-19, -28, 2, 2, "#ffd0a2", 2);
     bodyPath(
       [
         [10, -23],
-        [14, -34],
-        [21, -34],
+        [14, -32],
+        [21, -32],
       ],
       "#263a35",
       2,
@@ -4573,7 +4573,7 @@ export function createGameArt(ctx) {
     };
     const pivot = bodyPoint(-4, -6),
       shockTop = bodyPoint(-6, -20),
-      forkTop = bodyPoint(14, -32);
+      forkTop = bodyPoint(14, -30);
     const shockBase = [-half + (pivot[0] + half) * 0.45, pivot[1] * 0.45];
     const forkSlider = [half + (forkTop[0] - half) * 0.45, forkTop[1] * 0.45];
 
@@ -4598,8 +4598,8 @@ export function createGameArt(ctx) {
       1,
     );
     spring(shockBase[0], shockBase[1], shockTop[0], shockTop[1], c.orange);
-    bodyRows(-40, -30, ELASTO_TAIL, colors);
-    bodyRows(-4, -28, ELASTO_TANK, colors);
+    bodyRows(-40, -28, ELASTO_TAIL, colors);
+    bodyRows(-4, -26, ELASTO_TANK, colors);
 
     path([[half, 0], forkTop], c.silverDark, 2);
     path([forkSlider, forkTop], c.silver, 2);
@@ -4607,16 +4607,16 @@ export function createGameArt(ctx) {
     // Top clamp, riser and handlebar, raised clear of the tank.
     bodyPath(
       [
-        [14, -32],
-        [15, -34],
+        [14, -30],
+        [15, -32],
       ],
       c.black,
       2,
     );
     bodyPath(
       [
-        [13, -34],
-        [21, -34],
+        [13, -32],
+        [21, -32],
       ],
       c.black,
       2,
@@ -4747,12 +4747,12 @@ export function createGameArt(ctx) {
       const colors = parts.palette;
       const outline = "#263b36";
 
-      const hip = [-12 + shift, -30];
-      const knee = [2 + shift * 0.45, -22];
+      const hip = [-12 + shift, -28];
+      const knee = [2 + shift * 0.45, -20];
       const ankle = [-2, -3];
 
-      const shoulder = [-2 + shift, -42];
-      const elbow = [10 + shift * 0.45, -38];
+      const shoulder = [-2 + shift, -40];
+      const elbow = [10 + shift * 0.45, -36];
       const hand = RIDER_HAND;
 
       // Trousers: outlined silhouette with a narrow lit edge.
@@ -4760,7 +4760,7 @@ export function createGameArt(ctx) {
       bodyPath([hip, knee, ankle], colors.trousers, 2);
       bodyPath(
         [
-          [-11 + shift, -31],
+          [-11 + shift, -29],
           [knee[0] - 2, knee[1] - 2],
         ],
         colors.trousersLight,
@@ -4778,7 +4778,7 @@ export function createGameArt(ctx) {
       bodyRect(-5, -7, 4, 2, colors.trousersLight);
 
       // Jersey leaning over the tank, clear of the arm and tank in front.
-      bodyRows(-14 + shift, -44, RIDER_TORSO, {
+      bodyRows(-14 + shift, -42, RIDER_TORSO, {
         O: outline,
         J: colors.jacket,
         j: colors.jacketLight,
@@ -4791,8 +4791,8 @@ export function createGameArt(ctx) {
       bodyPath([shoulder, elbow], colors.jacket, 2);
       bodyPath(
         [
-          [-2 + shift, -44],
-          [8 + shift * 0.45, -40],
+          [-2 + shift, -42],
+          [8 + shift * 0.45, -38],
         ],
         colors.jacketLight,
         1,
@@ -4803,8 +4803,8 @@ export function createGameArt(ctx) {
       bodyRect(elbow[0] - 2, elbow[1] - 2, 4, 4, colors.panel);
       bodyPath(
         [
-          [12 + shift * 0.3, -39],
-          [15, -37],
+          [12 + shift * 0.3, -37],
+          [15, -35],
         ],
         colors.skinLight,
         1,
@@ -4813,8 +4813,8 @@ export function createGameArt(ctx) {
       bodyRect(hand[0], hand[1] - 2, 4, 2, colors.jacketLight);
 
       // Neck, partly tucked into the helmet and collar.
-      bodyRect(-4 + shift, -50, 8, 6, colors.skin);
-      bodyRect(0 + shift, -48, 4, 2, colors.skinLight);
+      bodyRect(-4 + shift, -48, 8, 6, colors.skin);
+      bodyRect(0 + shift, -46, 4, 2, colors.skinLight);
 
       // The head is the same one the ragdoll shows, centred on the neck.
       const head = (x, y, width, height, color) =>
