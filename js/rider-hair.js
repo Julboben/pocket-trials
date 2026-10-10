@@ -68,7 +68,7 @@ export function freeHairRestDirection(facing) {
 export function hairBackSupport(pose) {
   const frame = riderBodyFrame(pose, true);
   const top = frame.point(-9, -35);
-  const bottom = frame.point(-15, -23);
+  const bottom = frame.point(-15, -25);
   const outside = frame.point(-14, -30);
   const inside = frame.point(-12, -29);
   const dx = outside.x - inside.x, dy = outside.y - inside.y;

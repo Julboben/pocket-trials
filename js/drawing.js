@@ -1591,7 +1591,7 @@ export function drawBareHead(rect, colors, hair, face = null) {
 // The riding pose, in bike body coordinates before lean: where the helmet's
 // centre sits, and the hand on the handlebar every bike model shares.
 const RIDER_HEAD = [-3, -46];
-const RIDER_HAND = [18, -30];
+const RIDER_HAND = [16, -30];
 
 // The jersey, leaning forward from the hip on the seat to the shoulder. Top
 // left at (-16, -38), moved with the lean.
@@ -1600,10 +1600,9 @@ const RIDER_TORSO = [
   "   OjjjjjJO",
   "   OdjjJJJO",
   "  OddJJJJJO",
-  "  OdJJJJJO ",
   " OddJJJJO  ",
-  " OPPPPPO   ",
-  "OPPPPO     ",
+  "OPPPPPPO   ",
+  " OPPPPO    ",
 ];
 
 // Selectable bike models drawn by createGameArt().drawBike. Every model keeps
@@ -4528,8 +4527,8 @@ export function createGameArt(ctx) {
     bodyPath(
       [
         [10, -23],
-        [14, -30],
-        [21, -30],
+        [12, -30],
+        [19, -30],
       ],
       "#263a35",
       2,
@@ -4608,15 +4607,15 @@ export function createGameArt(ctx) {
     bodyPath(
       [
         [14, -28],
-        [15, -30],
+        [13, -30],
       ],
       c.black,
       2,
     );
     bodyPath(
       [
-        [13, -30],
-        [21, -30],
+        [11, -30],
+        [19, -30],
       ],
       c.black,
       2,
@@ -4747,7 +4746,7 @@ export function createGameArt(ctx) {
       const colors = parts.palette;
       const outline = "#263b36";
 
-      const hip = [-14 + shift, -24];
+      const hip = [-11 + shift, -26];
       const knee = [2 + shift * 0.45, -16];
       const ankle = [-2, -3];
 
@@ -4760,7 +4759,7 @@ export function createGameArt(ctx) {
       bodyPath([hip, knee, ankle], colors.trousers, 3);
       bodyPath(
         [
-          [-13 + shift, -25],
+          [-10 + shift, -27],
           [knee[0] - 2, knee[1] - 2],
         ],
         colors.trousersLight,
@@ -4804,7 +4803,7 @@ export function createGameArt(ctx) {
       bodyPath(
         [
           [10 + shift * 0.3, -33],
-          [15, -31],
+          [13, -31],
         ],
         colors.skinLight,
         1,
