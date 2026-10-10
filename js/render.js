@@ -145,6 +145,8 @@ export function createRenderer(canvas) {
   const terrainRenderer = createTerrainRenderer();
   const backWallRenderer = createTerrainRenderer({ backWalls: true });
   const lighting = createLighting();
+  // Whether the bike's lamps are on: lit lenses in the art, and their light.
+  let headlights = true;
   const popups = [];
   let W = 380,
     H = 410,
@@ -690,6 +692,7 @@ export function createRenderer(canvas) {
       flipVisual: flip,
       facing: ride.facing,
       brakePressure: ride.brakePressure,
+      lights: headlights,
       state,
       leanVisual: ride.leanVisual,
       look,
@@ -1221,6 +1224,7 @@ export function createRenderer(canvas) {
     lighting.draw(ctx, {
       trail,
       ride,
+      look,
       cameraX,
       cameraY,
       width: W,
@@ -1240,11 +1244,13 @@ export function createRenderer(canvas) {
    * Only the bike and rider, standing still, for menu scenes with art of their
    * own: no trail, props, shadow, weather or lighting. `backdrop` paints first,
    * in world units, given the view (`x`, `y`, `width`, `height`); without one
-   * the rest of the canvas stays transparent.
+   * the rest of the canvas stays transparent. `dark` turns the room's lights
+   * off, leaving the bike's headlight and tail light to light it.
    * @param {{ ride: any, look?: import('./cosmetics.js').Look | null, view: { x: number, y: number },
-   *   backdrop?: ((ctx: CanvasRenderingContext2D, view: { x: number, y: number, width: number, height: number }) => void) | null }} frame
+   *   backdrop?: ((ctx: CanvasRenderingContext2D, view: { x: number, y: number, width: number, height: number }) => void) | null,
+   *   dark?: boolean }} frame
    */
-  function drawFigure({ ride, look = null, view, backdrop = null }) {
+  function drawFigure({ ride, look = null, view, backdrop = null, dark = false }) {
     const worldToDevice = pixelScale / ART_PIXEL;
     cameraX = Math.round(view.x * worldToDevice) / worldToDevice;
     cameraY = Math.round(view.y * worldToDevice) / worldToDevice;
@@ -1259,7 +1265,12 @@ export function createRenderer(canvas) {
     backdrop?.(ctx, { x: cameraX, y: cameraY, width: W, height: H });
     hair = updateHair(hair, ride, look, 0);
     if (hair) hair.draw(pixelPath, currentHairRoot(ride, false, flipVisual, look));
+    const lit = headlights;
+    // In the dark the bike's lights are on, whatever the setting.
+    if (dark) headlights = true;
     gameArt.drawBike(bikeDrawing(ride, look, flipVisual, "ready"));
+    headlights = lit;
+    if (dark) lighting.drawDark(ctx, { ride, look, cameraX, cameraY, width: W, height: H, flip: flipVisual });
     ctx.restore();
   }
 
@@ -1271,7 +1282,10 @@ export function createRenderer(canvas) {
     draw,
     drawFigure,
     popup,
-    setHeadlights: lighting.setHeadlights,
+    setHeadlights(on) {
+      headlights = Boolean(on);
+      lighting.setHeadlights(on);
+    },
     get width() {
       return W;
     },

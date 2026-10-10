@@ -272,7 +272,7 @@ Everything is rendered with the Canvas 2D API. The gameplay and illustrated How 
 
 - Terrain blocks, caves, and floating ledges
 - Back walls: scenery behind the terrain that keeps caves dark
-- Modular pixel bike, rider, wheels, and suspension. Bike models are listed in `BIKE_MODELS` in `js/drawing.js` and chosen with the `bike` option of `drawBike`, or by the rider's look (`js/cosmetics.js`). `elasto` is the default and `classic` is the original bike
+- Modular pixel bike, rider, wheels, and suspension. Bike models are listed in `BIKE_MODELS` in `js/drawing.js` and chosen with the `bike` option of `drawBike`, or by the rider's look (`js/cosmetics.js`). `elasto` is the default and `classic` is the original bike. Each model's headlight and tail light are pixel art in `BIKE_LAMPS` (`js/bike-lamps.js`); the art draws them and the lighting shines from their lenses, so a new model only needs an entry there
 - Smooth vector apples and pixel finish gates
 - Layered pixel props and particles
 - Pixel terrain with anchored pixel mountain silhouettes

@@ -6,6 +6,7 @@
 // open ground looks just as it is drawn while caves stay dark.
 import {
   ART_PIXEL,
+  bikeLampPoints,
   craneLightOn,
   createCanvas,
   lanternFlicker,
@@ -56,10 +57,17 @@ const LANTERN = [255, 196, 118],
   HEADLIGHT = [255, 244, 212],
   TAIL = [255, 60, 50];
 
-// Where the bike art draws its lamps, in the sprite's local units: +x
-// towards the front wheel, -y up from the frame.
-const BIKE_HEADLIGHT = [17, -19],
-  BIKE_TAIL_LIGHT = [-30, -30];
+// The glint on a lit lamp: a pixel cross on the art grid, as [arm length in
+// art pixels, brightness at the centre, body], filled out to a diamond `body`
+// art pixels across from the centre. Each step out is dimmer.
+const HEADLIGHT_FLARE = [2, 0.7, 0],
+  TAIL_FLARE = [1, 0.45, 0],
+  BRAKE_FLARE = [2, 0.8, 1],
+  LANTERN_FLARE = [4, 0.6, 2],
+  LAMP_FLARE = [3, 0.65, 1],
+  CRANE_FLARE = [1, 0.6, 0];
+// How dark the garage is with its lights off: what's left is the bike's lights.
+const DARK_ROOM = "rgb(64,72,98)";
 
 // Strong sun: above this strength (see sunLight) the sun glares and casts
 // rays, growing to full at SUN_GLARE + SUN_GLARE_RANGE.
@@ -247,7 +255,7 @@ export function createLighting() {
       if (type === "lantern") {
         const fit = propWallFit(trail, prop);
         const cy = y + (fit?.body || 0) + LANTERN_CENTRE;
-        lights.push({ kind: type, phase: prop.x, x: prop.x, y: cy, radius: 150, color: LANTERN, core: 12 });
+        lights.push({ kind: type, phase: prop.x, x: prop.x, y: cy, radius: 150, color: LANTERN, flare: LANTERN_FLARE });
       } else if (type === "mushrooms") {
         const glow = at(0, -6);
         lights.push({ kind: type, phase: prop.x, x: glow.x, y: glow.y, radius: 64, color: GLOW, strength: 0.8 });
@@ -255,27 +263,30 @@ export function createLighting() {
         const { x: hx, y: hy } = at(LAMP_HEAD.x, LAMP_HEAD.y);
         if (!darkAt(entry, hx, hy)) continue;
         lights.push({ x: hx, y: hy, radius: 170, color: LAMP, angle: Math.PI / 2 + angle, spread: 0.42 });
-        lights.push({ x: hx, y: hy, radius: 40, color: LAMP, strength: 0.6, core: 6 });
+        lights.push({ x: hx, y: hy, radius: 40, color: LAMP, strength: 0.6, flare: LAMP_FLARE });
       } else {
         const top = at(...CRANE_LIGHTS[0]);
         if (!darkAt(entry, top.x, top.y)) continue;
         CRANE_LIGHTS.forEach(([lx, ly], index) => {
           const light = at(lx, ly);
-          lights.push({ kind: type, phase: index, x: light.x, y: light.y, radius: 40, color: CRANE, strength: 0.7, core: 4 });
+          lights.push({ kind: type, phase: index, x: light.x, y: light.y, radius: 40, color: CRANE, strength: 0.7, flare: CRANE_FLARE });
         });
       }
     }
     return lights;
   }
 
-  // `flip` is the animated facing, -1…1. The lights sit where the bike art
-  // draws its lamps, placed with the same transform as the sprite: centred
-  // between the wheels, turned to the frame in 32 steps and mirrored by
-  // `flip`, so they stay on the bike through flips, loops and 180s in the air.
-  // The beam itself turns with the frame's true angle, not the 32 steps: a
-  // long beam jumping a step at a time is hard to steer by.
-  function bikeLights(ride, flip, lights) {
-    if (ride.ragdoll) return;
+  // `flip` is the animated facing, -1…1. The lights sit on the lamps the bike
+  // art draws (see bike-lamps.js), placed with the same transform as the
+  // sprite: centred between the wheels, turned to the frame in 32 steps and
+  // mirrored by `flip`, so they stay on the bike through flips, loops and 180s
+  // in the air. The beam itself turns with the frame's true angle, not the 32
+  // steps: a long beam jumping a step at a time is hard to steer by. The brake
+  // light works with the lights off, and glows brighter the harder it's held.
+  function bikeLights(ride, flip, look, lights, on = headlights) {
+    const brake = Math.max(0, Math.min(1, ride.brakePressure || 0));
+    const braking = brake > 0.08;
+    if (ride.ragdoll || (!on && !braking)) return;
     const { rear, front } = ride;
     const mx = (rear.x + front.x) / 2,
       my = (rear.y + front.y) / 2;
@@ -287,19 +298,25 @@ export function createLighting() {
     const at = ([lx, ly]) => ({ x: mx + cos * flip * lx - sin * ly, y: my + sin * flip * lx + cos * ly });
     const facing = flip < 0 ? -1 : 1;
     const turn = Math.abs(flip);
-    if (!headlights) return;
-    lights.push(
-      {
-        ...at(BIKE_HEADLIGHT),
-        radius: 230,
-        color: HEADLIGHT,
-        strength: turn,
-        angle: Math.atan2(Math.sin(frame) * facing, Math.cos(frame) * facing),
-        spread: 0.3,
-        core: 5,
-      },
-      { ...at(BIKE_TAIL_LIGHT), radius: 22, color: TAIL, strength: 0.7 * turn, core: 2 },
-    );
+    const lamps = bikeLampPoints({ rear, front, facing: ride.facing, look });
+    const tail = braking ? 0.75 + 0.5 * brake : 0.7;
+    lights.push({
+      ...at(lamps.tail),
+      radius: braking ? 24 + 22 * brake : 22,
+      color: TAIL,
+      strength: tail * turn,
+      flare: brake > 0.6 ? BRAKE_FLARE : TAIL_FLARE,
+    });
+    if (!on) return;
+    lights.push({
+      ...at(lamps.head),
+      radius: 230,
+      color: HEADLIGHT,
+      strength: turn,
+      angle: Math.atan2(Math.sin(frame) * facing, Math.cos(frame) * facing),
+      spread: 0.3,
+      flare: HEADLIGHT_FLARE,
+    });
   }
 
   function strengthOf(item, time) {
@@ -370,7 +387,7 @@ export function createLighting() {
     const px = Math.round((item.x - left) / ART_PIXEL),
       py = Math.round((item.y - top) / ART_PIXEL);
     if (px + r < 0 || py + r < 0 || px - r > cols || py - r > rows) return false;
-    if (item.shape === undefined) item.shape = lightShape(field, item);
+    if (item.shape === undefined) item.shape = field ? lightShape(field, item) : null;
     const shape = item.shape;
     if (shape) {
       lightContext.save();
@@ -425,8 +442,8 @@ export function createLighting() {
   }
 
   /**
-   * Multiplies everything already drawn by the light map, then adds a small
-   * bloom on each light's source, and the glare of a strong sun. Draws in
+   * Multiplies everything already drawn by the light map, then adds a pixel
+   * glint on each light's source, and the glare of a strong sun. Draws in
    * world space; `width` and `height` are the view's size in world units.
    * Returns false when the view is in full daylight and the scene needed no
    * shading.
@@ -442,7 +459,7 @@ export function createLighting() {
     return lit;
   }
 
-  function shadeScene(ctx, entry, { ride, flash = 0, time = 0, flip = 1 }, left, top) {
+  function shadeScene(ctx, entry, { ride, look = null, flash = 0, time = 0, flip = 1 }, left, top) {
     const { field } = entry;
 
     context.globalCompositeOperation = "source-over";
@@ -459,21 +476,44 @@ export function createLighting() {
     }
 
     const lights = [...entry.props];
-    bikeLights(ride, flip, lights);
+    bikeLights(ride, flip, look, lights);
+    return composeLights(ctx, lights, { left, top, field, cover: entry.cover, time });
+  }
 
+  /**
+   * The bike in a dark room (the garage with its lights off): everything
+   * already drawn is darkened to `room`, lit only by the bike's lights, which
+   * are on whatever the setting. Draws in world space, like `draw`.
+   */
+  function drawDark(ctx, { ride, look = null, cameraX, cameraY, width, height, flip = ride.facing, room = DARK_ROOM }) {
+    const left = Math.floor(cameraX / ART_PIXEL) * ART_PIXEL,
+      top = Math.floor(cameraY / ART_PIXEL) * ART_PIXEL;
+    ensure(Math.ceil(width / ART_PIXEL) + 2, Math.ceil(height / ART_PIXEL) + 2);
+    context.globalCompositeOperation = "source-over";
+    context.globalAlpha = 1;
+    context.fillStyle = room;
+    context.fillRect(0, 0, cols, rows);
+    const lights = [];
+    bikeLights(ride, flip, look, lights, true);
+    return composeLights(ctx, lights, { left, top, field: null, time: 0 });
+  }
+
+  // Adds `lights` to the light map (`context`, holding the ambient light),
+  // multiplies the scene by it, then puts a glint on each light's source.
+  function composeLights(ctx, lights, { left, top, field = null, cover = null, time }) {
     lightContext.setTransform(1, 0, 0, 1, 0, 0);
     lightContext.globalCompositeOperation = "source-over";
     lightContext.globalAlpha = 1;
     lightContext.clearRect(0, 0, cols, rows);
     lightContext.globalCompositeOperation = "lighter";
     lightContext.imageSmoothingEnabled = false;
-    const cores = [];
+    const flares = [];
     let stamped = 0;
     for (const item of lights) {
       const strength = strengthOf(item, time);
       if (strength <= 0 || !stamp(item, strength, left, top, field)) continue;
       stamped++;
-      if (item.core) cores.push(item, strength);
+      if (item.flare) flares.push(item, strength);
     }
     if (stamped) {
       if (field) {
@@ -481,7 +521,7 @@ export function createLighting() {
         lightContext.globalCompositeOperation = "destination-out";
         lightContext.globalAlpha = 1;
         lightContext.imageSmoothingEnabled = true;
-        drawField(lightContext, entry.cover, field, left, top);
+        drawField(lightContext, cover, field, left, top);
       }
       context.globalCompositeOperation = "lighter";
       context.drawImage(lightCanvas, 0, 0);
@@ -493,21 +533,27 @@ export function createLighting() {
     ctx.globalCompositeOperation = "multiply";
     ctx.drawImage(canvas, left, top, cols * ART_PIXEL, rows * ART_PIXEL);
     ctx.globalCompositeOperation = "screen";
-    for (let index = 0; index < cores.length; index += 2) {
-      const item = cores[index],
-        strength = cores[index + 1];
-      const x = Math.round(item.x / 2) * 2,
-        y = Math.round(item.y / 2) * 2;
-      ctx.fillStyle = rgb(item.color);
-      for (const [scale, alpha] of [[1, 0.25], [0.5, 0.35]]) {
-        ctx.globalAlpha = Math.min(1, alpha * strength);
-        ctx.beginPath();
-        ctx.arc(x, y, item.core * scale, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
+    for (let index = 0; index < flares.length; index += 2) drawFlare(ctx, flares[index], flares[index + 1]);
     ctx.restore();
     return true;
+  }
+
+  // A light's glint: a pixel cross on the art grid, centred on the art pixel
+  // the light shines from and filled out to a diamond `body` pixels across,
+  // dimming with each step out.
+  function drawFlare(ctx, item, strength) {
+    const [arm, brightness, body = 0] = item.flare;
+    const x = Math.floor(item.x / ART_PIXEL) * ART_PIXEL,
+      y = Math.floor(item.y / ART_PIXEL) * ART_PIXEL;
+    ctx.fillStyle = rgb(item.color);
+    for (let dy = -arm; dy <= arm; dy++) {
+      for (let dx = -arm; dx <= arm; dx++) {
+        const steps = Math.abs(dx) + Math.abs(dy);
+        if (dx && dy && steps > body) continue;
+        ctx.globalAlpha = Math.min(1, brightness * strength * (1 - steps / (arm + 1)));
+        ctx.fillRect(x + dx * ART_PIXEL, y + dy * ART_PIXEL, ART_PIXEL, ART_PIXEL);
+      }
+    }
   }
 
   // The glare of a strong sun: a halo round it and slow rays fanning down
@@ -575,5 +621,5 @@ export function createLighting() {
     ctx.restore();
   }
 
-  return { prepare, isDark, draw, setHeadlights };
+  return { prepare, isDark, draw, drawDark, setHeadlights };
 }

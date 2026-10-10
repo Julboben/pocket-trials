@@ -1,15 +1,15 @@
 {
   "name": "Splinter Ridge",
   "label": "SPLINTER RIDGE / 04",
+  "finish": {
+    "x": 3100.1576858626395,
+    "y": 196.54878537336776
+  },
   "description": "Momentum is your friend. Carry speed through valleys, ease over crests, and lean forward when the front wheel gets light.",
   "start": {
     "x": 43.90625,
     "y": 300,
     "facing": 1
-  },
-  "finish": {
-    "x": 3100.1576858626395,
-    "y": 196.54878537336776
   },
   "terrainBlocks": [
     {
@@ -1283,19 +1283,19 @@
   "apples": [
     {
       "x": 611.5228822512595,
-      "y": 181.94026320052643
+      "y": 194.94026320052643
     },
     {
       "x": 1388.3690048708775,
-      "y": 255.58459482091473
+      "y": 263.58459482091473
     },
     {
       "x": 2050,
       "y": null
     },
     {
-      "x": 2610,
-      "y": null
+      "x": 2622,
+      "y": 221.64969036015196
     }
   ],
   "props": [

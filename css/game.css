@@ -1584,14 +1584,33 @@ h2 {
     background: #17262bdd;
     color: var(--color-text);
 }
-.look-step:first-of-type {
+.look-step-previous {
     left: 6px;
 }
-.look-step:last-of-type {
+.look-step-next {
     right: 6px;
 }
-.look-step:hover {
+.look-step:hover,
+.look-light:hover {
     background: var(--color-surface-hover);
+}
+/* Turns the garage lights off in the preview, to show the bike's lights. */
+.look-light {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--color-border);
+    background: #17262bdd;
+    color: var(--color-text);
+}
+.look-light[aria-pressed="true"] {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
 }
 /* Each block of the customizer sits on its own dark panel. */
 .look-tabs,
