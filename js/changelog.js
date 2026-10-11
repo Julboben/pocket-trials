@@ -2,6 +2,48 @@
 /** @type {{ version: string, date: string, changes: { type: 'new' | 'improved' | 'fixed', text: string }[] }[]} */
 export const RELEASES = [
   {
+    "version": "0.3.0",
+    "date": "2026-10-11",
+    "changes": [
+      {
+        "type": "new",
+        "text": "Snow props now appear on trails, and the vulture and pylon in the desert and mountain trails have been improved."
+      },
+      {
+        "type": "improved",
+        "text": "New bike handling. Because times aren't comparable any more, the leaderboard has been reset. Time to set new records!"
+      },
+      {
+        "type": "improved",
+        "text": "Bike suspension has been reworked. Each wheel now hangs from the bike on its own leg and the suspension stretches, so the bike handles more realistically."
+      },
+      {
+        "type": "improved",
+        "text": "Grip now comes from the force of the ground pushing on your wheels, and leaning forward no longer adds extra grip."
+      },
+      {
+        "type": "improved",
+        "text": "Your rider now turns more smoothly."
+      },
+      {
+        "type": "improved",
+        "text": "Hanging from a ledge now feels better, and you can swing while you hang."
+      },
+      {
+        "type": "improved",
+        "text": "Braking dive now behaves more naturally."
+      },
+      {
+        "type": "improved",
+        "text": "Editor: Snow props can now be placed and previewed in the trail editor."
+      },
+      {
+        "type": "fixed",
+        "text": "Holding gas in the air no longer turns the bike at all."
+      }
+    ]
+  },
+  {
     "version": "0.2.0",
     "date": "2026-10-11",
     "changes": [
