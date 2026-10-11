@@ -2,8 +2,8 @@ name: Prepare release
 
 # Run from the Actions tab. Bumps the version, writes the release notes with
 # Copilot CLI and opens (or updates) the "Release vX.Y.Z" pull request.
-# Merging that PR does not deploy: it creates a draft GitHub Release, and
-# publishing the draft deploys to Netlify (see deploy.yml).
+# Merging that PR ships it: release.yml deploys to Netlify and publishes the
+# GitHub Release.
 on:
   workflow_dispatch:
     inputs:
@@ -76,7 +76,7 @@ jobs:
             node scripts/release.mjs notes "$VERSION"
             echo
             echo "---"
-            echo "Merging this does **not** deploy. It creates a draft release **v$VERSION**; publish it under [Releases](../releases) to go live."
+            echo "Merging this **deploys v$VERSION to production** and publishes the GitHub Release (see the **Release** workflow under Actions)."
             echo
             echo "Running **Prepare release** again rebuilds this branch from \`main\` and replaces any commits pushed to it."
           } > "$RUNNER_TEMP/body.md"

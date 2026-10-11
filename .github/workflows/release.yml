@@ -1,0 +1,58 @@
+name: Release
+
+# Merging a release PR ships it. When main has a version that has no tag yet,
+# this deploys that commit to Netlify and then publishes the GitHub Release
+# (which creates the tag). Every other push to main does nothing.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Is this version unreleased?
+        id: version
+        run: |
+          tag="v$(node -p "require('./package.json').version")"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
+            echo "$tag is already released, nothing to do." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    needs: check
+    if: needs.check.outputs.tag != ''
+    uses: ./.github/workflows/deploy.yml
+    with:
+      tag: ${{ needs.check.outputs.tag }}
+      ref: ${{ github.sha }}
+    secrets: inherit
+
+  publish:
+    needs: [check, deploy]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.check.outputs.tag }}
+        run: |
+          node scripts/release.mjs notes "${TAG#v}" > "$RUNNER_TEMP/notes.md"
+          gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
+          echo "Published $TAG." >> "$GITHUB_STEP_SUMMARY"
