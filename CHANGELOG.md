@@ -2,6 +2,22 @@
 
 Player-facing release notes. The game shows them under **What's new**, and each GitHub Release uses its section.
 
+## 0.3.0 — 2026-10-11
+
+### New
+- Snow props now appear on trails, and the vulture and pylon in the desert and mountain trails have been improved.
+
+### Improved
+- Bike suspension has been reworked. Each wheel now hangs from the bike on its own leg and the suspension stretches, so the bike handles more realistically.
+- Grip now comes from the force of the ground pushing on your wheels, and leaning forward no longer adds extra grip.
+- Your rider now turns more smoothly.
+- Hanging from a ledge now feels better, and you can swing while you hang.
+- Braking dive now behaves more naturally.
+- Editor: Snow props can now be placed and previewed in the trail editor.
+
+### Fixed
+- Holding gas in the air no longer turns the bike at all.
+
 ## 0.2.0 — 2026-10-11
 
 ### New
