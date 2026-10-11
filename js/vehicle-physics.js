@@ -9,6 +9,7 @@ import {
   XPBD_CHASSIS_COMPLIANCE,
   XPBD_CHASSIS_AREA_COMPLIANCE,
   XPBD_SUSPENSION_COMPLIANCE,
+  XPBD_SUSPENSION_EXTENSION_COMPLIANCE,
   XPBD_SUSPENSION_DAMPING,
   XPBD_SUSPENSION_REBOUND_DAMPING,
   XPBD_LONGITUDINAL_COMPLIANCE,
@@ -20,6 +21,8 @@ import {
   XPBD_WHEELBASE_SLACK,
   SUSPENSION_BUMP_STOP_LENGTH,
   XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE,
+  SUSPENSION_TOP_OUT_LENGTH,
+  XPBD_SUSPENSION_TOP_OUT_COMPLIANCE,
   WHEEL_INERTIA,
   WHEEL_FRICTION,
   XPBD_CHASSIS_MOUNT_INVERSE_MASS,
@@ -150,6 +153,7 @@ export function createVehicle(rear, front) {
     }),
     createDistanceConstraint(rear, chassis.rearMount, SUSPENSION_REST_LENGTH, {
       compliance: XPBD_SUSPENSION_COMPLIANCE,
+      extensionCompliance: XPBD_SUSPENSION_EXTENSION_COMPLIANCE,
       damping: XPBD_SUSPENSION_DAMPING,
       reboundDamping: XPBD_SUSPENSION_REBOUND_DAMPING,
     }),
@@ -159,6 +163,7 @@ export function createVehicle(rear, front) {
       SUSPENSION_REST_LENGTH,
       {
         compliance: XPBD_SUSPENSION_COMPLIANCE,
+        extensionCompliance: XPBD_SUSPENSION_EXTENSION_COMPLIANCE,
         damping: XPBD_SUSPENSION_DAMPING,
         reboundDamping: XPBD_SUSPENSION_REBOUND_DAMPING,
       },
@@ -181,6 +186,14 @@ export function createVehicle(rear, front) {
         minLength: SUSPENSION_BUMP_STOP_LENGTH,
       },
     ),
+    createDistanceConstraint(rear, chassis.rearMount, SUSPENSION_TOP_OUT_LENGTH, {
+      compliance: XPBD_SUSPENSION_TOP_OUT_COMPLIANCE,
+      maxLength: SUSPENSION_TOP_OUT_LENGTH,
+    }),
+    createDistanceConstraint(front, chassis.frontMount, SUSPENSION_TOP_OUT_LENGTH, {
+      compliance: XPBD_SUSPENSION_TOP_OUT_COMPLIANCE,
+      maxLength: SUSPENSION_TOP_OUT_LENGTH,
+    }),
     createSliderConstraint(
       rear,
       chassis.rearMount,
@@ -1210,14 +1223,16 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
     for (const [point, name] of solverWheels)
       applyWheelTraction(point, name, false, traction, hooks);
   }
+  // Negative while the spring is stretched, so the drawn body lifts away from
+  // a wheel it hangs from.
   rear.compression = clamp(
     SUSPENSION_REST_LENGTH - distance(rear, chassis.rearMount),
-    0,
+    -SUSPENSION_TRAVEL,
     SUSPENSION_TRAVEL,
   );
   front.compression = clamp(
     SUSPENSION_REST_LENGTH - distance(front, chassis.frontMount),
-    0,
+    -SUSPENSION_TRAVEL,
     SUSPENSION_TRAVEL,
   );
   hooks.iteration?.(-1);

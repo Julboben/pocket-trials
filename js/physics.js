@@ -29,8 +29,10 @@ export function constrainDistanceVelocity(a, b, damping = 1) {
   setVelocity(b, bv.x - nx * impulse * wb, bv.y - ny * impulse * wb);
 }
 
-export function createDistanceConstraint(a, b, length, { compliance = 0, damping = 0, reboundDamping = damping, minLength = null, maxLength = null } = {}) {
-  return { type: 'distance', a, b, length, compliance, damping, reboundDamping, minLength, maxLength, lambda: 0 };
+// extensionCompliance, when given, replaces compliance while the link is
+// stretched past its length, for a spring that is softer pulled than pushed.
+export function createDistanceConstraint(a, b, length, { compliance = 0, extensionCompliance = compliance, damping = 0, reboundDamping = damping, minLength = null, maxLength = null } = {}) {
+  return { type: 'distance', a, b, length, compliance, extensionCompliance, damping, reboundDamping, minLength, maxLength, lambda: 0 };
 }
 
 export function signedTriangleArea(a, b, c) {
@@ -105,7 +107,8 @@ export function solveXpbdDistanceConstraint(constraint, dt) {
 
   const c = distance - target;
   const wa = inverseMass(a), wb = inverseMass(b), weight = wa + wb;
-  const alpha = Math.max(0, constraint.compliance) / (dt * dt);
+  const compliance = c > 0 ? constraint.extensionCompliance ?? constraint.compliance : constraint.compliance;
+  const alpha = Math.max(0, compliance) / (dt * dt);
   if (weight + alpha <= EPSILON) return { distance, correctionDistance: 0, correctionX: 0, correctionY: 0, lambda: constraint.lambda };
   const deltaLambda = (-c - alpha * constraint.lambda) / (weight + alpha);
   constraint.lambda += deltaLambda;

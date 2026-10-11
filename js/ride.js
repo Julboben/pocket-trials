@@ -50,7 +50,7 @@ import {
  * Bump whenever a change makes old inputs replay differently, so stored
  * ghosts and replay fixtures from older physics are not trusted.
  */
-export const RIDE_VERSION = 3;
+export const RIDE_VERSION = 4;
 
 /** @type {Array<[string, number, number, number]>} name, local x, local y, radius */
 const RIDER_PROBES = [
@@ -268,6 +268,30 @@ function crash(ride, cause, x, y, events) {
     ride.random,
     visual,
   );
+  // The drawn rider reaches a little past the crash probes, more so with the
+  // springs stretched, so a rider thrown as the head touches down can start
+  // partly in the ground. Lift the whole body clear, keeping its shape and
+  // velocity, or the first ragdoll step would count the overlap as a hit.
+  for (let pass = 0; pass < 3; pass++) {
+    let liftX = 0,
+      liftY = 0,
+      deepest = 0;
+    for (const point of ragdoll.list) {
+      for (const contact of terrainCollisionsAt(ride.trail, point.x, point.y, point.radius)) {
+        if (contact.penetration <= deepest) continue;
+        deepest = contact.penetration;
+        liftX = contact.nx * deepest;
+        liftY = contact.ny * deepest;
+      }
+    }
+    if (deepest <= 0) break;
+    for (const point of ragdoll.list) {
+      point.x += liftX;
+      point.y += liftY;
+      point.ox += liftX;
+      point.oy += liftY;
+    }
+  }
 
   ride.status = "crashed";
   ride.crashCause = cause;

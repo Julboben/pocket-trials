@@ -3,7 +3,8 @@ import {
   STEP, RADIUS, WHEELBASE, SUSPENSION_REST_LENGTH, SUSPENSION_TRAVEL, XPBD_RIDER_MAX_AIR_SPIN
 } from '../js/config.js';
 import { terrainAt } from '../js/terrain.js';
-import { polygonBlock } from './lib/terrain-fixtures.mjs';
+import { polygonBlock, rectangle } from './lib/terrain-fixtures.mjs';
+import { bodyPose } from '../js/bike-lamps.js';
 import { createSimulation as createVehicleSimulation, createVehicle, vehicleMetrics } from '../js/vehicle-physics.js';
 
 // The scenarios were tuned on cosine-eased ground lines, so each line is
@@ -560,6 +561,32 @@ function steepWallScenario() {
 
 // Coasting off a 65° slope onto a 14° one hits the front wheel almost head on.
 // The bike must ride it out on its wheels instead of vaulting into a tumble.
+// Elasto Mania's hang: a bike riding left that rolls off a ledge on its
+// locked leading wheel hooks that wheel over the corner and hangs from its
+// spring, which stretches well past rest and bobs before settling; the drawn
+// body lifts off it.
+function hangingScenario() {
+  const trail = { name: 'ledge', terrainBlocks: [rectangle(0, 300, 200, 316)] };
+  const simulation = createSimulation(trail, { x: 192 + WHEELBASE / 2, y: 300 - RADIUS, facing: -1 });
+  const { rear: hooked, front: free } = simulation.vehicle;
+  const length = point => point === hooked ? vehicleMetrics(simulation.vehicle).rearSuspensionLength : vehicleMetrics(simulation.vehicle).frontSuspensionLength;
+  let peak = 0;
+  run(simulation, 360, index => {
+    if (index > 60) peak = Math.max(peak, length(hooked));
+    return { brake: true };
+  });
+  const stretch = length(hooked) - SUSPENSION_REST_LENGTH;
+  assert.ok(Math.abs(hooked.x - 192) < 4 && Math.abs(hooked.y - 288) < 1, `the leading wheel must stay hooked on the ledge: ${hooked.x}, ${hooked.y}`);
+  assert.ok(free.y > hooked.y + 30, `the bike must hang below the hooked wheel: ${free.y}`);
+  assert.ok(stretch > 8, `the hooked wheel's spring must stretch under the hanging bike: ${stretch}`);
+  assert.ok(peak - SUSPENSION_REST_LENGTH < SUSPENSION_TRAVEL - 1, `the top-out spring must catch the stretch before the travel limit: ${peak}`);
+  assert.ok(peak > length(hooked) + 1, `the stretched spring must bob before settling: ${peak}`);
+  assert.ok(length(free) > SUSPENSION_REST_LENGTH + 2, `the free wheel must droop on its spring: ${length(free)}`);
+  assert.ok(hooked.compression < -8, `stretch must reach the renderer as negative compression: ${hooked.compression}`);
+  assert.ok(bodyPose(simulation.vehicle.rear, simulation.vehicle.front, -1).drop < -6, 'the drawn body must lift off the wheels it hangs from');
+  return { stretch, peakStretch: peak - SUSPENSION_REST_LENGTH, freeWheelDroop: length(free) - SUSPENSION_REST_LENGTH };
+}
+
 function sharpBendScenario() {
   const trail = {
     ...flatTrail(1400),
@@ -620,6 +647,7 @@ const results = {
   steepClimbLoop: steepClimbLoopScenario(),
   steepWall: steepWallScenario(),
   sharpBend: sharpBendScenario(),
+  hanging: hangingScenario(),
   flipKeepsTiresRolling: flipKeepsTiresRollingScenario(),
   determinismAndFlip: determinismAndFlipScenario()
 };

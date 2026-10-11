@@ -24,6 +24,11 @@ export const XPBD_CHASSIS_AREA_COMPLIANCE = 0.000001;
 export const XPBD_SUSPENSION_COMPLIANCE = 0.0036;
 export const XPBD_SUSPENSION_DAMPING = .26;
 export const XPBD_SUSPENSION_REBOUND_DAMPING = .42;
+// Pulled past its rest length the spring is softer, as in Elasto Mania: a
+// bike hooked on a ledge by one wheel hangs from that wheel's spring, which
+// stretches about 11 px under the whole bike and bobs before it settles, while
+// the free wheel droops about 5 px under its own weight.
+export const XPBD_SUSPENSION_EXTENSION_COMPLIANCE = 0.012;
 export const XPBD_SUSPENSION_SLIDER_COMPLIANCE = 0.0001;
 export const XPBD_LONGITUDINAL_COMPLIANCE = 0.00004;
 export const XPBD_LONGITUDINAL_DAMPING = .55;
@@ -35,6 +40,11 @@ export const SUSPENSION_TRAVEL = 16;
 // the travel limit, which would throw the bike back into the air.
 export const SUSPENSION_BUMP_STOP_LENGTH = 10;
 export const XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE = 0.0003;
+// The same on the way out: a firmer top-out spring over the last part of
+// stretch catches a bike that drops onto one hooked wheel before the travel
+// limit jerks it.
+export const SUSPENSION_TOP_OUT_LENGTH = 32;
+export const XPBD_SUSPENSION_TOP_OUT_COMPLIANCE = 0.002;
 export const XPBD_WHEELBASE_SLACK = 6;
 export const WHEEL_INERTIA = .5;
 export const WHEEL_FRICTION = .92;

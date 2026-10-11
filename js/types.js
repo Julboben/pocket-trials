@@ -75,7 +75,7 @@
  * @property {string} material
  * @property {number} spin
  * @property {number} angularVelocity
- * @property {number} compression
+ * @property {number} compression  suspension travel in px: positive compressed, negative stretched
  * @property {number} impactSpeed
  *
  * @typedef {object} Vehicle

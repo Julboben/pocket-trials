@@ -11,6 +11,7 @@ The staged physics roadmap is implemented in `js/vehicle-physics.js`: a physical
 - Separate constraint compliance and velocity damping
 - A physical non-collinear chassis triangle with rigid links
 - Independent suspension links with compliance, damping, and travel limits
+- Elasto Mania-style suspension stretch: springs are softer pulled than pushed, with a top-out spring, so a bike hooked on a ledge by one wheel hangs visibly stretched from it and bobs before settling; the drawn body follows the stretch
 - Wheel angular velocity driven by throttle and braking
 - Contact-point slip converted into coupled linear/angular friction impulses
 - Block terrain for loops, caves, and overhangs, with one compiled geometry shared by rendering, collision, validation, and the editor
@@ -40,6 +41,7 @@ The automated suite covers:
 - Mirrored left/right hill climbing
 - Valley settling
 - One-wheel landing and second-wheel recovery
+- Hanging from a ledge by one wheel
 
 - One recorded replay per official trail (`tests/replays/`), replayed through the DOM-free `js/ride.js` to check finish time, apples, crash outcome, NaN values, and tunnelling
 - Seeded ragdoll determinism, elbow/knee hinge limits, neck/hip angle limits, ragdoll sleep, and the crashed chassis resting on the ground
