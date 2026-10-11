@@ -5,6 +5,9 @@ import {
 import { terrainAt } from '../js/terrain.js';
 import { polygonBlock, rectangle } from './lib/terrain-fixtures.mjs';
 import { bodyPose } from '../js/bike-lamps.js';
+import { createRide, stepRide } from '../js/ride.js';
+import { decodeInputs } from '../js/replay-codec.js';
+import { normalizeTrail } from '../js/trail-schema.js';
 import { createSimulation as createVehicleSimulation, createVehicle, vehicleMetrics } from '../js/vehicle-physics.js';
 
 // The scenarios were tuned on cosine-eased ground lines, so each line is
@@ -562,8 +565,9 @@ function steepWallScenario() {
 }
 
 // Pulling away at the foot of a slope, leaning into it: a 45° climb tops out.
-// Tire grip is friction on the weight pressing the tire into the slope, so at
-// 55° the bike stalls partway and slides back, and 60° is out of reach.
+// Tire grip is friction on the weight pressing the tire into the slope. That
+// is still enough at 55°, where the rider has to keep the nose down, but at
+// 57° the bike stalls partway and slides back, and 60° is out of reach.
 function steepHillScenario() {
   const height = 400, base = 300;
   const climb = degrees => {
@@ -582,11 +586,37 @@ function steepHillScenario() {
     }
     return highest;
   };
-  const gentle = climb(45), steep = climb(55), wall = climb(60);
+  const gentle = climb(45), steep = climb(57), wall = climb(60);
   assert.ok(gentle > height - 5, `a 45° hill must be climbable from its foot: reached ${gentle} of ${height}`);
-  assert.ok(steep < height * .75, `a 55° hill must be too steep to climb from its foot: reached ${steep} of ${height}`);
+  assert.ok(steep < height * .75, `a 57° hill must be too steep to climb from its foot: reached ${steep} of ${height}`);
   assert.ok(wall < height * .5, `a 60° hill must stall low: reached ${wall} of ${height}`);
   return { gentle, steep, wall };
+}
+
+// A recorded attempt at a 64.5° hill: the rider turns left, drives into the
+// corner at its foot and holds gas and forward lean. Lean keeps the lone rear
+// wheel on the slope by pushing the bike into it, and that push used to count
+// as weight on the tire, crawling the bike all the way up. Without it the tire
+// cannot hold such a slope and the bike stays at the foot.
+function leanPushGivesNoGripScenario() {
+  const node = (x, y) => ({ x, y, mode: 'corner', in: null, out: null, edge: 'straight' });
+  const trail = normalizeTrail({
+    name: 'Hill climb test', start: { x: 90, y: null, facing: 1 }, finish: { x: 162, y: 283 }, apples: [],
+    terrainBlocks: [{ id: 'block-1', material: 'grass', outer: { id: 'boundary-1', nodes: [
+      node(-465.6922, -550), node(-50, 320), node(400, 320), node(800, -80), node(1400, 300), node(1400, 580), node(-465.6922, 600)
+    ] }, inner: [] }]
+  });
+  const inputs = decodeInputs([[84, 1, 0, 0, 0], [55, -1, 0, 0, 0], [66, -1, 0, 1, 0], [27, -1, 1, 1, 0], [2, -1, 1, 0, 0], [59, -1, 0, 0, 0],
+    [1, -1, -1, 0, 0], [56, -1, -1, 1, 0], [25, -1, 0, 1, 0], [186, -1, -1, 1, 0], [29, -1, -1, 0, 0], [569, -1, -1, 1, 0]]);
+  const ride = createRide(trail, { seed: 121493175 });
+  let highest = 0;
+  for (const input of inputs) {
+    stepRide(ride, input);
+    const { rear, front } = ride.vehicle;
+    highest = Math.max(highest, 320 - RADIUS - Math.min(rear.y, front.y));
+  }
+  assert.ok(highest < 200, `forward lean must not let the bike crawl up a 64.5° hill: reached ${highest} of 870`);
+  return { highest };
 }
 
 // Climbing a 35° hill, the rider lets the bike roll back, brakes it to a
@@ -716,6 +746,7 @@ const results = {
   steepWall: steepWallScenario(),
   steepHill: steepHillScenario(),
   slideRecovery: slideRecoveryScenario(),
+  leanPushGivesNoGrip: leanPushGivesNoGripScenario(),
   sharpBend: sharpBendScenario(),
   hanging: hangingScenario(),
   flipKeepsTiresRolling: flipKeepsTiresRollingScenario(),

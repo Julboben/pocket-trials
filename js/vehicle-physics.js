@@ -326,7 +326,12 @@ function angularAccelerations(points, angularAcceleration, out) {
 // part of the spin that would lift that wheel off its contact is removed from
 // every point; motion along the ground is left alone. Rear and front are the
 // first two entries of `accelerations`.
-function keepPivotPlanted(accelerations, rear, front) {
+// Removing that part pushes the whole bike into the ground, which a weight
+// shift cannot do. The ground's answer to the push is recorded in `pinLoad`
+// so tire grip can leave it out.
+function keepPivotPlanted(accelerations, rear, front, mass) {
+  rear.pinLoad = 0;
+  front.pinLoad = 0;
   if (rear.grounded === front.grounded) return;
   const pivot = rear.grounded ? rear : front;
   if (!pivot.contact) return;
@@ -339,6 +344,7 @@ function keepPivotPlanted(accelerations, rear, front) {
     accelerations[index] -= lift * nx;
     accelerations[index + 1] -= lift * ny;
   }
+  pivot.pinLoad = lift * STEP * mass;
 }
 
 function rollingSpin(point) {
@@ -396,7 +402,10 @@ function applyWheelTraction(point, name, drive, state, hooks) {
   options.angularBrake =
     drive && braking ? XPBD_BRAKE_TORQUE * brakePressure : 0;
   options.inertia = WHEEL_INERTIA;
-  options.normalLoad = point.groundLoad || 0;
+  options.normalLoad = Math.max(
+    0,
+    (point.groundLoad || 0) - (point.pinLoad || 0),
+  );
   options.freeRolling =
     drive && !braking && (point !== drivenWheel || throttle < 0.01);
   options.rollingResistance = drive && coasting ? coastResistance : 0;
@@ -1072,7 +1081,12 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
     riderAngularAcceleration,
     vehicle.riderAccelerations,
   );
-  keepPivotPlanted(riderAccelerations, rear, front);
+  keepPivotPlanted(
+    riderAccelerations,
+    rear,
+    front,
+    centerOfMass(bikePoints).mass,
+  );
   const dynamics = {
     angularDrive,
     riderAssist,

@@ -78,6 +78,7 @@
  * @property {number} compression  suspension travel in px: positive compressed, negative stretched
  * @property {number} [pcompression] compression at the start of the latest step, for interpolation
  * @property {number} [groundLoad] normal impulse (px/s) the ground gave the wheel this step; tire grip is friction on it
+ * @property {number} [pinLoad] part of groundLoad that only answers the push holding a lone grounded wheel under rider lean; it gives no grip
  * @property {number} impactSpeed
  *
  * @typedef {object} Vehicle

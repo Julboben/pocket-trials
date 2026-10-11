@@ -13,7 +13,7 @@ The staged physics roadmap is implemented in `js/vehicle-physics.js`: a physical
 - Independent suspension links with compliance, damping, and travel limits
 - Elasto Mania-style suspension stretch: springs are softer pulled than pushed, with a top-out spring, so a bike hooked on a ledge by one wheel hangs visibly stretched from it and bobs before settling
 - The drawn body, lamps, rider and hair sit exactly on the simulated chassis, with suspension travel interpolated between steps for high-refresh displays
-- Tire grip is Coulomb friction on the real ground force: each wheel's normal impulse is summed from every contact correction in a step (including chassis weight passed through the suspension and landings), with static grip for a gripping tire and lower kinetic grip for a slipping one. Drive and re-traction passes share that budget, so climbs top out between about 45° and 55° with no slope-specific grip rules
+- Tire grip is Coulomb friction on the real ground force: each wheel's normal impulse is summed from every contact correction in a step (including chassis weight passed through the suspension and landings), with static grip for a gripping tire and lower kinetic grip for a slipping one. Drive and re-traction passes share that budget, so climbs top out at about 55° with no slope-specific grip rules. The push that keeps a lone grounded wheel planted under rider lean is not weight and gives no grip
 - The motor spins the tread at most a small slip ahead of the ground, and engine torque only tapers while the wheel turns forward, so the throttle hooks up to stop a bike sliding back down a hill
 - Wheel angular velocity driven by throttle and braking
 - Contact-point slip converted into coupled linear/angular friction impulses
@@ -45,7 +45,8 @@ The automated suite covers:
 - Valley settling
 - One-wheel landing and second-wheel recovery
 - Hanging from a ledge by one wheel
-- Steep hills: 45° climbable from a standstill, 55° not, 60° stalls low, 78° walls never
+- Steep hills: 45° climbable from a standstill, 57° not, 60° stalls low, 78° walls never
+- A recorded gas-and-forward-lean attempt at a 64.5° hill stays at its foot
 - Braking a bike sliding back down a 35° hill to a stop, then recovering on the throttle
 
 - One recorded replay per official trail (`tests/replays/`), replayed through the DOM-free `js/ride.js` to check finish time, apples, crash outcome, NaN values, and tunnelling

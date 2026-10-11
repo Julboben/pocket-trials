@@ -88,7 +88,16 @@ export function startGame() {
     window.hjulbenGame = {
       get ride() { return session.ride; },
       get ghost() { return ghost; },
-      get state() { return session.state; }
+      get state() { return session.state; },
+      // Copies the current attempt (trail, seed and every step's input) so it
+      // can be replayed exactly outside the browser.
+      dumpRun() {
+        const ride = session.ride;
+        const run = JSON.stringify({ physics: RIDE_VERSION, seed: ride?.seed, trail: session.trail, inputs: encodeInputs(recorded) });
+        console.log('[Hjulben] Run JSON:\n' + run);
+        navigator.clipboard?.writeText(run).then(() => console.log('[Hjulben] Copied the run.'), () => {});
+        return run;
+      }
     };
   }
 
