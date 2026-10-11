@@ -4,6 +4,7 @@ import { collideFreePoint, collideWithBike } from "./vehicle-physics.js";
 import { terrainCollisionsAt } from "./terrain.js";
 import { atan2, cos, hypot, sin } from "./det-math.js";
 import { RAGDOLL_WATER, RAGDOLL_WATER_RADIUS, applyWater } from "./water.js";
+import { bodyPose } from "./bike-lamps.js";
 
 // `grip` lets a resting body hold on slopes up to about 35 degrees. Once
 // sliding, kinetic friction (`slide`) is lower, so a thrown rider skids a
@@ -131,15 +132,10 @@ export function createRagdoll(rear, front, facing, random, visual = {}) {
   const flipVisual = visual.flipVisual ?? facing;
   const shift = Math.round((visual.leanVisual ?? 0) * 4.5) * 2;
 
-  // Same suspension calculations as drawBike().
-  const backCompression =
-    facing > 0 ? rear.compression || 0 : front.compression || 0;
-  const frontCompression =
-    facing > 0 ? front.compression || 0 : rear.compression || 0;
-
-  const bodyDrop =
-    Math.round(((backCompression + frontCompression) * 0.4) / 2) * 2;
-  const bodyPitch = (frontCompression - backCompression) * 0.0096;
+  // Same suspension pose as drawBike().
+  const suspension = bodyPose(rear, front, facing);
+  const bodyDrop = Math.round(suspension.drop / 2) * 2;
+  const bodyPitch = suspension.pitch;
   const pc = cos(bodyPitch);
   const ps = sin(bodyPitch);
 

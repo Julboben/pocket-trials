@@ -9,19 +9,20 @@ import {
   XPBD_CHASSIS_COMPLIANCE,
   XPBD_CHASSIS_AREA_COMPLIANCE,
   XPBD_SUSPENSION_COMPLIANCE,
+  XPBD_SUSPENSION_EXTENSION_COMPLIANCE,
   XPBD_SUSPENSION_DAMPING,
   XPBD_SUSPENSION_REBOUND_DAMPING,
-  XPBD_LONGITUDINAL_COMPLIANCE,
-  XPBD_LONGITUDINAL_DAMPING,
   XPBD_SUSPENSION_SLIDER_COMPLIANCE,
-  XPBD_CROSS_LINK_DAMPING,
   SUSPENSION_REST_LENGTH,
   SUSPENSION_TRAVEL,
-  XPBD_WHEELBASE_SLACK,
   SUSPENSION_BUMP_STOP_LENGTH,
   XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE,
+  SUSPENSION_TOP_OUT_LENGTH,
+  XPBD_SUSPENSION_TOP_OUT_COMPLIANCE,
   WHEEL_INERTIA,
   WHEEL_FRICTION,
+  WHEEL_SLIDE_FRICTION,
+  WHEEL_DRIVE_SLIP,
   XPBD_CHASSIS_MOUNT_INVERSE_MASS,
   XPBD_CHASSIS_TOP_INVERSE_MASS,
   XPBD_MOTOR_ANGULAR_ACCELERATION,
@@ -45,10 +46,6 @@ import {
   XPBD_BRAKE_REACTION_LIMIT,
   XPBD_BRAKE_RATE,
   XPBD_BRAKE_TORQUE,
-  XPBD_CONTACT_LOAD_SCALE,
-  XPBD_DRIVE_LOAD_SCALE,
-  XPBD_UPHILL_CONTACT_LOAD_SCALE,
-  XPBD_ROLLING_LOAD_SCALE,
   XPBD_COAST_RESISTANCE_LOW_SPEED,
   XPBD_COAST_RESISTANCE_HIGH_SPEED,
   XPBD_COAST_SPEED_REFERENCE,
@@ -118,12 +115,8 @@ export function createVehicle(rear, front) {
       XPBD_CHASSIS_TOP_INVERSE_MASS,
     ),
   };
-  const wheelbaseLimit = createDistanceConstraint(rear, front, WHEELBASE, {
-    compliance: 0,
-    damping: XPBD_CROSS_LINK_DAMPING,
-    minLength: WHEELBASE - XPBD_WHEELBASE_SLACK,
-    maxLength: WHEELBASE + XPBD_WHEELBASE_SLACK,
-  });
+  // As in Elasto Mania, nothing ties the wheels to each other: each hangs from
+  // the chassis on its own leg, so the wheelbase gives a little on hard hits.
   const constraints = [
     createDistanceConstraint(chassis.rearMount, chassis.frontMount, WHEELBASE, {
       compliance: XPBD_CHASSIS_COMPLIANCE,
@@ -144,12 +137,9 @@ export function createVehicle(rear, front) {
     createAreaConstraint(chassis.rearMount, chassis.frontMount, chassis.top, {
       compliance: XPBD_CHASSIS_AREA_COMPLIANCE,
     }),
-    createDistanceConstraint(rear, front, WHEELBASE, {
-      compliance: XPBD_LONGITUDINAL_COMPLIANCE,
-      damping: XPBD_LONGITUDINAL_DAMPING,
-    }),
     createDistanceConstraint(rear, chassis.rearMount, SUSPENSION_REST_LENGTH, {
       compliance: XPBD_SUSPENSION_COMPLIANCE,
+      extensionCompliance: XPBD_SUSPENSION_EXTENSION_COMPLIANCE,
       damping: XPBD_SUSPENSION_DAMPING,
       reboundDamping: XPBD_SUSPENSION_REBOUND_DAMPING,
     }),
@@ -159,6 +149,7 @@ export function createVehicle(rear, front) {
       SUSPENSION_REST_LENGTH,
       {
         compliance: XPBD_SUSPENSION_COMPLIANCE,
+        extensionCompliance: XPBD_SUSPENSION_EXTENSION_COMPLIANCE,
         damping: XPBD_SUSPENSION_DAMPING,
         reboundDamping: XPBD_SUSPENSION_REBOUND_DAMPING,
       },
@@ -181,6 +172,14 @@ export function createVehicle(rear, front) {
         minLength: SUSPENSION_BUMP_STOP_LENGTH,
       },
     ),
+    createDistanceConstraint(rear, chassis.rearMount, SUSPENSION_TOP_OUT_LENGTH, {
+      compliance: XPBD_SUSPENSION_TOP_OUT_COMPLIANCE,
+      maxLength: SUSPENSION_TOP_OUT_LENGTH,
+    }),
+    createDistanceConstraint(front, chassis.frontMount, SUSPENSION_TOP_OUT_LENGTH, {
+      compliance: XPBD_SUSPENSION_TOP_OUT_COMPLIANCE,
+      maxLength: SUSPENSION_TOP_OUT_LENGTH,
+    }),
     createSliderConstraint(
       rear,
       chassis.rearMount,
@@ -247,12 +246,11 @@ export function createVehicle(rear, front) {
     front,
     chassis,
     constraints,
-    wheelbaseLimit,
     chassisPoints,
     crashedFrameProbes,
     frameLinks,
     bikePoints,
-    dampedConstraints: [...constraints, wheelbaseLimit],
+    dampedConstraints: constraints,
     wheelOrder: {
       forward: [
         [rear, "rear"],
@@ -283,6 +281,7 @@ function integratePoint(point, accelerationX = 0, accelerationY = GRAVITY) {
   point.y += vy + accelerationY * STEP * STEP;
   point.grounded = false;
   point.contact = null;
+  point.groundLoad = 0;
 }
 
 function centerOfMass(points) {
@@ -314,7 +313,12 @@ function angularAccelerations(points, angularAcceleration, out) {
 // part of the spin that would lift that wheel off its contact is removed from
 // every point; motion along the ground is left alone. Rear and front are the
 // first two entries of `accelerations`.
-function keepPivotPlanted(accelerations, rear, front) {
+// Removing that part pushes the whole bike into the ground, which a weight
+// shift cannot do. The ground's answer to the push is recorded in `pinLoad`
+// so tire grip can leave it out.
+function keepPivotPlanted(accelerations, rear, front, mass) {
+  rear.pinLoad = 0;
+  front.pinLoad = 0;
   if (rear.grounded === front.grounded) return;
   const pivot = rear.grounded ? rear : front;
   if (!pivot.contact) return;
@@ -327,6 +331,7 @@ function keepPivotPlanted(accelerations, rear, front) {
     accelerations[index] -= lift * nx;
     accelerations[index + 1] -= lift * ny;
   }
+  pivot.pinLoad = lift * STEP * mass;
 }
 
 function rollingSpin(point) {
@@ -349,7 +354,6 @@ function applyWheelTraction(point, name, drive, state, hooks) {
     brakePressure,
     coasting,
     throttle,
-    driveLoadScale,
     options,
   } = state;
   const impactSpeed = Math.max(
@@ -379,21 +383,22 @@ function applyWheelTraction(point, name, drive, state, hooks) {
   options.radius = RADIUS;
   options.restitution = restitution;
   options.friction = WHEEL_FRICTION;
+  options.kineticFriction = WHEEL_SLIDE_FRICTION;
+  options.maxDriveSlip = WHEEL_DRIVE_SLIP;
   options.angularDrive = drive && point === drivenWheel ? angularDrive : 0;
   options.angularBrake =
     drive && braking ? XPBD_BRAKE_TORQUE * brakePressure : 0;
   options.inertia = WHEEL_INERTIA;
-  options.restingNormalAcceleration =
-    GRAVITY *
-    (braking
-      ? XPBD_CONTACT_LOAD_SCALE
-      : point === drivenWheel
-        ? driveLoadScale
-        : XPBD_ROLLING_LOAD_SCALE);
+  options.normalLoad = Math.max(
+    0,
+    (point.groundLoad || 0) - (point.pinLoad || 0),
+  );
   options.freeRolling =
     drive && !braking && (point !== drivenWheel || throttle < 0.01);
   options.rollingResistance = drive && coasting ? coastResistance : 0;
+  options.appliedImpulse = drive ? 0 : point.tractionImpulse || 0;
   const result = solveWheelContactVelocity(point, point.contact, options);
+  point.tractionImpulse = drive ? result.tangentImpulse : 0;
   point.brakeHold = result.held ? result.frictionLimit * STEP : 0;
   point.angularVelocity = clamp(
     point.angularVelocity,
@@ -477,9 +482,25 @@ function noseUpTilt({ rear, front, chassis }, facing) {
   );
 }
 
-function riderGroundLeverage({ rear, front, chassis }) {
+// A bike hooked by one wheel over a ledge hangs below it like a pendulum. The
+// rider's weight swings it freely there, as in Elasto Mania; the limits below
+// are for a bike balanced above its wheel.
+function hangsBelowWheel({ rear, front, bikePoints }) {
+  if (rear.grounded === front.grounded) return false;
+  const pivot = rear.grounded ? rear : front;
+  if (!pivot.contact) return false;
+  const center = centerOfMass(bikePoints);
+  return (
+    (center.x - pivot.x) * pivot.contact.nx +
+      (center.y - pivot.y) * pivot.contact.ny <
+    0
+  );
+}
+
+function riderGroundLeverage(vehicle) {
+  const { rear, front, chassis } = vehicle;
   const contact = rear.contact || front.contact;
-  if (!contact) return 1;
+  if (!contact || hangsBelowWheel(vehicle)) return 1;
   const up = chassisUp(chassis);
   return riderTiltTorqueScale(
     up.x,
@@ -495,8 +516,9 @@ function riderGroundLeverage({ rear, front, chassis }) {
 // trail part of that shift tips it. With the nose raised by angle a the part
 // is cos(a), so on a near-vertical face gravity loops the bike over however
 // far the rider leans.
-function forwardLeanWeightShift({ chassis }, facing, leanControl) {
-  if (leanControl * facing <= 0) return 1;
+function forwardLeanWeightShift(vehicle, facing, leanControl) {
+  if (leanControl * facing <= 0 || hangsBelowWheel(vehicle)) return 1;
+  const { chassis } = vehicle;
   const up = chassisUp(chassis);
   if (up.x * facing >= 0) return 1;
   return clamp(-up.y, 0, 1);
@@ -504,9 +526,16 @@ function forwardLeanWeightShift({ chassis }, facing, leanControl) {
 
 // A braked wheel that gripped last step is held where it stood, within one
 // step of tire friction. Pushing a wheel out of a slope moves it a little
-// downhill each step, which velocity friction alone cannot undo.
+// downhill each step, which velocity friction alone cannot undo. Only a wheel
+// the bike stands on is held: a locked wheel pinned against an overhang would
+// clamp a hanging bike in place instead of letting it swing.
 function holdBrakedWheel(point) {
-  if (!point.brakeHold || !point.contact) return;
+  if (
+    !point.brakeHold ||
+    !point.contact ||
+    point.contact.ny >= CONTACT_GROUNDED_NORMAL
+  )
+    return;
   const tx = -point.contact.ny,
     ty = point.contact.nx;
   const drift = (point.x - point.holdX) * tx + (point.y - point.holdY) * ty;
@@ -538,6 +567,10 @@ function resolveContact(point, contact, wheelName, hooks) {
         : 0;
     vx -= nx * intoSurface * (1 + restitution);
     vy -= ny * intoSurface * (1 + restitution);
+    // The real ground force: every bit of speed the surface stops, including
+    // the chassis weight the suspension pushes into the wheel.
+    point.groundLoad =
+      (point.groundLoad || 0) - (intoSurface * (1 + restitution)) / STEP;
   }
   point.x += nx * penetration;
   point.y += ny * penetration;
@@ -940,7 +973,7 @@ function updateCrashedPassThrough(vehicle, trail) {
 // `controls.crashed` hands the bike to physics alone: the chassis collides with
 // the terrain so a riderless bike tips over and tumbles instead of sinking.
 export function stepVehicle(vehicle, trail, controls, hooks = {}) {
-  const { rear, front, chassis, constraints, wheelbaseLimit } = vehicle;
+  const { rear, front, chassis, constraints } = vehicle;
   const {
     facing,
     throttle,
@@ -973,12 +1006,14 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
   const slope = terrainAt(trail, midpointX, midpointY).slope;
   const uphill = clamp(-slope * facing, 0, 1);
   const drivenWheel = facing > 0 ? rear : front;
-  const wheelSurfaceSpeed = Math.abs(drivenWheel.angularVelocity * RADIUS);
+  // Engine speed: only a wheel turning forward winds the torque down.
+  const wheelSurfaceSpeed = Math.max(
+    0,
+    facing * drivenWheel.angularVelocity * RADIUS,
+  );
   const speedRatio = wheelSurfaceSpeed / XPBD_TORQUE_FALLOFF_SPEED;
   const torqueCurve =
     speedRatio >= 1 ? 0.28 / speedRatio : 0.28 + 0.72 * (1 - speedRatio);
-  const forwardLean = clamp(leanControl * facing, 0, 1);
-  const uphillGripBlend = clamp(uphill * (1 + forwardLean * 2), 0, 1);
   const angularDrive =
     facing * XPBD_MOTOR_ANGULAR_ACCELERATION * throttle * torqueCurve;
   const riderAssist = riderTorqueMultiplier(
@@ -1028,11 +1063,16 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
     ? groundLean *
       riderSpinTorqueScale(groundLean, bikeSpin, XPBD_RIDER_MAX_GROUND_SPIN)
     : airLean;
+  // The engine pushes against the tire's grip on the ground, and that pushes
+  // the front up. In the air only the rider's lean turns the bike, as in
+  // Elasto Mania: gas just spins the wheel.
+  const drivenWheelAcceleration = drivenWheel.contact ? angularDrive : 0;
   const motorReactionTorque =
-    -angularDrive * wheelMoment * XPBD_MOTOR_REACTION_SCALE;
+    -drivenWheelAcceleration * wheelMoment * XPBD_MOTOR_REACTION_SCALE;
   const diveWheel = facing > 0 ? front : rear;
+  const rollingForward = (rollingSpin(rear) + rollingSpin(front)) * facing > 0;
   const brakingWheelAcceleration =
-    braking && diveWheel.grounded
+    braking && diveWheel.grounded && rollingForward
       ? -(rollingSpin(rear) + rollingSpin(front)) *
         XPBD_BRAKE_RATE *
         brakePressure
@@ -1057,10 +1097,14 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
     riderAngularAcceleration,
     vehicle.riderAccelerations,
   );
-  keepPivotPlanted(riderAccelerations, rear, front);
+  keepPivotPlanted(
+    riderAccelerations,
+    rear,
+    front,
+    centerOfMass(bikePoints).mass,
+  );
   const dynamics = {
     angularDrive,
-    uphillGripBlend,
     riderAssist,
     riderTerrainScale,
     riderAngularAcceleration,
@@ -1126,12 +1170,6 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
       collideWheel(trail, point, name, hooks, false);
       holdBrakedWheel(point);
     }
-    const wheelbaseCorrection = solveXpbdConstraint(wheelbaseLimit, STEP);
-    hooks.constraint?.(wheelbaseCorrection);
-    for (const [point, name] of solverWheels) {
-      collideWheel(trail, point, name, hooks, false);
-      holdBrakedWheel(point);
-    }
     if (crashed) collideCrashedChassis(vehicle, trail, false);
     hooks.contactsResolved?.();
   }
@@ -1156,15 +1194,6 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
   traction.brakePressure = brakePressure;
   traction.coasting = coasting;
   traction.throttle = throttle;
-  traction.driveLoadScale = lerp(
-    XPBD_ROLLING_LOAD_SCALE,
-    lerp(
-      XPBD_DRIVE_LOAD_SCALE,
-      XPBD_UPHILL_CONTACT_LOAD_SCALE,
-      uphillGripBlend,
-    ),
-    throttle,
-  );
   for (const [point, name] of solverWheels) {
     if (!point.contact) {
       point.brakeHold = 0;
@@ -1210,14 +1239,16 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
     for (const [point, name] of solverWheels)
       applyWheelTraction(point, name, false, traction, hooks);
   }
+  // Negative while the spring is stretched, so the drawn body lifts away from
+  // a wheel it hangs from.
   rear.compression = clamp(
     SUSPENSION_REST_LENGTH - distance(rear, chassis.rearMount),
-    0,
+    -SUSPENSION_TRAVEL,
     SUSPENSION_TRAVEL,
   );
   front.compression = clamp(
     SUSPENSION_REST_LENGTH - distance(front, chassis.frontMount),
-    0,
+    -SUSPENSION_TRAVEL,
     SUSPENSION_TRAVEL,
   );
   hooks.iteration?.(-1);

@@ -76,7 +76,7 @@ Names are working titles. "Also new" is the visual element introduced alongside 
 - [ ] **22. Lantern Mine:** the first dark cave, closed off by a back wall. Ride by the headlight and lanterns. *Also new:* the headlight, minecarts, beams, drips.
 - [ ] **23. Sinkhole:** drop from the surface into a cave and climb out of a second exit. The trail has two levels. *Also new:* bats, glowing mushrooms.
 - [ ] **24. The Shaft:** start at the bottom of a cave shaft and climb out by switchbacking between ledges on alternate sides, up to a finish that floats high above. *Also new:* a start below ground, a floating finish.
-- [ ] **25. The Ring (finale):** the first loop. Needs the loop handling pass in `PHYSICS_NEXT_STEPS.md` first. Combines ceilings, darkness and climbing. *Also new:* a large cavern lit by lanterns.
+- [ ] **25. The Ring (finale):** the first loop. Needs the loop handling pass in `PHYSICS.md` first. Combines ceilings, darkness and climbing. *Also new:* a large cavern lit by lanterns.
 
 ### World 6 – The City
 *Brick, `city` backdrop, evening to night. Teaches hazards.*

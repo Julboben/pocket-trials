@@ -24,10 +24,12 @@ export const XPBD_CHASSIS_AREA_COMPLIANCE = 0.000001;
 export const XPBD_SUSPENSION_COMPLIANCE = 0.0036;
 export const XPBD_SUSPENSION_DAMPING = .26;
 export const XPBD_SUSPENSION_REBOUND_DAMPING = .42;
+// Pulled past its rest length the spring is softer, as in Elasto Mania: a
+// bike hooked on a ledge by one wheel hangs from that wheel's spring, which
+// stretches about 11 px under the whole bike and bobs before it settles, while
+// the free wheel droops about 5 px under its own weight.
+export const XPBD_SUSPENSION_EXTENSION_COMPLIANCE = 0.012;
 export const XPBD_SUSPENSION_SLIDER_COMPLIANCE = 0.0001;
-export const XPBD_LONGITUDINAL_COMPLIANCE = 0.00004;
-export const XPBD_LONGITUDINAL_DAMPING = .55;
-export const XPBD_CROSS_LINK_DAMPING = .35;
 export const SUSPENSION_REST_LENGTH = 20;
 export const SUSPENSION_TRAVEL = 16;
 // A stiffer second spring over the last part of travel, so the soft main
@@ -35,9 +37,19 @@ export const SUSPENSION_TRAVEL = 16;
 // the travel limit, which would throw the bike back into the air.
 export const SUSPENSION_BUMP_STOP_LENGTH = 10;
 export const XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE = 0.0003;
-export const XPBD_WHEELBASE_SLACK = 6;
+// The same on the way out: a firmer top-out spring over the last part of
+// stretch catches a bike that drops onto one hooked wheel before the travel
+// limit jerks it.
+export const SUSPENSION_TOP_OUT_LENGTH = 32;
+export const XPBD_SUSPENSION_TOP_OUT_COMPLIANCE = 0.002;
 export const WHEEL_INERTIA = .5;
-export const WHEEL_FRICTION = .92;
+// Tire grip is Coulomb friction on the real ground force each tire takes: a
+// gripping tire holds up to WHEEL_FRICTION times its load, a slipping one
+// pushes with WHEEL_SLIDE_FRICTION times it until it hooks up again. The motor
+// can spin the tread at most WHEEL_DRIVE_SLIP (px/s) ahead of the ground.
+export const WHEEL_FRICTION = 2.1;
+export const WHEEL_SLIDE_FRICTION = 1.8;
+export const WHEEL_DRIVE_SLIP = 90;
 // Physical controls. All drive, brake, and lean forces come from tire torque
 // and the chassis rather than direct wheel pushes.
 export const XPBD_CHASSIS_MOUNT_INVERSE_MASS = .65;
@@ -81,8 +93,9 @@ export const XPBD_UPHILL_FORWARD_LEAN_REDUCTION = 1.4;
 // lifted: forward lean is back to full strength for pulling it down.
 export const XPBD_UPHILL_FORWARD_LEAN_FULL_TILT = 12 * Math.PI / 180;
 // Brake dive follows travel speed, capped at about twice full-lean pitch; the
-// front suspension dives and takes up part of it.
-export const XPBD_BRAKE_REACTION_SCALE = 1.3;
+// front suspension dives and takes up part of it. It only acts while rolling
+// forward: braking a bike that rolls back must not lift its front wheel.
+export const XPBD_BRAKE_REACTION_SCALE = 1;
 export const XPBD_BRAKE_REACTION_LIMIT = 60;
 export const XPBD_BRAKE_RATE = 64;
 // Most wheel spin (rad/s²) a fully held brake removes. Enough to lock a
@@ -90,12 +103,6 @@ export const XPBD_BRAKE_RATE = 64;
 // the bike skids to a stop, stays parked on slopes, and pivots on a locked
 // front wheel in a stoppie.
 export const XPBD_BRAKE_TORQUE = 720;
-// Brake grip stays moderate. Drive grip is high enough that hitting the gas
-// hooks the tire up instead of spinning it out.
-export const XPBD_CONTACT_LOAD_SCALE = 4.5;
-export const XPBD_DRIVE_LOAD_SCALE = 12;
-export const XPBD_UPHILL_CONTACT_LOAD_SCALE = 16;
-export const XPBD_ROLLING_LOAD_SCALE = 1.35;
 // Two wheel impulses are distributed over the full vehicle mass, so these
 // values produce 105 / 18 px/s² center-of-mass coast losses.
 export const XPBD_COAST_RESISTANCE_LOW_SPEED = 372;

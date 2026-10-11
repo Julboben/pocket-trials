@@ -86,6 +86,7 @@ import {
   SQUIRREL_STEP,
   SQUIRREL_STEP_UP,
   SQUIRREL_LENGTH,
+  PINE_TIERS,
   squirrelDash,
   drawSquirrelSitting,
   drawSquirrelRunning,
@@ -112,7 +113,9 @@ import {
   drawCowSkull,
   drawTumbleweed,
   drawVultureBanking,
+  drawVultureLanding,
   drawVultureSoaring,
+  drawVultureStanding,
   drawWaterTower,
   drawWindmillRotor,
   drawWindmillTower,
@@ -122,6 +125,44 @@ import {
   vultureOrbit,
   windmillAngle,
 } from "./desert-props.js";
+import {
+  CABLE_HALF,
+  CABLE_TOP,
+  HUT_BOUNDS,
+  HUT_LIGHT,
+  HUT_WINDOW,
+  ICE,
+  ICICLE_REACH,
+  PYLON_BODY_BOTTOM,
+  PYLON_NUMBER,
+  PYLON_TOP,
+  SMOKE,
+  SNOW,
+  SNOWMAN_EYE_HEIGHT,
+  chimneySmoke,
+  drawCable,
+  drawCairn,
+  drawCairnFoot,
+  drawChair,
+  drawHut,
+  drawHutFoundation,
+  drawHutWindowGlass,
+  drawIcicles,
+  drawPineDrift,
+  drawPineSnow,
+  drawPineSnowCap,
+  drawPylon,
+  drawPylonFooting,
+  drawSnowman,
+  drawSnowmanDrift,
+  drawSnowmanFace,
+  liftChair,
+  pineShake,
+  pineSnowFall,
+  pineSnowPuffs,
+  pineSway,
+  snowmanGaze,
+} from "./mountain-props.js";
 
 const GROUND_ALIGNED_PROP_SPANS = {
   bush: [-28, 28],
@@ -928,6 +969,7 @@ export const CEILING_PROPS = new Set([
   "drip",
   "lantern",
   "bats",
+  "icicles",
 ]);
 // Cave props that fit themselves to the rock around them: support beams reach
 // up to the roof, and a mine cart's rails run along the floor to the walls.
@@ -942,8 +984,9 @@ export const canFlip = (type) =>
   !CEILING_PROPS.has(type);
 // Props that fit themselves to the world or move through it keep their own
 // angle: ceiling, cave-fitted and water props, and the animals and effects
-// that wander, fly or shimmer. Wall props and graffiti turn about their anchor.
-const UNROTATABLE_PROPS = new Set(["squirrel", "tumbleweed", "vulture", "bird", "heat-haze"]);
+// that wander, fly or shimmer, and the ski lift, whose chair hangs plumb. Wall
+// props and graffiti turn about their anchor.
+const UNROTATABLE_PROPS = new Set(["squirrel", "tumbleweed", "vulture", "bird", "heat-haze", "ski-lift"]);
 export const canRotate = (type) =>
   !CAVE_FITTED_PROPS.has(type) &&
   !WATER_PROPS.has(type) &&
@@ -1184,7 +1227,7 @@ function fitInWater(trail, prop, bodies) {
 
 // Trees a squirrel hides in, with how far above the base the leaves start to
 // cover the trunk; it climbs on until it is out of sight above that line.
-export const SQUIRREL_TREES = { tree: -90, pine: -28, sapling: -46, "pine-small": -16 };
+export const SQUIRREL_TREES = { tree: -90, pine: -28, "snow-pine": -28, sapling: -46, "pine-small": -16 };
 const squirrelFits = new WeakMap();
 
 /**
@@ -1317,6 +1360,8 @@ export function propSpan(type, fit) {
     stalactites: 36,
     drip: (fit?.drop ?? 200) + 8,
     bats: 120,
+    // Icicles, and the meltwater dripping off them to the floor.
+    icicles: Math.max(fit?.drop ?? ICICLE_REACH + 200, ICICLE_REACH) + 8,
   }[type];
   return [Math.max(0, -ceiling) + (type === "bats" ? 120 : 4), Math.max(0, ceiling + below)];
 }
@@ -2168,77 +2213,14 @@ function drawTreeCanopy({ pixelRect, pixelPath, drawPixelDisc }) {
   pixelRect(-4, -68, 2, TREE_CANOPY_BOTTOM + 68, "#856d4f", 2);
 }
 
-function drawPineCanopy({ pixelRect }) {
+function drawPineCanopy(tools) {
+  const { pixelRect } = tools;
   // Upper trunk, hidden behind the boughs.
   pixelRect(-6, -100, 12, PINE_CANOPY_BOTTOM + 100, "#66543f", 2);
   pixelRect(2, -100, 4, PINE_CANOPY_BOTTOM + 100, "#856d4f", 2);
   pixelRect(4, -96, 2, PINE_CANOPY_BOTTOM + 96, "#aa8a60", 2);
-
   // Broad lower boughs first; smaller tiers overlap them.
-  // Each tier shares EXACTLY the same horizontal center.
-  const tiers = [
-    { top: -112, bottom: -26, halfWidth: 46 },
-    { top: -140, bottom: -66, halfWidth: 34 },
-    { top: -164, bottom: -104, halfWidth: 24 },
-    { top: -182, bottom: -138, halfWidth: 14 },
-  ];
-
-  for (const { top, bottom, halfWidth } of tiers) {
-    const rows = (bottom - top) / 2;
-
-    for (let row = 0; row < rows; row++) {
-      const t = row / (rows - 1);
-
-      // A gently flared outline, not a stack of rectangles.
-      const half = Math.max(
-        2,
-        Math.round((2 + (halfWidth - 2) * Math.pow(t, 1.15)) / 2) * 2,
-      );
-
-      const py = top + row * 2;
-      const underside = row >= rows - 3;
-
-      // Both sides use the same span: [-half, +half].
-      for (let px = -half; px < half; px += 2) {
-        const cellCenter = px + 1;
-        const across = (cellCenter + half) / (half * 2);
-
-        // Small, mirrored notches under the branch skirts.
-        // Skip painting rather than erasing lower branches.
-        const fromCenter = Math.abs(cellCenter);
-        if (
-          row === rows - 1 &&
-          ((fromCenter > half * 0.28 && fromCenter < half * 0.46) ||
-            (fromCenter > half * 0.66 && fromCenter < half * 0.82))
-        ) {
-          continue;
-        }
-
-        let color = "#4e785c";
-
-        // Deep underside and shaded left flank.
-        if (underside || across < 0.24) {
-          color = "#477158";
-        } else if (across > 0.55 && across < 0.9) {
-          color = "#568061";
-        }
-
-        // A few grouped highlights, not random pixel noise.
-        if (
-          !underside &&
-          row > 3 &&
-          row % 9 < 2 &&
-          across > 0.64 &&
-          across < 0.84
-        ) {
-          color = "#618b66";
-        }
-
-        pixelRect(px, py, 2, 2, color, 2);
-      }
-    }
-  }
-
+  drawPineTiers(tools, PINE_TIERS);
   // Small highlight on the central leader.
   pixelRect(0, -180, 2, 6, "#618b66", 2);
 }
@@ -2307,7 +2289,7 @@ function drawSaplingCanopy({ pixelRect, pixelPath, drawPixelDisc }) {
   pixelRect(-14, -48, 6, 2, "#568061", 2);
 }
 
-// The same tiered, shaded bough pattern as the big pine, for any tier list.
+// The pines' tiered, shaded bough pattern, for any tier list.
 function drawPineTiers({ pixelRect }, tiers) {
   for (const { top, bottom, halfWidth } of tiers) {
     const rows = (bottom - top) / 2;
@@ -2338,6 +2320,21 @@ function drawPineTiers({ pixelRect }, tiers) {
       }
     }
   }
+}
+
+// The big pine under a load of snow. Each tier gets its snow before the tier
+// above is drawn, so the tier above covers it.
+function drawSnowPineCanopy(tools) {
+  const { pixelRect } = tools;
+  // Upper trunk, hidden behind the boughs.
+  pixelRect(-6, -100, 12, PINE_CANOPY_BOTTOM + 100, "#66543f", 2);
+  pixelRect(2, -100, 4, PINE_CANOPY_BOTTOM + 100, "#856d4f", 2);
+  pixelRect(4, -96, 2, PINE_CANOPY_BOTTOM + 96, "#aa8a60", 2);
+  for (const tier of PINE_TIERS) {
+    drawPineTiers(tools, [tier]);
+    drawPineSnow(tools, tier);
+  }
+  drawPineSnowCap(tools);
 }
 
 function drawSmallPineCanopy(tools) {
@@ -2605,8 +2602,9 @@ const SCARECROW_FACES = {
   front: [[26, 26], [36, 26], [28, 32], [34, 32]],
   right: [[32, 26], [38, 26], [32, 32], [36, 32]],
 };
-// How far the rider must be to one side before the head turns to follow.
-const SCARECROW_TURN = 60;
+// How far the rider must be to one side before a watching prop (the
+// scarecrow, the snowman) turns to follow.
+const WATCH_TURN = 60;
 
 function drawScarecrow(tools) {
   const s = FARM_STRAW;
@@ -2769,9 +2767,21 @@ function drawTyre(tools) {
   drawFarmRects(tools, rects, -48, TYRE_SINK - 56);
 }
 
-// What a prop can react to: the time in seconds for its animation, and the
-// rider's x. Without them, props stand still and the scarecrow looks ahead.
-const NO_SCENE = { time: 0, riderX: null };
+// What a prop can react to: the time in seconds for its animation, the
+// rider's position, the wind (0…1, see windStrength) and the last hard
+// landing ({ x, y, time, strength }). Without them, props stand still and the
+// scarecrow and snowman look ahead.
+const NO_SCENE = { time: 0, riderX: null, riderY: null, wind: 0, landing: null };
+
+/**
+ * Which way a prop at `x` turns to watch the rider: -1, 0 or 1 in its own
+ * frame, so a mirrored prop still looks the right way.
+ */
+function riderSide(scene, x, mirrored) {
+  if (!Number.isFinite(scene.riderX)) return 0;
+  const dx = (scene.riderX - x) * (mirrored ? -1 : 1);
+  return dx < -WATCH_TURN ? -1 : dx > WATCH_TURN ? 1 : 0;
+}
 
 // Local bounds [left, top, right, bottom] of each canopy sprite, in world units.
 const CANOPY_SPRITES = {
@@ -2819,6 +2829,11 @@ const CANOPY_SPRITES = {
   "car-wreck": { bounds: [-70, -44, 70, WRECK_SINK], draw: drawCarWreck },
   "water-tower": { bounds: [-38, -178, 40, TOWER_BODY_BOTTOM], draw: drawWaterTower },
   windmill: { bounds: [-62, -172, 24, WINDMILL_BODY_BOTTOM], draw: drawWindmillTower },
+  "snow-pine": { bounds: [-50, -188, 50, PINE_CANOPY_BOTTOM], draw: drawSnowPineCanopy },
+  "ski-lift": { bounds: [-28, PYLON_TOP, 28, PYLON_BODY_BOTTOM], draw: drawPylon },
+  hut: { bounds: HUT_BOUNDS, draw: drawHut },
+  cairn: { bounds: [-16, -44, 16, 0], draw: drawCairn },
+  snowman: { bounds: [-28, -78, 28, 0], draw: drawSnowman },
 };
 const canopySprites = new Map();
 
@@ -2917,9 +2932,27 @@ const PROP_EXTENTS = {
   windmill: [-62, ROTOR.y - ROTOR.radius - 4, ROTOR.radius + 4],
   "heat-haze": [-HAZE_HALF - 4, -HAZE_RISE - 8, HAZE_HALF + 4],
   vulture: [-VULTURE_ORBIT.x - 30, -VULTURE_HEIGHT - VULTURE_ORBIT.y - 16, VULTURE_ORBIT.x + 30],
+  cairn: [-16, -44, 16],
+  // The rope and the chair on it reach well out either side of the tower.
+  // The rope runs out either side and climbs above the tower to the right.
+  "ski-lift": [-CABLE_HALF - 24, Math.min(PYLON_TOP, CABLE_TOP) - 4, CABLE_HALF + 24],
+  icicles: [-22, -CEILING_REACH - 4, 22],
+  // Room for the snow a hard landing knocks off, and the cloud it raises.
+  "snow-pine": [-70, -192, 70],
+  // Room for the chimney smoke rising and blowing downwind, which stays to
+  // the left in the world when the hut is flipped.
+  hut: [-100, -204, 100],
+  snowman: [-28, -78, 28],
 };
 // How far below its anchor each ceiling prop's art can reach.
-const CEILING_HANG = { "hanging-roots": 72, stalactites: 36, drip: 260, lantern: 4, bats: 20 };
+const CEILING_HANG = {
+  "hanging-roots": 72,
+  stalactites: 36,
+  drip: 260,
+  lantern: 4,
+  bats: 20,
+  icicles: 260,
+};
 // How far below its anchor each water prop's art can reach, once moved onto
 // the surface, to its depth or down to the bed.
 const WATER_HANG = { lily: 32, duck: 32, fish: SURFACE_REACH, seaweed: 200, reeds: 200 };
@@ -3896,6 +3929,26 @@ export function createGameArt(ctx) {
     );
   }
 
+  // The snow a shake knocks off a snowy pine: clumps falling and breaking
+  // up, powder bursting off the bough tips, and a cloud where it lands.
+  function drawPineSnowFall(shake, x, groundOffset) {
+    const base = ctx.globalAlpha;
+    for (const flake of pineSnowFall(shake, (n) => propNoise(x, n), groundOffset)) {
+      ctx.globalAlpha = base * flake.alpha;
+      pixelRect(flake.x, flake.y, flake.size, flake.size, flake.color, 2);
+    }
+    const puffs = pineSnowPuffs(shake);
+    for (const puff of puffs.tips) {
+      ctx.globalAlpha = base * puff.alpha;
+      drawPixelDisc(puff.x, puff.y, puff.radius, SNOW.light, 2);
+    }
+    for (const puff of puffs.ground) {
+      ctx.globalAlpha = base * puff.alpha;
+      drawPixelDisc(puff.x, groundOffset(puff.x) + puff.y, puff.radius, SNOW.light, 2);
+    }
+    ctx.globalAlpha = base;
+  }
+
   function drawCanopy(type) {
     const sprite = canopySprite(type);
     ctx.imageSmoothingEnabled = false;
@@ -4303,12 +4356,8 @@ export function createGameArt(ctx) {
       rectDownTo(0, SCARECROW_BODY_BOTTOM, 2, FARM_WOOD.light, 2, groundOffset);
       // The head watches the rider go by. Only the face moves, so the head's
       // light and shade stay put.
-      let face = "front";
-      if (Number.isFinite(scene.riderX)) {
-        const dx = (scene.riderX - x) * (mirrored ? -1 : 1);
-        if (dx < -SCARECROW_TURN) face = "left";
-        else if (dx > SCARECROW_TURN) face = "right";
-      }
+      const side = riderSide(scene, x, mirrored);
+      const face = side < 0 ? "left" : side > 0 ? "right" : "front";
       for (const [fx, fy] of SCARECROW_FACES[face])
         pixelRect(
           fx + SCARECROW_OX,
@@ -4462,6 +4511,70 @@ export function createGameArt(ctx) {
       );
     } else if (type === "heat-haze") {
       drawHeatHaze(x, scene, groundOffset);
+    } else if (type === "cairn") {
+      drawCanopy(type);
+      drawCairnFoot({ pixelRect }, groundOffset);
+    } else if (type === "ski-lift") {
+      drawCanopy(type);
+      // The tower number reads the right way round on a flipped pylon too.
+      ctx.save();
+      if (mirrored) ctx.scale(-1, 1);
+      drawPixelText(PYLON_NUMBER.text, mirrored ? -PYLON_NUMBER.x : PYLON_NUMBER.x, PYLON_NUMBER.y, PYLON_NUMBER.color);
+      ctx.restore();
+      drawPylonFooting({ pixelRect }, groundOffset);
+      drawCable({ pixelRect });
+      // One chair rides the rope, fading in and out where the rope does.
+      const chair = liftChair(scene.time || 0, propNoise(x, 11));
+      if (chair.alpha > 0) {
+        ctx.save();
+        ctx.globalAlpha *= chair.alpha;
+        ctx.translate(chair.x, chair.y);
+        drawChair({ pixelRect, pixelPath }, chair.swing);
+        ctx.restore();
+      }
+    } else if (type === "snow-pine") {
+      // A hard landing nearby (scene.landing) shakes the crown and knocks
+      // its snow down; the trunk stays put.
+      const shake = pineShake(scene.landing, x, y, scene.time || 0);
+      ctx.save();
+      if (shake) ctx.translate(pineSway(shake), 0);
+      drawCanopy(type);
+      ctx.restore();
+      const trunkTop = PINE_CANOPY_BOTTOM;
+      rectDownTo(-6, trunkTop, 8, "#66543f", 2, groundOffset);
+      rectDownTo(2, trunkTop, 2, "#856d4f", 2, groundOffset);
+      rectDownTo(4, trunkTop, 2, "#aa8a60", 2, groundOffset);
+      rectAboveGround(-4, -22, 2, 8, "#856d4f", 2, groundOffset);
+      drawPineDrift({ pixelRect }, groundOffset);
+      if (shake) drawPineSnowFall(shake, x, groundOffset);
+    } else if (type === "hut") {
+      drawCanopy(type);
+      drawHutFoundation({ pixelRect }, groundOffset);
+      // Chimney smoke, each puff shaded at its lower left, blown downwind:
+      // to the left, like the snow and rain, so the other way when flipped.
+      const base = ctx.globalAlpha;
+      const downwind = mirrored ? 1 : -1;
+      for (const puff of chimneySmoke(scene.time || 0, propNoise(x, 10), scene.wind ?? 0.25, downwind)) {
+        ctx.globalAlpha = base * puff.alpha;
+        drawPixelDisc(puff.x - 2, puff.y + 2, puff.radius, SMOKE.shade, 2);
+        drawPixelDisc(puff.x, puff.y, Math.max(2, puff.radius - 2), SMOKE.light, 2);
+      }
+      ctx.globalAlpha = base;
+    } else if (type === "snowman") {
+      drawCanopy(type);
+      drawSnowmanDrift({ pixelRect }, groundOffset);
+      // The eyes watch the rider go by, like the scarecrow, and glance up or
+      // down at them too; the carrot turns with them.
+      const dy = Number.isFinite(scene.riderY) ? scene.riderY - (y + SNOWMAN_EYE_HEIGHT) : null;
+      drawSnowmanFace({ pixelRect }, snowmanGaze(riderSide(scene, x, mirrored), dy));
+    } else if (type === "vulture" && scene.swoop) {
+      // Swooping down to a crashed rider: drawn at its body, which x and y
+      // already are (see vultureSwoop).
+      const { pose, dir, flap, dip } = scene.swoop;
+      ctx.scale(dir, 1);
+      if (pose === "standing") drawVultureStanding({ pixelRect }, dip);
+      else if (pose === "landing") drawVultureLanding({ pixelRect }, flap);
+      else drawVultureSoaring({ pixelRect }, flap);
     } else if (type === "vulture") {
       const orbit = vultureOrbit(scene.time || 0, propNoise(x, 7));
       const snap = (value) => Math.round(value / ART_PIXEL) * ART_PIXEL;
@@ -4488,6 +4601,13 @@ export function createGameArt(ctx) {
         if (type === "hanging-roots") drawHangingRoots(tools, Math.min(64, room - 14), noise);
         else if (type === "stalactites") drawStalactites(tools, fit.colors, Math.min(32, room - 24), noise);
         else if (type === "drip") drawDrip(tools, fit.colors, fit.drop, scene.time || 0, noise(4));
+        else if (type === "icicles") {
+          // Meltwater drips off the longest icicle, just like a cave drip.
+          const tip = drawIcicles(tools, room - 24, noise, scene.time || 0);
+          ctx.translate(tip.x, tip.y - 2);
+          const drop = Number.isFinite(fit.drop) ? fit.drop - tip.y + 2 : null;
+          drawDrip(tools, { base: ICE.light, dark: ICE.base }, drop, scene.time || 0, noise(4));
+        }
         else drawBats(x, scene);
       }
     } else if (WATER_PROPS.has(type)) {
@@ -5204,7 +5324,32 @@ export function createGameArt(ctx) {
       ctx.globalAlpha = 1;
       drawMushroomSpots({ pixelRect }, (local) => groundOffset(local * dir));
     } else if (!dark) {
-      // Lamps and crane lights stay off by day.
+      // Lamps, crane lights and hut windows stay off by day.
+    } else if (type === "hut") {
+      // Firelight in the window, flickering like a lantern, and the light it
+      // throws on the snow below.
+      const flicker = lanternFlicker(x, time);
+      const { left, top, width, height } = HUT_WINDOW;
+      const cx = left + width / 2,
+        cy = top + height / 2;
+      ctx.scale(dir, 1);
+      if (!emissive) {
+        ctx.globalCompositeOperation = "screen";
+        ctx.globalAlpha = 0.2 * flicker;
+        drawPixelDisc(cx, cy, 22, HUT_LIGHT.flame, 2);
+        ctx.globalAlpha = 0.3 * flicker;
+        drawPixelDisc(cx, cy, 13, HUT_LIGHT.glass, 2);
+        for (let dx = -18; dx < 18; dx += 2) {
+          const reach = Math.abs(dx + 1);
+          ctx.globalAlpha = (reach < 8 ? 0.3 : reach < 14 ? 0.18 : 0.1) * flicker;
+          // Ground lookups take world-facing positions.
+          const ground = Math.round(groundOffset((cx + dx) * dir) / 2) * 2;
+          pixelRect(cx + dx, ground - 4, 2, 6, HUT_LIGHT.glass, 2);
+        }
+        ctx.globalCompositeOperation = "source-over";
+      }
+      ctx.globalAlpha = 1;
+      drawHutWindowGlass({ pixelRect }, flicker);
     } else if (type === "lamp") {
       // Glass centre and the ground below it, relative to the anchor.
       const headX = dir * LAMP_HEAD.x;

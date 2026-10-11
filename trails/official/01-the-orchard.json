@@ -1,15 +1,15 @@
 {
   "name": "The Orchard",
   "label": "THE ORCHARD / 01",
+  "finish": {
+    "x": 2109.276035710421,
+    "y": 290.1897147270387
+  },
   "description": "Learn the rhythm: build speed on gentle rollers, lean forward on climbs, and settle the bike before each landing.",
   "start": {
     "x": 271.93445286745373,
     "y": 303.45703530867854,
     "facing": 1
-  },
-  "finish": {
-    "x": 2109.276035710421,
-    "y": 290.1897147270387
   },
   "terrainBlocks": [
     {
@@ -584,7 +584,7 @@
   "apples": [
     {
       "x": 611.6796875,
-      "y": 214.42578125
+      "y": 224.42578125
     },
     {
       "x": 1216.37890625,
@@ -592,7 +592,7 @@
     },
     {
       "x": 1664.3576591387484,
-      "y": 210.44266827177432
+      "y": 217.44266827177432
     }
   ],
   "props": [

@@ -259,7 +259,7 @@ One-time setup:
 ├── editor.html         # Standalone visual trail editor
 ├── CHANGELOG.md        # Player-facing release notes (What's new screen and GitHub Releases)
 ├── TRAIL_FORMAT.md     # trail schema and authoring guide
-├── PHYSICS_NEXT_STEPS.md # Physics stabilization and upgrade plan
+├── PHYSICS.md          # Physics status, validation and profiling notes
 └── README.md           # Project documentation
 ```
 
@@ -294,7 +294,7 @@ The physics are deliberately game-oriented rather than a complete real-world mot
 
 Terrain is a list of `terrainBlocks`: connected pieces of solid bounded by straight or curved edges, which may contain caves. Blocks can be any shape, so they cover rolling ground, floating ledges, overhangs, and loops. Each block is compiled into polygons once, and rendering, collision, validation, and the editor all use that same geometry. Wheel collision resolves against the nearest edge or corner, including steep faces and undersides, and gaps are simply breaks between blocks. Trails can also define collectibles, props, visual colors, a finish position, and weather.
 
-See [`TRAIL_FORMAT.md`](./TRAIL_FORMAT.md) for the complete schema, coordinate system, examples, and design guidelines. The staged collision, suspension, traction, and loop roadmap is documented in [`PHYSICS_NEXT_STEPS.md`](./PHYSICS_NEXT_STEPS.md). Configure rain and lightning independently with `weather: { rain: 0–1, lightning: 0–1 }`. Either property can be omitted, so a trail may have rain, lightning, both, or clear weather.
+See [`TRAIL_FORMAT.md`](./TRAIL_FORMAT.md) for the complete schema, coordinate system, examples, and design guidelines. Physics status, test coverage, and profiling notes are in [`PHYSICS.md`](./PHYSICS.md). Configure rain and lightning independently with `weather: { rain: 0–1, lightning: 0–1 }`. Either property can be omitted, so a trail may have rain, lightning, both, or clear weather.
 
 ### Rendering
 

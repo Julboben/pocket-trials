@@ -11,6 +11,11 @@ The staged physics roadmap is implemented in `js/vehicle-physics.js`: a physical
 - Separate constraint compliance and velocity damping
 - A physical non-collinear chassis triangle with rigid links
 - Independent suspension links with compliance, damping, and travel limits
+- No wheel-to-wheel link: as in Elasto Mania, each wheel hangs from the chassis on its own leg, so the wheelbase gives a few pixels on hard landings
+- Elasto Mania-style suspension stretch: springs are softer pulled than pushed, with a top-out spring, so a bike hooked on a ledge by one wheel hangs visibly stretched from it and bobs before settling
+- The drawn body, lamps, rider and hair sit exactly on the simulated chassis, with suspension travel interpolated between steps for high-refresh displays
+- Tire grip is Coulomb friction on the real ground force: each wheel's normal impulse is summed from every contact correction in a step (including chassis weight passed through the suspension and landings), with static grip for a gripping tire and lower kinetic grip for a slipping one. Drive and re-traction passes share that budget, so a slow crawl tops out at about 57° with no slope-specific grip rules. The push that keeps a lone grounded wheel planted under rider lean is not weight and gives no grip
+- The motor spins the tread at most a small slip ahead of the ground, and engine torque only tapers while the wheel turns forward, so the throttle hooks up to stop a bike sliding back down a hill
 - Wheel angular velocity driven by throttle and braking
 - Contact-point slip converted into coupled linear/angular friction impulses
 - Block terrain for loops, caves, and overhangs, with one compiled geometry shared by rendering, collision, validation, and the editor
@@ -40,6 +45,10 @@ The automated suite covers:
 - Mirrored left/right hill climbing
 - Valley settling
 - One-wheel landing and second-wheel recovery
+- Hanging from a ledge by one wheel
+- Steep hills: 45° climbable from a standstill, 58° and 60° stall low, 78° walls never
+- A recorded gas-and-forward-lean attempt at a 64.5° hill stays at its foot
+- Braking a bike sliding back down a 35° hill to a stop, then recovering on the throttle
 
 - One recorded replay per official trail (`tests/replays/`), replayed through the DOM-free `js/ride.js` to check finish time, apples, crash outcome, NaN values, and tunnelling
 - Seeded ragdoll determinism, elbow/knee hinge limits, neck/hip angle limits, ragdoll sleep, and the crashed chassis resting on the ground
@@ -67,4 +76,15 @@ Tune restitution, friction, suspension compliance/damping, and the grounded-norm
 ## Next steps
 
 1. Replace the bot-recorded fixtures with hand-ridden replays once handling tuning settles, since bot lines avoid some of the riskier features.
-2. Profile the solver before optimizing further. The terrain collision index, hot-path allocation, and curve lookup work are already done.
+
+## Tried and rejected
+
+- Looser wheel sliders (more wheel play along the frame). With no wheel-to-wheel link, the sliders are what hold the wheelbase. Raising `XPBD_SUSPENSION_SLIDER_COMPLIANCE` from 0.0001 to 0.0002 already stops the 45° climb (the bike loops out) and the 35° hill brake. A free play of 1–3 px with a stiff limit is worse: it breaks hanging from a ledge, stoppies and flat throttle. The wheelbase give from the removed link already supplies the elastic feel.
+
+## Profiling (2026-10)
+
+The official replays run at about 30 µs per step in Node on an M-series laptop, which is roughly 0.4% of one core at 120 Hz. Self time is spread out. `stepVehicle` takes about 19%, the constraint solvers together about 20%, and terrain contact and sweep queries about 20%. The rest is GC and ride bookkeeping.
+
+- Solver passes: 5 position / 2 velocity passes pass the whole suite with almost the same metrics. They save only about 13% of step time, but frame flex on hard drops nearly doubles (0.3 → 0.53 px). 7 / 3 stays.
+- `nearestLiveInBody` was the biggest single hotspot (12%). It now runs without allocations and skips the square root for pieces that are no closer. Results are bit-identical, and it costs about half as much.
+- Physics is not where weak phones spend their frame budget. Profile rendering next.

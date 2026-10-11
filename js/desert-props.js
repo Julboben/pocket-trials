@@ -606,6 +606,156 @@ export function drawVultureSoaring(tools, flap = false) {
   ]);
 }
 
+// After a crash, a vulture that can see the rider from up to this far away
+// glides down and lands beside them.
+export const VULTURE_SIGHT = 640;
+// How far from the rider it lands, and how far apart several stand.
+const VULTURE_PERCH = 40;
+const VULTURE_PERCH_GAP = 30;
+// Its glide speed in units per second, and the steepest step in the ground it
+// will stand on next to the rider.
+const VULTURE_GLIDE = 130;
+const VULTURE_PERCH_STEP = 90;
+// How long the landing flare and the settling of its wings take, in seconds.
+const VULTURE_FLARE = 0.5;
+const VULTURE_SETTLE = 0.4;
+// How far its body sits above its feet when it stands.
+const VULTURE_STANCE = 12;
+
+/** Seconds after a crash before a vulture (`phase` 0…1) notices and sets off. */
+export function vultureNotice(phase = 0) {
+  return 0.6 + phase * 0.9;
+}
+
+/**
+ * Where a vulture lands beside a crashed rider at (`riderX`, `riderY`): on the
+ * `side` (-1 left, 1 right) it comes from if it can, `slot` places along. With
+ * `groundAt(x, aboveY)` giving the surface's y below a point, or null, it
+ * returns its feet's { x, y }, or null with nowhere to stand near the rider.
+ */
+export function vulturePerch(riderX, riderY, side, slot, groundAt) {
+  for (const dir of [side || 1, -(side || 1)]) {
+    const x = riderX + dir * (VULTURE_PERCH + slot * VULTURE_PERCH_GAP);
+    const y = groundAt(x, riderY - VULTURE_PERCH_STEP);
+    if (Number.isFinite(y) && Math.abs(y - riderY) <= VULTURE_PERCH_STEP) return { x: snap(x), y };
+  }
+  return null;
+}
+
+/** How long a vulture glides from `from` to its perch `to`, in seconds. */
+export function swoopDuration(from, to) {
+  const distance = Math.hypot(to.x - from.x, to.y - VULTURE_STANCE - from.y);
+  return Math.max(1.6, Math.min(5, distance / VULTURE_GLIDE)) + VULTURE_FLARE;
+}
+
+/**
+ * A vulture `age` seconds into its swoop from `from` (its body, where it left
+ * its circle) to its feet at `to`, taking `duration` seconds (see
+ * swoopDuration). It glides in a curve that steepens near the end, flares its
+ * wings to land, folds them, then stands facing the rider at `riderX`, now and
+ * then dipping its head. Returns its body's { x, y }, which way it faces, its
+ * `pose` ("soaring", "landing" or "standing"), and `flap` or `dip`.
+ */
+export function vultureSwoop(from, to, age, duration, riderX) {
+  const end = { x: to.x, y: to.y - VULTURE_STANCE };
+  const towards = to.x >= from.x ? 1 : -1;
+  if (age < duration) {
+    const t = Math.max(0, age) / duration;
+    // A quadratic curve whose control point is level with the start, so it
+    // leaves its circle flat and drops in at the end.
+    const cx = (from.x + end.x) / 2,
+      cy = from.y;
+    const u = 1 - t;
+    const x = u * u * from.x + 2 * u * t * cx + t * t * end.x;
+    const y = u * u * from.y + 2 * u * t * cy + t * t * end.y;
+    const landing = duration - age < VULTURE_FLARE;
+    return {
+      x,
+      y,
+      dir: towards,
+      pose: landing ? "landing" : "soaring",
+      flap: landing ? Math.floor(age * 10) % 2 === 0 : false,
+      dip: false,
+    };
+  }
+  const stood = age - duration;
+  const dir = Number.isFinite(riderX) && Math.abs(riderX - to.x) > 4 ? (riderX > to.x ? 1 : -1) : towards;
+  if (stood < VULTURE_SETTLE) return { ...end, dir, pose: "landing", flap: false, dip: false };
+  return { ...end, dir, pose: "standing", flap: false, dip: (stood + to.x * 0.01) % 3.2 < 0.5 };
+}
+
+/**
+ * A vulture landing, facing right with its body at (0, 0): wings raised high
+ * to brake, legs down to touch. `flap` sweeps the wings down a little.
+ */
+export function drawVultureLanding(tools, flap = false) {
+  const c = VULTURE;
+  const lift = flap ? 4 : 0;
+  rects(tools, [
+    // Far wing, raised behind.
+    [-8, -6, 6, 2, c.base],
+    [-12, -10 + lift, 6, 4, c.base],
+    [-16, -16 + lift, 6, 6, c.dark],
+    [-18, -20 + lift, 4, 4, c.dark],
+    [-14, -10 + lift, 2, 4, c.silver],
+    // Near wing, raised in front.
+    [2, -6, 6, 2, c.mid],
+    [4, -10 + lift, 6, 4, c.mid],
+    [6, -16 + lift, 6, 6, c.mid],
+    [8, -20 + lift, 4, 4, c.base],
+    [10, -14 + lift, 2, 4, c.silver],
+    // Body, tilted back, and the fanned tail.
+    [-6, -4, 12, 6, c.base],
+    [-6, 0, 12, 2, c.dark],
+    [-12, 0, 6, 2, c.dark],
+    // Bare red head and pale beak.
+    [6, -6, 4, 4, c.head],
+    [6, -4, 2, 2, RUST.base],
+    [10, -4, 2, 2, c.beak],
+    // Legs reaching for the ground.
+    [-2, 2, 2, 8, c.beak],
+    [2, 2, 2, 8, c.beak],
+    [2, 8, 4, 2, c.beak],
+  ]);
+}
+
+/**
+ * A vulture standing hunched, facing right with its body at (0, 0) and its
+ * feet VULTURE_STANCE below. `dip` lowers its head.
+ */
+export function drawVultureStanding(tools, dip = false) {
+  const c = VULTURE;
+  // Dipping, the head drops forward to the ground.
+  const hx = dip ? 2 : 0,
+    hy = dip ? 8 : 0;
+  rects(tools, [
+    // Tail, drooping behind.
+    [-12, 2, 4, 2, c.dark],
+    [-14, 4, 4, 2, c.dark],
+    // Hunched shoulders and folded wings, their silver edges showing.
+    [-4, -12, 10, 2, c.base],
+    [-8, -10, 14, 2, c.base],
+    [-10, -8, 16, 6, c.base],
+    [-10, -2, 14, 2, c.base],
+    [-8, 0, 10, 2, c.dark],
+    [-6, 2, 8, 2, c.dark],
+    [-6, -10, 8, 2, c.mid],
+    [-8, -8, 10, 2, c.mid],
+    [-10, -4, 2, 4, c.silver],
+    [-8, -2, 6, 2, c.silver],
+    // Ruff, then the bare red head and pale beak.
+    [4, -12, 4, 2, c.dark],
+    [6 + hx, -16 + hy, 4, 4, c.head],
+    [6 + hx, -14 + hy, 2, 2, RUST.base],
+    [10 + hx, -14 + hy, 2, 2, c.beak],
+    // Legs and feet.
+    [-2, 4, 2, 6, c.beak],
+    [2, 4, 2, 6, c.beak],
+    [-4, 10, 4, 2, c.beak],
+    [2, 10, 4, 2, c.beak],
+  ]);
+}
+
 /** A vulture banking through the end of its turn, seen head-on, centred on (0, 0). */
 export function drawVultureBanking(tools) {
   const c = VULTURE;

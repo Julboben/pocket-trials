@@ -50,7 +50,7 @@ import {
  * Bump whenever a change makes old inputs replay differently, so stored
  * ghosts and replay fixtures from older physics are not trusted.
  */
-export const RIDE_VERSION = 3;
+export const RIDE_VERSION = 5;
 
 /** @type {Array<[string, number, number, number]>} name, local x, local y, radius */
 const RIDER_PROBES = [
@@ -268,6 +268,30 @@ function crash(ride, cause, x, y, events) {
     ride.random,
     visual,
   );
+  // The drawn rider reaches a little past the crash probes, more so with the
+  // springs stretched, so a rider thrown as the head touches down can start
+  // partly in the ground. Lift the whole body clear, keeping its shape and
+  // velocity, or the first ragdoll step would count the overlap as a hit.
+  for (let pass = 0; pass < 3; pass++) {
+    let liftX = 0,
+      liftY = 0,
+      deepest = 0;
+    for (const point of ragdoll.list) {
+      for (const contact of terrainCollisionsAt(ride.trail, point.x, point.y, point.radius)) {
+        if (contact.penetration <= deepest) continue;
+        deepest = contact.penetration;
+        liftX = contact.nx * deepest;
+        liftY = contact.ny * deepest;
+      }
+    }
+    if (deepest <= 0) break;
+    for (const point of ragdoll.list) {
+      point.x += liftX;
+      point.y += liftY;
+      point.ox += liftX;
+      point.oy += liftY;
+    }
+  }
 
   ride.status = "crashed";
   ride.crashCause = cause;
@@ -372,6 +396,8 @@ function advanceRide(ride, input, hooks, events) {
     point.px = point.x;
     point.py = point.y;
   }
+  for (const wheel of [ride.vehicle.rear, ride.vehicle.front])
+    wheel.pcompression = wheel.compression;
   if (ride.ragdoll)
     for (const point of ragdollPoints(ride.ragdoll)) {
       point.px = point.x;
@@ -539,6 +565,12 @@ export function ridePoints(ride) {
 export function interpolateRide(ride, alpha) {
   const points = ridePoints(ride);
   const saved = new Float64Array(points.length * 3);
+  const wheels = [ride.vehicle.rear, ride.vehicle.front];
+  const compressions = wheels.map((wheel) => wheel.compression);
+  if (alpha < 1)
+    for (const wheel of wheels)
+      if (wheel.pcompression !== undefined)
+        wheel.compression = wheel.pcompression + (wheel.compression - wheel.pcompression) * alpha;
   points.forEach((point, index) => {
     saved[index * 3] = point.x;
     saved[index * 3 + 1] = point.y;
@@ -551,12 +583,14 @@ export function interpolateRide(ride, alpha) {
     if (alpha < 1 && point.spin !== undefined)
       point.spin -= (point.angularVelocity || 0) * STEP * (1 - alpha);
   });
-  return () =>
+  return () => {
     points.forEach((point, index) => {
       point.x = saved[index * 3];
       point.y = saved[index * 3 + 1];
       if (point.spin !== undefined) point.spin = saved[index * 3 + 2];
     });
+    wheels.forEach((wheel, index) => (wheel.compression = compressions[index]));
+  };
 }
 
 /**

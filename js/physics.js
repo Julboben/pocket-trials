@@ -29,8 +29,10 @@ export function constrainDistanceVelocity(a, b, damping = 1) {
   setVelocity(b, bv.x - nx * impulse * wb, bv.y - ny * impulse * wb);
 }
 
-export function createDistanceConstraint(a, b, length, { compliance = 0, damping = 0, reboundDamping = damping, minLength = null, maxLength = null } = {}) {
-  return { type: 'distance', a, b, length, compliance, damping, reboundDamping, minLength, maxLength, lambda: 0 };
+// extensionCompliance, when given, replaces compliance while the link is
+// stretched past its length, for a spring that is softer pulled than pushed.
+export function createDistanceConstraint(a, b, length, { compliance = 0, extensionCompliance = compliance, damping = 0, reboundDamping = damping, minLength = null, maxLength = null } = {}) {
+  return { type: 'distance', a, b, length, compliance, extensionCompliance, damping, reboundDamping, minLength, maxLength, lambda: 0 };
 }
 
 export function signedTriangleArea(a, b, c) {
@@ -56,38 +58,60 @@ export function createAxisLimitConstraint(point, mount, axisStart, axisEnd, top,
   return { type: 'axisLimit', a: point, b: mount, axisStart, axisEnd, top, minOffset, damping: 0, lambda: 0 };
 }
 
+// Pushes `a` and `b` apart along a direction fixed to the chassis axis. The
+// two forces sit a leg's length apart, so on their own they would twist the
+// bike with nothing to answer them: the gradient on the axis ends turns that
+// twist back into the frame, like a fork tube bolted to it. `alongAxis` picks
+// the direction: the axis itself, or `side` (±1) times its normal.
+function solveAxisOffset(constraint, alongAxis, side, target, alpha) {
+  const { a, b, axisStart: s, axisEnd: e } = constraint;
+  const axisX = e.x - s.x, axisY = e.y - s.y;
+  const axisLength = hypot(axisX, axisY) || EPSILON;
+  const ux = axisX / axisLength, uy = axisY / axisLength;
+  const dx = a.x - b.x, dy = a.y - b.y;
+  const vx = alongAxis ? ux : -uy * side, vy = alongAxis ? uy : ux * side;
+  const offset = dx * vx + dy * vy;
+  // How the offset changes as the axis end moves: only turning the axis
+  // matters, so it is across the axis, scaled by the lever d·v⊥ over length.
+  const lever = alongAxis ? (-dx * uy + dy * ux) : -(dx * ux + dy * uy) * side;
+  const ex = -uy * lever / axisLength, ey = ux * lever / axisLength;
+  const points = [a, b, s, e];
+  const gradients = [vx, vy, -vx, -vy, -ex, -ey, ex, ey];
+  // A mount is usually also an axis end; merge so it is moved once.
+  for (let i = 1; i < 4; i++) for (let j = 0; j < i; j++) {
+    if (points[i] !== points[j]) continue;
+    gradients[j * 2] += gradients[i * 2]; gradients[j * 2 + 1] += gradients[i * 2 + 1];
+    gradients[i * 2] = 0; gradients[i * 2 + 1] = 0;
+    break;
+  }
+  let weight = 0;
+  for (let i = 0; i < 4; i++) weight += inverseMass(points[i]) * (gradients[i * 2] ** 2 + gradients[i * 2 + 1] ** 2);
+  if (weight + alpha <= EPSILON) return { offset, deltaLambda: 0, ax: 0, ay: 0 };
+  const deltaLambda = (target - offset - alpha * constraint.lambda) / (weight + alpha);
+  constraint.lambda += deltaLambda;
+  for (let i = 0; i < 4; i++) {
+    const w = inverseMass(points[i]) * deltaLambda;
+    points[i].x += gradients[i * 2] * w;
+    points[i].y += gradients[i * 2 + 1] * w;
+  }
+  return { offset, deltaLambda, ax: gradients[0] * inverseMass(a) * deltaLambda, ay: gradients[1] * inverseMass(a) * deltaLambda };
+}
+
 export function solveXpbdAxisLimitConstraint(constraint) {
   const { a, b, axisStart, axisEnd, top, minOffset } = constraint;
   const axisX = axisEnd.x - axisStart.x, axisY = axisEnd.y - axisStart.y;
+  const side = (top.x - (axisStart.x + axisEnd.x) / 2) * -axisY + (top.y - (axisStart.y + axisEnd.y) / 2) * axisX > 0 ? -1 : 1;
   const axisLength = hypot(axisX, axisY) || EPSILON;
-  let nx = -axisY / axisLength, ny = axisX / axisLength;
-  if ((top.x - (axisStart.x + axisEnd.x) / 2) * nx + (top.y - (axisStart.y + axisEnd.y) / 2) * ny > 0) { nx = -nx; ny = -ny; }
-  const offset = (a.x - b.x) * nx + (a.y - b.y) * ny;
-  const wa = inverseMass(a), wb = inverseMass(b);
-  if (offset >= minOffset || wa + wb <= EPSILON) return { distance: offset, correctionDistance: 0, correctionX: 0, correctionY: 0, lambda: constraint.lambda };
-  const deltaLambda = (minOffset - offset) / (wa + wb);
-  constraint.lambda += deltaLambda;
-  const ax = nx * deltaLambda * wa, ay = ny * deltaLambda * wa;
-  a.x += ax; a.y += ay;
-  b.x -= nx * deltaLambda * wb; b.y -= ny * deltaLambda * wb;
-  return { distance: offset, correctionDistance: deltaLambda, correctionX: ax, correctionY: ay, lambda: constraint.lambda };
+  const offset = ((a.x - b.x) * -axisY + (a.y - b.y) * axisX) * side / axisLength;
+  if (offset >= minOffset) return { distance: offset, correctionDistance: 0, correctionX: 0, correctionY: 0, lambda: constraint.lambda };
+  const result = solveAxisOffset(constraint, false, side, minOffset, 0);
+  return { distance: offset, correctionDistance: result.deltaLambda, correctionX: result.ax, correctionY: result.ay, lambda: constraint.lambda };
 }
 
 export function solveXpbdSliderConstraint(constraint, dt) {
-  const { a, b, axisStart, axisEnd } = constraint;
-  const axisX = axisEnd.x - axisStart.x, axisY = axisEnd.y - axisStart.y;
-  const axisLength = hypot(axisX, axisY) || EPSILON;
-  const ux = axisX / axisLength, uy = axisY / axisLength;
-  const offset = (a.x - b.x) * ux + (a.y - b.y) * uy;
-  const wa = inverseMass(a), wb = inverseMass(b);
   const alpha = Math.max(0, constraint.compliance) / (dt * dt);
-  if (wa + wb + alpha <= EPSILON) return { distance: offset, correctionDistance: 0, correctionX: 0, correctionY: 0, lambda: constraint.lambda };
-  const deltaLambda = (-offset - alpha * constraint.lambda) / (wa + wb + alpha);
-  constraint.lambda += deltaLambda;
-  const ax = ux * deltaLambda * wa, ay = uy * deltaLambda * wa;
-  a.x += ax; a.y += ay;
-  b.x -= ux * deltaLambda * wb; b.y -= uy * deltaLambda * wb;
-  return { distance: offset, correctionDistance: Math.abs(deltaLambda), correctionX: ax, correctionY: ay, lambda: constraint.lambda };
+  const result = solveAxisOffset(constraint, true, 1, 0, alpha);
+  return { distance: result.offset, correctionDistance: Math.abs(result.deltaLambda), correctionX: result.ax, correctionY: result.ay, lambda: constraint.lambda };
 }
 
 export function resetConstraintMultiplier(constraint) {
@@ -105,7 +129,8 @@ export function solveXpbdDistanceConstraint(constraint, dt) {
 
   const c = distance - target;
   const wa = inverseMass(a), wb = inverseMass(b), weight = wa + wb;
-  const alpha = Math.max(0, constraint.compliance) / (dt * dt);
+  const compliance = c > 0 ? constraint.extensionCompliance ?? constraint.compliance : constraint.compliance;
+  const alpha = Math.max(0, compliance) / (dt * dt);
   if (weight + alpha <= EPSILON) return { distance, correctionDistance: 0, correctionX: 0, correctionY: 0, lambda: constraint.lambda };
   const deltaLambda = (-c - alpha * constraint.lambda) / (weight + alpha);
   constraint.lambda += deltaLambda;
@@ -284,19 +309,31 @@ export function advanceAfterTimeOfImpact(point, time) {
   point.oy = point.y - vy;
 }
 
-/** Applies a contact impulse to linear Verlet velocity and wheel angular velocity. */
+/**
+ * Applies a contact impulse to linear Verlet velocity and wheel angular velocity.
+ * Tire grip is Coulomb friction on the real ground force: `normalLoad` is the
+ * normal impulse (px/s) the contact already took this step. A tire that grips
+ * holds up to `friction` times the load; once it slips it pushes with
+ * `kineticFriction` times the load until the wheel matches the ground again.
+ */
 export function solveWheelContactVelocity(point, contact, {
   dt,
   radius,
   restitution = 0,
   friction = 0.9,
+  kineticFriction = friction,
   angularDrive = 0,
   angularBrake = 0,
   angularDrag = .1,
   inertia = .5,
-  restingNormalAcceleration = 480,
+  normalLoad = 0,
+  // Most the motor may spin the tire ahead of the ground (px/s of tread).
+  maxDriveSlip = Infinity,
   freeRolling = false,
-  rollingResistance = 0
+  rollingResistance = 0,
+  // Tangent impulse this contact already gave this step; a later pass only
+  // gets what is left of the friction limit.
+  appliedImpulse = 0
 }) {
   let vx = (point.x - point.ox) / dt;
   let vy = (point.y - point.oy) / dt;
@@ -309,9 +346,11 @@ export function solveWheelContactVelocity(point, contact, {
     vy += contact.ny * normalImpulse;
   }
   const tx = -contact.ny, ty = contact.nx;
-  omega += angularDrive * dt;
-  omega *= Math.max(0, 1 - angularDrag * dt);
   const tangentialSpeed = vx * tx + vy * ty;
+  const spunUp = omega + angularDrive * dt;
+  if (angularDrive > 0) omega = Math.max(omega, Math.min(spunUp, (tangentialSpeed + maxDriveSlip) / radius));
+  else if (angularDrive < 0) omega = Math.min(omega, Math.max(spunUp, (tangentialSpeed - maxDriveSlip) / radius));
+  omega *= Math.max(0, 1 - angularDrag * dt);
   const slip = tangentialSpeed - omega * radius;
   if (freeRolling && angularDrive === 0 && angularBrake === 0) {
     const reduction = Math.max(-rollingResistance * dt, Math.min(rollingResistance * dt, tangentialSpeed));
@@ -323,24 +362,31 @@ export function solveWheelContactVelocity(point, contact, {
     point.spin = (point.spin || 0) + omega * dt;
     return { normalImpulse, tangentImpulse: reduction ? -reduction : 0, slip };
   }
-  // Resting contacts have no impact impulse, so include one gravity step of
-  // normal load to keep traction effective after landing.
-  const frictionLimit = Math.max(Math.abs(normalImpulse) * friction, friction * restingNormalAcceleration * dt);
+  const load = Math.max(0, normalLoad) + normalImpulse;
+  const frictionLimit = friction * load;
+  const slideLimit = Math.min(frictionLimit, kineticFriction * load);
+  // The tire grips while the whole impulse this step fits under static
+  // friction; past that it slides and pushes with kinetic friction.
+  const fitImpulse = requested => {
+    const total = requested + appliedImpulse;
+    const limit = Math.abs(total) <= frictionLimit ? frictionLimit : slideLimit;
+    return Math.max(-limit, Math.min(limit, total)) - appliedImpulse;
+  };
   const spinPerImpulse = 1 / Math.max(EPSILON, inertia * radius);
   // angularBrake is the most spin (rad/s²) the brake can take out. When that
   // is enough to hold the wheel still, the tire grips or skids on a locked
   // wheel, so a held brake stops the bike and keeps it parked on a slope.
   const brakeLimit = angularBrake * dt;
-  const lockedImpulse = Math.max(-frictionLimit, Math.min(frictionLimit, -tangentialSpeed));
+  const lockedImpulse = fitImpulse(-tangentialSpeed);
   let tangentImpulse, held = false;
   if (brakeLimit > 0 && Math.abs(lockedImpulse * spinPerImpulse - omega) <= brakeLimit) {
     tangentImpulse = lockedImpulse;
     omega = 0;
-    held = Math.abs(tangentialSpeed) <= frictionLimit;
+    held = Math.abs(tangentialSpeed + appliedImpulse) <= frictionLimit;
   } else {
     if (brakeLimit > 0) omega -= Math.max(-brakeLimit, Math.min(brakeLimit, omega));
     const requestedImpulse = -(tangentialSpeed - omega * radius) / (1 + 1 / Math.max(EPSILON, inertia));
-    tangentImpulse = Math.max(-frictionLimit, Math.min(frictionLimit, requestedImpulse));
+    tangentImpulse = fitImpulse(requestedImpulse);
     omega -= tangentImpulse * spinPerImpulse;
   }
   vx += tx * tangentImpulse;

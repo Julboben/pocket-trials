@@ -13,6 +13,8 @@
 // paint (base, light, dark), h headlight lens, t tail-light lens, T its hot
 // spot, which turns white-hot under hard braking.
 
+import { WHEELBASE } from "./config.js";
+
 export const BIKE_LAMPS = {
   // A motocross number plate on the forks with a small lamp low in it, and
   // the brake light at the tip of the rear fender.
@@ -97,13 +99,17 @@ export function lampLenses(lamps) {
 }
 
 /**
- * How the sprung body sits on its suspension: how far it drops and how much
- * it pitches nose-down. `facing` picks which wheel is at the back.
+ * How the sprung body sits on its suspension, matching the simulated chassis:
+ * its mounts ride straight above the axles, WHEELBASE apart, so the body drops
+ * by the mean compression (negative when the springs are stretched and it lifts
+ * away from the wheels, as a bike hanging from one wheel does) and pitches
+ * nose-down by the difference over the wheelbase. `facing` picks which wheel
+ * is at the back.
  */
 export function bodyPose(rear, front, facing) {
-  const back = facing > 0 ? rear.compression || 0 : front.compression || 0;
-  const ahead = facing > 0 ? front.compression || 0 : rear.compression || 0;
-  return { drop: (back + ahead) * 0.4, pitch: (ahead - back) * 0.0096 };
+  const back = (facing > 0 ? rear.compression : front.compression) || 0;
+  const ahead = (facing > 0 ? front.compression : rear.compression) || 0;
+  return { drop: (back + ahead) / 2, pitch: (ahead - back) / WHEELBASE };
 }
 
 /**

@@ -1,0 +1,123 @@
+# Making props for Hjulben
+
+A brief for whoever draws new props, human or AI. Send it together with:
+
+- `js/desert-props.js` or `js/mountain-props.js` as a worked example of a prop module
+- `js/cave-props.js` if the props hang from rock or need to fit the terrain
+- the prop ideas from `PROPS_PLAN.md`
+
+**What to deliver:** one new module, `js/<theme>-props.js`, with the art and the logic for the props. Leave the wiring into `drawing.js`, `render.js`, the editor and the schema (see the checklist at the end) to someone with the whole project open. A module can be wired in with almost no changes if it follows this guide.
+
+## Art style
+
+- Pixel art on a 2-unit grid. `ART_PIXEL` is 2, every coordinate and size is a multiple of 2, and every call passes `2` as the pixel size. Snap computed positions with `Math.round(v / 2) * 2`.
+- No outlines. Every prop is lit from the right, so the left side and underside are shaded and the right edge gets a highlight.
+- Reuse colours from the existing palettes (`WOOD`, `STONE`, `STEEL`, `SNOW`, `SAND`, …). Use the terrain's own colours anywhere a prop meets the ground, so drifts and bases blend in.
+- Each prop has a local origin at `(0, 0)`, the point where it meets the ground. Up is negative y, and the art faces right.
+- Units are world units. The rider is about 60 tall and a big pine is about 190.
+
+## Drawing tools
+
+Drawing functions receive tools, never a raw `ctx`:
+
+```js
+pixelRect(x, y, width, height, color, 2)
+pixelPath([[x, y], …], color, thickness, 2)
+drawPixelDisc(cx, cy, radius, color, 2)
+drawPixelText(text, cx, y, color)      // only in drawing.js, see Flipping
+```
+
+Write functions as `export function drawThing({ pixelRect, pixelPath }, …)` and destructure only the tools you use.
+
+## Split static from live
+
+- **Static art goes in a sprite.** Draw everything that never changes into a function `drawThing(tools)` that draws down to y = 0 (or to its body's bottom). `drawing.js` caches it once, so export its bounds as `[left, top, right, bottom]`.
+- **Ground contact is drawn live.** Feet, footings and drifts follow the slope through `groundOffset(localX)`, which gives the ground's y at a local x, relative to the anchor. Put these in a separate `drawThingFoot(tools, groundOffset)`.
+- **Moving parts are drawn live** from pure functions of time. For example, `liftChair(time, phase)` returns `{ x, y, alpha }` and `drawChair(tools, swing)` draws it.
+- **Logic goes in pure, exported functions.** Positions, timing and whether something reacts should be pure functions, so they can be unit-tested without a canvas.
+
+## Time and motion
+
+- `time` is in seconds. **`time === 0` means still**: reduced motion, the editor and thumbnails. Every animation must look right and hold still at time 0.
+- Stagger identical props with a fixed per-prop `phase` from 0 to 1, which `drawing.js` derives from the prop's x. Never use `Math.random()`, because props must look the same on every frame and every replay.
+- Props are decoration only. They never change physics or gameplay.
+
+## What a prop can react to
+
+`drawing.js` passes these scene values. Use them, and ask for anything else rather than assuming it exists:
+
+| Field | Meaning |
+|---|---|
+| `time` | Seconds; 0 means hold still |
+| `riderX`, `riderY` | The rider (or ragdoll) position, or `null` |
+| `wind` | Wind strength from 0 to 1, from the weather (`windStrength`) |
+| `landing` | The last hard landing `{ x, y, time, strength }`, or `null` |
+| `flight` | A startled animal's `{ age, dir }` (birds, bats, fish, squirrels) |
+| `swoop` | A vulture's pose while it comes down to a crash |
+
+**The wind blows left**, like the falling snow and rain. Anything wind-blown (smoke, flags, grass) leans or drifts left.
+
+## Reuse before writing new code
+
+| Need | Use |
+|---|---|
+| Something that turns to watch the rider | `riderSide(scene, x, mirrored)` in drawing.js (scarecrow, snowman) |
+| Water dripping from a point | `drawDrip` in cave-props.js (cave drip, icicles) |
+| Hanging from the rock above | Add the prop to `CEILING_PROPS`; `propWallFit` gives the roof and the drop to the floor |
+| Pine boughs | `PINE_TIERS` and `drawPineTiers` |
+| A flickering warm light | `lanternFlicker` and the lantern light in lighting.js |
+| Wind strength | `windStrength` in desert-props.js |
+| Animals that flee from the rider | The `STARTLE` table in render.js |
+
+## Flipping and rotation
+
+- A flipped prop is drawn mirrored around its anchor, so art that faces right will face left.
+- **Text and numbers would show mirrored.** Leave them out of the sprite and export their position, e.g. `PYLON_NUMBER`, so `drawing.js` can draw them the right way round.
+- Anything world-directional (wind, smoke, sloped cables) needs a `downwind` or `dir` argument rather than a hard-coded direction.
+- Props whose parts must hang plumb or follow the world, like a chair on a rope or icicles, should not rotate. Say so in the module so they can go in `UNROTATABLE_PROPS`.
+
+## Lights
+
+Anything that glows at night needs the glowing part drawn on its own, e.g. `drawHutWindowGlass(tools, flicker)`, plus a light point such as `HUT_WINDOW_CENTRE`. The renderer handles when it turns on.
+
+## Module checklist
+
+- [ ] `// @ts-check` and a header comment saying what the module holds
+- [ ] All coordinates are multiples of 2, the art is lit from the right and faces right
+- [ ] The static sprite, its bounds, the live ground contact and the live moving parts are separate functions
+- [ ] Every animation holds still at `time` 0, and nothing uses `Math.random()`
+- [ ] Only the scene fields listed above are used
+- [ ] Existing helpers are reused rather than copied
+- [ ] Every export has a JSDoc comment explaining its units and coordinates
+
+## Wiring checklist (done in the project)
+
+For each new prop type, follow the desert commit (`9dd7708`) and the mountain props as examples:
+
+- `drawing.js`
+  - imports
+  - a `drawProp` branch
+  - `CANOPY_SPRITES` and `PROP_EXTENTS`
+  - `CEILING_PROPS`, `UNROTATABLE_PROPS` or `canFlip` if needed
+  - `propSpan` for props that move or hang
+  - `drawPropGlow` for lights
+- `render.js`
+  - `PROP_RISE`, `PROP_REACH` and `PROP_HANG` for culling
+  - `SCENERY_SHADOWS`
+  - `GLOW_REACH` and the glow head point
+  - any new `propScene` fields
+- `lighting.js`
+  - `propLights` for props that cast light
+- The editor
+  - an `<option>` in `editor.html`
+  - `GLOWING_PROPS` in `js/editor/render.js`
+- `js/trail-schema.js`
+  - the list of known prop types
+- Docs
+  - `TRAIL_FORMAT.md` (the prop list and a behaviour paragraph)
+  - tick off the items in `PROPS_PLAN.md`
+- Tests
+  - `scripts/test-<theme>.mjs`, added to `npm test`
+  - `scripts/test-terrain.mjs` if a prop can't rotate
+- Generated files
+  - run `npm run sw` and `npm run context`

@@ -6,12 +6,11 @@ import {
   XPBD_TORQUE_FALLOFF_SPEED, XPBD_MOTOR_REACTION_SCALE, XPBD_THROTTLE_LEAN_ASSIST,
   XPBD_UPHILL_FORWARD_LEAN_REDUCTION,
   XPBD_COAST_RESISTANCE_LOW_SPEED, XPBD_COAST_RESISTANCE_HIGH_SPEED,
-  XPBD_SUSPENSION_COMPLIANCE, XPBD_SUSPENSION_DAMPING,
-  XPBD_LONGITUDINAL_COMPLIANCE, XPBD_LONGITUDINAL_DAMPING
+  XPBD_SUSPENSION_COMPLIANCE, XPBD_SUSPENSION_DAMPING
 } from '../js/config.js';
 import {
   constrainDistanceVelocity, createDistanceConstraint,
-  createAreaConstraint, createSliderConstraint, signedTriangleArea, resetConstraintMultiplier,
+  createAreaConstraint, createSliderConstraint, createAxisLimitConstraint, signedTriangleArea, resetConstraintMultiplier,
   solveXpbdDistanceConstraint, solveXpbdConstraint, dampingPerIteration,
   dampDistanceConstraint, sweepCircleSegment, riderTorqueMultiplier,
   riderTerrainTorqueScale, riderTiltTorqueScale, riderSpinTorqueScale,
@@ -116,20 +115,20 @@ assert.ok(sprungDistance > 14 && sprungDistance < 18, 'suspension spring must re
 const softRear = { x: 0, y: 0, ox: 0, oy: 0, inverseMass: 1 };
 const softFront = { x: 46, y: 0, ox: 46, oy: 0, inverseMass: 1 };
 const longitudinalSpring = createDistanceConstraint(softRear, softFront, 50, {
-  compliance: XPBD_LONGITUDINAL_COMPLIANCE,
-  damping: XPBD_LONGITUDINAL_DAMPING
+  compliance: 0.00004,
+  damping: .55
 });
 resetConstraintMultiplier(longitudinalSpring);
 solveXpbdDistanceConstraint(longitudinalSpring, 1 / 120);
 const softenedDistance = softFront.x - softRear.x;
-assert.ok(softenedDistance > 47 && softenedDistance < 50, 'longitudinal suspension must remain compliant instead of snapping to rest length');
+assert.ok(softenedDistance > 47 && softenedDistance < 50, 'a compliant link must stay soft instead of snapping to rest length');
 
 const limitedRear = { x: 0, y: 0, ox: 0, oy: 0, inverseMass: 1 };
 const limitedFront = { x: 70, y: 0, ox: 70, oy: 0, inverseMass: 1 };
 const wheelbaseLimit = createDistanceConstraint(limitedRear, limitedFront, 50, { minLength: 43, maxLength: 57 });
 resetConstraintMultiplier(wheelbaseLimit);
 solveXpbdDistanceConstraint(wheelbaseLimit, 1 / 120);
-assert.ok(approximatelyEqual(limitedFront.x - limitedRear.x, 57), 'suspension geometry must enforce maximum wheel spread');
+assert.ok(approximatelyEqual(limitedFront.x - limitedRear.x, 57), 'a distance limit must enforce its maximum length');
 const perIteration = dampingPerIteration(.2, 3);
 assert.ok(approximatelyEqual(1 - Math.pow(1 - perIteration, 3), .2), 'constraint damping must not grow when velocity iterations are added');
 
@@ -144,7 +143,7 @@ assert.ok(approximatelyEqual(sweptPoint.x, 11.5), 'swept collision must advance 
 assert.ok(approximatelyEqual(sweptPoint.x - sweptPoint.ox, 2), 'remaining-time advancement must preserve resolved velocity');
 
 const rolling = { x: 0, y: 0, ox: 0, oy: 0, angularVelocity: 10, spin: 0 };
-const traction = solveWheelContactVelocity(rolling, { nx: 0, ny: -1 }, { dt: 1 / 120, radius: 2, friction: 1, inertia: .5 });
+const traction = solveWheelContactVelocity(rolling, { nx: 0, ny: -1 }, { dt: 1 / 120, radius: 2, friction: 1, inertia: .5, normalLoad: 4 });
 assert.ok(traction.tangentImpulse !== 0, 'wheel slip must create a tangential impulse');
 assert.notEqual(rolling.x - rolling.ox, 0, 'angular motion must transfer into linear motion');
 assert.ok(Math.abs(rolling.angularVelocity) < 10, 'traction must react back on wheel angular velocity');
@@ -156,7 +155,7 @@ solveWheelContactVelocity(forwardWheel, { nx: 0, ny: -1 }, {
   friction: 1,
   inertia: .5,
   angularDrive: 600,
-  restingNormalAcceleration: 480 * 7
+  normalLoad: 480 * 7 / 120
 });
 const reverseWheel = { x: 0, y: 0, ox: 0, oy: 0, angularVelocity: 0, spin: 0 };
 solveWheelContactVelocity(reverseWheel, { nx: 0, ny: -1 }, {
@@ -165,7 +164,7 @@ solveWheelContactVelocity(reverseWheel, { nx: 0, ny: -1 }, {
   friction: 1,
   inertia: .5,
   angularDrive: -600,
-  restingNormalAcceleration: 480 * 7
+  normalLoad: 480 * 7 / 120
 });
 assert.ok(reverseWheel.x - reverseWheel.ox < 0, 'negative wheel torque must drive left after flipping');
 assert.ok(reverseWheel.angularVelocity < 0, 'negative wheel torque must preserve its world-space rotation sign');
@@ -201,7 +200,7 @@ solveWheelContactVelocity(brakingWheel, { nx: 0, ny: -1 }, {
   friction: 1,
   inertia: .5,
   angularBrake: 60,
-  restingNormalAcceleration: 480 * 7
+  normalLoad: 480 * 7 / 120
 });
 assert.ok((brakingWheel.x - brakingWheel.ox) * 120 < 120, 'wheel braking must reduce linear ground speed');
 assert.ok(brakingWheel.angularVelocity < 10, 'wheel braking must reduce angular speed');
@@ -212,7 +211,7 @@ const locked = solveWheelContactVelocity(lockedWheel, { nx: 0, ny: -1 }, {
   radius: 12,
   inertia: .5,
   angularBrake: 720,
-  restingNormalAcceleration: 480 * 4.5
+  normalLoad: 480 * 4.5 / 120
 });
 assert.equal(lockedWheel.angularVelocity, 0, 'a strong enough brake locks a slow wheel');
 assert.ok(approximatelyEqual(lockedWheel.x - lockedWheel.ox, 0), 'a locked wheel with grip to spare stops on the spot');
@@ -229,6 +228,33 @@ assert.ok(approximatelyEqual(sliderWheel.x, 13) && approximatelyEqual(sliderWhee
 sliderWheel.y = 4;
 solveXpbdConstraint(slider, 1 / 120);
 assert.ok(approximatelyEqual(sliderWheel.y, 4), 'a slider leaves travel across the axis free for the spring');
+
+// A wheel hanging off a leg pushes on the frame a leg's length from the axis.
+// The frame must take that as a twist, not invent spin out of nothing.
+function spinMoment(points, before) {
+  return points.reduce((sum, p, i) => sum + (before[i].x * (p.y - before[i].y) - before[i].y * (p.x - before[i].x)) / p.inverseMass, 0);
+}
+function pushMoment(points, before) {
+  return points.reduce((sum, p, i) => [sum[0] + (p.x - before[i].x) / p.inverseMass, sum[1] + (p.y - before[i].y) / p.inverseMass], [0, 0]);
+}
+for (const make of [
+  (wheel, rearMount, frontMount, top) => createSliderConstraint(wheel, frontMount, rearMount, frontMount, { compliance: .0001 }),
+  (wheel, rearMount, frontMount, top) => createAxisLimitConstraint(wheel, frontMount, rearMount, frontMount, top, 30),
+]) {
+  const rearMount = { x: 0, y: 0, ox: 0, oy: 0, inverseMass: .5 };
+  const frontMount = { x: 50, y: 0, ox: 50, oy: 0, inverseMass: .5 };
+  const top = { x: 25, y: -22, ox: 25, oy: -22, inverseMass: .5 };
+  const wheel = { x: 58, y: 26, ox: 58, oy: 26, inverseMass: 1 };
+  const points = [wheel, rearMount, frontMount, top];
+  const before = points.map(({ x, y }) => ({ x, y }));
+  const constraint = make(wheel, rearMount, frontMount, top);
+  for (let i = 0; i < 4; i++) solveXpbdConstraint(constraint, 1 / 120);
+  const moved = Math.hypot(wheel.x - before[0].x, wheel.y - before[0].y);
+  const [px, py] = pushMoment(points, before);
+  assert.ok(moved > 1, `a ${constraint.type} constraint moves an off-line wheel`);
+  assert.ok(Math.abs(px) < 1e-9 && Math.abs(py) < 1e-9, `a ${constraint.type} constraint adds no push to the bike`);
+  assert.ok(Math.abs(spinMoment(points, before)) < .01, `a ${constraint.type} constraint adds no spin to the bike: ${spinMoment(points, before)}`);
+}
 
 const quarter = Math.PI / 2;
 assert.equal(riderTiltTorqueScale(0, -1, 0, -1, quarter * .8, quarter * 1.1), 1, 'an upright bike keeps full ground lean leverage');

@@ -506,6 +506,12 @@ export function validateTrail(trail) {
         "windmill",
         "heat-haze",
         "vulture",
+        "cairn",
+        "ski-lift",
+        "icicles",
+        "snow-pine",
+        "hut",
+        "snowman",
         ...WATER_PROPS,
       ].includes(prop.type)
     )

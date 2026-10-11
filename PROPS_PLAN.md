@@ -1,6 +1,6 @@
 # Hjulben – Props Plan
 
-A plan for the props to add to each level theme, plus guidelines for making them feel alive.
+A plan for the props to add to each level theme, plus guidelines for making them feel alive. See [PROPS_GUIDE.md](PROPS_GUIDE.md) for how to build them.
 
 ---
 
@@ -47,12 +47,12 @@ A plan for the props to add to each level theme, plus guidelines for making them
 
 ## 🏔️ Mountain / snow
 
-- [ ] **Trail cairn**: stacked stones that also work as a route marker.
-- [ ] **Ski-lift pylon**: with a slowly moving chair.
-- [ ] **Snowed-in signpost**: with direction arrows.
-- [ ] **Icicles**: wall props on overhangs. They suit the new cave and overhang terrain.
-- [ ] **Snow-covered pine tree**: drops a puff of snow after a hard landing nearby.
-- [ ] **Hut with a smoking chimney**: looks good at dusk.
+- [x] **Trail cairn**: stacked stones that also work as a route marker.
+- [x] **Ski-lift pylon**: with a slowly moving chair.
+- [x] **Icicles**: wall props on overhangs. They suit the new cave and overhang terrain.
+- [x] **Snow-covered pine tree**: drops a puff of snow after a hard landing nearby.
+- [x] **Hut with a smoking chimney**: looks good at dusk.
+- [x] **Snowman**: Should follow the player with its eyes.
 
 ## 🏙️ City
 

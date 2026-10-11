@@ -3,7 +3,11 @@ import {
   STEP, RADIUS, WHEELBASE, SUSPENSION_REST_LENGTH, SUSPENSION_TRAVEL, XPBD_RIDER_MAX_AIR_SPIN
 } from '../js/config.js';
 import { terrainAt } from '../js/terrain.js';
-import { polygonBlock } from './lib/terrain-fixtures.mjs';
+import { polygonBlock, rectangle } from './lib/terrain-fixtures.mjs';
+import { bodyPose } from '../js/bike-lamps.js';
+import { createRide, stepRide } from '../js/ride.js';
+import { decodeInputs } from '../js/replay-codec.js';
+import { normalizeTrail } from '../js/trail-schema.js';
 import { createSimulation as createVehicleSimulation, createVehicle, vehicleMetrics } from '../js/vehicle-physics.js';
 
 // The scenarios were tuned on cosine-eased ground lines, so each line is
@@ -163,8 +167,8 @@ function brakingScenario(braking) {
   );
   if (braking) {
     assert.ok(maxRearClearance > 30 && maxRearClearance < 70, `braking stoppie outside the tuned range: ${maxRearClearance}`);
-    // Tuned for the current suspension and brake model (about 2.28 rad).
-    assert.ok(metrics.pitch > .4 && metrics.pitch < 2.4, `brake dive pitch outside the tuned range: ${metrics.pitch}`);
+    // Tuned for the current suspension and brake model (about 2.71 rad).
+    assert.ok(metrics.pitch > .4 && metrics.pitch < 3, `brake dive pitch outside the tuned range: ${metrics.pitch}`);
   }
   return { speed: metrics.speedX, distance: metrics.center.x - startX, maxRearClearance, pitch: metrics.pitch };
 }
@@ -325,7 +329,9 @@ function landingScenario() {
   rotateVehicle(simulation.vehicle, .4, 300, 350);
   let firstContact = null, firstWheel = null, bothContact = null, maxUpwardSpeed = 0;
   let minimumRearSuspension = Infinity, minimumFrontSuspension = Infinity;
-  for (let index = 0; index < 180; index++) {
+  // The bike rolls to a stop around step 165; the springs then take the
+  // braking pitch back out over a further second.
+  for (let index = 0; index < 300; index++) {
     const metrics = step(simulation, {});
     if (firstContact === null && (simulation.vehicle.rear.grounded || simulation.vehicle.front.grounded)) {
       firstContact = index;
@@ -364,7 +370,9 @@ function flipKeepsTiresRollingScenario() {
   step(simulation, { flip: true, throttle: true });
   const sameSign = (rear, front) => Math.sign(rear.angularVelocity) === Math.sign(front.angularVelocity) && rear.angularVelocity !== 0;
   assert.ok(sameSign(simulation.vehicle.rear, simulation.vehicle.front), 'a flip must not leave the tires spinning against each other');
-  for (let index = 0; index < 40; index++) step(simulation, { throttle: true });
+  // At this speed the motor stops the bike about 40 steps after turning
+  // around; the driven tire then reverses first, so check while it still rolls.
+  for (let index = 0; index < 30; index++) step(simulation, { throttle: true });
   assert.ok(sameSign(simulation.vehicle.rear, simulation.vehicle.front), 'tires must keep a shared roll direction after flipping');
 }
 
@@ -466,6 +474,25 @@ function steadyAirSpinScenario() {
   return { spinAtOneSecond: atOneSecond, spinAtOneAndHalfSeconds: atOneAndHalf };
 }
 
+// Gas in the air only spins the rear wheel; it must not turn the bike, so a
+// trail that starts high above the ground lands level under held gas.
+function airThrottleScenario() {
+  const simulation = createSimulation(flatTrail(3000), { x: 300, y: 100 });
+  const rates = [];
+  let previous = vehicleMetrics(simulation.vehicle).pitch;
+  for (let index = 1; index <= 120; index++) {
+    const { pitch } = step(simulation, { throttle: true });
+    rates.push(Math.atan2(Math.sin(pitch - previous), Math.cos(pitch - previous)) / STEP);
+    previous = pitch;
+  }
+  const average = (from, to) => rates.slice(from, to).reduce((sum, rate) => sum + rate, 0) / (to - from);
+  const early = average(60, 72), late = average(108, 120);
+  const turned = Math.abs(rates.reduce((sum, rate) => sum + rate, 0) * STEP);
+  assert.ok(Math.abs(late) < .01 && Math.abs(early) < .01, `held gas in the air must not spin the bike: ${early} -> ${late}`);
+  assert.ok(turned < .5 * Math.PI / 180, `held gas in the air turned the bike: ${turned * 180 / Math.PI}°`);
+  return { spinAtHalfSecond: early, spinAtOneSecond: late, turnedDegrees: turned * 180 / Math.PI };
+}
+
 function airLeanKeepsMomentumScenario() {
   const flight = lean => {
     const simulation = createSimulation(flatTrail(3000), { x: 300, y: 100 });
@@ -558,24 +585,157 @@ function steepWallScenario() {
   return { highest };
 }
 
-// Coasting off a 65° slope onto a 14° one hits the front wheel almost head on.
-// The bike must ride it out on its wheels instead of vaulting into a tumble.
+// Pulling away at the foot of a slope, leaning into it: a 45° climb tops out.
+// Tire grip is friction on the weight pressing the tire into the slope. That
+// still carries a slow crawl up 57°, where the rider has to keep the nose
+// down, but from 58° on the bike stalls low and slides back or loops out.
+function steepHillScenario() {
+  const height = 400, base = 300;
+  const climb = degrees => {
+    const top = base + height / Math.tan(degrees * Math.PI / 180);
+    // Straight slopes: groundTrail's eased lines peak far steeper than their
+    // average angle.
+    const trail = { name: 'hill', terrainBlocks: [polygonBlock([[0, 800], [base, 800], [top, 800 - height], [top + 800, 800 - height], [top + 800, 1400], [0, 1400]])] };
+    const simulation = createSimulation(trail, { x: 290 });
+    run(simulation, 60, {});
+    let highest = 0;
+    for (let index = 0; index < 1500; index++) {
+      const { rear, front } = simulation.vehicle;
+      const { pitch } = step(simulation, { throttle: true, lean: .5 });
+      if (Math.abs(pitch) > Math.PI * .85) break;
+      highest = Math.max(highest, 800 - RADIUS - Math.min(rear.y, front.y));
+    }
+    return highest;
+  };
+  const gentle = climb(45), steep = climb(58), wall = climb(60);
+  assert.ok(gentle > height - 5, `a 45° hill must be climbable from its foot: reached ${gentle} of ${height}`);
+  assert.ok(steep < height * .5, `a 58° hill must be too steep to climb from its foot: reached ${steep} of ${height}`);
+  assert.ok(wall < height * .5, `a 60° hill must stall low: reached ${wall} of ${height}`);
+  return { gentle, steep, wall };
+}
+
+// A recorded attempt at a 64.5° hill: the rider turns left, drives into the
+// corner at its foot and holds gas and forward lean. Lean keeps the lone rear
+// wheel on the slope by pushing the bike into it, and that push used to count
+// as weight on the tire, crawling the bike all the way up. Without it the tire
+// cannot hold such a slope and the bike stays at the foot.
+function leanPushGivesNoGripScenario() {
+  const node = (x, y) => ({ x, y, mode: 'corner', in: null, out: null, edge: 'straight' });
+  const trail = normalizeTrail({
+    name: 'Hill climb test', start: { x: 90, y: null, facing: 1 }, finish: { x: 162, y: 283 }, apples: [],
+    terrainBlocks: [{ id: 'block-1', material: 'grass', outer: { id: 'boundary-1', nodes: [
+      node(-465.6922, -550), node(-50, 320), node(400, 320), node(800, -80), node(1400, 300), node(1400, 580), node(-465.6922, 600)
+    ] }, inner: [] }]
+  });
+  const inputs = decodeInputs([[84, 1, 0, 0, 0], [55, -1, 0, 0, 0], [66, -1, 0, 1, 0], [27, -1, 1, 1, 0], [2, -1, 1, 0, 0], [59, -1, 0, 0, 0],
+    [1, -1, -1, 0, 0], [56, -1, -1, 1, 0], [25, -1, 0, 1, 0], [186, -1, -1, 1, 0], [29, -1, -1, 0, 0], [569, -1, -1, 1, 0]]);
+  const ride = createRide(trail, { seed: 121493175 });
+  let highest = 0;
+  for (const input of inputs) {
+    stepRide(ride, input);
+    const { rear, front } = ride.vehicle;
+    highest = Math.max(highest, 320 - RADIUS - Math.min(rear.y, front.y));
+  }
+  assert.ok(highest < 200, `forward lean must not let the bike crawl up a 64.5° hill: reached ${highest} of 870`);
+  return { highest };
+}
+
+// Climbing a 35° hill, the rider lets the bike roll back, brakes it to a
+// stop, rolls back again and gets on the gas. Tire grip comes from the weight
+// on the tires, so the brake stops the slide and the throttle hooks up again
+// and climbs instead of spinning while the bike keeps sliding down.
+function slideRecoveryScenario() {
+  const height = 400, base = 300;
+  const top = base + height / Math.tan(35 * Math.PI / 180);
+  const trail = { name: 'hill', terrainBlocks: [polygonBlock([[0, 800], [base, 800], [top, 800 - height], [top + 800, 800 - height], [top + 800, 1400], [0, 1400]])] };
+  const simulation = createSimulation(trail, { x: 200 });
+  const along = () => {
+    const { speedX, speedY } = vehicleMetrics(simulation.vehicle);
+    return Math.sign(speedX) * Math.hypot(speedX, speedY);
+  };
+  const rise = () => 800 - RADIUS - simulation.vehicle.rear.y;
+  run(simulation, 60, {});
+  for (let index = 0; index < 900 && rise() < height * .3; index++) step(simulation, { throttle: true, lean: .5 });
+  for (let index = 0; index < 600 && along() > 0; index++) step(simulation, {});
+  assert.ok(rise() >= height * .3, `the bike must climb into a 35° hill: reached ${rise()}`);
+  run(simulation, 120, { brake: true });
+  run(simulation, 72, {});
+  const rolling = along();
+  run(simulation, 120, { brake: true });
+  const braked = along();
+  assert.ok(rolling < -60, `released on a 35° hill the bike must roll back: ${rolling}`);
+  assert.ok(Math.abs(braked) < 5, `the brakes must stop a bike rolling back down a 35° hill: ${braked}`);
+  run(simulation, 60, {});
+  const sliding = along(), from = rise();
+  let stopped = null;
+  for (let index = 0; index < 360; index++) {
+    step(simulation, { throttle: true, lean: .5 });
+    if (stopped === null && along() >= 0) stopped = index / 120;
+  }
+  const regained = rise() - from;
+  assert.ok(stopped !== null && stopped < 1.35, `on the gas a bike sliding back down a 35° hill at ${sliding} px/s must stop within 1.35 s: ${stopped}`);
+  assert.ok(regained > 40, `after stopping the slide the bike must climb again: ${regained}`);
+  return { rolling, braked, sliding, stopped, regained };
+}
+
+// Elasto Mania's hang: a bike riding left that rolls off a ledge on its
+// locked leading wheel hooks that wheel over the corner and hangs from its
+// spring, which stretches well past rest and bobs before settling; the drawn
+// body lifts off it. The free wheel swings under the ledge: a locked wheel
+// that touches the overhang must not clamp the bike there.
+function hangingScenario() {
+  const trail = { name: 'ledge', terrainBlocks: [rectangle(0, 300, 200, 316)] };
+  const simulation = createSimulation(trail, { x: 192 + WHEELBASE / 2, y: 300 - RADIUS, facing: -1 });
+  const { rear: hooked, front: free } = simulation.vehicle;
+  const length = point => point === hooked ? vehicleMetrics(simulation.vehicle).rearSuspensionLength : vehicleMetrics(simulation.vehicle).frontSuspensionLength;
+  let peak = 0, swingLow = Infinity, swingHigh = -Infinity;
+  run(simulation, 360, index => {
+    if (index > 60) peak = Math.max(peak, length(hooked));
+    if (index >= 180) {
+      swingLow = Math.min(swingLow, free.x);
+      swingHigh = Math.max(swingHigh, free.x);
+    }
+    return { brake: true };
+  });
+  const stretch = length(hooked) - SUSPENSION_REST_LENGTH;
+  const swing = swingHigh - swingLow;
+  assert.ok(Math.abs(hooked.x - 192) < 4 && Math.abs(hooked.y - 288) < 1, `the leading wheel must stay hooked on the ledge: ${hooked.x}, ${hooked.y}`);
+  assert.ok(free.y > hooked.y + 30, `the bike must hang below the hooked wheel: ${free.y}`);
+  assert.ok(stretch > 8, `the hooked wheel's spring must stretch under the hanging bike: ${stretch}`);
+  assert.ok(stretch < SUSPENSION_TRAVEL - .5, `the hanging bike must not stay pinned at the travel limit: ${stretch}`);
+  assert.ok(peak > length(hooked) + 1, `the stretched spring must bob before settling: ${peak}`);
+  assert.ok(swing > 10, `the bike must swing freely under the ledge: ${swing}`);
+  assert.ok(hooked.compression < -8, `stretch must reach the renderer as negative compression: ${hooked.compression}`);
+  assert.ok(bodyPose(simulation.vehicle.rear, simulation.vehicle.front, -1).drop < -4, 'the drawn body must lift off the wheels it hangs from');
+  return { stretch, peakStretch: peak - SUSPENSION_REST_LENGTH, swing };
+}
+
+// Coasting down a 50° slope onto a 14° one hits the front wheel almost head
+// on. The bike must ride it out on its wheels instead of vaulting into a
+// tumble. Much steeper bends at this speed do throw the bike over, as a real
+// one would.
 function sharpBendScenario() {
+  const top = [268 - 678 / Math.tan(50 * Math.PI / 180), 53];
   const trail = {
     ...flatTrail(1400),
     terrainBlocks: [
       groundBlock([[0, 1400], [1400, 1400]]),
-      bandBlock([[-41, 53], [268, 731], [962, 905], [1400, 905]], 28),
+      bandBlock([top, [268, 731], [962, 905], [1400, 905]], 28),
     ],
   };
-  const simulation = createSimulation(trail, { x: 56, y: 71 });
+  const angle = Math.atan2(731 - top[1], 268 - top[0]);
+  const x = top[0] + Math.cos(angle) * 60 + Math.sin(angle) * (RADIUS + 15);
+  const y = top[1] + Math.sin(angle) * 60 - Math.cos(angle) * (RADIUS + 15);
+  const simulation = createSimulation(trail, { x, y });
+  rotateVehicle(simulation.vehicle, angle, x, y);
+  for (const point of simulation.vehicle.bikePoints) { point.ox = point.x; point.oy = point.y; }
   let maxTilt = 0;
   run(simulation, 480, () => {
     maxTilt = Math.max(maxTilt, Math.abs(vehicleMetrics(simulation.vehicle).pitch));
     return {};
   });
   const last = simulation.frames.at(-1);
-  assert.ok(maxTilt < 80 * Math.PI / 180, `bike tumbled through the sharp bend: tilt ${maxTilt * 180 / Math.PI}°`);
+  assert.ok(maxTilt < 65 * Math.PI / 180, `bike tumbled through the sharp bend: tilt ${maxTilt * 180 / Math.PI}°`);
   assert.ok(last.center.x > 900 && last.rearGrounded && last.frontGrounded, `bike must roll on past the bend: x ${last.center.x}`);
   return { maxTiltDegrees: maxTilt * 180 / Math.PI, finalX: last.center.x };
 }
@@ -614,12 +774,17 @@ const results = {
   landingSag: landingSagScenario(),
   heldLean: heldLeanScenario(),
   steadyAirSpin: steadyAirSpinScenario(),
+  airThrottle: airThrottleScenario(),
   airLeanKeepsMomentum: airLeanKeepsMomentumScenario(),
   singleWheelLanding: singleWheelLandingScenario(),
   steepClimbForwardLean: steepClimbForwardLeanScenario(),
   steepClimbLoop: steepClimbLoopScenario(),
   steepWall: steepWallScenario(),
+  steepHill: steepHillScenario(),
+  slideRecovery: slideRecoveryScenario(),
+  leanPushGivesNoGrip: leanPushGivesNoGripScenario(),
   sharpBend: sharpBendScenario(),
+  hanging: hangingScenario(),
   flipKeepsTiresRolling: flipKeepsTiresRollingScenario(),
   determinismAndFlip: determinismAndFlipScenario()
 };

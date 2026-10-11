@@ -47,9 +47,18 @@ import { SQUIRREL_HIDE_MAX, SQUIRREL_RANGE } from "./forest-props.js";
 import {
   HAZE_HALF,
   TUMBLEWEED_RUN,
+  VULTURE_HEIGHT,
   VULTURE_ORBIT,
+  VULTURE_SIGHT,
+  desertNoise,
+  swoopDuration,
+  vultureNotice,
+  vultureOrbit,
+  vulturePerch,
+  vultureSwoop,
   windStrength,
 } from "./desert-props.js";
+import { CABLE_HALF, CABLE_TOP, HUT_WINDOW_CENTRE } from "./mountain-props.js";
 import { crackLines, glassPane } from "./glass.js";
 
 const GLASS_CRACK_COLOR = "#f6fffde6";
@@ -79,6 +88,11 @@ const SCENERY_SHADOWS = {
   "car-wreck": { width: 54, alpha: 0.15, thickness: 3, lift: 16 },
   "water-tower": { width: 36, alpha: 0.15, thickness: 3, lift: 70 },
   windmill: { width: 24, alpha: 0.14, thickness: 3, lift: 60 },
+  cairn: { width: 14, alpha: 0.13, thickness: 3, lift: 14 },
+  "ski-lift": { width: 14, alpha: 0.14, thickness: 3, lift: 60 },
+  "snow-pine": { width: 16, alpha: 0.15, thickness: 3, lift: 38 },
+  hut: { width: 48, alpha: 0.15, thickness: 3, lift: 30 },
+  snowman: { width: 16, alpha: 0.13, thickness: 3, lift: 20 },
 };
 const GHOST_ALPHA = 0.38;
 // World units around the hair root that the ghost's hair can reach.
@@ -105,6 +119,11 @@ const PROP_RISE = {
   "water-tower": 180,
   windmill: 196,
   "heat-haze": 56,
+  cairn: 46,
+  "ski-lift": -CABLE_TOP + 4,
+  "snow-pine": 192,
+  hut: 204,
+  snowman: 80,
 };
 // How far each prop's art hangs below its anchor, for culling.
 const PROP_HANG = { vines: 148, roots: 28, moss: 28, graffiti: 38 };
@@ -118,6 +137,8 @@ const PROP_REACH = {
   tumbleweed: TUMBLEWEED_RUN + 30,
   vulture: VULTURE_ORBIT.x + 40,
   "heat-haze": HAZE_HALF + 10,
+  "ski-lift": CABLE_HALF + 30,
+  hut: 104,
 };
 // Perched birds and ducks take off, roosting bats scatter, fish dart off and
 // squirrels run for a tree when the rider comes within `x` and `y` of them;
@@ -133,7 +154,7 @@ const STARTLE = {
 // and it is left out with reduced motion and in the lighter graphics mode.
 const HAZE_PROPS = new Set(["heat-haze"]);
 // Props that glow, and how far their light reaches either side, for culling.
-const GLOW_REACH = { lamp: 70, crane: 180, lantern: 100, mushrooms: 40 };
+const GLOW_REACH = { lamp: 70, crane: 180, lantern: 100, mushrooms: 40, hut: 60 };
 // How far a hair strand may sink into a floor and still be lifted back onto it.
 const HAIR_GROUND_ALLOWANCE = 8;
 
@@ -163,12 +184,19 @@ export function createRenderer(canvas) {
     xrayRider = null,
     ghostHairLayer = null;
   // What props react to this frame; see drawProp.
-  let propScene = { time: 0, riderX: null, wind: 0 };
+  let propScene = { time: 0, riderX: null, riderY: null, wind: 0, landing: null };
+  // The last hard landing, { x, y, time, strength }, which shakes the snow off
+  // nearby snowy pines.
+  let landing = null;
   let frameNow = 0;
   // Birds and bats that have taken off, with when and which way, for the
   // current ride.
   const flights = new Map();
   let flightRide = null;
+  // Vultures swooping down to the crashed rider, by prop: where from and to,
+  // and when they set off. `crashedAt` is when the ragdoll first appeared.
+  const swoops = new Map();
+  let crashedAt = null;
 
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
@@ -210,7 +238,13 @@ export function createRenderer(canvas) {
     ghostHair = null;
     flipVisual = facing;
     popups.length = 0;
+    landing = null;
     lighting.prepare(trail);
+  }
+
+  /** A hard landing at x, y, `strength` 0…1, for the props to react to. */
+  function land(x, y, strength = 1) {
+    landing = { x, y, time: frameNow / 1000, strength: clamp(strength, 0, 1) };
   }
 
   /** Floating pixel text in world space, e.g. "+1 FLIP". */
@@ -328,6 +362,52 @@ export function createRenderer(canvas) {
     }
   }
 
+  // After a crash, each circling vulture that can see the rider glides down
+  // and lands beside them a moment later. Reduced motion leaves them circling.
+  function watchCrash(ride, focus, now) {
+    if (!ride.ragdoll || reducedMotion) {
+      swoops.clear();
+      crashedAt = null;
+      return;
+    }
+    crashedAt ??= now;
+    const groundAt = (x, above) => {
+      const ground = terrainAt(trail, x, above);
+      return ground.solid ? ground.y : null;
+    };
+    const time = propScene.time;
+    const taken = { [-1]: 0, 1: 0 };
+    for (const swoop of swoops.values()) taken[swoop.side]++;
+    for (const prop of trail.props || []) {
+      if (prop.type !== "vulture") continue;
+      const swoop = swoops.get(prop);
+      if (swoop) {
+        // Until it is nearly down, it steers for the rider as they slide.
+        if ((now - swoop.start) / 1000 < swoop.duration * 0.7) {
+          const perch = vulturePerch(focus.x, focus.y, swoop.side, swoop.slot, groundAt);
+          if (perch) swoop.to = perch;
+        }
+        continue;
+      }
+      const phase = desertNoise(prop.x, 7);
+      if (now - crashedAt < vultureNotice(phase) * 1000) continue;
+      const anchor = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
+      if (!Number.isFinite(anchor)) continue;
+      const orbit = vultureOrbit(time, phase);
+      const from = {
+        x: prop.x + orbit.dx,
+        y: anchor + (Number.isFinite(prop.y) ? 0 : -VULTURE_HEIGHT) + orbit.dy,
+      };
+      if (Math.hypot(focus.x - from.x, focus.y - from.y) > VULTURE_SIGHT) continue;
+      if (terrainRaycastAt(trail, from.x, from.y, focus.x, focus.y)) continue;
+      const side = from.x < focus.x ? -1 : 1;
+      const slot = taken[side]++;
+      const to = vulturePerch(focus.x, focus.y, side, slot, groundAt);
+      if (!to) continue;
+      swoops.set(prop, { from, to, side, slot, start: now, duration: swoopDuration(from, to) });
+    }
+  }
+
   // Graffiti, painted onto the rock just after the terrain is drawn.
   function drawWallPaint() {
     for (const prop of trail.props || []) {
@@ -341,8 +421,8 @@ export function createRenderer(canvas) {
   }
 
   // The glowing parts of props, drawn over the lit scene: the lighting pass
-  // casts their light. Street lamps and crane lights only once it is dark
-  // around them; lanterns and mushrooms always.
+  // casts their light. Street lamps, crane lights and hut windows only once it
+  // is dark around them; lanterns and mushrooms always.
   function drawPropGlows() {
     for (const prop of trail.props || []) {
       const rotation = propRotation(prop);
@@ -351,10 +431,17 @@ export function createRenderer(canvas) {
       const ground = terrainAt(trail, prop.x);
       if (!ground.solid && !Number.isFinite(prop.y)) continue;
       const y = Number.isFinite(prop.y) ? prop.y : ground.y;
-      const [hx, hy] = prop.type === "crane" ? CRANE_LIGHTS[0] : prop.type === "lamp" ? [0, LAMP_HEAD.y] : [0, -10];
+      const [hx, hy] =
+        prop.type === "crane"
+          ? CRANE_LIGHTS[0]
+          : prop.type === "lamp"
+            ? [0, LAMP_HEAD.y]
+            : prop.type === "hut"
+              ? HUT_WINDOW_CENTRE
+              : [0, -10];
       const head = propPoint(prop, y, hx, hy);
       const dark = lighting.isDark(trail, head.x, head.y);
-      if (!dark && (prop.type === "lamp" || prop.type === "crane")) continue;
+      if (!dark && (prop.type === "lamp" || prop.type === "crane" || prop.type === "hut")) continue;
       const fit = propWallFit(trail, prop);
       let [rise, hang] = propSpan(prop.type, fit) || [PROP_RISE[prop.type] ?? 90, 0];
       if (rotation) rise = hang = Math.max(rise, hang);
@@ -387,11 +474,19 @@ export function createRenderer(canvas) {
         PROP_REACH[prop.type] ?? 70,
         rotation ? Math.max(PROP_RISE[prop.type] ?? 90, PROP_HANG[prop.type] ?? 0) : 0,
       );
+      const swoop = swoops.get(prop);
+      if (swoop && prop.layer === layer && (wet === null || wet === false)) {
+        const at = vultureSwoop(swoop.from, swoop.to, (frameNow - swoop.start) / 1000, swoop.duration, propScene.riderX);
+        if (!inView(at.x, 40, at.y + 20, 50) || (area && (at.x < area.left - 40 || at.x > area.right + 40))) continue;
+        art.drawProp(prop.type, at.x, at.y, 1, 0, () => 0, "", null, false, { ...propScene, swoop: at });
+        drawn++;
+        continue;
+      }
       if (
         prop.layer !== layer ||
         (wet !== null && wet !== WATER_PROPS.has(prop.type)) ||
         PAINTED_PROPS.has(prop.type) ||
-        (!full && (prop.type === "tree" || prop.type === "pine")) ||
+        (!full && (prop.type === "tree" || prop.type === "pine" || prop.type === "snow-pine")) ||
         (HAZE_PROPS.has(prop.type) && (reducedMotion || !full || area)) ||
         !inView(prop.x, reach) ||
         (area && (prop.x < area.left - reach || prop.x > area.right + reach))
@@ -1158,10 +1253,13 @@ export function createRenderer(canvas) {
     propScene = {
       time: reducedMotion ? 0 : now / 1000,
       riderX: focus.x,
+      riderY: focus.y,
       wind: windStrength(trail.weather),
+      landing,
     };
     frameNow = now;
     startleProps(ride, focus, now);
+    watchCrash(ride, focus, now);
     camera.follow(focus, {
       facing: ride.facing,
       loose: Boolean(ride.ragdoll),
@@ -1279,6 +1377,7 @@ export function createRenderer(canvas) {
     setViewport,
     settleHair,
     reset,
+    land,
     draw,
     drawFigure,
     popup,
