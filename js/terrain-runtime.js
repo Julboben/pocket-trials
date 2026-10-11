@@ -427,36 +427,51 @@ export function terrainBodyAt(compiled, x, y) {
 // Contacts
 // ---------------------------------------------------------------------------
 
+// Edges spanning several buckets are listed in each; a per-body stamp skips
+// repeats without allocating a set on every query.
+let visitStamp = 0;
+
 function nearestLiveInBody(body, x, y, left, right, best) {
   const live = body.live;
-  const visit = index => {
-    const offset = index * 6;
-    const ax = live[offset], ay = live[offset + 1];
-    const dx = live[offset + 2] - ax, dy = live[offset + 3] - ay;
-    const lengthSquared = dx * dx + dy * dy || 1;
-    const amount = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / lengthSquared));
-    const nearestX = ax + dx * amount, nearestY = ay + dy * amount;
-    const distance = hypot(x - nearestX, y - nearestY);
-    if (best && distance >= best.distance) return;
-    best = { distance, nearestX, nearestY, dx, dy, nx: live[offset + 4], ny: live[offset + 5], body, index };
-  };
-  if (left === -Infinity) {
-    for (let index = 0; index < body.liveCount; index++) visit(index);
-    return best;
+  let first = 0, end = 0, all = left === -Infinity;
+  if (!all) {
+    const last = body.liveBuckets.length - 1;
+    first = Math.max(0, Math.floor((left - body.bounds.left) / EDGE_BUCKET_WIDTH));
+    end = Math.min(last, Math.floor((right - body.bounds.left) / EDGE_BUCKET_WIDTH));
   }
-  const last = body.liveBuckets.length - 1;
-  const first = Math.max(0, Math.floor((left - body.bounds.left) / EDGE_BUCKET_WIDTH));
-  const end = Math.min(last, Math.floor((right - body.bounds.left) / EDGE_BUCKET_WIDTH));
-  if (first === end) {
-    for (const index of body.liveBuckets[first] || []) visit(index);
-    return best;
+  let stamps = null;
+  if (!all && first !== end) {
+    if (!body.liveStamps || body.liveStamps.length < body.liveCount) body.liveStamps = new Uint32Array(body.liveCount);
+    stamps = body.liveStamps;
+    if (++visitStamp > 0xfffffff0) { visitStamp = 1; stamps.fill(0); }
   }
-  const seen = new Set();
-  for (let bucket = first; bucket <= end; bucket++) {
-    for (const index of body.liveBuckets[bucket] || []) {
-      if (seen.has(index)) continue;
-      seen.add(index);
-      visit(index);
+  let bestSquared = best ? best.squared : Infinity;
+  const count = all ? 1 : end - first + 1;
+  for (let step = 0; step < count; step++) {
+    const indices = all ? null : body.liveBuckets[first + step];
+    if (!all && !indices) continue;
+    const length = all ? body.liveCount : indices.length;
+    for (let slot = 0; slot < length; slot++) {
+      const index = all ? slot : indices[slot];
+      if (stamps) {
+        if (stamps[index] === visitStamp) continue;
+        stamps[index] = visitStamp;
+      }
+      const offset = index * 6;
+      const ax = live[offset], ay = live[offset + 1];
+      const dx = live[offset + 2] - ax, dy = live[offset + 3] - ay;
+      const lengthSquared = dx * dx + dy * dy || 1;
+      const amount = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / lengthSquared));
+      const nearestX = ax + dx * amount, nearestY = ay + dy * amount;
+      const offX = x - nearestX, offY = y - nearestY;
+      const squared = offX * offX + offY * offY;
+      // hypot is a correctly rounded sqrt, so a piece no nearer in squared
+      // distance can never win; skip the root for it.
+      if (squared >= bestSquared) continue;
+      const distance = hypot(offX, offY);
+      if (best && distance >= best.distance) continue;
+      bestSquared = squared;
+      best = { distance, squared, nearestX, nearestY, dx, dy, nx: live[offset + 4], ny: live[offset + 5], body, index };
     }
   }
   return best;
