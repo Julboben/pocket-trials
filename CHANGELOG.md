@@ -8,6 +8,7 @@ Player-facing release notes. The game shows them under **What's new**, and each 
 - Snow props now appear on trails, and the vulture and pylon in the desert and mountain trails have been improved.
 
 ### Improved
+- New bike handling. Because times aren't comparable any more, the leaderboard has been reset. Time to set new records!
 - Bike suspension has been reworked. Each wheel now hangs from the bike on its own leg and the suspension stretches, so the bike handles more realistically.
 - Grip now comes from the force of the ground pushing on your wheels, and leaning forward no longer adds extra grip.
 - Your rider now turns more smoothly.
