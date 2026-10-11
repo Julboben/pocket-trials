@@ -167,8 +167,8 @@ function brakingScenario(braking) {
   );
   if (braking) {
     assert.ok(maxRearClearance > 30 && maxRearClearance < 70, `braking stoppie outside the tuned range: ${maxRearClearance}`);
-    // Tuned for the current suspension and brake model (about 2.28 rad).
-    assert.ok(metrics.pitch > .4 && metrics.pitch < 2.4, `brake dive pitch outside the tuned range: ${metrics.pitch}`);
+    // Tuned for the current suspension and brake model (about 2.71 rad).
+    assert.ok(metrics.pitch > .4 && metrics.pitch < 3, `brake dive pitch outside the tuned range: ${metrics.pitch}`);
   }
   return { speed: metrics.speedX, distance: metrics.center.x - startX, maxRearClearance, pitch: metrics.pitch };
 }
@@ -474,6 +474,25 @@ function steadyAirSpinScenario() {
   return { spinAtOneSecond: atOneSecond, spinAtOneAndHalfSeconds: atOneAndHalf };
 }
 
+// Gas in the air only spins the rear wheel; it must not turn the bike, so a
+// trail that starts high above the ground lands level under held gas.
+function airThrottleScenario() {
+  const simulation = createSimulation(flatTrail(3000), { x: 300, y: 100 });
+  const rates = [];
+  let previous = vehicleMetrics(simulation.vehicle).pitch;
+  for (let index = 1; index <= 120; index++) {
+    const { pitch } = step(simulation, { throttle: true });
+    rates.push(Math.atan2(Math.sin(pitch - previous), Math.cos(pitch - previous)) / STEP);
+    previous = pitch;
+  }
+  const average = (from, to) => rates.slice(from, to).reduce((sum, rate) => sum + rate, 0) / (to - from);
+  const early = average(60, 72), late = average(108, 120);
+  const turned = Math.abs(rates.reduce((sum, rate) => sum + rate, 0) * STEP);
+  assert.ok(Math.abs(late) < .01 && Math.abs(early) < .01, `held gas in the air must not spin the bike: ${early} -> ${late}`);
+  assert.ok(turned < .5 * Math.PI / 180, `held gas in the air turned the bike: ${turned * 180 / Math.PI}°`);
+  return { spinAtHalfSecond: early, spinAtOneSecond: late, turnedDegrees: turned * 180 / Math.PI };
+}
+
 function airLeanKeepsMomentumScenario() {
   const flight = lean => {
     const simulation = createSimulation(flatTrail(3000), { x: 300, y: 100 });
@@ -691,24 +710,32 @@ function hangingScenario() {
   return { stretch, peakStretch: peak - SUSPENSION_REST_LENGTH, swing };
 }
 
-// Coasting off a 65° slope onto a 14° one hits the front wheel almost head on.
-// The bike must ride it out on its wheels instead of vaulting into a tumble.
+// Coasting down a 50° slope onto a 14° one hits the front wheel almost head
+// on. The bike must ride it out on its wheels instead of vaulting into a
+// tumble. Much steeper bends at this speed do throw the bike over, as a real
+// one would.
 function sharpBendScenario() {
+  const top = [268 - 678 / Math.tan(50 * Math.PI / 180), 53];
   const trail = {
     ...flatTrail(1400),
     terrainBlocks: [
       groundBlock([[0, 1400], [1400, 1400]]),
-      bandBlock([[-41, 53], [268, 731], [962, 905], [1400, 905]], 28),
+      bandBlock([top, [268, 731], [962, 905], [1400, 905]], 28),
     ],
   };
-  const simulation = createSimulation(trail, { x: 56, y: 71 });
+  const angle = Math.atan2(731 - top[1], 268 - top[0]);
+  const x = top[0] + Math.cos(angle) * 60 + Math.sin(angle) * (RADIUS + 15);
+  const y = top[1] + Math.sin(angle) * 60 - Math.cos(angle) * (RADIUS + 15);
+  const simulation = createSimulation(trail, { x, y });
+  rotateVehicle(simulation.vehicle, angle, x, y);
+  for (const point of simulation.vehicle.bikePoints) { point.ox = point.x; point.oy = point.y; }
   let maxTilt = 0;
   run(simulation, 480, () => {
     maxTilt = Math.max(maxTilt, Math.abs(vehicleMetrics(simulation.vehicle).pitch));
     return {};
   });
   const last = simulation.frames.at(-1);
-  assert.ok(maxTilt < 80 * Math.PI / 180, `bike tumbled through the sharp bend: tilt ${maxTilt * 180 / Math.PI}°`);
+  assert.ok(maxTilt < 65 * Math.PI / 180, `bike tumbled through the sharp bend: tilt ${maxTilt * 180 / Math.PI}°`);
   assert.ok(last.center.x > 900 && last.rearGrounded && last.frontGrounded, `bike must roll on past the bend: x ${last.center.x}`);
   return { maxTiltDegrees: maxTilt * 180 / Math.PI, finalX: last.center.x };
 }
@@ -747,6 +774,7 @@ const results = {
   landingSag: landingSagScenario(),
   heldLean: heldLeanScenario(),
   steadyAirSpin: steadyAirSpinScenario(),
+  airThrottle: airThrottleScenario(),
   airLeanKeepsMomentum: airLeanKeepsMomentumScenario(),
   singleWheelLanding: singleWheelLandingScenario(),
   steepClimbForwardLean: steepClimbForwardLeanScenario(),

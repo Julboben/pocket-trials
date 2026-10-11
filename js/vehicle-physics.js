@@ -1063,8 +1063,12 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
     ? groundLean *
       riderSpinTorqueScale(groundLean, bikeSpin, XPBD_RIDER_MAX_GROUND_SPIN)
     : airLean;
+  // The engine pushes against the tire's grip on the ground, and that pushes
+  // the front up. In the air only the rider's lean turns the bike, as in
+  // Elasto Mania: gas just spins the wheel.
+  const drivenWheelAcceleration = drivenWheel.contact ? angularDrive : 0;
   const motorReactionTorque =
-    -angularDrive * wheelMoment * XPBD_MOTOR_REACTION_SCALE;
+    -drivenWheelAcceleration * wheelMoment * XPBD_MOTOR_REACTION_SCALE;
   const diveWheel = facing > 0 ? front : rear;
   const rollingForward = (rollingSpin(rear) + rollingSpin(front)) * facing > 0;
   const brakingWheelAcceleration =
