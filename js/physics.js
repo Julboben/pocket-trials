@@ -58,38 +58,60 @@ export function createAxisLimitConstraint(point, mount, axisStart, axisEnd, top,
   return { type: 'axisLimit', a: point, b: mount, axisStart, axisEnd, top, minOffset, damping: 0, lambda: 0 };
 }
 
+// Pushes `a` and `b` apart along a direction fixed to the chassis axis. The
+// two forces sit a leg's length apart, so on their own they would twist the
+// bike with nothing to answer them: the gradient on the axis ends turns that
+// twist back into the frame, like a fork tube bolted to it. `alongAxis` picks
+// the direction: the axis itself, or `side` (±1) times its normal.
+function solveAxisOffset(constraint, alongAxis, side, target, alpha) {
+  const { a, b, axisStart: s, axisEnd: e } = constraint;
+  const axisX = e.x - s.x, axisY = e.y - s.y;
+  const axisLength = hypot(axisX, axisY) || EPSILON;
+  const ux = axisX / axisLength, uy = axisY / axisLength;
+  const dx = a.x - b.x, dy = a.y - b.y;
+  const vx = alongAxis ? ux : -uy * side, vy = alongAxis ? uy : ux * side;
+  const offset = dx * vx + dy * vy;
+  // How the offset changes as the axis end moves: only turning the axis
+  // matters, so it is across the axis, scaled by the lever d·v⊥ over length.
+  const lever = alongAxis ? (-dx * uy + dy * ux) : -(dx * ux + dy * uy) * side;
+  const ex = -uy * lever / axisLength, ey = ux * lever / axisLength;
+  const points = [a, b, s, e];
+  const gradients = [vx, vy, -vx, -vy, -ex, -ey, ex, ey];
+  // A mount is usually also an axis end; merge so it is moved once.
+  for (let i = 1; i < 4; i++) for (let j = 0; j < i; j++) {
+    if (points[i] !== points[j]) continue;
+    gradients[j * 2] += gradients[i * 2]; gradients[j * 2 + 1] += gradients[i * 2 + 1];
+    gradients[i * 2] = 0; gradients[i * 2 + 1] = 0;
+    break;
+  }
+  let weight = 0;
+  for (let i = 0; i < 4; i++) weight += inverseMass(points[i]) * (gradients[i * 2] ** 2 + gradients[i * 2 + 1] ** 2);
+  if (weight + alpha <= EPSILON) return { offset, deltaLambda: 0, ax: 0, ay: 0 };
+  const deltaLambda = (target - offset - alpha * constraint.lambda) / (weight + alpha);
+  constraint.lambda += deltaLambda;
+  for (let i = 0; i < 4; i++) {
+    const w = inverseMass(points[i]) * deltaLambda;
+    points[i].x += gradients[i * 2] * w;
+    points[i].y += gradients[i * 2 + 1] * w;
+  }
+  return { offset, deltaLambda, ax: gradients[0] * inverseMass(a) * deltaLambda, ay: gradients[1] * inverseMass(a) * deltaLambda };
+}
+
 export function solveXpbdAxisLimitConstraint(constraint) {
   const { a, b, axisStart, axisEnd, top, minOffset } = constraint;
   const axisX = axisEnd.x - axisStart.x, axisY = axisEnd.y - axisStart.y;
+  const side = (top.x - (axisStart.x + axisEnd.x) / 2) * -axisY + (top.y - (axisStart.y + axisEnd.y) / 2) * axisX > 0 ? -1 : 1;
   const axisLength = hypot(axisX, axisY) || EPSILON;
-  let nx = -axisY / axisLength, ny = axisX / axisLength;
-  if ((top.x - (axisStart.x + axisEnd.x) / 2) * nx + (top.y - (axisStart.y + axisEnd.y) / 2) * ny > 0) { nx = -nx; ny = -ny; }
-  const offset = (a.x - b.x) * nx + (a.y - b.y) * ny;
-  const wa = inverseMass(a), wb = inverseMass(b);
-  if (offset >= minOffset || wa + wb <= EPSILON) return { distance: offset, correctionDistance: 0, correctionX: 0, correctionY: 0, lambda: constraint.lambda };
-  const deltaLambda = (minOffset - offset) / (wa + wb);
-  constraint.lambda += deltaLambda;
-  const ax = nx * deltaLambda * wa, ay = ny * deltaLambda * wa;
-  a.x += ax; a.y += ay;
-  b.x -= nx * deltaLambda * wb; b.y -= ny * deltaLambda * wb;
-  return { distance: offset, correctionDistance: deltaLambda, correctionX: ax, correctionY: ay, lambda: constraint.lambda };
+  const offset = ((a.x - b.x) * -axisY + (a.y - b.y) * axisX) * side / axisLength;
+  if (offset >= minOffset) return { distance: offset, correctionDistance: 0, correctionX: 0, correctionY: 0, lambda: constraint.lambda };
+  const result = solveAxisOffset(constraint, false, side, minOffset, 0);
+  return { distance: offset, correctionDistance: result.deltaLambda, correctionX: result.ax, correctionY: result.ay, lambda: constraint.lambda };
 }
 
 export function solveXpbdSliderConstraint(constraint, dt) {
-  const { a, b, axisStart, axisEnd } = constraint;
-  const axisX = axisEnd.x - axisStart.x, axisY = axisEnd.y - axisStart.y;
-  const axisLength = hypot(axisX, axisY) || EPSILON;
-  const ux = axisX / axisLength, uy = axisY / axisLength;
-  const offset = (a.x - b.x) * ux + (a.y - b.y) * uy;
-  const wa = inverseMass(a), wb = inverseMass(b);
   const alpha = Math.max(0, constraint.compliance) / (dt * dt);
-  if (wa + wb + alpha <= EPSILON) return { distance: offset, correctionDistance: 0, correctionX: 0, correctionY: 0, lambda: constraint.lambda };
-  const deltaLambda = (-offset - alpha * constraint.lambda) / (wa + wb + alpha);
-  constraint.lambda += deltaLambda;
-  const ax = ux * deltaLambda * wa, ay = uy * deltaLambda * wa;
-  a.x += ax; a.y += ay;
-  b.x -= ux * deltaLambda * wb; b.y -= uy * deltaLambda * wb;
-  return { distance: offset, correctionDistance: Math.abs(deltaLambda), correctionX: ax, correctionY: ay, lambda: constraint.lambda };
+  const result = solveAxisOffset(constraint, true, 1, 0, alpha);
+  return { distance: result.offset, correctionDistance: Math.abs(result.deltaLambda), correctionX: result.ax, correctionY: result.ay, lambda: constraint.lambda };
 }
 
 export function resetConstraintMultiplier(constraint) {

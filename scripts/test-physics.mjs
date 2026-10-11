@@ -10,7 +10,7 @@ import {
 } from '../js/config.js';
 import {
   constrainDistanceVelocity, createDistanceConstraint,
-  createAreaConstraint, createSliderConstraint, signedTriangleArea, resetConstraintMultiplier,
+  createAreaConstraint, createSliderConstraint, createAxisLimitConstraint, signedTriangleArea, resetConstraintMultiplier,
   solveXpbdDistanceConstraint, solveXpbdConstraint, dampingPerIteration,
   dampDistanceConstraint, sweepCircleSegment, riderTorqueMultiplier,
   riderTerrainTorqueScale, riderTiltTorqueScale, riderSpinTorqueScale,
@@ -228,6 +228,33 @@ assert.ok(approximatelyEqual(sliderWheel.x, 13) && approximatelyEqual(sliderWhee
 sliderWheel.y = 4;
 solveXpbdConstraint(slider, 1 / 120);
 assert.ok(approximatelyEqual(sliderWheel.y, 4), 'a slider leaves travel across the axis free for the spring');
+
+// A wheel hanging off a leg pushes on the frame a leg's length from the axis.
+// The frame must take that as a twist, not invent spin out of nothing.
+function spinMoment(points, before) {
+  return points.reduce((sum, p, i) => sum + (before[i].x * (p.y - before[i].y) - before[i].y * (p.x - before[i].x)) / p.inverseMass, 0);
+}
+function pushMoment(points, before) {
+  return points.reduce((sum, p, i) => [sum[0] + (p.x - before[i].x) / p.inverseMass, sum[1] + (p.y - before[i].y) / p.inverseMass], [0, 0]);
+}
+for (const make of [
+  (wheel, rearMount, frontMount, top) => createSliderConstraint(wheel, frontMount, rearMount, frontMount, { compliance: .0001 }),
+  (wheel, rearMount, frontMount, top) => createAxisLimitConstraint(wheel, frontMount, rearMount, frontMount, top, 30),
+]) {
+  const rearMount = { x: 0, y: 0, ox: 0, oy: 0, inverseMass: .5 };
+  const frontMount = { x: 50, y: 0, ox: 50, oy: 0, inverseMass: .5 };
+  const top = { x: 25, y: -22, ox: 25, oy: -22, inverseMass: .5 };
+  const wheel = { x: 58, y: 26, ox: 58, oy: 26, inverseMass: 1 };
+  const points = [wheel, rearMount, frontMount, top];
+  const before = points.map(({ x, y }) => ({ x, y }));
+  const constraint = make(wheel, rearMount, frontMount, top);
+  for (let i = 0; i < 4; i++) solveXpbdConstraint(constraint, 1 / 120);
+  const moved = Math.hypot(wheel.x - before[0].x, wheel.y - before[0].y);
+  const [px, py] = pushMoment(points, before);
+  assert.ok(moved > 1, `a ${constraint.type} constraint moves an off-line wheel`);
+  assert.ok(Math.abs(px) < 1e-9 && Math.abs(py) < 1e-9, `a ${constraint.type} constraint adds no push to the bike`);
+  assert.ok(Math.abs(spinMoment(points, before)) < .01, `a ${constraint.type} constraint adds no spin to the bike: ${spinMoment(points, before)}`);
+}
 
 const quarter = Math.PI / 2;
 assert.equal(riderTiltTorqueScale(0, -1, 0, -1, quarter * .8, quarter * 1.1), 1, 'an upright bike keeps full ground lean leverage');

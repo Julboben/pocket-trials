@@ -482,9 +482,25 @@ function noseUpTilt({ rear, front, chassis }, facing) {
   );
 }
 
-function riderGroundLeverage({ rear, front, chassis }) {
+// A bike hooked by one wheel over a ledge hangs below it like a pendulum. The
+// rider's weight swings it freely there, as in Elasto Mania; the limits below
+// are for a bike balanced above its wheel.
+function hangsBelowWheel({ rear, front, bikePoints }) {
+  if (rear.grounded === front.grounded) return false;
+  const pivot = rear.grounded ? rear : front;
+  if (!pivot.contact) return false;
+  const center = centerOfMass(bikePoints);
+  return (
+    (center.x - pivot.x) * pivot.contact.nx +
+      (center.y - pivot.y) * pivot.contact.ny <
+    0
+  );
+}
+
+function riderGroundLeverage(vehicle) {
+  const { rear, front, chassis } = vehicle;
   const contact = rear.contact || front.contact;
-  if (!contact) return 1;
+  if (!contact || hangsBelowWheel(vehicle)) return 1;
   const up = chassisUp(chassis);
   return riderTiltTorqueScale(
     up.x,
@@ -500,8 +516,9 @@ function riderGroundLeverage({ rear, front, chassis }) {
 // trail part of that shift tips it. With the nose raised by angle a the part
 // is cos(a), so on a near-vertical face gravity loops the bike over however
 // far the rider leans.
-function forwardLeanWeightShift({ chassis }, facing, leanControl) {
-  if (leanControl * facing <= 0) return 1;
+function forwardLeanWeightShift(vehicle, facing, leanControl) {
+  if (leanControl * facing <= 0 || hangsBelowWheel(vehicle)) return 1;
+  const { chassis } = vehicle;
   const up = chassisUp(chassis);
   if (up.x * facing >= 0) return 1;
   return clamp(-up.y, 0, 1);
