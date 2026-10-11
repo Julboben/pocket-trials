@@ -287,19 +287,31 @@ export function advanceAfterTimeOfImpact(point, time) {
   point.oy = point.y - vy;
 }
 
-/** Applies a contact impulse to linear Verlet velocity and wheel angular velocity. */
+/**
+ * Applies a contact impulse to linear Verlet velocity and wheel angular velocity.
+ * Tire grip is Coulomb friction on the real ground force: `normalLoad` is the
+ * normal impulse (px/s) the contact already took this step. A tire that grips
+ * holds up to `friction` times the load; once it slips it pushes with
+ * `kineticFriction` times the load until the wheel matches the ground again.
+ */
 export function solveWheelContactVelocity(point, contact, {
   dt,
   radius,
   restitution = 0,
   friction = 0.9,
+  kineticFriction = friction,
   angularDrive = 0,
   angularBrake = 0,
   angularDrag = .1,
   inertia = .5,
-  restingNormalAcceleration = 480,
+  normalLoad = 0,
+  // Most the motor may spin the tire ahead of the ground (px/s of tread).
+  maxDriveSlip = Infinity,
   freeRolling = false,
-  rollingResistance = 0
+  rollingResistance = 0,
+  // Tangent impulse this contact already gave this step; a later pass only
+  // gets what is left of the friction limit.
+  appliedImpulse = 0
 }) {
   let vx = (point.x - point.ox) / dt;
   let vy = (point.y - point.oy) / dt;
@@ -312,9 +324,11 @@ export function solveWheelContactVelocity(point, contact, {
     vy += contact.ny * normalImpulse;
   }
   const tx = -contact.ny, ty = contact.nx;
-  omega += angularDrive * dt;
-  omega *= Math.max(0, 1 - angularDrag * dt);
   const tangentialSpeed = vx * tx + vy * ty;
+  const spunUp = omega + angularDrive * dt;
+  if (angularDrive > 0) omega = Math.max(omega, Math.min(spunUp, (tangentialSpeed + maxDriveSlip) / radius));
+  else if (angularDrive < 0) omega = Math.min(omega, Math.max(spunUp, (tangentialSpeed - maxDriveSlip) / radius));
+  omega *= Math.max(0, 1 - angularDrag * dt);
   const slip = tangentialSpeed - omega * radius;
   if (freeRolling && angularDrive === 0 && angularBrake === 0) {
     const reduction = Math.max(-rollingResistance * dt, Math.min(rollingResistance * dt, tangentialSpeed));
@@ -326,24 +340,31 @@ export function solveWheelContactVelocity(point, contact, {
     point.spin = (point.spin || 0) + omega * dt;
     return { normalImpulse, tangentImpulse: reduction ? -reduction : 0, slip };
   }
-  // Resting contacts have no impact impulse, so include one gravity step of
-  // normal load to keep traction effective after landing.
-  const frictionLimit = Math.max(Math.abs(normalImpulse) * friction, friction * restingNormalAcceleration * dt);
+  const load = Math.max(0, normalLoad) + normalImpulse;
+  const frictionLimit = friction * load;
+  const slideLimit = Math.min(frictionLimit, kineticFriction * load);
+  // The tire grips while the whole impulse this step fits under static
+  // friction; past that it slides and pushes with kinetic friction.
+  const fitImpulse = requested => {
+    const total = requested + appliedImpulse;
+    const limit = Math.abs(total) <= frictionLimit ? frictionLimit : slideLimit;
+    return Math.max(-limit, Math.min(limit, total)) - appliedImpulse;
+  };
   const spinPerImpulse = 1 / Math.max(EPSILON, inertia * radius);
   // angularBrake is the most spin (rad/s²) the brake can take out. When that
   // is enough to hold the wheel still, the tire grips or skids on a locked
   // wheel, so a held brake stops the bike and keeps it parked on a slope.
   const brakeLimit = angularBrake * dt;
-  const lockedImpulse = Math.max(-frictionLimit, Math.min(frictionLimit, -tangentialSpeed));
+  const lockedImpulse = fitImpulse(-tangentialSpeed);
   let tangentImpulse, held = false;
   if (brakeLimit > 0 && Math.abs(lockedImpulse * spinPerImpulse - omega) <= brakeLimit) {
     tangentImpulse = lockedImpulse;
     omega = 0;
-    held = Math.abs(tangentialSpeed) <= frictionLimit;
+    held = Math.abs(tangentialSpeed + appliedImpulse) <= frictionLimit;
   } else {
     if (brakeLimit > 0) omega -= Math.max(-brakeLimit, Math.min(brakeLimit, omega));
     const requestedImpulse = -(tangentialSpeed - omega * radius) / (1 + 1 / Math.max(EPSILON, inertia));
-    tangentImpulse = Math.max(-frictionLimit, Math.min(frictionLimit, requestedImpulse));
+    tangentImpulse = fitImpulse(requestedImpulse);
     omega -= tangentImpulse * spinPerImpulse;
   }
   vx += tx * tangentImpulse;

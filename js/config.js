@@ -47,7 +47,13 @@ export const SUSPENSION_TOP_OUT_LENGTH = 32;
 export const XPBD_SUSPENSION_TOP_OUT_COMPLIANCE = 0.002;
 export const XPBD_WHEELBASE_SLACK = 6;
 export const WHEEL_INERTIA = .5;
-export const WHEEL_FRICTION = .92;
+// Tire grip is Coulomb friction on the real ground force each tire takes: a
+// gripping tire holds up to WHEEL_FRICTION times its load, a slipping one
+// pushes with WHEEL_SLIDE_FRICTION times it until it hooks up again. The motor
+// can spin the tread at most WHEEL_DRIVE_SLIP (px/s) ahead of the ground.
+export const WHEEL_FRICTION = 2.1;
+export const WHEEL_SLIDE_FRICTION = 1.8;
+export const WHEEL_DRIVE_SLIP = 90;
 // Physical controls. All drive, brake, and lean forces come from tire torque
 // and the chassis rather than direct wheel pushes.
 export const XPBD_CHASSIS_MOUNT_INVERSE_MASS = .65;
@@ -100,12 +106,6 @@ export const XPBD_BRAKE_RATE = 64;
 // the bike skids to a stop, stays parked on slopes, and pivots on a locked
 // front wheel in a stoppie.
 export const XPBD_BRAKE_TORQUE = 720;
-// Brake grip stays moderate. Drive grip is high enough that hitting the gas
-// hooks the tire up instead of spinning it out.
-export const XPBD_CONTACT_LOAD_SCALE = 4.5;
-export const XPBD_DRIVE_LOAD_SCALE = 12;
-export const XPBD_UPHILL_CONTACT_LOAD_SCALE = 16;
-export const XPBD_ROLLING_LOAD_SCALE = 1.35;
 // Two wheel impulses are distributed over the full vehicle mass, so these
 // values produce 105 / 18 px/s² center-of-mass coast losses.
 export const XPBD_COAST_RESISTANCE_LOW_SPEED = 372;

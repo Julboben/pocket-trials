@@ -50,7 +50,7 @@ import {
  * Bump whenever a change makes old inputs replay differently, so stored
  * ghosts and replay fixtures from older physics are not trusted.
  */
-export const RIDE_VERSION = 4;
+export const RIDE_VERSION = 5;
 
 /** @type {Array<[string, number, number, number]>} name, local x, local y, radius */
 const RIDER_PROBES = [
@@ -396,6 +396,8 @@ function advanceRide(ride, input, hooks, events) {
     point.px = point.x;
     point.py = point.y;
   }
+  for (const wheel of [ride.vehicle.rear, ride.vehicle.front])
+    wheel.pcompression = wheel.compression;
   if (ride.ragdoll)
     for (const point of ragdollPoints(ride.ragdoll)) {
       point.px = point.x;
@@ -563,6 +565,12 @@ export function ridePoints(ride) {
 export function interpolateRide(ride, alpha) {
   const points = ridePoints(ride);
   const saved = new Float64Array(points.length * 3);
+  const wheels = [ride.vehicle.rear, ride.vehicle.front];
+  const compressions = wheels.map((wheel) => wheel.compression);
+  if (alpha < 1)
+    for (const wheel of wheels)
+      if (wheel.pcompression !== undefined)
+        wheel.compression = wheel.pcompression + (wheel.compression - wheel.pcompression) * alpha;
   points.forEach((point, index) => {
     saved[index * 3] = point.x;
     saved[index * 3 + 1] = point.y;
@@ -575,12 +583,14 @@ export function interpolateRide(ride, alpha) {
     if (alpha < 1 && point.spin !== undefined)
       point.spin -= (point.angularVelocity || 0) * STEP * (1 - alpha);
   });
-  return () =>
+  return () => {
     points.forEach((point, index) => {
       point.x = saved[index * 3];
       point.y = saved[index * 3 + 1];
       if (point.spin !== undefined) point.spin = saved[index * 3 + 2];
     });
+    wheels.forEach((wheel, index) => (wheel.compression = compressions[index]));
+  };
 }
 
 /**

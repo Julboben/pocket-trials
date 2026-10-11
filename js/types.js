@@ -76,6 +76,8 @@
  * @property {number} spin
  * @property {number} angularVelocity
  * @property {number} compression  suspension travel in px: positive compressed, negative stretched
+ * @property {number} [pcompression] compression at the start of the latest step, for interpolation
+ * @property {number} [groundLoad] normal impulse (px/s) the ground gave the wheel this step; tire grip is friction on it
  * @property {number} impactSpeed
  *
  * @typedef {object} Vehicle

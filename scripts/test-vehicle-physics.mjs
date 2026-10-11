@@ -365,7 +365,9 @@ function flipKeepsTiresRollingScenario() {
   step(simulation, { flip: true, throttle: true });
   const sameSign = (rear, front) => Math.sign(rear.angularVelocity) === Math.sign(front.angularVelocity) && rear.angularVelocity !== 0;
   assert.ok(sameSign(simulation.vehicle.rear, simulation.vehicle.front), 'a flip must not leave the tires spinning against each other');
-  for (let index = 0; index < 40; index++) step(simulation, { throttle: true });
+  // At this speed the motor stops the bike about 40 steps after turning
+  // around; the driven tire then reverses first, so check while it still rolls.
+  for (let index = 0; index < 30; index++) step(simulation, { throttle: true });
   assert.ok(sameSign(simulation.vehicle.rear, simulation.vehicle.front), 'tires must keep a shared roll direction after flipping');
 }
 
@@ -559,6 +561,72 @@ function steepWallScenario() {
   return { highest };
 }
 
+// Pulling away at the foot of a slope, leaning into it: a 45° climb tops out.
+// Tire grip is friction on the weight pressing the tire into the slope, so at
+// 55° the bike stalls partway and slides back, and 60° is out of reach.
+function steepHillScenario() {
+  const height = 400, base = 300;
+  const climb = degrees => {
+    const top = base + height / Math.tan(degrees * Math.PI / 180);
+    // Straight slopes: groundTrail's eased lines peak far steeper than their
+    // average angle.
+    const trail = { name: 'hill', terrainBlocks: [polygonBlock([[0, 800], [base, 800], [top, 800 - height], [top + 800, 800 - height], [top + 800, 1400], [0, 1400]])] };
+    const simulation = createSimulation(trail, { x: 290 });
+    run(simulation, 60, {});
+    let highest = 0;
+    for (let index = 0; index < 1500; index++) {
+      const { rear, front } = simulation.vehicle;
+      const { pitch } = step(simulation, { throttle: true, lean: .5 });
+      if (Math.abs(pitch) > Math.PI * .85) break;
+      highest = Math.max(highest, 800 - RADIUS - Math.min(rear.y, front.y));
+    }
+    return highest;
+  };
+  const gentle = climb(45), steep = climb(55), wall = climb(60);
+  assert.ok(gentle > height - 5, `a 45° hill must be climbable from its foot: reached ${gentle} of ${height}`);
+  assert.ok(steep < height * .75, `a 55° hill must be too steep to climb from its foot: reached ${steep} of ${height}`);
+  assert.ok(wall < height * .5, `a 60° hill must stall low: reached ${wall} of ${height}`);
+  return { gentle, steep, wall };
+}
+
+// Climbing a 35° hill, the rider lets the bike roll back, brakes it to a
+// stop, rolls back again and gets on the gas. Tire grip comes from the weight
+// on the tires, so the brake stops the slide and the throttle hooks up again
+// and climbs instead of spinning while the bike keeps sliding down.
+function slideRecoveryScenario() {
+  const height = 400, base = 300;
+  const top = base + height / Math.tan(35 * Math.PI / 180);
+  const trail = { name: 'hill', terrainBlocks: [polygonBlock([[0, 800], [base, 800], [top, 800 - height], [top + 800, 800 - height], [top + 800, 1400], [0, 1400]])] };
+  const simulation = createSimulation(trail, { x: 200 });
+  const along = () => {
+    const { speedX, speedY } = vehicleMetrics(simulation.vehicle);
+    return Math.sign(speedX) * Math.hypot(speedX, speedY);
+  };
+  const rise = () => 800 - RADIUS - simulation.vehicle.rear.y;
+  run(simulation, 60, {});
+  for (let index = 0; index < 900 && rise() < height * .3; index++) step(simulation, { throttle: true, lean: .5 });
+  for (let index = 0; index < 600 && along() > 0; index++) step(simulation, {});
+  assert.ok(rise() >= height * .3, `the bike must climb into a 35° hill: reached ${rise()}`);
+  run(simulation, 120, { brake: true });
+  run(simulation, 72, {});
+  const rolling = along();
+  run(simulation, 120, { brake: true });
+  const braked = along();
+  assert.ok(rolling < -60, `released on a 35° hill the bike must roll back: ${rolling}`);
+  assert.ok(Math.abs(braked) < 5, `the brakes must stop a bike rolling back down a 35° hill: ${braked}`);
+  run(simulation, 60, {});
+  const sliding = along(), from = rise();
+  let stopped = null;
+  for (let index = 0; index < 360; index++) {
+    step(simulation, { throttle: true, lean: .5 });
+    if (stopped === null && along() >= 0) stopped = index / 120;
+  }
+  const regained = rise() - from;
+  assert.ok(stopped !== null && stopped < 1.35, `on the gas a bike sliding back down a 35° hill at ${sliding} px/s must stop within 1.35 s: ${stopped}`);
+  assert.ok(regained > 40, `after stopping the slide the bike must climb again: ${regained}`);
+  return { rolling, braked, sliding, stopped, regained };
+}
+
 // Coasting off a 65° slope onto a 14° one hits the front wheel almost head on.
 // The bike must ride it out on its wheels instead of vaulting into a tumble.
 // Elasto Mania's hang: a bike riding left that rolls off a ledge on its
@@ -646,6 +714,8 @@ const results = {
   steepClimbForwardLean: steepClimbForwardLeanScenario(),
   steepClimbLoop: steepClimbLoopScenario(),
   steepWall: steepWallScenario(),
+  steepHill: steepHillScenario(),
+  slideRecovery: slideRecoveryScenario(),
   sharpBend: sharpBendScenario(),
   hanging: hangingScenario(),
   flipKeepsTiresRolling: flipKeepsTiresRollingScenario(),

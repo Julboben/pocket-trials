@@ -25,6 +25,8 @@ import {
   XPBD_SUSPENSION_TOP_OUT_COMPLIANCE,
   WHEEL_INERTIA,
   WHEEL_FRICTION,
+  WHEEL_SLIDE_FRICTION,
+  WHEEL_DRIVE_SLIP,
   XPBD_CHASSIS_MOUNT_INVERSE_MASS,
   XPBD_CHASSIS_TOP_INVERSE_MASS,
   XPBD_MOTOR_ANGULAR_ACCELERATION,
@@ -48,10 +50,6 @@ import {
   XPBD_BRAKE_REACTION_LIMIT,
   XPBD_BRAKE_RATE,
   XPBD_BRAKE_TORQUE,
-  XPBD_CONTACT_LOAD_SCALE,
-  XPBD_DRIVE_LOAD_SCALE,
-  XPBD_UPHILL_CONTACT_LOAD_SCALE,
-  XPBD_ROLLING_LOAD_SCALE,
   XPBD_COAST_RESISTANCE_LOW_SPEED,
   XPBD_COAST_RESISTANCE_HIGH_SPEED,
   XPBD_COAST_SPEED_REFERENCE,
@@ -296,6 +294,7 @@ function integratePoint(point, accelerationX = 0, accelerationY = GRAVITY) {
   point.y += vy + accelerationY * STEP * STEP;
   point.grounded = false;
   point.contact = null;
+  point.groundLoad = 0;
 }
 
 function centerOfMass(points) {
@@ -362,7 +361,6 @@ function applyWheelTraction(point, name, drive, state, hooks) {
     brakePressure,
     coasting,
     throttle,
-    driveLoadScale,
     options,
   } = state;
   const impactSpeed = Math.max(
@@ -392,21 +390,19 @@ function applyWheelTraction(point, name, drive, state, hooks) {
   options.radius = RADIUS;
   options.restitution = restitution;
   options.friction = WHEEL_FRICTION;
+  options.kineticFriction = WHEEL_SLIDE_FRICTION;
+  options.maxDriveSlip = WHEEL_DRIVE_SLIP;
   options.angularDrive = drive && point === drivenWheel ? angularDrive : 0;
   options.angularBrake =
     drive && braking ? XPBD_BRAKE_TORQUE * brakePressure : 0;
   options.inertia = WHEEL_INERTIA;
-  options.restingNormalAcceleration =
-    GRAVITY *
-    (braking
-      ? XPBD_CONTACT_LOAD_SCALE
-      : point === drivenWheel
-        ? driveLoadScale
-        : XPBD_ROLLING_LOAD_SCALE);
+  options.normalLoad = point.groundLoad || 0;
   options.freeRolling =
     drive && !braking && (point !== drivenWheel || throttle < 0.01);
   options.rollingResistance = drive && coasting ? coastResistance : 0;
+  options.appliedImpulse = drive ? 0 : point.tractionImpulse || 0;
   const result = solveWheelContactVelocity(point, point.contact, options);
+  point.tractionImpulse = drive ? result.tangentImpulse : 0;
   point.brakeHold = result.held ? result.frictionLimit * STEP : 0;
   point.angularVelocity = clamp(
     point.angularVelocity,
@@ -551,6 +547,10 @@ function resolveContact(point, contact, wheelName, hooks) {
         : 0;
     vx -= nx * intoSurface * (1 + restitution);
     vy -= ny * intoSurface * (1 + restitution);
+    // The real ground force: every bit of speed the surface stops, including
+    // the chassis weight the suspension pushes into the wheel.
+    point.groundLoad =
+      (point.groundLoad || 0) - (intoSurface * (1 + restitution)) / STEP;
   }
   point.x += nx * penetration;
   point.y += ny * penetration;
@@ -986,12 +986,14 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
   const slope = terrainAt(trail, midpointX, midpointY).slope;
   const uphill = clamp(-slope * facing, 0, 1);
   const drivenWheel = facing > 0 ? rear : front;
-  const wheelSurfaceSpeed = Math.abs(drivenWheel.angularVelocity * RADIUS);
+  // Engine speed: only a wheel turning forward winds the torque down.
+  const wheelSurfaceSpeed = Math.max(
+    0,
+    facing * drivenWheel.angularVelocity * RADIUS,
+  );
   const speedRatio = wheelSurfaceSpeed / XPBD_TORQUE_FALLOFF_SPEED;
   const torqueCurve =
     speedRatio >= 1 ? 0.28 / speedRatio : 0.28 + 0.72 * (1 - speedRatio);
-  const forwardLean = clamp(leanControl * facing, 0, 1);
-  const uphillGripBlend = clamp(uphill * (1 + forwardLean * 2), 0, 1);
   const angularDrive =
     facing * XPBD_MOTOR_ANGULAR_ACCELERATION * throttle * torqueCurve;
   const riderAssist = riderTorqueMultiplier(
@@ -1073,7 +1075,6 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
   keepPivotPlanted(riderAccelerations, rear, front);
   const dynamics = {
     angularDrive,
-    uphillGripBlend,
     riderAssist,
     riderTerrainScale,
     riderAngularAcceleration,
@@ -1169,15 +1170,6 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
   traction.brakePressure = brakePressure;
   traction.coasting = coasting;
   traction.throttle = throttle;
-  traction.driveLoadScale = lerp(
-    XPBD_ROLLING_LOAD_SCALE,
-    lerp(
-      XPBD_DRIVE_LOAD_SCALE,
-      XPBD_UPHILL_CONTACT_LOAD_SCALE,
-      uphillGripBlend,
-    ),
-    throttle,
-  );
   for (const [point, name] of solverWheels) {
     if (!point.contact) {
       point.brakeHold = 0;

@@ -144,7 +144,7 @@ assert.ok(approximatelyEqual(sweptPoint.x, 11.5), 'swept collision must advance 
 assert.ok(approximatelyEqual(sweptPoint.x - sweptPoint.ox, 2), 'remaining-time advancement must preserve resolved velocity');
 
 const rolling = { x: 0, y: 0, ox: 0, oy: 0, angularVelocity: 10, spin: 0 };
-const traction = solveWheelContactVelocity(rolling, { nx: 0, ny: -1 }, { dt: 1 / 120, radius: 2, friction: 1, inertia: .5 });
+const traction = solveWheelContactVelocity(rolling, { nx: 0, ny: -1 }, { dt: 1 / 120, radius: 2, friction: 1, inertia: .5, normalLoad: 4 });
 assert.ok(traction.tangentImpulse !== 0, 'wheel slip must create a tangential impulse');
 assert.notEqual(rolling.x - rolling.ox, 0, 'angular motion must transfer into linear motion');
 assert.ok(Math.abs(rolling.angularVelocity) < 10, 'traction must react back on wheel angular velocity');
@@ -156,7 +156,7 @@ solveWheelContactVelocity(forwardWheel, { nx: 0, ny: -1 }, {
   friction: 1,
   inertia: .5,
   angularDrive: 600,
-  restingNormalAcceleration: 480 * 7
+  normalLoad: 480 * 7 / 120
 });
 const reverseWheel = { x: 0, y: 0, ox: 0, oy: 0, angularVelocity: 0, spin: 0 };
 solveWheelContactVelocity(reverseWheel, { nx: 0, ny: -1 }, {
@@ -165,7 +165,7 @@ solveWheelContactVelocity(reverseWheel, { nx: 0, ny: -1 }, {
   friction: 1,
   inertia: .5,
   angularDrive: -600,
-  restingNormalAcceleration: 480 * 7
+  normalLoad: 480 * 7 / 120
 });
 assert.ok(reverseWheel.x - reverseWheel.ox < 0, 'negative wheel torque must drive left after flipping');
 assert.ok(reverseWheel.angularVelocity < 0, 'negative wheel torque must preserve its world-space rotation sign');
@@ -201,7 +201,7 @@ solveWheelContactVelocity(brakingWheel, { nx: 0, ny: -1 }, {
   friction: 1,
   inertia: .5,
   angularBrake: 60,
-  restingNormalAcceleration: 480 * 7
+  normalLoad: 480 * 7 / 120
 });
 assert.ok((brakingWheel.x - brakingWheel.ox) * 120 < 120, 'wheel braking must reduce linear ground speed');
 assert.ok(brakingWheel.angularVelocity < 10, 'wheel braking must reduce angular speed');
@@ -212,7 +212,7 @@ const locked = solveWheelContactVelocity(lockedWheel, { nx: 0, ny: -1 }, {
   radius: 12,
   inertia: .5,
   angularBrake: 720,
-  restingNormalAcceleration: 480 * 4.5
+  normalLoad: 480 * 4.5 / 120
 });
 assert.equal(lockedWheel.angularVelocity, 0, 'a strong enough brake locks a slow wheel');
 assert.ok(approximatelyEqual(lockedWheel.x - lockedWheel.ox, 0), 'a locked wheel with grip to spare stops on the spot');
