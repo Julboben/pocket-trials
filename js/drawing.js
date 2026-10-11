@@ -4715,7 +4715,6 @@ export function createGameArt(ctx) {
     const model = BIKES[modelId];
     model.wheel(rear, dirt?.rear);
     model.wheel(front, dirt?.front);
-    const pixelAngle = Math.round(angle / (TAU / 32)) * (TAU / 32);
     const sprite = bikeCanvas();
     const { context, size } = sprite;
     const {
@@ -4877,7 +4876,7 @@ export function createGameArt(ctx) {
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     translateToDevice(mx, my);
-    ctx.rotate(pixelAngle);
+    ctx.rotate(angle);
     ctx.scale(flipVisual, 1);
     ctx.drawImage(
       sprite.canvas,
@@ -4918,13 +4917,12 @@ export function createGameArt(ctx) {
     return canvas;
   }
 
-  // A head sprite turned to the nearest of 32 angles, mirrored to `facing`.
+  // A head sprite turned to `angle`, mirrored to `facing`.
   function drawHeadSprite(sprite, x, y, angle, facing) {
-    const rotationStep = TAU / 32;
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     translateToDevice(x, y);
-    ctx.rotate(Math.round(angle / rotationStep) * rotationStep);
+    ctx.rotate(angle);
     ctx.scale(facing, 1);
     ctx.drawImage(sprite, -10, -8, 24, 20);
     ctx.restore();

@@ -1,4 +1,3 @@
-const TAU = Math.PI * 2;
 const HAIR_STEP = 1 / 120;
 const HAIR_MAX_STEPS = 4;
 const HAIR_LENGTHS = [4, 4, 4, 4, 4];
@@ -24,14 +23,14 @@ export function riderBodyFrame({ rear, front, facing = 1, flipVisual = facing, l
   const snap = (value, step) => exact ? value : Math.round(value / step) * step;
   const mx = snap((rear.x + front.x) / 2, 1);
   const my = snap((rear.y + front.y) / 2, 1);
-  const pixelAngle = snap(Math.atan2(front.y - rear.y, front.x - rear.x), TAU / 32);
+  const angle = Math.atan2(front.y - rear.y, front.x - rear.x);
   const backCompression = (facing > 0 ? rear.compression : front.compression) || 0;
   const frontCompression = (facing > 0 ? front.compression : rear.compression) || 0;
   const bodyDrop = snap((backCompression + frontCompression) * .4, 2);
   const bodyPitch = (frontCompression - backCompression) * .0096;
   const shift = snap(leanVisual * 9, 2);
   const cosPitch = Math.cos(bodyPitch), sinPitch = Math.sin(bodyPitch);
-  const cosAngle = Math.cos(pixelAngle), sinAngle = Math.sin(pixelAngle);
+  const cosAngle = Math.cos(angle), sinAngle = Math.sin(angle);
   const rotate = (localX, localY, drop) => {
     const pitchedX = localX * cosPitch - localY * sinPitch;
     const pitchedY = localX * sinPitch + localY * cosPitch + drop;

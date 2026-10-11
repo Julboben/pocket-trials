@@ -278,11 +278,10 @@ export function createLighting() {
 
   // `flip` is the animated facing, -1…1. The lights sit on the lamps the bike
   // art draws (see bike-lamps.js), placed with the same transform as the
-  // sprite: centred between the wheels, turned to the frame in 32 steps and
-  // mirrored by `flip`, so they stay on the bike through flips, loops and 180s
-  // in the air. The beam itself turns with the frame's true angle, not the 32
-  // steps: a long beam jumping a step at a time is hard to steer by. The brake
-  // light works with the lights off, and glows brighter the harder it's held.
+  // sprite: centred between the wheels, turned to the frame and mirrored by
+  // `flip`, so they stay on the bike through flips, loops and 180s in the air.
+  // The brake light works with the lights off, and glows brighter the harder
+  // it's held.
   function bikeLights(ride, flip, look, lights, on = headlights) {
     const brake = Math.max(0, Math.min(1, ride.brakePressure || 0));
     const braking = brake > 0.08;
@@ -290,9 +289,7 @@ export function createLighting() {
     const { rear, front } = ride;
     const mx = (rear.x + front.x) / 2,
       my = (rear.y + front.y) / 2;
-    const step = (Math.PI * 2) / 32;
-    const frame = Math.atan2(front.y - rear.y, front.x - rear.x);
-    const angle = Math.round(frame / step) * step;
+    const angle = Math.atan2(front.y - rear.y, front.x - rear.x);
     const cos = Math.cos(angle),
       sin = Math.sin(angle);
     const at = ([lx, ly]) => ({ x: mx + cos * flip * lx - sin * ly, y: my + sin * flip * lx + cos * ly });
@@ -313,7 +310,7 @@ export function createLighting() {
       radius: 230,
       color: HEADLIGHT,
       strength: turn,
-      angle: Math.atan2(Math.sin(frame) * facing, Math.cos(frame) * facing),
+      angle: Math.atan2(sin * facing, cos * facing),
       spread: 0.3,
       flare: HEADLIGHT_FLARE,
     });

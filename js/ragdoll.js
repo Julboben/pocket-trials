@@ -124,11 +124,8 @@ export function createRagdoll(rear, front, facing, random, visual = {}) {
 
   const angle = visual.angle ?? atan2(front.y - rear.y, front.x - rear.x);
 
-  // Match drawBike's visible rotation, rather than the unsnapped angle.
-  const angleStep = (Math.PI * 2) / 32;
-  const pixelAngle = Math.round(angle / angleStep) * angleStep;
-  const c = cos(pixelAngle);
-  const s = sin(pixelAngle);
+  const c = cos(angle);
+  const s = sin(angle);
 
   // This must match the value passed to drawBike().
   const flipVisual = visual.flipVisual ?? facing;
