@@ -6,7 +6,7 @@ import { rectangle } from './lib/terrain-fixtures.mjs';
 import { propSpan, propWallFit } from '../js/drawing.js';
 import {
   TUMBLEWEED_RUN, TUMBLEWEED_STEP, VULTURE_HEIGHT, hazeShift, hazeStreaks,
-  tumbleweedRoll, vultureOrbit, windStrength, windmillAngle,
+  swoopDuration, tumbleweedRoll, vultureNotice, vultureOrbit, vulturePerch, vultureSwoop, windStrength, windmillAngle,
 } from '../js/desert-props.js';
 
 // Ground at 320 from 0 to 3000, with a wall rising to 200 from x 1000 to 1100.
@@ -86,6 +86,31 @@ const prop = (type, x, extra = {}) => ({ type, x, y: null, layer: 'back', ...ext
   const warnings = validateTrail(trail(types.map((type, i) => prop(type, 300 + i * 80))))
     .filter((m) => m.type === 'warning');
   assert.ok(!warnings.some((m) => /unknown type/.test(m.text)), warnings.map((m) => m.text).join('\n'));
+}
+
+// After a crash, a vulture glides down and lands on the ground beside the rider.
+{
+  const flat = () => 320;
+  assert.deepEqual(vulturePerch(500, 310, -1, 0, flat), { x: 460, y: 320 }, 'beside the rider, on its side');
+  assert.equal(vulturePerch(500, 310, 1, 1, flat).x, 570, 'a second one stands further out');
+  const cliff = (x) => (x < 500 ? 900 : 320);
+  assert.equal(vulturePerch(500, 310, -1, 0, cliff).x, 540, 'the other side when its own is a drop');
+  assert.equal(vulturePerch(500, 310, -1, 0, () => null), null, 'nowhere to stand');
+  assert.ok(vultureNotice(0) > 0 && vultureNotice(0.9) > vultureNotice(0.1), 'it takes a moment to notice');
+  const from = { x: 100, y: 100 }, to = { x: 460, y: 320 };
+  const duration = swoopDuration(from, to);
+  const start = vultureSwoop(from, to, 0, duration, 500);
+  assert.ok(start.x === 100 && start.y === 100 && start.pose === 'soaring' && start.dir === 1);
+  assert.equal(vultureSwoop(from, to, duration - 0.1, duration, 500).pose, 'landing');
+  const stood = vultureSwoop(from, to, duration + 2, duration, 500);
+  assert.ok(stood.pose === 'standing' && stood.x === 460 && stood.y < 320 && stood.dir === 1, 'standing, facing the rider');
+  assert.equal(vultureSwoop(from, to, duration + 2, duration, 300).dir, -1, 'it turns to keep watching');
+  let lowest = -Infinity;
+  for (let age = 0; age <= duration; age += 0.1) {
+    const at = vultureSwoop(from, to, age, duration, 500);
+    assert.ok(at.y >= lowest - 1e-9, 'it only ever descends');
+    lowest = at.y;
+  }
 }
 
 console.log('Desert tests passed.');

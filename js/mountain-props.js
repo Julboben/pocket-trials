@@ -140,7 +140,10 @@ export const PYLON_BODY_BOTTOM = -10;
 // Top of the haul rope where it rides over the sheaves.
 export const CABLE_Y = -168;
 // How far the rope runs either side of the tower before it fades out.
-export const CABLE_HALF = 120;
+export const CABLE_HALF = 160;
+// The rope climbs this many units per unit to the right (left when flipped),
+// so the pylon can stand on a slope with the line running up the hill.
+export const CABLE_SLOPE = 0.4;
 const CABLE_FADE = 28;
 const SHEAVES = [-18, -6, 6, 18];
 const SHEAVE_HALF = 24;
@@ -149,11 +152,16 @@ export const CHAIR_SPEED = 16;
 // How far below the rope the chair's art reaches.
 export const CHAIR_DROP = 58;
 
-/** The rope's drop below CABLE_Y at local x: flat over the sheaves, sagging away from them. */
+/**
+ * The rope's drop below CABLE_Y at local x: flat over the sheaves, then
+ * climbing to the right and falling to the left, sagging a little either way.
+ */
 export function cableSag(x) {
   const out = Math.max(0, Math.abs(x) - SHEAVE_HALF);
-  return snap(out * 0.05 + out * out * 0.0006);
+  return snap(-Math.sign(x) * out * CABLE_SLOPE + out * out * 0.0004);
 }
+// The highest the rope gets, at its uphill end, from the anchor.
+export const CABLE_TOP = CABLE_Y + cableSag(CABLE_HALF);
 
 const pylonHalf = (py) => (py < -60 ? 4 : 6);
 

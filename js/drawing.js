@@ -113,7 +113,9 @@ import {
   drawCowSkull,
   drawTumbleweed,
   drawVultureBanking,
+  drawVultureLanding,
   drawVultureSoaring,
+  drawVultureStanding,
   drawWaterTower,
   drawWindmillRotor,
   drawWindmillTower,
@@ -125,6 +127,7 @@ import {
 } from "./desert-props.js";
 import {
   CABLE_HALF,
+  CABLE_TOP,
   HUT_BOUNDS,
   HUT_LIGHT,
   HUT_WINDOW,
@@ -2931,7 +2934,8 @@ const PROP_EXTENTS = {
   vulture: [-VULTURE_ORBIT.x - 30, -VULTURE_HEIGHT - VULTURE_ORBIT.y - 16, VULTURE_ORBIT.x + 30],
   cairn: [-16, -44, 16],
   // The rope and the chair on it reach well out either side of the tower.
-  "ski-lift": [-CABLE_HALF - 24, PYLON_TOP - 4, CABLE_HALF + 24],
+  // The rope runs out either side and climbs above the tower to the right.
+  "ski-lift": [-CABLE_HALF - 24, Math.min(PYLON_TOP, CABLE_TOP) - 4, CABLE_HALF + 24],
   icicles: [-22, -CEILING_REACH - 4, 22],
   // Room for the snow a hard landing knocks off, and the cloud it raises.
   "snow-pine": [-70, -192, 70],
@@ -4563,6 +4567,14 @@ export function createGameArt(ctx) {
       // down at them too; the carrot turns with them.
       const dy = Number.isFinite(scene.riderY) ? scene.riderY - (y + SNOWMAN_EYE_HEIGHT) : null;
       drawSnowmanFace({ pixelRect }, snowmanGaze(riderSide(scene, x, mirrored), dy));
+    } else if (type === "vulture" && scene.swoop) {
+      // Swooping down to a crashed rider: drawn at its body, which x and y
+      // already are (see vultureSwoop).
+      const { pose, dir, flap, dip } = scene.swoop;
+      ctx.scale(dir, 1);
+      if (pose === "standing") drawVultureStanding({ pixelRect }, dip);
+      else if (pose === "landing") drawVultureLanding({ pixelRect }, flap);
+      else drawVultureSoaring({ pixelRect }, flap);
     } else if (type === "vulture") {
       const orbit = vultureOrbit(scene.time || 0, propNoise(x, 7));
       const snap = (value) => Math.round(value / ART_PIXEL) * ART_PIXEL;
