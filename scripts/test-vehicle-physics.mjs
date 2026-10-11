@@ -566,8 +566,8 @@ function steepWallScenario() {
 
 // Pulling away at the foot of a slope, leaning into it: a 45° climb tops out.
 // Tire grip is friction on the weight pressing the tire into the slope. That
-// is still enough at 55°, where the rider has to keep the nose down, but at
-// 57° the bike stalls partway and slides back, and 60° is out of reach.
+// still carries a slow crawl up 57°, where the rider has to keep the nose
+// down, but from 58° on the bike stalls low and slides back or loops out.
 function steepHillScenario() {
   const height = 400, base = 300;
   const climb = degrees => {
@@ -586,9 +586,9 @@ function steepHillScenario() {
     }
     return highest;
   };
-  const gentle = climb(45), steep = climb(57), wall = climb(60);
+  const gentle = climb(45), steep = climb(58), wall = climb(60);
   assert.ok(gentle > height - 5, `a 45° hill must be climbable from its foot: reached ${gentle} of ${height}`);
-  assert.ok(steep < height * .75, `a 57° hill must be too steep to climb from its foot: reached ${steep} of ${height}`);
+  assert.ok(steep < height * .5, `a 58° hill must be too steep to climb from its foot: reached ${steep} of ${height}`);
   assert.ok(wall < height * .5, `a 60° hill must stall low: reached ${wall} of ${height}`);
   return { gentle, steep, wall };
 }

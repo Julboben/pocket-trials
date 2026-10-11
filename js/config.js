@@ -30,9 +30,6 @@ export const XPBD_SUSPENSION_REBOUND_DAMPING = .42;
 // the free wheel droops about 5 px under its own weight.
 export const XPBD_SUSPENSION_EXTENSION_COMPLIANCE = 0.012;
 export const XPBD_SUSPENSION_SLIDER_COMPLIANCE = 0.0001;
-export const XPBD_LONGITUDINAL_COMPLIANCE = 0.00004;
-export const XPBD_LONGITUDINAL_DAMPING = .55;
-export const XPBD_CROSS_LINK_DAMPING = .35;
 export const SUSPENSION_REST_LENGTH = 20;
 export const SUSPENSION_TRAVEL = 16;
 // A stiffer second spring over the last part of travel, so the soft main
@@ -45,7 +42,6 @@ export const XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE = 0.0003;
 // limit jerks it.
 export const SUSPENSION_TOP_OUT_LENGTH = 32;
 export const XPBD_SUSPENSION_TOP_OUT_COMPLIANCE = 0.002;
-export const XPBD_WHEELBASE_SLACK = 6;
 export const WHEEL_INERTIA = .5;
 // Tire grip is Coulomb friction on the real ground force each tire takes: a
 // gripping tire holds up to WHEEL_FRICTION times its load, a slipping one

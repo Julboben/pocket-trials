@@ -12,13 +12,9 @@ import {
   XPBD_SUSPENSION_EXTENSION_COMPLIANCE,
   XPBD_SUSPENSION_DAMPING,
   XPBD_SUSPENSION_REBOUND_DAMPING,
-  XPBD_LONGITUDINAL_COMPLIANCE,
-  XPBD_LONGITUDINAL_DAMPING,
   XPBD_SUSPENSION_SLIDER_COMPLIANCE,
-  XPBD_CROSS_LINK_DAMPING,
   SUSPENSION_REST_LENGTH,
   SUSPENSION_TRAVEL,
-  XPBD_WHEELBASE_SLACK,
   SUSPENSION_BUMP_STOP_LENGTH,
   XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE,
   SUSPENSION_TOP_OUT_LENGTH,
@@ -119,12 +115,8 @@ export function createVehicle(rear, front) {
       XPBD_CHASSIS_TOP_INVERSE_MASS,
     ),
   };
-  const wheelbaseLimit = createDistanceConstraint(rear, front, WHEELBASE, {
-    compliance: 0,
-    damping: XPBD_CROSS_LINK_DAMPING,
-    minLength: WHEELBASE - XPBD_WHEELBASE_SLACK,
-    maxLength: WHEELBASE + XPBD_WHEELBASE_SLACK,
-  });
+  // As in Elasto Mania, nothing ties the wheels to each other: each hangs from
+  // the chassis on its own leg, so the wheelbase gives a little on hard hits.
   const constraints = [
     createDistanceConstraint(chassis.rearMount, chassis.frontMount, WHEELBASE, {
       compliance: XPBD_CHASSIS_COMPLIANCE,
@@ -144,10 +136,6 @@ export function createVehicle(rear, front) {
     ),
     createAreaConstraint(chassis.rearMount, chassis.frontMount, chassis.top, {
       compliance: XPBD_CHASSIS_AREA_COMPLIANCE,
-    }),
-    createDistanceConstraint(rear, front, WHEELBASE, {
-      compliance: XPBD_LONGITUDINAL_COMPLIANCE,
-      damping: XPBD_LONGITUDINAL_DAMPING,
     }),
     createDistanceConstraint(rear, chassis.rearMount, SUSPENSION_REST_LENGTH, {
       compliance: XPBD_SUSPENSION_COMPLIANCE,
@@ -258,12 +246,11 @@ export function createVehicle(rear, front) {
     front,
     chassis,
     constraints,
-    wheelbaseLimit,
     chassisPoints,
     crashedFrameProbes,
     frameLinks,
     bikePoints,
-    dampedConstraints: [...constraints, wheelbaseLimit],
+    dampedConstraints: constraints,
     wheelOrder: {
       forward: [
         [rear, "rear"],
@@ -962,7 +949,7 @@ function updateCrashedPassThrough(vehicle, trail) {
 // `controls.crashed` hands the bike to physics alone: the chassis collides with
 // the terrain so a riderless bike tips over and tumbles instead of sinking.
 export function stepVehicle(vehicle, trail, controls, hooks = {}) {
-  const { rear, front, chassis, constraints, wheelbaseLimit } = vehicle;
+  const { rear, front, chassis, constraints } = vehicle;
   const {
     facing,
     throttle,
@@ -1150,12 +1137,6 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
       const correction = solveXpbdConstraint(constraint, STEP);
       hooks.constraint?.(correction);
     }
-    for (const [point, name] of solverWheels) {
-      collideWheel(trail, point, name, hooks, false);
-      holdBrakedWheel(point);
-    }
-    const wheelbaseCorrection = solveXpbdConstraint(wheelbaseLimit, STEP);
-    hooks.constraint?.(wheelbaseCorrection);
     for (const [point, name] of solverWheels) {
       collideWheel(trail, point, name, hooks, false);
       holdBrakedWheel(point);

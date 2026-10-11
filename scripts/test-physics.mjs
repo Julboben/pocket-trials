@@ -6,8 +6,7 @@ import {
   XPBD_TORQUE_FALLOFF_SPEED, XPBD_MOTOR_REACTION_SCALE, XPBD_THROTTLE_LEAN_ASSIST,
   XPBD_UPHILL_FORWARD_LEAN_REDUCTION,
   XPBD_COAST_RESISTANCE_LOW_SPEED, XPBD_COAST_RESISTANCE_HIGH_SPEED,
-  XPBD_SUSPENSION_COMPLIANCE, XPBD_SUSPENSION_DAMPING,
-  XPBD_LONGITUDINAL_COMPLIANCE, XPBD_LONGITUDINAL_DAMPING
+  XPBD_SUSPENSION_COMPLIANCE, XPBD_SUSPENSION_DAMPING
 } from '../js/config.js';
 import {
   constrainDistanceVelocity, createDistanceConstraint,
@@ -116,20 +115,20 @@ assert.ok(sprungDistance > 14 && sprungDistance < 18, 'suspension spring must re
 const softRear = { x: 0, y: 0, ox: 0, oy: 0, inverseMass: 1 };
 const softFront = { x: 46, y: 0, ox: 46, oy: 0, inverseMass: 1 };
 const longitudinalSpring = createDistanceConstraint(softRear, softFront, 50, {
-  compliance: XPBD_LONGITUDINAL_COMPLIANCE,
-  damping: XPBD_LONGITUDINAL_DAMPING
+  compliance: 0.00004,
+  damping: .55
 });
 resetConstraintMultiplier(longitudinalSpring);
 solveXpbdDistanceConstraint(longitudinalSpring, 1 / 120);
 const softenedDistance = softFront.x - softRear.x;
-assert.ok(softenedDistance > 47 && softenedDistance < 50, 'longitudinal suspension must remain compliant instead of snapping to rest length');
+assert.ok(softenedDistance > 47 && softenedDistance < 50, 'a compliant link must stay soft instead of snapping to rest length');
 
 const limitedRear = { x: 0, y: 0, ox: 0, oy: 0, inverseMass: 1 };
 const limitedFront = { x: 70, y: 0, ox: 70, oy: 0, inverseMass: 1 };
 const wheelbaseLimit = createDistanceConstraint(limitedRear, limitedFront, 50, { minLength: 43, maxLength: 57 });
 resetConstraintMultiplier(wheelbaseLimit);
 solveXpbdDistanceConstraint(wheelbaseLimit, 1 / 120);
-assert.ok(approximatelyEqual(limitedFront.x - limitedRear.x, 57), 'suspension geometry must enforce maximum wheel spread');
+assert.ok(approximatelyEqual(limitedFront.x - limitedRear.x, 57), 'a distance limit must enforce its maximum length');
 const perIteration = dampingPerIteration(.2, 3);
 assert.ok(approximatelyEqual(1 - Math.pow(1 - perIteration, 3), .2), 'constraint damping must not grow when velocity iterations are added');
 
