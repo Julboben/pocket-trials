@@ -2,6 +2,32 @@
 /** @type {{ version: string, date: string, changes: { type: 'new' | 'improved' | 'fixed', text: string }[] }[]} */
 export const RELEASES = [
   {
+    "version": "0.2.0",
+    "date": "2026-10-11",
+    "changes": [
+      {
+        "type": "new",
+        "text": "What's new screen: tap the version number on the main menu to see what’s new in each update. A NEW badge shows when there’s been an update since your last visit."
+      },
+      {
+        "type": "improved",
+        "text": "Better light effects for bike lamps."
+      },
+      {
+        "type": "improved",
+        "text": "Submenu headers now have icons."
+      },
+      {
+        "type": "improved",
+        "text": "The Garage now warns you if you press Back with unsaved changes."
+      },
+      {
+        "type": "fixed",
+        "text": "Removed a duplicate log in button from the menu."
+      }
+    ]
+  },
+  {
     "version": "0.1.2",
     "date": "2026-10-10",
     "changes": [

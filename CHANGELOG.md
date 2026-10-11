@@ -2,6 +2,19 @@
 
 Player-facing release notes. The game shows them under **What's new**, and each GitHub Release uses its section.
 
+## 0.2.0 — 2026-10-11
+
+### New
+- What's new screen: tap the version number on the main menu to see what’s new in each update. A NEW badge shows when there’s been an update since your last visit.
+
+### Improved
+- Better light effects for bike lamps.
+- Submenu headers now have icons.
+- The Garage now warns you if you press Back with unsaved changes.
+
+### Fixed
+- Removed a duplicate log in button from the menu.
+
 ## 0.1.2 — 2026-10-10
 
 ### New
