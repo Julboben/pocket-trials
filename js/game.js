@@ -508,7 +508,11 @@ export function startGame() {
         sounds.land(event.impact);
         landingSoundCooldown = .12;
         for (const wheel of [ride.rear, ride.front]) if (wheel.grounded && wheel.impactSpeed > LANDING_SOUND_IMPACT) effects.dustPuff(wheel, wheel.impactSpeed);
-        if (event.impact > HARD_LANDING_IMPACT) vibrate(Math.round(clamp(event.impact / 12, 10, 40)));
+        if (event.impact > HARD_LANDING_IMPACT) {
+          vibrate(Math.round(clamp(event.impact / 12, 10, 40)));
+          // Shakes the snow off nearby snowy pines.
+          renderer.land((ride.rear.x + ride.front.x) / 2, (ride.rear.y + ride.front.y) / 2, clamp(.4 + (event.impact - HARD_LANDING_IMPACT) / 380, .4, 1));
+        }
         break;
       case 'splash':
         effects.splash(event.x, event.y, event.speed);

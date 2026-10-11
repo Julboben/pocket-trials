@@ -331,9 +331,9 @@ function drawProps(layer) {
   }
 }
 
-const GLOWING_PROPS = new Set(["lamp", "crane", "lantern", "mushrooms"]);
+const GLOWING_PROPS = new Set(["lamp", "crane", "lantern", "mushrooms", "hut"]);
 
-/** Street lamps and crane lights after dark; lanterns and mushrooms always. */
+/** Street lamps, crane lights and hut windows after dark; lanterns and mushrooms always. */
 function drawPropGlows(dark) {
   for (const prop of editor.trail.props || []) {
     if (!GLOWING_PROPS.has(prop.type)) continue;

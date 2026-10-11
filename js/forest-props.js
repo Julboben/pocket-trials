@@ -7,6 +7,14 @@
 // tree in reach it dashes off and is gone. Everything here is decoration and
 // never touches the simulation.
 
+// The big pine's bough tiers, lowest first; the snowy pine shares them.
+export const PINE_TIERS = [
+  { top: -112, bottom: -26, halfWidth: 46 },
+  { top: -140, bottom: -66, halfWidth: 34 },
+  { top: -164, bottom: -104, halfWidth: 24 },
+  { top: -182, bottom: -138, halfWidth: 14 },
+];
+
 // How far a squirrel looks for a tree, and how far it traces the ground either
 // side, in world units; the ground is traced every SQUIRREL_STEP units.
 export const SQUIRREL_RANGE = 240;
