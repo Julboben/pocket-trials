@@ -885,10 +885,21 @@ h2 {
     text-transform: uppercase;
 }
 .app-version {
+    padding: 0;
+    border: 0;
+    background: none;
     color: #aeb7b3;
+    font: inherit;
     font-size: 8px;
     font-weight: 850;
     letter-spacing: 2px;
+    cursor: pointer;
+}
+.app-version:hover,
+.app-version:focus-visible {
+    color: var(--color-text);
+    text-decoration: underline;
+    text-underline-offset: 3px;
 }
 
 .menu-logo {
@@ -1584,14 +1595,33 @@ h2 {
     background: #17262bdd;
     color: var(--color-text);
 }
-.look-step:first-of-type {
+.look-step-previous {
     left: 6px;
 }
-.look-step:last-of-type {
+.look-step-next {
     right: 6px;
 }
-.look-step:hover {
+.look-step:hover,
+.look-light:hover {
     background: var(--color-surface-hover);
+}
+/* Turns the garage lights off in the preview, to show the bike's lights. */
+.look-light {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--color-border);
+    background: #17262bdd;
+    color: var(--color-text);
+}
+.look-light[aria-pressed="true"] {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
 }
 /* Each block of the customizer sits on its own dark panel. */
 .look-tabs,
@@ -1763,6 +1793,36 @@ h2 {
 .look-revert {
     --px: 2px;
 }
+/* Asks before leaving the Garage with an unsaved look. Like the results
+   modal it is a <dialog> opened with showModal(), covering the whole screen. */
+.menu-confirm {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border: 0;
+    padding: calc(16px + env(safe-area-inset-top, 0px))
+        calc(16px + env(safe-area-inset-right, 0px))
+        calc(16px + env(safe-area-inset-bottom, 0px))
+        calc(16px + env(safe-area-inset-left, 0px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: #0d1b20b3;
+    color: inherit;
+    font: inherit;
+}
+.menu-confirm[open] {
+    display: flex;
+}
+.menu-confirm::backdrop {
+    background: transparent;
+}
+.menu-confirm .modal-badge {
+    color: var(--color-accent);
+}
 .look-genders {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1847,6 +1907,83 @@ h2 {
     color: var(--color-text-muted);
     font-size: 9px;
     line-height: 1.55;
+}
+.whats-new-badge {
+    margin-left: 6px;
+    padding: 1px 4px;
+    background: var(--color-accent);
+    color: var(--color-shell);
+    font-size: 7px;
+    font-weight: 950;
+    letter-spacing: 1px;
+    vertical-align: 1px;
+}
+.whats-new-badge[hidden] {
+    display: none;
+}
+.changelog {
+    display: grid;
+    gap: 10px;
+}
+.changelog-release {
+    padding: 14px 15px 16px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-pixel);
+}
+.changelog-release header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 11px;
+}
+.changelog-release h4 {
+    margin: 0;
+    font-size: 13px;
+    letter-spacing: 1px;
+}
+.changelog-latest {
+    margin-left: 6px;
+    color: var(--color-green);
+    font-size: 7px;
+    letter-spacing: 1.5px;
+    vertical-align: middle;
+}
+.changelog-release time {
+    color: var(--color-text-muted);
+    font-size: 8px;
+    font-weight: 850;
+    letter-spacing: 1px;
+}
+.changelog-release ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 8px;
+}
+.changelog-release li {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 10px;
+    align-items: baseline;
+    font-size: 9px;
+    line-height: 1.55;
+}
+.changelog-type {
+    font-size: 7px;
+    font-weight: 950;
+    letter-spacing: 1.2px;
+}
+.changelog-type[data-type="new"] {
+    color: var(--color-green);
+}
+.changelog-type[data-type="improved"] {
+    color: #9cc7e0;
+}
+.changelog-type[data-type="fixed"] {
+    color: var(--color-accent);
 }
 kbd {
     padding: 1px 4px;

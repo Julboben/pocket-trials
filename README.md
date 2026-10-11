@@ -177,6 +177,33 @@ Setup on Netlify:
 
 Tables are created automatically on first use. A rider without a passkey (for example, one imported by hand from an older board) is unclaimed: the first person to create an online rider with that name takes it over, times included. Runs without a replay show on the board but can't be a ghost. Passkeys don't work on `*.netlify.app` deploy previews of the production domain (each preview host has its own), nor in `npm run dev`, which has no functions.
 
+## Releasing
+
+All work goes to `main` through pull requests. Pushing or merging to `main` never deploys: production only changes when a GitHub Release is published. Netlify skips its own builds of `main` (see `netlify.toml`), and pull requests still get deploy previews.
+
+1. **Actions → Prepare release → Run workflow**, choosing `patch`, `minor` or `major`. It bumps the version, writes player-facing notes for everything since the last `v*` tag into `CHANGELOG.md`, regenerates `js/version.js`, `js/changelog.js` and `sw.js`, runs every check, and opens (or updates) a **Release vX.Y.Z** pull request from `release/next`.
+2. Read the notes in the PR and edit `CHANGELOG.md` on that branch if needed. If something fails, push a fix to the branch, or fix it on `main` and run Prepare release again (this rebuilds the branch from `main`).
+3. Merge the PR. This creates a **draft** release `vX.Y.Z` with the same notes. Anything merged to `main` before publishing is included in it.
+4. Publish the draft under **Releases**. That creates the tag, runs the checks again and deploys to Netlify (`deploy.yml`). To redeploy or roll back, run **Actions → Deploy** with any release tag.
+
+The notes are written by Copilot CLI from the merged pull requests and commits. To pin the wording yourself, add lines to a PR description (or commit message); they are used as written and the PR's commits are not summarised:
+
+```text
+Changelog: Added a desert trail.
+Changelog: fixed: The camera no longer jumps at the start.
+Changelog: none
+```
+
+`none` leaves the PR out of the notes. Preview the notes for the next release locally with `npm run release:notes` (uses your Copilot CLI login).
+
+In the game, clicking the version number (`v0.1.2 · CHANGELOG`) under the logo opens **What's new**, which lists every release from `CHANGELOG.md`. After an update, returning players see a NEW badge next to it until they open it.
+
+One-time setup:
+
+- Repository secrets (Settings → Secrets and variables → Actions → Secrets): `NETLIFY_AUTH_TOKEN` (Netlify → User settings → Applications → Personal access tokens) and `COPILOT_GITHUB_TOKEN` (a fine-grained personal access token with the **Copilot Requests** permission). Without the Copilot token, the release PR lists the raw commit subjects instead, for you to rewrite.
+- Repository variable (same page → Variables): `NETLIFY_SITE_ID` (Netlify → Project configuration → General → Project ID).
+- Settings → Actions → General → **Allow GitHub Actions to create and approve pull requests**.
+
 ## Project structure
 
 ```text
@@ -228,6 +255,7 @@ Tables are created automatically on first use. A rider without a passkey (for ex
 │   ├── online-leaderboard.js # World leaderboard client
 │   └── terrain.js      # Heightfield and collision sampling
 ├── editor.html         # Standalone visual trail editor
+├── CHANGELOG.md        # Player-facing release notes (What's new screen and GitHub Releases)
 ├── TRAIL_FORMAT.md     # trail schema and authoring guide
 ├── PHYSICS_NEXT_STEPS.md # Physics stabilization and upgrade plan
 └── README.md           # Project documentation
@@ -272,7 +300,7 @@ Everything is rendered with the Canvas 2D API. The gameplay and illustrated How 
 
 - Terrain blocks, caves, and floating ledges
 - Back walls: scenery behind the terrain that keeps caves dark
-- Modular pixel bike, rider, wheels, and suspension. Bike models are listed in `BIKE_MODELS` in `js/drawing.js` and chosen with the `bike` option of `drawBike`, or by the rider's look (`js/cosmetics.js`). `elasto` is the default and `classic` is the original bike
+- Modular pixel bike, rider, wheels, and suspension. Bike models are listed in `BIKE_MODELS` in `js/drawing.js` and chosen with the `bike` option of `drawBike`, or by the rider's look (`js/cosmetics.js`). `elasto` is the default and `classic` is the original bike. Each model's headlight and tail light are pixel art in `BIKE_LAMPS` (`js/bike-lamps.js`); the art draws them and the lighting shines from their lenses, so a new model only needs an entry there
 - Smooth vector apples and pixel finish gates
 - Layered pixel props and particles
 - Pixel terrain with anchored pixel mountain silhouettes
@@ -285,7 +313,7 @@ The logical viewport and camera framing adapt to mobile and desktop dimensions.
 
 The game is currently a **design and physics prototype**. Its most important asset is the accumulated handling behavior: throttle response, braking, rider lean, suspension, momentum, and camera feel.
 
-`sw.js`'s file list, `js/version.js`, `css/icons.css`, the app icons and `TRAIL_AUTHORING_CONTEXT.md` (the trail spec, schema, materials and example trails bundled for trail authors) are generated: run `npm run sw`, `npm run icons` and `npm run context` after changing their sources. `npm test` fails while any of them is out of date.
+`sw.js`'s file list, `js/version.js`, `js/changelog.js` (from `CHANGELOG.md`), `css/icons.css`, the app icons and `TRAIL_AUTHORING_CONTEXT.md` (the trail spec, schema, materials and example trails bundled for trail authors) are generated: run `npm run sw`, `npm run icons` and `npm run context` after changing their sources. `npm test` fails while any of them is out of date.
 
 To test as a brand-new player on `localhost`, open the game or editor with `?sandbox`. All data then lives in that tab's `sessionStorage`: your real saves are never read or changed, online submits are skipped, and a SANDBOX badge shows at the bottom. The sandbox survives reloads, the editor, and playtests. Use `?sandbox=reset` to start fresh again and `?sandbox=off` to go back to your real data.
 

@@ -1,6 +1,7 @@
 // Regenerates the CACHE name and CORE list in sw.js from the files the game
 // and editor can load, so the precache can't drift out of sync by hand. Also
-// writes js/version.js from package.json, so the menu shows the right version.
+// writes js/version.js from package.json, so the menu shows the right version,
+// and js/changelog.js from CHANGELOG.md for the What's new screen.
 //
 //   node scripts/generate-sw-core.mjs          rewrite sw.js if needed
 //   node scripts/generate-sw-core.mjs --check  fail if sw.js is out of date (CI)
@@ -8,25 +9,49 @@ import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative } from 'node:path';
+import { readChangelog, plainText } from './lib/changelog.mjs';
 
 const check = process.argv.includes('--check');
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const swPath = join(root, 'sw.js');
 const sw = readFileSync(swPath, 'utf8');
 
-const versionPath = join(root, 'js', 'version.js');
-const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-const versionModule = `// Generated from package.json by scripts/generate-sw-core.mjs; do not edit.\nexport const VERSION = ${JSON.stringify(version)};\n`;
-let currentVersionModule = '';
-try { currentVersionModule = readFileSync(versionPath, 'utf8').replaceAll('\r\n', '\n'); } catch {}
-if (currentVersionModule !== versionModule) {
+/** Writes a generated module, or fails in --check mode when it is stale. */
+function generate(file, source, content, summary) {
+  const path = join(root, file);
+  let current = '';
+  try { current = readFileSync(path, 'utf8').replaceAll('\r\n', '\n'); } catch {}
+  if (current === content) return;
   if (check) {
-    console.error('js/version.js: out of date with package.json. Run `npm run sw` and commit the result.');
+    console.error(`${file}: out of date with ${source}. Run \`npm run sw\` and commit the result.`);
     process.exit(1);
   }
-  writeFileSync(versionPath, versionModule);
-  console.log(`js/version.js: updated to ${version}`);
+  writeFileSync(path, content);
+  console.log(`${file}: ${summary}`);
 }
+
+const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+generate('js/version.js', 'package.json',
+  `// Generated from package.json by scripts/generate-sw-core.mjs; do not edit.\nexport const VERSION = ${JSON.stringify(version)};\n`,
+  `updated to ${version}`);
+
+// The What's new screen reads the release notes from a module, so they are
+// precached with the rest of the game and work offline.
+const changelog = readChangelog();
+if (changelog.errors.length) {
+  console.error(changelog.errors.join('\n'));
+  process.exit(1);
+}
+const releases = changelog.releases.map(release => ({
+  ...release,
+  changes: release.changes.map(change => ({ ...change, text: plainText(change.text) }))
+}));
+generate('js/changelog.js', 'CHANGELOG.md', [
+  '// Generated from CHANGELOG.md by scripts/generate-sw-core.mjs; do not edit.',
+  "/** @type {{ version: string, date: string, changes: { type: 'new' | 'improved' | 'fixed', text: string }[] }[]} */",
+  `export const RELEASES = ${JSON.stringify(releases, null, 2)};`,
+  '',
+].join('\n'), `updated, ${releases.length} releases`);
 
 // Everything the two pages can request, besides the trail files (cached from
 // the catalog) and the service worker itself.

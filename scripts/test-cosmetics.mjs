@@ -9,6 +9,7 @@ import {
 } from '../js/cosmetics.js';
 import { readFileSync } from 'node:fs';
 import { BIKE_MODELS } from '../js/drawing.js';
+import { BIKE_LAMPS } from '../js/bike-lamps.js';
 import { createRagdoll } from '../js/ragdoll.js';
 
 let seed = 7;
@@ -48,6 +49,13 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
   assert.ok(lookItem('hair', 'bald')?.colorless);
   assert.equal(lookItem('gender', 'female').face.lash, true);
   for (const item of itemsForSlot('bike')) assert.ok(BIKE_MODELS.includes(item.model), `bike ${item.id} has a model`);
+  // Every bike model has a headlight and tail light for the lights to shine from.
+  for (const model of BIKE_MODELS) {
+    const lamps = BIKE_LAMPS[model];
+    assert.ok(lamps?.head && lamps?.tail, `bike model ${model} has lamps`);
+    assert.ok(lamps.head.rows.some(row => row.includes('h')), `bike model ${model} has a headlight lens`);
+    assert.ok(lamps.tail.rows.some(row => /[tT]/.test(row)), `bike model ${model} has a tail-light lens`);
+  }
   assert.equal(lookItem('helmet', 'missing'), null);
 
   // Every colour key the rider and bike art read is set for every item.

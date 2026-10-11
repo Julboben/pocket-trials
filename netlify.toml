@@ -1,2 +1,8 @@
 [functions]
   directory = "netlify/functions"
+
+# Production goes live only when a GitHub Release is published
+# (.github/workflows/deploy.yml), so Netlify skips its own builds of main.
+# Pull request previews still build as usual.
+[context.production]
+  ignore = "exit 0"

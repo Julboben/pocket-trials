@@ -1,0 +1,62 @@
+name: Deploy
+
+# Production deploys only happen here: when a GitHub Release is published, or
+# by hand from the Actions tab with any release tag (to redeploy or roll back).
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to deploy, for example v0.2.0. Use an older tag to roll back.
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check the tag matches package.json
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::Tag $TAG does not match package.json version $version."
+            exit 1
+          fi
+      - name: Install dependencies
+        run: npm ci
+      - name: Syntax check
+        run: npm run check
+      - name: Type check
+        run: npm run typecheck
+      - name: Tests
+        run: npm test
+      - name: Online API tests
+        run: npm run test:online
+      - name: Deploy to Netlify
+        id: deploy
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID }}
+        run: |
+          npx --yes netlify-cli@27 deploy --prod --no-build --dir . --functions netlify/functions --message "$TAG" --json > "$RUNNER_TEMP/deploy.json"
+          url=$(node -p "const d = require(process.env.RUNNER_TEMP + '/deploy.json'); d.url || d.deploy_url")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Deployed $TAG to $url" >> "$GITHUB_STEP_SUMMARY"

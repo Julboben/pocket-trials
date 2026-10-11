@@ -46,16 +46,18 @@ function posed() {
 
 /**
  * Paints `look`'s rider in the garage into `target`, framed by `view`:
- * 'head', 'outfit', 'bike' or 'full' (the big preview).
+ * 'head', 'outfit', 'bike' or 'full' (the big preview). `dark` turns the
+ * garage lights off, to show the bike's lights.
  * @param {HTMLCanvasElement} target
  * @param {any} look
  * @param {string} [view]
+ * @param {{ dark?: boolean }} [options]
  */
-export function drawLook(target, look, view = 'full') {
+export function drawLook(target, look, view = 'full', { dark = false } = {}) {
   const { ride, x, y, backdrop } = posed();
   const frame = SWATCH_VIEWS[view] ?? SWATCH_VIEWS.full;
   return drawFigure(target, {
-    ride, look, backdrop,
+    ride, look, backdrop, dark,
     width: frame.width, height: frame.height,
     focus: { x: x + frame.dx * ride.facing, y: y + frame.dy }, anchor: [0.5, 0.5]
   });
@@ -125,6 +127,8 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
   // The look the customizer was opened with, which Revert goes back to.
   let original = look;
   let part = LOOK_PARTS[0];
+  // Whether the big preview has the garage lights off, to show the bike's lights.
+  let dark = false;
 
   root.classList.add('look-editor');
 
@@ -150,7 +154,10 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
   preview.setAttribute('role', 'img');
   const previous = stepButton('arrow-left', -1);
   const next = stepButton('arrow-right', 1);
-  stage.append(preview, previous, next);
+  const lightSwitch = element('button', 'look-light');
+  lightSwitch.type = 'button';
+  lightSwitch.addEventListener('click', () => { dark = !dark; renderPreview(); });
+  stage.append(preview, previous, next, lightSwitch);
 
   const top = element('div', 'look-top');
   top.append(tabs, stage);
@@ -185,7 +192,7 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
   root.replaceChildren(top, styles, colors, actions);
 
   function stepButton(iconName, step) {
-    const button = element('button', 'look-step');
+    const button = element('button', `look-step ${step < 0 ? 'look-step-previous' : 'look-step-next'}`);
     button.type = 'button';
     button.append(icon(iconName));
     button.setAttribute('aria-label', step < 0 ? 'Previous style' : 'Next style');
@@ -210,8 +217,18 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
     onChange({ ...look });
   }
 
-  function paintLook(target, shown, view) {
-    paint(target, previewKey('look', view, lookKey(shown)), image => drawLook(image, shown, view));
+  function paintLook(target, shown, view, { dark = false } = {}) {
+    const key = previewKey('look', view, lookKey(shown), dark ? 'dark' : 'lit');
+    paint(target, key, image => drawLook(image, shown, view, { dark }));
+  }
+
+  function renderPreview() {
+    paintLook(preview, look, 'full', { dark });
+    const label = dark ? 'Turn the garage lights on' : 'Turn the garage lights off to see the bike\'s lights';
+    lightSwitch.replaceChildren(icon(dark ? 'headlight-off' : 'headlight'));
+    lightSwitch.setAttribute('aria-pressed', String(dark));
+    lightSwitch.setAttribute('aria-label', label);
+    lightSwitch.title = label;
   }
 
   function renderStyles() {
@@ -266,7 +283,7 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
   }
 
   function render() {
-    paintLook(preview, look, 'full');
+    renderPreview();
     const names = [['gender', look.gender], ['skin', look.skin]].map(([slot, id]) => lookItem(slot, id)?.name)
       .concat(LOOK_PARTS.map(entry => partName(look, entry)));
     preview.setAttribute('aria-label', 'Your rider: ' + names.join(', '));

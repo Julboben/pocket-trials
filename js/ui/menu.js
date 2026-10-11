@@ -6,7 +6,7 @@ import { drawScene, posedRide, parkedRide, findClimb, findJump, finishScene, fin
 import {
   loadSaveSlots, loadActiveSlot, saveActiveSlot, createSave, deleteSave, readBest,
   readLeaderboard, LEADERBOARD_SIZE, loadPreferences, savePreferences, cleanRiderName,
-  restoreOnlineSave, linkSave, readGhost, saveLook
+  restoreOnlineSave, linkSave, readGhost, saveLook, loadSeenVersion, saveSeenVersion
 } from '../storage.js';
 import { DEFAULT_LOOK, keepIdentity, lookKey, sameLook, starterLook } from '../cosmetics.js';
 import { createCustomizer, createIdentityPicker, drawLook } from './customizer.js';
@@ -18,6 +18,7 @@ import { RIDE_VERSION } from '../ride.js';
 import { normalizeAuthor, normalizeTrail, validateTrail, medalFor } from '../trail-schema.js';
 import { ACTION_LABELS, keyLabel } from '../input.js';
 import { VERSION } from '../version.js';
+import { RELEASES } from '../changelog.js';
 import {
   $, session, DEFAULT_BINDINGS, DEFAULT_PREFERENCES, sanitizePreferences,
   leaderboardTrails, trailKey, trailMarker, runTimeText, bonusUnlock, lookOwner, riderLook, lookItemHint
@@ -252,9 +253,38 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     showView('look');
   }
 
+  /** True while the Garage shows a look that differs from the saved one. */
+  function garageUnsaved() {
+    return !$('menu-look-view').hidden && Boolean(session.saveGame) && !sameLook(garage.look(), session.look);
+  }
+
+  const lookConfirm = /** @type {HTMLDialogElement} */ ($('look-confirm'));
+  const isLookConfirmOpen = () => lookConfirm.open;
+
+  // Leaving the Garage with an unsaved look asks first, so Back never silently drops it.
+  function setLookConfirm(open) {
+    if (open && !lookConfirm.open) lookConfirm.showModal();
+    else if (!open && lookConfirm.open) lookConfirm.close();
+    if (open) requestAnimationFrame(() => selectControl($('look-confirm-save')));
+  }
+
+  function closeLookConfirm() {
+    if (!isLookConfirmOpen()) return false;
+    setLookConfirm(false);
+    selectControl($('save-look'));
+    return true;
+  }
+
+  function discardGarageLook() {
+    setLookConfirm(false);
+    updateDashboard();
+    showView('home');
+  }
+
   function saveGarageLook() {
     if (!session.saveGame) return;
     const saved = saveLook(session.activeSaveSlot, trails.length, garage.look(), garageOwns);
+    setLookConfirm(false);
     if (!saved) return;
     session.saveSlots[session.activeSaveSlot] = saved;
     session.saveGame = saved;
@@ -353,6 +383,8 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   }
 
   function goBack() {
+    if (closeLookConfirm()) return;
+    if (garageUnsaved()) { setLookConfirm(true); return; }
     if (!$('menu-save-view').hidden && $('new-save-identity-step').hidden) { showSaveStep(1); return; }
     if (!$('menu-save-view').hidden && creatorFromRiders) { showView('riders'); return; }
     updateDashboard();
@@ -446,8 +478,6 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     $('menu-first-ride').classList.toggle('menu-action-primary', !resumable);
     $('menu-riders').hidden = !hasSave;
     $('menu-garage').hidden = !hasSave;
-    // Without a save, START RIDING covers logging in too.
-    $('menu-login').hidden = !onlineAvailable || !hasSave || Boolean(session.saveGame?.token);
     if (resumable) {
       $('menu-resume-detail').textContent = 'Back to ' + (session.trail?.name ?? 'the trail')
         + (session.stateBeforeMenu === 'paused' ? ' · paused' : '');
@@ -459,6 +489,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   }
 
   function controls() {
+    if (isLookConfirmOpen()) return [...$('look-confirm').querySelectorAll('button')];
     const visibleView = document.querySelector('.menu-view:not([hidden])');
     return visibleView ? [...visibleView.querySelectorAll('button:not([disabled]):not([hidden]), input:not([disabled])')] : [];
   }
@@ -484,6 +515,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   function showView(view) {
     disarmDelete();
     setTrailPicker(false);
+    setLookConfirm(false);
     $('menu-home').hidden = view !== 'home';
     $('menu-riders-view').hidden = view !== 'riders';
     $('menu-trail-view').hidden = view !== 'trails';
@@ -492,6 +524,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     $('menu-look-view').hidden = view !== 'look';
     $('menu-how-view').hidden = view !== 'how';
     $('menu-settings-view').hidden = view !== 'settings';
+    $('menu-changelog-view').hidden = view !== 'changelog';
     $('menu-scroll').scrollTop = 0;
     requestAnimationFrame(() => {
       const list = controls();
@@ -502,12 +535,72 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
 
   function open() {
     $('menu-screen').hidden = false;
+    syncWhatsNew();
     updateDashboard();
     showView('home');
     requestAnimationFrame(() => selectControl($(canResume() ? 'menu-resume' : session.saveGame ? 'menu-continue' : 'menu-first-ride')));
   }
 
-  function close() { $('menu-screen').hidden = true; }
+  function close() {
+    setLookConfirm(false);
+    $('menu-screen').hidden = true;
+  }
+
+  // Riders from an earlier version get a NEW badge on What's new until they
+  // open it. Brand-new players have nothing to catch up on.
+  function syncWhatsNew() {
+    let seen = loadSeenVersion();
+    if (seen === null && !session.saveSlots?.some(Boolean)) {
+      seen = VERSION;
+      saveSeenVersion(seen);
+    }
+    $('whats-new-badge').hidden = seen === VERSION;
+  }
+
+  const CHANGE_LABELS = { new: 'NEW', improved: 'IMPROVED', fixed: 'FIXED' };
+
+  function buildChangelog() {
+    const releases = RELEASES.map((release, index) => {
+      const article = document.createElement('article');
+      article.className = 'changelog-release';
+      const head = document.createElement('header');
+      const title = document.createElement('h4');
+      title.textContent = 'v' + release.version;
+      if (index === 0) {
+        const latest = document.createElement('span');
+        latest.className = 'changelog-latest';
+        latest.textContent = 'LATEST';
+        title.append(' ', latest);
+      }
+      const date = document.createElement('time');
+      date.dateTime = release.date;
+      date.textContent = new Date(release.date + 'T12:00:00')
+        .toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+      head.append(title, date);
+      const list = document.createElement('ul');
+      for (const change of release.changes) {
+        const item = document.createElement('li');
+        const type = document.createElement('b');
+        type.className = 'changelog-type';
+        type.dataset.type = change.type;
+        type.textContent = CHANGE_LABELS[change.type] || change.type.toUpperCase();
+        const text = document.createElement('span');
+        text.textContent = change.text;
+        item.append(type, text);
+        list.append(item);
+      }
+      article.append(head, list);
+      return article;
+    });
+    $('changelog-list').replaceChildren(...releases);
+  }
+
+  function showChangelog() {
+    buildChangelog();
+    saveSeenVersion(VERSION);
+    $('whats-new-badge').hidden = true;
+    showView('changelog');
+  }
 
   function trailSection(title, description) {
     const heading = document.createElement('div');
@@ -922,6 +1015,10 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
 
   /** Gamepad navigation while the menu is open. */
   function handlePad(action) {
+    if (!$('menu-changelog-view').hidden && (action === 'nav-up' || action === 'nav-down')) {
+      $('menu-scroll').scrollBy({ top: action === 'nav-up' ? -160 : 160, behavior: 'smooth' });
+      return;
+    }
     if (action === 'nav-up' || action === 'nav-left') {
       if (action === 'nav-left' && !$('menu-leaderboard-view').hidden && !isTrailPickerOpen()) { stepLeaderboard(-1); sounds.menuMove(); return; }
       moveSelection(-1);
@@ -939,6 +1036,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
 
   // Wiring.
   $('menu-how-to').addEventListener('click', () => showView('how'));
+  $('menu-whats-new').addEventListener('click', showChangelog);
   $('menu-editor').addEventListener('click', () => { window.location.href = './editor.html'; });
   $('menu-settings').addEventListener('click', () => { syncSettings(); showView('settings'); });
   $('menu-screen').addEventListener('keydown', event => {
@@ -954,26 +1052,28 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     }
     const direction = { ArrowUp: -1, ArrowLeft: -1, KeyW: -1, KeyA: -1, ArrowDown: 1, ArrowRight: 1, KeyS: 1, KeyD: 1 }[event.code];
     if (!direction) return;
+    // The notes only have a Back button, so the arrow keys scroll them instead.
+    if (!$('menu-changelog-view').hidden && event.code.startsWith('Arrow')) return;
     if (moveSelection(direction)) event.preventDefault();
   });
   $('menu-screen').addEventListener('focusin', event => {
     const control = event.target.closest('button, input');
-    if (!control?.closest('.menu-view')) return;
+    if (!control?.closest('.menu-view, .menu-confirm')) return;
     document.querySelectorAll('.menu-selected').forEach(item => item.classList.remove('menu-selected'));
     control.classList.add('menu-selected');
   });
   $('menu-screen').addEventListener('pointerover', event => {
     const button = event.target.closest('button');
     if (event.pointerType === 'mouse' && button && !button.contains(event.relatedTarget)) {
-      if (button.closest('.menu-view')) selectControl(button);
+      if (button.closest('.menu-view, .menu-confirm')) selectControl(button);
       sounds.menuMove();
     }
   });
   $('menu-screen').addEventListener('click', event => {
     const button = event.target.closest('button');
     if (!button) return;
-    if (button.matches('[data-menu-back]')) sounds.menuBack();
-    else if (button.id === 'create-save' || button.id === 'save-look' || button.id === 'new-save-next' || button.id === 'menu-continue' || button.id === 'menu-first-ride' || button.id === 'menu-resume' || button.id === 'menu-retry') sounds.menuConfirm();
+    if (button.matches('[data-menu-back], #look-confirm-discard, #look-confirm-cancel')) sounds.menuBack();
+    else if (button.id === 'create-save' || button.id === 'save-look' || button.id === 'look-confirm-save' || button.id === 'new-save-next' || button.id === 'menu-continue' || button.id === 'menu-first-ride' || button.id === 'menu-resume' || button.id === 'menu-retry') sounds.menuConfirm();
     else sounds.menuSelect();
   });
   $('menu-continue').addEventListener('click', () => startTrail(session.savedTrail));
@@ -984,17 +1084,21 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     showSaveCreator(Math.max(0, session.saveSlots.findIndex(save => !save)));
   });
   $('menu-riders').addEventListener('click', () => { buildSaveSlots(); setStatus('riders-status', ''); showView('riders'); });
-  $('menu-login').addEventListener('click', () => {
-    buildSaveSlots();
-    showView('riders');
-    logIn('riders-status');
-  });
   $('save-login-button').addEventListener('click', () => logIn('save-login-status'));
   $('riders-login-button').addEventListener('click', () => logIn('riders-status'));
   $('menu-garage').addEventListener('click', openGarage);
   $('save-look').addEventListener('click', saveGarageLook);
+  $('look-confirm-save').addEventListener('click', saveGarageLook);
+  $('look-confirm-discard').addEventListener('click', discardGarageLook);
+  $('look-confirm-cancel').addEventListener('click', closeLookConfirm);
+  // Escape is handled by the game; other close requests (such as a phone's
+  // back gesture) mean Keep Editing too.
+  lookConfirm.addEventListener('cancel', event => { event.preventDefault(); closeLookConfirm(); });
   $('riders-login').hidden = !onlineAvailable;
-  if (onlineAvailable) $('menu-first-ride').querySelector('small').textContent = 'New rider, or log in with your passkey';
+  if (onlineAvailable) {
+    $('menu-first-ride').querySelector('small').textContent = 'New rider, or log in with your passkey';
+    $('menu-riders').querySelector('small').textContent = 'Switch, add or log in';
+  }
   document.querySelectorAll('[data-save-mode]').forEach(button => button.addEventListener('click', () => {
     setSaveMode(button.dataset.saveMode);
     setStatus('save-status', '');

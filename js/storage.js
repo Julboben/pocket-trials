@@ -8,6 +8,7 @@ const SETTINGS_KEY = 'hjulben-settings-v1';
 const SAVE_SLOTS_KEY = 'hjulben-saves-v2';
 const ACTIVE_SLOT_KEY = 'hjulben-active-slot-v1';
 const LEADERBOARD_KEY = 'hjulben-leaderboard-v1';
+const SEEN_VERSION_KEY = 'hjulben-seen-version-v1';
 const SLOT_COUNT = 3;
 export const LEADERBOARD_SIZE = 10;
 
@@ -92,6 +93,16 @@ function persistSlots(trailCount, next) {
 
 export function savePreferences(preferences) {
   writeJson(SETTINGS_KEY, { ...preferences });
+}
+
+/** The last game version whose release notes the player has opened, or null. */
+export function loadSeenVersion() {
+  const version = readJson(SEEN_VERSION_KEY, null);
+  return typeof version === 'string' ? version : null;
+}
+
+export function saveSeenVersion(version) {
+  writeJson(SEEN_VERSION_KEY, version);
 }
 
 export function loadPreferences(defaults) {

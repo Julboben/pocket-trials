@@ -6,6 +6,7 @@ import {
 } from "./terrain.js";
 import { terrainMaterials } from "./materials.js";
 import { lookParts } from "./cosmetics.js";
+import { BIKE_LAMPS, bodyPose, lampColors, lampLenses, posedBodyPoint } from "./bike-lamps.js";
 import { FINISH_FLOWER_LIFT } from "./finish.js";
 import { APPLE_SPRITE } from "./apple.js";
 import { SPIKE_CORE, SPIKE_TIP, spikePoints } from "./spike.js";
@@ -1650,6 +1651,23 @@ const RIDER_TORSO = [
 export const BIKE_MODELS = ["elasto", "classic"];
 export const DEFAULT_BIKE = "elasto";
 
+/** The bike model a look rides (or `bike`, when given), falling back to the default. */
+const bikeModel = (look, bike = null) => {
+  const model = bike ?? lookParts(look).bike;
+  return BIKE_MODELS.includes(model) ? model : DEFAULT_BIKE;
+};
+
+/**
+ * Where the bike's headlight and tail light are, in the frame's units (facing
+ * right, centred between the axles), with the suspension applied as drawBike
+ * draws it. See bike-lamps.js.
+ */
+export function bikeLampPoints({ rear, front, facing = 1, look = null, bike = null }) {
+  const lenses = lampLenses(BIKE_LAMPS[bikeModel(look, bike)]);
+  const pose = bodyPose(rear, front, facing);
+  return { head: posedBodyPoint(lenses.head, pose), tail: posedBodyPoint(lenses.tail, pose) };
+}
+
 const ELASTO_COLORS = {
   green: "#3aa63c",
   greenLight: "#8fdc6e",
@@ -1673,7 +1691,7 @@ const ELASTO_COLORS = {
 // bike paint; see drawElastoFrame for the other keys.
 const ELASTO_TAIL = [
   "  LL               ",
-  "  BGLLLLLL         ",
+  "  GGLLLLLL         ",
   "   DWWRRRGGkkkkkkkk",
   "     DWWRRGKKKKKKKK",
   "   KSSSSDDWWWWW    ",
@@ -4542,7 +4560,6 @@ export function createGameArt(ctx) {
     bodyPoint,
     bodyRect,
     bodyPath,
-    brakePressure,
   }) {
     const backMount = bodyPoint(-9, -15),
       frontMount = bodyPoint(12, -23);
@@ -4563,8 +4580,6 @@ export function createGameArt(ctx) {
     // Seat under the rider: a lit top over a dark base, rounded at the tail.
     bodyRect(-17, -24, 18, 2, "#3e5750");
     bodyRect(-19, -22, 20, 2, "#263a35");
-    bodyRect(-23, -24, 4, 4, brakePressure > 0.08 ? "#ff6045" : "#713c35");
-    if (brakePressure > 0.6) bodyRect(-23, -24, 2, 2, "#ffd0a2");
     bodyPath(
       [
         [10, -23],
@@ -4587,7 +4602,6 @@ export function createGameArt(ctx) {
     bodyPoint,
     bodyRows,
     bodyPath,
-    brakePressure,
   }) {
     const c = ELASTO_COLORS;
     const colors = {
@@ -4604,12 +4618,6 @@ export function createGameArt(ctx) {
       K: c.black,
       k: c.tread,
       R: c.red,
-      B:
-        brakePressure > 0.6
-          ? "#ffd0a2"
-          : brakePressure > 0.08
-            ? "#ff6045"
-            : "#713c35",
     };
     const pivot = bodyPoint(-4, -6),
       shockTop = bodyPoint(-6, -20),
@@ -4695,6 +4703,7 @@ export function createGameArt(ctx) {
     flipVisual = 1,
     facing = 1,
     brakePressure = 0,
+    lights = false,
     state = "ready",
     leanVisual = 0,
     look = null,
@@ -4702,7 +4711,8 @@ export function createGameArt(ctx) {
     dirt = null,
   }) {
     const parts = lookParts(look);
-    const model = BIKES[bike ?? parts.bike] || BIKES[DEFAULT_BIKE];
+    const modelId = bikeModel(look, bike);
+    const model = BIKES[modelId];
     model.wheel(rear, dirt?.rear);
     model.wheel(front, dirt?.front);
     const pixelAngle = Math.round(angle / (TAU / 32)) * (TAU / 32);
@@ -4725,12 +4735,9 @@ export function createGameArt(ctx) {
     );
 
     const half = length / 2;
-    const backCompression =
-      facing > 0 ? rear.compression || 0 : front.compression || 0;
-    const frontCompression =
-      facing > 0 ? front.compression || 0 : rear.compression || 0;
-    const bodyDrop = (backCompression + frontCompression) * 0.4;
-    const bodyPitch = (frontCompression - backCompression) * 0.0096;
+    const pose = bodyPose(rear, front, facing);
+    const bodyDrop = pose.drop;
+    const bodyPitch = pose.pitch;
     const pc = Math.cos(bodyPitch),
       ps = Math.sin(bodyPitch);
     const bodyPoint = (x, y) => [x * pc - y * ps, x * ps + y * pc + bodyDrop];
@@ -4779,8 +4786,11 @@ export function createGameArt(ctx) {
       bodyRect,
       bodyRows,
       bodyPath,
-      brakePressure,
     });
+    const lamps = BIKE_LAMPS[modelId];
+    const lampPaint = lampColors(parts.bikeColors, { lights, brakePressure });
+    bodyRows(lamps.head.x, lamps.head.y, lamps.head.rows, lampPaint);
+    bodyRows(lamps.tail.x, lamps.tail.y, lamps.tail.rows, lampPaint);
 
     if (state !== "ragdoll") {
       const shift = Math.round(leanVisual * 4.5) * 2;

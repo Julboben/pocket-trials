@@ -92,17 +92,18 @@ export function drawScene(target, {
  * @param {HTMLCanvasElement} target
  * @param {{
  *   ride: any, look?: import('./cosmetics.js').Look | null, backdrop?: ((ctx: CanvasRenderingContext2D, view: { x: number, y: number, width: number, height: number }) => void) | null,
- *   width: number, height: number, scale?: number, focus?: { x: number, y: number }, anchor?: [number, number]
+ *   width: number, height: number, scale?: number, focus?: { x: number, y: number }, anchor?: [number, number],
+ *   dark?: boolean
  * }} options
  */
-export function drawFigure(target, { ride, look = null, backdrop = null, width, height, scale = 4, focus = null, anchor = [0.5, 0.72] }) {
+export function drawFigure(target, { ride, look = null, backdrop = null, width, height, scale = 4, focus = null, anchor = [0.5, 0.72], dark = false }) {
   const { canvas, renderer } = shared();
   renderer.setViewport(width, height, scale);
   renderer.reset(ride.trail, ride.facing);
   renderer.settleHair(ride, look);
   const point = focus || { x: (ride.rear.x + ride.front.x) / 2, y: (ride.rear.y + ride.front.y) / 2 };
   const view = { x: point.x - renderer.width * anchor[0], y: point.y - renderer.height * anchor[1] };
-  renderer.drawFigure({ ride, look, view, backdrop });
+  renderer.drawFigure({ ride, look, view, backdrop, dark });
   target.width = canvas.width;
   target.height = canvas.height;
   const context = target.getContext('2d');
