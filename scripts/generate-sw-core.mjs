@@ -1,7 +1,7 @@
 // Regenerates the CACHE name and CORE list in sw.js from the files the game
 // and editor can load, so the precache can't drift out of sync by hand. Also
 // writes js/version.js from package.json, so the menu shows the right version,
-// and js/changelog.js from changelog.json for the What's new screen.
+// and js/changelog.js from CHANGELOG.md for the What's new screen.
 //
 //   node scripts/generate-sw-core.mjs          rewrite sw.js if needed
 //   node scripts/generate-sw-core.mjs --check  fail if sw.js is out of date (CI)
@@ -9,6 +9,7 @@ import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative } from 'node:path';
+import { readChangelog, plainText } from './lib/changelog.mjs';
 
 const check = process.argv.includes('--check');
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -36,9 +37,17 @@ generate('js/version.js', 'package.json',
 
 // The What's new screen reads the release notes from a module, so they are
 // precached with the rest of the game and work offline.
-const { releases } = JSON.parse(readFileSync(join(root, 'changelog.json'), 'utf8'));
-generate('js/changelog.js', 'changelog.json', [
-  '// Generated from changelog.json by scripts/generate-sw-core.mjs; do not edit.',
+const changelog = readChangelog();
+if (changelog.errors.length) {
+  console.error(changelog.errors.join('\n'));
+  process.exit(1);
+}
+const releases = changelog.releases.map(release => ({
+  ...release,
+  changes: release.changes.map(change => ({ ...change, text: plainText(change.text) }))
+}));
+generate('js/changelog.js', 'CHANGELOG.md', [
+  '// Generated from CHANGELOG.md by scripts/generate-sw-core.mjs; do not edit.',
   "/** @type {{ version: string, date: string, changes: { type: 'new' | 'improved' | 'fixed', text: string }[] }[]} */",
   `export const RELEASES = ${JSON.stringify(releases, null, 2)};`,
   '',

@@ -1,0 +1,53 @@
+# Changelog
+
+Player-facing release notes. The game shows them under **What's new**, and each GitHub Release uses its section.
+
+## 0.1.2 — 2026-10-10
+
+### New
+- The Garage: pick your rider, helmet, outfit and bike, and choose their colours.
+- Unlock new gear by finishing trails and earning gold medals, like the Motocross helmet and the original Pocket Classic bike.
+- New bike graphics.
+- New desert props.
+- Pick any trail straight from a list on the leaderboard.
+- Editor: rotate blocks and props.
+
+### Improved
+- Redrawn rider with better hands, head and riding pose.
+- Clearer menu order.
+- Editor: easier selection.
+
+## 0.1.1 — 2026-10-08
+
+### New
+- Water to splash through, with new waterside props.
+- Glass blocks that shatter if you hit them hard enough.
+- Weather: fog, rain that hits the ground, thunderstorms and snow, all with their own sounds.
+- New engine sounds that follow the throttle.
+- Bonus trails, plus new trails including The Orchard.
+- Apple trees, squirrels, crates and wheelbarrows along the trails.
+- A new stone material. Rock is now called concrete.
+- Trail previews and a better How to Play guide.
+- Editor: autosave, a new finish object, and searchable prop and trail pickers.
+
+### Improved
+- Crashes feel more physical: better ragdoll, and your helmet can come off.
+- Apples and spikes now react to your actual rider, not a rough box.
+- Nicer clouds, sun, moon, hills and wheels.
+- Clearer rider name rules and a smoother login.
+
+### Fixed
+- Engine sound at the finish, flickering ghosts, rain and snow particles, and the camera at the left edge of a trail.
+
+## 0.1.0 — 2026-10-03
+
+### New
+- Welcome to Hjulben! Ride physics-driven trials bikes over hand-built trails, using momentum, balance and lean.
+- Flips, apples to collect, spikes to avoid and medals to earn.
+- Online riders: sign in with a passkey, back up your progress, and race on a server-checked world leaderboard.
+- Race the world-best ghost on every trail.
+- Offline mode, so you can play without an account or internet connection.
+- Dynamic lighting with time of day, shadows and parallax backdrops.
+- Touch controls for phones and tablets.
+- Trail editor with playtesting, snapping, copy and paste, and cut, scale and circle tools.
+- Import custom trails from a file.

@@ -2,10 +2,10 @@
 //
 //   node scripts/release.mjs prepare <patch|minor|major> [--dry-run]
 //       Bumps the version, writes release notes for everything since the last
-//       v* tag into changelog.json, and regenerates js/version.js, js/changelog.js
+//       v* tag into CHANGELOG.md, and regenerates js/version.js, js/changelog.js
 //       and sw.js. --dry-run only prints the notes.
 //   node scripts/release.mjs notes [version]
-//       Prints a release's notes from changelog.json as Markdown.
+//       Prints a release's notes from CHANGELOG.md.
 //
 // Notes come from merged PRs and commits. A PR or commit description can pin
 // its own lines, which are used as written instead of being summarised:
@@ -183,11 +183,11 @@ function fallbackNotes({ pinned, pulls, commits }) {
   ];
 }
 
-/** Game changes first, editor changes last, each grouped as new, improved, fixed. */
+/** Grouped as new, improved, fixed, with editor changes last in each group. */
 const sortNotes = notes => notes
   .map((note, i) => ({ note, i }))
-  .sort((a, b) => (/^editor:/i.test(a.note.text) - /^editor:/i.test(b.note.text))
-    || (CHANGE_TYPES.indexOf(a.note.type) - CHANGE_TYPES.indexOf(b.note.type)) || a.i - b.i)
+  .sort((a, b) => (CHANGE_TYPES.indexOf(a.note.type) - CHANGE_TYPES.indexOf(b.note.type))
+    || (/^editor:/i.test(a.note.text) - /^editor:/i.test(b.note.text)) || a.i - b.i)
   .map(({ note }) => note);
 
 function output(name, value) {
@@ -215,6 +215,7 @@ async function prepare(kind, dryRun) {
   const token = githubToken();
   const changes = await collectChanges(tag, token);
   const changelog = readChangelog();
+  if (changelog.errors.length) fail(changelog.errors.join('\n'));
   const previous = changelog.releases.find(r => r.version !== version);
   let notes, ai = true;
   if (!changes.pinned.length && !changes.pulls.length && !changes.commits.length) {
@@ -244,7 +245,7 @@ async function prepare(kind, dryRun) {
 function notes(version) {
   const wanted = version || JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')).version;
   const release = readChangelog().releases.find(r => r.version === wanted.replace(/^v/, ''));
-  if (!release) fail(`changelog.json has no release ${wanted}.`);
+  if (!release) fail(`CHANGELOG.md has no release ${wanted}.`);
   console.log(releaseMarkdown(release));
 }
 

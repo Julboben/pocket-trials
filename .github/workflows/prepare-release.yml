@@ -67,10 +67,10 @@ jobs:
 
           {
             if [ "$AI" = "true" ]; then
-              echo "> Release notes written by Copilot. Edit \`changelog.json\` on this branch if anything is off."
+              echo "> Release notes written by Copilot. Edit \`CHANGELOG.md\` on this branch if anything is off."
             else
               echo "> [!WARNING]"
-              echo "> Copilot couldn't write the notes (see the workflow log), so these are the raw commit subjects. Edit \`changelog.json\` on this branch before merging."
+              echo "> Copilot couldn't write the notes (see the workflow log), so these are the raw commit subjects. Edit \`CHANGELOG.md\` on this branch before merging."
             fi
             echo
             node scripts/release.mjs notes "$VERSION"

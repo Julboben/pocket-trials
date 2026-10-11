@@ -54,7 +54,7 @@ jobs:
         id: deploy
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID }}
         run: |
           npx --yes netlify-cli@27 deploy --prod --no-build --dir . --functions netlify/functions --message "$TAG" --json > "$RUNNER_TEMP/deploy.json"
           url=$(node -p "const d = require(process.env.RUNNER_TEMP + '/deploy.json'); d.url || d.deploy_url")

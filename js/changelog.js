@@ -1,4 +1,4 @@
-// Generated from changelog.json by scripts/generate-sw-core.mjs; do not edit.
+// Generated from CHANGELOG.md by scripts/generate-sw-core.mjs; do not edit.
 /** @type {{ version: string, date: string, changes: { type: 'new' | 'improved' | 'fixed', text: string }[] }[]} */
 export const RELEASES = [
   {
@@ -26,16 +26,16 @@ export const RELEASES = [
         "text": "Pick any trail straight from a list on the leaderboard."
       },
       {
+        "type": "new",
+        "text": "Editor: rotate blocks and props."
+      },
+      {
         "type": "improved",
         "text": "Redrawn rider with better hands, head and riding pose."
       },
       {
         "type": "improved",
         "text": "Clearer menu order."
-      },
-      {
-        "type": "new",
-        "text": "Editor: rotate blocks and props."
       },
       {
         "type": "improved",
@@ -80,6 +80,10 @@ export const RELEASES = [
         "text": "Trail previews and a better How to Play guide."
       },
       {
+        "type": "new",
+        "text": "Editor: autosave, a new finish object, and searchable prop and trail pickers."
+      },
+      {
         "type": "improved",
         "text": "Crashes feel more physical: better ragdoll, and your helmet can come off."
       },
@@ -94,10 +98,6 @@ export const RELEASES = [
       {
         "type": "improved",
         "text": "Clearer rider name rules and a smoother login."
-      },
-      {
-        "type": "new",
-        "text": "Editor: autosave, a new finish object, and searchable prop and trail pickers."
       },
       {
         "type": "fixed",
