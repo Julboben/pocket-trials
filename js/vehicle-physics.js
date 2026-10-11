@@ -526,9 +526,16 @@ function forwardLeanWeightShift(vehicle, facing, leanControl) {
 
 // A braked wheel that gripped last step is held where it stood, within one
 // step of tire friction. Pushing a wheel out of a slope moves it a little
-// downhill each step, which velocity friction alone cannot undo.
+// downhill each step, which velocity friction alone cannot undo. Only a wheel
+// the bike stands on is held: a locked wheel pinned against an overhang would
+// clamp a hanging bike in place instead of letting it swing.
 function holdBrakedWheel(point) {
-  if (!point.brakeHold || !point.contact) return;
+  if (
+    !point.brakeHold ||
+    !point.contact ||
+    point.contact.ny >= CONTACT_GROUNDED_NORMAL
+  )
+    return;
   const tx = -point.contact.ny,
     ty = point.contact.nx;
   const drift = (point.x - point.holdX) * tx + (point.y - point.holdY) * ty;
@@ -1059,8 +1066,9 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
   const motorReactionTorque =
     -angularDrive * wheelMoment * XPBD_MOTOR_REACTION_SCALE;
   const diveWheel = facing > 0 ? front : rear;
+  const rollingForward = (rollingSpin(rear) + rollingSpin(front)) * facing > 0;
   const brakingWheelAcceleration =
-    braking && diveWheel.grounded
+    braking && diveWheel.grounded && rollingForward
       ? -(rollingSpin(rear) + rollingSpin(front)) *
         XPBD_BRAKE_RATE *
         brakePressure

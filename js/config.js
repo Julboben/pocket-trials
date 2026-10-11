@@ -93,8 +93,9 @@ export const XPBD_UPHILL_FORWARD_LEAN_REDUCTION = 1.4;
 // lifted: forward lean is back to full strength for pulling it down.
 export const XPBD_UPHILL_FORWARD_LEAN_FULL_TILT = 12 * Math.PI / 180;
 // Brake dive follows travel speed, capped at about twice full-lean pitch; the
-// front suspension dives and takes up part of it.
-export const XPBD_BRAKE_REACTION_SCALE = 1.3;
+// front suspension dives and takes up part of it. It only acts while rolling
+// forward: braking a bike that rolls back must not lift its front wheel.
+export const XPBD_BRAKE_REACTION_SCALE = 1;
 export const XPBD_BRAKE_REACTION_LIMIT = 60;
 export const XPBD_BRAKE_RATE = 64;
 // Most wheel spin (rad/s²) a fully held brake removes. Enough to lock a

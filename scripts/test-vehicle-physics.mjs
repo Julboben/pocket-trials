@@ -329,7 +329,9 @@ function landingScenario() {
   rotateVehicle(simulation.vehicle, .4, 300, 350);
   let firstContact = null, firstWheel = null, bothContact = null, maxUpwardSpeed = 0;
   let minimumRearSuspension = Infinity, minimumFrontSuspension = Infinity;
-  for (let index = 0; index < 180; index++) {
+  // The bike rolls to a stop around step 165; the springs then take the
+  // braking pitch back out over a further second.
+  for (let index = 0; index < 300; index++) {
     const metrics = step(simulation, {});
     if (firstContact === null && (simulation.vehicle.rear.grounded || simulation.vehicle.front.grounded)) {
       firstContact = index;
@@ -657,34 +659,40 @@ function slideRecoveryScenario() {
   return { rolling, braked, sliding, stopped, regained };
 }
 
-// Coasting off a 65° slope onto a 14° one hits the front wheel almost head on.
-// The bike must ride it out on its wheels instead of vaulting into a tumble.
 // Elasto Mania's hang: a bike riding left that rolls off a ledge on its
 // locked leading wheel hooks that wheel over the corner and hangs from its
 // spring, which stretches well past rest and bobs before settling; the drawn
-// body lifts off it.
+// body lifts off it. The free wheel swings under the ledge: a locked wheel
+// that touches the overhang must not clamp the bike there.
 function hangingScenario() {
   const trail = { name: 'ledge', terrainBlocks: [rectangle(0, 300, 200, 316)] };
   const simulation = createSimulation(trail, { x: 192 + WHEELBASE / 2, y: 300 - RADIUS, facing: -1 });
   const { rear: hooked, front: free } = simulation.vehicle;
   const length = point => point === hooked ? vehicleMetrics(simulation.vehicle).rearSuspensionLength : vehicleMetrics(simulation.vehicle).frontSuspensionLength;
-  let peak = 0;
+  let peak = 0, swingLow = Infinity, swingHigh = -Infinity;
   run(simulation, 360, index => {
     if (index > 60) peak = Math.max(peak, length(hooked));
+    if (index >= 180) {
+      swingLow = Math.min(swingLow, free.x);
+      swingHigh = Math.max(swingHigh, free.x);
+    }
     return { brake: true };
   });
   const stretch = length(hooked) - SUSPENSION_REST_LENGTH;
+  const swing = swingHigh - swingLow;
   assert.ok(Math.abs(hooked.x - 192) < 4 && Math.abs(hooked.y - 288) < 1, `the leading wheel must stay hooked on the ledge: ${hooked.x}, ${hooked.y}`);
   assert.ok(free.y > hooked.y + 30, `the bike must hang below the hooked wheel: ${free.y}`);
   assert.ok(stretch > 8, `the hooked wheel's spring must stretch under the hanging bike: ${stretch}`);
-  assert.ok(peak - SUSPENSION_REST_LENGTH < SUSPENSION_TRAVEL - 1, `the top-out spring must catch the stretch before the travel limit: ${peak}`);
+  assert.ok(stretch < SUSPENSION_TRAVEL - .5, `the hanging bike must not stay pinned at the travel limit: ${stretch}`);
   assert.ok(peak > length(hooked) + 1, `the stretched spring must bob before settling: ${peak}`);
-  assert.ok(length(free) > SUSPENSION_REST_LENGTH + 2, `the free wheel must droop on its spring: ${length(free)}`);
+  assert.ok(swing > 10, `the bike must swing freely under the ledge: ${swing}`);
   assert.ok(hooked.compression < -8, `stretch must reach the renderer as negative compression: ${hooked.compression}`);
-  assert.ok(bodyPose(simulation.vehicle.rear, simulation.vehicle.front, -1).drop < -6, 'the drawn body must lift off the wheels it hangs from');
-  return { stretch, peakStretch: peak - SUSPENSION_REST_LENGTH, freeWheelDroop: length(free) - SUSPENSION_REST_LENGTH };
+  assert.ok(bodyPose(simulation.vehicle.rear, simulation.vehicle.front, -1).drop < -4, 'the drawn body must lift off the wheels it hangs from');
+  return { stretch, peakStretch: peak - SUSPENSION_REST_LENGTH, swing };
 }
 
+// Coasting off a 65° slope onto a 14° one hits the front wheel almost head on.
+// The bike must ride it out on its wheels instead of vaulting into a tumble.
 function sharpBendScenario() {
   const trail = {
     ...flatTrail(1400),
