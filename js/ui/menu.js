@@ -6,7 +6,7 @@ import { drawScene, posedRide, parkedRide, findClimb, findJump, finishScene, fin
 import {
   loadSaveSlots, loadActiveSlot, saveActiveSlot, createSave, deleteSave, readBest,
   readLeaderboard, LEADERBOARD_SIZE, loadPreferences, savePreferences, cleanRiderName,
-  restoreOnlineSave, linkSave, readGhost, saveLook
+  restoreOnlineSave, linkSave, readGhost, saveLook, loadSeenVersion, saveSeenVersion
 } from '../storage.js';
 import { DEFAULT_LOOK, keepIdentity, lookKey, sameLook, starterLook } from '../cosmetics.js';
 import { createCustomizer, createIdentityPicker, drawLook } from './customizer.js';
@@ -18,6 +18,7 @@ import { RIDE_VERSION } from '../ride.js';
 import { normalizeAuthor, normalizeTrail, validateTrail, medalFor } from '../trail-schema.js';
 import { ACTION_LABELS, keyLabel } from '../input.js';
 import { VERSION } from '../version.js';
+import { RELEASES } from '../changelog.js';
 import {
   $, session, DEFAULT_BINDINGS, DEFAULT_PREFERENCES, sanitizePreferences,
   leaderboardTrails, trailKey, trailMarker, runTimeText, bonusUnlock, lookOwner, riderLook, lookItemHint
@@ -523,6 +524,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     $('menu-look-view').hidden = view !== 'look';
     $('menu-how-view').hidden = view !== 'how';
     $('menu-settings-view').hidden = view !== 'settings';
+    $('menu-changelog-view').hidden = view !== 'changelog';
     $('menu-scroll').scrollTop = 0;
     requestAnimationFrame(() => {
       const list = controls();
@@ -533,6 +535,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
 
   function open() {
     $('menu-screen').hidden = false;
+    syncWhatsNew();
     updateDashboard();
     showView('home');
     requestAnimationFrame(() => selectControl($(canResume() ? 'menu-resume' : session.saveGame ? 'menu-continue' : 'menu-first-ride')));
@@ -541,6 +544,62 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   function close() {
     setLookConfirm(false);
     $('menu-screen').hidden = true;
+  }
+
+  // Riders from an earlier version get a NEW badge on What's new until they
+  // open it. Brand-new players have nothing to catch up on.
+  function syncWhatsNew() {
+    let seen = loadSeenVersion();
+    if (seen === null && !session.saveSlots?.some(Boolean)) {
+      seen = VERSION;
+      saveSeenVersion(seen);
+    }
+    $('whats-new-badge').hidden = seen === VERSION;
+  }
+
+  const CHANGE_LABELS = { new: 'NEW', improved: 'IMPROVED', fixed: 'FIXED' };
+
+  function buildChangelog() {
+    const releases = RELEASES.map((release, index) => {
+      const article = document.createElement('article');
+      article.className = 'changelog-release';
+      const head = document.createElement('header');
+      const title = document.createElement('h4');
+      title.textContent = 'v' + release.version;
+      if (index === 0) {
+        const latest = document.createElement('span');
+        latest.className = 'changelog-latest';
+        latest.textContent = 'LATEST';
+        title.append(' ', latest);
+      }
+      const date = document.createElement('time');
+      date.dateTime = release.date;
+      date.textContent = new Date(release.date + 'T12:00:00')
+        .toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+      head.append(title, date);
+      const list = document.createElement('ul');
+      for (const change of release.changes) {
+        const item = document.createElement('li');
+        const type = document.createElement('b');
+        type.className = 'changelog-type';
+        type.dataset.type = change.type;
+        type.textContent = CHANGE_LABELS[change.type] || change.type.toUpperCase();
+        const text = document.createElement('span');
+        text.textContent = change.text;
+        item.append(type, text);
+        list.append(item);
+      }
+      article.append(head, list);
+      return article;
+    });
+    $('changelog-list').replaceChildren(...releases);
+  }
+
+  function showChangelog() {
+    buildChangelog();
+    saveSeenVersion(VERSION);
+    $('whats-new-badge').hidden = true;
+    showView('changelog');
   }
 
   function trailSection(title, description) {
@@ -956,6 +1015,10 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
 
   /** Gamepad navigation while the menu is open. */
   function handlePad(action) {
+    if (!$('menu-changelog-view').hidden && (action === 'nav-up' || action === 'nav-down')) {
+      $('menu-scroll').scrollBy({ top: action === 'nav-up' ? -160 : 160, behavior: 'smooth' });
+      return;
+    }
     if (action === 'nav-up' || action === 'nav-left') {
       if (action === 'nav-left' && !$('menu-leaderboard-view').hidden && !isTrailPickerOpen()) { stepLeaderboard(-1); sounds.menuMove(); return; }
       moveSelection(-1);
@@ -973,6 +1036,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
 
   // Wiring.
   $('menu-how-to').addEventListener('click', () => showView('how'));
+  $('menu-whats-new').addEventListener('click', showChangelog);
   $('menu-editor').addEventListener('click', () => { window.location.href = './editor.html'; });
   $('menu-settings').addEventListener('click', () => { syncSettings(); showView('settings'); });
   $('menu-screen').addEventListener('keydown', event => {
@@ -988,6 +1052,8 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     }
     const direction = { ArrowUp: -1, ArrowLeft: -1, KeyW: -1, KeyA: -1, ArrowDown: 1, ArrowRight: 1, KeyS: 1, KeyD: 1 }[event.code];
     if (!direction) return;
+    // The notes only have a Back button, so the arrow keys scroll them instead.
+    if (!$('menu-changelog-view').hidden && event.code.startsWith('Arrow')) return;
     if (moveSelection(direction)) event.preventDefault();
   });
   $('menu-screen').addEventListener('focusin', event => {

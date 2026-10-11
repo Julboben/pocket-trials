@@ -1,0 +1,88 @@
+name: Prepare release
+
+# Run from the Actions tab. Bumps the version, writes the release notes with
+# Copilot CLI and opens (or updates) the "Release vX.Y.Z" pull request.
+# Merging that PR does not deploy: it creates a draft GitHub Release, and
+# publishing the draft deploys to Netlify (see deploy.yml).
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump
+        type: choice
+        options: [patch, minor, major]
+        default: minor
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Copilot CLI
+        run: npm install -g @github/copilot
+      - name: Bump version and write release notes
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+        run: node scripts/release.mjs prepare "${{ inputs.bump }}"
+      # Pull requests opened by this workflow don't start CI, so check here.
+      - name: Syntax check
+        run: npm run check
+      - name: Type check
+        run: npm run typecheck
+      - name: Tests
+        run: npm test
+      - name: Online API tests
+        run: npm run test:online
+      - name: Open or update the release pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.release.outputs.version }}
+          AI: ${{ steps.release.outputs.ai }}
+        run: |
+          branch=release/next
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$branch"
+          git add -A
+          git commit -m "Release v$VERSION"
+          git push --force origin "$branch"
+
+          {
+            if [ "$AI" = "true" ]; then
+              echo "> Release notes written by Copilot. Edit \`changelog.json\` on this branch if anything is off."
+            else
+              echo "> [!WARNING]"
+              echo "> Copilot couldn't write the notes (see the workflow log), so these are the raw commit subjects. Edit \`changelog.json\` on this branch before merging."
+            fi
+            echo
+            node scripts/release.mjs notes "$VERSION"
+            echo
+            echo "---"
+            echo "Merging this does **not** deploy. It creates a draft release **v$VERSION**; publish it under [Releases](../releases) to go live."
+            echo
+            echo "Running **Prepare release** again rebuilds this branch from \`main\` and replaces any commits pushed to it."
+          } > "$RUNNER_TEMP/body.md"
+
+          if [ "$(gh pr view "$branch" --json state -q .state 2>/dev/null)" = "OPEN" ]; then
+            gh pr edit "$branch" --title "Release v$VERSION" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh pr create --base main --head "$branch" --title "Release v$VERSION" --body-file "$RUNNER_TEMP/body.md"
+          fi

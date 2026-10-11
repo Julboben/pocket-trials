@@ -1897,6 +1897,86 @@ h2 {
     font-size: 9px;
     line-height: 1.55;
 }
+.menu-whats-new span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.whats-new-badge {
+    padding: 2px 5px;
+    background: var(--color-accent);
+    color: var(--color-shell);
+    font-size: 7px;
+    font-weight: 950;
+    letter-spacing: 1px;
+}
+.whats-new-badge[hidden] {
+    display: none;
+}
+.changelog {
+    display: grid;
+    gap: 10px;
+}
+.changelog-release {
+    padding: 14px 15px 16px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-pixel);
+}
+.changelog-release header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 11px;
+}
+.changelog-release h4 {
+    margin: 0;
+    font-size: 13px;
+    letter-spacing: 1px;
+}
+.changelog-latest {
+    margin-left: 6px;
+    color: var(--color-green);
+    font-size: 7px;
+    letter-spacing: 1.5px;
+    vertical-align: middle;
+}
+.changelog-release time {
+    color: var(--color-text-muted);
+    font-size: 8px;
+    font-weight: 850;
+    letter-spacing: 1px;
+}
+.changelog-release ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 8px;
+}
+.changelog-release li {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 10px;
+    align-items: baseline;
+    font-size: 9px;
+    line-height: 1.55;
+}
+.changelog-type {
+    font-size: 7px;
+    font-weight: 950;
+    letter-spacing: 1.2px;
+}
+.changelog-type[data-type="new"] {
+    color: var(--color-green);
+}
+.changelog-type[data-type="improved"] {
+    color: #9cc7e0;
+}
+.changelog-type[data-type="fixed"] {
+    color: var(--color-accent);
+}
 kbd {
     padding: 1px 4px;
     border: 1px solid #607074;
