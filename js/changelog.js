@@ -7,7 +7,7 @@ export const RELEASES = [
     "changes": [
       {
         "type": "new",
-        "text": "What's new screen: a new button on the dashboard lists every release, with a NEW badge to show returning players that there has been an update."
+        "text": "What's new screen: tap the version number on the main menu to see what’s new in each update. A NEW badge shows when there’s been an update since your last visit."
       },
       {
         "type": "improved",
