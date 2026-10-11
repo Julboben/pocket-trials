@@ -1,6 +1,6 @@
 # Hjulben – Props Plan
 
-A plan for the props to add to each level theme, plus guidelines for making them feel alive.
+A plan for the props to add to each level theme, plus guidelines for making them feel alive. See [PROPS_GUIDE.md](PROPS_GUIDE.md) for how to build them.
 
 ---
 
