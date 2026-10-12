@@ -199,7 +199,8 @@ canvas {
 }
 .game-actions {
     position: absolute;
-    z-index: 4;
+    /* Above the pause overlay, so the menu can be opened while paused. */
+    z-index: 7;
     top: 14px;
     right: 14px;
     display: flex;
