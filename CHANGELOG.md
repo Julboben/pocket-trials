@@ -2,6 +2,16 @@
 
 Player-facing release notes. The game shows them under **What's new**, and each GitHub Release uses its section.
 
+## 0.3.1 — 2026-10-12
+
+### New
+- Meet Coda the Corgi! Coda is now part of the game and can be found on trails.
+- The changelog now has a Heads up section for important news you need to know about.
+
+### Improved
+- Your rider customisations now sync between desktop and mobile without needing to log in again.
+- Menus no longer bounce or trigger pull-to-refresh when you scroll on mobile.
+
 ## 0.3.0 — 2026-10-11
 
 ### Heads up
