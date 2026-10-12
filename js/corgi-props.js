@@ -399,11 +399,11 @@ const SNIFF_AT = { x: 10, y: -24 };
 // collar over the head.
 const BODY = [
   "..................",
-  ".kkkkkkkkkkkTWWWWH",
-  ".KKKKKKKKKKKTwWWWH",
-  ".KKKKKKKKKKTTwWWWH",
-  ".tKKKKKKKKTTTwWWWW",
-  "WtTTTTTTTTTTTTwWWW",
+  ".kkkkkkkkkkkkWWWWH",
+  ".KKKKKKKKKKKKwWWWH",
+  ".KKKKKKKKKKKKwWWWH",
+  ".tKKKKKKKKKKTwWWWW",
+  "WtTTTKKKKKKTTTwWWW",
   "WWwTTTTTTTTTTTwWWW",
   ".wwwwWWWWWWWWWWww.",
 ];
@@ -413,10 +413,10 @@ const BODY_SIT = [
   "................",
   ".........wWWWWH.",
   "........wWWWWWWH",
-  ".......TwWWWWWWH",
-  "......kTTwWWWWWW",
-  ".....kKKTTTwWWWW",
-  "....kKKKKTTTwWWW",
+  ".......kwWWWWWWH",
+  "......kkkwWWWWWW",
+  ".....kKKKKKwWWWW",
+  "....kKKKKKKKwWWW",
   "...kKKKKKTTTTWW.",
   "..kKKKKKTTTTTTW.",
   "..KKKTTTTLLTTww.",
@@ -471,9 +471,9 @@ function drawCollar({ pixelRect }, x, y, down = false) {
 // its place in the walk cycle.
 const LEGS = [
   { x: -20, far: true, front: false, offset: 2 },
-  { x: 4, far: true, front: true, offset: 0 },
+  { x: 0, far: true, front: true, offset: 0 },
   { x: -16, far: false, front: false, offset: 0 },
-  { x: 8, far: false, front: true, offset: 2 },
+  { x: 4, far: false, front: true, offset: 2 },
 ];
 // The underside of the standing body, where the legs start.
 const LEG_TOP = -10;
