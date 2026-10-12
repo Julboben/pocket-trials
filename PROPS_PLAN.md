@@ -22,6 +22,7 @@ A plan for the props to add to each level theme, plus guidelines for making them
 ## 🌲 Forest
 
 - [x] **Squirrel**: nibbles a nut, and runs up the nearest tree to hide in the crown when the bike comes close.
+- [x] **Coda (corgi)**: a tri-colour Pembroke who potters about, sits and sniffs, and runs over to greet the rider with a woof; `E` makes him sit and pant.
 
 ## 🍎 Orchard / farmland
 

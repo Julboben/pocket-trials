@@ -53,6 +53,7 @@ Write functions as `export function drawThing({ pixelRect, pixelPath }, …)` an
 | `wind` | Wind strength from 0 to 1, from the weather (`windStrength`) |
 | `landing` | The last hard landing `{ x, y, time, strength }`, or `null` |
 | `flight` | A startled animal's `{ age, dir }` (birds, bats, fish, squirrels) |
+| `corgi` | Coda's state from `corgiStep`, kept per prop by render.js |
 | `swoop` | A vulture's pose while it comes down to a crash |
 
 **The wind blows left**, like the falling snow and rain. Anything wind-blown (smoke, flags, grass) leans or drifts left.
@@ -75,6 +76,10 @@ Write functions as `export function drawThing({ pixelRect, pixelPath }, …)` an
 - **Text and numbers would show mirrored.** Leave them out of the sprite and export their position, e.g. `PYLON_NUMBER`, so `drawing.js` can draw them the right way round.
 - Anything world-directional (wind, smoke, sloped cables) needs a `downwind` or `dir` argument rather than a hard-coded direction.
 - Props whose parts must hang plumb or follow the world, like a chair on a rope or icicles, should not rotate. Say so in the module so they can go in `UNROTATABLE_PROPS`.
+
+## Interactions
+
+A prop the rider can use (like telling Coda to sit) works through `js/interactions.js`. The interact key (E by default, d-pad down, a tap on touch screens) acts on the nearest ready one within reach (`INTERACT_REACH`, 64 units either side and 72 above or below, unless the prop sets its own), and its key is shown over it only while the rider is that close. In the draft, describe what the interaction does and draw any pose it needs; the wiring is a `find(prop)` / `act(prop)` entry in render.js's `INTERACTIONS`, where `act` returns `{ sound, announce }`. Interactions are decoration and must never change the ride.
 
 ## Lights
 

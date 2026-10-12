@@ -198,6 +198,7 @@ export function startGame() {
     sounds.setEnabled(preferences.sound === 'on');
     sounds.setVolume(preferences.volume / 100);
     input.setBindings(preferences.bindings);
+    renderer.setInteractKey(preferences.bindings.interact?.[0] ? keyLabel(preferences.bindings.interact[0]) : '');
     if (preferences.ghost === 'off') ghost = null;
     syncHeadlight();
   }
@@ -206,6 +207,14 @@ export function startGame() {
     const on = session.preferences.headlight !== 'off';
     renderer.setHeadlights(on);
     $('headlight').setAttribute('aria-pressed', String(on));
+  }
+
+  /** Uses whatever the rider is close enough to interact with (see interactions.js). */
+  function interact() {
+    const result = renderer.interact();
+    if (!result) return;
+    if (result.sound) sounds[result.sound]?.();
+    if (result.announce) overlay.announce(result.announce);
   }
 
   function toggleHeadlight() {
@@ -400,6 +409,7 @@ export function startGame() {
     else if (action === 'flip') { if (state === 'running') flipDirection(); }
     else if (action === 'lights') toggleHeadlight();
     else if (action === 'fullscreen') toggleFullscreen();
+    else if (action === 'interact') { if (state === 'running' || state === 'ragdoll') interact(); }
     else if (action === 'confirm' || action === 'cancel') {
       if (state === 'paused') resumeGame();
       else if (state === 'won' && action === 'confirm') $('primary').click();
@@ -651,6 +661,7 @@ export function startGame() {
       });
       restoreGhost?.();
       restore();
+      if (renderer.takeWoofs()) sounds.woof();
     }
     fpsMeter?.drawn(now);
     sounds.update();
@@ -685,6 +696,8 @@ export function startGame() {
     if (!game.contains(/** @type {Node} */ (event.relatedTarget))) { input.clear(); pauseGame(); }
   });
   $('canvas').addEventListener('pointerdown', focusGame);
+  // On touch screens, tapping the game tells a nearby Coda to sit.
+  $('canvas').addEventListener('pointerdown', () => { if (!menu.isOpen()) handlePress('interact'); });
   window.addEventListener('blur', () => { input.clear(); pauseGame(); });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { input.clear(); pauseGame(); }

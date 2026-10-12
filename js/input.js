@@ -6,11 +6,12 @@ import { DEFAULT_BINDINGS } from './state.js';
 /** Actions that matter while held. */
 export const HOLD_ACTIONS = ['up', 'down', 'back', 'forward'];
 /** Actions that fire once per press. */
-export const PRESS_ACTIONS = ['flip', 'lights', 'restart', 'pause', 'fullscreen'];
+export const PRESS_ACTIONS = ['flip', 'lights', 'restart', 'pause', 'fullscreen', 'interact'];
 
 export const ACTION_LABELS = {
   up: 'Gas', down: 'Brake', back: 'Lean left', forward: 'Lean right',
-  flip: 'Turn around', lights: 'Headlight', restart: 'Restart', pause: 'Pause', fullscreen: 'Fullscreen'
+  flip: 'Turn around', lights: 'Headlight', restart: 'Restart', pause: 'Pause', fullscreen: 'Fullscreen',
+  interact: 'Interact'
 };
 
 // Codes a player cannot bind: Escape always opens the menu, Tab moves focus.
@@ -146,6 +147,7 @@ export function createInput({ element, buttons, isActive, onPress }) {
     if (pressed[PAD.y]) pad.held.add('restart');
     if (edge(PAD.b)) onPress(active ? 'flip' : 'cancel', 'pad');
     if (active && edge(PAD.up)) onPress('lights', 'pad');
+    if (active && edge(PAD.down)) onPress('interact', 'pad');
     if (edge(PAD.y)) onPress('restart', 'pad');
     if (edge(PAD.start)) onPress('pause', 'pad');
     if (edge(PAD.select)) onPress('menu', 'pad');

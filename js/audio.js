@@ -428,6 +428,77 @@ export function createAudio(getSnapshot) {
       playNoise(.07 + strength * .08, .025 + strength * .065, 420 + strength * 260);
       playTone(105 - strength * 22, .1 + strength * .08, 'triangle', .035 + strength * .055, 0, 62);
     },
+    /**
+     * Coda's woof, a corgi's sharp "ruff": a breathy onset, then a voice that
+     * yips up and falls away through a mouth-like band-pass that closes as
+     * it ends, with a little chest underneath. A corgi is a big dog in a
+     * small body: higher than a big dog, but full rather than squeaky.
+     */
+    woof() {
+      if (!audio || !enabled) return;
+      const { context, master, noiseBuffer } = audio;
+      const t = context.currentTime;
+      const pitch = 240 + Math.random() * 30;
+      const end = t + .19;
+      const gain = context.createGain();
+      gain.gain.setValueAtTime(.0001, t);
+      gain.gain.exponentialRampToValueAtTime(.2, t + .012);
+      gain.gain.exponentialRampToValueAtTime(.08, t + .08);
+      gain.gain.exponentialRampToValueAtTime(.0001, end);
+      const mouth = context.createBiquadFilter();
+      mouth.type = 'bandpass'; mouth.Q.value = 1.8;
+      mouth.frequency.setValueAtTime(1050, t);
+      mouth.frequency.exponentialRampToValueAtTime(560, end);
+      // Takes the fizz off, so it is a bark and not a squeak.
+      const soften = context.createBiquadFilter();
+      soften.type = 'lowpass'; soften.frequency.value = 2000;
+      mouth.connect(soften); soften.connect(gain); gain.connect(master);
+      const voice = context.createOscillator();
+      voice.type = 'sawtooth';
+      voice.frequency.setValueAtTime(pitch * .85, t);
+      voice.frequency.exponentialRampToValueAtTime(pitch * 1.35, t + .025);
+      voice.frequency.exponentialRampToValueAtTime(pitch * .65, end);
+      voice.connect(mouth);
+      const chest = context.createOscillator();
+      chest.type = 'triangle';
+      chest.frequency.setValueAtTime(pitch * .5, t);
+      chest.frequency.exponentialRampToValueAtTime(pitch * .35, end);
+      const chestGain = context.createGain();
+      chestGain.gain.value = .35;
+      chest.connect(chestGain); chestGain.connect(gain);
+      voice.start(t); voice.stop(end + .02);
+      chest.start(t); chest.stop(end + .02);
+      // The rough "r" of air at the start.
+      const air = context.createBufferSource();
+      air.buffer = noiseBuffer;
+      const rasp = context.createBiquadFilter();
+      rasp.type = 'bandpass'; rasp.frequency.value = 1300; rasp.Q.value = 1.2;
+      const airGain = context.createGain();
+      airGain.gain.setValueAtTime(.05, t);
+      airGain.gain.exponentialRampToValueAtTime(.0001, t + .06);
+      air.connect(rasp); rasp.connect(airGain); airGain.connect(master);
+      air.start(t, Math.random() * .5); air.stop(t + .07);
+    },
+    /** Coda panting happily: quick breathy huffs, out a little louder than in. */
+    pant() {
+      if (!audio || !enabled) return;
+      const { context, master, noiseBuffer } = audio;
+      for (let i = 0; i < 8; i++) {
+        const t = context.currentTime + i * .17;
+        const out = i % 2 === 0;
+        const air = context.createBufferSource();
+        air.buffer = noiseBuffer;
+        const throat = context.createBiquadFilter();
+        throat.type = 'bandpass'; throat.Q.value = 3;
+        throat.frequency.value = out ? 1250 : 900;
+        const gain = context.createGain();
+        gain.gain.setValueAtTime(.0001, t);
+        gain.gain.exponentialRampToValueAtTime(out ? .07 : .04, t + .03);
+        gain.gain.exponentialRampToValueAtTime(.0001, t + .13);
+        air.connect(throat); throat.connect(gain); gain.connect(master);
+        air.start(t, Math.random() * .5); air.stop(t + .14);
+      }
+    },
     apple() {
       playTone(620, .1, 'square', .07, 0, 880);
       playTone(880, .13, 'square', .055, .07, 1240);

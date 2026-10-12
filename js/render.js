@@ -59,6 +59,16 @@ import {
   windStrength,
 } from "./desert-props.js";
 import { CABLE_HALF, CABLE_TOP, HUT_WINDOW_CENTRE } from "./mountain-props.js";
+import { nearestInteraction } from "./interactions.js";
+import {
+  CORGI_HEART,
+  CORGI_RANGE,
+  corgiGround,
+  corgiPhase,
+  corgiSit,
+  corgiStart,
+  corgiStep,
+} from "./corgi-props.js";
 import { crackLines, glassPane } from "./glass.js";
 
 const GLASS_CRACK_COLOR = "#f6fffde6";
@@ -134,6 +144,7 @@ const PROP_REACH = {
   bats: 220,
   fish: FISH_RANGE + 120,
   squirrel: SQUIRREL_RANGE + 40,
+  corgi: CORGI_RANGE + 40,
   tumbleweed: TUMBLEWEED_RUN + 30,
   vulture: VULTURE_ORBIT.x + 40,
   "heat-haze": HAZE_HALF + 10,
@@ -197,6 +208,13 @@ export function createRenderer(canvas) {
   // and when they set off. `crashedAt` is when the ragdoll first appeared.
   const swoops = new Map();
   let crashedAt = null;
+  // Each corgi's state (see corgiStep) for the current ride, and how many
+  // woofs have gone off in view since game.js last asked, for the sound.
+  const corgis = new Map();
+  let corgiRide = null;
+  let woofs = 0;
+  // The interact key's label, shown over whatever it would act on.
+  let interactLabel = "";
 
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
@@ -362,6 +380,88 @@ export function createRenderer(canvas) {
     }
   }
 
+  // Coda trots about and runs over to greet the rider. Purely visual, like the
+  // startled animals; with reduced motion (time 0) he sits still.
+  function walkCorgis(ride, focus, dt) {
+    if (corgiRide !== ride) {
+      corgis.clear();
+      corgiRide = ride;
+    }
+    for (const prop of trail.props || []) {
+      if (prop.type !== "corgi") continue;
+      const y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
+      const state = corgiStep(corgis.get(prop) ?? corgiStart(prop.flip ? -1 : 1), {
+        time: propScene.time,
+        dt,
+        riderDx: focus.x - prop.x,
+        riderDy: focus.y - y,
+        fit: propWallFit(trail, prop),
+        phase: corgiPhase(prop.x),
+      });
+      corgis.set(prop, state);
+      if (state.woofed && inView(prop.x + state.dx, 40, y, 50)) woofs++;
+    }
+  }
+
+  // What the rider can interact with, by prop type (see interactions.js).
+  const INTERACTIONS = {
+    corgi: {
+      // Coda, wherever he has trotted to. Told to sit again once his heart
+      // has floated away, he is praised again.
+      find(prop) {
+        const state = corgis.get(prop);
+        if (!state) return null;
+        const anchor = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
+        const ready = state.mode !== "sit" || propScene.time - state.sitAt > CORGI_HEART;
+        return { x: prop.x + state.dx, y: anchor + corgiGround(propWallFit(trail, prop), state.dx), hint: 62, ready };
+      },
+      act(prop) {
+        corgis.set(prop, corgiSit(corgis.get(prop), propScene.time));
+        return { sound: "pant", announce: "Coda sits. Good dog." };
+      },
+    },
+  };
+
+  /** The interaction nearest the rider and in reach, with its prop, or null. */
+  function nearestSpot() {
+    const spots = [];
+    for (const prop of trail?.props || []) {
+      const spot = INTERACTIONS[prop.type]?.find(prop);
+      if (spot) spots.push({ ...spot, prop });
+    }
+    return nearestInteraction(spots, propScene.riderX, propScene.riderY);
+  }
+
+  /**
+   * Uses the interaction nearest the rider, if one is in reach.
+   * @returns {import("./interactions.js").InteractionResult | null}
+   */
+  function interact() {
+    const spot = nearestSpot();
+    return spot ? INTERACTIONS[spot.prop.type].act(spot.prop) : null;
+  }
+
+  // The interact key in a small key cap over whatever it would act on.
+  function drawInteractHint() {
+    if (!interactLabel) return;
+    const spot = nearestSpot();
+    if (!spot || !inView(spot.x, 40, spot.y, spot.hint + 20)) return;
+    const width = interactLabel.length * 8 - 2;
+    const x = Math.round(spot.x / 2) * 2;
+    const top = Math.round((spot.y - spot.hint) / 2) * 2;
+    ctx.fillStyle = "#182321d9";
+    ctx.fillRect(x - width / 2 - 4, top - 4, width + 8, 18);
+    ctx.fillRect(x - 2, top + 14, 4, 2);
+    drawPixelText(interactLabel, x, top, "#fff3be", { pixel: 2, align: "center" });
+  }
+
+  /** How many times Coda has woofed in view since the last call. */
+  function takeWoofs() {
+    const count = woofs;
+    woofs = 0;
+    return count;
+  }
+
   // After a crash, each circling vulture that can see the rider glides down
   // and lands beside them a moment later. Reduced motion leaves them circling.
   function watchCrash(ride, focus, now) {
@@ -503,6 +603,8 @@ export function createRenderer(canvas) {
       if (!inView(prop.x, reach, y + hang, rise + hang)) continue;
       if (area && (y - rise > area.bottom || y + hang + 70 < area.top)) continue;
       let scene = propScene;
+      const corgi = corgis.get(prop);
+      if (corgi) scene = { ...propScene, corgi };
       const flight = flights.get(prop);
       if (flight) {
         const age = (frameNow - flight.start) / 1000;
@@ -1260,6 +1362,7 @@ export function createRenderer(canvas) {
     frameNow = now;
     startleProps(ride, focus, now);
     watchCrash(ride, focus, now);
+    walkCorgis(ride, focus, animationDt);
     camera.follow(focus, {
       facing: ride.facing,
       loose: Boolean(ride.ragdoll),
@@ -1332,6 +1435,7 @@ export function createRenderer(canvas) {
       flip: flipVisual,
     });
     drawPropGlows();
+    drawInteractHint();
     drawPopups(animationDt);
     effects.prune();
     ctx.restore();
@@ -1378,6 +1482,11 @@ export function createRenderer(canvas) {
     settleHair,
     reset,
     land,
+    takeWoofs,
+    interact,
+    setInteractKey(label) {
+      interactLabel = String(label || "");
+    },
     draw,
     drawFigure,
     popup,

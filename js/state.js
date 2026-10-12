@@ -23,7 +23,8 @@ export const DEFAULT_BINDINGS = {
   lights: ['KeyL'],
   restart: ['KeyR'],
   pause: ['KeyP'],
-  fullscreen: ['KeyF']
+  fullscreen: ['KeyF'],
+  interact: ['KeyE']
 };
 
 export const DEFAULT_PREFERENCES = {

@@ -163,6 +163,17 @@ import {
   pineSway,
   snowmanGaze,
 } from "./mountain-props.js";
+import {
+  CORGI_BOUNDS,
+  CORGI_RANGE,
+  CORGI_STEP,
+  CORGI_STEP_UP,
+  corgiGround,
+  corgiPhase,
+  corgiPose,
+  corgiStart,
+  drawCorgi,
+} from "./corgi-props.js";
 
 const GROUND_ALIGNED_PROP_SPANS = {
   bush: [-28, 28],
@@ -986,7 +997,7 @@ export const canFlip = (type) =>
 // angle: ceiling, cave-fitted and water props, and the animals and effects
 // that wander, fly or shimmer, and the ski lift, whose chair hangs plumb. Wall
 // props and graffiti turn about their anchor.
-const UNROTATABLE_PROPS = new Set(["squirrel", "tumbleweed", "vulture", "bird", "heat-haze", "ski-lift"]);
+const UNROTATABLE_PROPS = new Set(["squirrel", "corgi", "tumbleweed", "vulture", "bird", "heat-haze", "ski-lift"]);
 export const canRotate = (type) =>
   !CAVE_FITTED_PROPS.has(type) &&
   !WATER_PROPS.has(type) &&
@@ -1021,6 +1032,7 @@ const wallFits = new WeakMap();
 export function propWallFit(trail, prop) {
   if (WATER_PROPS.has(prop.type)) return waterFit(trail, prop);
   if (prop.type === "squirrel") return squirrelFit(trail, prop);
+  if (prop.type === "corgi") return corgiFit(trail, prop);
   if (prop.type === "tumbleweed") return tumbleweedFit(trail, prop);
   // A vulture with no y of its own circles high over the ground.
   if (prop.type === "vulture") return { centre: Number.isFinite(prop.y) ? 0 : -VULTURE_HEIGHT };
@@ -1225,6 +1237,40 @@ function fitInWater(trail, prop, bodies) {
   return { bed: bedY - y, height: tall(bedY - body.y), floor };
 }
 
+/**
+ * The ground an animal can walk along from (x, y) in `dir` (1 right, -1 left):
+ * its y every `step` units, relative to y and starting with 0, up to a wall, a
+ * drop (any step bigger than `stepUp`) or `range`.
+ */
+function traceGround(trail, x, y, dir, step, range, stepUp) {
+  const path = [0];
+  let groundY = y;
+  for (let d = step; d <= range; d += step) {
+    const ground = terrainAt(trail, x + dir * d, groundY - stepUp);
+    if (!ground.solid || Math.abs(ground.y - groundY) > stepUp) break;
+    groundY = ground.y;
+    path.push(groundY - y);
+  }
+  return path;
+}
+
+const corgiFits = new WeakMap();
+
+/**
+ * The ground Coda the corgi can trot along, `left` and `right` of his anchor
+ * (see corgi-props.js). Cached per prop until it or the terrain changes.
+ */
+function corgiFit(trail, prop) {
+  const geometry = terrainGeometry(trail);
+  const cached = corgiFits.get(prop);
+  if (cached && cached.x === prop.x && cached.y === prop.y && cached.geometry === geometry) return cached.fit;
+  const y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
+  const trace = (dir) => traceGround(trail, prop.x, y, dir, CORGI_STEP, CORGI_RANGE, CORGI_STEP_UP);
+  const fit = { left: trace(-1), right: trace(1) };
+  corgiFits.set(prop, { x: prop.x, y: prop.y, geometry, fit });
+  return fit;
+}
+
 // Trees a squirrel hides in, with how far above the base the leaves start to
 // cover the trunk; it climbs on until it is out of sight above that line.
 export const SQUIRREL_TREES = { tree: -90, pine: -28, "snow-pine": -28, sapling: -46, "pine-small": -16 };
@@ -1245,17 +1291,7 @@ function squirrelFit(trail, prop) {
   if (cached && cached.x === prop.x && cached.y === prop.y
     && cached.geometry === geometry && cached.key === key) return cached.fit;
   const y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
-  const trace = (dir) => {
-    const path = [0];
-    let groundY = y;
-    for (let d = SQUIRREL_STEP; d <= SQUIRREL_RANGE; d += SQUIRREL_STEP) {
-      const ground = terrainAt(trail, prop.x + dir * d, groundY - SQUIRREL_STEP_UP);
-      if (!ground.solid || Math.abs(ground.y - groundY) > SQUIRREL_STEP_UP) break;
-      groundY = ground.y;
-      path.push(groundY - y);
-    }
-    return path;
-  };
+  const trace = (dir) => traceGround(trail, prop.x, y, dir, SQUIRREL_STEP, SQUIRREL_RANGE, SQUIRREL_STEP_UP);
   const left = trace(-1);
   const right = trace(1);
   let tree = null;
@@ -1289,15 +1325,7 @@ function tumbleweedFit(trail, prop) {
   if (cached && cached.x === prop.x && cached.y === prop.y
     && cached.flip === flip && cached.geometry === geometry) return cached.fit;
   const y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
-  const dir = flip ? -1 : 1;
-  const path = [0];
-  let groundY = y;
-  for (let d = TUMBLEWEED_STEP; d <= TUMBLEWEED_RUN; d += TUMBLEWEED_STEP) {
-    const ground = terrainAt(trail, prop.x + dir * d, groundY - TUMBLEWEED_STEP_UP);
-    if (!ground.solid || Math.abs(ground.y - groundY) > TUMBLEWEED_STEP_UP) break;
-    groundY = ground.y;
-    path.push(groundY - y);
-  }
+  const path = traceGround(trail, prop.x, y, flip ? -1 : 1, TUMBLEWEED_STEP, TUMBLEWEED_RUN, TUMBLEWEED_STEP_UP);
   const fit = { path };
   tumbleweedFits.set(prop, { x: prop.x, y: prop.y, flip, geometry, fit });
   return fit;
@@ -1338,6 +1366,10 @@ export function propSpan(type, fit) {
     const ground = [...(fit?.left ?? [0]), ...(fit?.right ?? [0])];
     const top = Math.min(...ground, (fit?.tree?.leaves ?? 0) - SQUIRREL_LENGTH);
     return [Math.max(0, -top) + 32, Math.max(0, ...ground) + 4];
+  }
+  if (type === "corgi") {
+    const ground = [...(fit?.left ?? [0]), ...(fit?.right ?? [0])];
+    return [Math.max(0, -Math.min(...ground)) - CORGI_BOUNDS[1] + 8, Math.max(0, ...ground) + 4];
   }
   if (type === "tumbleweed") {
     const path = fit?.path ?? [0];
@@ -2911,6 +2943,7 @@ const PROP_EXTENTS = {
   scaffolding: [-54, -144, 54],
   bird: [-12, -20, 12],
   squirrel: [-16, -32, 14],
+  corgi: [CORGI_BOUNDS[0] - 2, CORGI_BOUNDS[1] - 4, CORGI_BOUNDS[2] + 2],
   graffiti: [GRAFFITI_BOUNDS[0], GRAFFITI_BOUNDS[1], GRAFFITI_BOUNDS[2]],
   "hanging-roots": [-16, -CEILING_REACH - 4, 16],
   stalactites: [-20, -CEILING_REACH - 4, 20],
@@ -4469,6 +4502,15 @@ export function createGameArt(ctx) {
         ctx.translate(snap(roll.distance), snap(roll.dy - roll.lift) - TUMBLEWEED_RADIUS);
         drawTumbleweed({ pixelPath, pixelRect }, roll.angle);
       }
+    } else if (type === "corgi") {
+      // Coda trots about in world directions, whichever way he was placed
+      // facing; render.js steps his state (scene.corgi) each frame.
+      if (mirrored) ctx.scale(-1, 1);
+      const state = scene.corgi ?? corgiStart(mirrored ? -1 : 1);
+      const pose = corgiPose(state, wall, corgiPhase(x));
+      ctx.translate(pose.dx, 0);
+      ctx.scale(pose.dir, 1);
+      drawCorgi({ pixelRect }, pose, (lx) => corgiGround(wall, pose.dx + lx * pose.dir));
     } else if (type === "water-tower") {
       drawCanopy(type);
       // Legs and ladder run down from the platform to the ground.

@@ -36,6 +36,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Per-trail rain, snow, and lightning configuration with procedural rain and storm-wind ambience and distance-aware thunder
 - Water you can ride through: shallow fords drag the bike and slow it down, deeper water wipes the rider out, and the ragdoll floats on the surface with splashes, wakes and sound; water lilies, reeds, seaweed, fish that dart off and ducks that take off when you come close
 - Squirrels that run to the nearest tree, climb it and hide in the crown when you come close
+- Coda the corgi, who trots over to greet you with a woof, and sits and pants when you press `E`
 
 ## Play
 
@@ -62,12 +63,13 @@ A local server is required because the game uses native JavaScript modules and f
 | Pause / resume                   | `P`                                       | Pause button                                |
 | Open / close the main menu       | `Escape`                                  | In-game menu button                         |
 | Toggle fullscreen                | `F` (remappable)                          | Fullscreen On/Off in Settings               |
+| Tell Coda the corgi to sit       | `E` (remappable), when he is close        | Tap the game                                |
 | Navigate dashboard controls      | Arrow keys or `W` / `A` / `S` / `D`       | Tap a menu item                             |
 | Activate the focused menu action | `Enter` or `Space`                        | Tap a menu item                             |
 
 Lean labels adjust to the direction the rider is facing. Every keyboard action can be rebound under **Settings → Keys**. Holding restart freezes the bike until you let go, so you can line up a clean start.
 
-Gamepads use the standard mapping: `RT` or `A` for gas, `LT` or `X` for brake, the left stick or d-pad to lean, `B` to turn around, d-pad up for the headlight, `Y` to restart, and `Start` to pause. In menus, the d-pad or stick moves the selection, `A` confirms, and `B` goes back.
+Gamepads use the standard mapping: `RT` or `A` for gas, `LT` or `X` for brake, the left stick or d-pad to lean, `B` to turn around, d-pad up for the headlight, d-pad down to tell Coda to sit, `Y` to restart, and `Start` to pause. In menus, the d-pad or stick moves the selection, `A` confirms, and `B` goes back.
 
 ## Trails
 
