@@ -223,6 +223,40 @@ export function restoreOnlineSave(trailCount, { token, player, save: cloud, runs
   return next[index] ? index : -1;
 }
 
+/**
+ * Catches a signed-in save up with its cloud copy, fetched without logging in
+ * again. The server's look wins, as on login; best times and unlocked trails
+ * keep the best of both, so neither device loses progress.
+ * @returns {{ save: object, changed: boolean, ahead: boolean } | null} the
+ *   updated save, whether this device's copy changed, and whether it has
+ *   progress the cloud lacks (so it should be uploaded); null if the slot no
+ *   longer holds that rider
+ */
+export function applyCloudSave(slotIndex, trailCount, { player, save: cloud }) {
+  const local = slots(trailCount)[slotIndex];
+  if (!local?.token || local.playerId !== player?.id) return null;
+  const cloudBest = cloud?.bestTimes && typeof cloud.bestTimes === 'object' ? cloud.bestTimes : {};
+  const bestTimes = { ...local.bestTimes };
+  for (const [key, value] of Object.entries(cloudBest)) {
+    const time = Number(value);
+    if (Number.isFinite(time) && time > 0) bestTimes[key] = Math.min(time, bestTimes[key] ?? Infinity);
+  }
+  const cloudUnlocked = Number(cloud?.unlocked) || 0;
+  const merged = normalizeSave({
+    ...local,
+    look: player.look ?? cloud?.look ?? local.look,
+    unlocked: Math.max(Number(local.unlocked) || 0, cloudUnlocked),
+    bestTimes,
+    name: player.name ?? local.name
+  }, trailCount);
+  if (!merged) return null;
+  const ahead = cloudUnlocked < merged.unlocked
+    || Object.entries(merged.bestTimes).some(([key, time]) => !(Number(cloudBest[key]) <= time));
+  const changed = JSON.stringify(merged) !== JSON.stringify(normalizeSave(local, trailCount));
+  if (changed) updateSave(slotIndex, trailCount, save => Object.assign(save, merged));
+  return { save: cloneSave(slots(trailCount)[slotIndex]), changed, ahead };
+}
+
 export function deleteSave(slotIndex, trailCount) {
   const next = [...slots(trailCount)];
   next[clamp(slotIndex, 0, SLOT_COUNT - 1)] = null;

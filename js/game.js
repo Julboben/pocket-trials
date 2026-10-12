@@ -688,7 +688,11 @@ export function startGame() {
   window.addEventListener('blur', () => { input.clear(); pauseGame(); });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { input.clear(); pauseGame(); }
-    else holdWakeLock(session.state === 'running' || session.state === 'ragdoll' || session.state === 'won');
+    else {
+      holdWakeLock(session.state === 'running' || session.state === 'ragdoll' || session.state === 'won');
+      // Another device may have changed the rider while this tab was away.
+      if (menu.isOpen()) menu.refreshCloudSave();
+    }
     lastTime = 0; accumulator = 0;
   });
 

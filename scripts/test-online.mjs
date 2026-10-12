@@ -314,6 +314,13 @@ const run = (replay = firstTrailRun) => ({ inputs: replay.inputs, seed: replay.s
   assert.deepEqual(body.save.look, look, 'gender and skin stay as they were created');
   assert.equal(body.save.rider, 'female', 'a buzz cut does not change who the rider is');
   assert.deepEqual(body.player.look, look);
+  // A device that is already signed in fetches the same look without logging in again.
+  assert.equal((await api('save', { method: 'GET' })).status, 401);
+  assert.equal((await api('save', { method: 'DELETE', token: julianToken })).status, 405);
+  const fetched = await api('save', { method: 'GET', token: julianToken });
+  assert.equal(fetched.status, 200);
+  assert.deepEqual(fetched.body.player.look, look);
+  assert.deepEqual(fetched.body.save, body.save);
   assert.equal(body.runs.length, 1);
   const { trail, ghost } = body.runs[0];
   assert.equal(trail, firstKey);

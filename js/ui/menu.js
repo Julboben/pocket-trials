@@ -6,12 +6,12 @@ import { drawScene, posedRide, parkedRide, findClimb, findJump, finishScene, fin
 import {
   loadSaveSlots, loadActiveSlot, saveActiveSlot, createSave, deleteSave, readBest,
   readLeaderboard, LEADERBOARD_SIZE, loadPreferences, savePreferences, cleanRiderName,
-  restoreOnlineSave, linkSave, readGhost, saveLook, loadSeenVersion, saveSeenVersion
+  restoreOnlineSave, linkSave, readGhost, saveLook, loadSeenVersion, saveSeenVersion, applyCloudSave, clearSaveToken
 } from '../storage.js';
 import { DEFAULT_LOOK, keepIdentity, lookKey, sameLook, starterLook } from '../cosmetics.js';
 import { createCustomizer, createIdentityPicker, drawLook } from './customizer.js';
 import { ONLINE_LEADERBOARD_EVENT, isOnlineBoardLoading, submitOnlineRun } from '../online-leaderboard.js';
-import { registerRider, loginRider, accountErrorText, passkeysSupported, queueSaveSync } from '../account.js';
+import { registerRider, loginRider, accountErrorText, passkeysSupported, queueSaveSync, fetchCloudSave } from '../account.js';
 import { isSandbox } from '../local-store.js';
 import { NAME_HINT, disallowedNameChars } from '../rider-name.js';
 import { RIDE_VERSION } from '../ride.js';
@@ -535,10 +535,45 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
 
   function open() {
     $('menu-screen').hidden = false;
+    // Catches up with a cloud look that arrived while riding.
+    if (session.saveGame) session.look = riderLook();
     syncWhatsNew();
     updateDashboard();
     showView('home');
     requestAnimationFrame(() => selectControl($(canResume() ? 'menu-resume' : session.saveGame ? 'menu-continue' : 'menu-first-ride')));
+    refreshCloudSave();
+  }
+
+  /**
+   * Pulls the active online rider's look and progress from the cloud, so a
+   * change made on another device shows up here without logging in again.
+   */
+  async function refreshCloudSave() {
+    const slot = session.activeSaveSlot;
+    const token = session.saveGame?.token;
+    if (!token) return;
+    const cloud = await fetchCloudSave(token);
+    // The rider may have switched slots, signed out, or left the menu meanwhile.
+    if (!cloud || session.activeSaveSlot !== slot || session.saveGame?.token !== token) return;
+    if ('signedOut' in cloud) {
+      clearSaveToken(slot, trails.length);
+      session.saveSlots = loadSaveSlots(trails.length);
+      session.saveGame = session.saveSlots[slot];
+      if (isOpen()) buildSaveSlots();
+      return;
+    }
+    const result = applyCloudSave(slot, trails.length, cloud);
+    if (!result) return;
+    if (result.ahead) queueSaveSync(result.save);
+    if (!result.changed) return;
+    session.saveSlots[slot] = result.save;
+    session.saveGame = result.save;
+    session.unlockedTrail = result.save.unlocked;
+    // Mid-ride the rider keeps their look until they are back in the menu.
+    if (!isOpen()) return;
+    session.look = riderLook();
+    // An open Garage keeps the look being edited; Home and the rest redraw.
+    if ($('menu-look-view').hidden) updateDashboard();
   }
 
   function close() {
@@ -1191,5 +1226,5 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     if ($('menu-home').hidden) { goBack(); return true; }
     return false;
   };
-  return { open, close, isOpen, updateDashboard, drawBackground, syncSettings, handlePad, showView, canResume, back };
+  return { open, close, isOpen, updateDashboard, drawBackground, syncSettings, handlePad, showView, canResume, back, refreshCloudSave };
 }

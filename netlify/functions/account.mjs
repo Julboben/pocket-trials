@@ -3,6 +3,7 @@
 //   POST /api/account/register          { state, response, look }    -> { token, player }
 //   POST /api/account/login-options     {}                           -> { options, state }
 //   POST /api/account/login             { state, response }          -> { token, player, save, runs }
+//   GET  /api/account/save              (Bearer token)               -> { player, save }
 //   PUT  /api/account/save              { save }  (Bearer token)     -> { ok }
 import { randomBytes, randomUUID } from 'node:crypto';
 import {
@@ -180,20 +181,33 @@ async function putSave(req) {
   return json({ ok: true });
 }
 
+/** The cloud save and look of a signed-in rider, so another device can catch up without logging in again. */
+async function getSave(req) {
+  const playerId = requirePlayer(req);
+  const sql = await db();
+  const [row] = await sql`select id, name, rider, look, save from players where id = ${playerId}`;
+  if (!row) throw new HttpError(401, 'not signed in');
+  return json({
+    player: { id: row.id, name: row.name, rider: row.rider, look: lookOf(row) },
+    save: row.save ?? null,
+  });
+}
+
 const ROUTES = {
-  'register-options': ['POST', registerOptions],
-  'register': ['POST', register],
-  'login-options': ['POST', loginOptions],
-  'login': ['POST', login],
-  'save': ['PUT', putSave],
+  'register-options': { POST: registerOptions },
+  'register': { POST: register },
+  'login-options': { POST: loginOptions },
+  'login': { POST: login },
+  'save': { GET: getSave, PUT: putSave },
 };
 
 export default (req, context) => respond(async () => {
   const action = context?.params?.action ?? new URL(req.url).pathname.split('/').pop();
-  const route = ROUTES[action];
+  const route = Object.hasOwn(ROUTES, action) ? ROUTES[action] : null;
   if (!route) throw new HttpError(404, 'not found');
-  if (req.method !== route[0]) throw new HttpError(405, 'method not allowed');
-  return route[1](req);
+  const handler = Object.hasOwn(route, req.method) ? route[req.method] : null;
+  if (!handler) throw new HttpError(405, 'method not allowed');
+  return handler(req);
 });
 
 export const config = { path: '/api/account/:action' };

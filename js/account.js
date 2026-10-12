@@ -149,18 +149,54 @@ export function accountErrorText(error) {
 
 const pendingSaves = new Map();   // token -> { timer, save }
 const lastSent = new Map();       // token -> payload JSON, so retries don't rewrite an unchanged save
+const sending = new Map();        // token -> uploads in flight
 
 function sendSave(save, keepalive = false) {
   const { look, rider, createdAt, trail, unlocked, bestTimes } = save;
   const body = JSON.stringify({ save: { look, rider, createdAt, trail, unlocked, bestTimes } });
-  if (lastSent.get(save.token) === body) return;
-  lastSent.set(save.token, body);
+  const token = save.token;
+  if (lastSent.get(token) === body) return;
+  lastSent.set(token, body);
+  sending.set(token, (sending.get(token) ?? 0) + 1);
+  const done = () => {
+    const left = (sending.get(token) ?? 1) - 1;
+    if (left > 0) sending.set(token, left); else sending.delete(token);
+  };
   fetch(API + 'save', {
     method: 'PUT',
-    headers: { 'content-type': 'application/json', authorization: 'Bearer ' + save.token },
+    headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
     body,
     keepalive,
-  }).then(res => { if (!res.ok) lastSent.delete(save.token); }, () => lastSent.delete(save.token));
+  }).then(res => { if (!res.ok) lastSent.delete(token); }, () => lastSent.delete(token)).finally(done);
+}
+
+/** Whether this device has a change for the rider that the server doesn't have yet. */
+const unsent = token => pendingSaves.has(token) || sending.has(token);
+
+/**
+ * The rider's cloud save and look, as last saved from any device. Null when
+ * offline, or when this device has an upload pending or in flight, since its
+ * own change is newer than whatever the server would send.
+ * @returns {Promise<{ player: { id: string, name: string, rider: string, look?: object }, save: object | null } | { signedOut: true } | null>}
+ */
+export async function fetchCloudSave(token) {
+  if (!token || typeof window === 'undefined' || unsent(token)) return null;
+  let res;
+  try {
+    res = await fetch(API + 'save', {
+      headers: { authorization: 'Bearer ' + token },
+      signal: AbortSignal.timeout(8000),
+    });
+  } catch (_) {
+    return null;
+  }
+  if (res.status === 401) return { signedOut: true };
+  if (!res.ok || unsent(token)) return null;
+  const data = await res.json().catch(() => null);
+  if (!data?.player) return null;
+  // The server may now hold another device's save, so the next upload must go out even if it matches our last one.
+  lastSent.delete(token);
+  return data;
 }
 
 /** Uploads the savegame shortly after it last changed. Fails quietly; the next change retries. */
