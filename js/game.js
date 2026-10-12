@@ -103,6 +103,8 @@ export function startGame() {
   }
 
   let lastTime = 0, accumulator = 0, landingSoundCooldown = 0, splashSoundCooldown = 0;
+  // A paused scene is still, so it is only redrawn when something changes it.
+  let redraw = true;
   /** Inputs of the current attempt, one per step, for saving a ghost. */
   let recorded = [], startStep = 0, flips = 0;
   // Attempts that got going since the trail was opened from the menu or Next
@@ -119,6 +121,8 @@ export function startGame() {
   let playtestBest = null;
 
   // --- Device features -----------------------------------------------------
+
+  const restartKey = () => keyLabel(session.preferences.bindings.restart[0] || 'KeyR');
 
   function vibrate(pattern) {
     if (session.preferences.haptics === 'on' && typeof navigator.vibrate === 'function') navigator.vibrate(pattern);
@@ -192,7 +196,7 @@ export function startGame() {
         else screen.orientation.unlock?.();
       } catch (_) {}
     }
-    requestAnimationFrame(() => { renderer.resize(); menu.drawBackground(); });
+    requestAnimationFrame(() => { resize(); menu.drawBackground(); });
   }
 
   // --- Preferences and progress --------------------------------------------
@@ -211,6 +215,7 @@ export function startGame() {
 
   function syncHeadlight() {
     const on = session.preferences.headlight !== 'off';
+    redraw = true;
     renderer.setHeadlights(on);
     $('headlight').setAttribute('aria-pressed', String(on));
   }
@@ -375,11 +380,12 @@ export function startGame() {
 
   function setState(next) {
     session.state = next;
+    redraw = true;
     input.clear();
     if (next !== 'won') overlay.hide();
     $('crash-retry').hidden = next !== 'ragdoll';
     overlay.showPause(next === 'paused');
-    holdWakeLock(next === 'running' || next === 'ragdoll' || next === 'won');
+    holdWakeLock(next === 'running' || next === 'ragdoll');
   }
 
   const focusGame = () => game.focus({ preventScroll: true });
@@ -485,7 +491,7 @@ export function startGame() {
       official: false, time, previousBest, rank: null, medals, medal: medalFor(medals, time), flips,
       apples: ride.apples.length, author: session.trail.author,
       primaryLabel: 'Play Again',
-      restartKey: keyLabel(session.preferences.bindings.restart[0] || 'KeyR')
+      restartKey: restartKey()
     });
     $('overlay-badge').textContent = 'PLAY TEST COMPLETED';
     $('overlay-description').textContent = 'Play-test runs are not saved. Press Escape to return to the editor.';
@@ -538,7 +544,7 @@ export function startGame() {
       official, bonus: session.trailSource === 'bonus', time, previousBest, rank, medals, medal: medalFor(medals, time), flips,
       apples: ride.apples.length, author: session.trail.author,
       primaryLabel: official && !last ? 'Next Trail' : 'Play Again',
-      restartKey: keyLabel(session.preferences.bindings.restart[0] || 'KeyR')
+      restartKey: restartKey()
     });
     // Only a run the player actually rode is sent to the world board.
     if (ranked && session.state === 'running' && saveGame?.token) {
@@ -609,8 +615,8 @@ export function startGame() {
         if (session.preferences.shake === 'on') camera.kick(6);
         vibrate([40, 30, 80]);
         setState('ragdoll');
-        overlay.announce('Rider down. Press ' + keyLabel(session.preferences.bindings.restart[0] || 'KeyR') + ' or select Retry to try again.');
-        overlay.toast('Rider down · Press ' + keyLabel(session.preferences.bindings.restart[0] || 'KeyR') + ' to retry', Infinity);
+        overlay.announce('Rider down. Press ' + restartKey() + ' or select Retry to try again.');
+        overlay.toast('Rider down · Press ' + restartKey() + ' to retry', Infinity);
         break;
       case 'helmet':
         effects.burst(event.x, event.y, riderPalette(session.look).helmet, 8);
@@ -716,17 +722,20 @@ export function startGame() {
       const alpha = stepping ? accumulator / STEP : 1;
       overlay.setTimer(ride.elapsed);
       overlay.tick(now);
-      const restore = interpolateRide(ride, alpha);
-      const ghostRide = ghost?.ride;
-      // A finished ghost is no longer stepped: hold it where it stopped.
-      const restoreGhost = ghostRide ? interpolateRide(ghostRide, ghostRide.status === 'won' ? 1 : alpha) : null;
-      renderer.draw({
-        ride, ghost: ghostRide, camera, effects, look: session.look, ghostLook: ghost?.look, state: session.state,
-        full: session.preferences.scenery === 'full', dt, debug: physicsDebugEnabled
-      });
-      restoreGhost?.();
-      restore();
-      if (renderer.takeWoofs()) sounds.woof();
+      if (session.state !== 'paused' || redraw) {
+        redraw = false;
+        const restore = interpolateRide(ride, alpha);
+        const ghostRide = ghost?.ride;
+        // A finished ghost is no longer stepped: hold it where it stopped.
+        const restoreGhost = ghostRide ? interpolateRide(ghostRide, ghostRide.status === 'won' ? 1 : alpha) : null;
+        renderer.draw({
+          ride, ghost: ghostRide, camera, effects, look: session.look, ghostLook: ghost?.look, state: session.state,
+          full: session.preferences.scenery === 'full', dt, debug: physicsDebugEnabled
+        });
+        restoreGhost?.();
+        restore();
+        if (renderer.takeWoofs()) sounds.woof();
+      }
     }
     fpsMeter?.drawn(now);
     sounds.update();
@@ -767,7 +776,7 @@ export function startGame() {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { input.clear(); pauseGame(); }
     else {
-      holdWakeLock(session.state === 'running' || session.state === 'ragdoll' || session.state === 'won');
+      holdWakeLock(session.state === 'running' || session.state === 'ragdoll');
       // Another device may have changed the rider while this tab was away.
       if (menu.isOpen()) menu.refreshCloudSave();
     }
@@ -775,9 +784,10 @@ export function startGame() {
   });
 
   $('primary').addEventListener('click', () => {
-    if (session.state === 'won' && session.trailSource === 'official') {
+    // On the last trail the button reads Play Again, so it falls through to a retry.
+    if (session.state === 'won' && session.trailSource === 'official' && session.trailIndex < trails.length - 1) {
       openingTrail = true;
-      loadTrail((session.trailIndex + 1) % trails.length);
+      loadTrail(session.trailIndex + 1);
       setState('running'); focusGame();
     } else startFresh();
   });
@@ -795,8 +805,12 @@ export function startGame() {
   syncFullscreenSetting();
   document.addEventListener('fullscreenchange', handleFullscreenChange);
   document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-  window.addEventListener('resize', () => { renderer.resize(); menu.drawBackground(); });
-  if ('ResizeObserver' in window) new ResizeObserver(() => renderer.resize()).observe($('canvas'));
+  function resize() {
+    renderer.resize();
+    redraw = true;
+  }
+  window.addEventListener('resize', () => { resize(); menu.drawBackground(); });
+  if ('ResizeObserver' in window) new ResizeObserver(resize).observe($('canvas'));
   window.addEventListener('gamepadconnected', () => { if (menu.isOpen()) sounds.menuMove(); });
 
   const unlockAudio = () => sounds.init();
@@ -806,7 +820,7 @@ export function startGame() {
   loadStoredState();
   applyPreferences();
   handleFullscreenChange();
-  renderer.resize();
+  resize();
   if (playtestTrail) {
     $('menu').setAttribute('aria-label', 'Back to the editor');
     startSelectedTrail(loadPlaytestTrail, false);

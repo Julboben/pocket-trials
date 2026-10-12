@@ -1,6 +1,6 @@
 // Network-first service worker: online loads always get the latest files,
 // and everything fetched is kept so the game also starts offline.
-const CACHE = 'hjulben-bfdf8268';
+const CACHE = 'hjulben-9027c646';
 const CORE = [
   './',
   './css/editor.css',
@@ -148,7 +148,8 @@ self.addEventListener('fetch', event => {
       const timeout = new Promise((resolve) => setTimeout(resolve, 3000, null));
       const response = await Promise.race([network, timeout]);
       if (response) {
-        if (response.ok) cache.put(event.request, response.clone());
+        // waitUntil keeps the worker alive until the copy is stored.
+        if (response.ok) event.waitUntil(cache.put(event.request, response.clone()));
         return response;
       }
       // Slow network: use the cached copy if there is one, else keep waiting.
@@ -163,7 +164,7 @@ self.addEventListener('fetch', event => {
         return cached;
       }
       const late = await network;
-      if (late.ok) cache.put(event.request, late.clone());
+      if (late.ok) event.waitUntil(cache.put(event.request, late.clone()));
       return late;
     } catch (error) {
       const cached = await cache.match(event.request, { ignoreSearch: true });

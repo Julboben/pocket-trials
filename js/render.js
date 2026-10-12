@@ -236,8 +236,9 @@ export function createRenderer(canvas) {
         Math.floor(deviceHeight / (targetHeight / ART_PIXEL)),
       ),
     );
-    canvas.width = deviceWidth;
-    canvas.height = deviceHeight;
+    // Setting a size, even the same one, reallocates and clears the canvas.
+    if (canvas.width !== deviceWidth) canvas.width = deviceWidth;
+    if (canvas.height !== deviceHeight) canvas.height = deviceHeight;
     W = Math.ceil(deviceWidth / pixelScale) * ART_PIXEL;
     H = Math.ceil(deviceHeight / pixelScale) * ART_PIXEL;
   }
