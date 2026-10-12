@@ -139,7 +139,7 @@ canvas {
     top: 16px;
     left: 16px;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
     pointer-events: none;
 }
@@ -158,11 +158,86 @@ canvas {
     font-weight: 800;
     font-variant-numeric: tabular-nums;
 }
-.timer-pill {
-    background: #315d46e8;
+/* The clock, with a quieter second row under it for the next medal in reach
+   and the split against the ghost. Its top row lines up with the apple pill. */
+.hud-pill.timer-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+}
+.timer-row {
+    min-height: 18px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
 }
 .timer-icon {
     color: #d8ebcb;
+}
+/* Zero width with a full-width minimum: the row fills the card but never
+   widens it, so nothing next to the timer moves when its content changes. */
+.timer-detail {
+    width: 0;
+    min-width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-top: 5px;
+    border-top: 1px solid #ffffff1a;
+    font-size: 9px;
+    letter-spacing: 0.5px;
+}
+.timer-detail[hidden],
+.timer-detail [hidden] {
+    display: none;
+}
+.medal-target {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #f4f2e9a6;
+}
+.medal-target::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 1px;
+    background: var(--medal-color);
+}
+.medal-target[data-medal="gold"] {
+    --medal-color: #f1c75b;
+}
+.medal-target[data-medal="silver"] {
+    --medal-color: #c9d2d0;
+}
+.medal-target[data-medal="bronze"] {
+    --medal-color: #c98553;
+}
+.split.ahead {
+    color: #9fd88a;
+}
+.split.behind {
+    color: #ff9f87;
+}
+/* What is playing back, just above the trail name. */
+.replay-label {
+    position: absolute;
+    z-index: 3;
+    left: 17px;
+    bottom: 44px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--color-accent);
+    font-size: 10px;
+    font-weight: 950;
+    letter-spacing: 1.5px;
+    text-shadow: 2px 2px 0 #172820aa;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.replay-label[hidden] {
+    display: none;
 }
 .scene-label {
     position: absolute;
@@ -410,17 +485,6 @@ h2 {
     display: none;
 }
 
-.split-pill[hidden] {
-    display: none;
-}
-.split-pill.ahead {
-    background: #315d46e8;
-    color: #d8ebcb;
-}
-.split-pill.behind {
-    background: #6b3328e8;
-    color: #ffd0bd;
-}
 
 .modal .results-credit {
     margin: -6px 0 0;
@@ -532,6 +596,24 @@ h2 {
     display: none;
 }
 .results-targets .reached {
+    color: var(--color-text);
+}
+.results-link {
+    align-self: center;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 10px;
+    border: 0;
+    background: none;
+    color: var(--color-text-muted);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+.results-link:hover,
+.results-link:focus-visible {
     color: var(--color-text);
 }
 .results-hint {
@@ -1446,6 +1528,24 @@ h2 {
     background: #213338;
     box-shadow: var(--shadow-pixel-small);
 }
+.leaderboard-row.watchable {
+    grid-template-columns: 30px 34px minmax(0, 1fr) auto auto;
+}
+.leaderboard-watch {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pixel);
+    background: #1c2c30;
+    color: var(--color-text);
+}
+.leaderboard-watch:hover,
+.leaderboard-watch:focus-visible {
+    background: var(--color-accent);
+    color: var(--color-green-ink);
+}
 .leaderboard-row.open {
     grid-template-columns: 30px 1fr;
     background: #1c2c30;
@@ -2201,6 +2301,14 @@ kbd {
     }
     .scene-label::after {
         left: 29px;
+    }
+    .replay-label {
+        left: 11px;
+        bottom: 38px;
+        font-size: 9px;
+    }
+    .timer-row {
+        min-height: 16px;
     }
     .hud-pill {
         min-height: 30px;

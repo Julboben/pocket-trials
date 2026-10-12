@@ -22,6 +22,9 @@ export function createOverlay() {
     if (toasts.parentElement !== toastHome) toastHome.insertBefore(toasts, toastNext);
   }
 
+  /** @type {{ gold: number, silver: number, bronze: number } | null} */
+  let medalTimes = null;
+  let shownMedal = "";
   let lastTimer = "",
     toastUntil = 0,
     splitUntil = 0,
@@ -29,15 +32,28 @@ export function createOverlay() {
   /** @type {string[]} achievement names waiting for their turn on screen */
   const achievementQueue = [];
 
-  function setTrail(name, marker, total) {
+  /**
+   * @param {{ gold: number, silver: number, bronze: number } | null} [medals]
+   *   the trail's medal times; the HUD shows the best one still in reach
+   */
+  function setTrail(name, marker, total, medals = null) {
+    medalTimes = medals;
+    shownMedal = "";
     $("scene-label").textContent = name.toUpperCase();
     $("scene-label").dataset.trailNumber = marker;
     setApples(0, total);
     $("toast").classList.remove("visible");
     toastUntil = 0;
-    $("split").hidden = true;
     splitUntil = 0;
+    syncTimerDetail();
     lastTimer = "";
+  }
+
+  /** Marks the HUD while a recorded run plays back; null clears it. */
+  function setReplay(name) {
+    const label = $("replay-label");
+    label.hidden = !name;
+    label.textContent = name ? "Replay · " + name : "";
   }
 
   function setApples(collected, total) {
@@ -50,6 +66,32 @@ export function createOverlay() {
       $("timer").textContent = text;
       lastTimer = text;
     }
+    setMedalTarget(seconds);
+  }
+
+  function setMedalTarget(seconds) {
+    const medal = medalTimes ? MEDALS.find((name) => seconds <= medalTimes[name]) ?? "none" : "none";
+    if (medal === shownMedal) return;
+    shownMedal = medal;
+    if (medal !== "none") {
+      const target = $("medal-target");
+      const time = timeText(medalTimes[medal]);
+      target.dataset.medal = medal;
+      target.textContent = time;
+      target.setAttribute("aria-label", medal + " medal time " + time);
+    }
+    syncTimerDetail();
+  }
+
+  /**
+   * The timer's second row holds one thing: a fresh split against the ghost,
+   * otherwise the next medal in reach. It hides when there is neither.
+   */
+  function syncTimerDetail() {
+    const splitting = splitUntil > 0;
+    $("split").hidden = !splitting;
+    $("medal-target").hidden = splitting || shownMedal === "none";
+    $("timer-detail").hidden = !splitting && shownMedal === "none";
   }
 
   /** @param {string} [icon] a pixel icon shown after the message */
@@ -92,20 +134,20 @@ export function createOverlay() {
 
   /** Split against the ghost at an apple: negative is ahead. */
   function split(delta) {
-    const pill = $("split");
-    pill.textContent = deltaText(delta);
-    pill.classList.toggle("ahead", delta <= 0);
-    pill.classList.toggle("behind", delta > 0);
-    pill.hidden = false;
+    const split = $("split");
+    split.textContent = deltaText(delta);
+    split.classList.toggle("ahead", delta <= 0);
+    split.classList.toggle("behind", delta > 0);
     splitUntil = performance.now() + 2500;
+    syncTimerDetail();
   }
 
   function tick(now) {
     if (toastUntil && now > toastUntil) clearToast();
     if (achievementUntil && now > achievementUntil) nextAchievement(now);
     if (splitUntil && now > splitUntil) {
-      $("split").hidden = true;
       splitUntil = 0;
+      syncTimerDetail();
     }
   }
 
@@ -234,6 +276,7 @@ export function createOverlay() {
 
   return {
     setTrail,
+    setReplay,
     setApples,
     setTimer,
     toast,

@@ -10,7 +10,7 @@ import {
 } from '../storage.js';
 import { DEFAULT_LOOK, keepIdentity, lookKey, sameLook, starterLook } from '../cosmetics.js';
 import { createCustomizer, createIdentityPicker, drawLook } from './customizer.js';
-import { ONLINE_LEADERBOARD_EVENT, isOnlineBoardLoading, submitOnlineRun } from '../online-leaderboard.js';
+import { ONLINE_LEADERBOARD_EVENT, isOnlineBoardLoading, isOnlineTrail, fetchWorldGhost, submitOnlineRun } from '../online-leaderboard.js';
 import { registerRider, loginRider, accountErrorText, passkeysSupported, queueSaveSync, fetchCloudSave } from '../account.js';
 import { isSandbox } from '../local-store.js';
 import { NAME_HINT, disallowedNameChars } from '../rider-name.js';
@@ -58,7 +58,7 @@ export function loadStoredState() {
  *   onPreferences: () => void
  * }} hooks
  */
-export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartCustom, onClose, onRetry, onPreferences }) {
+export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartCustom, onClose, onRetry, onPreferences, onWatchReplay }) {
   let pendingSaveSlot = 0;
   $('app-version').textContent = 'v' + VERSION;
   let deleteArmedSlot = -1, deleteArmTimer = 0, leaderboardTrail = 0;
@@ -791,7 +791,26 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     $('menu-trail-grid').replaceChildren(...cards);
   }
 
-  function leaderboardRow(run, rank, loading = false) {
+  /** The world-best replay per trail key once fetched, null when there is none. */
+  const worldReplays = new Map();
+
+  /** Whether the player may open a trail, and so watch runs on it. */
+  function canWatch(entry) {
+    if (entry.source === 'official') return Boolean(session.saveGame) && officialTrailEntries.indexOf(entry) <= session.unlockedTrail;
+    if (entry.source === 'bonus') return bonusUnlock(entry).open;
+    return true;
+  }
+
+  /** The recorded run behind a board row: this device's best, or the world's. */
+  function replayFor(run, key) {
+    const same = replay => replay?.physics === RIDE_VERSION && Math.abs(replay.time - run.time) < .001;
+    const local = readGhost(key);
+    if (same(local)) return local;
+    const world = worldReplays.get(key);
+    return same(world) && (!run.name || run.name === world.name) ? world : null;
+  }
+
+  function leaderboardRow(run, rank, loading = false, entry = null, replay = null) {
     const row = document.createElement('li');
     row.className = 'leaderboard-row' + (rank <= 3 && run ? ' podium-' + rank : '') + (run ? '' : ' open');
     const rankLabel = document.createElement('span');
@@ -822,6 +841,20 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     time.className = 'leaderboard-time';
     time.textContent = runTimeText(run.time);
     row.append(rankLabel, avatar, copy, time);
+    if (replay) {
+      const watch = document.createElement('button');
+      watch.type = 'button';
+      watch.className = 'leaderboard-watch';
+      watch.setAttribute('aria-label', 'Watch the run by ' + runnerName(run.name));
+      watch.title = 'Watch replay';
+      const icon = document.createElement('span');
+      icon.dataset.icon = 'play';
+      icon.setAttribute('aria-hidden', 'true');
+      watch.append(icon);
+      watch.addEventListener('click', () => onWatchReplay({ entry, data: replay, name: runnerName(run.name) }));
+      row.classList.add('watchable');
+      row.append(watch);
+    }
     return row;
   }
 
@@ -839,8 +872,21 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     $('leaderboard-trail-meta').textContent = entry.source.toUpperCase() + ' TRAIL'
       + (author ? ' · BY ' + author.toUpperCase() : '')
       + ' · ' + (leaderboardTrail + 1) + ' / ' + trails.length;
-    const rows = Array.from({ length: LEADERBOARD_SIZE }, (_, index) => leaderboardRow(loading ? undefined : runs[index], index + 1, loading));
+    const watchable = canWatch(entry);
+    const rows = Array.from({ length: LEADERBOARD_SIZE }, (_, index) => {
+      const run = loading ? undefined : runs[index];
+      return leaderboardRow(run, index + 1, loading, entry, run && watchable ? replayFor(run, key) : null);
+    });
     $('leaderboard-list').replaceChildren(...rows);
+    // The world best can be watched too, once its replay has arrived.
+    if (watchable && isOnlineTrail(key) && !worldReplays.has(key)) {
+      worldReplays.set(key, null);
+      fetchWorldGhost(key).then(world => {
+        if (!world) return;
+        worldReplays.set(key, world);
+        if (isOpen() && !$('menu-leaderboard-view').hidden && trailKey(leaderboardTrails()[leaderboardTrail]) === key) buildLeaderboard();
+      });
+    }
   }
 
   function stepLeaderboard(direction) {
