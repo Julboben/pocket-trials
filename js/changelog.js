@@ -2,6 +2,28 @@
 /** @type {{ version: string, date: string, changes: { type: 'new' | 'improved' | 'fixed', text: string }[] }[]} */
 export const RELEASES = [
   {
+    "version": "0.3.1",
+    "date": "2026-10-12",
+    "changes": [
+      {
+        "type": "new",
+        "text": "Meet Coda the Corgi! Coda is now part of the game and can be found on trails."
+      },
+      {
+        "type": "new",
+        "text": "The changelog now has a Heads up section for important news you need to know about."
+      },
+      {
+        "type": "improved",
+        "text": "Your rider customisations now sync between desktop and mobile without needing to log in again."
+      },
+      {
+        "type": "improved",
+        "text": "Menus no longer bounce or trigger pull-to-refresh when you scroll on mobile."
+      }
+    ]
+  },
+  {
     "version": "0.3.0",
     "date": "2026-10-11",
     "changes": [
