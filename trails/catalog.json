@@ -20,39 +20,45 @@
       "name": "Windfall"
     },
     {
-      "id": "official:04-splinter-ridge",
+      "id": "official:04-a-hill-to-die-on",
       "source": "official",
-      "file": "official/04-splinter-ridge.json",
+      "file": "official/04-a-hill-to-die-on.json",
+      "name": "A Hill to Die On"
+    },
+    {
+      "id": "official:05-splinter-ridge",
+      "source": "official",
+      "file": "official/05-splinter-ridge.json",
       "name": "Splinter Ridge"
     },
     {
-      "id": "official:05-high-hopes",
+      "id": "official:06-high-hopes",
       "source": "official",
-      "file": "official/05-high-hopes.json",
+      "file": "official/06-high-hopes.json",
       "name": "High Hopes"
     },
     {
-      "id": "official:06-skybound",
+      "id": "official:07-skybound",
       "source": "official",
-      "file": "official/06-skybound.json",
+      "file": "official/07-skybound.json",
       "name": "Skybound"
     },
     {
-      "id": "official:07-brake-point",
+      "id": "official:08-brake-point",
       "source": "official",
-      "file": "official/07-brake-point.json",
+      "file": "official/08-brake-point.json",
       "name": "Brake Point"
     },
     {
-      "id": "official:08-long-way-up",
+      "id": "official:09-long-way-up",
       "source": "official",
-      "file": "official/08-long-way-up.json",
+      "file": "official/09-long-way-up.json",
       "name": "Long Way Up"
     },
     {
-      "id": "official:09-elastic-summit",
+      "id": "official:10-elastic-summit",
       "source": "official",
-      "file": "official/09-elastic-summit.json",
+      "file": "official/10-elastic-summit.json",
       "name": "Elastic Summit"
     },
     {

@@ -224,7 +224,7 @@ for (const entry of entries) {
 // caught on the bike can't drag the rest along. This crash used to launch the
 // rider upwards at over 200 px/s.
 {
-  const entry = entries.find(candidate => candidate.id === 'official:07-brake-point');
+  const entry = entries.find(candidate => candidate.id === 'official:08-brake-point');
   let seed = 2 * 31 + 7 + 6000;
   const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const ride = createRide(entry.trail, { seed: 2 });

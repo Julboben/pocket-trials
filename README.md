@@ -80,12 +80,13 @@ Gamepads use the standard mapping: `RT` or `A` for gas, `LT` or `X` for brake, t
 1. **The Orchard** — gentle rollers that teach throttle rhythm and basic balance.
 2. **Apple Valley** — growing rollers and a big hill that teach carrying momentum, and a small hop to reach the flower.
 3. **Windfall** — turning around: ride away to build speed, turn, and launch back to an apple high behind you.
-4. **Splinter Ridge** — longer, steeper woodland hills that teach momentum management and crest control.
-5. **High Hopes** — steep climbs and bigger landings that reward early weight shifts.
-6. **Skybound** — two committed jumps across a narrow middle section.
-7. **Brake Point** — sharp drops and deep bowls that teach controlled braking and recovery.
-8. **Long Way Up** — a sustained technical climb combining momentum and wheelie control.
-9. **Elastic Summit** — a long final exam combining climbs, braking, landings, gaps, and stacked ledges.
+4. **A Hill to Die On** — a steep hill climbed three times, with turns in between and a bump that launches you up onto a ledge for the high apple.
+5. **Splinter Ridge** — longer, steeper woodland hills that teach momentum management and crest control.
+6. **High Hopes** — steep climbs and bigger landings that reward early weight shifts.
+7. **Skybound** — two committed jumps across a narrow middle section.
+8. **Brake Point** — sharp drops and deep bowls that teach controlled braking and recovery.
+9. **Long Way Up** — a sustained technical climb combining momentum and wheelie control.
+10. **Elastic Summit** — a long final exam combining climbs, braking, landings, gaps, and stacked ledges.
 
 The planned full career is laid out in [`TRAILS_PLAN.md`](./TRAILS_PLAN.md).
 

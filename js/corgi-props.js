@@ -389,8 +389,8 @@ const HEAD_PANT = [
     "......wpP.",
   ],
 ];
-const HEAD_AT = { x: 4, y: -34 };
-const SNIFF_AT = { x: 10, y: -24 };
+const HEAD_AT = { x: 4, y: -32 };
+const SNIFF_AT = { x: 10, y: -22 };
 
 // The standing body, without its legs: a white ruff around the neck and
 // chest, then the black saddle from behind the front legs right back to the
@@ -407,7 +407,7 @@ const BODY = [
   "WWwTTTTTTTTTTTwWWW",
   ".wwwwWWWWWWWWWWww.",
 ];
-const BODY_AT = { x: -24, y: -24 };
+const BODY_AT = { x: -24, y: -22 };
 // Sitting: rump on the ground, chest up, a hind foot tucked forward.
 const BODY_SIT = [
   "................",
@@ -435,7 +435,7 @@ const TAIL = [
   ".wwDDKKKKD",
   "....DDDD..",
 ];
-const TAIL_AT = { x: -42, y: -26 };
+const TAIL_AT = { x: -42, y: -24 };
 const TAIL_SIT = [
   "...kkkkk..",
   "wWWKKKKKKk",
@@ -459,7 +459,7 @@ const HEART = [".RR.RR.", "RHRRRRR", "RRRRRRr", ".RRRRr.", "..RRr..", "...r..."]
 // between his back and the back of his head, so his outline carries on up
 // his back to the ears instead of dipping in at the neck.
 const MANE = ["wWW"];
-const MANE_AT = { x: 2, y: -24 };
+const MANE_AT = { x: 2, y: -22 };
 const MANE_SIT = [
   ".........",
   "......wwW",
@@ -476,14 +476,14 @@ const COLLAR_BAND = [
   ".RR",
   "..Y",
 ];
-const COLLAR_AT = { x: 6, y: -18 };
+const COLLAR_AT = { x: 6, y: -16 };
 const COLLAR_SIT_AT = { x: 2, y: -22 };
 const COLLAR_SNIFF = [
   "r.",
   "R.",
   ".R",
 ];
-const COLLAR_SNIFF_AT = { x: 6, y: -22 };
+const COLLAR_SNIFF_AT = { x: 6, y: -20 };
 
 // Legs: x of each leg's left edge, far (shaded) or near, front or hind, and
 // its place in the walk cycle.
@@ -494,7 +494,7 @@ const LEGS = [
   { x: 4, far: false, front: true, offset: 2 },
 ];
 // The underside of the standing body, where the legs start.
-const LEG_TOP = -10;
+const LEG_TOP = -8;
 
 /**
  * One short white corgi leg, 4 wide, from `top` down to the ground at `ground(x)`
@@ -532,7 +532,7 @@ function drawWoof({ pixelRect }, mx, my) {
 function drawHeart(t, rise) {
   // It blinks out over its last fifth.
   if (rise > 0.8 && Math.floor(rise * 20) % 2) return;
-  drawGrid(t, HEAD_AT.x, HEAD_AT.y - 18 - snap(rise * 12), HEART);
+  drawGrid(t, HEAD_AT.x, HEAD_AT.y - 20 - snap(rise * 12), HEART);
 }
 
 /** Where the woof comes from, in the corgi's local units (facing right, standing). */
@@ -541,7 +541,7 @@ export const CORGI_MOUTH = { x: HEAD_AT.x + 20, y: HEAD_AT.y + 15 };
 /**
  * A tri-colour Pembroke corgi facing right, standing on the ground at
  * `ground(localX)` (relative to y = 0): `pose`, `frame`, `woof` and `wag`
- * come from corgiPose. About 50 long and 36 tall to the ear tips, next to a
+ * come from corgiPose. About 50 long and 34 tall to the ear tips, next to a
  * 60-tall rider. Uses pixelRect only.
  */
 export function drawCorgi(
@@ -563,9 +563,9 @@ export function drawCorgi(
     for (const leg of LEGS.filter((l) => l.front)) drawLeg(t, leg.x + 2, -10, legGround, leg.far);
     drawGrid(t, SIT_AT.x, SIT_AT.y, BODY_SIT);
     drawGrid(t, MANE_SIT_AT.x, MANE_SIT_AT.y, MANE_SIT);
-    drawGrid(t, HEAD_AT.x - 2, HEAD_AT.y - 4, pant && !woof ? HEAD_PANT[frame % 2] : head);
+    drawGrid(t, HEAD_AT.x - 2, HEAD_AT.y - 6, pant && !woof ? HEAD_PANT[frame % 2] : head);
     drawGrid(t, COLLAR_SIT_AT.x, COLLAR_SIT_AT.y, COLLAR_BAND);
-    if (woof) drawWoof(t, CORGI_MOUTH.x - 2, CORGI_MOUTH.y - 4);
+    if (woof) drawWoof(t, CORGI_MOUTH.x - 2, CORGI_MOUTH.y - 6);
     if (heart !== null) drawHeart(t, heart);
     return;
   }

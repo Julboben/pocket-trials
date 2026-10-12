@@ -13,7 +13,7 @@ A plan for a career of 35 official trails, where every trail brings in something
 
 We keep **The Orchard** (1) as it is, and **Apple Valley** (2) and **Windfall** (3) are built. **Splinter Ridge** is kept but moves to 6, where its cut-wood look opens the Woods. The other current official trails (High Hopes, Skybound, Brake Point, Long Way Up and Elastic Summit) are retired. Their best ideas are reused below, and two of the names come back as rebuilt trails.
 
-Until the new trails exist, the files in `trails/official/` run 01 The Orchard, 02 Apple Valley, 03 Windfall, 04 Splinter Ridge, and then the old trails from 05 to 09.
+Until the new trails exist, the files in `trails/official/` run 01 The Orchard, 02 Apple Valley, 03 Windfall, 04 A Hill to Die On, 05 Splinter Ridge, and then the old trails from 06 to 10.
 
 Every trail is closed off at both ends, so the rider can't ride out of it, and each trail does it differently: The Orchard has an overhanging bank and shelf, Apple Valley a brick orchard wall and an overhanging grass bluff, and Windfall a rock outcrop and a stack of hay bales.
 
