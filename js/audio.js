@@ -38,7 +38,7 @@ export function createAudio(getSnapshot) {
 
   function init() {
     if (audio) {
-      if (audio.context.state === 'suspended') audio.context.resume();
+      if (audio.context.state === 'suspended' && !audio.paused) audio.context.resume();
       return;
     }
     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -173,6 +173,8 @@ export function createAudio(getSnapshot) {
       context, master, engine, engineDrive, engineFilter, enginePipe, engineGain, raspFilter, raspLevel,
       pitchDrift, levelDrift, noiseBuffer, skidGain, rainGain,
       windFilter, windGain, brownBuffer: windBuffer, echo,
+      // Whether the context is suspended for the pause screen (see update).
+      paused: false,
     };
   }
 
@@ -337,6 +339,14 @@ export function createAudio(getSnapshot) {
     if (!audio) return;
     const { state, rear, front, facing, gas, started, brakePressure, weather } = getSnapshot();
     const { context, skidGain, rainGain, windFilter, windGain } = audio;
+    // Pausing freezes every sound where it is (rain, wind, a rolling thunder
+    // clap, the engine) by suspending the whole context; resuming carries on.
+    const paused = state === 'paused';
+    if (paused !== audio.paused) {
+      audio.paused = paused;
+      (paused ? context.suspend() : context.resume()).catch(() => {});
+    }
+    if (paused) return;
     const speed = rear && front ? Math.abs(((rear.x - rear.ox) + (front.x - front.ox)) / (2 * STEP)) : 0;
     const running = state === 'running';
     const grounded = rear && front && (rear.grounded || front.grounded);

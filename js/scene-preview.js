@@ -76,7 +76,7 @@ export function drawScene(target, {
   const point = focus || { x: (ride.rear.x + ride.front.x) / 2, y: (ride.rear.y + ride.front.y) / 2 };
   const view = { x: point.x - renderer.width * anchor[0], y: point.y - renderer.height * anchor[1] };
   const camera = { follow() {}, view: () => view };
-  renderer.draw({ ride, ghost: null, camera, effects, look, state: 'ready', full, now: 0, dt: 0, debug: false });
+  renderer.draw({ ride, ghost: null, camera, effects, look, state: 'ready', full, dt: 0, debug: false });
   target.width = canvas.width;
   target.height = canvas.height;
   const context = target.getContext('2d');

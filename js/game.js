@@ -722,7 +722,7 @@ export function startGame() {
       const restoreGhost = ghostRide ? interpolateRide(ghostRide, ghostRide.status === 'won' ? 1 : alpha) : null;
       renderer.draw({
         ride, ghost: ghostRide, camera, effects, look: session.look, ghostLook: ghost?.look, state: session.state,
-        full: session.preferences.scenery === 'full', now, dt, debug: physicsDebugEnabled
+        full: session.preferences.scenery === 'full', dt, debug: physicsDebugEnabled
       });
       restoreGhost?.();
       restore();
