@@ -1148,6 +1148,9 @@ export function createRenderer(canvas) {
       spanY = H + 70;
     ctx.fillStyle = `rgba(33, 52, 61, ${intensity * 0.12 + storm * 0.1})`;
     ctx.fillRect(0, 0, W, H);
+    // One colour for every drop, each with its own alpha: a number is far
+    // cheaper to set than a colour string is to build and parse.
+    ctx.fillStyle = "rgb(205, 225, 224)";
     for (let index = 0; index < count; index++) {
       const depth = 0.45 + rainHash(index, 1) * 0.75;
       const fall =
@@ -1161,7 +1164,7 @@ export function createRenderer(canvas) {
         fall * slant -
         cameraX * depth;
       const x = (((rawX % spanX) + spanX) % spanX) - 40;
-      ctx.fillStyle = `rgba(205, 225, 224, ${0.25 + depth * 0.3 + storm * 0.1})`;
+      ctx.globalAlpha = 0.25 + depth * 0.3 + storm * 0.1;
       // A slanted streak as offset one-pixel columns.
       const length = (8 + intensity * 6 + storm * 14) * depth + rainHash(index, 6) * 4;
       const part = Math.max(1, Math.round(length / segments / ART_PIXEL)) * ART_PIXEL;
@@ -1199,6 +1202,7 @@ export function createRenderer(canvas) {
         ctx.fillRect(left - segment * ART_PIXEL, from, ART_PIXEL, size);
       }
     }
+    ctx.globalAlpha = 1;
   }
 
   // How far a flake would have fallen past the ground while it rests there.
@@ -1223,6 +1227,8 @@ export function createRenderer(canvas) {
       ctx.fillStyle = `rgba(232, 238, 242, ${storm * 0.24})`;
       ctx.fillRect(0, 0, W, H);
     }
+    // One colour, each flake with its own alpha, as for rain.
+    ctx.fillStyle = "rgb(246, 249, 250)";
     for (let index = 0; index < count; index++) {
       const depth = 0.4 + rainHash(index, 11) * 0.8;
       const fall =
@@ -1248,18 +1254,19 @@ export function createRenderer(canvas) {
         worldY = top + size + cameraY;
       const hit = weatherGroundAt(worldX, worldY, -wind);
       const ground = Math.round((hit.y - cameraY) / ART_PIXEL) * ART_PIXEL;
-      ctx.fillStyle = `rgba(246, 249, 250, ${0.45 + depth * 0.4})`;
+      const alpha = 0.45 + depth * 0.4;
       if (top + size > ground) {
         if (hit.water || top + size - ground > SNOW_SETTLE) continue;
         // Resting where it landed until it melts away.
         const rest = Math.round((left + wind * (top + size - ground)) / ART_PIXEL) * ART_PIXEL;
-        ctx.globalAlpha = 1 - (top + size - ground) / SNOW_SETTLE;
+        ctx.globalAlpha = alpha * (1 - (top + size - ground) / SNOW_SETTLE);
         ctx.fillRect(rest, ground - ART_PIXEL, size, ART_PIXEL);
-        ctx.globalAlpha = 1;
         continue;
       }
+      ctx.globalAlpha = alpha;
       ctx.fillRect(left, top, size, size);
     }
+    ctx.globalAlpha = 1;
   }
 
   function drawWeather(weather) {

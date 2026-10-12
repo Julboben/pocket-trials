@@ -1,6 +1,9 @@
-// Network-first service worker: online loads always get the latest files,
-// and everything fetched is kept so the game also starts offline.
-const CACHE = 'hjulben-cd2d6884';
+// Service worker. The game's own files (CORE) are served from the cache this
+// worker filled when it installed: CACHE changes with their content, so every
+// release installs a fresh copy of all of them and a page never mixes files
+// from two releases. It takes over on the next load. Trail files and anything
+// else are network-first, and kept so the game also starts offline.
+const CACHE = 'hjulben-c3360fa8';
 const CORE = [
   './',
   './css/editor.css',
@@ -99,12 +102,19 @@ const CORE = [
   './manifest.webmanifest',
 ];
 
+// The dev server (npm run dev) stays network-first for everything, so an edit
+// shows on the next reload without regenerating the cache name.
+const LOCAL = ['localhost', '127.0.0.1', '[::1]'].includes(self.location.hostname);
+const CORE_PATHS = new Set(CORE.map(file => new URL(file, self.location.href).pathname));
+// Past the browser's HTTP cache, so a release is precached as deployed.
+const fresh = file => new Request(file, { cache: 'reload' });
+
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
     // One file at a time: addAll is all-or-nothing, so a single 404 would
     // leave the whole app uncached. A file that fails is logged, not fatal.
-    const results = await Promise.allSettled(CORE.map(file => cache.add(file)));
+    const results = await Promise.allSettled(CORE.map(file => cache.add(fresh(file))));
     const failed = results
       .map((result, index) => (result.status === 'rejected' ? CORE[index] : null))
       .filter(Boolean);
@@ -112,14 +122,14 @@ self.addEventListener('install', event => {
     try {
       const catalog = await (await fetch('./trails/catalog.json')).json();
       await Promise.allSettled(
-        catalog.trails.map(entry => cache.add('./trails/' + entry.file)),
+        catalog.trails.map(entry => cache.add(fresh('./trails/' + entry.file))),
       );
       // Only exists locally, next to the git-ignored custom trails.
       const custom = await fetch('./trails/custom-catalog.json').catch(() => null);
       if (custom?.ok) {
         await cache.put('./trails/custom-catalog.json', custom.clone());
         const { trails } = await custom.json();
-        await Promise.allSettled(trails.map(entry => cache.add('./trails/' + entry.file)));
+        await Promise.allSettled(trails.map(entry => cache.add(fresh('./trails/' + entry.file))));
       }
     } catch (error) {
       console.warn('[sw] could not precache the trail catalog:', error);
@@ -138,38 +148,54 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.includes('/api/')) return;
-  event.respondWith((async () => {
-    const cache = await caches.open(CACHE);
-    try {
-      // A slow network should not hold up the page, but giving up after the
-      // timeout would break a first load with nothing cached. So the cached
-      // copy is used when there is one, and otherwise the fetch keeps going.
-      const network = fetch(event.request);
-      const timeout = new Promise((resolve) => setTimeout(resolve, 3000, null));
-      const response = await Promise.race([network, timeout]);
-      if (response) {
-        // waitUntil keeps the worker alive until the copy is stored.
-        if (response.ok) event.waitUntil(cache.put(event.request, response.clone()));
-        return response;
-      }
-      // Slow network: use the cached copy if there is one, else keep waiting.
-      const cached = await cache.match(event.request, { ignoreSearch: true });
-      if (cached) {
-        // Keep the late response for next time, and ignore it if it fails.
-        event.waitUntil(
-          network
-            .then((late) => late.ok && cache.put(event.request, late.clone()))
-            .catch(() => {}),
-        );
-        return cached;
-      }
-      const late = await network;
-      if (late.ok) event.waitUntil(cache.put(event.request, late.clone()));
-      return late;
-    } catch (error) {
-      const cached = await cache.match(event.request, { ignoreSearch: true });
-      if (cached) return cached;
-      throw error;
-    }
-  })());
+  if (!LOCAL && CORE_PATHS.has(url.pathname)) {
+    event.respondWith(cacheFirst(event));
+    return;
+  }
+  event.respondWith(networkFirst(event));
 });
+
+async function cacheFirst(event) {
+  const cache = await caches.open(CACHE);
+  const cached = await cache.match(event.request, { ignoreSearch: true });
+  if (cached) return cached;
+  // Missed at install (offline, or a failed file): fetch it now and keep it.
+  const response = await fetch(event.request);
+  if (response.ok) event.waitUntil(cache.put(event.request, response.clone()));
+  return response;
+}
+
+async function networkFirst(event) {
+  const cache = await caches.open(CACHE);
+  try {
+    // A slow network should not hold up the page, but giving up after the
+    // timeout would break a first load with nothing cached. So the cached
+    // copy is used when there is one, and otherwise the fetch keeps going.
+    const network = fetch(event.request);
+    const timeout = new Promise((resolve) => setTimeout(resolve, 3000, null));
+    const response = await Promise.race([network, timeout]);
+    if (response) {
+      // waitUntil keeps the worker alive until the copy is stored.
+      if (response.ok) event.waitUntil(cache.put(event.request, response.clone()));
+      return response;
+    }
+    // Slow network: use the cached copy if there is one, else keep waiting.
+    const cached = await cache.match(event.request, { ignoreSearch: true });
+    if (cached) {
+      // Keep the late response for next time, and ignore it if it fails.
+      event.waitUntil(
+        network
+          .then((late) => late.ok && cache.put(event.request, late.clone()))
+          .catch(() => {}),
+      );
+      return cached;
+    }
+    const late = await network;
+    if (late.ok) event.waitUntil(cache.put(event.request, late.clone()));
+    return late;
+  } catch (error) {
+    const cached = await cache.match(event.request, { ignoreSearch: true });
+    if (cached) return cached;
+    throw error;
+  }
+}
