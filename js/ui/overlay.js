@@ -24,7 +24,10 @@ export function createOverlay() {
 
   let lastTimer = "",
     toastUntil = 0,
-    splitUntil = 0;
+    splitUntil = 0,
+    achievementUntil = 0;
+  /** @type {string[]} achievement names waiting for their turn on screen */
+  const achievementQueue = [];
 
   function setTrail(name, marker, total) {
     $("scene-label").textContent = name.toUpperCase();
@@ -64,6 +67,29 @@ export function createOverlay() {
     toastUntil = 0;
   }
 
+  /**
+   * Announces an earned achievement in its own toast, so it never hides the
+   * game's own messages. Several in a row take turns.
+   */
+  function achievement(name) {
+    achievementQueue.push(name);
+    if (!achievementUntil) nextAchievement(performance.now());
+  }
+
+  function nextAchievement(now) {
+    const pill = $("achievement-toast");
+    const name = achievementQueue.shift();
+    if (name === undefined) {
+      pill.classList.remove("visible");
+      achievementUntil = 0;
+      return;
+    }
+    pill.textContent = "Achievement · " + name;
+    pill.classList.add("visible");
+    achievementUntil = now + 3200;
+    announce("Achievement earned: " + name + ".");
+  }
+
   /** Split against the ghost at an apple: negative is ahead. */
   function split(delta) {
     const pill = $("split");
@@ -76,6 +102,7 @@ export function createOverlay() {
 
   function tick(now) {
     if (toastUntil && now > toastUntil) clearToast();
+    if (achievementUntil && now > achievementUntil) nextAchievement(now);
     if (splitUntil && now > splitUntil) {
       $("split").hidden = true;
       splitUntil = 0;
@@ -211,6 +238,7 @@ export function createOverlay() {
     setTimer,
     toast,
     clearToast,
+    achievement,
     split,
     tick,
     announce,

@@ -17,6 +17,7 @@ import {
 import { cleanName, validName, nameKey, blockedName } from '../lib/names.mjs';
 import { TRAIL_RE } from '../lib/verify-run.mjs';
 import { lookOf, legacyRider, playerLook } from '../lib/looks.mjs';
+import { cleanAchievements, cleanStats } from '../../js/achievements.js';
 
 const RP_NAME = 'Hjulben';
 
@@ -161,6 +162,8 @@ function sanitizeSave(save) {
     trail: int(save.trail, 999),
     unlocked: int(save.unlocked, 999),
     bestTimes,
+    achievements: cleanAchievements(save.achievements),
+    stats: cleanStats(save.stats),
   };
 }
 

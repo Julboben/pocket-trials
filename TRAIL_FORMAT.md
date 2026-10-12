@@ -367,11 +367,7 @@ These optional target times are in seconds. The results screen and trail cards a
 
 ## Unlocking bonus trails
 
-```js
-unlock: { trails: 3, golds: 1 }
-```
-
-This optional rule is for bonus trails. They stay locked until the active save has finished `trails` official trails and won `golds` gold medals on official trails. Both counts are whole numbers, every rule given must be met, and a count of 0 is the same as leaving it out. A bonus trail without a rule is open to everyone, even without a savegame, while a locked one is shown with a hint such as "FINISH 3 TRAILS & WIN 1 GOLD MEDAL TO UNLOCK". Invalid rules are dropped during normalization, and the rule does not change the trail's hash. Other trails ignore it.
+What opens a locked bonus trail is not part of the trail file. Every unlock rule, for bonus trails and rider items alike, is in `js/unlocks.js`, keyed by the trail's catalog id (for example `'trail:bonus:01-the-bonny-tyler': { golds: 2 }`). A rule can ask for official trails finished (`trails`), gold medals won on official trails (`golds`), a finished trail (`trail`) or an earned achievement (`achievement`), and every part given must be met. A bonus trail without a rule is open to everyone, even without a savegame, while a locked one is shown with a hint such as "WIN 2 GOLD MEDALS TO UNLOCK". An `unlock` field left in an older trail file is dropped during normalization.
 
 ## Recommended authoring workflow
 

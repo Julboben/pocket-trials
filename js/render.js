@@ -438,7 +438,7 @@ export function createRenderer(canvas) {
    */
   function interact() {
     const spot = nearestSpot();
-    return spot ? INTERACTIONS[spot.prop.type].act(spot.prop) : null;
+    return spot ? { type: spot.prop.type, ...INTERACTIONS[spot.prop.type].act(spot.prop) } : null;
   }
 
   // The interact key in a small key cap over whatever it would act on.

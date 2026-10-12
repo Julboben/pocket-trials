@@ -5,8 +5,9 @@ import assert from 'node:assert/strict';
 import {
   LOOK_SLOTS, IDENTITY_SLOTS, LOOK_PARTS, SLOT_LABELS, LOOK_ITEMS, DEFAULT_LOOK, STARTER_LOOKS, lookItem, itemsForSlot,
   isDefaultItem, starterLook, legacyLook, legacyRider, normalizeLook, keepIdentity, lookOf, isCompleteLook, lookKey,
-  sameLook, isColorless, partName, randomLook, lookParts, isUnlocked, ownsWith, ownedLook, MX_HELMET_TRAIL
+  sameLook, isColorless, partName, randomLook, lookParts, ownsWith, ownedLook
 } from '../js/cosmetics.js';
+import { lookUnlock } from '../js/unlocks.js';
 import { readFileSync } from 'node:fs';
 import { BIKE_MODELS } from '../js/drawing.js';
 import { BIKE_LAMPS } from '../js/bike-lamps.js';
@@ -26,7 +27,7 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
     ids.add(item.slot + ':' + item.id);
     assert.ok(item.name, `${item.id} has a name`);
     assert.ok(Object.isFrozen(item), `${item.id} is frozen`);
-    assert.ok(['default', 'golds', 'trail'].includes(item.unlock.type), `${item.id} has a known unlock rule`);
+    assert.equal(isDefaultItem(item.slot, item.id), !lookUnlock(item.slot, item.id), `${item.id} is default unless a rule wins it`);
     assert.equal(lookItem(item.slot, item.id), item);
   }
   for (const slot of LOOK_SLOTS) {
@@ -150,23 +151,19 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
 
 {
   // The Pocket Classic takes 8 gold medals; the motocross helmet, The Bonny Tyler.
-  assert.deepEqual(lookItem('bike', 'classic').unlock, { type: 'golds', count: 8 });
-  assert.deepEqual(lookItem('helmet', 'mx').unlock, { type: 'trail', trail: MX_HELMET_TRAIL });
-  const catalog = JSON.parse(readFileSync(new URL('../trails/catalog.json', import.meta.url), 'utf8'));
-  assert.ok(catalog.trails.some(entry => entry.id === MX_HELMET_TRAIL), 'the helmet\'s trail is in the catalog');
+  const mxTrail = 'bonus:01-the-bonny-tyler';
+  assert.deepEqual(lookUnlock('bike', 'classic'), { golds: 8 });
+  assert.deepEqual(lookUnlock('helmet', 'mx'), { trail: mxTrail });
 
-  const progress = (golds, finished = []) => ({ golds, finished: id => finished.includes(id) });
-  assert.ok(isUnlocked({ type: 'default' }, null), 'default items need no career');
-  assert.ok(!isUnlocked({ type: 'golds', count: 8 }, null), 'won items need a career');
-  assert.ok(!isUnlocked({ type: 'golds', count: 8 }, progress(7)));
-  assert.ok(isUnlocked({ type: 'golds', count: 8 }, progress(8)));
-  assert.ok(!isUnlocked({ type: 'trail', trail: MX_HELMET_TRAIL }, progress(20)));
-  assert.ok(isUnlocked({ type: 'trail', trail: MX_HELMET_TRAIL }, progress(0, [MX_HELMET_TRAIL])));
-
+  const progress = (golds, finished = []) => ({ trails: 0, golds, finished: id => finished.includes(id), has: () => false });
+  const nobody = ownsWith(null);
+  assert.ok(nobody('bike', 'elasto') && !nobody('bike', 'classic'), 'won items need a career');
   const fresh = ownsWith(progress(0));
   assert.ok(fresh('bike', 'elasto') && !fresh('bike', 'classic') && !fresh('helmet', 'mx'));
   assert.ok(!fresh('bike', 'rocket'), 'unknown items are never owned');
-  const veteran = ownsWith(progress(8, [MX_HELMET_TRAIL]));
+  assert.ok(!ownsWith(progress(7))('bike', 'classic'));
+  assert.ok(!ownsWith(progress(20))('helmet', 'mx'));
+  const veteran = ownsWith(progress(8, [mxTrail]));
   assert.ok(veteran('bike', 'classic') && veteran('helmet', 'mx'));
 }
 

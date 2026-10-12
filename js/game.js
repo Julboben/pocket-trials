@@ -11,8 +11,9 @@ import { encodeInputs, decodeInputs } from './replay-codec.js';
 import { medalFor, normalizeTrail } from './trail-schema.js';
 import {
   readBest, saveBest, readLeaderboard, recordLeaderboardRun, readGhost, saveGhost,
-  saveProgress as persistProgress, savePreferences, clearSaveToken
+  saveProgress as persistProgress, savePreferences, clearSaveToken, recordAchievements
 } from './storage.js';
+import { eventAchievements, finishAchievements, interactAchievements, newlyEarned, statGains } from './achievements.js';
 import { submitOnlineRun, fetchWorldGhost } from './online-leaderboard.js';
 import { queueSaveSync } from './account.js';
 import { createInput, keyLabel } from './input.js';
@@ -23,7 +24,7 @@ import { riderPalette } from './drawing.js';
 import { legacyRider, lookOf, lookParts } from './cosmetics.js';
 import { createOverlay } from './ui/overlay.js';
 import { createMenu, loadStoredState } from './ui/menu.js';
-import { $, session, currentTrailEntry, trailKey, timeText, isRankedSource, bonusUnlock, riderLook } from './state.js';
+import { $, session, currentTrailEntry, trailKey, timeText, isRankedSource, bonusUnlock, riderLook, progressOf } from './state.js';
 
 const LANDING_SOUND_IMPACT = 45;
 const HARD_LANDING_IMPACT = 170;
@@ -104,6 +105,9 @@ export function startGame() {
   let lastTime = 0, accumulator = 0, landingSoundCooldown = 0, splashSoundCooldown = 0;
   /** Inputs of the current attempt, one per step, for saving a ghost. */
   let recorded = [], startStep = 0, flips = 0;
+  // Whether the current attempt is the first one since the trail was opened
+  // from the menu or Next Trail (for the First Try achievement).
+  let firstTry = false, openingTrail = false;
   /** @type {{ ride: any, inputs: any[], index: number, data: any } | null} */
   let ghost = null;
   let wakeLock = null;
@@ -215,6 +219,39 @@ export function startGame() {
     if (!result) return;
     if (result.sound) sounds[result.sound]?.();
     if (result.announce) overlay.announce(result.announce);
+    if (result.type) earn(interactAchievements(result.type));
+  }
+
+  /**
+   * Gives the active save the achievements in `ids` and adds `gains` to its
+   * lifetime stats, then announces every achievement that is new since
+   * `before`, including career and stat ones the change completed. Without a
+   * save nothing is kept: achievements belong to a rider. Editor play-tests
+   * never count, like their times.
+   * @param {string[]} ids
+   * @param {Record<string, number>} [gains]
+   */
+  function earn(ids, gains = {}, before = progressOf(session.saveGame)) {
+    const { saveGame } = session;
+    if (!saveGame || !before || session.trailSource === 'playtest') return;
+    const fresh = ids.filter(id => !before.has(id));
+    if (fresh.length || Object.keys(gains).length) {
+      const updated = recordAchievements(session.activeSaveSlot, trails.length, fresh, gains);
+      if (updated) Object.assign(saveGame, updated);
+    }
+    const earned = newlyEarned(before, progressOf(saveGame));
+    for (const { name } of earned) overlay.achievement(name);
+    if (fresh.length || Object.keys(gains).length || earned.length) queueSaveSync(saveGame);
+  }
+
+  /** The achievements a run that just reached the finish earns. */
+  function finishedRunAchievements(ride) {
+    const medals = session.trail.medals;
+    return finishAchievements({
+      flips, time: ride.elapsed, medal: medalFor(medals, ride.elapsed), gold: medals?.gold ?? null,
+      helmet: lookParts(session.look).helmet, bike: session.look.bike,
+      night: session.trail.timeOfDay === 'night', firstTry
+    });
   }
 
   function toggleHeadlight() {
@@ -268,6 +305,9 @@ export function startGame() {
   }
 
   function initializeTrail(trail, marker) {
+    // Restarting before the ride got going doesn't use up the first try.
+    firstTry = openingTrail || (firstTry && !session.ride?.started);
+    openingTrail = false;
     session.trail = trail;
     const ride = createRide(trail, { seed: (Math.random() * 2 ** 31) >>> 0, helmet: lookParts(session.look).helmet });
     session.ride = ride;
@@ -390,6 +430,7 @@ export function startGame() {
     if (requiresSave && !session.saveGame) return;
     menu.close();
     game.classList.remove('menu-open');
+    openingTrail = true;
     load();
     setState('running');
     focusGame();
@@ -447,6 +488,8 @@ export function startGame() {
     // Official and bonus times are save bests and go online; only official ones progress the career.
     const ranked = isRankedSource(session.trailSource);
     const { saveGame } = session;
+    // Taken before this run counts, so career achievements it completes are announced.
+    const before = progressOf(saveGame);
     const previousBest = official
       ? (saveGame ? readBest(session.activeSaveSlot, key, trails.length) : null)
       : ranked && saveGame
@@ -473,6 +516,7 @@ export function startGame() {
     if (!storedGhost || storedGhost.physics !== RIDE_VERSION || time < storedGhost.time) {
       saveGhost(key, { time, splits: ride.splits.slice(), startStep, seed: ride.seed, inputs, physics: RIDE_VERSION, look: session.look });
     }
+    earn(finishedRunAchievements(ride), {}, before);
     const medals = session.trail.medals;
     const last = session.trailIndex === trails.length - 1;
     overlay.showResults({
@@ -498,6 +542,8 @@ export function startGame() {
   }
 
   function handleEvent(ride, event) {
+    const gains = statGains(event), ids = eventAchievements(event);
+    if (gains || ids.length) earn(ids, gains ?? {});
     switch (event.type) {
       case 'start':
         startStep = recorded.length - 1;
@@ -711,6 +757,7 @@ export function startGame() {
 
   $('primary').addEventListener('click', () => {
     if (session.state === 'won' && session.trailSource === 'official') {
+      openingTrail = true;
       loadTrail((session.trailIndex + 1) % trails.length);
       setState('running'); focusGame();
     } else startFresh();

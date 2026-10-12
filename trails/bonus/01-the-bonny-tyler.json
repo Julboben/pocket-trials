@@ -4811,9 +4811,6 @@
     "snow": 1,
     "lightning": 1
   },
-  "unlock": {
-    "golds": 2
-  },
   "author": "Nikolaj Gunge",
   "timeOfDay": "night",
   "backdrop": "mountains"

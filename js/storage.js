@@ -3,6 +3,7 @@ import { store } from './local-store.js';
 import { cachedOnlineBoard, refreshOnlineBoard } from './online-leaderboard.js';
 import { cleanRiderName } from './rider-name.js';
 import { isDefaultItem, keepIdentity, legacyRider, lookOf, normalizeLook, ownedLook } from './cosmetics.js';
+import { aheadOf, cleanAchievements, cleanStats, mergeAchievements, mergeStats } from './achievements.js';
 
 const SETTINGS_KEY = 'hjulben-settings-v1';
 const SAVE_SLOTS_KEY = 'hjulben-saves-v2';
@@ -47,7 +48,9 @@ function writeJson(key, value) {
 }
 
 const emptySlots = () => Array(SLOT_COUNT).fill(null);
-const cloneSave = save => save && { ...save, look: { ...save.look }, bestTimes: { ...save.bestTimes } };
+const cloneSave = save => save && {
+  ...save, look: { ...save.look }, bestTimes: { ...save.bestTimes }, achievements: { ...save.achievements }, stats: { ...save.stats }
+};
 const TOKEN_RE = /^[\w-]+\.[\w-]+$/;
 
 // Saves from before looks existed only have a `rider` of 'male' or 'female',
@@ -66,6 +69,8 @@ function normalizeSave(save, trailCount) {
     .filter(([, value]) => Number.isFinite(value) && value > 0));
   return {
     look, rider: legacyRider(look), createdAt: Number(save.createdAt) || Date.now(), trail, unlocked, bestTimes,
+    // Earned achievements (id -> time) and lifetime stats; see achievements.js.
+    achievements: cleanAchievements(save.achievements), stats: cleanStats(save.stats),
     name, playerId: save.playerId,
     // Online riders carry the server's session token; offline saves have none.
     token: typeof save.token === 'string' && TOKEN_RE.test(save.token) ? save.token : null,
@@ -143,6 +148,8 @@ export function createSave(slotIndex, look, trailCount, name, account = null) {
     trail: 0,
     unlocked: 0,
     bestTimes: {},
+    achievements: {},
+    stats: {},
     name: cleanName,
     playerId: account?.playerId ?? newPlayerId(),
     token: account?.token ?? null,
@@ -216,6 +223,8 @@ export function restoreOnlineSave(trailCount, { token, player, save: cloud, runs
     createdAt: local?.createdAt ?? cloud?.createdAt ?? Date.now(),
     trail: local?.trail ?? cloud?.trail ?? 0,
     unlocked, bestTimes,
+    achievements: mergeAchievements(local?.achievements, cloud?.achievements),
+    stats: mergeStats(local?.stats, cloud?.stats),
     name: player.name, playerId: player.id, token
   }, trailCount);
   persistSlots(trailCount, next);
@@ -225,8 +234,8 @@ export function restoreOnlineSave(trailCount, { token, player, save: cloud, runs
 
 /**
  * Catches a signed-in save up with its cloud copy, fetched without logging in
- * again. The server's look wins, as on login; best times and unlocked trails
- * keep the best of both, so neither device loses progress.
+ * again. The server's look wins, as on login; best times, unlocked trails,
+ * achievements and stats keep the best of both, so neither device loses progress.
  * @returns {{ save: object, changed: boolean, ahead: boolean } | null} the
  *   updated save, whether this device's copy changed, and whether it has
  *   progress the cloud lacks (so it should be uploaded); null if the slot no
@@ -247,11 +256,14 @@ export function applyCloudSave(slotIndex, trailCount, { player, save: cloud }) {
     look: player.look ?? cloud?.look ?? local.look,
     unlocked: Math.max(Number(local.unlocked) || 0, cloudUnlocked),
     bestTimes,
+    achievements: mergeAchievements(local.achievements, cloud?.achievements),
+    stats: mergeStats(local.stats, cloud?.stats),
     name: player.name ?? local.name
   }, trailCount);
   if (!merged) return null;
   const ahead = cloudUnlocked < merged.unlocked
-    || Object.entries(merged.bestTimes).some(([key, time]) => !(Number(cloudBest[key]) <= time));
+    || Object.entries(merged.bestTimes).some(([key, time]) => !(Number(cloudBest[key]) <= time))
+    || aheadOf(merged, cloud);
   const changed = JSON.stringify(merged) !== JSON.stringify(normalizeSave(local, trailCount));
   if (changed) updateSave(slotIndex, trailCount, save => Object.assign(save, merged));
   return { save: cloneSave(slots(trailCount)[slotIndex]), changed, ahead };
@@ -277,6 +289,25 @@ export function saveProgress(slotIndex, trailIndex, unlockedTrail, trailCount) {
     save.trail = clamp(trailIndex, 0, unlockedTrail);
     save.unlocked = clamp(unlockedTrail, 0, trailCount - 1);
   });
+}
+
+/**
+ * Adds newly earned achievements (by id) and lifetime stat gains to a save.
+ * @param {string[]} earned
+ * @param {Record<string, number>} gains how much to add to each stat
+ * @returns {{ achievements: Record<string, number>, stats: Record<string, number> } | null}
+ *   the save's achievements and stats afterwards, or null without a save
+ */
+export function recordAchievements(slotIndex, trailCount, earned, gains) {
+  updateSave(slotIndex, trailCount, save => {
+    const now = Date.now();
+    for (const id of earned) save.achievements[id] ??= now;
+    for (const [name, gain] of Object.entries(gains)) save.stats[name] = (save.stats[name] || 0) + gain;
+    save.achievements = cleanAchievements(save.achievements);
+    save.stats = cleanStats(save.stats);
+  });
+  const save = slots(trailCount)[slotIndex];
+  return save ? { achievements: { ...save.achievements }, stats: { ...save.stats } } : null;
 }
 
 export function readBest(slotIndex, trailKey, trailCount) {

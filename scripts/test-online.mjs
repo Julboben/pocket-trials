@@ -297,14 +297,14 @@ const run = (replay = firstTrailRun) => ({ inputs: replay.inputs, seed: replay.s
 // --- Cloud save and login restore ---------------------------------------------
 
 {
-  const save = { rider: 'female', createdAt: 1700000000000, trail: 1, unlocked: 2, bestTimes: { [firstKey]: 8.192, 'not-a-key': 3, [keyOf(secondTrail.id)]: -1 }, extra: 'x'.repeat(100) };
+  const save = { rider: 'female', createdAt: 1700000000000, trail: 1, unlocked: 2, bestTimes: { [firstKey]: 8.192, 'not-a-key': 3, [keyOf(secondTrail.id)]: -1 }, achievements: { bonk: 5, 'Bad Id': 1 }, stats: { flips: 3, crashes: -2 }, extra: 'x'.repeat(100) };
   assert.equal((await api('save', { method: 'PUT', body: { save } })).status, 401);
   assert.equal((await api('save', { method: 'POST', body: { save }, token: julianToken })).status, 405);
   assert.equal((await api('save', { method: 'PUT', body: { save }, token: julianToken })).status, 200);
   assert.equal((await api('save', { method: 'PUT', body: { save: { ...save, extra: 'x'.repeat(40_000) } }, token: julianToken })).status, 413);
 
   let { body } = await loginRider(julian);
-  assert.deepEqual(body.save, { look: legacyLook('female'), rider: 'female', createdAt: 1700000000000, trail: 1, unlocked: 2, bestTimes: { [firstKey]: 8.192 } }, 'only savegame fields are kept');
+  assert.deepEqual(body.save, { look: legacyLook('female'), rider: 'female', createdAt: 1700000000000, trail: 1, unlocked: 2, bestTimes: { [firstKey]: 8.192 }, achievements: { bonk: 5 }, stats: { flips: 3 } }, 'only savegame fields are kept');
   assert.deepEqual(body.player.look, legacyLook('female'));
 
   // A look changed in the Garage reaches the player and their next login.
