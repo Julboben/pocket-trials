@@ -168,6 +168,14 @@ const HAZE_PROPS = new Set(["heat-haze"]);
 const GLOW_REACH = { lamp: 70, crane: 180, lantern: 100, mushrooms: 40, hut: 60 };
 // How far a hair strand may sink into a floor and still be lifted back onto it.
 const HAIR_GROUND_ALLOWANCE = 8;
+// Markers for missing apples out of view keep this far (world units) inside
+// the view's edges, leaving room for their arrow and clear of the HUD at the
+// top and the trail name at the bottom.
+const APPLE_HINT_MARGIN = { side: 46, top: 76, bottom: 60 };
+// An apple at least this far inside the view counts as in view.
+const APPLE_HINT_VISIBLE = 12;
+const APPLE_HINT_COLOR = "#fff3be";
+const APPLE_HINT_OUTLINE = "#182321";
 
 /** @param {HTMLCanvasElement} canvas */
 export function createRenderer(canvas) {
@@ -219,6 +227,8 @@ export function createRenderer(canvas) {
   let woofs = 0;
   // The interact key's label, shown over whatever it would act on.
   let interactLabel = "";
+  // Until when (scene clock, ms) the missing apples are pointed out.
+  let appleHintUntil = 0;
 
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
@@ -262,12 +272,18 @@ export function createRenderer(canvas) {
     flipVisual = facing;
     popups.length = 0;
     landing = null;
+    appleHintUntil = 0;
     lighting.prepare(trail);
   }
 
   /** A hard landing at x, y, `strength` 0…1, for the props to react to. */
   function land(x, y, strength = 1) {
     landing = { x, y, time: frameNow / 1000, strength: clamp(strength, 0, 1) };
+  }
+
+  /** Points out the apples still missing for `seconds`, e.g. at a locked finish. */
+  function pointToApples(seconds) {
+    appleHintUntil = sceneClock + seconds * 1000;
   }
 
   /** Floating pixel text in world space, e.g. "+1 FLIP". */
@@ -959,6 +975,54 @@ export function createRenderer(canvas) {
     ctx.globalAlpha = 1;
   }
 
+  // An arrow `length` long from (x, y) along (dx, dy), outlined so it reads
+  // on any background.
+  function drawHintArrow(x, y, dx, dy, length) {
+    const tipX = x + dx * length,
+      tipY = y + dy * length;
+    const head = 7;
+    const wing = (side) => [
+      tipX - dx * head - dy * head * side,
+      tipY - dy * head + dx * head * side,
+    ];
+    const lines = [[[x, y], [tipX, tipY]], [wing(1), [tipX, tipY]], [wing(-1), [tipX, tipY]]];
+    for (const line of lines) pixelPath(line, APPLE_HINT_OUTLINE, 3, 2);
+    for (const line of lines) pixelPath(line, APPLE_HINT_COLOR, 1, 2);
+  }
+
+  // Each missing apple in view gets an arrow bobbing over it; one out of view
+  // is shown at the edge nearest it, with an arrow pointing its way.
+  function drawAppleHints(ride) {
+    const left = appleHintUntil - sceneClock;
+    if (left <= 0) return;
+    ctx.globalAlpha = clamp(left / 400, 0, 1);
+    const bob = reducedMotion ? 0 : Math.round(Math.sin(sceneClock / 160) * 2) * 2;
+    const { side, top, bottom } = APPLE_HINT_MARGIN;
+    // Apples off the same stretch of edge share one marker.
+    const markers = [];
+    for (const apple of ride.apples) {
+      if (apple.taken) continue;
+      const appleY = appleDrawY(apple, ride);
+      if (inView(apple.x, -APPLE_HINT_VISIBLE, appleY, -APPLE_HINT_VISIBLE)) {
+        drawHintArrow(apple.x, appleY - 40 + bob, 0, 1, 18);
+        continue;
+      }
+      const x = clamp(apple.x, cameraX + side, cameraX + W - side);
+      const y = clamp(appleY, cameraY + top, cameraY + H - bottom);
+      if (markers.some((marker) => Math.abs(marker.x - x) < 34 && Math.abs(marker.y - y) < 34)) continue;
+      markers.push({ x, y });
+      const distance = Math.hypot(apple.x - x, appleY - y);
+      const dx = (apple.x - x) / distance,
+        dy = (appleY - y) / distance;
+      ctx.fillStyle = "#182321d9";
+      ctx.fillRect(Math.round(x / 2) * 2 - 15, Math.round(y / 2) * 2 - 15, 30, 30);
+      gameArt.drawApple(x, y + 1);
+      // The arrow points out from the marker, toward the apple.
+      drawHintArrow(x + dx * (20 + bob / 2), y + dy * (20 + bob / 2), dx, dy, 10);
+    }
+    ctx.globalAlpha = 1;
+  }
+
   function drawPopups(dt) {
     for (const item of popups) {
       item.life -= dt;
@@ -1375,7 +1439,8 @@ export function createRenderer(canvas) {
       loose: Boolean(ride.ragdoll),
       width: W,
       height: H,
-      dt,
+      // Held still while paused, so redrawing a paused scene doesn't move it.
+      dt: animationDt,
       fallY: fallLine(trail),
     });
     const flipSmoothing = reducedMotion ? 1 : 1 - Math.exp(-18 * dt);
@@ -1444,6 +1509,7 @@ export function createRenderer(canvas) {
     drawPropGlows();
     drawInteractHint();
     drawPopups(animationDt);
+    drawAppleHints(ride);
     effects.prune();
     ctx.restore();
     drawWeather(effects.weather);
@@ -1497,6 +1563,7 @@ export function createRenderer(canvas) {
     draw,
     drawFigure,
     popup,
+    pointToApples,
     setHeadlights(on) {
       headlights = Boolean(on);
       lighting.setHeadlights(on);

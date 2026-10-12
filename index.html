@@ -43,20 +43,35 @@
                     This game requires HTML Canvas support.
                 </canvas>
                 <div class="hud">
-                    <div class="hud-pill timer-pill">
-                        <span
-                            class="timer-icon"
-                            data-icon="clock"
-                            aria-hidden="true"
-                        ></span
-                        ><span id="timer">0:00.0</span>
+                    <div class="hud-pill timer-card">
+                        <div class="timer-row">
+                            <span
+                                class="timer-icon"
+                                data-icon="clock"
+                                aria-hidden="true"
+                            ></span
+                            ><span id="timer">0:00.0</span>
+                        </div>
+                        <div class="timer-detail" id="timer-detail" hidden>
+                            <span
+                                class="medal-target"
+                                id="medal-target"
+                                hidden
+                            ></span>
+                            <span class="split" id="split" hidden></span>
+                        </div>
                     </div>
                     <div class="hud-pill apple-pill">
                         <span data-icon="apple" aria-hidden="true"></span>
                         <span id="apple-count">0 / 5</span>
                     </div>
-                    <div class="hud-pill split-pill" id="split" hidden></div>
                 </div>
+                <div
+                    class="replay-label"
+                    id="replay-label"
+                    data-icon-before="play"
+                    hidden
+                ></div>
                 <div class="toast-stack">
                     <div class="toast" id="toast" role="status"></div>
                     <div
@@ -152,6 +167,13 @@
                         </button>
                         <button class="secondary" id="secondary" hidden="">
                             Back to Menu
+                        </button>
+                        <button
+                            class="results-link"
+                            id="watch-replay"
+                            data-icon-before="play"
+                        >
+                            Watch Replay
                         </button>
                         <p class="results-hint" id="results-hint" hidden></p>
                     </div>

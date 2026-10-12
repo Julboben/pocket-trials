@@ -20,6 +20,9 @@ The current version is a dependency-free browser prototype built with native Jav
 - Keyboard, touch, and gamepad controls with remappable keys
 - Ghost of your best run, or the world's best, with split deltas at each apple
 - Results screen with rank, personal best, flips, and gold/silver/bronze medal targets
+- The next medal still in reach shown quietly beside the timer while you ride
+- Watch replays: your own run from the results screen, and your device's best or the world's best from the leaderboard
+- Reaching the finish with apples missing points out where they are
 - The run timer starts on your first input
 - Installable as an offline-capable web app
 - Rider customization: gender and skin tone picked once when creating a rider, then hair, helmet (full face, motocross or none), outfit and bike, each with its own colour, changeable any time in the Garage, plus a custom rider name. Some items are won: the Pocket Classic bike for gold medals on 8 trails, and the motocross helmet for finishing The Bonny Tyler
