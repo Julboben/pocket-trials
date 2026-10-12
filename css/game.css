@@ -40,14 +40,23 @@
     --font-ui: ui-monospace, "SFMono-Regular", Consolas, monospace;
 }
 
+/* No rubber-band bounce or pull-to-refresh; the page still scrolls normally
+   when its content is genuinely taller than the screen. */
+html,
+body {
+    overscroll-behavior: none;
+}
 html {
     width: 100%;
     min-height: 100%;
     background: var(--color-page);
 }
+/* vh is the toolbar-hidden height on mobile, which overflows by the toolbar;
+   dvh tracks the visible viewport. vh stays as the fallback. */
 body {
     margin: 0;
     min-height: 100vh;
+    min-height: 100dvh;
     padding: 28px;
     display: flex;
     align-items: center;
@@ -74,6 +83,7 @@ select:focus-visible {
     position: relative;
     width: min(1440px, 100%);
     height: clamp(560px, calc(100vh - 58px), 920px);
+    height: clamp(560px, calc(100dvh - 58px), 920px);
     display: flex;
     flex-direction: column;
     padding: 0;
@@ -762,8 +772,6 @@ h2 {
     padding: clamp(18px, 4vw, 48px);
     overflow: auto;
     scrollbar-gutter: stable both-edges;
-    display: grid;
-    place-items: start center;
 }
 .menu-screen::after {
     content: "";
@@ -856,10 +864,13 @@ h2 {
 .game.menu-open > .control-area {
     visibility: hidden;
 }
+/* Block layout with auto margins rather than a grid on .menu-scroll: grid
+   scroll containers drop their end padding when the content overflows. */
 .menu-dashboard {
     position: relative;
     z-index: 2;
     width: min(760px, 100%);
+    margin-inline: auto;
 }
 .menu-view {
     width: min(560px, 100%);
@@ -2100,6 +2111,7 @@ kbd {
     }
     .game {
         min-height: 100vh;
+        min-height: 100dvh;
         padding: 0;
         border: 0;
         border-radius: 0;
