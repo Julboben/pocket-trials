@@ -199,7 +199,8 @@ canvas {
 }
 .game-actions {
     position: absolute;
-    z-index: 4;
+    /* Above the pause overlay, so the menu can be opened while paused. */
+    z-index: 7;
     top: 14px;
     right: 14px;
     display: flex;
@@ -256,6 +257,16 @@ canvas {
 }
 .toast.visible {
     opacity: 1;
+}
+.achievement-toast {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    border-color: #f0c45a;
+    color: #f0c45a;
+}
+.achievement-toast:not(.visible) {
+    display: none;
 }
 .primary.crash-retry {
     width: auto;
@@ -2001,6 +2012,69 @@ h2 {
 }
 .changelog-type[data-type="fixed"] {
     color: var(--color-accent);
+}
+.achievement-list {
+    display: grid;
+    gap: 8px;
+}
+.achievement {
+    min-height: 58px;
+    padding: 11px 13px;
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+}
+.achievement.earned {
+    border-color: #8f7a52;
+    background: #3d3324;
+    color: var(--color-text);
+}
+.achievement-icon {
+    justify-self: center;
+}
+.achievement.earned .achievement-icon,
+.achievement.earned .achievement-state {
+    color: #f0c45a;
+}
+.achievement-copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.achievement-copy strong {
+    font-size: 10px;
+}
+.achievement-copy small {
+    color: var(--color-text-muted);
+    font-size: 8px;
+    line-height: 1.4;
+}
+.achievement-state {
+    /* Wide enough for 2,500 / 2,500, so every progress bar ends in line. */
+    min-width: 88px;
+    font-size: 8px;
+    text-align: right;
+    font-weight: 900;
+    letter-spacing: 1px;
+    white-space: nowrap;
+}
+/* A lifetime total's way to its goal. */
+.achievement-bar {
+    height: 4px;
+    margin-top: 2px;
+    background: #17262b;
+}
+.achievement-bar::before {
+    content: "";
+    display: block;
+    width: calc(var(--progress, 0) * 100%);
+    height: 100%;
+    background: var(--color-green);
 }
 kbd {
     padding: 1px 4px;

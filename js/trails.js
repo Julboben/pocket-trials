@@ -90,7 +90,7 @@ export const trailEntries = [...loadedEntries, ...readBrowserLibrary().map(brows
 
 export const officialTrailEntries = trailEntries.filter(entry => entry.source === 'official');
 // Shipped trails outside the career: best times, medals and the online board,
-// but no progression. They can ask for career progress first (trail.unlock).
+// but no progression. Some ask for career progress first (see unlocks.js).
 export const bonusTrailEntries = trailEntries.filter(entry => entry.source === 'bonus');
 export const customTrailEntries = trailEntries.filter(entry => entry.source === 'custom');
 export const officialTrails = officialTrailEntries.map(entry => entry.trail);

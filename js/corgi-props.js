@@ -396,14 +396,14 @@ const SNIFF_AT = { x: 10, y: -24 };
 // chest, then the black saddle from behind the front legs right back to the
 // tail, over tan sides, a white belly, and fluffy white
 // "trousers" at the rump. The tail is drawn separately so it wags, and the
-// collar over the head.
+// mane and collar with the head.
 const BODY = [
   "..................",
-  ".kkkkkkkkkkkTWWWWH",
-  ".KKKKKKKKKKKTwWWWH",
-  ".KKKKKKKKKKTTwWWWH",
-  ".tKKKKKKKKTTTwWWWW",
-  "WtTTTTTTTTTTTTwWWW",
+  ".kkkkkkkkkkkkWWWWH",
+  ".KKKKKKKKKKKKwWWWH",
+  ".KKKKKKKKKKKKwWWWH",
+  ".tKKKKKKKKKKTwWWWW",
+  "WtTTTKKKKKKTTTwWWW",
   "WWwTTTTTTTTTTTwWWW",
   ".wwwwWWWWWWWWWWww.",
 ];
@@ -413,10 +413,10 @@ const BODY_SIT = [
   "................",
   ".........wWWWWH.",
   "........wWWWWWWH",
-  ".......TwWWWWWWH",
-  "......kTTwWWWWWW",
-  ".....kKKTTTwWWWW",
-  "....kKKKKTTTwWWW",
+  ".......kwWWWWWWH",
+  "......kkkwWWWWWW",
+  ".....kKKKKKwWWWW",
+  "....kKKKKKKKwWWW",
   "...kKKKKKTTTTWW.",
   "..kKKKKKTTTTTTW.",
   "..KKKTTTTLLTTww.",
@@ -454,26 +454,44 @@ function drawTail(t, x, y, rows, wag) {
 
 // A little heart that floats up over his head when he is praised.
 const HEART = [".RR.RR.", "RHRRRRR", "RRRRRRr", ".RRRRr.", "..RRr..", "...r..."];
-// The red collar under the chin, with its tag, for each head position.
-function drawCollar({ pixelRect }, x, y, down = false) {
-  if (down) {
-    pixelRect(x, y, 2, 6, COLLAR.shade, 2);
-    pixelRect(x + 2, y, 2, 6, COLLAR.base, 2);
-    pixelRect(x + 4, y + 4, 2, 2, COLLAR.tag, 2);
-    return;
-  }
-  pixelRect(x, y, 2, 2, COLLAR.shade, 2);
-  pixelRect(x + 2, y, 6, 2, COLLAR.base, 2);
-  pixelRect(x + 6, y + 2, 2, 2, COLLAR.tag, 2);
-}
+
+// The white ruff on his neck: drawn before the head, it fills the step
+// between his back and the back of his head, so his outline carries on up
+// his back to the ears instead of dipping in at the neck.
+const MANE = ["wWW"];
+const MANE_AT = { x: 2, y: -24 };
+const MANE_SIT = [
+  ".........",
+  "......wwW",
+  "....wWWWW",
+  "...wWWWWW",
+  "..wWWWWWW",
+];
+const MANE_SIT_AT = { x: -6, y: -30 };
+// The red collar round his neck, drawn over the head: mostly lost in the
+// ruff, it shows as a band slanting down under the chin, with its tag. With
+// his nose down it runs behind the ears and under the head, tag and all.
+const COLLAR_BAND = [
+  "r..",
+  ".RR",
+  "..Y",
+];
+const COLLAR_AT = { x: 6, y: -18 };
+const COLLAR_SIT_AT = { x: 2, y: -22 };
+const COLLAR_SNIFF = [
+  "r.",
+  "R.",
+  ".R",
+];
+const COLLAR_SNIFF_AT = { x: 6, y: -22 };
 
 // Legs: x of each leg's left edge, far (shaded) or near, front or hind, and
 // its place in the walk cycle.
 const LEGS = [
   { x: -20, far: true, front: false, offset: 2 },
-  { x: 4, far: true, front: true, offset: 0 },
+  { x: 0, far: true, front: true, offset: 0 },
   { x: -16, far: false, front: false, offset: 0 },
-  { x: 8, far: false, front: true, offset: 2 },
+  { x: 4, far: false, front: true, offset: 2 },
 ];
 // The underside of the standing body, where the legs start.
 const LEG_TOP = -10;
@@ -514,7 +532,7 @@ function drawWoof({ pixelRect }, mx, my) {
 function drawHeart(t, rise) {
   // It blinks out over its last fifth.
   if (rise > 0.8 && Math.floor(rise * 20) % 2) return;
-  drawGrid(t, HEAD_AT.x + 4, HEAD_AT.y - 18 - snap(rise * 12), HEART);
+  drawGrid(t, HEAD_AT.x, HEAD_AT.y - 18 - snap(rise * 12), HEART);
 }
 
 /** Where the woof comes from, in the corgi's local units (facing right, standing). */
@@ -544,9 +562,10 @@ export function drawCorgi(
     drawTail(t, TAIL_SIT_AT.x, TAIL_SIT_AT.y + tailDrop, TAIL_SIT, Math.max(0, wag));
     for (const leg of LEGS.filter((l) => l.front)) drawLeg(t, leg.x + 2, -10, legGround, leg.far);
     drawGrid(t, SIT_AT.x, SIT_AT.y, BODY_SIT);
-    drawGrid(t, HEAD_AT.x + 2, HEAD_AT.y - 4, pant && !woof ? HEAD_PANT[frame % 2] : head);
-    drawCollar(t, 8, -20);
-    if (woof) drawWoof(t, CORGI_MOUTH.x + 2, CORGI_MOUTH.y - 4);
+    drawGrid(t, MANE_SIT_AT.x, MANE_SIT_AT.y, MANE_SIT);
+    drawGrid(t, HEAD_AT.x - 2, HEAD_AT.y - 4, pant && !woof ? HEAD_PANT[frame % 2] : head);
+    drawGrid(t, COLLAR_SIT_AT.x, COLLAR_SIT_AT.y, COLLAR_BAND);
+    if (woof) drawWoof(t, CORGI_MOUTH.x - 2, CORGI_MOUTH.y - 4);
     if (heart !== null) drawHeart(t, heart);
     return;
   }
@@ -575,11 +594,12 @@ export function drawCorgi(
   }
   if (pose === "sniff") {
     drawGrid(t, SNIFF_AT.x, SNIFF_AT.y, HEAD_SNIFF);
-    drawCollar(t, 6, -22, true);
+    drawGrid(t, COLLAR_SNIFF_AT.x, COLLAR_SNIFF_AT.y, COLLAR_SNIFF);
   } else {
     const raise = woof ? 2 : 0;
+    drawGrid(t, MANE_AT.x, MANE_AT.y - lift, MANE);
     drawGrid(t, HEAD_AT.x, HEAD_AT.y - lift - raise, head);
-    drawCollar(t, 6, -16 - lift);
+    drawGrid(t, COLLAR_AT.x, COLLAR_AT.y - lift, COLLAR_BAND);
     if (woof) drawWoof(t, CORGI_MOUTH.x, CORGI_MOUTH.y - lift - raise);
   }
 }

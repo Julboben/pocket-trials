@@ -152,8 +152,8 @@ const lastSent = new Map();       // token -> payload JSON, so retries don't rew
 const sending = new Map();        // token -> uploads in flight
 
 function sendSave(save, keepalive = false) {
-  const { look, rider, createdAt, trail, unlocked, bestTimes } = save;
-  const body = JSON.stringify({ save: { look, rider, createdAt, trail, unlocked, bestTimes } });
+  const { look, rider, createdAt, trail, unlocked, bestTimes, achievements, stats } = save;
+  const body = JSON.stringify({ save: { look, rider, createdAt, trail, unlocked, bestTimes, achievements, stats } });
   const token = save.token;
   if (lastSent.get(token) === body) return;
   lastSent.set(token, body);

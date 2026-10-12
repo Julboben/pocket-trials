@@ -3,8 +3,9 @@
 // ride and the state machine; the menu changes saves and preferences.
 import { trails, officialTrailEntries, bonusTrailEntries, customTrailEntries } from './trails.js';
 import { trailHash } from './trail-hash.js';
-import { unlockStatus } from './trail-schema.js';
 import { DEFAULT_LOOK, ownedLook, ownsWith } from './cosmetics.js';
+import { lookUnlock, trailUnlock, unlockStatus } from './unlocks.js';
+import { hasAchievement } from './achievements.js';
 
 /** @typedef {import('./types.js').Ride} Ride */
 /** @typedef {'menu' | 'running' | 'paused' | 'ragdoll' | 'won'} GameState */
@@ -108,66 +109,64 @@ export function currentTrailEntry() {
 }
 
 /**
- * The career progress bonus trails unlock with: official trails finished and
- * gold medals won on them. Null without a savegame.
- * @param {any} save
+ * @typedef {import('./unlocks.js').UnlockProgress & import('./achievements.js').CareerProgress & {
+ *   stats: Record<string, number>
+ * }} Progress
  */
-export function careerProgress(save) {
-  if (!save) return null;
-  let finished = 0, golds = 0;
-  officialTrailEntries.forEach((entry, index) => {
-    const best = save.bestTimes?.[trailKey(entry)];
-    // Reaching the next trail means this one was finished, even if an edit
-    // has since moved its best time to a new key.
-    if (index < (save.unlocked || 0) || best) finished++;
-    if (best && entry.trail.medals && best <= entry.trail.medals.gold) golds++;
-  });
-  return { trails: finished, golds };
-}
 
 /**
- * What a save has done towards rider items: gold medals and finished trails.
- * A shipped trail counts as finished under any version of it, so an edit
- * that moves its best time to a new key keeps the item.
- * @returns {import('./cosmetics.js').LookProgress | null}
+ * What a save has done, for unlocks and achievements: official trails
+ * finished and gold medals won on them, which trails it has finished, its
+ * lifetime stats and the achievements it has earned. A shipped trail counts
+ * as finished under any version of it, so an edit that moves its best time
+ * to a new key keeps what it won; a gold medal is checked against the
+ * current medal times. A snapshot: later changes to the save don't show.
+ * Null without a savegame.
+ * @returns {Progress | null}
  */
-export function lookProgress(save) {
-  const progress = careerProgress(save);
-  if (!progress) return null;
+export function progressOf(save) {
+  if (!save) return null;
   const keys = Object.keys(save.bestTimes || {});
   const officialIndex = new Map(officialTrailEntries.map((entry, index) => [entry.id, index]));
-  return {
-    golds: progress.golds,
-    finished: trailId => (officialIndex.get(trailId) ?? Infinity) < (save.unlocked || 0)
-      || keys.some(key => key.startsWith(trailId + '@')),
+  const unlocked = save.unlocked || 0;
+  // Reaching the next official trail means this one was finished.
+  const finished = trailId => (officialIndex.get(trailId) ?? Infinity) < unlocked
+    || keys.some(key => key.startsWith(trailId + '@'));
+  let trails = 0, golds = 0;
+  for (const entry of officialTrailEntries) {
+    if (finished(entry.id)) trails++;
+    const best = save.bestTimes?.[trailKey(entry)];
+    if (best && entry.trail.medals && best <= entry.trail.medals.gold) golds++;
+  }
+  const career = {
+    trails, golds, officialTotal: officialTrailEntries.length,
+    bonusFinished: bonusTrailEntries.filter(entry => finished(entry.id)).length, bonusTotal: bonusTrailEntries.length,
   };
+  const achievements = { ...save.achievements };
+  const stats = { ...save.stats };
+  return { ...career, finished, stats, has: id => hasAchievement(id, achievements, stats, career) };
 }
 
 /** Which rider items a save may wear. */
-export const lookOwner = save => ownsWith(lookProgress(save));
+export const lookOwner = save => ownsWith(progressOf(save));
 
 /** The look a save rides in: its own, with any item it hasn't unlocked swapped for a starter one. */
 export const riderLook = (save = session.saveGame) => (save ? ownedLook(save.look, lookOwner(save)) : DEFAULT_LOOK);
+
+/** A shipped trail's name, by catalog id, for unlock hints. */
+const shippedTrailName = trailId =>
+  [...officialTrailEntries, ...bonusTrailEntries].find(entry => entry.id === trailId)?.name ?? 'a trail';
 
 /**
  * What unlocks a rider item, in the words the trail list uses, or '' for
  * items everyone has.
  * @param {import('./cosmetics.js').LookItem} item
  */
-export function lookItemHint(item) {
-  const { unlock } = item;
-  if (unlock.type === 'golds') return `WIN ${unlock.count} GOLD MEDAL${unlock.count === 1 ? '' : 'S'} TO UNLOCK`;
-  if (unlock.type === 'trail') {
-    const entry = [...officialTrailEntries, ...bonusTrailEntries].find(candidate => candidate.id === unlock.trail);
-    return `FINISH ${(entry?.name ?? 'A TRAIL').toUpperCase()} TO UNLOCK`;
-  }
-  return '';
-}
+export const lookItemHint = item => unlockStatus(lookUnlock(item.slot, item.id), null, shippedTrailName).hint;
 
 /** Whether a bonus trail is open for this save, and what opens it if not. */
-export function bonusUnlock(entry, save = session.saveGame) {
-  return unlockStatus(entry.trail.unlock, careerProgress(save));
-}
+export const bonusUnlock = (entry, save = session.saveGame) =>
+  unlockStatus(trailUnlock(entry.id), progressOf(save), shippedTrailName);
 
 export function timeText(seconds) {
   const tenths = Math.floor(seconds * 10 + 0.00001);

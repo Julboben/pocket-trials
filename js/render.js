@@ -199,6 +199,10 @@ export function createRenderer(canvas) {
   // The last hard landing, { x, y, time, strength }, which shakes the snow off
   // nearby snowy pines.
   let landing = null;
+  // Milliseconds of play the scene has animated for: props move on this clock,
+  // not the wall clock, so it stops while the game is paused and nothing
+  // carries on behind the pause screen (or jumps ahead after the menu).
+  let sceneClock = 0;
   let frameNow = 0;
   // Birds and bats that have taken off, with when and which way, for the
   // current ride.
@@ -438,7 +442,7 @@ export function createRenderer(canvas) {
    */
   function interact() {
     const spot = nearestSpot();
-    return spot ? INTERACTIONS[spot.prop.type].act(spot.prop) : null;
+    return spot ? { type: spot.prop.type, ...INTERACTIONS[spot.prop.type].act(spot.prop) } : null;
   }
 
   // The interact key in a small key cap over whatever it would act on.
@@ -1331,8 +1335,9 @@ export function createRenderer(canvas) {
    * @param {{
    *   ride: any, ghost: any, camera: any, effects: any, state: string,
    *   look?: import('./cosmetics.js').Look | null, ghostLook?: import('./cosmetics.js').Look | null,
-   *   full: boolean, now: number, dt: number, debug: boolean
-   * }} frame  `look` is the rider's, `ghostLook` the ghost's (the rider's by default)
+   *   full: boolean, dt: number, debug: boolean
+   * }} frame  `look` is the rider's, `ghostLook` the ghost's (the rider's by default);
+   *   `dt` is the seconds since the last frame, 0 for a still scene
    */
   function draw({
     ride,
@@ -1343,12 +1348,13 @@ export function createRenderer(canvas) {
     ghostLook = null,
     state,
     full,
-    now,
     dt,
     debug,
   }) {
     const paused = state === "paused";
     const animationDt = paused ? 0 : dt;
+    sceneClock += animationDt * 1000;
+    const now = sceneClock;
     const focus = focusOf(ride);
     // The ride is already interpolated for this frame, and nothing here feeds
     // back into the simulation, so replays are unaffected.

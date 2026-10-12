@@ -59,6 +59,11 @@
                 </div>
                 <div class="toast-stack">
                     <div class="toast" id="toast" role="status"></div>
+                    <div
+                        class="toast achievement-toast"
+                        id="achievement-toast"
+                        data-icon-before="trophy"
+                    ></div>
                     <button
                         class="primary crash-retry"
                         id="crash-retry"
@@ -375,6 +380,16 @@
                                 </button>
                                 <button
                                     class="menu-action menu-action-row"
+                                    id="menu-achievements"
+                                    hidden
+                                >
+                                    <span>ACHIEVEMENTS</span
+                                    ><small id="menu-achievements-detail"
+                                        >Feats and milestones</small
+                                    >
+                                </button>
+                                <button
+                                    class="menu-action menu-action-row"
                                     id="menu-riders"
                                     hidden
                                 >
@@ -423,6 +438,36 @@
                                 </button>
                             </div>
                             <div class="changelog" id="changelog-list"></div>
+                        </div>
+
+                        <div
+                            class="menu-view"
+                            id="menu-achievements-view"
+                            hidden
+                        >
+                            <div class="menu-view-head">
+                                <div>
+                                    <span class="save-label" data-icon-before="trophy"
+                                        >TROPHY CASE</span
+                                    >
+                                    <h3>Achievements</h3>
+                                </div>
+                                <button
+                                    class="menu-back"
+                                    data-menu-back
+                                    data-icon-before="arrow-left"
+                                >
+                                    BACK
+                                </button>
+                            </div>
+                            <p
+                                class="load-game-help"
+                                id="achievements-summary"
+                            ></p>
+                            <div
+                                class="achievement-list"
+                                id="achievement-list"
+                            ></div>
                         </div>
 
                         <div class="menu-view" id="menu-riders-view" hidden>

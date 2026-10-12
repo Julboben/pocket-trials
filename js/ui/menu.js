@@ -1,4 +1,4 @@
-// Main menu: savegames, trail select, leaderboard, settings and how-to-play.
+// Main menu: savegames, trail select, leaderboard, achievements, settings and how-to-play.
 import { clamp } from '../config.js';
 import { trails, officialTrailEntries, bonusTrailEntries, customTrailEntries, saveBrowserTrail } from '../trails.js';
 import { createGameArt } from '../drawing.js';
@@ -19,9 +19,10 @@ import { normalizeAuthor, normalizeTrail, validateTrail, medalFor } from '../tra
 import { ACTION_LABELS, keyLabel } from '../input.js';
 import { VERSION } from '../version.js';
 import { RELEASES } from '../changelog.js';
+import { ACHIEVEMENTS, ACHIEVEMENT_GROUPS, statProgressText } from '../achievements.js';
 import {
   $, session, DEFAULT_BINDINGS, DEFAULT_PREFERENCES, sanitizePreferences,
-  leaderboardTrails, trailKey, trailMarker, runTimeText, bonusUnlock, lookOwner, riderLook, lookItemHint
+  leaderboardTrails, trailKey, trailMarker, runTimeText, bonusUnlock, lookOwner, riderLook, lookItemHint, progressOf
 } from '../state.js';
 
 // Runs made without a savegame have no name.
@@ -478,6 +479,8 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     $('menu-first-ride').classList.toggle('menu-action-primary', !resumable);
     $('menu-riders').hidden = !hasSave;
     $('menu-garage').hidden = !hasSave;
+    $('menu-achievements').hidden = !hasSave;
+    if (hasSave) $('menu-achievements-detail').textContent = earnedCount(progressOf(session.saveGame)) + ' / ' + ACHIEVEMENTS.length + ' earned';
     if (resumable) {
       $('menu-resume-detail').textContent = 'Back to ' + (session.trail?.name ?? 'the trail')
         + (session.stateBeforeMenu === 'paused' ? ' · paused' : '');
@@ -525,6 +528,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     $('menu-how-view').hidden = view !== 'how';
     $('menu-settings-view').hidden = view !== 'settings';
     $('menu-changelog-view').hidden = view !== 'changelog';
+    $('menu-achievements-view').hidden = view !== 'achievements';
     $('menu-scroll').scrollTop = 0;
     requestAnimationFrame(() => {
       const list = controls();
@@ -636,6 +640,62 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     $('whats-new-badge').hidden = true;
     showView('changelog');
   }
+
+  const earnedCount = progress => ACHIEVEMENTS.filter(a => progress.has(a.id)).length;
+
+  /** One achievement: earned, locked, counting towards its goal, or a secret. */
+  function achievementRow(achievement, progress) {
+    const earned = progress.has(achievement.id);
+    const hidden = achievement.secret && !earned;
+    const row = document.createElement('div');
+    row.className = 'achievement' + (earned ? ' earned' : '');
+    const icon = document.createElement('span');
+    icon.className = 'achievement-icon';
+    icon.dataset.icon = hidden ? 'lock' : achievement.icon;
+    icon.setAttribute('aria-hidden', 'true');
+    const copy = document.createElement('span');
+    copy.className = 'achievement-copy';
+    const name = document.createElement('strong');
+    name.textContent = hidden ? 'SECRET' : achievement.name.toUpperCase();
+    const blurb = document.createElement('small');
+    blurb.textContent = hidden ? 'Keep riding to find out.' : achievement.blurb;
+    copy.append(name, blurb);
+    const state = document.createElement('span');
+    state.className = 'achievement-state';
+    if (earned) {
+      const check = document.createElement('span');
+      check.dataset.icon = 'check';
+      state.append(check);
+      state.setAttribute('aria-label', 'Earned');
+    } else if (achievement.stat) {
+      const count = Math.min(progress.stats[achievement.stat] || 0, achievement.goal);
+      state.textContent = statProgressText(achievement, count);
+      const bar = document.createElement('span');
+      bar.className = 'achievement-bar';
+      bar.style.setProperty('--progress', String(count / achievement.goal));
+      copy.append(bar);
+    } else {
+      state.textContent = 'LOCKED';
+    }
+    row.append(icon, copy, state);
+    return row;
+  }
+
+  function buildAchievements() {
+    const progress = progressOf(session.saveGame);
+    if (!progress) return;
+    $('achievements-summary').textContent = session.saveGame.name + ' has earned ' + earnedCount(progress)
+      + ' of ' + ACHIEVEMENTS.length + ' achievements. Each rider earns their own.';
+    const items = [];
+    for (const group of ACHIEVEMENT_GROUPS) {
+      items.push(trailSection(group.title, group.blurb));
+      for (const achievement of ACHIEVEMENTS) if (achievement.group === group.id) items.push(achievementRow(achievement, progress));
+    }
+    $('achievement-list').replaceChildren(...items);
+  }
+
+  // Views with only a Back button, where the arrow keys scroll instead.
+  const scrollsWithArrows = () => !$('menu-changelog-view').hidden || !$('menu-achievements-view').hidden;
 
   function trailSection(title, description) {
     const heading = document.createElement('div');
@@ -1050,7 +1110,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
 
   /** Gamepad navigation while the menu is open. */
   function handlePad(action) {
-    if (!$('menu-changelog-view').hidden && (action === 'nav-up' || action === 'nav-down')) {
+    if (scrollsWithArrows() && (action === 'nav-up' || action === 'nav-down')) {
       $('menu-scroll').scrollBy({ top: action === 'nav-up' ? -160 : 160, behavior: 'smooth' });
       return;
     }
@@ -1087,8 +1147,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     }
     const direction = { ArrowUp: -1, ArrowLeft: -1, KeyW: -1, KeyA: -1, ArrowDown: 1, ArrowRight: 1, KeyS: 1, KeyD: 1 }[event.code];
     if (!direction) return;
-    // The notes only have a Back button, so the arrow keys scroll them instead.
-    if (!$('menu-changelog-view').hidden && event.code.startsWith('Arrow')) return;
+    if (scrollsWithArrows() && event.code.startsWith('Arrow')) return;
     if (moveSelection(direction)) event.preventDefault();
   });
   $('menu-screen').addEventListener('focusin', event => {
@@ -1122,6 +1181,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   $('save-login-button').addEventListener('click', () => logIn('save-login-status'));
   $('riders-login-button').addEventListener('click', () => logIn('riders-status'));
   $('menu-garage').addEventListener('click', openGarage);
+  $('menu-achievements').addEventListener('click', () => { buildAchievements(); showView('achievements'); });
   $('save-look').addEventListener('click', saveGarageLook);
   $('look-confirm-save').addEventListener('click', saveGarageLook);
   $('look-confirm-discard').addEventListener('click', discardGarageLook);

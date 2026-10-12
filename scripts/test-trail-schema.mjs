@@ -3,7 +3,7 @@ import { FALL_MARGIN, fallLine, terrainAt } from '../js/terrain.js';
 import { rectangle } from './lib/terrain-fixtures.mjs';
 import {
   SPIKE_RADIUS, createBlankTrail, normalizeTrail, normalizeSpike, validateTrail, medalFor, normalizeMedals,
-  trailTerrainBlocks, trailBackWalls, AUTHOR_MAX_LENGTH, normalizeUnlock, unlockStatus, normalizeRotation
+  trailTerrainBlocks, trailBackWalls, AUTHOR_MAX_LENGTH, normalizeRotation
 } from '../js/trail-schema.js';
 import { trailHash } from '../js/trail-hash.js';
 import { isOnlineTrail } from '../js/online-leaderboard.js';
@@ -122,29 +122,14 @@ assert.ok(!isOnlineTrail('trail:0123abcd'), 'custom trails stay offline');
 assert.ok(isOnlineTrail('bonus:01-the-bonny-tyler@0123abcd'), 'bonus trails go online');
 assert.ok(!isOnlineTrail('custom:caves@0123abcd'), 'custom file trails stay offline');
 
-// Bonus unlock rules: counts are whole and positive, and an empty rule is dropped.
+// Unlock rules live in js/unlocks.js now, so one left in an older trail file is dropped.
 {
   const blank = normalizeTrail(createBlankTrail());
   assert.ok(!('unlock' in blank), 'a blank trail has no unlock rule');
-  assert.deepEqual(normalizeUnlock({ trails: 3.7, golds: 0, extra: 2 }), { trails: 3 });
-  assert.equal(normalizeUnlock({ trails: -1 }), null);
-  assert.equal(normalizeUnlock('3'), null);
-  const gated = normalizeTrail({ ...blank, unlock: { trails: 3, golds: 1 } });
-  assert.deepEqual(gated.unlock, { trails: 3, golds: 1 });
-  assert.deepEqual(normalizeTrail(gated), gated, 'unlock normalizes idempotently');
-  assert.ok(!('unlock' in normalizeTrail({ ...blank, unlock: {} })), 'an empty unlock is dropped');
-  assert.equal(trailHash(gated), trailHash(blank), 'unlock does not change the trail hash');
-  assert.deepEqual(errors(gated), []);
-  assert.ok(errors({ ...blank, unlock: { laps: 2 } }).some(text => text.includes('Unlock.laps')));
-  assert.ok(errors({ ...blank, unlock: { trails: 1.5 } }).some(text => text.includes('whole number')));
-  assert.ok(errors({ ...blank, unlock: 3 }).some(text => text.includes('must be an object')));
-
-  assert.deepEqual(unlockStatus(undefined, null), { open: true, hint: '' }, 'no rule is open, even without a save');
-  assert.equal(unlockStatus({ trails: 3 }, null).open, false, 'a rule keeps the trail shut without a save');
-  assert.equal(unlockStatus({ trails: 3 }, { trails: 2, golds: 9 }).open, false);
-  assert.equal(unlockStatus({ trails: 3 }, { trails: 3, golds: 0 }).open, true);
-  assert.equal(unlockStatus({ trails: 3, golds: 2 }, { trails: 5, golds: 1 }).open, false, 'every rule must be met');
-  assert.equal(unlockStatus({ trails: 1, golds: 2 }, null).hint, 'FINISH 1 TRAIL & WIN 2 GOLD MEDALS TO UNLOCK');
+  const old = normalizeTrail({ ...blank, unlock: { trails: 3, golds: 1 } });
+  assert.ok(!('unlock' in old), 'an old unlock rule is dropped');
+  assert.deepEqual(errors({ ...blank, unlock: { laps: 2 } }), [], 'and is not an error');
+  assert.equal(trailHash(old), trailHash(blank));
 }
 
 // The fall line follows the terrain: a little below its lowest point, however

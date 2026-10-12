@@ -48,6 +48,7 @@ export function nearestInteraction(spots, riderX, riderY) {
 
 /**
  * @typedef {object} InteractionResult
+ * @property {string} [type]      The prop type acted on, for achievements; filled in by render.js.
  * @property {string} [sound]     A one-shot sound in audio.js to play.
  * @property {string} [announce]  What to tell screen-reader users.
  */
