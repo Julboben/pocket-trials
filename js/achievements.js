@@ -90,7 +90,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Win 3 gold medals.', career: p => p.golds >= 3
   },
   {
-    id: 'treasure-hunter', group: 'career', name: 'Treasure Hunter', icon: 'tree',
+    id: 'treasure-hunter', group: 'career', name: 'Treasure Hunter', icon: 'chest',
     blurb: 'Finish every bonus trail.', career: p => everyTrail(p.bonusFinished, p.bonusTotal)
   },
 
@@ -111,7 +111,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Finish a trail on your first attempt.', finish: run => run.attempts === 1
   },
   {
-    id: 'photo-finish', group: 'riding', name: 'Photo Finish', icon: 'clock', secret: true,
+    id: 'photo-finish', group: 'riding', name: 'Photo Finish', icon: 'camera', secret: true,
     blurb: 'Win a gold medal by less than a tenth of a second.',
     finish: run => run.medal === 'gold' && Number.isFinite(run.gold) && run.gold - run.time < 0.1
   },
@@ -132,7 +132,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Crash into water.', event: e => e.type === 'crash' && e.cause === 'water'
   },
   {
-    id: 'bull-in-a-china-shop', group: 'riding', name: 'Bull in a China Shop', icon: 'block',
+    id: 'bull-in-a-china-shop', group: 'riding', name: 'Bull in a China Shop', icon: 'shatter',
     blurb: 'Shatter a glass pane.', event: e => e.type === 'shatter'
   },
   {
@@ -144,7 +144,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Give Coda the corgi some attention.', interact: 'corgi'
   },
   {
-    id: 'natural-talent', group: 'riding', name: 'Natural Talent', icon: 'check',
+    id: 'natural-talent', group: 'riding', name: 'Natural Talent', icon: 'star',
     blurb: 'Win a gold medal on your first attempt.', finish: run => run.attempts === 1 && run.medal === 'gold'
   },
   {
@@ -152,7 +152,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Win a gold medal without a helmet.', finish: run => !run.helmet && run.medal === 'gold'
   },
   {
-    id: 'night-owl', group: 'riding', name: 'Night Owl', icon: 'headlight',
+    id: 'night-owl', group: 'riding', name: 'Night Owl', icon: 'moon',
     blurb: 'Win a gold medal on a night trail.', finish: run => run.night && run.medal === 'gold'
   },
   {
@@ -169,12 +169,12 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     finish: run => Number.isFinite(run.gold) && run.time > run.gold && run.time - run.gold < 0.1
   },
   {
-    id: 'sunday-driver', group: 'riding', name: 'Sunday Driver', icon: 'clock', secret: true,
+    id: 'sunday-driver', group: 'riding', name: 'Sunday Driver', icon: 'snail', secret: true,
     blurb: 'Finish a trail in more than three times the gold time.',
     finish: run => Number.isFinite(run.gold) && run.time >= run.gold * 3
   },
   {
-    id: 'ghostbuster', group: 'riding', name: 'Ghostbuster', icon: 'trophy',
+    id: 'ghostbuster', group: 'riding', name: 'Ghostbuster', icon: 'ghost',
     blurb: 'Beat the world-best ghost on an official or bonus trail.',
     finish: run => Number.isFinite(run.worldBest) && run.time < run.worldBest
   },
@@ -192,11 +192,11 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Finish a custom trail.', finish: run => run.custom
   },
   {
-    id: 'singin-in-the-rain', group: 'riding', name: 'Singin’ in the Rain', icon: 'water',
+    id: 'singin-in-the-rain', group: 'riding', name: 'Singin’ in the Rain', icon: 'rain',
     blurb: 'Finish a trail in the rain.', finish: run => run.rain
   },
   {
-    id: 'snow-day', group: 'riding', name: 'Snow Day', icon: 'tree',
+    id: 'snow-day', group: 'riding', name: 'Snow Day', icon: 'snowflake',
     blurb: 'Finish a trail in the snow.', finish: run => run.snow
   },
   {
@@ -204,11 +204,11 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Stay in the air for 1.5 seconds in one jump.', event: e => e.type === 'air' && e.time >= 1.5
   },
   {
-    id: 'wheelie-king', group: 'riding', name: 'Wheelie King', icon: 'bike',
+    id: 'wheelie-king', group: 'riding', name: 'Wheelie King', icon: 'wheelie',
     blurb: 'Hold a wheelie for 5 seconds.', event: e => e.type === 'wheelie' && e.time >= 5
   },
   {
-    id: 'stoppie', group: 'riding', name: 'Stoppie', icon: 'bike', secret: true,
+    id: 'stoppie', group: 'riding', name: 'Stoppie', icon: 'stoppie', secret: true,
     blurb: 'Roll on just the front wheel for 2 seconds.', event: e => e.type === 'stoppie' && e.time >= 2
   },
 
@@ -217,7 +217,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Land 100 flips.', stat: 'flips', goal: 100
   },
   {
-    id: 'crash-test-dummy', group: 'lifetime', name: 'Crash Test Dummy', icon: 'retry',
+    id: 'crash-test-dummy', group: 'lifetime', name: 'Crash Test Dummy', icon: 'crash',
     blurb: 'Crash 100 times.', stat: 'crashes', goal: 100
   },
   {
@@ -225,7 +225,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Collect 500 apples.', stat: 'apples', goal: 500
   },
   {
-    id: 'glaziers-nightmare', group: 'lifetime', name: 'Glazier’s Nightmare', icon: 'block',
+    id: 'glaziers-nightmare', group: 'lifetime', name: 'Glazier’s Nightmare', icon: 'shatter',
     blurb: 'Shatter 50 glass panes.', stat: 'panes', goal: 50
   },
   {
@@ -233,7 +233,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Land 1,000 flips.', stat: 'flips', goal: 1000
   },
   {
-    id: 'spare-parts', group: 'lifetime', name: 'Spare Parts', icon: 'retry',
+    id: 'spare-parts', group: 'lifetime', name: 'Spare Parts', icon: 'wrench',
     blurb: 'Crash 500 times.', stat: 'crashes', goal: 500
   },
   {
@@ -241,15 +241,15 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Collect 2,500 apples.', stat: 'apples', goal: 2500
   },
   {
-    id: 'window-shopper', group: 'lifetime', name: 'Window Shopper', icon: 'block',
+    id: 'window-shopper', group: 'lifetime', name: 'Window Shopper', icon: 'shatter',
     blurb: 'Shatter 250 glass panes.', stat: 'panes', goal: 250
   },
   {
-    id: 'cloud-nine', group: 'lifetime', name: 'Cloud Nine', icon: 'arrow-up',
+    id: 'cloud-nine', group: 'lifetime', name: 'Cloud Nine', icon: 'cloud',
     blurb: 'Spend 10 minutes in the air.', stat: 'airtime', goal: 6000, unit: 'tenths'
   },
   {
-    id: 'one-wheel-wonder', group: 'lifetime', name: 'One-Wheel Wonder', icon: 'bike',
+    id: 'one-wheel-wonder', group: 'lifetime', name: 'One-Wheel Wonder', icon: 'wheelie',
     blurb: 'Spend 5 minutes on your back wheel.', stat: 'wheelie', goal: 3000, unit: 'tenths'
   },
 ].map(achievement => Object.freeze(achievement))));
