@@ -2,6 +2,24 @@
 /** @type {{ version: string, date: string, changes: { type: 'new' | 'improved' | 'fixed', text: string }[] }[]} */
 export const RELEASES = [
   {
+    "version": "0.3.2",
+    "date": "2026-10-12",
+    "changes": [
+      {
+        "type": "new",
+        "text": "Achievements have arrived! Complete challenges as you play and collect them, each with its own icon."
+      },
+      {
+        "type": "improved",
+        "text": "Coda the Corgi looks better on the trails."
+      },
+      {
+        "type": "fixed",
+        "text": "All game audio now stops when you pause."
+      }
+    ]
+  },
+  {
     "version": "0.3.1",
     "date": "2026-10-12",
     "changes": [

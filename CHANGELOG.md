@@ -2,6 +2,17 @@
 
 Player-facing release notes. The game shows them under **What's new**, and each GitHub Release uses its section.
 
+## 0.3.2 — 2026-10-12
+
+### New
+- Achievements have arrived! Complete challenges as you play and collect them, each with its own icon.
+
+### Improved
+- Coda the Corgi looks better on the trails.
+
+### Fixed
+- All game audio now stops when you pause.
+
 ## 0.3.1 — 2026-10-12
 
 ### New
