@@ -11,6 +11,7 @@
 // its own lines, which are used as written instead of being summarised:
 //   Changelog: Added a desert trail.
 //   Changelog: fixed: The camera no longer jumps at the start.
+//   Changelog: heads up: The leaderboard has been reset.
 //   Changelog: none          (leave this PR out of the notes)
 // Everything else is summarised into player-facing notes by Copilot CLI
 // (`copilot -p`), signed in locally or through COPILOT_GITHUB_TOKEN in Actions.
@@ -23,7 +24,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { repoRoot } from './lib/trails.mjs';
 import {
-  CHANGE_TYPES, readChangelog, writeChangelog, validateChangelog, releaseMarkdown, compareVersions
+  CHANGE_TYPES, changeType, readChangelog, writeChangelog, validateChangelog, releaseMarkdown, compareVersions
 } from './lib/changelog.mjs';
 
 const PINNED = /^[ \t>*-]*changelog[ \t]*:[ \t]*(.+?)[ \t]*$/gim;
@@ -64,8 +65,9 @@ function pinnedChanges(text) {
   let skip = false;
   for (const [, value] of (text || '').replace(/<!--[\s\S]*?-->/g, '').matchAll(PINNED)) {
     if (SKIP.test(value)) { skip = true; continue; }
-    const typed = value.match(/^(new|improved|fixed)\s*:\s*(.+)$/i);
-    changes.push(typed ? { type: typed[1].toLowerCase(), text: typed[2] } : { type: null, text: value });
+    const typed = value.match(/^([a-z][a-z _-]*?)\s*:\s*(.+)$/i);
+    const type = typed && changeType(typed[1]);
+    changes.push(type ? { type, text: typed[2] } : { type: null, text: value });
   }
   return { changes, skip };
 }
@@ -160,9 +162,10 @@ async function writeNotesWithAI(changes, previous) {
     '- Plain, friendly sentences ending with a full stop. No commit hashes, PR numbers, file names or code names.',
     '- Prefix trail editor changes with "Editor: ".',
     '- type is "new" for new features or content, "improved" for changes to existing things, "fixed" for bug fixes.',
+    '- type is "heads-up" only for things players must know about, such as a leaderboard reset, lost saves or progress, or something they need to do. Most releases have none.',
     '- Include every pinned note.',
     '- Do not invent details that are not supported by the changes.',
-    'Reply with JSON only, without a code fence: {"changes":[{"type":"new|improved|fixed","text":"..."}]}'
+    'Reply with JSON only, without a code fence: {"changes":[{"type":"heads-up|new|improved|fixed","text":"..."}]}'
   ].join('\n');
   const example = previous ? `Style example, the previous release's notes:\n${JSON.stringify(previous.changes.slice(0, 6), null, 1)}\n\n` : '';
   const reply = await askCopilot(`${system}\n\n${example}Changes in this release:\n\n${describeChanges(changes)}`);
@@ -183,7 +186,7 @@ function fallbackNotes({ pinned, pulls, commits }) {
   ];
 }
 
-/** Grouped as new, improved, fixed, with editor changes last in each group. */
+/** Grouped as heads up, new, improved, fixed, with editor changes last in each group. */
 const sortNotes = notes => notes
   .map((note, i) => ({ note, i }))
   .sort((a, b) => (CHANGE_TYPES.indexOf(a.note.type) - CHANGE_TYPES.indexOf(b.note.type))

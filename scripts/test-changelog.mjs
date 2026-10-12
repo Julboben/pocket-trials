@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { repoRoot } from './lib/trails.mjs';
 import {
-  readChangelog, parseChangelog, formatChangelog, validateChangelog, releaseMarkdown, compareVersions, plainText
+  readChangelog, parseChangelog, changeType, formatChangelog, validateChangelog, releaseMarkdown, compareVersions, plainText
 } from './lib/changelog.mjs';
 
 const changelog = readChangelog();
@@ -19,17 +19,19 @@ assert.equal(changelog.releases[0]?.version, version,
 const sample = [
   '# Changelog', '', 'Intro text.', '',
   '## 1.1.0 — 2026-02-01', '', '### Fixed', '- C.', '### New', '- A spread', '  over two lines.', '- B.', '',
-  '## 1.0.0 - 2026-01-01', '### Improved', '* D.', ''
+  '## 1.0.0 - 2026-01-01', '### Improved', '* D.', '### heads-up', '- E.', ''
 ].join('\r\n');
 const parsed = parseChangelog(sample);
 assert.deepEqual(parsed.errors, []);
 assert.equal(parsed.intro, '# Changelog\n\nIntro text.\n');
 assert.deepEqual(parsed.releases.map(r => [r.version, r.date, r.changes.map(c => `${c.type}:${c.text}`)]), [
   ['1.1.0', '2026-02-01', ['fixed:C.', 'new:A spread over two lines.', 'new:B.']],
-  ['1.0.0', '2026-01-01', ['improved:D.']]
+  ['1.0.0', '2026-01-01', ['improved:D.', 'heads-up:E.']]
 ]);
-assert.deepEqual(parseChangelog(formatChangelog(parsed)).releases.map(r => r.changes.length), [3, 1]);
+assert.deepEqual(parseChangelog(formatChangelog(parsed)).releases.map(r => r.changes.length), [3, 2]);
 assert.equal(releaseMarkdown(parsed.releases[0]), '### New\n- A spread over two lines.\n- B.\n\n### Fixed\n- C.');
+assert.equal(releaseMarkdown(parsed.releases[1]), '### Heads up\n- E.\n\n### Improved\n- D.');
+assert.deepEqual(['Heads up', 'heads-up', 'HEADSUP', 'Fixed', 'Other'].map(changeType), ['heads-up', 'heads-up', 'heads-up', 'fixed', null]);
 
 const broken = parseChangelog('## 1.0 today\n- loose\n## 1.0.0 — 2026-01-01\n### Other\nstray text\n');
 assert.equal(broken.errors.length, 3);

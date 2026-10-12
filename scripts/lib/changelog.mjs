@@ -3,6 +3,7 @@
 // shape so it can be parsed:
 //
 //   ## 1.2.0 — 2026-01-31
+//   ### Heads up     (important things players need to know, like a reset)
 //   ### New
 //   - A note, one per bullet. Indented lines continue the bullet.
 //   ### Improved
@@ -14,8 +15,14 @@ import { join } from 'node:path';
 import { repoRoot } from './trails.mjs';
 
 export const changelogPath = join(repoRoot, 'CHANGELOG.md');
-export const CHANGE_TYPES = ['new', 'improved', 'fixed'];
-const HEADINGS = { new: 'New', improved: 'Improved', fixed: 'Fixed' };
+export const CHANGE_TYPES = ['heads-up', 'new', 'improved', 'fixed'];
+const HEADINGS = { 'heads-up': 'Heads up', new: 'New', improved: 'Improved', fixed: 'Fixed' };
+
+/** The change type for a section heading or a typed `Changelog:` line, e.g. "Heads up" or "heads-up". */
+export function changeType(name) {
+  const key = name.trim().toLowerCase().replace(/[\s_-]+/g, '-');
+  return CHANGE_TYPES.includes(key) ? key : key === 'headsup' ? 'heads-up' : null;
+}
 const SEMVER = /^\d+\.\d+\.\d+$/;
 const RELEASE_HEADING = /^##\s+v?(\S+)\s+[—–-]\s+(\d{4}-\d{2}-\d{2})\s*$/;
 const DEFAULT_INTRO = '# Changelog\n\nPlayer-facing release notes. The game shows them under **What\'s new**, and each GitHub Release uses its section.\n';
@@ -40,18 +47,17 @@ export function parseChangelog(markdown) {
     } else if (!release) {
       if (!releases.length) introLines.push(line);
     } else if (line.startsWith('### ')) {
-      const name = line.slice(4).trim().toLowerCase();
       change = null;
-      type = CHANGE_TYPES.includes(name) ? name : null;
+      type = changeType(line.slice(4));
       if (!type) errors.push(`${at}: section must be one of ${CHANGE_TYPES.map(t => HEADINGS[t]).join(', ')}.`);
     } else if (/^[-*]\s+/.test(line)) {
-      if (!type) { errors.push(`${at}: bullet is not under a New, Improved or Fixed heading.`); change = null; return; }
+      if (!type) { errors.push(`${at}: bullet is not under a ${CHANGE_TYPES.map(t => HEADINGS[t]).join(', ')} heading.`); change = null; return; }
       change = { type, text: line.replace(/^[-*]\s+/, '').trim() };
       release.changes.push(change);
     } else if (/^\s+\S/.test(line) && change) {
       change.text += ' ' + line.trim();
     } else if (line.trim()) {
-      errors.push(`${at}: expected a "### New/Improved/Fixed" heading or a "- " bullet.`);
+      errors.push(`${at}: expected a "### Heads up/New/Improved/Fixed" heading or a "- " bullet.`);
       change = null;
     } else {
       change = null;

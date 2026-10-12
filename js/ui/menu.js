@@ -557,7 +557,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     $('whats-new-badge').hidden = seen === VERSION;
   }
 
-  const CHANGE_LABELS = { new: 'NEW', improved: 'IMPROVED', fixed: 'FIXED' };
+  const CHANGE_LABELS = { 'heads-up': 'HEADS UP', new: 'NEW', improved: 'IMPROVED', fixed: 'FIXED' };
 
   function buildChangelog() {
     const releases = RELEASES.map((release, index) => {

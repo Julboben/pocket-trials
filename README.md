@@ -193,6 +193,7 @@ The notes are written by Copilot CLI from the merged pull requests and commits. 
 ```text
 Changelog: Added a desert trail.
 Changelog: fixed: The camera no longer jumps at the start.
+Changelog: heads up: The leaderboard has been reset.
 Changelog: none
 ```
 

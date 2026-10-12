@@ -1976,6 +1976,12 @@ h2 {
     font-weight: 950;
     letter-spacing: 1.2px;
 }
+.changelog-type[data-type="heads-up"] {
+    color: #ffd166;
+}
+.changelog-type[data-type="heads-up"] + span {
+    font-weight: 850;
+}
 .changelog-type[data-type="new"] {
     color: var(--color-green);
 }

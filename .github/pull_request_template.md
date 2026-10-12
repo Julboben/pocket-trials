@@ -6,5 +6,6 @@ Copilot writes the notes from the PR and its commits. One line per note:
 
 Changelog: Added a desert trail.
 Changelog: fixed: The camera no longer jumps at the start.
+Changelog: heads up: The leaderboard has been reset.
 Changelog: none      (leave this PR out of the notes)
 -->

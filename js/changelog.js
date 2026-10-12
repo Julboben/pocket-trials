@@ -6,12 +6,12 @@ export const RELEASES = [
     "date": "2026-10-11",
     "changes": [
       {
-        "type": "new",
-        "text": "Snow props now appear on trails, and the vulture and pylon in the desert and mountain trails have been improved."
+        "type": "heads-up",
+        "text": "The leaderboard has been reset, because the new bike handling makes old times incomparable. Time to set new records!"
       },
       {
-        "type": "improved",
-        "text": "New bike handling. Because times aren't comparable any more, the leaderboard has been reset. Time to set new records!"
+        "type": "new",
+        "text": "Snow props now appear on trails, and the vulture and pylon in the desert and mountain trails have been improved."
       },
       {
         "type": "improved",
