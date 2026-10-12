@@ -2054,7 +2054,10 @@ h2 {
     line-height: 1.4;
 }
 .achievement-state {
+    /* Wide enough for 2,500 / 2,500, so every progress bar ends in line. */
+    min-width: 88px;
     font-size: 8px;
+    text-align: right;
     font-weight: 900;
     letter-spacing: 1px;
     white-space: nowrap;

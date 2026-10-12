@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   ACHIEVEMENTS, ACHIEVEMENT_GROUPS, achievement, statGains, eventAchievements, finishAchievements,
-  interactAchievements, hasAchievement, newlyEarned, cleanAchievements, cleanStats, mergeAchievements, mergeStats, aheadOf
+  interactAchievements, hasAchievement, newlyEarned, cleanAchievements, cleanStats, mergeAchievements, mergeStats, aheadOf,
+  createFeatTracker, statProgressText
 } from '../js/achievements.js';
 import { UNLOCKS, trailUnlock, lookUnlock, unlockStatus } from '../js/unlocks.js';
 import { lookItem } from '../js/cosmetics.js';
@@ -89,9 +90,18 @@ const trailIds = new Set(catalog.trails.map(entry => entry.id));
   assert.deepEqual(statGains({ type: 'apple', collected: 1, total: 3 }), { apples: 1 });
   assert.deepEqual(statGains({ type: 'shatter', blockId: 'a' }), { panes: 1 });
   assert.equal(statGains({ type: 'land', impact: 50 }), null);
+  assert.deepEqual(statGains({ type: 'air', time: 1.26 }), { airtime: 13 }, 'times count in tenths of a second');
+  assert.deepEqual(statGains({ type: 'wheelie', time: 2 }), { wheelie: 20 });
+  assert.equal(statGains({ type: 'stoppie', time: 2 }), null);
 
   assert.deepEqual(eventAchievements({ type: 'flip', count: 1 }), ['head-over-heels']);
   assert.deepEqual(eventAchievements({ type: 'flip', count: 3 }), ['head-over-heels', 'triple-threat']);
+  assert.deepEqual(eventAchievements({ type: 'flip', count: 4 }), ['head-over-heels', 'triple-threat', 'spin-cycle']);
+  assert.deepEqual(eventAchievements({ type: 'air', time: 1.4 }), []);
+  assert.deepEqual(eventAchievements({ type: 'air', time: 1.5 }), ['hang-time']);
+  assert.deepEqual(eventAchievements({ type: 'wheelie', time: 5 }), ['wheelie-king']);
+  assert.deepEqual(eventAchievements({ type: 'stoppie', time: 2 }), ['stoppie']);
+  assert.deepEqual(eventAchievements({ type: 'stoppie', time: 1.9 }), []);
   assert.deepEqual(eventAchievements({ type: 'crash', cause: 'water' }), ['splashdown']);
   assert.deepEqual(eventAchievements({ type: 'crash', cause: 'spike' }), []);
   assert.deepEqual(eventAchievements({ type: 'shatter' }), ['bull-in-a-china-shop']);
@@ -99,15 +109,62 @@ const trailIds = new Set(catalog.trails.map(entry => entry.id));
   assert.deepEqual(interactAchievements('corgi'), ['pet-coda']);
   assert.deepEqual(interactAchievements('sign'), []);
 
-  const run = { flips: 0, time: 30, medal: null, gold: 20, helmet: true, bike: 'elasto', night: false, firstTry: false };
+  const run = {
+    flips: 0, time: 30, medal: null, gold: 20, helmet: true, bike: 'elasto', night: false, rain: false, snow: false,
+    attempts: 3, previousBest: null, worldBest: null, custom: false
+  };
+  const gold = { ...run, time: 19.5, medal: 'gold' };
   assert.deepEqual(finishAchievements(run), [], 'a plain finish earns nothing');
+  assert.deepEqual(finishAchievements(gold), [], 'nor does a plain gold');
   assert.deepEqual(finishAchievements({ ...run, flips: 5 }), ['flip-circus']);
-  assert.deepEqual(finishAchievements({ ...run, firstTry: true }), ['first-try']);
+  assert.deepEqual(finishAchievements({ ...run, flips: 10 }), ['flip-circus', 'show-off']);
+  assert.deepEqual(finishAchievements({ ...run, attempts: 1 }), ['first-try']);
+  assert.deepEqual(finishAchievements({ ...gold, attempts: 1 }), ['first-try', 'natural-talent']);
   assert.deepEqual(finishAchievements({ ...run, helmet: false }), ['wind-in-your-hair']);
+  assert.deepEqual(finishAchievements({ ...gold, helmet: false }), ['wind-in-your-hair', 'nerves-of-steel']);
   assert.deepEqual(finishAchievements({ ...run, night: true }), ['night-rider']);
-  assert.deepEqual(finishAchievements({ ...run, time: 19.5, medal: 'gold', bike: 'classic' }), ['old-school']);
+  assert.deepEqual(finishAchievements({ ...gold, night: true }), ['night-rider', 'night-owl']);
+  assert.deepEqual(finishAchievements({ ...gold, bike: 'classic' }), ['old-school']);
   assert.deepEqual(finishAchievements({ ...run, time: 19.95, medal: 'gold' }), ['photo-finish']);
   assert.deepEqual(finishAchievements({ ...run, time: 19.95, medal: 'gold', gold: null }), [], 'photo finish needs a gold time');
+  assert.deepEqual(finishAchievements({ ...run, time: 20.05, medal: 'silver' }), ['so-close']);
+  assert.deepEqual(finishAchievements({ ...run, time: 20, medal: 'gold' }), ['photo-finish'], 'matching the gold time wins it, so it is not So Close');
+  assert.deepEqual(finishAchievements({ ...run, time: 60 }), ['sunday-driver']);
+  assert.deepEqual(finishAchievements({ ...run, time: 60, gold: null }), [], 'trails without medals have no gold time to compare');
+  assert.deepEqual(finishAchievements({ ...run, worldBest: 30.5 }), ['ghostbuster']);
+  assert.deepEqual(finishAchievements({ ...run, worldBest: 30 }), [], 'tying the world best does not beat it');
+  assert.deepEqual(finishAchievements({ ...run, previousBest: 35 }), ['leaps-and-bounds']);
+  assert.deepEqual(finishAchievements({ ...run, previousBest: 34.9 }), []);
+  assert.deepEqual(finishAchievements({ ...run, attempts: 25 }), ['never-give-up']);
+  assert.deepEqual(finishAchievements({ ...run, custom: true }), ['homebrew']);
+  assert.deepEqual(finishAchievements({ ...run, rain: true, snow: true }), ['singin-in-the-rain', 'snow-day']);
+
+  // Feats: reported as they end, if long enough to be more than a bump.
+  const feats = createFeatTracker(0.1);
+  const ride = (rear, front, steps) => Array.from({ length: steps }, () => feats.step(rear, front)).flat();
+  assert.deepEqual(ride(true, true, 5), [], 'riding on both wheels is no feat');
+  assert.deepEqual(ride(false, false, 2), [], 'a feat is only reported once it ends');
+  const hop = ride(true, true, 1);
+  assert.deepEqual(hop, [], 'a 0.2 s hop is too short');
+  ride(false, false, 15);
+  const [jump] = ride(true, false, 1);
+  assert.equal(jump.type, 'air');
+  assert.ok(Math.abs(jump.time - 1.5) < 1e-9, 'air time is counted step by step');
+  ride(true, false, 11);
+  const [wheelie] = ride(true, true, 1);
+  assert.equal(wheelie.type, 'wheelie');
+  assert.ok(Math.abs(wheelie.time - 1.2) < 1e-9, 'the wheelie began when the jump landed on the back wheel');
+  ride(false, true, 12);
+  assert.equal(feats.finish()[0].type, 'stoppie', 'finishing completes the feat in progress');
+  assert.deepEqual(feats.finish(), [], 'and only once');
+  ride(true, false, 30);
+  feats.reset();
+  assert.deepEqual(ride(true, true, 1), [], 'a crash throws the feat away');
+
+  assert.equal(statProgressText(achievement('frequent-flyer'), 37), '37 / 100');
+  assert.equal(statProgressText(achievement('frequent-flyer'), 140), '100 / 100', 'progress stops at the goal');
+  assert.equal(statProgressText(achievement('satellite'), 1200), '1,000 / 1,000', 'like the blurbs, big numbers have commas');
+  assert.equal(statProgressText(achievement('cloud-nine'), 1254), '2:05 / 10:00', 'times show as minutes');
 
   const career = { trails: 0, golds: 0, officialTotal: 9, bonusFinished: 0, bonusTotal: 2 };
   assert.ok(!hasAchievement('first-steps', {}, {}, career));

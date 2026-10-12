@@ -19,7 +19,7 @@ import { normalizeAuthor, normalizeTrail, validateTrail, medalFor } from '../tra
 import { ACTION_LABELS, keyLabel } from '../input.js';
 import { VERSION } from '../version.js';
 import { RELEASES } from '../changelog.js';
-import { ACHIEVEMENTS, ACHIEVEMENT_GROUPS } from '../achievements.js';
+import { ACHIEVEMENTS, ACHIEVEMENT_GROUPS, statProgressText } from '../achievements.js';
 import {
   $, session, DEFAULT_BINDINGS, DEFAULT_PREFERENCES, sanitizePreferences,
   leaderboardTrails, trailKey, trailMarker, runTimeText, bonusUnlock, lookOwner, riderLook, lookItemHint, progressOf
@@ -663,11 +663,13 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     const state = document.createElement('span');
     state.className = 'achievement-state';
     if (earned) {
-      state.dataset.icon = 'check';
+      const check = document.createElement('span');
+      check.dataset.icon = 'check';
+      state.append(check);
       state.setAttribute('aria-label', 'Earned');
     } else if (achievement.stat) {
       const count = Math.min(progress.stats[achievement.stat] || 0, achievement.goal);
-      state.textContent = count + ' / ' + achievement.goal;
+      state.textContent = statProgressText(achievement, count);
       const bar = document.createElement('span');
       bar.className = 'achievement-bar';
       bar.style.setProperty('--progress', String(count / achievement.goal));

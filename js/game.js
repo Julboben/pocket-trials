@@ -13,8 +13,8 @@ import {
   readBest, saveBest, readLeaderboard, recordLeaderboardRun, readGhost, saveGhost,
   saveProgress as persistProgress, savePreferences, clearSaveToken, recordAchievements
 } from './storage.js';
-import { eventAchievements, finishAchievements, interactAchievements, newlyEarned, statGains } from './achievements.js';
-import { submitOnlineRun, fetchWorldGhost } from './online-leaderboard.js';
+import { createFeatTracker, eventAchievements, finishAchievements, interactAchievements, newlyEarned, statGains } from './achievements.js';
+import { submitOnlineRun, fetchWorldGhost, refreshOnlineBoard, cachedOnlineBoard } from './online-leaderboard.js';
 import { queueSaveSync } from './account.js';
 import { createInput, keyLabel } from './input.js';
 import { createCamera } from './camera.js';
@@ -105,9 +105,11 @@ export function startGame() {
   let lastTime = 0, accumulator = 0, landingSoundCooldown = 0, splashSoundCooldown = 0;
   /** Inputs of the current attempt, one per step, for saving a ghost. */
   let recorded = [], startStep = 0, flips = 0;
-  // Whether the current attempt is the first one since the trail was opened
-  // from the menu or Next Trail (for the First Try achievement).
-  let firstTry = false, openingTrail = false;
+  // Attempts that got going since the trail was opened from the menu or Next
+  // Trail, for achievements such as First Try.
+  let attempts = 0, openingTrail = false;
+  /** Time in the air and on one wheel during the current attempt, for achievements. */
+  const feats = createFeatTracker(STEP);
   /** @type {{ ride: any, inputs: any[], index: number, data: any } | null} */
   let ghost = null;
   let wakeLock = null;
@@ -222,6 +224,12 @@ export function startGame() {
     if (result.type) earn(interactAchievements(result.type));
   }
 
+  /** Lifetime stats and achievements from a ride event or feat. */
+  function trackAchievements(event) {
+    const gains = statGains(event), ids = eventAchievements(event);
+    if (gains || ids.length) earn(ids, gains ?? {});
+  }
+
   /**
    * Gives the active save the achievements in `ids` and adds `gains` to its
    * lifetime stats, then announces every achievement that is new since
@@ -244,13 +252,17 @@ export function startGame() {
     if (fresh.length || Object.keys(gains).length || earned.length) queueSaveSync(saveGame);
   }
 
-  /** The achievements a run that just reached the finish earns. */
-  function finishedRunAchievements(ride) {
-    const medals = session.trail.medals;
+  /**
+   * The achievements a run that just reached the finish earns, given the best
+   * time on the trail before it and the world-best time.
+   */
+  function finishedRunAchievements(ride, previousBest, worldBest) {
+    const { medals, weather, timeOfDay } = session.trail;
     return finishAchievements({
       flips, time: ride.elapsed, medal: medalFor(medals, ride.elapsed), gold: medals?.gold ?? null,
       helmet: lookParts(session.look).helmet, bike: session.look.bike,
-      night: session.trail.timeOfDay === 'night', firstTry
+      night: timeOfDay === 'night', rain: (weather?.rain ?? 0) > 0, snow: (weather?.snow ?? 0) > 0,
+      attempts, previousBest, worldBest, custom: session.trailSource === 'custom'
     });
   }
 
@@ -305,9 +317,9 @@ export function startGame() {
   }
 
   function initializeTrail(trail, marker) {
-    // Restarting before the ride got going doesn't use up the first try.
-    firstTry = openingTrail || (firstTry && !session.ride?.started);
+    if (openingTrail) attempts = 0;
     openingTrail = false;
+    feats.reset();
     session.trail = trail;
     const ride = createRide(trail, { seed: (Math.random() * 2 ** 31) >>> 0, helmet: lookParts(session.look).helmet });
     session.ride = ride;
@@ -317,6 +329,8 @@ export function startGame() {
     renderer.reset(trail, ride.facing);
     camera.reset();
     loadGhost(trail);
+    // The world board's best time, ready for Ghostbuster when the run finishes.
+    if (isRankedSource(session.trailSource)) refreshOnlineBoard(trailKey(currentTrailEntry()));
     input.clear();
     overlay.setDirection(ride.facing);
     overlay.setTrail(trail.name, marker, ride.apples.length);
@@ -490,6 +504,7 @@ export function startGame() {
     const { saveGame } = session;
     // Taken before this run counts, so career achievements it completes are announced.
     const before = progressOf(saveGame);
+    const worldBest = ranked ? cachedOnlineBoard(key)?.[0]?.time ?? null : null;
     const previousBest = official
       ? (saveGame ? readBest(session.activeSaveSlot, key, trails.length) : null)
       : ranked && saveGame
@@ -516,7 +531,7 @@ export function startGame() {
     if (!storedGhost || storedGhost.physics !== RIDE_VERSION || time < storedGhost.time) {
       saveGhost(key, { time, splits: ride.splits.slice(), startStep, seed: ride.seed, inputs, physics: RIDE_VERSION, look: session.look });
     }
-    earn(finishedRunAchievements(ride), {}, before);
+    earn(finishedRunAchievements(ride, previousBest, worldBest), {}, before);
     const medals = session.trail.medals;
     const last = session.trailIndex === trails.length - 1;
     overlay.showResults({
@@ -542,11 +557,11 @@ export function startGame() {
   }
 
   function handleEvent(ride, event) {
-    const gains = statGains(event), ids = eventAchievements(event);
-    if (gains || ids.length) earn(ids, gains ?? {});
+    trackAchievements(event);
     switch (event.type) {
       case 'start':
         startStep = recorded.length - 1;
+        attempts++;
         break;
       case 'airTurn':
         sounds.airTurn(event.full);
@@ -670,6 +685,10 @@ export function startGame() {
     effects.waterWake(ride, speed);
     effects.brakeMarks(ride, speed, stepInput.braking);
     effects.wheelGrime(ride, stepInput.braking);
+    // A crash throws away the feat in progress; reaching the finish completes it.
+    if (ride.status === 'running') feats.step(ride.rear.grounded, ride.front.grounded).forEach(trackAchievements);
+    else if (ride.status === 'won') feats.finish().forEach(trackAchievements);
+    else feats.reset();
     for (const event of events) handleEvent(ride, event);
   }
 

@@ -5,14 +5,15 @@
 //   career    worked out from the save's progress (trails finished, gold
 //             medals), so riders from before achievements get them as well
 //   stat      a lifetime total in `save.stats` reaching `goal`
-//   event     a ride event (see RideEvent in types.js) during a run
+//   event     a ride event (see RideEvent in types.js), or a feat (time in
+//             the air, a wheelie or a stoppie; see createFeatTracker), during a run
 //   finish    something about a finished run
 //   interact  using a prop of that type (see interactions.js)
 // Only event, finish and interact achievements are stored, in
 // `save.achievements` as id -> time earned; the rest are worked out whenever
 // they're needed. Every trail counts, custom ones too, but editor play-tests
-// don't (see game.js). Ids are stored in
-// saves, so they are never renamed or reused.
+// don't (see game.js). Ids are stored in saves, so they are never renamed or
+// reused.
 
 /**
  * @typedef {{
@@ -21,16 +22,22 @@
  * }} CareerProgress
  * @typedef {{
  *   flips: number, time: number, medal: string | null, gold: number | null,
- *   helmet: boolean, bike: string, night: boolean, firstTry: boolean
+ *   helmet: boolean, bike: string, night: boolean, rain: boolean, snow: boolean,
+ *   attempts: number, previousBest: number | null, worldBest: number | null, custom: boolean
  * }} FinishedRun what a run that reached the finish did: its flips, time,
  *   medal and the gold time, whether the rider wore a helmet, the bike
- *   (item id), whether the trail is at night, and whether it was the first
- *   attempt since the trail was opened
+ *   (item id), whether the trail is at night or has rain or snow, how many
+ *   attempts it took since the trail was opened, the best time on the trail
+ *   before it and the world-best time (null if none), and whether it is a
+ *   custom trail
+ * @typedef {{ type: 'air' | 'wheelie' | 'stoppie', time: number }} Feat
+ *   a stretch in the air, on the back wheel only or on the front wheel only,
+ *   in seconds
  * @typedef {{
  *   id: string, group: 'career' | 'riding' | 'lifetime', name: string, blurb: string, icon: string,
  *   secret?: boolean,
  *   career?: (progress: CareerProgress) => boolean,
- *   stat?: string, goal?: number,
+ *   stat?: string, goal?: number, unit?: 'tenths',
  *   event?: (event: any) => boolean,
  *   finish?: (run: FinishedRun) => boolean,
  *   interact?: string
@@ -73,6 +80,19 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Finish every official and bonus trail.',
     career: p => everyTrail(p.trails, p.officialTotal) && p.bonusFinished >= p.bonusTotal
   },
+  {
+    id: 'halfway-there', group: 'career', name: 'Halfway There', icon: 'flag',
+    blurb: 'Finish half of the official trails.',
+    career: p => p.officialTotal > 0 && p.trails >= Math.ceil(p.officialTotal / 2)
+  },
+  {
+    id: 'hat-trick', group: 'career', name: 'Hat Trick', icon: 'trophy',
+    blurb: 'Win 3 gold medals.', career: p => p.golds >= 3
+  },
+  {
+    id: 'treasure-hunter', group: 'career', name: 'Treasure Hunter', icon: 'tree',
+    blurb: 'Finish every bonus trail.', career: p => everyTrail(p.bonusFinished, p.bonusTotal)
+  },
 
   {
     id: 'head-over-heels', group: 'riding', name: 'Head over Heels', icon: 'rotate-right',
@@ -88,7 +108,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
   },
   {
     id: 'first-try', group: 'riding', name: 'First Try', icon: 'check',
-    blurb: 'Finish a trail on your first attempt.', finish: run => run.firstTry
+    blurb: 'Finish a trail on your first attempt.', finish: run => run.attempts === 1
   },
   {
     id: 'photo-finish', group: 'riding', name: 'Photo Finish', icon: 'clock', secret: true,
@@ -123,6 +143,74 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     id: 'pet-coda', group: 'riding', name: 'Pet Coda', icon: 'paw',
     blurb: 'Give Coda the corgi some attention.', interact: 'corgi'
   },
+  {
+    id: 'natural-talent', group: 'riding', name: 'Natural Talent', icon: 'check',
+    blurb: 'Win a gold medal on your first attempt.', finish: run => run.attempts === 1 && run.medal === 'gold'
+  },
+  {
+    id: 'nerves-of-steel', group: 'riding', name: 'Nerves of Steel', icon: 'hair',
+    blurb: 'Win a gold medal without a helmet.', finish: run => !run.helmet && run.medal === 'gold'
+  },
+  {
+    id: 'night-owl', group: 'riding', name: 'Night Owl', icon: 'headlight',
+    blurb: 'Win a gold medal on a night trail.', finish: run => run.night && run.medal === 'gold'
+  },
+  {
+    id: 'show-off', group: 'riding', name: 'Show-Off', icon: 'rotate-right',
+    blurb: 'Land 10 flips in one run and finish it.', finish: run => run.flips >= 10
+  },
+  {
+    id: 'spin-cycle', group: 'riding', name: 'Spin Cycle', icon: 'rotate-right', secret: true,
+    blurb: 'Land a quadruple flip in one jump.', event: e => e.type === 'flip' && e.count >= 4
+  },
+  {
+    id: 'so-close', group: 'riding', name: 'So Close', icon: 'clock', secret: true,
+    blurb: 'Miss a gold medal by less than a tenth of a second.',
+    finish: run => Number.isFinite(run.gold) && run.time > run.gold && run.time - run.gold < 0.1
+  },
+  {
+    id: 'sunday-driver', group: 'riding', name: 'Sunday Driver', icon: 'clock', secret: true,
+    blurb: 'Finish a trail in more than three times the gold time.',
+    finish: run => Number.isFinite(run.gold) && run.time >= run.gold * 3
+  },
+  {
+    id: 'ghostbuster', group: 'riding', name: 'Ghostbuster', icon: 'trophy',
+    blurb: 'Beat the world-best ghost on an official or bonus trail.',
+    finish: run => Number.isFinite(run.worldBest) && run.time < run.worldBest
+  },
+  {
+    id: 'leaps-and-bounds', group: 'riding', name: 'Leaps and Bounds', icon: 'clock',
+    blurb: 'Take 5 seconds off your best time on a trail.',
+    finish: run => Number.isFinite(run.previousBest) && run.previousBest - run.time >= 5
+  },
+  {
+    id: 'never-give-up', group: 'riding', name: 'Never Give Up', icon: 'retry', secret: true,
+    blurb: 'Finish a trail after 25 or more attempts.', finish: run => run.attempts >= 25
+  },
+  {
+    id: 'homebrew', group: 'riding', name: 'Homebrew', icon: 'pencil',
+    blurb: 'Finish a custom trail.', finish: run => run.custom
+  },
+  {
+    id: 'singin-in-the-rain', group: 'riding', name: 'Singin’ in the Rain', icon: 'water',
+    blurb: 'Finish a trail in the rain.', finish: run => run.rain
+  },
+  {
+    id: 'snow-day', group: 'riding', name: 'Snow Day', icon: 'tree',
+    blurb: 'Finish a trail in the snow.', finish: run => run.snow
+  },
+  {
+    id: 'hang-time', group: 'riding', name: 'Hang Time', icon: 'arrow-up',
+    blurb: 'Stay in the air for 1.5 seconds in one jump.', event: e => e.type === 'air' && e.time >= 1.5
+  },
+  {
+    id: 'wheelie-king', group: 'riding', name: 'Wheelie King', icon: 'bike',
+    blurb: 'Hold a wheelie for 5 seconds.', event: e => e.type === 'wheelie' && e.time >= 5
+  },
+  {
+    id: 'stoppie', group: 'riding', name: 'Stoppie', icon: 'bike', secret: true,
+    blurb: 'Roll on just the front wheel for 2 seconds.', event: e => e.type === 'stoppie' && e.time >= 2
+  },
 
   {
     id: 'frequent-flyer', group: 'lifetime', name: 'Frequent Flyer', icon: 'rotate-right',
@@ -140,6 +228,30 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     id: 'glaziers-nightmare', group: 'lifetime', name: 'Glazier’s Nightmare', icon: 'block',
     blurb: 'Shatter 50 glass panes.', stat: 'panes', goal: 50
   },
+  {
+    id: 'satellite', group: 'lifetime', name: 'Satellite', icon: 'rotate-right',
+    blurb: 'Land 1,000 flips.', stat: 'flips', goal: 1000
+  },
+  {
+    id: 'spare-parts', group: 'lifetime', name: 'Spare Parts', icon: 'retry',
+    blurb: 'Crash 500 times.', stat: 'crashes', goal: 500
+  },
+  {
+    id: 'orchard-keeper', group: 'lifetime', name: 'Orchard Keeper', icon: 'apple',
+    blurb: 'Collect 2,500 apples.', stat: 'apples', goal: 2500
+  },
+  {
+    id: 'window-shopper', group: 'lifetime', name: 'Window Shopper', icon: 'block',
+    blurb: 'Shatter 250 glass panes.', stat: 'panes', goal: 250
+  },
+  {
+    id: 'cloud-nine', group: 'lifetime', name: 'Cloud Nine', icon: 'arrow-up',
+    blurb: 'Spend 10 minutes in the air.', stat: 'airtime', goal: 6000, unit: 'tenths'
+  },
+  {
+    id: 'one-wheel-wonder', group: 'lifetime', name: 'One-Wheel Wonder', icon: 'bike',
+    blurb: 'Spend 5 minutes on your back wheel.', stat: 'wheelie', goal: 3000, unit: 'tenths'
+  },
 ].map(achievement => Object.freeze(achievement))));
 
 const BY_ID = new Map(ACHIEVEMENTS.map(achievement => [achievement.id, achievement]));
@@ -147,18 +259,73 @@ const BY_ID = new Map(ACHIEVEMENTS.map(achievement => [achievement.id, achieveme
 /** @returns {Achievement | null} */
 export const achievement = id => BY_ID.get(id) ?? null;
 
-/** What each ride event adds to the lifetime stats. */
+/**
+ * What each ride event or feat adds to the lifetime stats. Times are kept in
+ * tenths of a second, since stats are whole numbers.
+ */
 const STAT_EVENTS = {
   flip: e => ({ flips: e.count }),
   crash: () => ({ crashes: 1 }),
   apple: () => ({ apples: 1 }),
   shatter: () => ({ panes: 1 }),
+  air: e => ({ airtime: Math.round(e.time * 10) }),
+  wheelie: e => ({ wheelie: Math.round(e.time * 10) }),
 };
 
-/** @returns {Record<string, number> | null} what `event` adds to the lifetime stats */
+/** @returns {Record<string, number> | null} what a ride event or feat adds to the lifetime stats */
 export const statGains = event => STAT_EVENTS[event.type]?.(event) ?? null;
 
-/** The ids a ride event earns. */
+/** A lifetime total and its goal, as the menu shows them: 37 / 1,000, or 2:05 / 10:00 for times. */
+export function statProgressText(achievement, count) {
+  const shown = Math.min(count, achievement.goal);
+  const number = value => value.toLocaleString('en-US');
+  if (achievement.unit !== 'tenths') return number(shown) + ' / ' + number(achievement.goal);
+  const clock = tenths => {
+    const seconds = Math.floor(tenths / 10);
+    return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+  };
+  return clock(shown) + ' / ' + clock(achievement.goal);
+}
+
+// The shortest stretch of each feat worth reporting, in seconds: shorter ones
+// are bumps and hops, not jumps or wheelies.
+const FEAT_MIN = { air: 0.3, wheelie: 1, stoppie: 1 };
+
+/**
+ * Follows the wheels' ground contact step by step and reports each feat as
+ * it ends: time in the air (both wheels off the ground), a wheelie (only the
+ * back wheel down) or a stoppie (only the front one). It only watches the
+ * ride, so the simulation and its replays are untouched.
+ * @param {number} step seconds per simulation step
+ */
+export function createFeatTracker(step) {
+  /** @type {Feat['type'] | null} */
+  let kind = null;
+  let time = 0;
+  /** @returns {Feat[]} */
+  function end() {
+    const done = kind && time >= FEAT_MIN[kind] ? [{ type: kind, time }] : [];
+    kind = null;
+    time = 0;
+    return done;
+  }
+  return {
+    /** One simulation step; returns the feats it ended. */
+    step(rearGrounded, frontGrounded) {
+      const now = rearGrounded ? (frontGrounded ? null : 'wheelie') : (frontGrounded ? 'stoppie' : 'air');
+      const done = now === kind ? [] : end();
+      kind = now;
+      if (kind) time += step;
+      return done;
+    },
+    /** Ends the feat in progress, as when the run reaches the finish. */
+    finish: end,
+    /** Forgets the feat in progress, as when the rider crashes. */
+    reset() { kind = null; time = 0; },
+  };
+}
+
+/** The ids a ride event or feat earns. */
 export const eventAchievements = event => ACHIEVEMENTS.filter(a => a.event?.(event)).map(a => a.id);
 
 /** The ids a finished run earns. @param {FinishedRun} run */
