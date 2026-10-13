@@ -496,6 +496,7 @@ h2 {
 }
 .results[hidden],
 .results-credit[hidden],
+.results-rival[hidden],
 .results-hint[hidden] {
     display: none;
 }
@@ -580,6 +581,15 @@ h2 {
     font-size: 12px;
     font-weight: 900;
     font-variant-numeric: tabular-nums;
+}
+.results-rival {
+    margin: 0;
+    color: var(--color-text);
+    font-size: 10px;
+    font-weight: 850;
+    letter-spacing: 1px;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
 }
 .results-targets {
     display: flex;

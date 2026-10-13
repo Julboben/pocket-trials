@@ -638,23 +638,32 @@ export function startGame() {
     earn(finishedRunAchievements(ride, previousBest, worldBest), {}, before);
     const medals = session.trail.medals;
     const last = session.trailIndex === trails.length - 1;
+    // Only a run the player actually rode is sent to the world board.
+    // Offline saves stay local-only. The server replays the inputs to time the run.
+    const submission = ranked && session.state === 'running' && saveGame?.token
+      ? submitOnlineRun(key, { look: session.look, token: saveGame.token, run: { inputs, seed: ride.seed, physics: RIDE_VERSION } })
+      : null;
     overlay.showResults({
-      official, bonus: session.trailSource === 'bonus', time, previousBest, rank, medals, medal: medalFor(medals, time), flips,
+      official, bonus: session.trailSource === 'bonus', time, previousBest, rank, worldPending: !!submission,
+      medals, medal: medalFor(medals, time), flips,
       apples: ride.apples.length, author: session.trail.author,
       primaryLabel: official && !last ? 'Next Trail' : 'Play Again',
       restartKey: restartKey()
     });
-    // Only a run the player actually rode is sent to the world board.
-    if (ranked && session.state === 'running' && saveGame?.token) {
-      // Offline saves stay local-only. The server replays the inputs to time the run.
+    if (submission) {
       const slot = session.activeSaveSlot;
-      submitOnlineRun(key, { look: session.look, token: saveGame.token, run: { inputs, seed: ride.seed, physics: RIDE_VERSION } }).then(result => {
+      const shown = overlay.currentResults();
+      submission.then(result => {
         if (result && 'signedOut' in result) {
           clearSaveToken(slot, trails.length);
           if (session.saveSlots[slot]) Object.assign(session.saveSlots[slot], { token: null, online: true });
           overlay.toast('Signed out · Log in from the menu to post world times', 5000);
         } else if (result && 'rejected' in result) egg('rejected-run');
-        else if (result?.rank) overlay.toast(`WORLD RANK #${result.rank} OF ${result.total}`, 4000);
+        const standing = result && 'rank' in result ? result : null;
+        // Riders who have already moved on still hear how the run placed.
+        if (!overlay.showWorldStanding(shown, standing) && standing) {
+          overlay.toast(`WORLD RANK #${standing.rank} OF ${standing.total}`, 4000);
+        }
       });
     }
     setState('won');

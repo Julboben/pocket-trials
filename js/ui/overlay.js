@@ -191,6 +191,7 @@ export function createOverlay() {
   /**
    * @param {{
    *   official: boolean, bonus?: boolean, time: number, previousBest: number | null, rank: number | null,
+   *   worldPending?: boolean,
    *   medals?: { gold: number, silver: number, bronze: number }, medal: string | null,
    *   flips: number, apples: number, primaryLabel: string, restartKey: string,
    *   author?: string
@@ -198,6 +199,8 @@ export function createOverlay() {
    */
   function showResults(result) {
     const { time, previousBest, rank, medals, medal } = result;
+    resultsId++;
+    localRank = rank;
     const record = previousBest === null || time < previousBest;
     $("overlay-badge").textContent = result.official
       ? "TRAIL COMPLETED"
@@ -228,7 +231,12 @@ export function createOverlay() {
         ? medal.toUpperCase() + " MEDAL"
         : "NO MEDAL"
       : "";
-    $("results-rank").textContent = rank ? "#" + rank : "—";
+    // A world rank replaces the local one once the server has timed the run.
+    if (result.worldPending) {
+      $("results-rank-label").textContent = "WORLD RANK";
+      $("results-rank").textContent = "…";
+    } else showLocalRank();
+    $("results-rival").hidden = true;
     $("results-best").textContent = runTimeText(record ? time : previousBest);
     $("results-flips").textContent = String(result.flips);
     const targets = medals
@@ -268,10 +276,67 @@ export function createOverlay() {
         result.apples +
         " apples collected." +
         (record ? " New best time." : "") +
-        (rank ? " Leaderboard rank " + rank + "." : "") +
+        (rank && !result.worldPending ? " Leaderboard rank " + rank + "." : "") +
         (medal ? " " + medal + " medal." : "") +
         (author ? " Trail by " + author + "." : ""),
     );
+  }
+
+  /** Bumped by every results screen, so a late world rank can't land on the next one. */
+  let resultsId = 0;
+  /** @type {number | null} */
+  let localRank = null;
+
+  function showLocalRank() {
+    $("results-rank-label").textContent = "LOCAL RANK";
+    $("results-rank").textContent = localRank ? "#" + localRank : "—";
+  }
+
+  /** The id of the results screen on show, for showWorldStanding. */
+  const currentResults = () => resultsId;
+
+  /**
+   * @typedef {{ rank: number, total: number, best: number,
+   *   ahead?: { name: string, time: number } | null,
+   *   behind?: { name: string, time: number } | null }} WorldStanding
+   */
+
+  /**
+   * "0.420s TO PASS FREJA", or the leader's margin, from the player's best.
+   * @param {WorldStanding} standing
+   */
+  function rivalText({ rank, best, ahead, behind }) {
+    const gap = (/** @type {number} */ other) => Math.abs(other - best).toFixed(3) + "s";
+    const name = (/** @type {string} */ value) => value.toUpperCase();
+    if (ahead) return gap(ahead.time) + " TO PASS " + name(ahead.name);
+    if (rank === 1 && behind) {
+      return behind.time === best
+        ? "TIED WITH " + name(behind.name) + " FOR #1"
+        : "LEADING " + name(behind.name) + " BY " + gap(behind.time);
+    }
+    return "";
+  }
+
+  /**
+   * Swaps the local rank for the world one once the server has timed the run,
+   * or back to the local rank when it couldn't (`standing` null). Returns
+   * false when the player has already left that results screen.
+   * @param {number} id from currentResults() when the results were shown
+   * @param {WorldStanding | null} standing
+   */
+  function showWorldStanding(id, standing) {
+    if (id !== resultsId) return false;
+    if (!standing) {
+      showLocalRank();
+      return dialog.open;
+    }
+    $("results-rank-label").textContent = "WORLD RANK";
+    $("results-rank").textContent = "#" + standing.rank + " / " + standing.total;
+    const rival = rivalText(standing);
+    $("results-rival").textContent = rival;
+    $("results-rival").hidden = !rival;
+    announce("World rank " + standing.rank + " of " + standing.total + "." + (rival ? " " + rival + "." : ""));
+    return dialog.open;
   }
 
   return {
@@ -290,5 +355,7 @@ export function createOverlay() {
     hide,
     reopen,
     showResults,
+    currentResults,
+    showWorldStanding,
   };
 }

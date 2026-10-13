@@ -240,6 +240,8 @@ const run = (replay = firstTrailRun) => ({ inputs: replay.inputs, seed: replay.s
   assert.equal(body.total, 1);
   assert.equal(body.runs[0].name, 'Freja');
   assert.equal(body.runs[0].rider, 'female');
+  assert.equal(body.ahead, null, 'nobody is ahead of the only rider');
+  assert.equal(body.behind, null, 'nor behind');
 
   // Cutting inputs off before the finish line.
   const short = structuredClone(firstTrailRun.inputs);
@@ -282,6 +284,25 @@ const run = (replay = firstTrailRun) => ({ inputs: replay.inputs, seed: replay.s
   assert.deepEqual(odd.body.runs[0].look, { ...bareLook, helmet: DEFAULT_LOOK.helmet, outfit: DEFAULT_LOOK.outfit }, 'unknown items fall back to the defaults');
   await sql`update runs set time_ms = 60000 where trail = ${firstKey}`;
   await submit({ body: { trail: firstKey, rider: 'female', run: run() }, token: julianToken });
+
+  // The riders either side of the player's best, for the finish screen.
+  const bestMs = Math.round(firstTrailRun.outcome.elapsed * 1000);
+  const rivals = [['Speedy', bestMs - 500], ['Tied', bestMs], ['Slowpoke', bestMs + 1000], ['Slowest', bestMs + 2000]];
+  for (const [name, timeMs] of rivals) {
+    const id = crypto.randomUUID();
+    await sql`insert into players (id, name, name_key, rider) values (${id}, ${name}, ${name.toLowerCase()}, 'male')`;
+    await sql`insert into runs (trail, player_id, rider, time_ms) values (${firstKey}, ${id}, 'male', ${timeMs})`;
+  }
+  const chasing = await submit({ body: { trail: firstKey, rider: 'female', run: run() }, token: julianToken });
+  assert.equal(chasing.body.rank, 2);
+  assert.deepEqual(chasing.body.ahead, { name: 'Speedy', time: (bestMs - 500) / 1000 }, 'the nearest faster rider');
+  assert.deepEqual(chasing.body.behind, { name: 'Tied', time: bestMs / 1000 }, 'a tied rider counts as behind');
+  await sql`delete from players where name_key in ('speedy', 'tied')`;
+  const leading = await submit({ body: { trail: firstKey, rider: 'female', run: run() }, token: julianToken });
+  assert.equal(leading.body.rank, 1);
+  assert.equal(leading.body.ahead, null);
+  assert.deepEqual(leading.body.behind, { name: 'Slowpoke', time: (bestMs + 1000) / 1000 }, 'the leader sees who is chasing');
+  await sql`delete from players where name_key in ('slowpoke', 'slowest')`;
 
   const ghost = await call(leaderboard, '/api/leaderboard?ghost=1&trail=' + encodeURIComponent(firstKey), { method: 'GET' });
   assert.equal(ghost.status, 200);
