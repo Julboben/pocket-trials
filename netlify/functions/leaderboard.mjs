@@ -1,7 +1,9 @@
 // Online leaderboard API.
 //   GET  /api/leaderboard?trail=ID                                   -> { runs }
 //   GET  /api/leaderboard?trail=ID&ghost=1                           -> { ghost: { name, look, rider, replay } | null }
-//   POST /api/leaderboard  { trail, look, run }  (Bearer token)     -> { rank, total, time, best, improved, runs }
+//   POST /api/leaderboard  { trail, look, run }  (Bearer token)     -> { rank, total, time, best, improved, ahead, behind, runs }
+// `ahead` is the nearest rider faster than the player's best and `behind` the
+// nearest one at or behind it, each { name, time } or null.
 // `run` is the ride's recorded inputs ({ inputs, seed, physics }). The server
 // replays them and takes the time from its own simulation, never the client's.
 import { db } from '../lib/db.mjs';
@@ -68,16 +70,27 @@ async function submit(req) {
       time_ms    = least(runs.time_ms, excluded.time_ms)
     returning time_ms`;
 
-  const [{ rank, total }] = await sql`
-    select (count(*) filter (where time_ms < ${best.time_ms}))::int + 1 as rank,
-           count(*)::int as total
-    from runs where trail = ${trail}`;
+  const [{ rank, total, ahead, behind }] = await sql`
+    select
+      (select count(*) from runs where trail = ${trail} and time_ms < ${best.time_ms})::int + 1 as rank,
+      (select count(*) from runs where trail = ${trail})::int as total,
+      (select json_build_object('name', p.name, 'time_ms', r.time_ms)
+         from runs r join players p on p.id = r.player_id
+         where r.trail = ${trail} and r.time_ms < ${best.time_ms}
+         order by r.time_ms desc, r.updated_at desc limit 1) as ahead,
+      (select json_build_object('name', p.name, 'time_ms', r.time_ms)
+         from runs r join players p on p.id = r.player_id
+         where r.trail = ${trail} and r.player_id <> ${playerId} and r.time_ms >= ${best.time_ms}
+         order by r.time_ms asc, r.updated_at asc limit 1) as behind`;
+  const rival = row => row ? { name: row.name, time: row.time_ms / 1000 } : null;
 
   return json({
     rank, total,
     time: timeMs / 1000,
     best: best.time_ms / 1000,
     improved: best.time_ms === timeMs,
+    ahead: rival(ahead),
+    behind: rival(behind),
     runs: await top(sql, trail),
   });
 }

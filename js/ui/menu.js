@@ -10,7 +10,7 @@ import {
 } from '../storage.js';
 import { DEFAULT_LOOK, keepIdentity, lookKey, sameLook, starterLook } from '../cosmetics.js';
 import { createCustomizer, createIdentityPicker, drawLook } from './customizer.js';
-import { ONLINE_LEADERBOARD_EVENT, isOnlineBoardLoading, isOnlineTrail, fetchWorldGhost, submitOnlineRun } from '../online-leaderboard.js';
+import { ONLINE_LEADERBOARD_EVENT, isOnlineBoardLoading, isOnlineTrail, fetchWorldGhost, settledWorldGhost, refreshOnlineBoard, submitOnlineRun } from '../online-leaderboard.js';
 import { registerRider, loginRider, accountErrorText, passkeysSupported, queueSaveSync, fetchCloudSave } from '../account.js';
 import { isSandbox } from '../local-store.js';
 import { NAME_HINT, disallowedNameChars } from '../rider-name.js';
@@ -74,6 +74,15 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   // Fresh world results rebuild the board while the menu is on screen.
   window.addEventListener(ONLINE_LEADERBOARD_EVENT, () => {
     if (isOpen()) buildLeaderboard();
+  });
+
+  // Opening the board, flipping to a trail or coming back to the tab fetches
+  // other riders' runs, unless the board is only seconds old.
+  const BOARD_VIEW_MAX_AGE = 5_000;
+  const isBoardShown = () => isOpen() && !$('menu-leaderboard-view').hidden;
+  const shownBoardKey = () => trailKey(leaderboardTrails()[leaderboardTrail]);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && isBoardShown()) refreshOnlineBoard(shownBoardKey(), BOARD_VIEW_MAX_AGE);
   });
 
   // Typing a name must not reach the game's key handlers (W/A/S/D, R, Esc).
@@ -791,8 +800,8 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     $('menu-trail-grid').replaceChildren(...cards);
   }
 
-  /** The world-best replay per trail key once fetched, null when there is none. */
-  const worldReplays = new Map();
+  /** Trail keys whose world-best replay is on its way, so the board redraws once. */
+  const awaitingWorld = new Set();
 
   /** Whether the player may open a trail, and so watch runs on it. */
   function canWatch(entry) {
@@ -806,7 +815,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     const same = replay => replay?.physics === RIDE_VERSION && Math.abs(replay.time - run.time) < .001;
     const local = readGhost(key);
     if (same(local)) return local;
-    const world = worldReplays.get(key);
+    const world = settledWorldGhost(key);
     return same(world) && (!run.name || run.name === world.name) ? world : null;
   }
 
@@ -858,11 +867,13 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     return row;
   }
 
-  function buildLeaderboard() {
+  /** @param {boolean} [fresh] the player brought this board up, so fetch its latest runs */
+  function buildLeaderboard(fresh = false) {
     const trails = leaderboardTrails();
     leaderboardTrail = (leaderboardTrail + trails.length) % trails.length;
     const entry = trails[leaderboardTrail];
     const key = trailKey(entry);
+    if (fresh) refreshOnlineBoard(key, BOARD_VIEW_MAX_AGE);
     const runs = readLeaderboard(key);
     // Wait for the online board instead of showing local times that it then replaces.
     const loading = isOnlineBoardLoading(key);
@@ -879,12 +890,12 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     });
     $('leaderboard-list').replaceChildren(...rows);
     // The world best can be watched too, once its replay has arrived.
-    if (watchable && isOnlineTrail(key) && !worldReplays.has(key)) {
-      worldReplays.set(key, null);
+    if (watchable && isOnlineTrail(key) && settledWorldGhost(key) === undefined && !awaitingWorld.has(key)) {
+      awaitingWorld.add(key);
       fetchWorldGhost(key).then(world => {
-        if (!world) return;
-        worldReplays.set(key, world);
-        if (isOpen() && !$('menu-leaderboard-view').hidden && trailKey(leaderboardTrails()[leaderboardTrail]) === key) buildLeaderboard();
+        awaitingWorld.delete(key);
+        // Only a replay that arrived redraws, so a failed fetch can't loop.
+        if (world && isBoardShown() && shownBoardKey() === key) buildLeaderboard();
       });
     }
   }
@@ -892,7 +903,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   function stepLeaderboard(direction) {
     closeTrailPicker();
     leaderboardTrail += direction;
-    buildLeaderboard();
+    buildLeaderboard(true);
   }
 
   const isTrailPickerOpen = () => !$('leaderboard-picker').hidden;
@@ -948,7 +959,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
       }
       button.addEventListener('click', () => {
         leaderboardTrail = index;
-        buildLeaderboard();
+        buildLeaderboard(true);
         closeTrailPicker(true);
       });
       items.push(button);
@@ -1264,7 +1275,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   });
   $('menu-leaderboard').addEventListener('click', () => {
     leaderboardTrail = currentLeaderboardTrail();
-    buildLeaderboard();
+    buildLeaderboard(true);
     showView('leaderboard');
   });
   $('leaderboard-prev').addEventListener('click', () => stepLeaderboard(-1));
