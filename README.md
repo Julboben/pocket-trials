@@ -80,12 +80,13 @@ Gamepads use the standard mapping: `RT` or `A` for gas, `LT` or `X` for brake, t
 1. **The Orchard** — gentle rollers that teach throttle rhythm and basic balance.
 2. **Apple Valley** — growing rollers and a big hill that teach carrying momentum, and a small hop to reach the flower.
 3. **Windfall** — turning around: ride away to build speed, turn, and launch back to an apple high behind you.
-4. **Splinter Ridge** — longer, steeper woodland hills that teach momentum management and crest control.
-5. **High Hopes** — steep climbs and bigger landings that reward early weight shifts.
-6. **Skybound** — two committed jumps across a narrow middle section.
-7. **Brake Point** — sharp drops and deep bowls that teach controlled braking and recovery.
-8. **Long Way Up** — a sustained technical climb combining momentum and wheelie control.
-9. **Elastic Summit** — a long final exam combining climbs, braking, landings, gaps, and stacked ledges.
+4. **A Hill to Die On** — a steep hill climbed three times, with turns in between and a bump that launches you up onto a ledge for the high apple.
+5. **Splinter Ridge** — longer, steeper woodland hills that teach momentum management and crest control.
+6. **High Hopes** — steep climbs and bigger landings that reward early weight shifts.
+7. **Skybound** — two committed jumps across a narrow middle section.
+8. **Brake Point** — sharp drops and deep bowls that teach controlled braking and recovery.
+9. **Long Way Up** — a sustained technical climb combining momentum and wheelie control.
+10. **Elastic Summit** — a long final exam combining climbs, braking, landings, gaps, and stacked ledges.
 
 The planned full career is laid out in [`TRAILS_PLAN.md`](./TRAILS_PLAN.md).
 
@@ -332,7 +333,7 @@ To investigate physics, open the game with `?physicsDebug=1`. The overlay shows 
 
 `npm test` also runs the DOM-independent vehicle harness in `scripts/test-vehicle-physics.mjs`. It exercises flat acceleration, braking versus coasting, stationary wheel lift, air rotation, mirrored hills, valley settling, and one-wheel landing through the exact `js/vehicle-physics.js` code used by the game.
 
-`scripts/test-replays.mjs` replays one recorded run per official trail through `js/ride.js` and checks that the finish time, apples, and crash outcome are unchanged, with no NaN values and no terrain tunnelling. After an intentional handling change, re-record the fixtures with `npm run replays`. A search bot drives each trail and writes `tests/replays/*.json`. The simulation only uses `js/det-math.js` for transcendental functions, so a replay recorded in Node plays back bit-for-bit in the browser. Don't use `Math.sin`, `Math.atan2`, `Math.exp`, and similar functions in simulation code, because their last-digit results differ between JavaScript engines.
+`scripts/test-replays.mjs` replays one recorded run per official trail through `js/ride.js` and checks that the finish time, apples, and crash outcome are unchanged, with no NaN values and no terrain tunnelling. After an intentional handling change, re-record the fixtures with `npm run replays`. A search bot drives each trail and writes `tests/replays/*.json`. When it can't finish a trail, for example one that needs a turn-around or a run-up from behind, an explorer takes over and searches routes away from the next apple too (`npm run replays -- --explore` skips straight to it). The simulation only uses `js/det-math.js` for transcendental functions, so a replay recorded in Node plays back bit-for-bit in the browser. Don't use `Math.sin`, `Math.atan2`, `Math.exp`, and similar functions in simulation code, because their last-digit results differ between JavaScript engines.
 
 Run `npm run check` (syntax), `npm run typecheck` (JSDoc types in `// @ts-check` files), and `npm test` before pushing. After `npm ci`, `npm run test:online` tests the online API against an in-memory Postgres (PGlite) using a software passkey. It covers sign-up, unique names, login, cloud saves, and rejection of tampered runs. CI runs all of these.
 
