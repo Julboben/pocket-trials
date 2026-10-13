@@ -19,6 +19,8 @@ import {
   XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE,
   SUSPENSION_TOP_OUT_LENGTH,
   XPBD_SUSPENSION_TOP_OUT_COMPLIANCE,
+  SUSPENSION_BOTTOMING_START,
+  XPBD_SUSPENSION_BOTTOMING_DAMPING,
   WHEEL_INERTIA,
   WHEEL_FRICTION,
   WHEEL_SLIDE_FRICTION,
@@ -94,6 +96,34 @@ const CRASHED_FRAME_PROBES = [
 ];
 const CRASHED_FRAME_PROBE_RADIUS = 3;
 
+// A wheel's main spring and damper. `bottoming` marks it for the bottoming
+// cone in compressionDamping().
+function suspensionSpring(wheel, mount) {
+  const spring = createDistanceConstraint(wheel, mount, SUSPENSION_REST_LENGTH, {
+    compliance: XPBD_SUSPENSION_COMPLIANCE,
+    extensionCompliance: XPBD_SUSPENSION_EXTENSION_COMPLIANCE,
+    damping: XPBD_SUSPENSION_DAMPING,
+    reboundDamping: XPBD_SUSPENSION_REBOUND_DAMPING,
+  });
+  spring.bottoming = true;
+  return spring;
+}
+
+// Compression damping at the spring's current travel: the base value above
+// SUSPENSION_BOTTOMING_START, rising with the square of the way through the
+// bottoming zone to XPBD_SUSPENSION_BOTTOMING_DAMPING at full travel.
+function compressionDamping(spring) {
+  if (!spring.bottoming) return spring.damping;
+  const compression = SUSPENSION_REST_LENGTH - distance(spring.a, spring.b);
+  const depth = clamp(
+    (compression - SUSPENSION_BOTTOMING_START) /
+      (SUSPENSION_TRAVEL - SUSPENSION_BOTTOMING_START),
+    0,
+    1,
+  );
+  return lerp(spring.damping, XPBD_SUSPENSION_BOTTOMING_DAMPING, depth * depth);
+}
+
 export function createVehicle(rear, front) {
   const mountY = (rear.y + front.y) / 2 - SUSPENSION_REST_LENGTH;
   const makePoint = (x, y, inverseMass) => ({
@@ -137,23 +167,8 @@ export function createVehicle(rear, front) {
     createAreaConstraint(chassis.rearMount, chassis.frontMount, chassis.top, {
       compliance: XPBD_CHASSIS_AREA_COMPLIANCE,
     }),
-    createDistanceConstraint(rear, chassis.rearMount, SUSPENSION_REST_LENGTH, {
-      compliance: XPBD_SUSPENSION_COMPLIANCE,
-      extensionCompliance: XPBD_SUSPENSION_EXTENSION_COMPLIANCE,
-      damping: XPBD_SUSPENSION_DAMPING,
-      reboundDamping: XPBD_SUSPENSION_REBOUND_DAMPING,
-    }),
-    createDistanceConstraint(
-      front,
-      chassis.frontMount,
-      SUSPENSION_REST_LENGTH,
-      {
-        compliance: XPBD_SUSPENSION_COMPLIANCE,
-        extensionCompliance: XPBD_SUSPENSION_EXTENSION_COMPLIANCE,
-        damping: XPBD_SUSPENSION_DAMPING,
-        reboundDamping: XPBD_SUSPENSION_REBOUND_DAMPING,
-      },
-    ),
+    suspensionSpring(rear, chassis.rearMount),
+    suspensionSpring(front, chassis.frontMount),
     createDistanceConstraint(
       rear,
       chassis.rearMount,
@@ -1225,7 +1240,10 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
     for (const constraint of vehicle.dampedConstraints) {
       dampDistanceConstraint(
         constraint,
-        dampingPerIteration(constraint.damping, BIKE_VELOCITY_ITERATIONS),
+        dampingPerIteration(
+          compressionDamping(constraint),
+          BIKE_VELOCITY_ITERATIONS,
+        ),
         dampingPerIteration(
           constraint.reboundDamping ?? constraint.damping,
           BIKE_VELOCITY_ITERATIONS,

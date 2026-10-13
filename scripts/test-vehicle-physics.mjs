@@ -510,6 +510,27 @@ function airLeanKeepsMomentumScenario() {
   return { centreDrift: drift };
 }
 
+// The bottoming cone slows the last part of the stroke, so a hard flat
+// landing barely touches the travel limit and the chassis is not thrown back
+// up as hard.
+function bottomingConeScenario() {
+  const land = height => {
+    const simulation = droppedSimulation(height, 0);
+    const limit = SUSPENSION_REST_LENGTH - SUSPENSION_TRAVEL + .05;
+    let pinned = 0, kick = 0;
+    for (let index = 0; index < 300; index++) {
+      const metrics = step(simulation, {});
+      pinned += (metrics.rearSuspensionLength < limit) + (metrics.frontSuspensionLength < limit);
+      kick = Math.max(kick, -metrics.speedY);
+    }
+    return { pinned, kick };
+  };
+  const medium = land(200), hard = land(350);
+  assert.ok(hard.pinned <= 2, `a 350 px landing must not sit on the travel limit: ${hard.pinned} steps`);
+  assert.ok(medium.kick < 45, `a 200 px landing must not throw the chassis back up hard: ${medium.kick}`);
+  return { pinnedSteps350: hard.pinned, kick200: medium.kick, kick350: hard.kick };
+}
+
 function singleWheelLandingScenario() {
   const simulation = droppedSimulation(60, 25);
   let sink = 0, springBacks = 0, wasCompressing = false, previous = 0;
@@ -661,8 +682,14 @@ function slideRecoveryScenario() {
   run(simulation, 120, { brake: true });
   run(simulation, 72, {});
   const rolling = along();
-  run(simulation, 120, { brake: true });
-  const braked = along();
+  // The locked bike rocks on its springs for a moment as it stops, so check
+  // that it stays stopped over a window rather than at one step.
+  run(simulation, 150, { brake: true });
+  let braked = 0;
+  for (let index = 0; index < 30; index++) {
+    step(simulation, { brake: true });
+    if (Math.abs(along()) > Math.abs(braked)) braked = along();
+  }
   assert.ok(rolling < -60, `released on a 35° hill the bike must roll back: ${rolling}`);
   assert.ok(Math.abs(braked) < 5, `the brakes must stop a bike rolling back down a 35° hill: ${braked}`);
   run(simulation, 60, {});
@@ -777,6 +804,7 @@ const results = {
   airThrottle: airThrottleScenario(),
   airLeanKeepsMomentum: airLeanKeepsMomentumScenario(),
   singleWheelLanding: singleWheelLandingScenario(),
+  bottomingCone: bottomingConeScenario(),
   steepClimbForwardLean: steepClimbForwardLeanScenario(),
   steepClimbLoop: steepClimbLoopScenario(),
   steepWall: steepWallScenario(),

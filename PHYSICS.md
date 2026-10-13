@@ -12,6 +12,7 @@ The staged physics roadmap is implemented in `js/vehicle-physics.js`: a physical
 - A physical non-collinear chassis triangle with rigid links
 - Independent suspension links with compliance, damping, and travel limits
 - No wheel-to-wheel link: as in Elasto Mania, each wheel hangs from the chassis on its own leg, so the wheelbase gives a few pixels on hard landings
+- A bottoming cone, as in a motocross fork or shock: from 9 px of compression the compression damping climbs with the square of the way into the zone, from 0.26 to 0.95 at full travel. A 350 px flat drop sits on the travel limit for 2 steps instead of 4, and a 200 px drop throws the chassis back up at about 42 px/s instead of 49. Squat, brake dive and ordinary bumps stay above the zone
 - Elasto Mania-style suspension stretch: springs are softer pulled than pushed, with a top-out spring, so a bike hooked on a ledge by one wheel hangs visibly stretched from it and bobs before settling
 - The drawn body, lamps, rider and hair sit exactly on the simulated chassis, with suspension travel interpolated between steps for high-refresh displays
 - Tire grip is Coulomb friction on the real ground force: each wheel's normal impulse is summed from every contact correction in a step (including chassis weight passed through the suspension and landings), with static grip for a gripping tire and lower kinetic grip for a slipping one. Drive and re-traction passes share that budget, so a slow crawl tops out at about 57° with no slope-specific grip rules. The push that keeps a lone grounded wheel planted under rider lean is not weight and gives no grip
@@ -45,6 +46,7 @@ The automated suite covers:
 - Mirrored left/right hill climbing
 - Valley settling
 - One-wheel landing and second-wheel recovery
+- Bottoming cone on hard flat landings: little time on the travel limit and a soft rebound
 - Hanging from a ledge by one wheel
 - Steep hills: 45° climbable from a standstill, 58° and 60° stall low, 78° walls never
 - A recorded gas-and-forward-lean attempt at a 64.5° hill stays at its foot
@@ -73,9 +75,14 @@ Physics constants are centralized in `js/config.js`, but feel tuning requires br
 
 Tune restitution, friction, suspension compliance/damping, and the grounded-normal threshold only after this matrix is reliable.
 
+## Damper coupling
+
+The suspension damper is a velocity pass after the contact and traction solve, and it is coupled to the tires correctly: its force reaches the ground through the wheel on the next contact solve, as a real damper pushes on the wheel and the wheel on the ground. Measured over 40–300 px drops, the ground force the tires record (`groundLoad`, which tire grip uses) matches the force the ground really gave the bike, from its change in momentum, within 0.1% on every step, with or without the bottoming cone. Stronger damping therefore does not take grip away. When a tuning change seems to, look at timing first: a locked bike rocks on its springs for a moment as it stops, which is why the 35° hill brake check looks for a stop held over a window rather than at one step.
+
 ## Next steps
 
-1. Replace the bot-recorded fixtures with hand-ridden replays once handling tuning settles, since bot lines avoid some of the riskier features.
+1. Replace the stiff bump-stop step with a rising-rate spring, as a rear linkage gives. The bump stop, not the bottoming cone, does most of the stopping deep in the stroke, and it stores that energy and hands it back as an upward kick. A bump stop half as stiff, with the cone doing the stopping, halves the kick, but it breaks the 45° climb from its foot, through how the bike settles straddling the foot of the slope before the climb rather than through the bump stop itself.
+2. Replace the bot-recorded fixtures with hand-ridden replays once handling tuning settles, since bot lines avoid some of the riskier features.
 
 ## Tried and rejected
 

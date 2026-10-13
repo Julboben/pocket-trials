@@ -42,6 +42,13 @@ export const XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE = 0.0003;
 // limit jerks it.
 export const SUSPENSION_TOP_OUT_LENGTH = 32;
 export const XPBD_SUSPENSION_TOP_OUT_COMPLIANCE = 0.002;
+// A bottoming cone, as in a motocross fork or shock: past this much
+// compression (px) the compression damping climbs, with the square of the
+// way into that zone, to the bottoming value at full travel. Hard landings
+// are slowed over the last part of the stroke instead of slamming the travel
+// limit; ordinary bumps, squat and brake dive stay above the zone.
+export const SUSPENSION_BOTTOMING_START = 9;
+export const XPBD_SUSPENSION_BOTTOMING_DAMPING = .95;
 export const WHEEL_INERTIA = .5;
 // Tire grip is Coulomb friction on the real ground force each tire takes: a
 // gripping tire holds up to WHEEL_FRICTION times its load, a slipping one
