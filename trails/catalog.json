@@ -20,46 +20,100 @@
       "name": "Windfall"
     },
     {
-      "id": "official:04-a-hill-to-die-on",
+      "id": "official:04-hay-lane",
       "source": "official",
-      "file": "official/04-a-hill-to-die-on.json",
-      "name": "A Hill to Die On"
+      "file": "official/04-hay-lane.json",
+      "name": "Hay Lane"
     },
     {
-      "id": "official:05-splinter-ridge",
+      "id": "official:05-windmill-hill",
       "source": "official",
-      "file": "official/05-splinter-ridge.json",
+      "file": "official/05-windmill-hill.json",
+      "name": "Windmill Hill"
+    },
+    {
+      "id": "official:06-splinter-ridge",
+      "source": "official",
+      "file": "official/06-splinter-ridge.json",
       "name": "Splinter Ridge"
     },
     {
-      "id": "official:06-high-hopes",
+      "id": "official:07-kickback",
       "source": "official",
-      "file": "official/06-high-hopes.json",
+      "file": "official/07-kickback.json",
+      "name": "Kickback"
+    },
+    {
+      "id": "official:08-stoppie-slope",
+      "source": "official",
+      "file": "official/08-stoppie-slope.json",
+      "name": "Stoppie Slope"
+    },
+    {
+      "id": "official:09-stump-drops",
+      "source": "official",
+      "file": "official/09-stump-drops.json",
+      "name": "Stump Drops"
+    },
+    {
+      "id": "official:10-switchback",
+      "source": "official",
+      "file": "official/10-switchback.json",
+      "name": "Switchback"
+    },
+    {
+      "id": "official:11-dune-hopper",
+      "source": "official",
+      "file": "official/11-dune-hopper.json",
+      "name": "Dune Hopper"
+    },
+    {
+      "id": "official:12-kicker-canyon",
+      "source": "official",
+      "file": "official/12-kicker-canyon.json",
+      "name": "Kicker Canyon"
+    },
+    {
+      "id": "official:13-sandpit",
+      "source": "official",
+      "file": "official/13-sandpit.json",
+      "name": "Sandpit"
+    },
+    {
+      "id": "official:14-mind-the-gap",
+      "source": "official",
+      "file": "official/14-mind-the-gap.json",
+      "name": "Mind the Gap"
+    },
+    {
+      "id": "official:15-mirage",
+      "source": "official",
+      "file": "official/15-mirage.json",
+      "name": "Mirage"
+    },
+    {
+      "id": "official:16-elastic-summit",
+      "source": "official",
+      "file": "official/16-elastic-summit.json",
+      "name": "Elastic Summit"
+    },
+    {
+      "id": "official:17-high-hopes",
+      "source": "official",
+      "file": "official/17-high-hopes.json",
       "name": "High Hopes"
     },
     {
-      "id": "official:07-skybound",
+      "id": "official:30-brake-point",
       "source": "official",
-      "file": "official/07-skybound.json",
-      "name": "Skybound"
-    },
-    {
-      "id": "official:08-brake-point",
-      "source": "official",
-      "file": "official/08-brake-point.json",
+      "file": "official/30-brake-point.json",
       "name": "Brake Point"
     },
     {
-      "id": "official:09-long-way-up",
+      "id": "official:31-long-way-up",
       "source": "official",
-      "file": "official/09-long-way-up.json",
+      "file": "official/31-long-way-up.json",
       "name": "Long Way Up"
-    },
-    {
-      "id": "official:10-elastic-summit",
-      "source": "official",
-      "file": "official/10-elastic-summit.json",
-      "name": "Elastic Summit"
     },
     {
       "id": "bonus:01-the-bonny-tyler",

@@ -46,10 +46,10 @@ Names are working titles. "Also new" is the visual element introduced alongside 
 *Dirt, `forest` backdrop, cut wood, morning to evening. Teaches balance.*
 
 - [x] **6. Splinter Ridge (moved from 2):** steeper rollers and sharper crests. Ease off over the top, and lean forward when the front wheel gets light. *Also new:* dirt, the forest backdrop, pines, cut stumps, roots and moss.
-- [ ] **7. Kickback:** wheelies. Steep faces lift the front wheel, and leaning controls it. *Also new:* evening light.
-- [ ] **8. Stoppie Slope:** steep descents of 45° or more, leaning back so you don't go over the bars. Reuses ideas from Brake Point. *Also new:* vines over cliffs.
-- [ ] **9. Stump Drops:** small drops and step-downs, landing rear wheel first. *Also new:* the squirrel, stone dike props.
-- [ ] **10. Switchback (finale):** turn around again and again to climb to a tree house, zig-zagging up between ramps. Combines wheelies, steep descents, drops and turning around. *Also new:* light rain, a tree house at the top.
+- [x] **7. Kickback:** wheelies. Steep faces lift the front wheel, and leaning controls it. *Also new:* evening light.
+- [x] **8. Stoppie Slope:** steep descents of 45° or more, leaning back so you don't go over the bars. Reuses ideas from Brake Point. *Also new:* vines over cliffs.
+- [x] **9. Stump Drops:** small drops and step-downs, landing rear wheel first. *Also new:* the squirrel, stone dike props.
+- [x] **10. Switchback (finale):** turn around again and again to climb to a tree house, zig-zagging up between ramps. Combines wheelies, steep descents, drops and turning around. *Also new:* light rain, a tree house at the top.
 
 ### World 3 – The Desert
 *Sand, `desert` backdrop, bright noon with sun glare. Teaches air.*
