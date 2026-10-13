@@ -1,97 +1,15 @@
 {
   "name": "Brake Point",
   "label": "BRAKE POINT / 08",
+  "finish": {
+    "x": 3220,
+    "y": null
+  },
   "description": "Speed alone will not solve this trail. Brake before steep drops, lean back to resist stoppies, and accelerate cleanly out of bowls.",
   "start": {
     "x": 90,
     "y": null,
     "facing": 1
-  },
-  "finish": {
-    "x": 3220,
-    "y": null
-  },
-  "apples": [
-    {
-      "x": 330,
-      "y": null
-    },
-    {
-      "x": 910,
-      "y": null
-    },
-    {
-      "x": 1500,
-      "y": null
-    },
-    {
-      "x": 2245,
-      "y": null
-    },
-    {
-      "x": 2960,
-      "y": null
-    }
-  ],
-  "props": [
-    {
-      "x": 250,
-      "y": null,
-      "type": "rock",
-      "layer": "front"
-    },
-    {
-      "x": 555,
-      "y": null,
-      "type": "fence",
-      "layer": "back"
-    },
-    {
-      "x": 1010,
-      "y": null,
-      "type": "tree",
-      "layer": "back"
-    },
-    {
-      "x": 1310,
-      "y": null,
-      "type": "stump",
-      "layer": "front"
-    },
-    {
-      "x": 1740,
-      "y": null,
-      "type": "flowers",
-      "layer": "front"
-    },
-    {
-      "x": 2180,
-      "y": null,
-      "type": "rock",
-      "layer": "front"
-    },
-    {
-      "x": 2600,
-      "y": null,
-      "type": "fence",
-      "layer": "back"
-    },
-    {
-      "x": 3040,
-      "y": null,
-      "type": "tree",
-      "layer": "back"
-    }
-  ],
-  "spikes": [],
-  "weather": {
-    "sun": 0.82,
-    "clouds": 0.24
-  },
-  "medals": {
-    "gold": 18,
-    "silver": 23.5,
-    "bronze": 31
   },
   "terrainBlocks": [
     {
@@ -1119,6 +1037,89 @@
       "inner": []
     }
   ],
+  "apples": [
+    {
+      "x": 340,
+      "y": 225.52935713523146
+    },
+    {
+      "x": 910,
+      "y": 300
+    },
+    {
+      "x": 1510,
+      "y": 143.44827022996898
+    },
+    {
+      "x": 2249,
+      "y": 233.3762657091774
+    },
+    {
+      "x": 2971,
+      "y": 280.7456947746211
+    }
+  ],
+  "props": [
+    {
+      "x": 250,
+      "y": null,
+      "type": "rock",
+      "layer": "front"
+    },
+    {
+      "x": 555,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 1010,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 1310,
+      "y": null,
+      "type": "stump",
+      "layer": "front"
+    },
+    {
+      "x": 1740,
+      "y": null,
+      "type": "flowers",
+      "layer": "front"
+    },
+    {
+      "x": 2180,
+      "y": null,
+      "type": "rock",
+      "layer": "front"
+    },
+    {
+      "x": 2600,
+      "y": null,
+      "type": "fence",
+      "layer": "back"
+    },
+    {
+      "x": 3040,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    }
+  ],
+  "spikes": [],
+  "water": [],
+  "weather": {
+    "sun": 0.82,
+    "clouds": 0.24
+  },
+  "medals": {
+    "gold": 18,
+    "silver": 23.5,
+    "bronze": 31
+  },
   "timeOfDay": "noon",
   "backdrop": "city"
 }
