@@ -2,6 +2,16 @@
 
 Player-facing release notes. The game shows them under **What's new**, and each GitHub Release uses its section.
 
+## 0.3.5 — 2026-10-13
+
+### New
+- After you finish a run, the results card now shows your world rank once the run has been timed by the server. When you're offline or signed out, it shows a clearly labeled local rank instead.
+- The results card also shows your gap to the next rider ahead of you, or your margin if you're in the lead.
+
+### Improved
+- The leaderboard now fetches new runs when you open it, flip between boards or return to the tab, so it stays up to date.
+- The world ghost and replay now update when the world best changes.
+
 ## 0.3.4 — 2026-10-13
 
 ### New
