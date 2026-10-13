@@ -2,6 +2,17 @@
 
 Player-facing release notes. The game shows them under **What's new**, and each GitHub Release uses its section.
 
+## 0.3.4 — 2026-10-13
+
+### New
+- New easter egg achievements are hidden in the game for you to find.
+
+### Improved
+- There are new rules for the names you can use.
+
+### Fixed
+- The garage preview now displays correctly in Safari and other WebKit browsers.
+
 ## 0.3.3 — 2026-10-13
 
 ### New
