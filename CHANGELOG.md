@@ -7,9 +7,6 @@ Player-facing release notes. The game shows them under **What's new**, and each 
 ### New
 - New easter egg achievements are hidden in the game for you to find.
 
-### Improved
-- There are new rules for the names you can use.
-
 ### Fixed
 - The garage preview now displays correctly in Safari and other WebKit browsers.
 
