@@ -10,10 +10,6 @@ export const RELEASES = [
         "text": "New easter egg achievements are hidden in the game for you to find."
       },
       {
-        "type": "improved",
-        "text": "There are new rules for the names you can use."
-      },
-      {
         "type": "fixed",
         "text": "The garage preview now displays correctly in Safari and other WebKit browsers."
       }
