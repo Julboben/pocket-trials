@@ -2,6 +2,40 @@
 /** @type {{ version: string, date: string, changes: { type: 'new' | 'improved' | 'fixed', text: string }[] }[]} */
 export const RELEASES = [
   {
+    "version": "0.3.3",
+    "date": "2026-10-13",
+    "changes": [
+      {
+        "type": "new",
+        "text": "Six new official trails have arrived: Splinter Ridge, High Hopes, Skybound, Brake Point, Long Way Up and Elastic Summit."
+      },
+      {
+        "type": "new",
+        "text": "You can now watch replays of your runs."
+      },
+      {
+        "type": "new",
+        "text": "Trails now show a medal target to aim for."
+      },
+      {
+        "type": "improved",
+        "text": "The game uses less battery on phones while paused, and the screen can now go to sleep when you leave it on the results screen."
+      },
+      {
+        "type": "improved",
+        "text": "Resizing the window is smoother."
+      },
+      {
+        "type": "fixed",
+        "text": "Apples that went missing at the finish are now collected correctly."
+      },
+      {
+        "type": "fixed",
+        "text": "Play Again on the last trail now replays Elastic Summit instead of jumping to The Orchard."
+      }
+    ]
+  },
+  {
     "version": "0.3.2",
     "date": "2026-10-12",
     "changes": [
