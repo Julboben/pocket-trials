@@ -112,7 +112,7 @@ What building Windfall showed, measured in the physics:
 - **A steep face doesn't force a turn.** With careful forward lean, the bike wheelies up a 60° face from a standstill, which is how the replay bot first solved it. At 65° it stops standstill climbs, but most riders coming back with speed crash on the face. Don't rely on steepness alone.
 - **A floating apple does force it.** Riding straight up Windfall's kicker from the bottom of the bowl lifts the wheels at most about 50 units above the lip. Turning on the ramp and coming back down launches them 80–120 units, further west. With the apple 90 units above the lip, no run tested without a turn reaches it, while about 7 in 12 scripted turn-around runs do. The failures turned too low on the ramp, which teaches the player to go higher first.
 - **Land on a downslope.** A long jump onto flat ground lands nose-up and crashes. The slope behind Windfall's kicker falls away at about 25°, and no scripted run crashed after getting the apple.
-- **The replay bot can't plan a turn.** It always faces the nearest apple, so it parks under one it can't reach. Windfall's replay starts with a scripted opening (ride up, roll back, turn, launch), and the bot takes over from there. Later turn trails will need the same.
+- **The greedy replay bot can't plan a turn.** It always faces the nearest apple, so it parks under one it can't reach. Windfall's replay was first recorded with a scripted opening (ride up, roll back, turn, launch). When the greedy bot can't finish a trail, `scripts/record-replays.mjs` now hands it to an explorer that finds turn-around, roll-back and launch routes by itself, so later turn trails need no scripted opening.
 
 ---
 

@@ -4,6 +4,7 @@
 //   node scripts/record-replays.mjs            record trails whose replay is stale
 //   node scripts/record-replays.mjs 03         only trails whose id contains "03"
 //   node scripts/record-replays.mjs --force    re-record even replays that still work
+//   node scripts/record-replays.mjs --explore  skip the greedy bot and go straight to the explorer
 //   REPLAY_MAX_MINUTES=5 node scripts/...      search budget per trail (default 20)
 //
 // An existing replay is kept (its outcome refreshed) while it still finishes
@@ -13,7 +14,9 @@
 //
 // The bot tries each input combination held over a short horizon on a copy
 // of the ride, keeps the best-scoring one for a few steps, and repeats. When
-// every option ahead crashes it backs up a little and searches again.
+// every option ahead crashes it backs up a little and searches again. If it
+// can't finish a trail, the explorer (see exploreTrail) takes over: it finds
+// routes that turn around, roll back for a run-up or launch off kickers.
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { STEP, TAU } from '../js/config.js';
@@ -146,8 +149,132 @@ function recordTrail(entry) {
   return { inputs, backtracks };
 }
 
+// The explorer: a fallback for trails the greedy bot can't plan, where the
+// way on leads away from the next apple first (roll back, turn around and
+// launch, flip off a kicker, take the long way round). It keeps an archive
+// of distinct situations, keyed by the apples taken, place, facing and speed,
+// each with the quickest inputs found that reach it. It keeps going back to
+// rarely tried situations and riding on from them with random held inputs,
+// turning around now and then, until a run finishes. After the first finish
+// it explores as long again, so quicker routes can replace the slow ones.
+const EXPLORE_CELL = 48;
+const EXPLORE_SPEED = 1.5;            // speed bucket size, in units per step
+const EXPLORE_MAX_CELLS = 40000;
+const EXPLORE_MIN_POLISH = 3000;      // iterations kept exploring after the first finish
+const EXPLORE_REPEAT = .75;           // chance of holding the previous input
+const EXPLORE_TURN = .08;             // chance of turning around at a decision
+const EXPLORE_GAS = .6;               // chance a new input holds the throttle
+const EXPLORE_HOLDS = [1, 2, 4];      // decisions a new input is held for, so climbs get sustained gas
+
+function seededGenerator(seed) {
+  return () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let value = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    value ^= value + Math.imul(value ^ (value >>> 7), 61 | value);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function cellKey(ride) {
+  const mx = (ride.rear.x + ride.front.x) / 2, my = (ride.rear.y + ride.front.y) / 2;
+  const vx = (ride.rear.x - ride.rear.ox + ride.front.x - ride.front.ox) / 2;
+  const speed = Math.max(-3, Math.min(3, Math.round(vx / EXPLORE_SPEED)));
+  let taken = 0;
+  ride.apples.forEach((apple, index) => { if (apple.taken) taken |= 1 << index; });
+  return `${taken}|${ride.facing}|${Math.floor(mx / EXPLORE_CELL)}|${Math.floor(my / EXPLORE_CELL)}|${speed}`;
+}
+
+/** The inputs that led to a trajectory node, oldest first. */
+function inputsOf(node) {
+  const runs = [];
+  for (; node; node = node.parent) runs.push(node);
+  const inputs = [];
+  for (const { input, count } of runs.reverse()) for (let step = 0; step < count; step++) inputs.push(input);
+  return inputs;
+}
+
+function exploreTrail(entry) {
+  const random = seededGenerator(1);
+  const start = createRide(entry.trail);
+  const cells = new Map();
+  const list = [];
+  let mostApples = 0;
+  const visit = (ride, node, steps) => {
+    const key = cellKey(ride);
+    const cell = cells.get(key);
+    if (cell) {
+      if (steps < cell.steps) Object.assign(cell, { ride: cloneRide(ride), node, steps });
+      return;
+    }
+    if (list.length >= EXPLORE_MAX_CELLS) return;
+    const added = { ride: cloneRide(ride), node, steps, chosen: 0, apples: ride.collected };
+    cells.set(key, added);
+    list.push(added);
+    mostApples = Math.max(mostApples, ride.collected);
+  };
+  visit(start, null, 0);
+  // Rarely chosen cells are favoured, and cells holding the most apples so far most of all.
+  const choose = () => {
+    let total = 0;
+    const weights = list.map(cell => {
+      const weight = (cell.apples === mostApples ? 4 : 1) / Math.sqrt(1 + cell.chosen);
+      total += weight;
+      return weight;
+    });
+    let pick = random() * total;
+    for (let index = 0; index < list.length; index++) if ((pick -= weights[index]) <= 0) return list[index];
+    return list[list.length - 1];
+  };
+  let best = null, firstWin = 0, iterations = 0;
+  const started = Date.now();
+  let reported = started;
+  while (Date.now() - started < MAX_MINUTES * 60000) {
+    iterations++;
+    if (best && iterations > firstWin * 2 + EXPLORE_MIN_POLISH) break;
+    const cell = choose();
+    cell.chosen++;
+    const ride = cloneRide(cell.ride);
+    let { node, steps } = cell;
+    let input = node?.input ?? { facing: ride.facing, leanInput: 0, accelerating: true, braking: false };
+    const decisions = 4 + Math.floor(random() * 13);
+    for (let decision = 0; decision < decisions && ride.status === 'running'; decision++) {
+      let hold = 1;
+      if (random() > EXPLORE_REPEAT) {
+        const throttle = random() < EXPLORE_GAS;
+        const options = CANDIDATES.filter(candidate => candidate.accelerating === throttle);
+        const { leanInput, accelerating, braking } = options[Math.floor(random() * options.length)];
+        const facing = random() < EXPLORE_TURN ? -ride.facing : ride.facing;
+        input = { facing, leanInput, accelerating, braking };
+        hold = EXPLORE_HOLDS[Math.floor(random() * EXPLORE_HOLDS.length)];
+      }
+      let count = 0;
+      while (count < DECISION_STEPS * hold && ride.status === 'running') { stepRide(ride, input); count++; }
+      steps += count;
+      node = { parent: node, input, count };
+      if (ride.status === 'won') {
+        if (!best || steps < best.steps) {
+          best = { node, steps };
+          if (!firstWin) firstWin = iterations;
+          console.log(`  ${entry.id}: explorer finished in ${ride.elapsed.toFixed(2)}s after ${iterations} tries`);
+        }
+        break;
+      }
+      if (ride.status !== 'running' || steps * STEP > MAX_SECONDS) break;
+      visit(ride, node, steps);
+    }
+    const now = Date.now();
+    if (now - reported > 30000) {
+      reported = now;
+      process.stderr.write(`  ${entry.id}: explorer ${iterations} tries, ${list.length} places, `
+        + `${mostApples}/${start.apples.length} apples${best ? `, best ${(best.steps * STEP).toFixed(2)}s` : ''}\n`);
+    }
+  }
+  return best ? { inputs: inputsOf(best.node), backtracks: 0 } : null;
+}
+
 const args = process.argv.slice(2);
 const force = args.includes('--force');
+const exploreOnly = args.includes('--explore');
 const filter = args.find(arg => !arg.startsWith('--')) || '';
 const trailHash = trail => createHash('sha256').update(JSON.stringify(trail)).digest('hex').slice(0, 16);
 
@@ -197,7 +324,12 @@ for (const entry of officialTrails) {
   const path = OUT_DIR + entry.file.split('/').pop();
   const hash = trailHash(entry.trail);
   const reuse = reusable(entry, path, hash);
-  const { inputs, backtracks } = reuse || recordTrail(entry);
+  let result = reuse || (exploreOnly ? null : recordTrail(entry));
+  if (!reuse && (!result || outcomeOf(entry.trail, result.inputs).ride.status !== 'won')) {
+    if (result) console.log(`  ${entry.id}: the greedy bot didn't finish, exploring`);
+    result = exploreTrail(entry) || result || { inputs: [], backtracks: 0 };
+  }
+  const { inputs, backtracks } = result;
   const { ride, outcome } = outcomeOf(entry.trail, inputs);
   const replay = {
     trail: entry.id,
