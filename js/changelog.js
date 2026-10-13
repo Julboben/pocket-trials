@@ -2,6 +2,20 @@
 /** @type {{ version: string, date: string, changes: { type: 'new' | 'improved' | 'fixed', text: string }[] }[]} */
 export const RELEASES = [
   {
+    "version": "0.3.4",
+    "date": "2026-10-13",
+    "changes": [
+      {
+        "type": "new",
+        "text": "New easter egg achievements are hidden in the game for you to find."
+      },
+      {
+        "type": "fixed",
+        "text": "The garage preview now displays correctly in Safari and other WebKit browsers."
+      }
+    ]
+  },
+  {
     "version": "0.3.3",
     "date": "2026-10-13",
     "changes": [
