@@ -579,17 +579,48 @@ h2 {
 .results-stats dd {
     margin: 3px 0 0;
     font-size: 12px;
+    /* Fixed, so the "…" placeholder and the rank are the same height. */
+    line-height: 16px;
     font-weight: 900;
     font-variant-numeric: tabular-nums;
 }
 .results-rival {
+    /* One fixed-height line, so the card keeps its size while the world rank loads. */
+    height: 14px;
     margin: 0;
+    overflow: hidden;
     color: var(--color-text);
     font-size: 10px;
     font-weight: 850;
+    line-height: 14px;
     letter-spacing: 1px;
     font-variant-numeric: tabular-nums;
-    overflow-wrap: anywhere;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* While the server times the run: the rank and a bar where the rival line will be pulse.
+   With reduced motion they stay dimmed. */
+.results[data-world="loading"] #results-rank,
+.results[data-world="loading"] .results-rival::before {
+    opacity: 0.5;
+    animation: results-loading 1.2s ease-in-out infinite alternate;
+}
+.results[data-world="loading"] .results-rival::before {
+    content: "";
+    display: block;
+    width: 50%;
+    height: 6px;
+    margin: 4px auto 0;
+    border-radius: var(--radius-pixel);
+    background: var(--color-border);
+}
+@keyframes results-loading {
+    from {
+        opacity: 0.3;
+    }
+    to {
+        opacity: 0.9;
+    }
 }
 .results-targets {
     display: flex;

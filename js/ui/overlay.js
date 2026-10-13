@@ -236,7 +236,10 @@ export function createOverlay() {
       $("results-rank-label").textContent = "WORLD RANK";
       $("results-rank").textContent = "…";
     } else showLocalRank();
-    $("results-rival").hidden = true;
+    // Keeps the rival line's room while the world rank loads, so nothing jumps.
+    $("results-rival").textContent = "";
+    $("results-rival").hidden = !result.worldPending;
+    $("results").dataset.world = result.worldPending ? "loading" : "";
     $("results-best").textContent = runTimeText(record ? time : previousBest);
     $("results-flips").textContent = String(result.flips);
     const targets = medals
@@ -326,15 +329,16 @@ export function createOverlay() {
    */
   function showWorldStanding(id, standing) {
     if (id !== resultsId) return false;
+    $("results").dataset.world = "";
     if (!standing) {
       showLocalRank();
+      $("results-rival").hidden = true;
       return dialog.open;
     }
     $("results-rank-label").textContent = "WORLD RANK";
     $("results-rank").textContent = "#" + standing.rank + " / " + standing.total;
     const rival = rivalText(standing);
     $("results-rival").textContent = rival;
-    $("results-rival").hidden = !rival;
     announce("World rank " + standing.rank + " of " + standing.total + "." + (rival ? " " + rival + "." : ""));
     return dialog.open;
   }
