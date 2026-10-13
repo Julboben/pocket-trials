@@ -4,7 +4,7 @@ import { validRiderName } from '../../js/rider-name.js';
 // Compared as name keys, so case, accents and separators don't get around them.
 const RESERVED = new Set([
   'admin', 'administrator', 'moderator', 'mod', 'system', 'server', 'official', 'hjulben',
-  'rider', 'you', 'me', 'null', 'undefined', 'anonymous', 'guest', 'player', 'support',
+  'rider', 'you', 'me', 'null', 'undefined', 'anonymous', 'guest', 'player', 'support', 'coda', 'julian',
 ]);
 const OFFENSIVE = ['fuck', 'shit', 'cunt', 'bitch', 'nigger', 'nigga', 'faggot', 'retard', 'nazi', 'hitler', 'whore', 'kusse', 'fisse', 'luder', 'pikhoved'];
 

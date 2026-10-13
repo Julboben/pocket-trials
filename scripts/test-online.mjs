@@ -141,18 +141,18 @@ let julianToken;
   assert.equal((await api('register-options', { body: { name: 'A'.repeat(17) } })).status, 400, 'names are at most 16 characters');
   assert.equal((await api('register-options', { body: { name: 'Admin' } })).status, 400, 'reserved names are blocked');
   assert.equal((await api('register-options', { body: { name: 'shithead' } })).status, 400, 'offensive names are blocked');
-  assert.equal((await api('register-options', { body: { name: 'Julian' }, origin: 'https://evil.example' })).status, 400, 'foreign origins are refused');
+  assert.equal((await api('register-options', { body: { name: 'Freja' }, origin: 'https://evil.example' })).status, 400, 'foreign origins are refused');
 
-  const { status, body } = await registerRider('  Julian  ', julian, 'female');
+  const { status, body } = await registerRider('  Freja  ', julian, 'female');
   assert.equal(status, 200, JSON.stringify(body));
-  assert.equal(body.player.name, 'Julian');
+  assert.equal(body.player.name, 'Freja');
   assert.equal(body.player.rider, 'female');
   assert.deepEqual(body.player.look, legacyLook('female'), 'a client sending only a rider gets its look');
   julianToken = body.token;
 
-  for (const lookalike of ['julian', 'JULIAN', 'Jülian', 'Ju_lian', 'Ju lian']) {
+  for (const lookalike of ['freja', 'FREJA', 'Fréja', 'Fr_eja', 'Fr eja']) {
     const result = await api('register-options', { body: { name: lookalike } });
-    assert.equal(result.status, 409, `${lookalike} counts as the taken name Julian`);
+    assert.equal(result.status, 409, `${lookalike} counts as the taken name Freja`);
     assert.equal(result.body.error, 'name taken');
   }
 
@@ -162,6 +162,8 @@ let julianToken;
   assert.equal((await api('register-options', { body: { name: '$$$' } })).status, 400, 'a name needs a letter or number');
   assert.equal((await api('register-options', { body: { name: 'f$uck' } })).status, 400, 'symbols don\'t get around the filter');
   assert.equal((await api('register-options', { body: { name: 'admin!' } })).status, 400, 'symbols don\'t get around reserved names');
+  assert.equal((await api('register-options', { body: { name: 'C.o_da' } })).status, 400, 'Coda is reserved');
+  assert.equal((await api('register-options', { body: { name: 'Jülian' } })).status, 400, 'Julian is reserved');
 
   const soren = await registerRider('$øren', createAuthenticator());
   assert.equal(soren.status, 200, JSON.stringify(soren.body));
@@ -206,7 +208,7 @@ let julianToken;
 {
   const { status, body } = await loginRider(julian);
   assert.equal(status, 200, JSON.stringify(body));
-  assert.equal(body.player.name, 'Julian');
+  assert.equal(body.player.name, 'Freja');
   assert.equal(body.save, null);
   assert.deepEqual(body.runs, []);
   assert.equal((await loginRider(createAuthenticator())).status, 404, 'unknown passkeys are refused');
@@ -236,7 +238,7 @@ const run = (replay = firstTrailRun) => ({ inputs: replay.inputs, seed: replay.s
   assert.ok(Math.abs(body.time - firstTrailRun.outcome.elapsed) < 0.001, `server time ${body.time} matches the replay`);
   assert.equal(body.rank, 1);
   assert.equal(body.total, 1);
-  assert.equal(body.runs[0].name, 'Julian');
+  assert.equal(body.runs[0].name, 'Freja');
   assert.equal(body.runs[0].rider, 'female');
 
   // Cutting inputs off before the finish line.
@@ -266,7 +268,7 @@ const run = (replay = firstTrailRun) => ({ inputs: replay.inputs, seed: replay.s
   assert.deepEqual(faster.body.runs[0].look, legacyLook('female'), 'rows from rider-only clients show that rider');
 
   // A run's look is kept with it, and the board falls back for unknown items.
-  // Julian was created female with tan skin, and a run can't change that.
+  // Freja was created female with tan skin, and a run can't change that.
   const bareLook = {
     ...legacyLook('female'), hair: 'bob', hairColor: 'blonde', helmet: 'none', outfitColor: 'yellow',
     bike: 'classic', bikeColor: 'blue'
@@ -283,14 +285,14 @@ const run = (replay = firstTrailRun) => ({ inputs: replay.inputs, seed: replay.s
 
   const ghost = await call(leaderboard, '/api/leaderboard?ghost=1&trail=' + encodeURIComponent(firstKey), { method: 'GET' });
   assert.equal(ghost.status, 200);
-  assert.equal(ghost.body.ghost.name, 'Julian');
+  assert.equal(ghost.body.ghost.name, 'Freja');
   assert.equal(ghost.body.ghost.replay.physics, RIDE_VERSION);
   assert.ok(Math.abs(ghost.body.ghost.replay.time - firstTrailRun.outcome.elapsed) < 0.001, 'world ghost is the best replay');
   const none = await call(leaderboard, '/api/leaderboard?ghost=1&trail=' + encodeURIComponent(keyOf(thirdTrail.id)), { method: 'GET' });
   assert.equal(none.body.ghost, null, 'no ghost before anyone finishes');
 
   const listed = await board(firstKey);
-  assert.equal(listed.body.runs[0].name, 'Julian');
+  assert.equal(listed.body.runs[0].name, 'Freja');
   assert.equal((await board('trail:abcdef12')).status, 400, 'custom trails stay local');
 }
 
