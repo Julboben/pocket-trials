@@ -1307,11 +1307,12 @@ export function createRenderer(canvas) {
     ctx.globalAlpha = 0.85;
     ctx.lineWidth = 1;
     for (const constraint of vehicle.dampedConstraints) {
-      if (constraint.type !== "distance") continue;
-      ctx.strokeStyle =
-        constraint.minLength !== null || constraint.maxLength !== null
-          ? "#f0b45f"
-          : "#83d1ce";
+      if (constraint.type !== "distance" && constraint.type !== "leg") continue;
+      const limit =
+        constraint.type === "leg"
+          ? constraint.lower !== null || constraint.upper !== null
+          : constraint.minLength !== null || constraint.maxLength !== null;
+      ctx.strokeStyle = limit ? "#f0b45f" : "#83d1ce";
       ctx.beginPath();
       ctx.moveTo(constraint.a.x, constraint.a.y);
       ctx.lineTo(constraint.b.x, constraint.b.y);

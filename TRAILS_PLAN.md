@@ -39,8 +39,8 @@ Names are working titles. "Also new" is the visual element introduced alongside 
 - [x] **1. The Orchard:** gas, lean and gentle rollers. *Also new:* farm props, collecting apples.
 - [x] **2. Apple Valley:** momentum. Rollers grow from small to large, then a deep dip in front of a big hill shows that a run-up carries you up. The flower hangs over the dip past a small kicker, so the trail ends with a first little hop. Nothing is steeper than 33°, and the bot finishes in 11.21 s (gold 14). *Also new:* the scarecrow, beehive, ladder and tyre.
 - [x] **3. Windfall:** turning around. See [Turning around](#turning-around) below. The bot finishes in 28.02 s with a scripted opening (gold 32). *Also new:* windfall apples in the grass, hay bales.
-- [ ] **4. Hay Lane:** braking. A downhill run to a fence, with a `SLOW` sign before a drop. *Also new:* signs, tyre barriers.
-- [ ] **5. Windmill Hill (finale):** steep climbs. Lean forward to keep the front down, and if you stall, roll back, turn and try again with a run-up. Combines momentum, turning and braking. *Also new:* morning light, more clouds, the farmhouse.
+- [x] **4. Hay Lane:** braking. A downhill run to a fence, with a `SLOW` sign before a drop. *Also new:* signs, tyre barriers.
+- [x] **5. Windmill Hill (finale):** steep climbs. Lean forward to keep the front down, and if you stall, roll back, turn and try again with a run-up. Combines momentum, turning and braking. *Also new:* morning light, more clouds, the farmhouse.
 
 ### World 2 – The Woods
 *Dirt, `forest` backdrop, cut wood, morning to evening. Teaches balance.*

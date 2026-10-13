@@ -45,9 +45,22 @@ export function createAreaConstraint(a, b, c, { compliance = 0, minArea = null, 
 
 // Keeps a wheel in line with its mount along the chassis axis, like a fork
 // tube: the wheel can only travel in and out along its spring, so the spring
-// alone carries the load instead of a rigid truss.
-export function createSliderConstraint(point, mount, axisStart, axisEnd, { compliance = 0 } = {}) {
-  return { type: 'slider', a: point, b: mount, axisStart, axisEnd, compliance, damping: 0, lambda: 0 };
+// alone carries the load instead of a rigid truss. The wheel's offset from
+// the mount along `along` times the axis plus `across` times its normal is
+// held at `target`; the default keeps it square below the mount.
+export function createSliderConstraint(point, mount, axisStart, axisEnd, { compliance = 0, along = 1, across = 0, target = 0 } = {}) {
+  return { type: 'slider', a: point, b: mount, axisStart, axisEnd, compliance, along, across, target, damping: 0, lambda: 0 };
+}
+
+// A suspension leg: the wheel's offset from its mount along a direction fixed
+// to the chassis axis (`along` times the axis plus `across` times its normal,
+// set by the caller), held at `rest` by a spring that is `compliance` soft
+// when compressed and `extensionCompliance` soft when stretched. `lower` and
+// `upper`, when given, make it a limit instead: it only acts outside
+// rest + lower .. rest + upper. Measuring along the leg rather than straight
+// from the mount keeps a raked fork's spring and stops true to its travel.
+export function createLegConstraint(point, mount, axisStart, axisEnd, { compliance = 0, extensionCompliance = compliance, lower = null, upper = null, damping = 0, reboundDamping = damping } = {}) {
+  return { type: 'leg', a: point, b: mount, axisStart, axisEnd, along: 0, across: 1, rest: 0, compliance, extensionCompliance, lower, upper, damping, reboundDamping, lambda: 0 };
 }
 
 // Keeps a wheel at least `minOffset` below its mount, measured across the
@@ -61,19 +74,19 @@ export function createAxisLimitConstraint(point, mount, axisStart, axisEnd, top,
 // Pushes `a` and `b` apart along a direction fixed to the chassis axis. The
 // two forces sit a leg's length apart, so on their own they would twist the
 // bike with nothing to answer them: the gradient on the axis ends turns that
-// twist back into the frame, like a fork tube bolted to it. `alongAxis` picks
-// the direction: the axis itself, or `side` (±1) times its normal.
-function solveAxisOffset(constraint, alongAxis, side, target, alpha) {
+// twist back into the frame, like a fork tube bolted to it. The direction is
+// `along` times the axis plus `across` times its normal (-uy, ux).
+function solveAxisOffset(constraint, along, across, target, alpha) {
   const { a, b, axisStart: s, axisEnd: e } = constraint;
   const axisX = e.x - s.x, axisY = e.y - s.y;
   const axisLength = hypot(axisX, axisY) || EPSILON;
   const ux = axisX / axisLength, uy = axisY / axisLength;
   const dx = a.x - b.x, dy = a.y - b.y;
-  const vx = alongAxis ? ux : -uy * side, vy = alongAxis ? uy : ux * side;
+  const vx = ux * along + -uy * across, vy = uy * along + ux * across;
   const offset = dx * vx + dy * vy;
   // How the offset changes as the axis end moves: only turning the axis
   // matters, so it is across the axis, scaled by the lever d·v⊥ over length.
-  const lever = alongAxis ? (-dx * uy + dy * ux) : -(dx * ux + dy * uy) * side;
+  const lever = -dx * vy + dy * vx;
   const ex = -uy * lever / axisLength, ey = ux * lever / axisLength;
   const points = [a, b, s, e];
   const gradients = [vx, vy, -vx, -vy, -ex, -ey, ex, ey];
@@ -104,13 +117,34 @@ export function solveXpbdAxisLimitConstraint(constraint) {
   const axisLength = hypot(axisX, axisY) || EPSILON;
   const offset = ((a.x - b.x) * -axisY + (a.y - b.y) * axisX) * side / axisLength;
   if (offset >= minOffset) return { distance: offset, correctionDistance: 0, correctionX: 0, correctionY: 0, lambda: constraint.lambda };
-  const result = solveAxisOffset(constraint, false, side, minOffset, 0);
+  const result = solveAxisOffset(constraint, 0, side, minOffset, 0);
   return { distance: offset, correctionDistance: result.deltaLambda, correctionX: result.ax, correctionY: result.ay, lambda: constraint.lambda };
+}
+
+// The leg's offset from its mount along its direction.
+export function legOffset({ a, b, axisStart: s, axisEnd: e, along, across }) {
+  const axisX = e.x - s.x, axisY = e.y - s.y;
+  const axisLength = hypot(axisX, axisY) || EPSILON;
+  const ux = axisX / axisLength, uy = axisY / axisLength;
+  return (a.x - b.x) * (ux * along + -uy * across) + (a.y - b.y) * (uy * along + ux * across);
+}
+
+export function solveXpbdLegConstraint(constraint, dt) {
+  const { rest, lower, upper } = constraint;
+  const offset = legOffset(constraint);
+  let target = rest;
+  if (lower !== null && offset < rest + lower) target = rest + lower;
+  else if (upper !== null && offset > rest + upper) target = rest + upper;
+  else if (lower !== null || upper !== null) return { distance: offset, correctionDistance: 0, correctionX: 0, correctionY: 0, lambda: constraint.lambda };
+  const compliance = offset > target ? constraint.extensionCompliance : constraint.compliance;
+  const alpha = Math.max(0, compliance) / (dt * dt);
+  const result = solveAxisOffset(constraint, constraint.along, constraint.across, target, alpha);
+  return { distance: offset, correctionDistance: Math.abs(result.deltaLambda), correctionX: result.ax, correctionY: result.ay, lambda: constraint.lambda };
 }
 
 export function solveXpbdSliderConstraint(constraint, dt) {
   const alpha = Math.max(0, constraint.compliance) / (dt * dt);
-  const result = solveAxisOffset(constraint, true, 1, 0, alpha);
+  const result = solveAxisOffset(constraint, constraint.along, constraint.across, constraint.target, alpha);
   return { distance: result.offset, correctionDistance: Math.abs(result.deltaLambda), correctionX: result.ax, correctionY: result.ay, lambda: constraint.lambda };
 }
 
@@ -190,6 +224,7 @@ export function solveXpbdAreaConstraint(constraint, dt) {
 export function solveXpbdConstraint(constraint, dt) {
   if (constraint.type === 'area') return solveXpbdAreaConstraint(constraint, dt);
   if (constraint.type === 'slider') return solveXpbdSliderConstraint(constraint, dt);
+  if (constraint.type === 'leg') return solveXpbdLegConstraint(constraint, dt);
   if (constraint.type === 'axisLimit') return solveXpbdAxisLimitConstraint(constraint);
   return solveXpbdDistanceConstraint(constraint, dt);
 }
@@ -207,6 +242,24 @@ export function dampDistanceConstraint(constraint, damping = constraint.damping,
   }
   if (amount <= 0) return;
   constrainDistanceVelocity(constraint.a, constraint.b, Math.max(0, Math.min(1, amount)));
+}
+
+// The leg's damper: removes `damping` of the wheel's speed along the leg
+// relative to its mount, or `reboundDamping` while the leg lengthens.
+export function dampLegConstraint(constraint, damping = constraint.damping, reboundDamping = damping) {
+  const { a, b, axisStart: s, axisEnd: e, along, across } = constraint;
+  const axisX = e.x - s.x, axisY = e.y - s.y;
+  const axisLength = hypot(axisX, axisY) || EPSILON;
+  const ux = axisX / axisLength, uy = axisY / axisLength;
+  const nx = ux * along + -uy * across, ny = uy * along + ux * across;
+  const av = velocity(a), bv = velocity(b);
+  const relative = (av.x - bv.x) * nx + (av.y - bv.y) * ny;
+  const amount = Math.max(0, Math.min(1, relative > 0 ? reboundDamping : damping));
+  const wa = inverseMass(a), wb = inverseMass(b), totalWeight = wa + wb;
+  if (amount <= 0 || totalWeight <= EPSILON) return;
+  const impulse = relative * amount / totalWeight;
+  setVelocity(a, av.x - nx * impulse * wa, av.y - ny * impulse * wa);
+  setVelocity(b, bv.x + nx * impulse * wb, bv.y + ny * impulse * wb);
 }
 
 function earliestRoot(a, b, c) {

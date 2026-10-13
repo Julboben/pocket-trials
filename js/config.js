@@ -44,11 +44,17 @@ export const XPBD_SUSPENSION_TOP_OUT_COMPLIANCE = 0.002;
 // compression damping climbs, with the square of the way into that zone, to
 // `bottomingDamping` at full travel, so a hard landing is slowed over the
 // last part of the stroke instead of slamming the travel limit.
+// The fork is on the leading wheel, whichever way the rider faces, and is
+// raked back by `rake` (radians from square to the frame), as the drawn fork
+// is: the wheel travels up and back along it, so a step face or square edge
+// pushes the wheel up into the fork instead of stopping it dead and pitching
+// the bike over the bars. The rear wheel travels square to the frame.
 // The fork is linear until its air spring ramps up near the bottom, and its
 // lighter damping lets it recover quickly for the next bump. It sags 3.4 px
 // at rest and sinks a further 5.5 px from a 20 px drop, 10.3 px from 80 px
 // and 12.5 px from 200 px.
 export const FORK_SUSPENSION = {
+  rake: 23 * Math.PI / 180,
   compliance: 0.0036,
   risingRateStart: 9,
   risingRateGain: 4,
@@ -65,6 +71,7 @@ export const FORK_SUSPENSION = {
 // 80 px and 11.1 px from 200 px. Firmer rebound keeps it from kicking the
 // bike over the bars.
 export const SHOCK_SUSPENSION = {
+  rake: 0,
   compliance: 0.0065,
   risingRateStart: 0,
   risingRateGain: 3,

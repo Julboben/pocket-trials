@@ -10,6 +10,7 @@ import { BIKE_LAMPS, bodyPose, lampColors, lampLenses, posedBodyPoint } from "./
 import { FINISH_FLOWER_LIFT } from "./finish.js";
 import { APPLE_SPRITE } from "./apple.js";
 import { SPIKE_CORE, SPIKE_TIP, spikePoints } from "./spike.js";
+import { WHEELBASE } from "./config.js";
 import { WATER_COLORS, surfaceWave, waterBodies } from "./water.js";
 import {
   WATER_PROPS,
@@ -4831,19 +4832,23 @@ export function createGameArt(ctx) {
       c.black,
       2,
     );
-    path(
+    // Front fender, bolted to the lower triple clamp: it rides on the sprung
+    // body, where it sits over the resting front wheel, so the tire rises
+    // toward it as the fork compresses instead of carrying it along.
+    const axle = WHEELBASE / 2;
+    bodyPath(
       [
-        [half - 6, -18],
-        [half + 2, -18],
-        [half + 9, -16],
+        [axle - 6, -18],
+        [axle + 2, -18],
+        [axle + 9, -16],
       ],
       paint.base,
       1,
     );
-    path(
+    bodyPath(
       [
-        [half - 4, -20],
-        [half + 5, -20],
+        [axle - 4, -20],
+        [axle + 5, -20],
       ],
       paint.light,
       1,

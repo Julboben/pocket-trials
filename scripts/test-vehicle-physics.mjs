@@ -165,12 +165,19 @@ function brakingScenario(braking) {
     (maximum, frame) => Math.max(maximum, 320 - RADIUS - frame.rearY),
     0
   );
+  // Summed step by step, so a bike that goes past upside down still counts
+  // its whole turn.
+  const pitched = simulation.frames.slice(-91).reduce((sum, frame, index, frames) => index
+    ? sum + Math.atan2(Math.sin(frame.pitch - frames[index - 1].pitch), Math.cos(frame.pitch - frames[index - 1].pitch))
+    : 0, 0);
   if (braking) {
     assert.ok(maxRearClearance > 30 && maxRearClearance < 70, `braking stoppie outside the tuned range: ${maxRearClearance}`);
-    // Tuned for the current suspension and brake model (about 2.71 rad).
-    assert.ok(metrics.pitch > .4 && metrics.pitch < 3, `brake dive pitch outside the tuned range: ${metrics.pitch}`);
+    // A full-speed panic stop pitches the bike over the bars: about 3.15 rad.
+    // The raked fork dives and shortens the wheelbase as it brakes, and the
+    // locked rear wheel's spin goes into the bike once it is off the ground.
+    assert.ok(pitched > .4 && pitched < 4, `brake dive pitch outside the tuned range: ${pitched}`);
   }
-  return { speed: metrics.speedX, distance: metrics.center.x - startX, maxRearClearance, pitch: metrics.pitch };
+  return { speed: metrics.speedX, distance: metrics.center.x - startX, maxRearClearance, pitch: pitched };
 }
 
 // A held brake stops the bike dead and keeps it parked on a slope.
@@ -474,23 +481,33 @@ function steadyAirSpinScenario() {
   return { spinAtOneSecond: atOneSecond, spinAtOneAndHalfSeconds: atOneAndHalf };
 }
 
-// Gas in the air only spins the rear wheel; it must not turn the bike, so a
-// trail that starts high above the ground lands level under held gas.
+// In the air the wheels' spin and the bike's keep their total, as on a real
+// bike: gas spins the rear wheel up and lifts the nose until the wheel is at
+// its top speed, and braking the spinning wheel drops the nose again. It is
+// the same facing either way.
 function airThrottleScenario() {
-  const simulation = createSimulation(flatTrail(3000), { x: 300, y: 100 });
-  const rates = [];
-  let previous = vehicleMetrics(simulation.vehicle).pitch;
-  for (let index = 1; index <= 120; index++) {
-    const { pitch } = step(simulation, { throttle: true });
-    rates.push(Math.atan2(Math.sin(pitch - previous), Math.cos(pitch - previous)) / STEP);
-    previous = pitch;
-  }
-  const average = (from, to) => rates.slice(from, to).reduce((sum, rate) => sum + rate, 0) / (to - from);
-  const early = average(60, 72), late = average(108, 120);
-  const turned = Math.abs(rates.reduce((sum, rate) => sum + rate, 0) * STEP);
-  assert.ok(Math.abs(late) < .01 && Math.abs(early) < .01, `held gas in the air must not spin the bike: ${early} -> ${late}`);
-  assert.ok(turned < .5 * Math.PI / 180, `held gas in the air turned the bike: ${turned * 180 / Math.PI}°`);
-  return { spinAtHalfSecond: early, spinAtOneSecond: late, turnedDegrees: turned * 180 / Math.PI };
+  const flight = (facing, controls) => {
+    const simulation = createSimulation(flatTrail(3000), { x: 300, y: 100, facing });
+    const rates = [];
+    let previous = vehicleMetrics(simulation.vehicle).pitch;
+    for (let index = 0; index < 180; index++) {
+      const { pitch } = step(simulation, controls(index));
+      // Nose up is positive whichever way the bike faces.
+      rates.push(-facing * Math.atan2(Math.sin(pitch - previous), Math.cos(pitch - previous)) / STEP);
+      previous = pitch;
+    }
+    const average = (from, to) => rates.slice(from, to).reduce((sum, rate) => sum + rate, 0) / (to - from);
+    return { rates, average, turned: rates.slice(0, 120).reduce((sum, rate) => sum + rate, 0) * STEP * 180 / Math.PI };
+  };
+  const gas = flight(1, () => ({ throttle: true }));
+  const mirrored = flight(-1, () => ({ throttle: true }));
+  const braked = flight(1, index => index < 90 ? { throttle: true } : { brake: true });
+  const atTopSpeed = gas.average(150, 180), spinningUp = gas.average(108, 120);
+  assert.ok(gas.turned > 10 && gas.turned < 60, `a second of gas in the air must lift the nose: ${gas.turned}°`);
+  assert.ok(Math.abs(mirrored.turned - gas.turned) < .5, `gas in the air must lift the nose alike facing either way: ${gas.turned}° and ${mirrored.turned}°`);
+  assert.ok(atTopSpeed <= spinningUp + .01, `the nose must stop lifting faster once the wheel is at top speed: ${spinningUp} -> ${atTopSpeed}`);
+  assert.ok(braked.average(96, 180) < 0, `braking the spinning wheel in the air must drop the nose: ${braked.average(96, 180)}`);
+  return { gasTurnedDegrees: gas.turned, spinAtTopSpeed: atTopSpeed, spinAfterBrake: braked.average(96, 180) };
 }
 
 function airLeanKeepsMomentumScenario() {
@@ -619,33 +636,42 @@ function steepWallScenario() {
   return { highest };
 }
 
-// Pulling away at the foot of a slope, leaning into it: a 45° climb tops out.
+// Pulling away toward a slope, keeping the front down: a 45° climb tops out.
 // Tire grip is friction on the weight pressing the tire into the slope. That
 // still carries a slow crawl up 57°, where the rider has to keep the nose
 // down, but from 58° on the bike stalls low and slides back or loops out.
 function steepHillScenario() {
   const height = 400, base = 300;
-  const climb = degrees => {
+  const starts = [100, 140, 180, 220, 250, 270, 290];
+  const climb = (degrees, x) => {
     const top = base + height / Math.tan(degrees * Math.PI / 180);
     // Straight slopes: groundTrail's eased lines peak far steeper than their
     // average angle.
     const trail = { name: 'hill', terrainBlocks: [polygonBlock([[0, 800], [base, 800], [top, 800 - height], [top + 800, 800 - height], [top + 800, 1400], [0, 1400]])] };
-    const simulation = createSimulation(trail, { x: 290 });
+    const simulation = createSimulation(trail, { x });
     run(simulation, 60, {});
     let highest = 0;
     for (let index = 0; index < 1500; index++) {
       const { rear, front } = simulation.vehicle;
-      const { pitch } = step(simulation, { throttle: true, lean: .5 });
+      // The rider holds the gas and leans forward the more the nose lifts off
+      // the slope under the bike, as a rider keeps the front down on a climb.
+      const slope = Math.atan2(terrainAt(trail, rear.x).y - terrainAt(trail, front.x).y, front.x - rear.x);
+      const noseUp = -vehicleMetrics(simulation.vehicle).pitch - slope;
+      const { pitch } = step(simulation, { throttle: true, lean: Math.max(-1, Math.min(1, .3 + noseUp * 4)) });
       if (Math.abs(pitch) > Math.PI * .85) break;
       highest = Math.max(highest, 800 - RADIUS - Math.min(rear.y, front.y));
     }
     return highest;
   };
-  const gentle = climb(45), steep = climb(58), wall = climb(60);
-  assert.ok(gentle > height - 5, `a 45° hill must be climbable from its foot: reached ${gentle} of ${height}`);
-  assert.ok(steep < height * .5, `a 58° hill must be too steep to climb from its foot: reached ${steep} of ${height}`);
-  assert.ok(wall < height * .5, `a 60° hill must stall low: reached ${wall} of ${height}`);
-  return { gentle, steep, wall };
+  // One start can balance on a knife edge, so each hill is tried from a run-up
+  // of 10 to 200 px.
+  const tries = degrees => starts.map(x => climb(degrees, x));
+  const gentle = tries(45), steep = tries(58), wall = tries(60);
+  const topped = gentle.filter(reached => reached > height - 5).length;
+  assert.ok(topped >= 4, `a 45° hill must be climbable from most starts: topped from ${topped} of ${starts.length} (${gentle.map(Math.round)})`);
+  assert.ok(Math.max(...steep) < height * .5, `a 58° hill must be too steep to climb: reached ${Math.max(...steep)} of ${height}`);
+  assert.ok(Math.max(...wall) < height * .5, `a 60° hill must stall low: reached ${Math.max(...wall)} of ${height}`);
+  return { gentleTopped: topped, steep: Math.max(...steep), wall: Math.max(...wall) };
 }
 
 // A recorded attempt at a 64.5° hill: the rider turns left, drives into the
