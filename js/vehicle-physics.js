@@ -8,19 +8,14 @@ import {
   BIKE_VELOCITY_ITERATIONS,
   XPBD_CHASSIS_COMPLIANCE,
   XPBD_CHASSIS_AREA_COMPLIANCE,
-  XPBD_SUSPENSION_COMPLIANCE,
   XPBD_SUSPENSION_EXTENSION_COMPLIANCE,
-  XPBD_SUSPENSION_DAMPING,
-  XPBD_SUSPENSION_REBOUND_DAMPING,
   XPBD_SUSPENSION_SLIDER_COMPLIANCE,
   SUSPENSION_REST_LENGTH,
   SUSPENSION_TRAVEL,
-  SUSPENSION_BUMP_STOP_LENGTH,
-  XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE,
   SUSPENSION_TOP_OUT_LENGTH,
   XPBD_SUSPENSION_TOP_OUT_COMPLIANCE,
-  SUSPENSION_BOTTOMING_START,
-  XPBD_SUSPENSION_BOTTOMING_DAMPING,
+  FORK_SUSPENSION,
+  SHOCK_SUSPENSION,
   WHEEL_INERTIA,
   WHEEL_FRICTION,
   WHEEL_SLIDE_FRICTION,
@@ -80,7 +75,7 @@ import {
   terrainSweepCollision,
 } from "./terrain.js";
 import { passThroughGlass, shatterGlass } from "./glass.js";
-import { atan2, exp, hypot } from "./det-math.js";
+import { atan2, exp, hypot, pow } from "./det-math.js";
 
 const distance = (a, b) => hypot(a.x - b.x, a.y - b.y);
 const CRASHED_CHASSIS_CONTACT = { bounce: 0.1, friction: 0.35 };
@@ -96,32 +91,52 @@ const CRASHED_FRAME_PROBES = [
 ];
 const CRASHED_FRAME_PROBE_RADIUS = 3;
 
-// A wheel's main spring and damper. `bottoming` marks it for the bottoming
-// cone in compressionDamping().
-function suspensionSpring(wheel, mount) {
+// A wheel's main spring and damper, set up from `settings`
+// (FORK_SUSPENSION or SHOCK_SUSPENSION). Its compliance and compression
+// damping follow its travel; see updateRisingRate() and compressionDamping().
+function suspensionSpring(wheel, mount, settings) {
   const spring = createDistanceConstraint(wheel, mount, SUSPENSION_REST_LENGTH, {
-    compliance: XPBD_SUSPENSION_COMPLIANCE,
+    compliance: settings.compliance,
     extensionCompliance: XPBD_SUSPENSION_EXTENSION_COMPLIANCE,
-    damping: XPBD_SUSPENSION_DAMPING,
-    reboundDamping: XPBD_SUSPENSION_REBOUND_DAMPING,
+    damping: settings.damping,
+    reboundDamping: settings.reboundDamping,
   });
-  spring.bottoming = true;
+  spring.settings = settings;
   return spring;
 }
 
-// Compression damping at the spring's current travel: the base value above
-// SUSPENSION_BOTTOMING_START, rising with the square of the way through the
-// bottoming zone to XPBD_SUSPENSION_BOTTOMING_DAMPING at full travel.
-function compressionDamping(spring) {
-  if (!spring.bottoming) return spring.damping;
-  const compression = SUSPENSION_REST_LENGTH - distance(spring.a, spring.b);
-  const depth = clamp(
-    (compression - SUSPENSION_BOTTOMING_START) /
-      (SUSPENSION_TRAVEL - SUSPENSION_BOTTOMING_START),
+function springCompression(spring) {
+  return SUSPENSION_REST_LENGTH - distance(spring.a, spring.b);
+}
+
+// Share of the way from `start` px of compression to full travel.
+function travelShare(compression, start) {
+  return clamp(
+    (compression - start) / (SUSPENSION_TRAVEL - start),
     0,
     1,
   );
-  return lerp(spring.damping, XPBD_SUSPENSION_BOTTOMING_DAMPING, depth * depth);
+}
+
+// A rising-rate spring: stiffness climbs from its base past risingRateStart
+// to 1 + risingRateGain times it at full travel. Set once per step from the
+// predicted travel, so the XPBD solve sees a constant compliance.
+function updateRisingRate(spring) {
+  const { compliance, risingRateStart, risingRateGain, risingRatePower } =
+    spring.settings;
+  const share = travelShare(springCompression(spring), risingRateStart);
+  spring.compliance =
+    compliance / (1 + risingRateGain * pow(share, risingRatePower));
+}
+
+// Compression damping at the spring's travel: the base value above
+// bottomingStart, rising with the square of the way through the bottoming
+// zone to bottomingDamping at full travel.
+function compressionDamping(spring) {
+  const { settings } = spring;
+  if (!settings) return spring.damping;
+  const depth = travelShare(springCompression(spring), settings.bottomingStart);
+  return lerp(spring.damping, settings.bottomingDamping, depth * depth);
 }
 
 export function createVehicle(rear, front) {
@@ -167,26 +182,8 @@ export function createVehicle(rear, front) {
     createAreaConstraint(chassis.rearMount, chassis.frontMount, chassis.top, {
       compliance: XPBD_CHASSIS_AREA_COMPLIANCE,
     }),
-    suspensionSpring(rear, chassis.rearMount),
-    suspensionSpring(front, chassis.frontMount),
-    createDistanceConstraint(
-      rear,
-      chassis.rearMount,
-      SUSPENSION_BUMP_STOP_LENGTH,
-      {
-        compliance: XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE,
-        minLength: SUSPENSION_BUMP_STOP_LENGTH,
-      },
-    ),
-    createDistanceConstraint(
-      front,
-      chassis.frontMount,
-      SUSPENSION_BUMP_STOP_LENGTH,
-      {
-        compliance: XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE,
-        minLength: SUSPENSION_BUMP_STOP_LENGTH,
-      },
-    ),
+    suspensionSpring(rear, chassis.rearMount, SHOCK_SUSPENSION),
+    suspensionSpring(front, chassis.frontMount, FORK_SUSPENSION),
     createDistanceConstraint(rear, chassis.rearMount, SUSPENSION_TOP_OUT_LENGTH, {
       compliance: XPBD_SUSPENSION_TOP_OUT_COMPLIANCE,
       maxLength: SUSPENSION_TOP_OUT_LENGTH,
@@ -1165,6 +1162,8 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
   for (const constraint of vehicle.dampedConstraints)
     resetConstraintMultiplier(constraint);
   hooks.afterIntegration?.();
+  for (const constraint of constraints)
+    if (constraint.settings) updateRisingRate(constraint);
   const momentumBeforeSolve = crashed ? 0 : angularMomentum(bikePoints);
 
   const solverWheels =

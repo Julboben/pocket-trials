@@ -16,14 +16,9 @@ export const XPBD_CHASSIS_COMPLIANCE = 0.000001;
 export const XPBD_CHASSIS_AREA_COMPLIANCE = 0.000001;
 // The spring carries the chassis on its own: sliders keep each wheel in line
 // with its mount, so each wheel sinks on its own when it lands, by how hard
-// that wheel hits: about 5 px below its resting sag from a 20 px drop, 9 px
-// from 80 px and 11.5 px from 200 px. It bounces back one to three times and
-// settles within about a second.
-// Damping is the share of spring speed removed per step; near 1 locks it.
-// Rebound is firmer so the spring does not catapult the bike upward.
-export const XPBD_SUSPENSION_COMPLIANCE = 0.0036;
-export const XPBD_SUSPENSION_DAMPING = .26;
-export const XPBD_SUSPENSION_REBOUND_DAMPING = .42;
+// that wheel hits. It bounces back one to three times and settles within
+// about a second. The spring and damper settings for each end are in
+// FORK_SUSPENSION and SHOCK_SUSPENSION below.
 // Pulled past its rest length the spring is softer, as in Elasto Mania: a
 // bike hooked on a ledge by one wheel hangs from that wheel's spring, which
 // stretches about 11 px under the whole bike and bobs before it settles, while
@@ -32,23 +27,53 @@ export const XPBD_SUSPENSION_EXTENSION_COMPLIANCE = 0.012;
 export const XPBD_SUSPENSION_SLIDER_COMPLIANCE = 0.0001;
 export const SUSPENSION_REST_LENGTH = 20;
 export const SUSPENSION_TRAVEL = 16;
-// A stiffer second spring over the last part of travel, so the soft main
-// spring keeps sinking further on harder landings instead of slamming into
-// the travel limit, which would throw the bike back into the air.
-export const SUSPENSION_BUMP_STOP_LENGTH = 10;
-export const XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE = 0.0003;
 // The same on the way out: a firmer top-out spring over the last part of
 // stretch catches a bike that drops onto one hooked wheel before the travel
 // limit jerks it.
 export const SUSPENSION_TOP_OUT_LENGTH = 32;
 export const XPBD_SUSPENSION_TOP_OUT_COMPLIANCE = 0.002;
-// A bottoming cone, as in a motocross fork or shock: past this much
-// compression (px) the compression damping climbs, with the square of the
-// way into that zone, to the bottoming value at full travel. Hard landings
-// are slowed over the last part of the stroke instead of slamming the travel
-// limit; ordinary bumps, squat and brake dive stay above the zone.
-export const SUSPENSION_BOTTOMING_START = 9;
-export const XPBD_SUSPENSION_BOTTOMING_DAMPING = .95;
+// Front and rear differ as on a motocross bike. Each end's spring gets
+// stiffer as it compresses: past `risingRateStart` (px of compression) its
+// stiffness climbs with `risingRatePower` of the way to full travel, to
+// 1 + `risingRateGain` times the `compliance` stiffness at the bottom. There
+// is no separate bump stop, so the end of the stroke stores less energy to
+// hand back as a kick.
+// Damping is the share of spring speed removed per step; near 1 locks it.
+// Rebound is firmer than compression so the spring does not catapult the
+// bike upward. Each end also has a bottoming cone: past `bottomingStart` the
+// compression damping climbs, with the square of the way into that zone, to
+// `bottomingDamping` at full travel, so a hard landing is slowed over the
+// last part of the stroke instead of slamming the travel limit.
+// The fork is linear until its air spring ramps up near the bottom, and its
+// lighter damping lets it recover quickly for the next bump. It sags 3.4 px
+// at rest and sinks a further 5.5 px from a 20 px drop, 10.3 px from 80 px
+// and 12.5 px from 200 px.
+export const FORK_SUSPENSION = {
+  compliance: 0.0036,
+  risingRateStart: 9,
+  risingRateGain: 4,
+  risingRatePower: 3,
+  damping: .22,
+  reboundDamping: .38,
+  bottomingStart: 9,
+  bottomingDamping: .95,
+};
+// The rear shock's linkage makes it progressive over the whole stroke, from
+// a soft start: it sags 5 px at rest, about a third of its travel as race sag
+// is set, which leaves it droop to keep the tire on the ground as the weight
+// comes off it. It sinks a further 4.3 px from a 20 px drop, 8.4 px from
+// 80 px and 11.1 px from 200 px. Firmer rebound keeps it from kicking the
+// bike over the bars.
+export const SHOCK_SUSPENSION = {
+  compliance: 0.0065,
+  risingRateStart: 0,
+  risingRateGain: 3,
+  risingRatePower: 2,
+  damping: .28,
+  reboundDamping: .55,
+  bottomingStart: 9,
+  bottomingDamping: .95,
+};
 export const WHEEL_INERTIA = .5;
 // Tire grip is Coulomb friction on the real ground force each tire takes: a
 // gripping tire holds up to WHEEL_FRICTION times its load, a slipping one

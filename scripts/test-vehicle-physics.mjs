@@ -510,11 +510,12 @@ function airLeanKeepsMomentumScenario() {
   return { centreDrift: drift };
 }
 
-// The bottoming cone slows the last part of the stroke, so a hard flat
-// landing barely touches the travel limit and the chassis is not thrown back
-// up as hard.
-function bottomingConeScenario() {
-  const land = height => {
+// The rising-rate springs and bottoming cones end the stroke without a stiff
+// bump stop to hand the landing back as a kick. A big flat landing throws the
+// chassis back up gently and only touches the travel limit briefly, and
+// landing hard on one wheel no longer bucks the bike over the other.
+function hardLandingScenario() {
+  const flat = height => {
     const simulation = droppedSimulation(height, 0);
     const limit = SUSPENSION_REST_LENGTH - SUSPENSION_TRAVEL + .05;
     let pinned = 0, kick = 0;
@@ -525,10 +526,22 @@ function bottomingConeScenario() {
     }
     return { pinned, kick };
   };
-  const medium = land(200), hard = land(350);
-  assert.ok(hard.pinned <= 2, `a 350 px landing must not sit on the travel limit: ${hard.pinned} steps`);
-  assert.ok(medium.kick < 45, `a 200 px landing must not throw the chassis back up hard: ${medium.kick}`);
-  return { pinnedSteps350: hard.pinned, kick200: medium.kick, kick350: hard.kick };
+  // Positive tilt lands the rear wheel first, negative the front.
+  const oneWheel = tilt => {
+    const simulation = droppedSimulation(200, tilt);
+    for (const point of simulation.vehicle.bikePoints) point.ox = point.x - 200 * STEP;
+    let worst = 0;
+    for (let index = 0; index < 360; index++) worst = Math.max(worst, Math.abs(step(simulation, {}).pitch));
+    return worst * 180 / Math.PI;
+  };
+  const medium = flat(200), hard = flat(350);
+  const rearFirst = oneWheel(35), frontFirst = oneWheel(-35);
+  assert.ok(medium.kick < 40, `a 200 px landing must not throw the chassis back up hard: ${medium.kick}`);
+  assert.ok(hard.kick < 45, `a 350 px landing must not throw the chassis back up hard: ${hard.kick}`);
+  assert.ok(hard.pinned <= 6, `a 350 px landing must only touch the travel limit briefly: ${hard.pinned} steps`);
+  assert.ok(rearFirst < 90, `a hard rear-wheel landing must not buck the bike over: ${rearFirst}°`);
+  assert.ok(frontFirst < 90, `a hard front-wheel landing must not buck the bike over: ${frontFirst}°`);
+  return { kick200: medium.kick, kick350: hard.kick, pinnedSteps350: hard.pinned, rearFirstWorstPitch: rearFirst, frontFirstWorstPitch: frontFirst };
 }
 
 function singleWheelLandingScenario() {
@@ -804,7 +817,7 @@ const results = {
   airThrottle: airThrottleScenario(),
   airLeanKeepsMomentum: airLeanKeepsMomentumScenario(),
   singleWheelLanding: singleWheelLandingScenario(),
-  bottomingCone: bottomingConeScenario(),
+  hardLanding: hardLandingScenario(),
   steepClimbForwardLean: steepClimbForwardLeanScenario(),
   steepClimbLoop: steepClimbLoopScenario(),
   steepWall: steepWallScenario(),

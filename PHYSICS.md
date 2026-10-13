@@ -12,7 +12,11 @@ The staged physics roadmap is implemented in `js/vehicle-physics.js`: a physical
 - A physical non-collinear chassis triangle with rigid links
 - Independent suspension links with compliance, damping, and travel limits
 - No wheel-to-wheel link: as in Elasto Mania, each wheel hangs from the chassis on its own leg, so the wheelbase gives a few pixels on hard landings
-- A bottoming cone, as in a motocross fork or shock: from 9 px of compression the compression damping climbs with the square of the way into the zone, from 0.26 to 0.95 at full travel. A 350 px flat drop sits on the travel limit for 2 steps instead of 4, and a 200 px drop throws the chassis back up at about 42 px/s instead of 49. Squat, brake dive and ordinary bumps stay above the zone
+- A front fork and a rear shock that differ as on a motocross bike, each with a rising-rate spring in place of a stiff bump stop, and a bottoming cone (`FORK_SUSPENSION` and `SHOCK_SUSPENSION` in `js/config.js`):
+  - The fork is linear until its air spring ramps up over the last 7 px of travel. Its lighter damping (0.22 compression, 0.38 rebound) lets it recover quickly for the next bump. It sags 3.4 px at rest
+  - The shock's linkage makes it progressive over the whole stroke, from a soft start: it sags 5 px at rest, about a third of its travel as race sag is set, which leaves it droop to keep the tire on the ground as the weight comes off it. Firmer damping (0.28 compression, 0.55 rebound) keeps it from kicking the bike over the bars
+  - From 9 px of compression each end's compression damping climbs with the square of the way into the zone, to 0.95 at full travel
+  - With no bump stop to store the end of a landing and hand it back, a 200 px flat drop throws the chassis back up at about 31 px/s and a 350 px one at 33 px/s, where the stiff bump stop gave 42 and 66. Landing hard on one wheel, 200 px at 35°, no longer bucks the bike over the other wheel, and of 600 test drops with no rider input, 65 crash within 3 s instead of 163. With gas held the gain is small (309 instead of 335), as most of those crashes are throttle wheelies looping over after a clean landing. The cost is honest bottoming on the biggest flat drops: from 200 px (about 6 m at the bike's scale) the soft-started shock touches the travel limit for a few steps
 - Elasto Mania-style suspension stretch: springs are softer pulled than pushed, with a top-out spring, so a bike hooked on a ledge by one wheel hangs visibly stretched from it and bobs before settling
 - The drawn body, lamps, rider and hair sit exactly on the simulated chassis, with suspension travel interpolated between steps for high-refresh displays
 - Tire grip is Coulomb friction on the real ground force: each wheel's normal impulse is summed from every contact correction in a step (including chassis weight passed through the suspension and landings), with static grip for a gripping tire and lower kinetic grip for a slipping one. Drive and re-traction passes share that budget, so a slow crawl tops out at about 57° with no slope-specific grip rules. The push that keeps a lone grounded wheel planted under rider lean is not weight and gives no grip
@@ -46,7 +50,7 @@ The automated suite covers:
 - Mirrored left/right hill climbing
 - Valley settling
 - One-wheel landing and second-wheel recovery
-- Bottoming cone on hard flat landings: little time on the travel limit and a soft rebound
+- Hard landings: a gentle rebound from big flat drops with only brief bottoming, and no buck over the other wheel after landing hard on one
 - Hanging from a ledge by one wheel
 - Steep hills: 45° climbable from a standstill, 58° and 60° stall low, 78° walls never
 - A recorded gas-and-forward-lean attempt at a 64.5° hill stays at its foot
@@ -81,11 +85,13 @@ The suspension damper is a velocity pass after the contact and traction solve, a
 
 ## Next steps
 
-1. Replace the stiff bump-stop step with a rising-rate spring, as a rear linkage gives. The bump stop, not the bottoming cone, does most of the stopping deep in the stroke, and it stores that energy and hands it back as an upward kick. A bump stop half as stiff, with the cone doing the stopping, halves the kick, but it breaks the 45° climb from its foot, through how the bike settles straddling the foot of the slope before the climb rather than through the bump stop itself.
+1. Make the 45° climb check robust. Started from standstill at the foot of a 45° hill, the bike reaches the top from only 1 of 8 nearby start positions (270–300 px), with the old suspension as with the new, and the check uses that one. Any handling change can tip it, which makes it look like the change broke climbing. Checking a spread of start positions would test climbing itself.
 2. Replace the bot-recorded fixtures with hand-ridden replays once handling tuning settles, since bot lines avoid some of the riskier features.
 
 ## Tried and rejected
 
+- A rear shock as stiff at the start as the fork, with the rising rate on top. It sags less, runs out of droop as the bike rolls back off the foot of a hill and the weight comes off the rear, and the rear wheel lifts and spins freely. Only a softer start, as race sag is set on a real shock, kept it on the ground.
+- Stopping the stroke before the travel limit with a steeper end ramp. Any spring stiff enough to keep a 200 px flat drop off the limit stores that landing and hands it back as a kick, and up to twice as many test drops crash. The bottoming cone cannot do it alone: the stroke lasts about 7 steps, and with the wheel on the ground most of the damper's push goes into the ground.
 - Looser wheel sliders (more wheel play along the frame). With no wheel-to-wheel link, the sliders are what hold the wheelbase. Raising `XPBD_SUSPENSION_SLIDER_COMPLIANCE` from 0.0001 to 0.0002 already stops the 45° climb (the bike loops out) and the 35° hill brake. A free play of 1–3 px with a stiff limit is worse: it breaks hanging from a ledge, stoppies and flat throttle. The wheelbase give from the removed link already supplies the elastic feel.
 
 ## Profiling (2026-10)

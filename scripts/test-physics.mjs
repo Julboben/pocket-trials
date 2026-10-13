@@ -6,7 +6,7 @@ import {
   XPBD_TORQUE_FALLOFF_SPEED, XPBD_MOTOR_REACTION_SCALE, XPBD_THROTTLE_LEAN_ASSIST,
   XPBD_UPHILL_FORWARD_LEAN_REDUCTION,
   XPBD_COAST_RESISTANCE_LOW_SPEED, XPBD_COAST_RESISTANCE_HIGH_SPEED,
-  XPBD_SUSPENSION_COMPLIANCE, XPBD_SUSPENSION_DAMPING
+  FORK_SUSPENSION
 } from '../js/config.js';
 import {
   constrainDistanceVelocity, createDistanceConstraint,
@@ -104,8 +104,8 @@ assert.ok(signedTriangleArea(areaA, areaB, areaTop) < 0, 'signed-area constraint
 const springWheel = { x: 0, y: 14, ox: 0, oy: 14, inverseMass: 1 };
 const springMount = { x: 0, y: 0, ox: 0, oy: 0, inverseMass: .65 };
 const suspensionSpring = createDistanceConstraint(springWheel, springMount, 18, {
-  compliance: XPBD_SUSPENSION_COMPLIANCE,
-  damping: XPBD_SUSPENSION_DAMPING
+  compliance: FORK_SUSPENSION.compliance,
+  damping: FORK_SUSPENSION.damping
 });
 resetConstraintMultiplier(suspensionSpring);
 solveXpbdDistanceConstraint(suspensionSpring, 1 / 120);
