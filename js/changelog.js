@@ -7,7 +7,7 @@ export const RELEASES = [
     "changes": [
       {
         "type": "new",
-        "text": "Six new official trails have arrived: Splinter Ridge, High Hopes, Skybound, Brake Point, Long Way Up and Elastic Summit."
+        "text": "One new official trail have arrived: A Hill to Die On / 04."
       },
       {
         "type": "new",
@@ -27,11 +27,11 @@ export const RELEASES = [
       },
       {
         "type": "fixed",
-        "text": "Apples that went missing at the finish are now collected correctly."
+        "text": "Apples that are still be be collected shows at the finish."
       },
       {
         "type": "fixed",
-        "text": "Play Again on the last trail now replays Elastic Summit instead of jumping to The Orchard."
+        "text": "Play Again on the last trail now work as expected."
       }
     ]
   },

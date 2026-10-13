@@ -5,7 +5,7 @@ Player-facing release notes. The game shows them under **What's new**, and each 
 ## 0.3.3 — 2026-10-13
 
 ### New
-- Six new official trails have arrived: Splinter Ridge, High Hopes, Skybound, Brake Point, Long Way Up and Elastic Summit.
+- One new official trail have arrived: A Hill to Die On / 04.
 - You can now watch replays of your runs.
 - Trails now show a medal target to aim for.
 
@@ -14,8 +14,8 @@ Player-facing release notes. The game shows them under **What's new**, and each 
 - Resizing the window is smoother.
 
 ### Fixed
-- Apples that went missing at the finish are now collected correctly.
-- Play Again on the last trail now replays Elastic Summit instead of jumping to The Orchard.
+- Apples that are still be be collected shows at the finish.
+- Play Again on the last trail now work as expected.
 
 ## 0.3.2 — 2026-10-12
 
