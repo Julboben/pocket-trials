@@ -1698,6 +1698,9 @@ h2 {
 .look-preview {
     display: block;
     width: 100%;
+    /* Not the 100% every canvas gets: Safari resolves that against the grid
+       row and stretches the preview, so its height comes from the ratio. */
+    height: auto;
     aspect-ratio: 2;
     border: 1px solid var(--color-border);
     background: var(--color-surface);
@@ -1814,6 +1817,7 @@ h2 {
 }
 .look-option canvas {
     width: 100%;
+    height: auto;
     aspect-ratio: 1;
     object-fit: contain;
     image-rendering: pixelated;

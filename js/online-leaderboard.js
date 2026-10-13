@@ -86,7 +86,7 @@ export function fetchWorldGhost(trail) {
  * @param {string} trail
  * @param {{ look: import('./cosmetics.js').Look, token: string, run: { inputs: number[][], seed: number, physics: number } }} submission
  *   `look` is shown with the run; `rider` is still sent for servers from before looks.
- * @returns {Promise<{rank:number,total:number,time:number,best:number,improved:boolean}|{signedOut:true}|null>}
+ * @returns {Promise<{rank:number,total:number,time:number,best:number,improved:boolean}|{signedOut:true}|{rejected:true}|null>}
  */
 export async function submitOnlineRun(trail, { look, token, run }) {
   // Sandbox riders are throwaway, so they never reach the shared board.
@@ -99,6 +99,8 @@ export async function submitOnlineRun(trail, { look, token, run }) {
       signal: AbortSignal.timeout(20000),
     });
     if (res.status === 401) return { signedOut: true };
+    // The server's replay of the inputs never reached the finish.
+    if (res.status === 422) return { rejected: true };
     if (!res.ok) return null;
     const data = await res.json();
     if (data.rank === 1) worldGhosts.delete(trail);

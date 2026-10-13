@@ -14,7 +14,7 @@ Player-facing release notes. The game shows them under **What's new**, and each 
 - Resizing the window is smoother.
 
 ### Fixed
-- Apples that are still be be collected shows at the finish.
+- Apples that are still to be collected shows at the finish.
 - Play Again on the last trail now work as expected.
 
 ## 0.3.2 — 2026-10-12

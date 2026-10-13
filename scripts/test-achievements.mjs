@@ -5,9 +5,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   ACHIEVEMENTS, ACHIEVEMENT_GROUPS, achievement, statGains, eventAchievements, finishAchievements,
-  interactAchievements, hasAchievement, newlyEarned, cleanAchievements, cleanStats, mergeAchievements, mergeStats, aheadOf,
+  interactAchievements, eggAchievements, bikeBroken, hasAchievement, newlyEarned, cleanAchievements, cleanStats, mergeAchievements, mergeStats, aheadOf,
   createFeatTracker, statProgressText
 } from '../js/achievements.js';
+import { createLimWatcher } from '../js/easter-eggs.js';
 import { UNLOCKS, trailUnlock, lookUnlock, unlockStatus } from '../js/unlocks.js';
 import { lookItem } from '../js/cosmetics.js';
 import icons from '../icons/pixel-icons.mjs';
@@ -28,8 +29,10 @@ const trailIds = new Set(catalog.trails.map(entry => entry.id));
     assert.ok(a.name && a.blurb, `${a.id} has a name and blurb`);
     assert.ok(icons[a.icon], `${a.id}'s icon "${a.icon}" exists`);
     assert.ok(Object.isFrozen(a), `${a.id} is frozen`);
-    const ways = ['career', 'stat', 'event', 'finish', 'interact'].filter(way => a[way] !== undefined);
+    const ways = ['career', 'stat', 'event', 'finish', 'interact', 'egg'].filter(way => a[way] !== undefined);
     assert.equal(ways.length, 1, `${a.id} is earned exactly one way`);
+    if (a.hint) assert.ok(a.secret, `${a.id} only has a hint as a secret`);
+    if (a.group === 'easter-eggs') assert.ok(a.secret, `${a.id} is a secret, like every easter egg`);
     if (a.stat) assert.ok(Number.isInteger(a.goal) && a.goal > 0, `${a.id} has a goal`);
     assert.equal(achievement(a.id), a);
   }
@@ -108,6 +111,40 @@ const trailIds = new Set(catalog.trails.map(entry => entry.id));
   assert.deepEqual(eventAchievements({ type: 'helmet' }), ['bonk']);
   assert.deepEqual(interactAchievements('corgi'), ['pet-coda']);
   assert.deepEqual(interactAchievements('sign'), []);
+  assert.deepEqual(eventAchievements({ type: 'crash', cause: 'fall' }), ['into-the-void']);
+  assert.deepEqual(eventAchievements({ type: 'goalLocked', missing: 2 }), ['not-so-fast']);
+  assert.deepEqual(eventAchievements({ type: 'start', wait: 59.9 }), []);
+  assert.deepEqual(eventAchievements({ type: 'start', wait: 60 }), ['patience']);
+  assert.deepEqual(eventAchievements({ type: 'start' }), [], 'a start without its wait earns nothing');
+  for (const name of ['debug-console', 'cheat', 'rejected-run', 'kraken', 'lim']) {
+    assert.equal(eggAchievements(name).length, 1, `easter egg ${name} earns an achievement`);
+  }
+  assert.deepEqual(eggAchievements('nope'), []);
+
+  // Here Be Kraken: real riding stretches the bike by about a tenth at most.
+  const wheel = (x, y = 0) => ({ x, y });
+  assert.equal(bikeBroken(wheel(0), wheel(50)), false);
+  assert.equal(bikeBroken(wheel(0), wheel(30, 40)), false, 'the wheelbase at any angle');
+  assert.equal(bikeBroken(wheel(0), wheel(70)), false);
+  assert.equal(bikeBroken(wheel(0), wheel(80)), true, 'pulled apart');
+  assert.equal(bikeBroken(wheel(0), wheel(20)), true, 'squashed together');
+  assert.equal(bikeBroken(wheel(0), wheel(NaN)), true, 'left the finite world');
+
+  // Wolfenstein 3D's LIM code: L, I and M held at once, in any order.
+  {
+    const lim = createLimWatcher();
+    assert.equal(lim.down('KeyM'), false);
+    assert.equal(lim.down('KeyL'), false);
+    assert.equal(lim.down('KeyI'), true, 'the third key completes it');
+    assert.equal(lim.down('KeyI'), false, 'a key still held is not pressed again');
+    assert.equal(lim.down('KeyX'), false, 'other keys alongside do not count');
+    lim.up('KeyI');
+    assert.equal(lim.down('KeyI'), true, 'pressing it again earns it again');
+    lim.clear();
+    assert.deepEqual(['KeyL', 'KeyI'].map(lim.down), [false, false]);
+    lim.up('KeyL');
+    assert.equal(lim.down('KeyM'), false, 'one key let go breaks it');
+  }
 
   const run = {
     flips: 0, time: 30, medal: null, gold: 20, helmet: true, bike: 'elasto', night: false, rain: false, snow: false,
@@ -138,6 +175,10 @@ const trailIds = new Set(catalog.trails.map(entry => entry.id));
   assert.deepEqual(finishAchievements({ ...run, attempts: 25 }), ['never-give-up']);
   assert.deepEqual(finishAchievements({ ...run, custom: true }), ['homebrew']);
   assert.deepEqual(finishAchievements({ ...run, rain: true, snow: true }), ['singin-in-the-rain', 'snow-day']);
+  assert.deepEqual(finishAchievements({ ...run, previousBest: 30.0004 }), ['deja-vu'], 'matching to the millisecond');
+  assert.deepEqual(finishAchievements({ ...run, time: 30.001, previousBest: 30 }), []);
+  assert.deepEqual(finishAchievements({ ...run, time: 0.9, gold: null }), ['any-percent']);
+  assert.deepEqual(finishAchievements({ ...run, time: 1, gold: null }), []);
 
   // Feats: reported as they end, if long enough to be more than a bump.
   const feats = createFeatTracker(0.1);

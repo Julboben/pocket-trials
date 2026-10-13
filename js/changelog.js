@@ -27,7 +27,7 @@ export const RELEASES = [
       },
       {
         "type": "fixed",
-        "text": "Apples that are still be be collected shows at the finish."
+        "text": "Apples that are still to be collected shows at the finish."
       },
       {
         "type": "fixed",

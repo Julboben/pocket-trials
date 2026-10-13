@@ -40,7 +40,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Water you can ride through: shallow fords drag the bike and slow it down, deeper water wipes the rider out, and the ragdoll floats on the surface with splashes, wakes and sound; water lilies, reeds, seaweed, fish that dart off and ducks that take off when you come close
 - Squirrels that run to the nearest tree, climb it and hide in the crown when you come close
 - Coda the corgi, who trots over to greet you with a woof, and sits and pants when you press `E`
-- 47 achievements for each rider, from career milestones and stunts on any trail (custom ones too), such as wheelies, big air and beating the world-best ghost, to lifetime totals like 100 crashes, announced as you earn them and listed in the menu. Every unlock rule for bonus trails and rider items lives in `js/unlocks.js`, and a rule can ask for an achievement
+- 57 achievements for each rider, from career milestones and stunts on any trail (custom ones too), such as wheelies, big air and beating the world-best ghost, to lifetime totals like 100 crashes, announced as you earn them and listed in the menu. Secret ones stay hidden until earned, and a few easter eggs reward riders who open their dev tools (`js/easter-eggs.js`). Every unlock rule for bonus trails and rider items lives in `js/unlocks.js`, and a rule can ask for an achievement
 
 ## Play
 

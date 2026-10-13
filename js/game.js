@@ -13,7 +13,8 @@ import {
   readBest, saveBest, readLeaderboard, recordLeaderboardRun, readGhost, saveGhost,
   saveProgress as persistProgress, savePreferences, clearSaveToken, recordAchievements
 } from './storage.js';
-import { createFeatTracker, eventAchievements, finishAchievements, interactAchievements, newlyEarned, statGains } from './achievements.js';
+import { bikeBroken, createFeatTracker, eggAchievements, eventAchievements, finishAchievements, interactAchievements, newlyEarned, statGains } from './achievements.js';
+import { createLimWatcher, installConsoleCheats } from './easter-eggs.js';
 import { submitOnlineRun, fetchWorldGhost, refreshOnlineBoard, cachedOnlineBoard } from './online-leaderboard.js';
 import { queueSaveSync } from './account.js';
 import { createInput, keyLabel } from './input.js';
@@ -87,9 +88,10 @@ export function startGame() {
   } : undefined;
 
   if (physicsDebugEnabled) {
+    // Reaching in from the console is an easter egg (see achievements.js).
     window.hjulbenGame = {
-      get ride() { return session.ride; },
-      get ghost() { return ghost; },
+      get ride() { egg('debug-console'); return session.ride; },
+      get ghost() { egg('debug-console'); return ghost; },
       get state() { return session.state; },
       // Copies the current attempt (trail, seed and every step's input) so it
       // can be replayed exactly outside the browser.
@@ -108,6 +110,8 @@ export function startGame() {
   let redraw = true;
   /** Inputs of the current attempt, one per step, for saving a ghost. */
   let recorded = [], startStep = 0, flips = 0;
+  /** Whether the current attempt's physics has come apart, for Here Be Kraken. */
+  let broken = false;
   // Attempts that got going since the trail was opened from the menu or Next
   // Trail, for achievements such as First Try.
   let attempts = 0, openingTrail = false;
@@ -238,6 +242,11 @@ export function startGame() {
     if (result.type) earn(interactAchievements(result.type));
   }
 
+  /** Achievements from an easter egg (see easter-eggs.js). */
+  function egg(name) {
+    earn(eggAchievements(name));
+  }
+
   /** Lifetime stats and achievements from a ride event or feat. */
   function trackAchievements(event) {
     const gains = statGains(event), ids = eventAchievements(event);
@@ -338,7 +347,7 @@ export function startGame() {
     const seed = replay ? replay.data.seed : (Math.random() * 2 ** 31) >>> 0;
     const ride = createRide(trail, { seed, helmet: lookParts(replay?.look ?? session.look).helmet });
     session.ride = ride;
-    recorded = []; startStep = 0; flips = 0;
+    recorded = []; startStep = 0; flips = 0; broken = false;
     accumulator = 0; landingSoundCooldown = 0; splashSoundCooldown = 0;
     effects.reset(trail);
     renderer.reset(trail, ride.facing);
@@ -644,7 +653,8 @@ export function startGame() {
           clearSaveToken(slot, trails.length);
           if (session.saveSlots[slot]) Object.assign(session.saveSlots[slot], { token: null, online: true });
           overlay.toast('Signed out · Log in from the menu to post world times', 5000);
-        } else if (result?.rank) overlay.toast(`WORLD RANK #${result.rank} OF ${result.total}`, 4000);
+        } else if (result && 'rejected' in result) egg('rejected-run');
+        else if (result?.rank) overlay.toast(`WORLD RANK #${result.rank} OF ${result.total}`, 4000);
       });
     }
     setState('won');
@@ -652,7 +662,8 @@ export function startGame() {
   }
 
   function handleEvent(ride, event) {
-    if (!replay) trackAchievements(event);
+    // How long the rider waited at the start, for Patience.
+    if (!replay) trackAchievements(event.type === 'start' ? { ...event, wait: ride.time } : event);
     switch (event.type) {
       case 'start':
         startStep = recorded.length - 1;
@@ -792,6 +803,10 @@ export function startGame() {
     else if (ride.status === 'won') feats.finish().forEach(trackAchievements);
     else feats.reset();
     for (const event of events) handleEvent(ride, event);
+    if (!broken && !replay && ride.status === 'running' && bikeBroken(ride.rear, ride.front)) {
+      broken = true;
+      egg('kraken');
+    }
   }
 
   // --- Frame loop ----------------------------------------------------------
@@ -915,6 +930,15 @@ export function startGame() {
   const unlockAudio = () => sounds.init();
   window.addEventListener('pointerdown', unlockAudio, { once: true, capture: true });
   window.addEventListener('keydown', unlockAudio, { once: true, capture: true });
+  const lim = createLimWatcher();
+  window.addEventListener('keydown', event => {
+    if (event.repeat || !lim.down(event.code)) return;
+    console.info('[Hjulben] You now have 100% Health, 99 Ammo and both Keys! Note that you have basically eliminated your chances of getting a high score!');
+    egg('lim');
+  }, { capture: true });
+  window.addEventListener('keyup', event => lim.up(event.code), { capture: true });
+  window.addEventListener('blur', () => lim.clear());
+  installConsoleCheats(() => egg('cheat'));
 
   loadStoredState();
   applyPreferences();

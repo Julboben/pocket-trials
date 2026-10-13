@@ -9,11 +9,15 @@
 //             the air, a wheelie or a stoppie; see createFeatTracker), during a run
 //   finish    something about a finished run
 //   interact  using a prop of that type (see interactions.js)
-// Only event, finish and interact achievements are stored, in
+//   egg       an easter egg game.js reports by name: poking at the game from
+//             the console, breaking it, or a cheat code held down
+// Only event, finish, interact and egg achievements are stored, in
 // `save.achievements` as id -> time earned; the rest are worked out whenever
 // they're needed. Every trail counts, custom ones too, but editor play-tests
 // don't (see game.js). Ids are stored in saves, so they are never renamed or
 // reused.
+
+import { WHEELBASE } from './config.js';
 
 /**
  * @typedef {{
@@ -35,13 +39,14 @@
  *   in seconds
  * @typedef {{
  *   id: string, group: 'career' | 'riding' | 'lifetime', name: string, blurb: string, icon: string,
- *   secret?: boolean,
+ *   secret?: boolean, hint?: string,
  *   career?: (progress: CareerProgress) => boolean,
  *   stat?: string, goal?: number, unit?: 'tenths',
  *   event?: (event: any) => boolean,
  *   finish?: (run: FinishedRun) => boolean,
- *   interact?: string
+ *   interact?: string, egg?: string
  * }} Achievement
+ *   `hint` is shown in place of the blurb while a secret is still hidden.
  */
 
 /** The achievement groups, in the order the menu lists them. */
@@ -49,6 +54,7 @@ export const ACHIEVEMENT_GROUPS = Object.freeze([
   { id: 'career', title: 'CAREER', blurb: 'Progress through the official and bonus trails' },
   { id: 'riding', title: 'RIDING', blurb: 'Earned on any trail, custom ones too' },
   { id: 'lifetime', title: 'LIFETIME', blurb: 'Totals across every ride' },
+  { id: 'easter-eggs', title: 'EASTER EGGS', blurb: 'For the curious. Bring your dev tools.' },
 ].map(group => Object.freeze(group)));
 
 const everyTrail = (finished, total) => total > 0 && finished >= total;
@@ -211,6 +217,23 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     id: 'stoppie', group: 'riding', name: 'Stoppie', icon: 'stoppie', secret: true,
     blurb: 'Roll on just the front wheel for 2 seconds.', event: e => e.type === 'stoppie' && e.time >= 2
   },
+  {
+    id: 'into-the-void', group: 'riding', name: 'Into the Void', icon: 'arrow-down', secret: true,
+    blurb: 'Fall out of the world.', event: e => e.type === 'crash' && e.cause === 'fall'
+  },
+  {
+    id: 'not-so-fast', group: 'riding', name: 'Not So Fast', icon: 'apple', secret: true,
+    blurb: 'Reach the finish with apples still missing.', event: e => e.type === 'goalLocked'
+  },
+  {
+    id: 'patience', group: 'riding', name: 'Patience', icon: 'snail', secret: true,
+    blurb: 'Wait a whole minute at the start before setting off.', event: e => e.type === 'start' && e.wait >= 60
+  },
+  {
+    id: 'deja-vu', group: 'riding', name: 'Déjà Vu', icon: 'ghost', secret: true,
+    blurb: 'Match your best time on a trail to the millisecond.',
+    finish: run => Number.isFinite(run.previousBest) && Math.round(run.time * 1000) === Math.round(run.previousBest * 1000)
+  },
 
   {
     id: 'frequent-flyer', group: 'lifetime', name: 'Frequent Flyer', icon: 'rotate-right',
@@ -251,6 +274,36 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
   {
     id: 'one-wheel-wonder', group: 'lifetime', name: 'One-Wheel Wonder', icon: 'wheelie',
     blurb: 'Spend 5 minutes on your back wheel.', stat: 'wheelie', goal: 3000, unit: 'tenths'
+  },
+
+  {
+    id: 'under-the-hood', group: 'easter-eggs', name: 'Under the Hood', icon: 'wrench', secret: true,
+    hint: 'Some query strings open doors.',
+    blurb: 'Reach into a ride from the browser console.', egg: 'debug-console'
+  },
+  {
+    id: 'i-saw-that', group: 'easter-eggs', name: 'I Saw That', icon: 'search', secret: true,
+    hint: 'The console has something to say.',
+    blurb: 'Ask the browser console for a cheat.', egg: 'cheat'
+  },
+  {
+    id: 'nice-try', group: 'easter-eggs', name: 'Nice Try', icon: 'lock', secret: true,
+    hint: 'The server rides every world time again. Make it disagree.',
+    blurb: 'Send a world time the server can’t reproduce.', egg: 'rejected-run'
+  },
+  {
+    id: 'here-be-kraken', group: 'easter-eggs', name: 'Here Be Kraken', icon: 'crash', secret: true,
+    hint: 'Every physics engine has its limits.',
+    blurb: 'Break the physics: pull the bike apart.', egg: 'kraken'
+  },
+  {
+    id: 'lim', group: 'easter-eggs', name: 'Full Health, No High Score', icon: 'keyboard', secret: true,
+    hint: 'Wolfenstein 3D had a cheat. It still works.', blurb: 'Hold L, I and M at once.', egg: 'lim'
+  },
+  {
+    id: 'any-percent', group: 'easter-eggs', name: 'Any%', icon: 'flag', secret: true,
+    hint: 'Some trails are shorter than others. Make one.',
+    blurb: 'Finish a trail in under a second.', finish: run => run.time < 1
   },
 ].map(achievement => Object.freeze(achievement))));
 
@@ -333,6 +386,21 @@ export const finishAchievements = run => ACHIEVEMENTS.filter(a => a.finish?.(run
 
 /** The ids using a prop of `type` earns. */
 export const interactAchievements = type => ACHIEVEMENTS.filter(a => a.interact === type).map(a => a.id);
+
+/** The ids the easter egg `name` earns. */
+export const eggAchievements = name => ACHIEVEMENTS.filter(a => a.egg === name).map(a => a.id);
+
+/**
+ * Whether the physics has come apart: the wheels have left the finite world,
+ * or are half a wheelbase further apart or closer together than the bike is
+ * long. Real riding stays within about a tenth of it.
+ * @param {{ x: number, y: number }} rear
+ * @param {{ x: number, y: number }} front
+ */
+export function bikeBroken(rear, front) {
+  const apart = Math.hypot(front.x - rear.x, front.y - rear.y);
+  return !Number.isFinite(apart) || Math.abs(apart / WHEELBASE - 1) > 0.5;
+}
 
 /**
  * Whether a save has earned achievement `id`: stored when it was earned, or
