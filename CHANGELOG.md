@@ -2,6 +2,21 @@
 
 Player-facing release notes. The game shows them under **What's new**, and each GitHub Release uses its section.
 
+## 0.3.3 — 2026-10-13
+
+### New
+- One new official trail have arrived: A Hill to Die On / 04.
+- You can now watch replays of your runs.
+- Trails now show a medal target to aim for.
+
+### Improved
+- The game uses less battery on phones while paused, and the screen can now go to sleep when you leave it on the results screen.
+- Resizing the window is smoother.
+
+### Fixed
+- Apples that are still be be collected shows at the finish.
+- Play Again on the last trail now work as expected.
+
 ## 0.3.2 — 2026-10-12
 
 ### New

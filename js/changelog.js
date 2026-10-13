@@ -2,6 +2,40 @@
 /** @type {{ version: string, date: string, changes: { type: 'new' | 'improved' | 'fixed', text: string }[] }[]} */
 export const RELEASES = [
   {
+    "version": "0.3.3",
+    "date": "2026-10-13",
+    "changes": [
+      {
+        "type": "new",
+        "text": "One new official trail have arrived: A Hill to Die On / 04."
+      },
+      {
+        "type": "new",
+        "text": "You can now watch replays of your runs."
+      },
+      {
+        "type": "new",
+        "text": "Trails now show a medal target to aim for."
+      },
+      {
+        "type": "improved",
+        "text": "The game uses less battery on phones while paused, and the screen can now go to sleep when you leave it on the results screen."
+      },
+      {
+        "type": "improved",
+        "text": "Resizing the window is smoother."
+      },
+      {
+        "type": "fixed",
+        "text": "Apples that are still be be collected shows at the finish."
+      },
+      {
+        "type": "fixed",
+        "text": "Play Again on the last trail now work as expected."
+      }
+    ]
+  },
+  {
     "version": "0.3.2",
     "date": "2026-10-12",
     "changes": [
