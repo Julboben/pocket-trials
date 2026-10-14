@@ -211,15 +211,6 @@
             "edge": "straight"
           },
           {
-            "id": "street-20",
-            "x": 2800,
-            "y": 348,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
             "id": "street-21",
             "x": 2800,
             "y": 48,

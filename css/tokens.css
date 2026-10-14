@@ -24,7 +24,6 @@
     --color-border: #425257;
     --color-shadow: #0d1b20;
     --color-modal: #17262b;
-    --color-backdrop: #102822cc;
     /* The light paper behind trail previews and rider art. */
     --color-paper: #eae9d9;
 
@@ -89,12 +88,7 @@
 
     /* Shape and elevation */
     --radius-pixel: 2px;
-    --radius-shell: 22px;
     --radius-round: 50%;
-    --space-1: 4px;
-    --space-2: 8px;
-    --space-3: 12px;
-    --space-4: 16px;
     --shadow-pixel: 3px 3px 0 var(--color-shadow);
     --shadow-pixel-small: 2px 2px 0 var(--color-shadow);
     --shadow-modal: 8px 8px 0 #0d1b2070;
@@ -109,4 +103,23 @@
        whole pixels (one step: 1px blocks, 10px capitals). */
     --font-display: "Jersey 10", var(--font-ui);
     --font-display-step: 18.6667px;
+
+    /* Text sizes for --font-ui. The small steps are deliberately 1px apart:
+       the monospace UI text is tiny and each pixel reads as a level. */
+    --text-2xs: 7px;
+    --text-xs: 8px;
+    --text-sm: 9px;
+    --text-md: 10px;
+    --text-lg: 11px;
+    --text-xl: 12px;
+    --text-2xl: 13px;
+    --text-3xl: 14px;
+    /* Anything smaller and iOS zooms the page when the field is focused. */
+    --text-input: 16px;
+
+    /* Weights. The UI monospace's heaviest cut is 800, so anything above
+       that renders the same; heavy names the intent. */
+    --weight-regular: 400;
+    --weight-bold: 700;
+    --weight-heavy: 900;
 }

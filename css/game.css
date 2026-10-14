@@ -43,7 +43,7 @@ h2,
 .continue-save-copy strong,
 .trail-number {
     font-family: var(--font-display);
-    font-weight: 400;
+    font-weight: var(--weight-regular);
     font-synthesis: none;
     letter-spacing: 0;
 }
@@ -132,8 +132,8 @@ canvas {
     background: #17201edb;
     color: var(--color-text);
     box-shadow: 0 4px 16px #16221c30;
-    font-size: 11px;
-    font-weight: 800;
+    font-size: var(--text-lg);
+    font-weight: var(--weight-heavy);
     font-variant-numeric: tabular-nums;
 }
 /* The clock, with a quieter second row under it for the next medal in reach
@@ -162,7 +162,7 @@ canvas {
     gap: 10px;
     padding-top: 5px;
     border-top: 1px solid #ffffff1a;
-    font-size: 9px;
+    font-size: var(--text-sm);
     letter-spacing: 0.5px;
 }
 .timer-detail[hidden],
@@ -207,8 +207,8 @@ canvas {
     align-items: center;
     gap: 7px;
     color: var(--color-accent);
-    font-size: 10px;
-    font-weight: 950;
+    font-size: var(--text-md);
+    font-weight: var(--weight-heavy);
     letter-spacing: 1.5px;
     text-shadow: var(--shadow-text-scene);
     text-transform: uppercase;
@@ -270,9 +270,7 @@ canvas {
     border-radius: var(--radius-pixel);
     background: #101b1acc;
     color: #b8f5c8;
-    font:
-        11px/1.2 ui-monospace,
-        monospace;
+    font: var(--text-lg)/1.2 var(--font-ui);
     pointer-events: none;
 }
 .toast-stack {
@@ -296,8 +294,8 @@ canvas {
     border-radius: 7px;
     background: #17201eee;
     color: var(--color-text);
-    font-size: 10px;
-    font-weight: 800;
+    font-size: var(--text-md);
+    font-weight: var(--weight-heavy);
     letter-spacing: 0.5px;
     text-align: center;
     text-transform: uppercase;
@@ -367,9 +365,6 @@ canvas {
     justify-content: center;
     background: #09100d99;
     color: var(--color-text);
-    font-size: 28px;
-    font-weight: 900;
-    letter-spacing: 6px;
     text-shadow: 3px 3px 0 var(--color-shadow);
     user-select: none;
 }
@@ -381,8 +376,8 @@ canvas {
     letter-spacing: 4px;
 }
 .pause-hint {
-    font-size: 13px;
-    font-weight: 700;
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-bold);
     letter-spacing: 1px;
     opacity: 0.8;
 }
@@ -406,8 +401,8 @@ canvas {
 .modal-badge {
     align-self: center;
     color: var(--color-text-soft);
-    font-size: 8px;
-    font-weight: 850;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-heavy);
     letter-spacing: 2px;
 }
 h2 {
@@ -419,7 +414,7 @@ h2 {
 .modal p {
     margin: 0;
     color: var(--color-text-soft);
-    font-size: 11px;
+    font-size: var(--text-lg);
     line-height: 1.65;
 }
 
@@ -431,8 +426,8 @@ h2 {
     background: var(--color-accent);
     color: var(--color-green-ink);
     box-shadow: var(--shadow-pixel);
-    font-size: 11px;
-    font-weight: 900;
+    font-size: var(--text-lg);
+    font-weight: var(--weight-heavy);
     text-transform: uppercase;
 }
 .primary:hover {
@@ -449,8 +444,8 @@ h2 {
     background: var(--color-green);
     color: var(--color-green-ink);
     box-shadow: var(--shadow-pixel);
-    font-size: 11px;
-    font-weight: 900;
+    font-size: var(--text-lg);
+    font-weight: var(--weight-heavy);
     text-transform: uppercase;
 }
 .secondary:hover {
@@ -467,8 +462,8 @@ h2 {
 .modal .results-credit {
     margin: -6px 0 0;
     color: var(--color-accent);
-    font-size: 9px;
-    font-weight: 850;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-heavy);
     letter-spacing: 1.5px;
     overflow-wrap: anywhere;
 }
@@ -495,8 +490,8 @@ h2 {
     letter-spacing: -1px;
 }
 .results-delta {
-    font-size: 12px;
-    font-weight: 850;
+    font-size: var(--text-xl);
+    font-weight: var(--weight-heavy);
 }
 .results-delta.ahead {
     color: var(--color-green);
@@ -512,8 +507,8 @@ h2 {
     min-height: 24px;
     padding: 5px 12px;
     border-radius: var(--radius-pixel);
-    font-size: 10px;
-    font-weight: 900;
+    font-size: var(--text-md);
+    font-weight: var(--weight-heavy);
     letter-spacing: 2px;
     box-shadow: var(--shadow-pixel-small);
 }
@@ -550,16 +545,16 @@ h2 {
 }
 .results-stats dt {
     color: var(--color-text-muted);
-    font-size: 8px;
-    font-weight: 850;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-heavy);
     letter-spacing: 1.5px;
 }
 .results-stats dd {
     margin: 3px 0 0;
-    font-size: 12px;
+    font-size: var(--text-xl);
     /* Fixed, so the "…" placeholder and the rank are the same height. */
     line-height: 16px;
-    font-weight: 900;
+    font-weight: var(--weight-heavy);
     font-variant-numeric: tabular-nums;
 }
 .results-rival {
@@ -568,8 +563,8 @@ h2 {
     margin: 0;
     overflow: hidden;
     color: var(--color-text);
-    font-size: 10px;
-    font-weight: 850;
+    font-size: var(--text-md);
+    font-weight: var(--weight-heavy);
     line-height: 14px;
     letter-spacing: 1px;
     font-variant-numeric: tabular-nums;
@@ -608,8 +603,8 @@ h2 {
     padding: 0;
     list-style: none;
     color: var(--color-text-muted);
-    font-size: 9px;
-    font-weight: 800;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-heavy);
 }
 .results-targets:empty {
     display: none;
@@ -626,8 +621,8 @@ h2 {
     border: 0;
     background: none;
     color: var(--color-text-muted);
-    font-size: 10px;
-    font-weight: 900;
+    font-size: var(--text-md);
+    font-weight: var(--weight-heavy);
     letter-spacing: 1px;
     text-transform: uppercase;
 }
@@ -638,7 +633,7 @@ h2 {
 .results-hint {
     margin: 0;
     color: var(--color-text-faint);
-    font-size: 9px;
+    font-size: var(--text-sm);
     letter-spacing: 0.5px;
 }
 /* Keyboard shortcuts mean nothing on a touch screen. */
@@ -670,8 +665,8 @@ h2 {
 .setting-range output {
     min-width: 3ch;
     color: var(--color-text);
-    font-size: 11px;
-    font-weight: 850;
+    font-size: var(--text-lg);
+    font-weight: var(--weight-heavy);
     text-align: right;
     font-variant-numeric: tabular-nums;
 }
@@ -693,8 +688,8 @@ h2 {
     border-radius: 7px;
     background: var(--color-option);
     color: var(--color-text-soft);
-    font-size: 9px;
-    font-weight: 800;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-heavy);
     text-transform: uppercase;
 }
 .key-binding kbd {
@@ -712,7 +707,7 @@ h2 {
     grid-column: 1 / -1;
     margin: 0;
     color: var(--color-text-faint);
-    font-size: 9px;
+    font-size: var(--text-sm);
     line-height: 1.5;
 }
 .key-reset {
@@ -768,8 +763,8 @@ h2 {
     --px: 3px;
 }
 .control .caption {
-    font-size: 8px;
-    font-weight: 850;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-heavy);
     letter-spacing: 1px;
 }
 .control.lights[aria-pressed="false"] {
@@ -826,8 +821,8 @@ h2 {
 .settings-section {
     margin: 12px 0 0;
     color: var(--color-green);
-    font-size: 9px;
-    font-weight: 950;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-heavy);
     letter-spacing: 1.5px;
 }
 
@@ -842,8 +837,8 @@ h2 {
 
 .setting-label {
     color: var(--color-text-soft);
-    font-size: 9px;
-    font-weight: 850;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-heavy);
     letter-spacing: 1.2px;
 }
 .setting-options {
@@ -861,8 +856,8 @@ h2 {
     border-radius: 7px;
     background: var(--color-option);
     color: var(--color-text-soft);
-    font-size: 10px;
-    font-weight: 800;
+    font-size: var(--text-md);
+    font-weight: var(--weight-heavy);
     text-transform: uppercase;
 }
 .setting-option[aria-pressed="true"] {
@@ -926,7 +921,7 @@ h2 {
     display: grid;
     place-items: center;
     color: var(--color-text);
-    font: 700 12px/1 var(--font-ui);
+    font: var(--weight-bold) var(--text-xl)/1 var(--font-ui);
     letter-spacing: 0.2em;
     animation: boot-loader 0.2s 0.4s both;
 }
@@ -1013,8 +1008,8 @@ h2 {
     background: none;
     color: var(--color-text-soft);
     font: inherit;
-    font-size: 8px;
-    font-weight: 850;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-heavy);
     letter-spacing: 2px;
     cursor: pointer;
 }
@@ -1049,11 +1044,11 @@ h2 {
 }
 .continue-save .save-label {
     color: var(--color-green);
-    font-size: 8px;
+    font-size: var(--text-xs);
     letter-spacing: 1.5px;
 }
 .continue-save .save-label b {
-    font-weight: 950;
+    font-weight: var(--weight-heavy);
 }
 .continue-save-copy strong {
     max-width: 100%;
@@ -1065,7 +1060,7 @@ h2 {
 }
 .continue-save-copy small {
     color: var(--color-green-text-muted);
-    font-size: 8px;
+    font-size: var(--text-xs);
 }
 .continue-arrow {
     --px: 3px;
@@ -1073,8 +1068,8 @@ h2 {
 }
 .save-label {
     color: var(--color-text-muted);
-    font-size: 8px;
-    font-weight: 900;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-heavy);
     letter-spacing: 1.7px;
 }
 .save-slots {
@@ -1112,8 +1107,8 @@ h2 {
     border: 1px solid #704b47;
     background: #342a2a;
     color: #dc8a79;
-    font-size: 14px;
-    font-weight: 900;
+    font-size: var(--text-3xl);
+    font-weight: var(--weight-heavy);
 }
 .delete-save:hover,
 .delete-save.armed {
@@ -1122,13 +1117,13 @@ h2 {
     color: #fff0e8;
 }
 .delete-save.armed {
-    font-size: 8px;
+    font-size: var(--text-xs);
     letter-spacing: 0.4px;
 }
 .load-game-help {
     margin: 0 0 13px;
     color: var(--color-text-muted);
-    font-size: 9px;
+    font-size: var(--text-sm);
     line-height: 1.5;
 }
 .menu-action:disabled {
@@ -1148,13 +1143,13 @@ h2 {
 }
 .save-slot-copy strong {
     overflow: hidden;
-    font-size: 10px;
+    font-size: var(--text-md);
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 .save-slot-copy small {
     color: var(--color-text-muted);
-    font-size: 7px;
+    font-size: var(--text-2xs);
     line-height: 1.35;
 }
 .active-rider-art {
@@ -1180,11 +1175,11 @@ h2 {
     display: grid;
     place-items: center;
     border: 3px solid #ffffff4a;
-    border-radius: 50%;
+    border-radius: var(--radius-round);
     background: var(--color-male-bg);
     color: var(--color-male);
     font-size: 18px;
-    font-weight: 950;
+    font-weight: var(--weight-heavy);
 }
 .save-avatar canvas {
     width: 100%;
@@ -1256,7 +1251,7 @@ h2 {
     text-align: center;
 }
 .menu-action-compact span {
-    font-size: 11px;
+    font-size: var(--text-lg);
 }
 .menu-action:hover,
 .trail-card:hover,
@@ -1275,8 +1270,8 @@ h2 {
     }
 }
 .menu-action span {
-    font-size: 13px;
-    font-weight: 950;
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-heavy);
     letter-spacing: 1px;
 }
 .menu-action:not(.continue-save) > span {
@@ -1284,7 +1279,7 @@ h2 {
 }
 .menu-action small {
     color: var(--color-text-muted);
-    font-size: 8px;
+    font-size: var(--text-xs);
 }
 .menu-action-primary {
     background: var(--color-accent);
@@ -1333,8 +1328,8 @@ h2 {
     border: 1px solid var(--color-border);
     background: var(--color-surface);
     color: var(--color-text);
-    font-size: 9px;
-    font-weight: 850;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-heavy);
 }
 .trail-grid {
     display: grid;
@@ -1351,7 +1346,7 @@ h2 {
 .trail-import-status {
     margin: 0;
     color: var(--color-text-muted);
-    font-size: 8px;
+    font-size: var(--text-xs);
 }
 .trail-import-status.error {
     color: var(--color-danger-text);
@@ -1371,12 +1366,12 @@ h2 {
 }
 .trail-section-title strong {
     color: var(--color-green);
-    font-size: 10px;
+    font-size: var(--text-md);
     letter-spacing: 1.4px;
 }
 .trail-section-title small {
     color: var(--color-text-muted);
-    font-size: 7px;
+    font-size: var(--text-2xs);
     text-align: right;
 }
 .trail-card {
@@ -1431,12 +1426,12 @@ h2 {
     gap: 4px;
 }
 .trail-copy strong {
-    font-size: 10px;
+    font-size: var(--text-md);
 }
 .trail-copy small,
 .trail-best {
     color: var(--color-text-muted);
-    font-size: 8px;
+    font-size: var(--text-xs);
 }
 .leaderboard-trail {
     margin-bottom: 10px;
@@ -1502,11 +1497,11 @@ h2 {
     border-color: var(--color-accent);
 }
 .leaderboard-pick .trail-number {
-    font-size: 13px;
+    font-size: var(--text-2xl);
 }
 .leaderboard-pick strong {
     overflow: hidden;
-    font-size: 10px;
+    font-size: var(--text-md);
     letter-spacing: 1px;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1585,8 +1580,8 @@ h2 {
 }
 .leaderboard-rank {
     color: var(--color-text-muted);
-    font-size: 14px;
-    font-weight: 950;
+    font-size: var(--text-3xl);
+    font-weight: var(--weight-heavy);
     font-variant-numeric: tabular-nums;
 }
 .leaderboard-row.open .leaderboard-rank {
@@ -1620,20 +1615,20 @@ h2 {
 }
 .leaderboard-copy strong {
     overflow: hidden;
-    font-size: 10px;
+    font-size: var(--text-md);
     letter-spacing: 1px;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 .leaderboard-copy small {
     color: var(--color-text-muted);
-    font-size: 7px;
+    font-size: var(--text-2xs);
     letter-spacing: 0.6px;
 }
 .leaderboard-time {
     color: var(--color-text);
-    font-size: 13px;
-    font-weight: 950;
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-heavy);
     font-variant-numeric: tabular-nums;
 }
 .podium-1 .leaderboard-time {
@@ -1641,8 +1636,8 @@ h2 {
 }
 .leaderboard-open {
     color: var(--color-text-muted);
-    font-size: 8px;
-    font-weight: 850;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-heavy);
     letter-spacing: 1.2px;
     opacity: 0.6;
 }
@@ -1655,7 +1650,7 @@ h2 {
     border-left: 3px solid var(--color-accent);
     background: #1f2d30;
     color: var(--color-text-muted);
-    font-size: 10px;
+    font-size: var(--text-md);
     line-height: 1.6;
 }
 
@@ -1699,14 +1694,14 @@ h2 {
     gap: 2px;
 }
 .look-tab b {
-    font-size: 10px;
-    font-weight: 900;
+    font-size: var(--text-md);
+    font-weight: var(--weight-heavy);
     letter-spacing: 1px;
 }
 .look-tab small {
     overflow: hidden;
     color: var(--color-text-muted);
-    font-size: 8px;
+    font-size: var(--text-xs);
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -1802,13 +1797,13 @@ h2 {
 .look-section-head h4 {
     margin: 0;
     flex: 1;
-    font-size: 10px;
-    font-weight: 950;
+    font-size: var(--text-md);
+    font-weight: var(--weight-heavy);
     letter-spacing: 1.5px;
 }
 .look-section-head small {
     color: var(--color-text-muted);
-    font-size: 8px;
+    font-size: var(--text-xs);
     letter-spacing: 1px;
 }
 .look-detail {
@@ -1819,12 +1814,12 @@ h2 {
 }
 .look-detail b {
     color: var(--color-text);
-    font-size: 10px;
+    font-size: var(--text-md);
     letter-spacing: 1px;
 }
 .look-detail small {
     color: var(--color-text-muted);
-    font-size: 9px;
+    font-size: var(--text-sm);
 }
 .look-options {
     display: grid;
@@ -1853,7 +1848,7 @@ h2 {
     max-width: 100%;
     overflow: hidden;
     color: var(--color-text-muted);
-    font-size: 8px;
+    font-size: var(--text-xs);
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -1991,7 +1986,7 @@ h2 {
     border: 1px solid var(--color-border);
     background: var(--color-surface);
     color: var(--color-text);
-    font-size: 11px;
+    font-size: var(--text-lg);
     letter-spacing: 1.5px;
 }
 .look-gender:not([aria-checked="true"]):hover,
@@ -2012,8 +2007,8 @@ h2 {
     padding: 5px 8px 4px;
     border-bottom: 3px solid var(--color-border);
     color: var(--color-text-muted);
-    font-size: 8px;
-    font-weight: 900;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-heavy);
     letter-spacing: 1.5px;
 }
 .save-steps span.active {
@@ -2046,19 +2041,19 @@ h2 {
 }
 .how-number {
     color: var(--color-accent);
-    font-size: 8px;
-    font-weight: 950;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-heavy);
     letter-spacing: 1.5px;
 }
 .how-card h4 {
     margin: 5px 0 7px;
-    font-size: 12px;
+    font-size: var(--text-xl);
     text-transform: uppercase;
 }
 .how-card p {
     margin: 0;
     color: var(--color-text-muted);
-    font-size: 9px;
+    font-size: var(--text-sm);
     line-height: 1.55;
 }
 .whats-new-badge {
@@ -2066,8 +2061,8 @@ h2 {
     padding: 1px 4px;
     background: var(--color-accent);
     color: var(--color-shell);
-    font-size: 7px;
-    font-weight: 950;
+    font-size: var(--text-2xs);
+    font-weight: var(--weight-heavy);
     letter-spacing: 1px;
     vertical-align: 1px;
 }
@@ -2093,20 +2088,20 @@ h2 {
 }
 .changelog-release h4 {
     margin: 0;
-    font-size: 13px;
+    font-size: var(--text-2xl);
     letter-spacing: 1px;
 }
 .changelog-latest {
     margin-left: 6px;
     color: var(--color-green);
-    font-size: 7px;
+    font-size: var(--text-2xs);
     letter-spacing: 1.5px;
     vertical-align: middle;
 }
 .changelog-release time {
     color: var(--color-text-muted);
-    font-size: 8px;
-    font-weight: 850;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-heavy);
     letter-spacing: 1px;
 }
 .changelog-release ul {
@@ -2121,19 +2116,19 @@ h2 {
     grid-template-columns: 64px minmax(0, 1fr);
     gap: 10px;
     align-items: baseline;
-    font-size: 9px;
+    font-size: var(--text-sm);
     line-height: 1.55;
 }
 .changelog-type {
-    font-size: 7px;
-    font-weight: 950;
+    font-size: var(--text-2xs);
+    font-weight: var(--weight-heavy);
     letter-spacing: 1.2px;
 }
 .changelog-type[data-type="heads-up"] {
     color: #ffd166;
 }
 .changelog-type[data-type="heads-up"] + span {
-    font-weight: 850;
+    font-weight: var(--weight-heavy);
 }
 .changelog-type[data-type="new"] {
     color: var(--color-green);
@@ -2178,19 +2173,19 @@ h2 {
     gap: 4px;
 }
 .achievement-copy strong {
-    font-size: 10px;
+    font-size: var(--text-md);
 }
 .achievement-copy small {
     color: var(--color-text-muted);
-    font-size: 8px;
+    font-size: var(--text-xs);
     line-height: 1.4;
 }
 .achievement-state {
     /* Wide enough for 2,500 / 2,500, so every progress bar ends in line. */
     min-width: 88px;
-    font-size: 8px;
+    font-size: var(--text-xs);
     text-align: right;
-    font-weight: 900;
+    font-weight: var(--weight-heavy);
     letter-spacing: 1px;
     white-space: nowrap;
 }
@@ -2213,7 +2208,7 @@ kbd {
     background: var(--color-shell);
     color: var(--color-text);
     font: inherit;
-    font-weight: 900;
+    font-weight: var(--weight-heavy);
 }
 
 .pixel-ui .viewport,
@@ -2335,7 +2330,7 @@ kbd {
     .replay-label {
         left: 11px;
         bottom: 38px;
-        font-size: 9px;
+        font-size: var(--text-sm);
     }
     .timer-row {
         min-height: 16px;
@@ -2488,7 +2483,7 @@ kbd {
         --px: 2px;
     }
     .control .caption {
-        font-size: 9px;
+        font-size: var(--text-sm);
     }
 }
 
@@ -2517,8 +2512,8 @@ kbd {
     box-shadow: inset 3px 3px 0 var(--color-shadow);
     caret-color: var(--color-accent);
     font: inherit;
-    font-size: 16px;
-    font-weight: 850;
+    font-size: var(--text-input);
+    font-weight: var(--weight-heavy);
     letter-spacing: 1px;
     appearance: none;
 }
@@ -2545,13 +2540,13 @@ kbd {
 }
 .save-mode small {
     color: var(--color-text-muted);
-    font-size: 9px;
+    font-size: var(--text-sm);
     line-height: 1.5;
 }
 .account-status {
     margin: 10px 0 0;
     color: var(--color-text-muted);
-    font-size: 9px;
+    font-size: var(--text-sm);
     line-height: 1.5;
 }
 .account-status.error {
@@ -2569,7 +2564,7 @@ kbd {
 }
 .account-login small {
     color: var(--color-text-muted);
-    font-size: 9px;
+    font-size: var(--text-sm);
 }
 /* Returning riders log in here before the new-rider form. */
 .account-login-top {
@@ -2594,8 +2589,8 @@ kbd {
     border: 1px solid var(--color-border);
     background: var(--color-surface);
     color: var(--color-text);
-    font-size: 8px;
-    font-weight: 900;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-heavy);
     letter-spacing: 0.4px;
 }
 .link-save:hover {
@@ -2659,9 +2654,7 @@ html[data-sandbox] body::after {
     border-radius: 4px;
     background: #c2410c;
     color: #fff;
-    font:
-        700 10px/1 ui-monospace,
-        monospace;
+    font: var(--weight-bold) var(--text-md)/1 var(--font-ui);
     letter-spacing: 1px;
     pointer-events: none;
 }

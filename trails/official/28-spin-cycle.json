@@ -175,15 +175,6 @@
             "edge": "straight"
           },
           {
-            "id": "street-16",
-            "x": 2900,
-            "y": 370,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
             "id": "street-17",
             "x": 2900,
             "y": 70,
