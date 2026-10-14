@@ -13,7 +13,7 @@ import {
   createAreaConstraint, createSliderConstraint, createAxisLimitConstraint, signedTriangleArea, resetConstraintMultiplier,
   solveXpbdDistanceConstraint, solveXpbdConstraint, dampingPerIteration,
   dampDistanceConstraint, sweepCircleSegment, riderTorqueMultiplier,
-  riderTerrainTorqueScale, riderSpinTorqueScale,
+  riderTerrainTorqueScale, riderTiltTorqueScale, riderSpinTorqueScale,
   advanceAfterTimeOfImpact, solveWheelContactVelocity
 } from '../js/physics.js';
 
@@ -256,6 +256,10 @@ for (const make of [
   assert.ok(Math.abs(spinMoment(points, before)) < .01, `a ${constraint.type} constraint adds no spin to the bike: ${spinMoment(points, before)}`);
 }
 
+const quarter = Math.PI / 2;
+assert.equal(riderTiltTorqueScale(0, -1, 0, -1, quarter * .8, quarter * 1.1), 1, 'an upright bike keeps full ground lean leverage');
+assert.equal(riderTiltTorqueScale(0, 1, 0, -1, quarter * .8, quarter * 1.1), 0, 'an upside-down bike has no ground lean leverage');
+assert.ok(approximatelyEqual(riderTiltTorqueScale(1, 0, 0, -1, quarter * .8, quarter * 1.2), .5), 'ground lean leverage fades linearly between the tilt limits');
 assert.equal(riderSpinTorqueScale(-12, 3, 10), 1, 'lean against the current spin is never reduced');
 assert.equal(riderSpinTorqueScale(12, 7, 10), 1, 'lean keeps full strength below three quarters of the spin cap');
 assert.ok(approximatelyEqual(riderSpinTorqueScale(12, 8.75, 10), .5), 'lean fades over the last quarter of the spin cap');

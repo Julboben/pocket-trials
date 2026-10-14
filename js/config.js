@@ -132,19 +132,11 @@ export const ENGINE = {
 export const XPBD_MOTOR_REACTION_SCALE = 1;
 export const XPBD_RIDER_GROUND_ANGULAR_ACCELERATION = 28;
 export const XPBD_RIDER_AIR_ANGULAR_ACCELERATION = 12;
-// On one wheel, lean that tips the bike toward its balance point, where the
-// centre of mass stands straight above that wheel, fades out over the last
-// this many px (measured level, as gravity sees it). A rider cannot push a
-// balanced bike over; leaning further only shifts a little weight. Lean that
-// brings it back keeps its full strength, and with both wheels down nothing
-// fades, so popping a wheelie or the front onto a step is unchanged.
-export const XPBD_RIDER_BALANCE_FADE = 12;
-// Within that fade a held lean steers the bike's spin toward
-// XPBD_RIDER_MAX_GROUND_SPIN, cut back by the fade and turning back past the
-// balance point, at this response (1/s), so the bike comes up to its balance
-// point and stops there instead of carrying over it. The lean's own strength
-// caps the push.
-export const XPBD_RIDER_BALANCE_RESPONSE = 6;
+// Ground lean fades out between these tilts (radians from the ground normal),
+// so holding a lean pops a wheelie or stoppie instead of spinning the bike
+// around its contact wheel.
+export const XPBD_RIDER_LEVERAGE_FADE_START = 70 * Math.PI / 180;
+export const XPBD_RIDER_LEVERAGE_FADE_END = 100 * Math.PI / 180;
 // A held air lean steers the spin toward this rate (rad/s) instead of pushing
 // with constant torque, so a flip turns at an even pace rather than speeding
 // up as the bike goes over. The response (1/s) sets how quickly it gets there;
