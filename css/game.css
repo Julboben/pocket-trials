@@ -1000,6 +1000,7 @@ h2 {
 /* Drawn on the same block size as the wheel logo beside it. */
 .menu-hero h2 {
     font-size: calc(var(--font-display-step) * 3);
+    text-shadow: var(--shadow-pixel);
     text-transform: uppercase;
 }
 .app-version {
@@ -1274,8 +1275,11 @@ h2 {
     font-weight: var(--weight-heavy);
     letter-spacing: 1px;
 }
+/* One extra block between letters: the font's own one-block gap packs
+   all-caps words like LEADERBOARD tight at this size. */
 .menu-action:not(.continue-save) > span {
     font-size: var(--font-display-step);
+    letter-spacing: 1px;
 }
 .menu-action small {
     color: var(--color-text-muted);

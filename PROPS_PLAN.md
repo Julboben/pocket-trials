@@ -110,7 +110,7 @@ A plan for the props to add to each level theme, plus guidelines for making them
 - [ ] **Warning signs**: before steep drops or spikes, using a skull, a ⚠ or a "!" board.
 - [ ] **Arrow signs**: point the way on routes that double back or loop.
 - [ ] **Halfway flag**: lights up when passed and matches the split times.
-- [ ] **Graffiti-style tutorial drawings**: in The Orchard, showing the controls (lean back, flip, wheelie).
+- [ ] **Graffiti-style tutorial drawings**: Showing the controls (lean back, flip, light etc).
 - [ ] **"Missed apple" hint**: a basket of apples near a hidden route.
 
 ---
