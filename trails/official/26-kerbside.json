@@ -1,15 +1,15 @@
 {
   "name": "Kerbside",
   "label": "KERBSIDE / 26",
-  "description": "Step-ups. Every kerb and stair has a vertical face, so you can't just roll up it: just before the face, lean back and give it a burst of throttle to pop the front wheel up, then lean forward as the rear wheel hits so it climbs over. The kerbs come first, then a flight of three 24 unit stairs, a drop back to the street, and finally four 30 unit stairs up to the plaza.",
-  "start": {
-    "x": 0,
-    "y": null,
-    "facing": 1
-  },
   "finish": {
     "x": 2630,
     "y": null
+  },
+  "description": "Step-ups. Every kerb and stair has a vertical face, so you can't just roll up it: just before the face, lean back and give it a burst of throttle to pop the front wheel up, then lean forward as the rear wheel hits so it climbs over. The kerbs come first, then a flight of three 24 unit stairs, a drop back to the street, and finally four 30 unit stairs up to the plaza.",
+  "start": {
+    "x": 90,
+    "y": null,
+    "facing": 1
   },
   "terrainBlocks": [
     {
@@ -289,15 +289,6 @@
             "edge": "straight"
           },
           {
-            "id": "street-30",
-            "x": 2730,
-            "y": 280,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
             "id": "street-31",
             "x": 2730,
             "y": -20,
@@ -355,7 +346,7 @@
     {
       "x": -80,
       "y": null,
-      "type": "street-lamp",
+      "type": "lamp",
       "layer": "back"
     },
     {
@@ -404,7 +395,7 @@
     {
       "x": 1380,
       "y": null,
-      "type": "street-lamp",
+      "type": "lamp",
       "layer": "back"
     },
     {
@@ -447,13 +438,13 @@
     {
       "x": 2510,
       "y": null,
-      "type": "street-lamp",
+      "type": "lamp",
       "layer": "back"
     },
     {
       "x": 2570,
       "y": null,
-      "type": "bench",
+      "type": "fence",
       "layer": "back"
     }
   ],

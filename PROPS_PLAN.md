@@ -57,26 +57,26 @@ A plan for the props to add to each level theme, plus guidelines for making them
 
 ## 🏙️ City
 
-- [ ] **Traffic cones**
-- [ ] **Crowd-control barriers**
-- [ ] **Dumpster**
-- [ ] **Graffiti**: wall props, with the Hjulben logo hidden in some of them.
-- [ ] **Street lamp**: turns on at night and lights a pool on the ground.
-- [ ] **Pigeons**: fly off when the bike comes close.
-- [ ] **Construction crane**: in the background.
-- [ ] **Scaffolding**: in the foreground.
+- [x] **Traffic cones**
+- [x] **Dumpster**
+- [x] **Graffiti**: wall props, with the Hjulben logo hidden in some of them.
+- [x] **Street lamp**: turns on at night and lights a pool on the ground.
+- [x] **Pigeons**: fly off when the bike comes close.
+- [x] **Construction crane**: in the background.
+- [x] **Scaffolding**: in the foreground.
+- [ ] **Bench**
 
 ## 🕳️ Caves and underground
 *For the new terrain.*
 
-- [ ] **Hanging roots**: builds on the roots already started.
-- [ ] **Stalactites**
-- [ ] **Glowing mushrooms**
-- [ ] **Mine cart on rails**: wall prop.
-- [ ] **Wooden support beams**: wall prop.
-- [ ] **Dripping water**: falls one pixel at a time.
-- [ ] **Lantern**: lights up the surrounding cave wall.
-- [ ] **Bats**: scatter when you ride in.
+- [x] **Hanging roots**: builds on the roots already started.
+- [x] **Stalactites**
+- [x] **Glowing mushrooms**
+- [x] **Mine cart on rails**: wall prop.
+- [x] **Wooden support beams**: wall prop.
+- [x] **Dripping water**: falls one pixel at a time.
+- [x] **Lantern**: lights up the surrounding cave wall.
+- [x] **Bats**: scatter when you ride in.
 
 ## 🌊 Water
 *Goes with the water bodies.*
@@ -87,7 +87,6 @@ A plan for the props to add to each level theme, plus guidelines for making them
 - [x] **Fish**: swims to and fro, and darts off when the bike comes close.
 - [x] **Duck**: floats and dabbles, and takes off when the bike comes close.
 - [ ] **Frog on a lily pad**: jumps into the water as you pass.
-- [ ] **Jetty**: a wooden landing stage with posts down to the bed.
 - [ ] **Rowing boat**: moored, bobbing with the ripples.
 - [ ] **Bubbles**: rise now and then from the bed.
 - [ ] **Dragonflies**: hover over the surface on warm days.

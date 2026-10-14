@@ -21,13 +21,14 @@ function itemsOf(select) {
   return [...select.options].map((option) => ({
     value: option.value,
     text: clean(option.textContent),
+    marker: option.dataset.marker ?? "",
     group: option.parentElement?.tagName === "OPTGROUP" ? option.parentElement.label : "",
   }));
 }
 
-// Every word typed has to appear in the name, the value or the group.
+// Every word typed has to appear in the name, the marker, the value or the group.
 function matches(item, query) {
-  const haystack = `${item.text} ${item.value} ${item.group}`.toLowerCase();
+  const haystack = `${item.text} ${item.marker} ${item.value} ${item.group}`.toLowerCase();
   return query
     .toLowerCase()
     .split(/\s+/)
@@ -45,6 +46,14 @@ function thumbnailImage(thumbnail, value) {
     image.alt = "";
   }
   return image;
+}
+
+/** An option's number, such as a trail's 01 or B01, shown before its name. */
+function markerLabel(marker) {
+  const node = document.createElement("span");
+  node.className = "picker-marker";
+  node.textContent = marker;
+  return node;
 }
 
 function optionNodes() {
@@ -128,6 +137,7 @@ function renderResults() {
     option.setAttribute("role", "option");
     option.setAttribute("aria-selected", String(item.value === session.current));
     if (session.thumbnail) option.append(thumbnailImage(session.thumbnail, item.value));
+    if (item.marker) option.append(markerLabel(item.marker));
     const label = document.createElement("span");
     label.textContent = item.text;
     option.append(label);
@@ -261,6 +271,7 @@ export function pickerSelect(select, { title, thumbnail = null }) {
     label.textContent = option ? clean(option.textContent) : "";
     trigger.replaceChildren(
       ...(thumbnail && option ? [thumbnailImage(thumbnail, option.value)] : []),
+      ...(option?.dataset.marker ? [markerLabel(option.dataset.marker)] : []),
       label,
     );
   };

@@ -275,11 +275,18 @@ export function download(filename, content, type) {
 
 // The trail picker groups its options natively: official trails first, then
 // bonus trails, then custom ones split by where they are stored. The group heading says which is
-// which, so each option needs only its name. Option values stay the entry's
-// index in trailEntries, which is what selectEntry() expects.
+// which, so each option needs only its name and its number, the same one the
+// game shows: 01, B01 or C01, counted within its source. Option values stay
+// the entry's index in trailEntries, which is what selectEntry() expects.
 export function buildPicker() {
   const picker = $("trail-picker");
-  const entries = trailEntries.map((entry, index) => ({ entry, index }));
+  const prefix = { official: "", bonus: "B", custom: "C" };
+  const counts = {};
+  const entries = trailEntries.map((entry, index) => {
+    counts[entry.source] = (counts[entry.source] ?? 0) + 1;
+    const marker = `${prefix[entry.source] ?? ""}${String(counts[entry.source]).padStart(2, "0")}`;
+    return { entry, index, marker };
+  });
   const groups = [
     ["OFFICIAL", (entry) => entry.source === "official"],
     ["BONUS", (entry) => entry.source === "bonus"],
@@ -296,9 +303,10 @@ export function buildPicker() {
       .map(([label, items]) => {
         const group = document.createElement("optgroup");
         group.label = label;
-        for (const { entry, index } of items) {
+        for (const { entry, index, marker } of items) {
           const option = document.createElement("option");
           option.value = index;
+          option.dataset.marker = marker;
           option.textContent = entry.trail.name;
           group.append(option);
         }

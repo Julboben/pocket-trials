@@ -264,6 +264,8 @@ html[data-sandbox] body::after {
 .editor-header .picker-trigger { min-width: 180px; max-width: 280px; }
 .picker-trigger-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .picker-trigger .picker-thumb { width: 24px; height: 24px; flex: none; }
+.picker-marker { min-width: 3ch; flex: none; color: var(--muted); font-variant-numeric: tabular-nums; }
+.picker-option[aria-selected="true"] .picker-marker { color: inherit; }
 .picker-thumb { display: block; object-fit: contain; image-rendering: pixelated; }
 .picker-dialog { width: min(720px, calc(100vw - 32px)); }
 .picker-dialog:not(.picker-grid) { width: min(480px, calc(100vw - 32px)); }

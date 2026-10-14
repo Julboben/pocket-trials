@@ -2,6 +2,15 @@
     box-sizing: border-box;
 }
 
+/* Jersey 10 by Sarah Cadigan-Fried, SIL Open Font License (fonts/OFL.txt). */
+@font-face {
+    font-family: "Jersey 10";
+    src: url("../fonts/Jersey10-Regular.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
 :root {
     color-scheme: dark;
 
@@ -38,6 +47,11 @@
     --shadow-pixel-small: 2px 2px 0 var(--color-shadow);
     --shadow-shell: 0 18px 55px #0006;
     --font-ui: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    /* Headings only; small text stays in --font-ui. Jersey 10 draws on a
+       grid of 1400 / 75 units, so multiples of this size land every block on
+       whole pixels (one step: 1px blocks, 10px capitals). */
+    --font-display: "Jersey 10", var(--font-ui);
+    --font-display-step: 18.6667px;
 }
 
 /* No rubber-band bounce or pull-to-refresh; the page still scrolls normally
@@ -68,6 +82,21 @@ body {
 button,
 select {
     font: inherit;
+}
+/* The pixel font has a single weight, so the bold the headings used to ask
+   for would only smear it; tracking is reset because its letters already
+   carry a one-block gap. */
+h2,
+.pause-title,
+.scene-label,
+.menu-view-head h3,
+.menu-action:not(.continue-save) > span,
+.continue-save-copy strong,
+.trail-number {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-synthesis: none;
+    letter-spacing: 0;
 }
 button {
     cursor: pointer;
@@ -249,26 +278,23 @@ canvas {
     align-items: flex-end;
     gap: 9px;
     color: #f7f0dc;
-    font-size: 11px;
-    font-weight: 950;
-    letter-spacing: 1.5px;
-    line-height: 1;
+    font-size: var(--font-display-step);
+    line-height: 0.75;
     text-shadow: 2px 2px 0 #172820aa;
     white-space: nowrap;
 }
 .scene-label::before {
     content: attr(data-trail-number);
     color: var(--color-accent);
-    font-size: 24px;
-    letter-spacing: -1px;
-    line-height: 0.8;
+    font-size: calc(var(--font-display-step) * 2);
+    line-height: 0.75;
 }
 .scene-label::after {
     content: "";
     position: absolute;
     right: 0;
     bottom: -7px;
-    left: 35px;
+    left: 41px;
     height: 2px;
     background: linear-gradient(90deg, var(--color-accent), transparent);
 }
@@ -401,6 +427,10 @@ canvas {
 .pause-overlay[hidden] {
     display: none;
 }
+.pause-title {
+    font-size: calc(var(--font-display-step) * 2);
+    letter-spacing: 4px;
+}
 .pause-hint {
     font-size: 13px;
     font-weight: 700;
@@ -433,9 +463,8 @@ canvas {
 }
 h2 {
     margin: 0;
-    font-size: 28px;
-    line-height: 1.08;
-    letter-spacing: -1px;
+    font-size: calc(var(--font-display-step) * 2);
+    line-height: 1;
     white-space: pre-line;
 }
 .modal p {
@@ -1024,9 +1053,9 @@ h2 {
     color: var(--color-accent);
     display: block;
 }
+/* Drawn on the same block size as the wheel logo beside it. */
 .menu-hero h2 {
-    font-size: clamp(32px, 6vw, 54px);
-    letter-spacing: -3px;
+    font-size: calc(var(--font-display-step) * 3);
     text-transform: uppercase;
 }
 .app-version {
@@ -1078,8 +1107,12 @@ h2 {
     font-weight: 950;
 }
 .continue-save-copy strong {
-    font-size: 15px;
-    letter-spacing: 1px;
+    max-width: 100%;
+    overflow: hidden;
+    font-size: calc(var(--font-display-step) * 1.5);
+    line-height: 0.8;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .continue-save-copy small {
     color: #a9bbb4;
@@ -1297,6 +1330,9 @@ h2 {
     font-weight: 950;
     letter-spacing: 1px;
 }
+.menu-action:not(.continue-save) > span {
+    font-size: var(--font-display-step);
+}
 .menu-action small {
     color: var(--color-text-muted);
     font-size: 8px;
@@ -1339,7 +1375,8 @@ h2 {
 }
 .menu-view-head h3 {
     margin: 5px 0 0;
-    font-size: 24px;
+    font-size: calc(var(--font-display-step) * 2);
+    line-height: 0.9;
     text-transform: uppercase;
 }
 .menu-back {
@@ -1436,8 +1473,8 @@ h2 {
 }
 .trail-number {
     color: var(--color-accent);
-    font-size: 17px;
-    font-weight: 950;
+    font-size: calc(var(--font-display-step) * 1.5);
+    line-height: 0.75;
 }
 .trail-copy {
     display: flex;
@@ -2338,14 +2375,13 @@ kbd {
     .scene-label {
         left: 11px;
         bottom: 17px;
-        font-size: 9px;
         gap: 7px;
     }
     .scene-label::before {
-        font-size: 20px;
+        font-size: calc(var(--font-display-step) * 1.5);
     }
     .scene-label::after {
-        left: 29px;
+        left: 31px;
     }
     .replay-label {
         left: 11px;
@@ -2387,8 +2423,7 @@ kbd {
         --px: 2px;
     }
     .menu-hero h2 {
-        font-size: clamp(34px, 12vw, 48px);
-        letter-spacing: -2px;
+        font-size: calc(var(--font-display-step) * 2);
     }
 
     .trail-grid {
@@ -2449,7 +2484,7 @@ kbd {
         padding: 20px 15px;
     }
     h2 {
-        font-size: 24px;
+        font-size: calc(var(--font-display-step) * 1.5);
     }
 }
 
@@ -2647,8 +2682,7 @@ kbd {
         --px: 1.5px;
     }
     .menu-hero h2 {
-        font-size: 30px;
-        letter-spacing: -2px;
+        font-size: calc(var(--font-display-step) * 1.5);
     }
     .menu-action {
         min-height: 58px;

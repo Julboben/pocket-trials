@@ -1142,7 +1142,10 @@ export function validateBlock(block) {
       }
       const next = nodes[(index + 1) % nodes.length];
       if (Math.hypot(node.x - next.x, node.y - next.y) < COINCIDENT_EPSILON) {
-        error(`Block ${which} has coincident consecutive points.`);
+        const where = which === 'outer' ? 'outline' : which;
+        error(
+          `Block ${where} has two points on top of each other (points ${index + 1} and ${(index + 1) % nodes.length + 1} at x ${Math.round(node.x)}, y ${Math.round(node.y)}). Delete one of them.`,
+        );
       }
     }
     const points = flattenBoundary(boundary).points;
