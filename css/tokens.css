@@ -1,0 +1,112 @@
+/* Design tokens shared by the game (index.html) and the trail editor
+   (editor.html). Change a colour or font here and both pages follow; keep
+   page stylesheets to var() references rather than new literals. */
+
+/* Jersey 10 by Sarah Cadigan-Fried, SIL Open Font License (fonts/OFL.txt). */
+@font-face {
+    font-family: "Jersey 10";
+    src: url("../fonts/Jersey10-Regular.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+:root {
+    color-scheme: dark;
+
+    /* Base palette */
+    --color-page: #111c20;
+    --color-shell: #17262b;
+    --color-shell-translucent: #17262bdd;
+    --color-surface: #23353b;
+    --color-surface-raised: #2b3e45;
+    --color-surface-hover: #405962;
+    --color-border: #425257;
+    --color-shadow: #0d1b20;
+    --color-modal: #17262b;
+    --color-backdrop: #102822cc;
+    /* The light paper behind trail previews and rider art. */
+    --color-paper: #eae9d9;
+
+    /* Text */
+    --color-text: #f6f3e8;
+    --color-text-soft: #aeb7b3;
+    --color-text-muted: #91a7a8;
+    --color-text-faint: #7f9494;
+
+    /* Accent: the orange call to action, and the ink that sits on it */
+    --color-accent: #ff8952;
+    --color-accent-hover: #ff9a68;
+    --color-accent-ink: #241710;
+    --color-accent-ink-muted: #563021;
+    --color-focus: #ffad76;
+
+    /* Green: secondary highlight, custom trails, the continue card */
+    --color-green: #c6dfa9;
+    --color-green-hover: #e1f3ca;
+    --color-green-ink: #243c31;
+    --color-green-surface: #29433c;
+    --color-green-surface-hover: #34564c;
+    --color-green-border: #718f7f;
+    --color-green-text-muted: #a9bbb4;
+
+    /* Gold: bonus trails and achievements */
+    --color-gold: #f0c45a;
+    --color-gold-surface: #3d3324;
+    --color-gold-border: #8f7a52;
+
+    /* Medals */
+    --color-medal-gold: #f1c75b;
+    --color-medal-silver: #c9d2d0;
+    --color-medal-bronze: #c98553;
+
+    /* Status */
+    --color-ahead: #9fd88a;
+    --color-behind: #ff9f87;
+    --color-danger: #e5484d;
+    --color-danger-text: #f0a08c;
+    --color-danger-border: #75463f;
+    /* Editor validation and toasts: error, warning, info */
+    --color-error: #ec7044;
+    --color-error-surface: #3a2320;
+    --color-error-text: #f5c4b4;
+    --color-warning: #e8bb66;
+    --color-warning-ink: #2d2410;
+    --color-warning-surface: #2f2a1c;
+    --color-warning-text: #f1dca8;
+    --color-info: #83d1ce;
+
+    /* Lists, inputs, option buttons, and other controls */
+    --color-row: #213338;
+    --color-row-open: #1c2c30;
+    --color-row-hover: #2a4047;
+    --color-input: #142126;
+    --color-option: #252d2e;
+
+    /* Rider avatars */
+    --color-male-bg: #dce4d8;
+    --color-male: #4f695d;
+
+    /* Shape and elevation */
+    --radius-pixel: 2px;
+    --radius-shell: 22px;
+    --radius-round: 50%;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --shadow-pixel: 3px 3px 0 var(--color-shadow);
+    --shadow-pixel-small: 2px 2px 0 var(--color-shadow);
+    --shadow-modal: 8px 8px 0 #0d1b2070;
+    --shadow-shell: 0 18px 55px #0006;
+    /* Text laid over the trail, so it stays readable on a bright sky. */
+    --shadow-text-scene: 2px 2px 0 #172820aa;
+
+    /* Type */
+    --font-ui: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    /* Headings only; small text stays in --font-ui. Jersey 10 draws on a
+       grid of 1400 / 75 units, so multiples of this size land every block on
+       whole pixels (one step: 1px blocks, 10px capitals). */
+    --font-display: "Jersey 10", var(--font-ui);
+    --font-display-step: 18.6667px;
+}

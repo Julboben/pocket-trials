@@ -2,57 +2,6 @@
     box-sizing: border-box;
 }
 
-/* Jersey 10 by Sarah Cadigan-Fried, SIL Open Font License (fonts/OFL.txt). */
-@font-face {
-    font-family: "Jersey 10";
-    src: url("../fonts/Jersey10-Regular.woff2") format("woff2");
-    font-weight: 400;
-    font-style: normal;
-    font-display: swap;
-}
-
-:root {
-    color-scheme: dark;
-
-    /* Color tokens */
-    --color-page: #111c20;
-    --color-shell: #17262b;
-    --color-surface: #23353b;
-    --color-surface-raised: #2b3e45;
-    --color-surface-hover: #405962;
-    --color-border: #425257;
-    --color-text: #f6f3e8;
-    --color-text-muted: #91a7a8;
-    --color-accent: #ff8952;
-    --color-accent-hover: #ff9a68;
-    --color-green: #c6dfa9;
-    --color-green-hover: #e1f3ca;
-    --color-green-ink: #243c31;
-    --color-shadow: #0d1b20;
-    --color-modal: #17262b;
-    --color-backdrop: #102822cc;
-    --color-male-bg: #dce4d8;
-    --color-male: #4f695d;
-    --color-focus: #ffad76;
-
-    /* Shape, spacing, and elevation tokens */
-    --radius-pixel: 2px;
-    --radius-shell: 22px;
-    --radius-round: 50%;
-    --space-1: 4px;
-    --space-2: 8px;
-    --space-3: 12px;
-    --space-4: 16px;
-    --shadow-pixel: 3px 3px 0 var(--color-shadow);
-    --shadow-pixel-small: 2px 2px 0 var(--color-shadow);
-    --shadow-shell: 0 18px 55px #0006;
-    --font-ui: ui-monospace, "SFMono-Regular", Consolas, monospace;
-    /* Headings only; small text stays in --font-ui. Jersey 10 draws on a
-       grid of 1400 / 75 units, so multiples of this size land every block on
-       whole pixels (one step: 1px blocks, 10px capitals). */
-    --font-display: "Jersey 10", var(--font-ui);
-    --font-display-step: 18.6667px;
-}
 
 /* No rubber-band bounce or pull-to-refresh; the page still scrolls normally
    when its content is genuinely taller than the screen. */
@@ -154,7 +103,7 @@ select:focus-visible {
     overflow: hidden;
     border: 0;
     border-radius: var(--radius-pixel);
-    background: #e9e9d9;
+    background: var(--color-paper);
 }
 canvas {
     display: block;
@@ -181,7 +130,7 @@ canvas {
     border: 1px solid #ffffff24;
     border-radius: 9px;
     background: #17201edb;
-    color: #f4f2e9;
+    color: var(--color-text);
     box-shadow: 0 4px 16px #16221c30;
     font-size: 11px;
     font-weight: 800;
@@ -234,19 +183,19 @@ canvas {
     background: var(--medal-color);
 }
 .medal-target[data-medal="gold"] {
-    --medal-color: #f1c75b;
+    --medal-color: var(--color-medal-gold);
 }
 .medal-target[data-medal="silver"] {
-    --medal-color: #c9d2d0;
+    --medal-color: var(--color-medal-silver);
 }
 .medal-target[data-medal="bronze"] {
-    --medal-color: #c98553;
+    --medal-color: var(--color-medal-bronze);
 }
 .split.ahead {
-    color: #9fd88a;
+    color: var(--color-ahead);
 }
 .split.behind {
-    color: #ff9f87;
+    color: var(--color-behind);
 }
 /* What is playing back, just above the trail name. */
 .replay-label {
@@ -261,7 +210,7 @@ canvas {
     font-size: 10px;
     font-weight: 950;
     letter-spacing: 1.5px;
-    text-shadow: 2px 2px 0 #172820aa;
+    text-shadow: var(--shadow-text-scene);
     text-transform: uppercase;
     white-space: nowrap;
 }
@@ -280,7 +229,7 @@ canvas {
     color: #f7f0dc;
     font-size: var(--font-display-step);
     line-height: 0.75;
-    text-shadow: 2px 2px 0 #172820aa;
+    text-shadow: var(--shadow-text-scene);
     white-space: nowrap;
 }
 .scene-label::before {
@@ -363,8 +312,8 @@ canvas {
     display: flex;
     align-items: center;
     gap: 7px;
-    border-color: #f0c45a;
-    color: #f0c45a;
+    border-color: var(--color-gold);
+    color: var(--color-gold);
 }
 .achievement-toast:not(.visible) {
     display: none;
@@ -421,7 +370,7 @@ canvas {
     font-size: 28px;
     font-weight: 900;
     letter-spacing: 6px;
-    text-shadow: 3px 3px 0 #0d1b20;
+    text-shadow: 3px 3px 0 var(--color-shadow);
     user-select: none;
 }
 .pause-overlay[hidden] {
@@ -447,7 +396,7 @@ canvas {
     border-radius: 18px;
     background: var(--color-modal);
     color: var(--color-text);
-    box-shadow: 8px 8px 0 #0d1b2070;
+    box-shadow: var(--shadow-modal);
     text-align: center;
     display: flex;
     flex-direction: column;
@@ -456,7 +405,7 @@ canvas {
 }
 .modal-badge {
     align-self: center;
-    color: #aeb7b3;
+    color: var(--color-text-soft);
     font-size: 8px;
     font-weight: 850;
     letter-spacing: 2px;
@@ -469,7 +418,7 @@ h2 {
 }
 .modal p {
     margin: 0;
-    color: #abb5b1;
+    color: var(--color-text-soft);
     font-size: 11px;
     line-height: 1.65;
 }
@@ -553,7 +502,7 @@ h2 {
     color: var(--color-green);
 }
 .results-delta.behind {
-    color: #ff9f87;
+    color: var(--color-behind);
 }
 .results-medal {
     display: flex;
@@ -572,20 +521,20 @@ h2 {
     display: none;
 }
 .results-medal[data-medal="gold"] {
-    background: #f1c75b;
+    background: var(--color-medal-gold);
     color: #3d2c07;
 }
 .results-medal[data-medal="silver"] {
-    background: #c9d2d0;
+    background: var(--color-medal-silver);
     color: #27322f;
 }
 .results-medal[data-medal="bronze"] {
-    background: #c98553;
+    background: var(--color-medal-bronze);
     color: #2f1a0c;
 }
 .results-medal[data-medal="none"] {
-    background: #2b3e45;
-    color: #aeb7b3;
+    background: var(--color-surface-raised);
+    color: var(--color-text-soft);
     box-shadow: none;
 }
 .results-stats {
@@ -600,7 +549,7 @@ h2 {
     background: var(--color-surface);
 }
 .results-stats dt {
-    color: #91a7a8;
+    color: var(--color-text-muted);
     font-size: 8px;
     font-weight: 850;
     letter-spacing: 1.5px;
@@ -658,7 +607,7 @@ h2 {
     margin: 0;
     padding: 0;
     list-style: none;
-    color: #91a7a8;
+    color: var(--color-text-muted);
     font-size: 9px;
     font-weight: 800;
 }
@@ -688,7 +637,7 @@ h2 {
 }
 .results-hint {
     margin: 0;
-    color: #7f9494;
+    color: var(--color-text-faint);
     font-size: 9px;
     letter-spacing: 0.5px;
 }
@@ -700,10 +649,10 @@ h2 {
 }
 
 .trail-best[data-medal="gold"] {
-    color: #f1c75b;
+    color: var(--color-medal-gold);
 }
 .trail-best[data-medal="silver"] {
-    color: #c9d2d0;
+    color: var(--color-medal-silver);
 }
 .trail-best[data-medal="bronze"] {
     color: #d9955f;
@@ -742,8 +691,8 @@ h2 {
     padding: 6px 9px;
     border: 0;
     border-radius: 7px;
-    background: #252d2e;
-    color: #aab4b0;
+    background: var(--color-option);
+    color: var(--color-text-soft);
     font-size: 9px;
     font-weight: 800;
     text-transform: uppercase;
@@ -754,15 +703,15 @@ h2 {
 }
 .key-binding.listening {
     background: var(--color-accent);
-    color: #241710;
+    color: var(--color-accent-ink);
 }
 .key-binding.listening kbd {
-    color: #241710;
+    color: var(--color-accent-ink);
 }
 .setting-note {
     grid-column: 1 / -1;
     margin: 0;
-    color: #7f9494;
+    color: var(--color-text-faint);
     font-size: 9px;
     line-height: 1.5;
 }
@@ -892,7 +841,7 @@ h2 {
 }
 
 .setting-label {
-    color: #aeb7b3;
+    color: var(--color-text-soft);
     font-size: 9px;
     font-weight: 850;
     letter-spacing: 1.2px;
@@ -910,15 +859,15 @@ h2 {
     padding: 8px;
     border: 0;
     border-radius: 7px;
-    background: #252d2e;
-    color: #aab4b0;
+    background: var(--color-option);
+    color: var(--color-text-soft);
     font-size: 10px;
     font-weight: 800;
     text-transform: uppercase;
 }
 .setting-option[aria-pressed="true"] {
     background: var(--color-accent);
-    color: #241710;
+    color: var(--color-accent-ink);
 }
 
 .menu-screen {
@@ -926,7 +875,7 @@ h2 {
     z-index: 20;
     inset: 0;
     overflow: hidden;
-    background: #eae9d9;
+    background: var(--color-paper);
 }
 .menu-scroll {
     position: absolute;
@@ -1062,7 +1011,7 @@ h2 {
     padding: 0;
     border: 0;
     background: none;
-    color: #aeb7b3;
+    color: var(--color-text-soft);
     font: inherit;
     font-size: 8px;
     font-weight: 850;
@@ -1087,7 +1036,7 @@ h2 {
     gap: 14px;
     padding: 11px 14px 11px 11px;
     border-color: #587268;
-    background: #29433c;
+    background: var(--color-green-surface);
     color: var(--color-text);
     text-align: left;
 }
@@ -1115,7 +1064,7 @@ h2 {
     white-space: nowrap;
 }
 .continue-save-copy small {
-    color: #a9bbb4;
+    color: var(--color-green-text-muted);
     font-size: 8px;
 }
 .continue-arrow {
@@ -1144,7 +1093,7 @@ h2 {
     align-items: center;
     gap: 10px;
     border: 1px solid var(--color-border);
-    background: #213338;
+    background: var(--color-row);
     color: var(--color-text);
     box-shadow: var(--shadow-pixel);
     text-align: left;
@@ -1215,7 +1164,7 @@ h2 {
     height: 67px;
     overflow: hidden;
     border: 1px solid #52645e;
-    background: #eae9d9;
+    background: var(--color-paper);
 }
 .active-save-bike {
     display: block;
@@ -1243,7 +1192,7 @@ h2 {
     image-rendering: pixelated;
 }
 .save-avatar.empty {
-    background: #17262b;
+    background: var(--color-shell);
     color: var(--color-text-muted);
     border-style: dashed;
 }
@@ -1343,11 +1292,11 @@ h2 {
     border-color: var(--color-accent-hover);
 }
 .menu-action-primary small {
-    color: #563021;
+    color: var(--color-accent-ink-muted);
 }
 .menu-action.continue-save:hover {
-    border-color: #718f7f;
-    background: #34564c;
+    border-color: var(--color-green-border);
+    background: var(--color-green-surface-hover);
 }
 .menu-action.continue-save.menu-action-primary {
     border-color: var(--color-accent-hover);
@@ -1359,7 +1308,7 @@ h2 {
     color: var(--color-green-ink);
 }
 .continue-save.menu-action-primary .continue-save-copy small {
-    color: #563021;
+    color: var(--color-accent-ink-muted);
 }
 /* Last, so the orange call to action never takes a dark hover colour. */
 .menu-action.menu-action-primary:hover {
@@ -1405,7 +1354,7 @@ h2 {
     font-size: 8px;
 }
 .trail-import-status.error {
-    color: #f0a08c;
+    color: var(--color-danger-text);
 }
 .trail-section-title {
     grid-column: 1 / -1;
@@ -1450,26 +1399,26 @@ h2 {
     aspect-ratio: 3 / 1;
     margin: -13px -13px 0;
     border-bottom: 1px solid var(--color-border);
-    background: #eae9d9;
+    background: var(--color-paper);
 }
 .trail-card:disabled {
     cursor: not-allowed;
     opacity: 0.42;
 }
 .custom-trail-card {
-    border-color: #718f7f;
-    background: #29433c;
+    border-color: var(--color-green-border);
+    background: var(--color-green-surface);
 }
 .custom-trail-card .trail-number,
 .custom-trail-card .trail-best {
     color: var(--color-green);
 }
 .bonus-trail-card {
-    border-color: #8f7a52;
-    background: #3d3324;
+    border-color: var(--color-gold-border);
+    background: var(--color-gold-surface);
 }
 .bonus-trail-card .trail-number {
-    color: #f0c45a;
+    color: var(--color-gold);
 }
 .trail-number {
     color: var(--color-accent);
@@ -1504,14 +1453,14 @@ h2 {
     grid-template-columns: 38px minmax(0, 1fr) auto;
     align-items: center;
     gap: 10px;
-    border: 1px solid #718f7f;
-    background: #29433c;
+    border: 1px solid var(--color-green-border);
+    background: var(--color-green-surface);
     box-shadow: var(--shadow-pixel);
     color: inherit;
     text-align: left;
 }
 .leaderboard-trail-copy:hover {
-    background: #31504a;
+    background: var(--color-green-surface-hover);
 }
 .leaderboard-trail-copy:active {
     transform: translate(2px, 2px);
@@ -1563,14 +1512,14 @@ h2 {
     white-space: nowrap;
 }
 .bonus-pick .trail-number {
-    color: #f0c45a;
+    color: var(--color-gold);
 }
 .custom-pick .trail-number,
 .custom-pick .trail-best {
     color: var(--color-green);
 }
 .leaderboard-trail-copy .trail-copy small {
-    color: #a9bbb4;
+    color: var(--color-green-text-muted);
 }
 .leaderboard-step {
     border: 1px solid var(--color-border);
@@ -1603,7 +1552,7 @@ h2 {
     align-items: center;
     gap: 10px;
     border: 1px solid var(--color-border);
-    background: #213338;
+    background: var(--color-row);
     box-shadow: var(--shadow-pixel-small);
 }
 .leaderboard-row.watchable {
@@ -1616,7 +1565,7 @@ h2 {
     place-items: center;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-pixel);
-    background: #1c2c30;
+    background: var(--color-row-open);
     color: var(--color-text);
 }
 .leaderboard-watch:hover,
@@ -1626,7 +1575,7 @@ h2 {
 }
 .leaderboard-row.open {
     grid-template-columns: 30px 1fr;
-    background: #1c2c30;
+    background: var(--color-row-open);
     box-shadow: none;
 }
 .leaderboard-row.mine {
@@ -1653,7 +1602,7 @@ h2 {
     color: #d8b98a;
 }
 .podium-1 {
-    background: #2b3e45;
+    background: var(--color-surface-raised);
 }
 .leaderboard-row .save-avatar {
     width: 34px;
@@ -1764,10 +1713,10 @@ h2 {
 .look-tab[aria-selected="true"] {
     border-color: var(--color-accent);
     background: var(--color-accent);
-    color: #241710;
+    color: var(--color-accent-ink);
 }
 .look-tab[aria-selected="true"] small {
-    color: #5a2c14;
+    color: var(--color-accent-ink-muted);
 }
 .look-stage {
     position: relative;
@@ -1795,7 +1744,7 @@ h2 {
     place-items: center;
     transform: translateY(-50%);
     border: 1px solid var(--color-border);
-    background: #17262bdd;
+    background: var(--color-shell-translucent);
     color: var(--color-text);
 }
 .look-step-previous {
@@ -1819,7 +1768,7 @@ h2 {
     display: grid;
     place-items: center;
     border: 1px solid var(--color-border);
-    background: #17262bdd;
+    background: var(--color-shell-translucent);
     color: var(--color-text);
 }
 .look-light[aria-pressed="true"] {
@@ -1939,7 +1888,7 @@ h2 {
     bottom: 3px;
     width: 9px;
     height: 6px;
-    background: #241710;
+    background: var(--color-accent-ink);
     -webkit-mask: var(--icon-check) center / 100% 100% no-repeat;
     mask: var(--icon-check) center / 100% 100% no-repeat;
 }
@@ -2090,7 +2039,7 @@ h2 {
     width: 100%;
     height: auto;
     aspect-ratio: 12 / 5;
-    background: #eae9d9;
+    background: var(--color-paper);
 }
 .how-card > div {
     padding: 14px 15px 16px;
@@ -2211,8 +2160,8 @@ h2 {
     color: var(--color-text-muted);
 }
 .achievement.earned {
-    border-color: #8f7a52;
-    background: #3d3324;
+    border-color: var(--color-gold-border);
+    background: var(--color-gold-surface);
     color: var(--color-text);
 }
 .achievement-icon {
@@ -2220,7 +2169,7 @@ h2 {
 }
 .achievement.earned .achievement-icon,
 .achievement.earned .achievement-state {
-    color: #f0c45a;
+    color: var(--color-gold);
 }
 .achievement-copy {
     min-width: 0;
@@ -2249,7 +2198,7 @@ h2 {
 .achievement-bar {
     height: 4px;
     margin-top: 2px;
-    background: #17262b;
+    background: var(--color-shell);
 }
 .achievement-bar::before {
     content: "";
@@ -2261,7 +2210,7 @@ h2 {
 kbd {
     padding: 1px 4px;
     border: 1px solid #607074;
-    background: #17262b;
+    background: var(--color-shell);
     color: var(--color-text);
     font: inherit;
     font-weight: 900;
@@ -2282,7 +2231,7 @@ kbd {
     border-radius: var(--radius-pixel);
 }
 .pixel-ui .modal {
-    box-shadow: 8px 8px 0 #0d1b2070;
+    box-shadow: var(--shadow-modal);
 }
 
 @media (max-width: 760px) {
@@ -2586,8 +2535,8 @@ kbd {
     outline-offset: -4px;
 }
 .save-name-field input.invalid {
-    border-color: #e5484d;
-    outline-color: #e5484d;
+    border-color: var(--color-danger);
+    outline-color: var(--color-danger);
 }
 .save-mode {
     display: grid;
@@ -2606,7 +2555,7 @@ kbd {
     line-height: 1.5;
 }
 .account-status.error {
-    color: #f0a08c;
+    color: var(--color-danger-text);
 }
 .account-login {
     margin-top: 14px;
