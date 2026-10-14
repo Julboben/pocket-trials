@@ -145,6 +145,13 @@ button:disabled:hover { background: var(--raised); }
 .validation li.error { border-color: #ec7044; }
 .validation li.warning { border-color: #e8bb66; }
 .validation li.info { border-color: #83d1ce; }
+.validation li:has(> button) { padding: 0; }
+.validation li > button { width: 100%; padding: 7px 8px; border: 0; border-radius: 0; background: none; box-shadow: none; color: inherit; font: inherit; line-height: inherit; text-align: left; }
+.validation li > button:hover, .validation li > button:focus-visible { background: #2a4047; color: var(--text); outline-offset: -2px; }
+.validation li > button::after { content: " →"; color: var(--muted); }
+.selection-issues { margin: 0 0 12px; padding: 0; display: grid; gap: 5px; list-style: none; }
+.selection-issues li { padding: 7px 8px; border-left: 3px solid #e8bb66; background: #203237; color: #becbc6; font-size: 8px; line-height: 1.4; }
+.selection-issues li.error { border-color: #ec7044; background: #3a2320; color: #f5c4b4; }
 .validation.attention { outline: 1px solid #ec7044; outline-offset: -1px; }
 .validation.attention h3 { color: #ec7044; }
 .validation.attention li.error { background: #3a2320; color: #f5c4b4; }

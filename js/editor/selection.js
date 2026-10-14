@@ -29,6 +29,7 @@ import {
   setTool,
   toolSettings,
 } from "./tools.js";
+import { centerOn } from "./view.js";
 import { moveWaterTo, waterHandle } from "./water.js";
 
 let lastNudge = 0;
@@ -499,6 +500,17 @@ export function deleteSelection() {
     editor.selection = null;
   } else return;
   syncInspector();
+  render();
+}
+
+/** Select one item and bring it into the middle of the view. */
+export function revealItem(item) {
+  const position = itemPosition(item);
+  if (!position) return;
+  editor.selection = makeSelection([item]);
+  setTool("select");
+  syncInspector();
+  if (position.every(Number.isFinite)) centerOn(...position);
   render();
 }
 

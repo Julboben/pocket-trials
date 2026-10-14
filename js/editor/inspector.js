@@ -32,7 +32,7 @@ import { canRotateSelection, rotateSelected } from "./rotate.js";
 import { pushHistory, updateHistoryButtons } from "./history.js";
 import { scheduleAutosave } from "./autosave.js";
 import { updateVersionChip } from "./drafts.js";
-import { updateValidationBadge } from "./menu.js";
+import { closeMenu, updateValidationBadge } from "./menu.js";
 import { showStatus } from "./status.js";
 import {
   finishY,
@@ -46,6 +46,8 @@ import {
   groupTitle,
   itemsCentre,
   moveItems,
+  revealItem,
+  selectionItems,
 } from "./selection.js";
 import { editor, waters } from "./state.js";
 import { saveToolSettings, toolSettings } from "./tools.js";
@@ -251,11 +253,49 @@ function syncDetails() {
     ...messages.map((message) => {
       const item = document.createElement("li");
       item.className = message.type;
-      item.textContent = message.text;
+      if (!message.target) {
+        item.textContent = message.text;
+        return item;
+      }
+      // A message about one item takes the author to it.
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = message.text;
+      button.title = "Select it and show it on the canvas";
+      button.addEventListener("click", () => {
+        closeMenu();
+        revealItem(message.target);
+      });
+      item.append(button);
       return item;
     }),
   );
   updateValidationBadge(messages);
+  syncSelectionIssues(messages);
+}
+
+/** The errors and warnings about the selected items, shown above their fields. */
+function syncSelectionIssues(messages) {
+  // A point, edge or handle of a block shares its block's problems.
+  const targets = selectionItems().map((item) =>
+    item.type === "point" ? { type: "block", index: item.blockIndex } : item,
+  );
+  if (Number.isInteger(editor.selection?.blockIndex))
+    targets.push({ type: "block", index: editor.selection.blockIndex });
+  const issues = messages.filter(
+    ({ target }) =>
+      target &&
+      targets.some((item) => item.type === target.type && item.index === target.index),
+  );
+  $("selection-issues").hidden = !issues.length;
+  $("selection-issues").replaceChildren(
+    ...issues.map((message) => {
+      const item = document.createElement("li");
+      item.className = message.type;
+      item.textContent = message.text;
+      return item;
+    }),
+  );
 }
 
 /** Finish any JSON and validation a live drag left waiting. */

@@ -160,5 +160,17 @@ const reported = (report, label) => {
   check('water editing raises no errors', report.errors.length === 0);
 }
 
+// ---------------------------------------------------------------------------
+// A validation message about one item selects it and brings it into view.
+// ---------------------------------------------------------------------------
+{
+  const report = await boot('warned');
+  check('a prop warning is clickable', report.clickable === true);
+  check('clicking it selects the prop', report.selection?.kind === 'prop' && report.selection?.index === 0, `(${JSON.stringify(report.selection)})`);
+  check('and centres the view on it', report.centredX === 600, `(${report.centredX})`);
+  check('the inspector lists the selected prop\'s warning', report.issuesShown === true && report.issues.length === 1 && /unknown type/.test(report.issues[0]), `(${JSON.stringify(report.issues)})`);
+  check('and hides the list with nothing selected', report.issuesHiddenAfter === true);
+}
+
 console.log(failures ? `\n${failures} failing` : '\nEditor DOM tests passed.');
 process.exit(failures ? 1 : 0);

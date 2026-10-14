@@ -24,7 +24,8 @@ const base = () => ({
 /**
  * `blocks` is a plain block trail. `badgoal` is the same trail with its finish
  * well past the end of the terrain, so it does not validate. `interact` uses
- * the plain trail too, and drives precise gestures against it.
+ * the plain trail too, and drives precise gestures against it. `warned` has a
+ * prop of an unknown type, so its validation warning points at a prop.
  */
 export function loadTrailShape(kind) {
   const trail = base();
@@ -33,6 +34,7 @@ export function loadTrailShape(kind) {
     { x: 500, y: null, type: 'tree', layer: 'back' },
     { x: 250, y: null, type: 'tree', layer: 'back' },
   ];
+  if (kind === 'warned') trail.props = [{ x: 600, y: null, type: 'nope', layer: 'back' }];
   if (kind === 'rotate') {
     trail.props = [{ x: 600, y: null, type: 'rock', layer: 'back' }];
     trail.water = [{ x: 1000, y: 200, width: 200, depth: 60 }];

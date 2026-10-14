@@ -1,15 +1,15 @@
 {
   "name": "Jetty Jump",
   "label": "JETTY JUMP / 18",
+  "finish": {
+    "x": 2880,
+    "y": null
+  },
   "description": "Wide, deep water and three jetties to launch from. The open water grows from 150 to 190 and then 230 units, and each far bank sits a little lower than the jetty. Build speed on the bank, stay on the throttle to the end of the planks, and keep the bike level in the air so you land on both wheels on the far bank. Coming up short means a swim.",
   "start": {
     "x": 90,
     "y": null,
     "facing": 1
-  },
-  "finish": {
-    "x": 2880,
-    "y": null
   },
   "terrainBlocks": [
     {
@@ -25,7 +25,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-1",
@@ -37,7 +37,7 @@
               100
             ],
             "out": [
-              -380.0,
+              -380,
               100
             ],
             "edge": "curve"
@@ -48,11 +48,11 @@
             "y": 300,
             "mode": "smooth",
             "in": [
-              -340.0,
+              -340,
               300
             ],
             "out": [
-              -100.0,
+              -100,
               300
             ],
             "edge": "curve"
@@ -63,7 +63,7 @@
             "y": 300,
             "mode": "smooth",
             "in": [
-              100.0,
+              100,
               300
             ],
             "out": [
@@ -106,7 +106,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-8",
@@ -114,12 +114,12 @@
             "y": 320,
             "mode": "independent",
             "in": [
-              839.0,
-              320.0
+              839,
+              320
             ],
             "out": [
-              909.0,
-              313.0
+              909,
+              313
             ],
             "edge": "curve"
           },
@@ -172,7 +172,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-14",
@@ -180,12 +180,12 @@
             "y": 320,
             "mode": "independent",
             "in": [
-              1629.0,
-              320.0
+              1629,
+              320
             ],
             "out": [
-              1699.0,
-              313.0
+              1699,
+              313
             ],
             "edge": "curve"
           },
@@ -238,7 +238,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-20",
@@ -246,12 +246,12 @@
             "y": 320,
             "mode": "independent",
             "in": [
-              2499.0,
-              320.0
+              2499,
+              320
             ],
             "out": [
-              2569.0,
-              313.0
+              2569,
+              313
             ],
             "edge": "curve"
           },
@@ -280,7 +280,7 @@
               300
             ],
             "out": [
-              2850.0,
+              2850,
               300
             ],
             "edge": "curve"
@@ -291,11 +291,11 @@
             "y": 300,
             "mode": "smooth",
             "in": [
-              2900.0,
+              2900,
               300
             ],
             "out": [
-              2990.0,
+              2990,
               300
             ],
             "edge": "curve"
@@ -306,7 +306,7 @@
             "y": 110,
             "mode": "smooth",
             "in": [
-              3030.0,
+              3030,
               110
             ],
             "out": [
@@ -631,13 +631,6 @@
       "layer": "back"
     },
     {
-      "x": 160,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "FULL GAS \u2192"
-    },
-    {
       "x": 380,
       "y": null,
       "type": "tree",
@@ -688,18 +681,6 @@
       "layer": "back"
     },
     {
-      "x": 560,
-      "y": 300,
-      "type": "jetty",
-      "layer": "back"
-    },
-    {
-      "x": 717.5,
-      "y": 324,
-      "type": "rowing-boat",
-      "layer": "back"
-    },
-    {
       "x": 820,
       "y": null,
       "type": "reeds",
@@ -712,18 +693,6 @@
       "layer": "back"
     },
     {
-      "x": 1310,
-      "y": 300,
-      "type": "jetty",
-      "layer": "back"
-    },
-    {
-      "x": 1485.5,
-      "y": 324,
-      "type": "rowing-boat",
-      "layer": "back"
-    },
-    {
       "x": 1610,
       "y": null,
       "type": "reeds",
@@ -733,18 +702,6 @@
       "x": 1440,
       "y": 340,
       "type": "fish",
-      "layer": "back"
-    },
-    {
-      "x": 2140,
-      "y": 300,
-      "type": "jetty",
-      "layer": "back"
-    },
-    {
-      "x": 2333.5,
-      "y": 324,
-      "type": "rowing-boat",
       "layer": "back"
     },
     {
@@ -763,25 +720,22 @@
   "spikes": [],
   "water": [
     {
-      "id": "water-1",
-      "x1": 500,
-      "x2": 800,
-      "y": 324,
-      "deep": true
+      "x": 486.7215586685926,
+      "y": 326.66157590755284,
+      "width": 330.20770295953776,
+      "depth": 122.9610600401478
     },
     {
-      "id": "water-2",
-      "x1": 1250,
-      "x2": 1590,
-      "y": 324,
-      "deep": true
+      "x": 1257.041283849275,
+      "y": 331.80613275119526,
+      "width": 327.88572644569194,
+      "depth": 105.22399920991927
     },
     {
-      "id": "water-3",
-      "x1": 2080,
-      "x2": 2460,
-      "y": 324,
-      "deep": true
+      "x": 2046.4072049216288,
+      "y": 325.90442653640355,
+      "width": 421.5958972053854,
+      "depth": 111.99811725845598
     }
   ],
   "weather": {

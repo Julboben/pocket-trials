@@ -174,6 +174,32 @@ if (kind === 'interact') {
   process.exit(0);
 }
 
+// A validation message about one item takes the author to it.
+if (kind === 'warned') {
+  const { editor } = await import('../../js/editor/state.js');
+  flushInspector();
+  const out = { errors: [] };
+  editor.cameraX = -5000;
+  const button = document.getElementById('validation-list').children
+    .flatMap(item => item.children)
+    .find(child => child.tagName?.toLowerCase() === 'button');
+  out.clickable = Boolean(button);
+  button?.click();
+  out.selection = editor.selection;
+  out.centredX = editor.cameraX + 1200 / 2 / editor.zoom;
+  const issues = document.getElementById('selection-issues');
+  out.issuesShown = issues.hidden === false;
+  out.issues = issues.children.map(item => item.textContent);
+  // Nothing selected, nothing listed.
+  editor.selection = null;
+  flushInspector();
+  const { syncInspector } = await import('../../js/editor/inspector.js');
+  syncInspector();
+  out.issuesHiddenAfter = issues.hidden === true;
+  process.stdout.write(JSON.stringify(out));
+  process.exit(0);
+}
+
 // The Water tool: drawing, clicking, moving, resizing and deleting a body.
 if (kind === 'water') {
   toolButton('apple').click();

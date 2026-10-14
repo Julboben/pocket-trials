@@ -1166,6 +1166,7 @@ export function validateBlocks(blocks) {
   return blocks.flatMap((block, index) => validateBlock(block).map(message => ({
     ...message,
     text: blocks.length > 1 ? `Block ${index + 1}: ${message.text}` : message.text,
+    target: { type: 'block', index },
   })));
 }
 

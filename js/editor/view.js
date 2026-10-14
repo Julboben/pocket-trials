@@ -39,6 +39,15 @@ export function pointerWorld(event) {
   };
 }
 
+/** Move the view so a world position is in its middle, keeping the zoom. */
+export function centerOn(x, y) {
+  const { width, height } = viewportSize();
+  editor.cameraX = x - width / 2 / editor.zoom;
+  editor.cameraY = y - height / 2 / editor.zoom;
+  editor.focusPending = false;
+  renderView();
+}
+
 /** Zoom by a factor, keeping the middle of the view where it is. */
 export function zoomAtCenter(factor) {
   const { width, height } = viewportSize();
