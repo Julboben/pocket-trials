@@ -2561,42 +2561,41 @@ kbd {
     .control-area::after {
         content: "";
         position: absolute;
-        right: 60px;
-        bottom: calc(38px + env(safe-area-inset-bottom, 0px));
+        right: 63px;
+        bottom: calc(44px + env(safe-area-inset-bottom, 0px));
         width: 3px;
         height: 3px;
-        /* Five rows of 3px dots, each row one grid pixel left of the last. */
+        /* An italic H for Hjulben in 3px dots: six rows, each one grid pixel
+           left of the last, with the crossbar on the middle two. */
         box-shadow:
-            12px 0px var(--color-shadow),
-            18px 0px var(--color-shadow),
-            24px 0px var(--color-shadow),
-            30px 0px var(--color-shadow),
-            36px 0px var(--color-shadow),
-            42px 0px var(--color-shadow),
-            9px 6px var(--color-shadow),
-            15px 6px var(--color-shadow),
-            21px 6px var(--color-shadow),
-            27px 6px var(--color-shadow),
-            33px 6px var(--color-shadow),
-            39px 6px var(--color-shadow),
-            6px 12px var(--color-shadow),
-            12px 12px var(--color-shadow),
-            18px 12px var(--color-shadow),
-            24px 12px var(--color-shadow),
-            30px 12px var(--color-shadow),
-            36px 12px var(--color-shadow),
-            3px 18px var(--color-shadow),
-            9px 18px var(--color-shadow),
-            15px 18px var(--color-shadow),
-            21px 18px var(--color-shadow),
-            27px 18px var(--color-shadow),
-            33px 18px var(--color-shadow),
-            0px 24px var(--color-shadow),
-            6px 24px var(--color-shadow),
-            12px 24px var(--color-shadow),
-            18px 24px var(--color-shadow),
-            24px 24px var(--color-shadow),
-            30px 24px var(--color-shadow);
+            15px 0 var(--color-shadow),
+            21px 0 var(--color-shadow),
+            39px 0 var(--color-shadow),
+            45px 0 var(--color-shadow),
+            12px 6px var(--color-shadow),
+            18px 6px var(--color-shadow),
+            36px 6px var(--color-shadow),
+            42px 6px var(--color-shadow),
+            9px 12px var(--color-shadow),
+            15px 12px var(--color-shadow),
+            21px 12px var(--color-shadow),
+            27px 12px var(--color-shadow),
+            33px 12px var(--color-shadow),
+            39px 12px var(--color-shadow),
+            6px 18px var(--color-shadow),
+            12px 18px var(--color-shadow),
+            18px 18px var(--color-shadow),
+            24px 18px var(--color-shadow),
+            30px 18px var(--color-shadow),
+            36px 18px var(--color-shadow),
+            3px 24px var(--color-shadow),
+            9px 24px var(--color-shadow),
+            27px 24px var(--color-shadow),
+            33px 24px var(--color-shadow),
+            0 30px var(--color-shadow),
+            6px 30px var(--color-shadow),
+            24px 30px var(--color-shadow),
+            30px 30px var(--color-shadow);
         pointer-events: none;
     }
     .controls {
