@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {
   LOOK_SLOTS, IDENTITY_SLOTS, LOOK_PARTS, SLOT_LABELS, LOOK_ITEMS, DEFAULT_LOOK, STARTER_LOOKS, lookItem, itemsForSlot,
   isDefaultItem, starterLook, legacyLook, legacyRider, normalizeLook, keepIdentity, lookOf, isCompleteLook, lookKey,
-  sameLook, isColorless, partName, randomLook, lookParts, ownsWith, ownedLook
+  sameLook, isColorless, partName, randomLook, lookParts, ownsWith, ownedLook, shownItemsForSlot
 } from '../js/cosmetics.js';
 import { lookUnlock } from '../js/unlocks.js';
 import { readFileSync } from 'node:fs';
@@ -165,6 +165,17 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
   assert.ok(!ownsWith(progress(20))('helmet', 'mx'));
   const veteran = ownsWith(progress(8, [mxTrail]));
   assert.ok(veteran('bike', 'classic') && veteran('helmet', 'mx'));
+
+  // The dunce cap is a secret: won by asking the console for a cheat, and not
+  // listed in the Garage, even locked, until then.
+  assert.deepEqual(lookUnlock('helmet', 'dunce'), { achievement: 'i-saw-that' });
+  const caught = ownsWith({ ...progress(0), has: id => id === 'i-saw-that' });
+  assert.ok(!veteran('helmet', 'dunce') && caught('helmet', 'dunce'));
+  assert.ok(!shownItemsForSlot('helmet', veteran).some(item => item.id === 'dunce'));
+  assert.ok(shownItemsForSlot('helmet', caught).some(item => item.id === 'dunce'));
+  assert.ok(shownItemsForSlot('helmet', veteran).some(item => item.id === 'mx'), 'locked items that aren\'t secret still show');
+  const dunce = lookParts({ ...DEFAULT_LOOK, helmet: 'dunce' });
+  assert.ok(dunce.helmet && dunce.bareHead, 'the cap can be knocked off, and the head shows under it');
 }
 
 // --- Cleaning looks --------------------------------------------------------------

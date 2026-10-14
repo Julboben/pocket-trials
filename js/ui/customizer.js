@@ -11,12 +11,14 @@ import { drawFigure, posedRide } from '../scene-preview.js';
 import { drawGarage } from '../garage-backdrop.js';
 import {
   DEFAULT_LOOK, LOOK_PARTS, SLOT_LABELS, isColorless, isDefaultItem, itemsForSlot, lookItem, lookKey,
-  normalizeLook, partName, sameLook, starterLook
+  normalizeLook, partName, sameLook, shownItemsForSlot, starterLook
 } from '../cosmetics.js';
 
 // What each view frames, in world units around the bike's axles.
 const SWATCH_VIEWS = {
   head: { dx: 6, dy: -45, width: 30, height: 30 },
+  // Headwear that rises well above a helmet, like the dunce cap.
+  tallHead: { dx: 4, dy: -54, width: 40, height: 40 },
   outfit: { dx: -8, dy: -30, width: 44, height: 44 },
   bike: { dx: 0, dy: -22, width: 88, height: 70 },
   // The big preview: the whole rider and bike, wheels and floor included.
@@ -233,7 +235,7 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
 
   function renderStyles() {
     const slot = part.style;
-    const items = itemsForSlot(slot);
+    const items = shownItemsForSlot(slot, owns);
     const selected = lookItem(slot, look[slot]);
     styleHead.title.textContent = SLOT_LABELS[slot].toUpperCase();
     styleHead.note.textContent = `${items.findIndex(item => item.id === look[slot]) + 1} / ${items.length}`;
@@ -249,7 +251,7 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
       const swatch = element('canvas');
       swatch.setAttribute('aria-hidden', 'true');
       const shown = { ...look, ...(BARE_PARTS.has(part.id) ? { helmet: 'none' } : {}), [slot]: item.id };
-      paintLook(swatch, shown, view);
+      paintLook(swatch, shown, item.tall ? 'tallHead' : view);
       option.append(swatch, element('small', '', item.name));
       if (locked) option.append(icon('lock'));
       // A locked style can't be worn, but tapping it says what unlocks it.

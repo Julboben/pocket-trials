@@ -52,7 +52,7 @@ export const LOOK_ART = 'pocket';
  * }} Look
  * @typedef {{
  *   id: string, slot: string, name: string,
- *   hidden?: boolean, colorless?: boolean, lean?: string, blurb?: string, chip?: string[],
+ *   hidden?: boolean, secret?: boolean, colorless?: boolean, lean?: string, blurb?: string, chip?: string[],
  *   [key: string]: any
  * }} LookItem
  */
@@ -111,6 +111,12 @@ export const LOOK_ITEMS = /** @type {LookItem[]} */ ([
   { id: 'mx', slot: 'helmet', name: 'Motocross', shape: 'mx', blurb: 'Long peak, goggles, chin bar out front.' },
   // No helmet: the bare head shows while riding, and a crash has none to knock off.
   { id: 'none', slot: 'helmet', name: 'No helmet', bare: true, colorless: true, blurb: 'Wind in your hair. Mind the rocks.' },
+  // A paper cone over the bare head, for riders caught asking for cheats. Secret:
+  // the Garage only lists it once it is won.
+  {
+    id: 'dunce', slot: 'helmet', name: 'Dunce cap', shape: 'dunce', showsHead: true, tall: true, colorless: true, secret: true,
+    blurb: 'Go sit in the corner.'
+  },
 
   helmetColor('orange', 'Orange', ['#f4a442', '#ffd078', '#bd7034'], '#fff8e7', '#83bcb6', 'male'),
   helmetColor('teal', 'Teal', ['#63aa98', '#a8dfcf', '#3c786e'], '#fff8e7', '#b0dfd4', 'female'),
@@ -161,6 +167,10 @@ export const lookItem = (slot, id) => ITEMS_BY_ID.get(`${slot}:${id}`) ?? null;
 
 /** The items the customizer offers for `slot`, in order. */
 export const itemsForSlot = slot => LOOK_ITEMS.filter(item => item.slot === slot && !item.hidden);
+
+/** The items the customizer shows for `slot`: secret ones only once the rider `owns` them. */
+export const shownItemsForSlot = (slot, owns) =>
+  itemsForSlot(slot).filter(item => !item.secret || owns(slot, item.id));
 
 /** Whether every rider has this item from the start. */
 export const isDefaultItem = (slot, id) => Boolean(lookItem(slot, id)) && !lookUnlock(slot, id);
@@ -302,6 +312,7 @@ export function randomLook(identity = DEFAULT_LOOK, { random = Math.random, owns
  *   face: { lash: boolean, lips: boolean },
  *   hair: { cap: string, brow: boolean, ponytail: boolean, strands: string[], outline: string, shine: string },
  *   helmet: boolean,
+ *   bareHead: boolean,
  *   bike: string,
  *   bikeColors: Record<string, string>
  * }} LookParts
@@ -374,6 +385,8 @@ export function lookParts(look) {
     face: Object.freeze({ ...face }),
     hair: Object.freeze({ ...hairStyleItem.style, strands: [hairShade, hairShade, hair], outline: hairDark, shine: hairLight }),
     helmet: !bare,
+    // Whether the face and hair show, with no helmet or under one that leaves them.
+    bareHead: bare || Boolean(helmetItem.showsHead),
     bike: item('bike').model,
     bikeColors: Object.freeze({ ...bikeColors }),
   });
