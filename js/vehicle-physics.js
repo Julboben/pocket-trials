@@ -17,6 +17,7 @@ import {
   FORK_SUSPENSION,
   SHOCK_SUSPENSION,
   WHEEL_INERTIA,
+  WHEEL_SPIN_DRAG,
   WHEEL_FRICTION,
   WHEEL_SLIDE_FRICTION,
   WHEEL_DRIVE_SLIP,
@@ -1266,9 +1267,11 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
       point.brakeHold = 0;
       const spinBefore = point.angularVelocity;
       // A wheel in the air keeps its spin but for the engine, which spins the
-      // driven wheel up on the gas, and the brakes. It lands with whatever
-      // spin it has, as a real one does.
+      // driven wheel up on the gas, the brakes, and the drag of its bearings,
+      // which slowly runs it down. It lands with whatever spin it has, as a
+      // real one does.
       if (point === drivenWheel) point.angularVelocity += angularDrive * STEP;
+      point.angularVelocity *= exp(-WHEEL_SPIN_DRAG * STEP);
       if (braking) {
         const brakeLimit = XPBD_BRAKE_TORQUE * brakePressure * STEP;
         point.angularVelocity -= clamp(
@@ -1282,10 +1285,10 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
         -MAX_POINT_SPEED / RADIUS,
         MAX_POINT_SPEED / RADIUS,
       );
-      // Whatever spin the engine or brake gives the wheel in the air, the bike
-      // takes the other way, as angular momentum is kept: gas lifts the nose
-      // and braking a spinning wheel drops it. It stops once the wheel is at
-      // its top speed, as at the rev limiter.
+      // Whatever spin the engine, brake or drag gives the wheel in the air,
+      // the bike takes the other way, as angular momentum is kept: gas lifts
+      // the nose and braking a spinning wheel drops it. It stops once the
+      // wheel is at its top speed, as at the rev limiter.
       if (!crashed)
         addSpin(
           bikePoints,

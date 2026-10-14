@@ -82,6 +82,10 @@ export const SHOCK_SUSPENSION = {
   bottomingDamping: .95,
 };
 export const WHEEL_INERTIA = .5;
+// Share of its spin (per second) a wheel off the ground loses to bearing,
+// seal and brake-pad drag, so a wheel spinning in the air or on a crashed
+// bike slowly runs down: to about a third in 2.5 s.
+export const WHEEL_SPIN_DRAG = .4;
 // Tire grip is Coulomb friction on the real ground force each tire takes: a
 // gripping tire holds up to WHEEL_FRICTION times its load, a slipping one
 // pushes with WHEEL_SLIDE_FRICTION times it until it hooks up again. The motor
