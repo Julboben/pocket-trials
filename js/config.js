@@ -161,16 +161,12 @@ export const XPBD_UPHILL_FORWARD_LEAN_REDUCTION = 1.4;
 // Nose-up tilt from the slope (radians) at which the front wheel counts as
 // lifted: forward lean is back to full strength for pulling it down.
 export const XPBD_UPHILL_FORWARD_LEAN_FULL_TILT = 12 * Math.PI / 180;
-// Brake dive follows travel speed, capped at about twice full-lean pitch; the
-// front suspension dives and takes up part of it. It only acts while rolling
-// forward: braking a bike that rolls back must not lift its front wheel.
-export const XPBD_BRAKE_REACTION_SCALE = 1;
-export const XPBD_BRAKE_REACTION_LIMIT = 60;
-export const XPBD_BRAKE_RATE = 64;
 // Most wheel spin (rad/s²) a fully held brake removes. Enough to lock a
 // rolling wheel within a few steps and hold it against full tire friction, so
 // the bike skids to a stop, stays parked on slopes, and pivots on a locked
-// front wheel in a stoppie.
+// front wheel in a stoppie. Each brake pushes back on the frame as hard as it
+// actually holds its wheel; that, with the tires slowing the bike at the
+// ground, is the dive under braking, with no extra push of its own.
 export const XPBD_BRAKE_TORQUE = 720;
 // Two wheel impulses are distributed over the full vehicle mass, so these
 // values produce 105 / 18 px/s² center-of-mass coast losses.

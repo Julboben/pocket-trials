@@ -42,9 +42,6 @@ import {
   XPBD_LEAN_INPUT_RESPONSE,
   XPBD_UPHILL_FORWARD_LEAN_REDUCTION,
   XPBD_UPHILL_FORWARD_LEAN_FULL_TILT,
-  XPBD_BRAKE_REACTION_SCALE,
-  XPBD_BRAKE_REACTION_LIMIT,
-  XPBD_BRAKE_RATE,
   XPBD_BRAKE_TORQUE,
   XPBD_COAST_RESISTANCE_LOW_SPEED,
   XPBD_COAST_RESISTANCE_HIGH_SPEED,
@@ -357,16 +354,6 @@ function keepPivotPlanted(accelerations, rear, front, mass) {
   pivot.pinLoad = lift * STEP * mass;
 }
 
-function rollingSpin(point) {
-  const spin = point.angularVelocity || 0;
-  if (!point.contact) return spin;
-  const tx = -point.contact.ny;
-  const ty = point.contact.nx;
-  const groundSpin =
-    ((point.x - point.ox) * tx + (point.y - point.oy) * ty) / STEP / RADIUS;
-  return Math.abs(groundSpin) > Math.abs(spin) ? groundSpin : spin;
-}
-
 // `state` is the per-vehicle scratch filled once per step by stepVehicle.
 function applyWheelTraction(point, name, drive, state, hooks) {
   if (!point.contact) return;
@@ -421,6 +408,7 @@ function applyWheelTraction(point, name, drive, state, hooks) {
   options.rollingResistance = drive && coasting ? coastResistance : 0;
   options.appliedImpulse = drive ? 0 : point.tractionImpulse || 0;
   const result = solveWheelContactVelocity(point, point.contact, options);
+  state.brakeSpin += result.brakeSpin || 0;
   point.tractionImpulse = drive ? result.tangentImpulse : 0;
   point.brakeHold = result.held ? result.frictionLimit * STEP : 0;
   point.angularVelocity = clamp(
@@ -1136,24 +1124,11 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
     -(drivenWheelAcceleration + facing * crankTorque) *
     wheelMoment *
     XPBD_MOTOR_REACTION_SCALE;
-  const diveWheel = facing > 0 ? front : rear;
-  const rollingForward = (rollingSpin(rear) + rollingSpin(front)) * facing > 0;
-  const brakingWheelAcceleration =
-    braking && diveWheel.grounded && rollingForward
-      ? -(rollingSpin(rear) + rollingSpin(front)) *
-        XPBD_BRAKE_RATE *
-        brakePressure
-      : 0;
-  const brakeReactionLimit = XPBD_BRAKE_REACTION_LIMIT * bikeInertia;
-  const brakeReactionTorque = clamp(
-    -brakingWheelAcceleration * wheelMoment * XPBD_BRAKE_REACTION_SCALE,
-    -brakeReactionLimit,
-    brakeReactionLimit,
-  );
-  const reactionAlpha =
-    (motorReactionTorque + brakeReactionTorque) / bikeInertia;
+  const reactionAlpha = motorReactionTorque / bikeInertia;
   const motorReactionAcceleration = motorReactionTorque / bikeInertia;
-  const brakeReactionAcceleration = brakeReactionTorque / bikeInertia;
+  // The brakes' push-back is applied after the tires, from what they did;
+  // this is last step's, for the physics trace.
+  const brakeReactionAcceleration = vehicle.brakeReaction || 0;
   const reactionAccelerations = angularAccelerations(
     bikePoints,
     reactionAlpha,
@@ -1262,6 +1237,7 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
   traction.brakePressure = brakePressure;
   traction.coasting = coasting;
   traction.throttle = throttle;
+  traction.brakeSpin = 0;
   for (const [point, name] of solverWheels) {
     if (!point.contact) {
       point.brakeHold = 0;
@@ -1299,6 +1275,13 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
     }
     applyWheelTraction(point, name, true, traction, hooks);
   }
+  // The brakes push back on the frame as hard as they hold the wheels: that,
+  // with the tires slowing the bike, is the dive under braking. Recorded for
+  // the physics trace as an angular acceleration.
+  vehicle.brakeReaction = crashed
+    ? 0
+    : (traction.brakeSpin * wheelMoment) / bikeInertia / STEP;
+  if (!crashed) addSpin(bikePoints, (traction.brakeSpin * wheelMoment) / bikeInertia);
   for (let iteration = 0; iteration < BIKE_VELOCITY_ITERATIONS; iteration++) {
     for (const constraint of vehicle.dampedConstraints) {
       (constraint.type === "leg" ? dampLegConstraint : dampDistanceConstraint)(

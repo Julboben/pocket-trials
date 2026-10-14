@@ -720,6 +720,36 @@ function leanPushGivesNoGripScenario() {
 // stop, rolls back again and gets on the gas. Tire grip comes from the weight
 // on the tires, so the brake stops the slide and the throttle hooks up again
 // and climbs instead of spinning while the bike keeps sliding down.
+// Braking slows the bike at the ground, below its centre of mass, so a bike
+// braked while it rolls back down a steep hill tips over backward, as a real
+// one does, unless the rider leans forward; on a gentle hill it just stops.
+// Going forward it is the other way round: the rider leans back to brake.
+function rollingBackBrakeScenario() {
+  const rollBack = (degrees, lean) => {
+    const height = 400, base = 300;
+    const top = base + height / Math.tan(degrees * Math.PI / 180);
+    const trail = { name: 'hill', terrainBlocks: [polygonBlock([[0, 800], [base, 800], [top, 800 - height], [top + 800, 800 - height], [top + 800, 1400], [0, 1400]])] };
+    const simulation = createSimulation(trail, { x: 200 });
+    const along = () => {
+      const { speedX, speedY } = vehicleMetrics(simulation.vehicle);
+      return Math.sign(speedX) * Math.hypot(speedX, speedY);
+    };
+    const rise = () => 800 - RADIUS - simulation.vehicle.rear.y;
+    run(simulation, 60, {});
+    for (let index = 0; index < 900 && rise() < height * .3; index++) step(simulation, { throttle: true, lean: .5 });
+    for (let index = 0; index < 600 && along() > 0; index++) step(simulation, {});
+    run(simulation, 72, {});
+    let tipped = 0;
+    for (let index = 0; index < 120; index++) tipped = Math.max(tipped, step(simulation, { brake: true, lean }).pitch * -180 / Math.PI - degrees);
+    return { speed: along(), tipped };
+  };
+  const steep = rollBack(35, 0), leaning = rollBack(35, .5), gentle = rollBack(25, 0);
+  assert.ok(steep.tipped > 45, `braked rolling back down a 35° hill, the bike must tip over backward: ${steep.tipped}° past the slope`);
+  assert.ok(Math.abs(leaning.speed) < 5 && leaning.tipped < 10, `leaning forward, the brakes must stop a bike rolling back down a 35° hill: ${leaning.speed} px/s, ${leaning.tipped}°`);
+  assert.ok(Math.abs(gentle.speed) < 5 && gentle.tipped < 10, `the brakes must stop a bike rolling back down a 25° hill: ${gentle.speed} px/s, ${gentle.tipped}°`);
+  return { steepTipped: steep.tipped, leaningSpeed: leaning.speed, gentleSpeed: gentle.speed };
+}
+
 function slideRecoveryScenario() {
   const height = 400, base = 300;
   const top = base + height / Math.tan(35 * Math.PI / 180);
@@ -734,15 +764,17 @@ function slideRecoveryScenario() {
   for (let index = 0; index < 900 && rise() < height * .3; index++) step(simulation, { throttle: true, lean: .5 });
   for (let index = 0; index < 600 && along() > 0; index++) step(simulation, {});
   assert.ok(rise() >= height * .3, `the bike must climb into a 35° hill: reached ${rise()}`);
-  run(simulation, 120, { brake: true });
+  // Braking while it rolls back, the rider leans forward to keep the bike
+  // from tipping over backward (see rollingBackBrakeScenario).
+  run(simulation, 120, { brake: true, lean: .5 });
   run(simulation, 72, {});
   const rolling = along();
   // The locked bike rocks on its springs for a moment as it stops, so check
   // that it stays stopped over a window rather than at one step.
-  run(simulation, 150, { brake: true });
+  run(simulation, 150, { brake: true, lean: .5 });
   let braked = 0;
   for (let index = 0; index < 30; index++) {
-    step(simulation, { brake: true });
+    step(simulation, { brake: true, lean: .5 });
     if (Math.abs(along()) > Math.abs(braked)) braked = along();
   }
   assert.ok(rolling < -60, `released on a 35° hill the bike must roll back: ${rolling}`);
@@ -865,6 +897,7 @@ const results = {
   steepWall: steepWallScenario(),
   steepHill: steepHillScenario(),
   slideRecovery: slideRecoveryScenario(),
+  rollingBackBrake: rollingBackBrakeScenario(),
   leanPushGivesNoGrip: leanPushGivesNoGripScenario(),
   sharpBend: sharpBendScenario(),
   hanging: hangingScenario(),

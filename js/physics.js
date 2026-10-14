@@ -431,13 +431,19 @@ export function solveWheelContactVelocity(point, contact, {
   // wheel, so a held brake stops the bike and keeps it parked on a slope.
   const brakeLimit = angularBrake * dt;
   const lockedImpulse = fitImpulse(-tangentialSpeed);
-  let tangentImpulse, held = false;
+  // brakeSpin is the spin the brake takes out this step, against the tire's
+  // pull; the brake pushes the same back on whatever holds it.
+  let tangentImpulse, held = false, brakeSpin = 0;
   if (brakeLimit > 0 && Math.abs(lockedImpulse * spinPerImpulse - omega) <= brakeLimit) {
     tangentImpulse = lockedImpulse;
+    brakeSpin = omega - tangentImpulse * spinPerImpulse;
     omega = 0;
     held = Math.abs(tangentialSpeed + appliedImpulse) <= frictionLimit;
   } else {
-    if (brakeLimit > 0) omega -= Math.max(-brakeLimit, Math.min(brakeLimit, omega));
+    if (brakeLimit > 0) {
+      brakeSpin = Math.max(-brakeLimit, Math.min(brakeLimit, omega));
+      omega -= brakeSpin;
+    }
     const requestedImpulse = -(tangentialSpeed - omega * radius) / (1 + 1 / Math.max(EPSILON, inertia));
     tangentImpulse = fitImpulse(requestedImpulse);
     omega -= tangentImpulse * spinPerImpulse;
@@ -447,5 +453,5 @@ export function solveWheelContactVelocity(point, contact, {
   setVelocity(point, vx * dt, vy * dt);
   point.angularVelocity = omega;
   point.spin = (point.spin || 0) + omega * dt;
-  return { normalImpulse, tangentImpulse, slip, held, frictionLimit };
+  return { normalImpulse, tangentImpulse, slip, held, frictionLimit, brakeSpin };
 }
