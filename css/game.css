@@ -141,32 +141,19 @@ canvas {
     font-weight: var(--weight-heavy);
     font-variant-numeric: tabular-nums;
 }
-/* The clock, with a quieter second row under it for the next medal in reach
-   and the split against the ghost. Its top row lines up with the apple pill. */
-.hud-pill.timer-card {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 5px;
-}
-.timer-row {
-    min-height: 18px;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-}
 .timer-icon {
     color: #d8ebcb;
 }
-/* Zero width with a full-width minimum: the row fills the card but never
-   widens it, so nothing next to the timer moves when its content changes. */
+/* A quieter slot after the clock for the next medal in reach or the split
+   against the ghost. The timer is the last pill, so it can grow and shrink
+   with this slot without moving anything. */
 .timer-detail {
-    width: 0;
-    min-width: 100%;
+    align-self: stretch;
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding-top: 5px;
-    border-top: 1px solid #ffffff1a;
+    margin-left: 3px;
+    padding-left: 10px;
+    border-left: 1px solid #ffffff1a;
     font-size: var(--text-sm);
     letter-spacing: 0.5px;
 }
@@ -2618,9 +2605,6 @@ kbd {
         left: 11px;
         bottom: 38px;
         font-size: var(--text-sm);
-    }
-    .timer-row {
-        min-height: 16px;
     }
     .hud-pill {
         min-height: 30px;

@@ -84,7 +84,7 @@ export function createOverlay() {
   }
 
   /**
-   * The timer's second row holds one thing: a fresh split against the ghost,
+   * The slot after the timer holds one thing: a fresh split against the ghost,
    * otherwise the next medal in reach. It hides when there is neither.
    */
   function syncTimerDetail() {

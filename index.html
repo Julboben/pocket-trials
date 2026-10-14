@@ -51,15 +51,17 @@
                     This game requires HTML Canvas support.
                 </canvas>
                 <div class="hud">
+                    <div class="hud-pill apple-pill">
+                        <span data-icon="apple" aria-hidden="true"></span>
+                        <span id="apple-count">0 / 5</span>
+                    </div>
                     <div class="hud-pill timer-card">
-                        <div class="timer-row">
-                            <span
-                                class="timer-icon"
-                                data-icon="clock"
-                                aria-hidden="true"
-                            ></span
-                            ><span id="timer">0:00.0</span>
-                        </div>
+                        <span
+                            class="timer-icon"
+                            data-icon="clock"
+                            aria-hidden="true"
+                        ></span
+                        ><span id="timer">0:00.0</span>
                         <div class="timer-detail" id="timer-detail" hidden>
                             <span
                                 class="medal-target"
@@ -68,10 +70,6 @@
                             ></span>
                             <span class="split" id="split" hidden></span>
                         </div>
-                    </div>
-                    <div class="hud-pill apple-pill">
-                        <span data-icon="apple" aria-hidden="true"></span>
-                        <span id="apple-count">0 / 5</span>
                     </div>
                 </div>
                 <div
