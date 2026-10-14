@@ -767,11 +767,21 @@ h2 {
     font-weight: var(--weight-heavy);
     letter-spacing: 1px;
 }
-.control.lights[aria-pressed="false"] {
+.control.lights[aria-pressed="false"],
+.control.sound[aria-pressed="false"] {
     color: #8b9695;
 }
 .control.lights[aria-pressed="false"] .symbol {
     --icon: var(--icon-headlight-off);
+}
+.control.sound[aria-pressed="false"] .symbol {
+    --icon: var(--icon-sound-off);
+}
+/* Only the phone handheld (below) has room for these; elsewhere the keys and
+   the menu do the job. */
+#sound-control,
+#restart-control {
+    display: none;
 }
 .control.gas {
     color: var(--color-green-ink);
@@ -2436,58 +2446,330 @@ kbd {
     }
 }
 
-/* Phones: fill the space under the game with two rows. Flip and lights sit
-   on a slim top row; the big lean, brake and gas buttons stay in thumb reach. */
+/* Phones: the control area becomes a handheld. Lean back and lean forward
+   are round buttons under the left thumb with flip as a wide pill below
+   them; B (brake) and A (gas) sit on a diagonal under the right thumb. The
+   rarer switches are small pills along the top: lights on the left, so the
+   right thumb can stay on the gas, restart and sound on the right. Buttons
+   are drawn in chunky pixel shapes, but each one's hit area is the whole
+   cell around it, label included. */
 @media (max-width: 520px) {
     .control-area {
+        /* One grid row; a round button is two rows across. */
+        --u: clamp(34px, 10.5vw, 48px);
         flex: 1 1 auto;
         display: flex;
         flex-direction: column;
         justify-content: flex-end;
-        padding: 12px 10px calc(14px + env(safe-area-inset-bottom, 0px));
+        padding: 12px 12px calc(14px + env(safe-area-inset-bottom, 0px));
+    }
+    /* Speaker grille in the bottom-right corner. */
+    .control-area::after {
+        content: "";
+        position: absolute;
+        right: 18px;
+        bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+        width: 42px;
+        height: 28px;
+        background: radial-gradient(
+                circle,
+                var(--color-shadow) 1.5px,
+                transparent 2px
+            )
+            0 0 / 7px 7px;
+        clip-path: polygon(30% 0, 100% 0, 70% 100%, 0 100%);
+        pointer-events: none;
     }
     .controls {
-        grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.2fr);
-        grid-template-rows: 50px minmax(76px, 132px);
-        grid-template-areas:
-            "flip flip lights lights"
-            "back forward brake gas";
-        gap: 8px;
-    }
-    #left-control {
-        grid-area: back;
-    }
-    #right-control {
-        grid-area: forward;
-    }
-    #flip-control {
-        grid-area: flip;
-    }
-    #headlight {
-        grid-area: lights;
-    }
-    #down-control {
-        grid-area: brake;
-    }
-    #up-control {
-        grid-area: gas;
+        grid-template-columns:
+            minmax(0, 1fr) 8px minmax(0, 1fr) 14px minmax(0, 1fr)
+            6px minmax(0, 1fr);
+        /* Top switches, gap, two rows of leans and gas, their labels, flip,
+           and the flip and brake labels. */
+        grid-template-rows: 44px 20px var(--u) var(--u) 24px var(--u) 30px;
+        grid-template-areas: none;
+        gap: 0;
     }
     .control,
     #down-control,
     #up-control {
+        position: relative;
+        width: 100%;
         height: auto;
     }
+    #sound-control,
+    #restart-control {
+        display: flex;
+    }
+
+    /* The big buttons: a shadow and a face behind the icon, both cut to a
+       pixel shape, and the label printed on the shell below. */
+    #left-control {
+        grid-column: 1;
+        grid-row: 3 / 5;
+    }
+    #right-control {
+        grid-column: 3;
+        grid-row: 3 / 5;
+    }
+    #flip-control {
+        grid-column: 1 / 4;
+        grid-row: 6;
+        --step: calc(var(--u) / 6);
+    }
+    #up-control {
+        grid-column: 7;
+        grid-row: 3 / 5;
+        --face: var(--color-green);
+    }
+    #down-control {
+        grid-column: 5;
+        grid-row: 4 / 7;
+        --face: var(--color-accent);
+        color: var(--color-accent-ink);
+    }
+    #left-control,
+    #right-control,
     #flip-control,
+    #down-control,
+    #up-control {
+        isolation: isolate;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+    #left-control,
+    #right-control,
+    #flip-control {
+        --face: var(--color-surface-hover);
+    }
+    #left-control,
+    #right-control,
+    #down-control,
+    #up-control {
+        place-self: center;
+        width: min(100%, calc(var(--u) * 2));
+        aspect-ratio: 1;
+    }
+    #left-control.held,
+    #right-control.held,
+    #flip-control.held,
+    #flip-control:active {
+        --face: var(--color-surface-raised);
+    }
+    #down-control.held {
+        --face: var(--color-accent-hover);
+    }
+    #up-control.held {
+        --face: var(--color-green-hover);
+    }
+    #left-control::before,
+    #left-control::after,
+    #right-control::before,
+    #right-control::after,
+    #flip-control::before,
+    #flip-control::after,
+    #down-control::before,
+    #down-control::after,
+    #up-control::before,
+    #up-control::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+    }
+    #left-control::before,
+    #right-control::before,
+    #flip-control::before,
+    #down-control::before,
+    #up-control::before {
+        background: var(--color-shadow);
+        transform: translate(3px, 3px);
+    }
+    #left-control::after,
+    #right-control::after,
+    #flip-control::after,
+    #down-control::after,
+    #up-control::after {
+        background: var(--face);
+        box-shadow: inset -4px -4px 0 #0000002e;
+    }
+    #left-control.held,
+    #right-control.held,
+    #flip-control.held,
+    #flip-control:active,
+    #down-control.held,
+    #up-control.held {
+        transform: translate(2px, 2px);
+        box-shadow: none;
+    }
+    #left-control.held::before,
+    #right-control.held::before,
+    #flip-control.held::before,
+    #flip-control:active::before,
+    #down-control.held::before,
+    #up-control.held::before {
+        transform: translate(1px, 1px);
+    }
+    #left-control.held::after,
+    #right-control.held::after,
+    #flip-control.held::after,
+    #flip-control:active::after,
+    #down-control.held::after,
+    #up-control.held::after {
+        box-shadow: inset 4px 4px 0 #0000002e;
+    }
+    /* A 12 by 12 pixel circle. */
+    #left-control::before,
+    #left-control::after,
+    #right-control::before,
+    #right-control::after,
+    #down-control::before,
+    #down-control::after,
+    #up-control::before,
+    #up-control::after {
+        clip-path: polygon(
+            33.33% 0,
+            66.67% 0,
+            66.67% 8.33%,
+            83.33% 8.33%,
+            83.33% 16.67%,
+            91.67% 16.67%,
+            91.67% 33.33%,
+            100% 33.33%,
+            100% 66.67%,
+            91.67% 66.67%,
+            91.67% 83.33%,
+            83.33% 83.33%,
+            83.33% 91.67%,
+            66.67% 91.67%,
+            66.67% 100%,
+            33.33% 100%,
+            33.33% 91.67%,
+            16.67% 91.67%,
+            16.67% 83.33%,
+            8.33% 83.33%,
+            8.33% 66.67%,
+            0 66.67%,
+            0 33.33%,
+            8.33% 33.33%,
+            8.33% 16.67%,
+            16.67% 16.67%,
+            16.67% 8.33%,
+            33.33% 8.33%
+        );
+    }
+    /* A pill with two-step pixel ends, --step pixels a step. */
+    #flip-control::before,
+    #flip-control::after,
+    #headlight::before,
+    #headlight::after,
+    #sound-control::before,
+    #sound-control::after,
+    #restart-control::before,
+    #restart-control::after {
+        clip-path: polygon(
+            calc(var(--step) * 2) 0,
+            calc(100% - var(--step) * 2) 0,
+            calc(100% - var(--step) * 2) var(--step),
+            calc(100% - var(--step)) var(--step),
+            calc(100% - var(--step)) calc(var(--step) * 2),
+            100% calc(var(--step) * 2),
+            100% calc(100% - var(--step) * 2),
+            calc(100% - var(--step)) calc(100% - var(--step) * 2),
+            calc(100% - var(--step)) calc(100% - var(--step)),
+            calc(100% - var(--step) * 2) calc(100% - var(--step)),
+            calc(100% - var(--step) * 2) 100%,
+            calc(var(--step) * 2) 100%,
+            calc(var(--step) * 2) calc(100% - var(--step)),
+            var(--step) calc(100% - var(--step)),
+            var(--step) calc(100% - var(--step) * 2),
+            0 calc(100% - var(--step) * 2),
+            0 calc(var(--step) * 2),
+            var(--step) calc(var(--step) * 2),
+            var(--step) var(--step),
+            calc(var(--step) * 2) var(--step)
+        );
+    }
+    #left-control .caption,
+    #right-control .caption,
+    #flip-control .caption,
+    #down-control .caption,
+    #up-control .caption {
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        color: var(--color-text-soft);
+        white-space: nowrap;
+    }
+
+    /* The top switches: a small pill with its icon and label underneath. */
     #headlight {
-        flex-direction: row;
-        gap: 10px;
+        grid-column: 1 / 4;
+        justify-self: start;
     }
-    #flip-control .symbol,
-    #headlight .symbol {
-        --px: 2px;
+    #restart-control {
+        grid-column: 5;
     }
-    .control .caption {
-        font-size: var(--text-sm);
+    #sound-control {
+        grid-column: 7;
+    }
+    #headlight,
+    #sound-control,
+    #restart-control {
+        --step: 2px;
+        --pill: var(--color-shell);
+        grid-row: 1;
+        width: 84px;
+        max-width: 100%;
+        isolation: isolate;
+        flex-flow: row wrap;
+        align-content: flex-start;
+        gap: 7px 5px;
+        padding: 4px 0 0;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+    #headlight[aria-pressed="true"] {
+        --pill: var(--color-gold);
+    }
+    #headlight::before,
+    #sound-control::before,
+    #restart-control::before {
+        content: "";
+        flex: 0 0 44px;
+        margin-inline: calc((100% - 44px) / 2);
+        height: 12px;
+        background: var(--pill);
+    }
+    #headlight::after,
+    #sound-control::after,
+    #restart-control::after {
+        content: "";
+        position: absolute;
+        z-index: -1;
+        top: 6px;
+        left: calc(50% - 20px);
+        width: 44px;
+        height: 12px;
+        background: var(--color-shadow);
+    }
+    #headlight:active::before,
+    #sound-control:active::before,
+    #restart-control:active::before {
+        transform: translate(2px, 2px);
+    }
+    #headlight .symbol,
+    #sound-control .symbol,
+    #restart-control .symbol {
+        --px: 1px;
+    }
+}
+@media (max-width: 350px) {
+    .control-area::after {
+        display: none;
     }
 }
 

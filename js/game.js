@@ -218,8 +218,8 @@ export function startGame() {
     const { preferences } = session;
     session.look = riderLook();
     $('control-area').hidden = preferences.controls === 'hide';
-    sounds.setEnabled(preferences.sound === 'on');
     sounds.setVolume(preferences.volume / 100);
+    syncSound();
     input.setBindings(preferences.bindings);
     renderer.setInteractKey(preferences.bindings.interact?.[0] ? keyLabel(preferences.bindings.interact[0]) : '');
     if (preferences.ghost === 'off') ghost = null;
@@ -287,6 +287,18 @@ export function startGame() {
       night: timeOfDay === 'night', rain: (weather?.rain ?? 0) > 0, snow: (weather?.snow ?? 0) > 0,
       attempts, previousBest, worldBest, custom: session.trailSource === 'custom'
     });
+  }
+
+  function syncSound() {
+    const on = session.preferences.sound === 'on';
+    sounds.setEnabled(on);
+    $('sound-control').setAttribute('aria-pressed', String(on));
+  }
+
+  function toggleSound() {
+    session.preferences.sound = session.preferences.sound === 'on' ? 'off' : 'on';
+    savePreferences(session.preferences);
+    syncSound();
   }
 
   function toggleHeadlight() {
@@ -918,6 +930,10 @@ export function startGame() {
   // Focus the game first: hiding the focused button would blur it and auto-pause.
   $('crash-retry').addEventListener('click', () => { focusGame(); if (replay) rideAfterReplay(); else startFresh(); });
   $('headlight').addEventListener('click', () => { toggleHeadlight(); focusGame(); });
+  $('sound-control').addEventListener('click', () => { toggleSound(); focusGame(); });
+  // A click rather than a data-action: the touch buttons only work mid-ride,
+  // and restart is wanted most after a crash.
+  $('restart-control').addEventListener('click', () => handlePress('restart'));
   $('menu').addEventListener('click', () => { sounds.menuBack(); showMainMenu(); });
   document.querySelectorAll('[data-fullscreen]').forEach(button => button.addEventListener('click', () => {
     const wantOn = button.dataset.fullscreen === 'on';
