@@ -1,0 +1,799 @@
+{
+  "name": "Jetty Jump",
+  "label": "JETTY JUMP / 18",
+  "description": "Wide, deep water and three jetties to launch from. The open water grows from 150 to 190 and then 230 units, and each far bank sits a little lower than the jetty. Build speed on the bank, stay on the throttle to the end of the planks, and keep the bike level in the air so you land on both wheels on the far bank. Coming up short means a swim.",
+  "start": {
+    "x": 90,
+    "y": null,
+    "facing": 1
+  },
+  "finish": {
+    "x": 2880,
+    "y": null
+  },
+  "terrainBlocks": [
+    {
+      "id": "ground",
+      "material": "grass",
+      "outer": {
+        "id": "ground-outer",
+        "nodes": [
+          {
+            "id": "ground-0",
+            "x": -1000,
+            "y": 100,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "curve"
+          },
+          {
+            "id": "ground-1",
+            "x": -420,
+            "y": 100,
+            "mode": "smooth",
+            "in": [
+              -613.3333,
+              100
+            ],
+            "out": [
+              -380.0,
+              100
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ground-2",
+            "x": -300,
+            "y": 300,
+            "mode": "smooth",
+            "in": [
+              -340.0,
+              300
+            ],
+            "out": [
+              -100.0,
+              300
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ground-3",
+            "x": 300,
+            "y": 300,
+            "mode": "smooth",
+            "in": [
+              100.0,
+              300
+            ],
+            "out": [
+              366.6667,
+              300
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ground-4",
+            "x": 500,
+            "y": 300,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ground-5",
+            "x": 530,
+            "y": 410,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ground-6",
+            "x": 750,
+            "y": 410,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ground-7",
+            "x": 800,
+            "y": 320,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "curve"
+          },
+          {
+            "id": "ground-8",
+            "x": 860,
+            "y": 320,
+            "mode": "independent",
+            "in": [
+              839.0,
+              320.0
+            ],
+            "out": [
+              909.0,
+              313.0
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ground-9",
+            "x": 1000,
+            "y": 300,
+            "mode": "smooth",
+            "in": [
+              953.3333,
+              300
+            ],
+            "out": [
+              1083.3333,
+              300
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ground-10",
+            "x": 1250,
+            "y": 300,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ground-11",
+            "x": 1280,
+            "y": 410,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ground-12",
+            "x": 1540,
+            "y": 410,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ground-13",
+            "x": 1590,
+            "y": 320,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "curve"
+          },
+          {
+            "id": "ground-14",
+            "x": 1650,
+            "y": 320,
+            "mode": "independent",
+            "in": [
+              1629.0,
+              320.0
+            ],
+            "out": [
+              1699.0,
+              313.0
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ground-15",
+            "x": 1790,
+            "y": 300,
+            "mode": "smooth",
+            "in": [
+              1743.3333,
+              300
+            ],
+            "out": [
+              1886.6667,
+              300
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ground-16",
+            "x": 2080,
+            "y": 300,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ground-17",
+            "x": 2110,
+            "y": 410,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ground-18",
+            "x": 2410,
+            "y": 410,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ground-19",
+            "x": 2460,
+            "y": 320,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "curve"
+          },
+          {
+            "id": "ground-20",
+            "x": 2520,
+            "y": 320,
+            "mode": "independent",
+            "in": [
+              2499.0,
+              320.0
+            ],
+            "out": [
+              2569.0,
+              313.0
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ground-21",
+            "x": 2660,
+            "y": 300,
+            "mode": "smooth",
+            "in": [
+              2613.3333,
+              300
+            ],
+            "out": [
+              2706.6667,
+              300
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ground-22",
+            "x": 2800,
+            "y": 300,
+            "mode": "smooth",
+            "in": [
+              2753.3333,
+              300
+            ],
+            "out": [
+              2850.0,
+              300
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ground-23",
+            "x": 2950,
+            "y": 300,
+            "mode": "smooth",
+            "in": [
+              2900.0,
+              300
+            ],
+            "out": [
+              2990.0,
+              300
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ground-24",
+            "x": 3070,
+            "y": 110,
+            "mode": "smooth",
+            "in": [
+              3030.0,
+              110
+            ],
+            "out": [
+              3213.3333,
+              110
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ground-25",
+            "x": 3500,
+            "y": 110,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ground-26",
+            "x": 3500,
+            "y": 1200,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ground-27",
+            "x": -1000,
+            "y": 1200,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    },
+    {
+      "id": "jetty-1",
+      "material": "dirt",
+      "outer": {
+        "id": "jetty-1-outer",
+        "nodes": [
+          {
+            "id": "jetty-1-0",
+            "x": 500,
+            "y": 300,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "jetty-1-1",
+            "x": 610,
+            "y": 294,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "jetty-1-2",
+            "x": 650,
+            "y": 278,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "jetty-1-3",
+            "x": 650,
+            "y": 286,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "jetty-1-4",
+            "x": 644,
+            "y": 408,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "jetty-1-5",
+            "x": 636,
+            "y": 408,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "jetty-1-6",
+            "x": 636,
+            "y": 312,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "jetty-1-7",
+            "x": 505,
+            "y": 312,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    },
+    {
+      "id": "jetty-2",
+      "material": "dirt",
+      "outer": {
+        "id": "jetty-2-outer",
+        "nodes": [
+          {
+            "id": "jetty-2-0",
+            "x": 1250,
+            "y": 300,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "jetty-2-1",
+            "x": 1360,
+            "y": 294,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "jetty-2-2",
+            "x": 1400,
+            "y": 278,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "jetty-2-3",
+            "x": 1400,
+            "y": 286,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "jetty-2-4",
+            "x": 1394,
+            "y": 408,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "jetty-2-5",
+            "x": 1386,
+            "y": 408,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "jetty-2-6",
+            "x": 1386,
+            "y": 312,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "jetty-2-7",
+            "x": 1255,
+            "y": 312,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    },
+    {
+      "id": "jetty-3",
+      "material": "dirt",
+      "outer": {
+        "id": "jetty-3-outer",
+        "nodes": [
+          {
+            "id": "jetty-3-0",
+            "x": 2080,
+            "y": 300,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "jetty-3-1",
+            "x": 2190,
+            "y": 294,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "jetty-3-2",
+            "x": 2230,
+            "y": 278,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "jetty-3-3",
+            "x": 2230,
+            "y": 286,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "jetty-3-4",
+            "x": 2224,
+            "y": 408,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "jetty-3-5",
+            "x": 2216,
+            "y": 408,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "jetty-3-6",
+            "x": 2216,
+            "y": 312,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "jetty-3-7",
+            "x": 2085,
+            "y": 312,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    }
+  ],
+  "apples": [
+    {
+      "x": 725,
+      "y": 225
+    },
+    {
+      "x": 1490,
+      "y": 215
+    },
+    {
+      "x": 2340,
+      "y": 205
+    },
+    {
+      "x": 1050,
+      "y": null
+    }
+  ],
+  "props": [
+    {
+      "x": -700,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": -500,
+      "y": null,
+      "type": "bush",
+      "layer": "back"
+    },
+    {
+      "x": -200,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 160,
+      "y": null,
+      "type": "sign",
+      "layer": "front",
+      "text": "FULL GAS \u2192"
+    },
+    {
+      "x": 380,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 440,
+      "y": null,
+      "type": "sign",
+      "layer": "front",
+      "text": "DEEP"
+    },
+    {
+      "x": 1150,
+      "y": null,
+      "type": "bush",
+      "layer": "back"
+    },
+    {
+      "x": 1950,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 2020,
+      "y": null,
+      "type": "sign",
+      "layer": "front",
+      "text": "DEEP"
+    },
+    {
+      "x": 2700,
+      "y": null,
+      "type": "bush",
+      "layer": "back"
+    },
+    {
+      "x": 3000,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 3300,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 560,
+      "y": 300,
+      "type": "jetty",
+      "layer": "back"
+    },
+    {
+      "x": 717.5,
+      "y": 324,
+      "type": "rowing-boat",
+      "layer": "back"
+    },
+    {
+      "x": 820,
+      "y": null,
+      "type": "reeds",
+      "layer": "front"
+    },
+    {
+      "x": 690,
+      "y": 340,
+      "type": "fish",
+      "layer": "back"
+    },
+    {
+      "x": 1310,
+      "y": 300,
+      "type": "jetty",
+      "layer": "back"
+    },
+    {
+      "x": 1485.5,
+      "y": 324,
+      "type": "rowing-boat",
+      "layer": "back"
+    },
+    {
+      "x": 1610,
+      "y": null,
+      "type": "reeds",
+      "layer": "front"
+    },
+    {
+      "x": 1440,
+      "y": 340,
+      "type": "fish",
+      "layer": "back"
+    },
+    {
+      "x": 2140,
+      "y": 300,
+      "type": "jetty",
+      "layer": "back"
+    },
+    {
+      "x": 2333.5,
+      "y": 324,
+      "type": "rowing-boat",
+      "layer": "back"
+    },
+    {
+      "x": 2480,
+      "y": null,
+      "type": "reeds",
+      "layer": "front"
+    },
+    {
+      "x": 2270,
+      "y": 340,
+      "type": "fish",
+      "layer": "back"
+    }
+  ],
+  "spikes": [],
+  "water": [
+    {
+      "id": "water-1",
+      "x1": 500,
+      "x2": 800,
+      "y": 324,
+      "deep": true
+    },
+    {
+      "id": "water-2",
+      "x1": 1250,
+      "x2": 1590,
+      "y": 324,
+      "deep": true
+    },
+    {
+      "id": "water-3",
+      "x1": 2080,
+      "x2": 2460,
+      "y": 324,
+      "deep": true
+    }
+  ],
+  "weather": {
+    "sun": 0.3,
+    "clouds": 0.75,
+    "rain": 0.5
+  },
+  "timeOfDay": "morning",
+  "backdrop": "mountains",
+  "medals": {
+    "gold": 14,
+    "silver": 19,
+    "bronze": 26
+  }
+}

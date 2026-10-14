@@ -29,8 +29,8 @@ import {
   XPBD_MOTOR_REACTION_SCALE,
   XPBD_RIDER_GROUND_ANGULAR_ACCELERATION,
   XPBD_RIDER_AIR_ANGULAR_ACCELERATION,
-  XPBD_RIDER_LEVERAGE_FADE_START,
-  XPBD_RIDER_LEVERAGE_FADE_END,
+  XPBD_RIDER_BALANCE_FADE,
+  XPBD_RIDER_BALANCE_RESPONSE,
   XPBD_RIDER_MAX_AIR_SPIN,
   XPBD_RIDER_AIR_SPIN_RESPONSE,
   XPBD_RIDER_MAX_GROUND_SPIN,
@@ -69,7 +69,6 @@ import {
   dampDistanceConstraint,
   riderTorqueMultiplier,
   riderTerrainTorqueScale,
-  riderTiltTorqueScale,
   riderSpinTorqueScale,
   advanceAfterTimeOfImpact,
   solveWheelContactVelocity,
@@ -520,19 +519,30 @@ function hangsBelowWheel({ rear, front, bikePoints }) {
   );
 }
 
-function riderGroundLeverage(vehicle) {
-  const { rear, front, chassis } = vehicle;
-  const contact = rear.contact || front.contact;
-  if (!contact || hangsBelowWheel(vehicle)) return 1;
-  const up = chassisUp(chassis);
-  return riderTiltTorqueScale(
-    up.x,
-    up.y,
-    contact.nx,
-    contact.ny,
-    XPBD_RIDER_LEVERAGE_FADE_START,
-    XPBD_RIDER_LEVERAGE_FADE_END,
-  );
+// For a ground lean `alpha` (rad/s², positive turning the screen clockwise)
+// on one wheel: the share of the rider's spin it may still aim for. Lean that
+// tips the bike toward its balance point gets less over the last
+// XPBD_RIDER_BALANCE_FADE px of the level distance from that wheel's contact
+// to the centre of mass, none at the balance point and the other way past it;
+// lean the other way keeps it all. Null with both wheels or neither down.
+function riderBalanceScale({ rear, front, bikePoints }, alpha) {
+  if (rear.grounded === front.grounded) return null;
+  const pivot = rear.grounded ? rear : front;
+  const other = pivot === rear ? front : rear;
+  if (!pivot.contact) return null;
+  const center = centerOfMass(bikePoints);
+  // A bike hanging below its wheel swings freely; see hangsBelowWheel.
+  const contactX = pivot.x - pivot.contact.nx * RADIUS,
+    contactY = pivot.y - pivot.contact.ny * RADIUS;
+  if (center.y > contactY) return null;
+  const side = Math.sign(other.x - contactX) || 1;
+  const margin = (center.x - contactX) * side;
+  // Turning about the contact moves the centre of mass level by
+  // (contactY - centerY) * alpha, toward the balance point when this is < 0.
+  const towardBalance = side * (contactY - center.y) * alpha < 0;
+  // Past the balance point the share turns negative, so the rider steers the
+  // bike back to it, as one holding a wheelie does.
+  return towardBalance ? clamp(margin / XPBD_RIDER_BALANCE_FADE, -1, 1) : 1;
 }
 
 // Leaning forward shifts the rider's weight along the bike, and only the
@@ -1107,13 +1117,25 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
   const chassisInertia = momentOfInertia(chassisPoints);
   const bikeInertia = momentOfInertia(bikePoints);
   const bikeSpin = angularVelocity(bikePoints, bikeInertia);
-  const groundLean =
+  const leanPush =
     leanControl *
     XPBD_RIDER_GROUND_ANGULAR_ACCELERATION *
     riderAssist *
     riderTerrainScale *
-    riderGroundLeverage(vehicle) *
     forwardLeanWeightShift(vehicle, facing, leanControl);
+  // The lean pushes, up to the ground spin limit. Near the balance point of a
+  // wheelie or stoppie the rider steers the spin instead and stops it there.
+  const balance = riderBalanceScale(vehicle, leanPush);
+  const groundLean =
+    balance === null || balance >= 1
+      ? leanPush *
+        riderSpinTorqueScale(leanPush, bikeSpin, XPBD_RIDER_MAX_GROUND_SPIN)
+      : clamp(
+          (Math.sign(leanPush) * XPBD_RIDER_MAX_GROUND_SPIN * balance - bikeSpin) *
+            XPBD_RIDER_BALANCE_RESPONSE,
+          -Math.abs(leanPush),
+          Math.abs(leanPush),
+        );
   const airLeanLimit =
     Math.abs(leanControl) * XPBD_RIDER_AIR_ANGULAR_ACCELERATION * riderAssist;
   const airLean = clamp(
@@ -1122,10 +1144,7 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
     -airLeanLimit,
     airLeanLimit,
   );
-  const riderAngularAcceleration = grounded
-    ? groundLean *
-      riderSpinTorqueScale(groundLean, bikeSpin, XPBD_RIDER_MAX_GROUND_SPIN)
-    : airLean;
+  const riderAngularAcceleration = grounded ? groundLean : airLean;
   // The engine pushes against the tire's grip on the ground, and that pushes
   // the front up. In the air the wheel's own spin turns the bike instead; see
   // the airborne wheels below.

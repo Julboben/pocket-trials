@@ -206,7 +206,9 @@ function controlResponseScenario() {
   // The throttle opens as a twist grip does, most of the way in a tenth of a
   // second; the engine and clutch then shape how the torque arrives.
   assert.ok(result.controls.throttle > .85 && result.controls.throttle < .95, `throttle input ramp outside the tuned range: ${result.controls.throttle}`);
-  assert.ok(result.controls.leanControl > .7 && result.controls.leanControl < .85, `lean input ramp outside the tuned range: ${result.controls.leanControl}`);
+  // Lean follows the input most of the way in a quarter second (10/s), quick
+  // enough to time a pop onto a step.
+  assert.ok(result.controls.leanControl > .85 && result.controls.leanControl < .95, `lean input ramp outside the tuned range: ${result.controls.leanControl}`);
   return {
     throttleAfterQuarterSecond: result.controls.throttle,
     leanAfterQuarterSecond: result.controls.leanControl
@@ -252,7 +254,9 @@ function airScenario() {
   const initialPitch = vehicleMetrics(simulation.vehicle).pitch;
   run(simulation, 60, { lean: 1 });
   const pitchChange = vehicleMetrics(simulation.vehicle).pitch - initialPitch;
-  assert.ok(Math.abs(pitchChange) > .25 && Math.abs(pitchChange) < .9, `air rotation outside useful range: ${pitchChange}`);
+  // The quicker lean input starts the spin sooner: about 1.1 rad in the half
+  // second, still well short of the top air spin.
+  assert.ok(Math.abs(pitchChange) > .25 && Math.abs(pitchChange) < 1.3, `air rotation outside useful range: ${pitchChange}`);
   return { pitchChange };
 }
 

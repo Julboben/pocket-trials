@@ -336,16 +336,6 @@ export function riderTerrainTorqueScale(leanInput, facing, uphill, reduction = 1
   return 1 - forwardLean * rearLift * Math.min(.9, uphillAmount * reduction);
 }
 
-// A rider balancing on one wheel has no leverage once the bike stands past
-// upright, so ground lean fades out with the tilt of the chassis away from the
-// ground normal instead of spinning the bike around its contact wheel.
-export function riderTiltTorqueScale(upX, upY, normalX, normalY, fadeStart, fadeEnd) {
-  const tilt = acos(Math.max(-1, Math.min(1, upX * normalX + upY * normalY)));
-  if (tilt <= fadeStart) return 1;
-  if (tilt >= fadeEnd) return 0;
-  return 1 - (tilt - fadeStart) / (fadeEnd - fadeStart);
-}
-
 // Full lean torque up to 75% of maxSpin, fading to none at maxSpin. Torque
 // against the current spin is never reduced.
 export function riderSpinTorqueScale(angularAcceleration, angularVelocity, maxSpin) {

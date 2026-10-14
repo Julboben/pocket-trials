@@ -54,47 +54,47 @@ Names are working titles. "Also new" is the visual element introduced alongside 
 ### World 3 – The Desert
 *Sand, `desert` backdrop, bright noon with sun glare. Teaches air.*
 
-- [ ] **11. Dune Hopper:** first air off rounded crests, and using lean to level the bike in the air. *Also new:* sun glare, cacti.
-- [ ] **12. Kicker Canyon:** kickers, ramps that throw you up, onto downhill landings. *Also new:* boulders, crystals.
-- [ ] **13. Sandpit:** pits with a floor. A short jump is costly but you can recover. Reuses ideas from Skybound. *Also new:* pebbles, the skull and car wreck props.
-- [ ] **14. Mind the Gap:** the first open gaps, 80 → 90 → 100 units wide. Falling in ends the run. *Also new:* warning signs and tyre walls before each gap.
-- [ ] **15. Mirage (finale):** apples floating over gaps, and a floating island to jump onto and off. *Also new:* heat haze.
+- [x] **11. Dune Hopper:** first air off rounded crests, and using lean to level the bike in the air. *Also new:* sun glare, cacti.
+- [x] **12. Kicker Canyon:** kickers, ramps that throw you up, onto downhill landings. *Also new:* boulders, crystals.
+- [x] **13. Sandpit:** pits with a floor. A short jump is costly but you can recover. Reuses ideas from Skybound. *Also new:* pebbles, the skull and car wreck props.
+- [x] **14. Mind the Gap:** the first open gaps, 80 → 90 → 100 units wide. Falling in ends the run. *Also new:* warning signs and tyre walls before each gap.
+- [x] **15. Mirage (finale):** apples floating over gaps, and a floating island to jump onto and off. *Also new:* heat haze.
 
 ### World 4 – Lakeland
 *Grass and dirt, `hills` and `mountains` backdrops, morning, rain. Teaches water, and turning around in the air.*
 
-- [ ] **16. Wet Feet:** shallow fords that drag on the bike and slow it down. *Also new:* reeds, lilies.
-- [ ] **17. Deep End:** deep water wipes you out. The first pool has a dry way round, and the second must be cleared with a small hop. *Also new:* ducks, fish, the floating rider after a crash.
-- [ ] **18. Jetty Jump:** jumping over wide deep water. *Also new:* moderate rain, jetty and rowing boat props.
-- [ ] **19. Boomerang:** turning around in the air. Jump off a kicker, turn while airborne, and land facing back onto a ledge above where you took off. *Also new:* a frog on a lily pad.
-- [ ] **20. Out and Back (finale):** ride out, collect, turn around, and finish behind where you started. Combines fords, deep water and turning around. *Also new:* distant thunder.
+- [x] **16. Wet Feet:** shallow fords that drag on the bike and slow it down. *Also new:* reeds, lilies.
+- [x] **17. Deep End:** deep water wipes you out. The first pool has a dry way round, and the second must be cleared with a small hop. *Also new:* ducks, fish, the floating rider after a crash.
+- [x] **18. Jetty Jump:** jumping over wide deep water. *Also new:* moderate rain, jetty and rowing boat props.
+- [x] **19. Boomerang:** turning around in the air. Jump off a kicker, turn while airborne, and land facing back onto a ledge above where you took off. *Also new:* a frog on a lily pad.
+- [x] **20. Out and Back (finale):** ride out, collect, turn around, and finish behind where you started. Combines fords, deep water and turning around. *Also new:* distant thunder.
 
 ### World 5 – Underground
 *Rock, back walls, darkness. Teaches tight spaces.*
 
-- [ ] **21. Low Bridge:** overhangs and low ceilings. Keep your head down and don't bounce. *Also new:* hanging roots, stalactites.
-- [ ] **22. Lantern Mine:** the first dark cave, closed off by a back wall. Ride by the headlight and lanterns. *Also new:* the headlight, minecarts, beams, drips.
-- [ ] **23. Sinkhole:** drop from the surface into a cave and climb out of a second exit. The trail has two levels. *Also new:* bats, glowing mushrooms.
-- [ ] **24. The Shaft:** start at the bottom of a cave shaft and climb out by switchbacking between ledges on alternate sides, up to a finish that floats high above. *Also new:* a start below ground, a floating finish.
-- [ ] **25. The Ring (finale):** the first loop. Needs the loop handling pass in `PHYSICS.md` first. Combines ceilings, darkness and climbing. *Also new:* a large cavern lit by lanterns.
+- [x] **21. Low Bridge:** overhangs and low ceilings. Keep your head down and don't bounce. *Also new:* hanging roots, stalactites.
+- [x] **22. Lantern Mine:** the first dark cave, closed off by a back wall. Ride by the headlight and lanterns. *Also new:* the headlight, minecarts, beams, drips.
+- [x] **23. Sinkhole:** drop from the surface into a cave and climb out of a second exit. The trail has two levels. *Also new:* bats, glowing mushrooms.
+- [x] **24. The Shaft:** start at the bottom of a cave shaft and climb out by switchbacking between ledges on alternate sides, up to a finish that floats high above. *Also new:* a start below ground, a floating finish.
+- [x] **25. The Ring (finale):** the first loop. Needs the loop handling pass in `PHYSICS.md` first. Combines ceilings, darkness and climbing. *Also new:* a large cavern lit by lanterns.
 
 ### World 6 – The City
 *Brick, `city` backdrop, evening to night. Teaches hazards.*
 
-- [ ] **26. Kerbside:** step-ups. Pop the front wheel up brick stairs and kerbs with near-vertical faces and crisp corners. *Also new:* cones, barriers, graffiti.
-- [ ] **27. Killer Street:** spikes. First a still spike well off the route, then still spikes on the route with plenty of room. *Also new:* dumpsters, pigeons.
-- [ ] **28. Spin Cycle:** spinning spikes, and spikes hanging under ledges, so you must control how high you go. *Also new:* scaffolding in front of the rider.
-- [ ] **29. Night Shift:** the first full night. Street lamps light the route, and apples can only be seen where light reaches them. *Also new:* lit windows, crane lights.
-- [ ] **30. Rooftops (finale):** gaps between buildings, with spikes and night. *Also new:* sponsor banners, the halfway flag.
+- [x] **26. Kerbside:** step-ups. Pop the front wheel up brick stairs and kerbs with near-vertical faces and crisp corners. *Also new:* cones, barriers, graffiti.
+- [x] **27. Killer Street:** spikes. First a still spike well off the route, then still spixkes on the route with plenty of room. *Also new:* dumpsters, pigeons.
+- [x] **28. Spin Cycle:** spinning spikes, and spikes hanging under ledges, so you must control how high you go. *Also new:* scaffolding in front of the rider.
+- [x] **29. Night Shift:** the first full night. Street lamps light the route, and apples can only be seen where light reaches them. *Also new:* lit windows, crane lights.
+- [x] **30. Rooftops (finale):** gaps between buildings, with spikes and night. *Also new:* sponsor banners, the halfway flag.
 
 ### World 7 – The Mountains
 *Snow and rock, `mountains` backdrop, worsening weather. The final tests.*
 
-- [ ] **31. Long Way Up (rebuilt):** endurance. An 800+ unit climb where you must not lose momentum. *Also new:* light snow (`snow` ≈ 0.3), cairns.
-- [ ] **32. Whiteout:** fog limits how far ahead you can see, so signs and props mark the route. Keep `fog` ≤ 0.5. *Also new:* heavier snow, the ski lift.
-- [ ] **33. Big Air:** big kickers and gaps of 120–160 units. Air flips are optional, for gold times. *Also new:* a clear high-altitude sky.
-- [ ] **34. Thunderhead:** a night storm where lightning lights up the route between flashes. *Also new:* lightning, heavy rain.
-- [ ] **35. Elastic Summit (rebuilt, finale):** the final exam, with something from every world. *Also new:* the summit flag and a full storm.
+- [x] **31. Long Way Up (rebuilt):** endurance. An 800+ unit climb where you must not lose momentum. *Also new:* light snow (`snow` ≈ 0.3), cairns.
+- [x] **32. Whiteout:** fog limits how far ahead you can see, so signs and props mark the route. Keep `fog` ≤ 0.5. *Also new:* heavier snow, the ski lift.
+- [x] **33. Big Air:** big kickers and gaps of 120–160 units. Air flips are optional, for gold times. *Also new:* a clear high-altitude sky.
+- [x] **34. Thunderhead:** a night storm where lightning lights up the route between flashes. *Also new:* lightning, heavy rain.
+- [x] **35. Elastic Summit (rebuilt, finale):** the final exam, with something from every world. *Also new:* the summit flag and a full storm.
 
 ---
 

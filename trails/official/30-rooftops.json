@@ -1,0 +1,662 @@
+{
+  "name": "Rooftops",
+  "label": "ROOFTOPS / 30",
+  "description": "The City finale, at night across the rooftops. Fly the gaps between buildings off the low parapets: 90, 100, 100 and 100 units across. Pop up the box on the third roof, mind the spikes and keep away from the spinner above the last gap: jump long, not high. The flag halfway along saves your progress.",
+  "start": {
+    "x": 0,
+    "y": null,
+    "facing": 1
+  },
+  "finish": {
+    "x": 3650,
+    "y": null
+  },
+  "checkpoint": {
+    "x": 1600,
+    "y": null
+  },
+  "terrainBlocks": [
+    {
+      "id": "roof-1",
+      "material": "brick",
+      "outer": {
+        "id": "roof-1-outer",
+        "nodes": [
+          {
+            "id": "roof-1-0",
+            "x": -550,
+            "y": 1200,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "roof-1-1",
+            "x": -550,
+            "y": 100,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "roof-1-2",
+            "x": -150,
+            "y": 100,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "roof-1-3",
+            "x": -150,
+            "y": 400,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "curve"
+          },
+          {
+            "id": "roof-1-4",
+            "x": 560,
+            "y": 400,
+            "mode": "smooth",
+            "in": [
+              323.3333,
+              400
+            ],
+            "out": [
+              604.6667,
+              400
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "roof-1-5",
+            "x": 694,
+            "y": 384,
+            "mode": "independent",
+            "in": [
+              647.1,
+              389.6
+            ],
+            "out": [
+              696.1,
+              383.3
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "roof-1-6",
+            "x": 700,
+            "y": 382,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "roof-1-7",
+            "x": 700,
+            "y": 1200,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    },
+    {
+      "id": "roof-2",
+      "material": "brick",
+      "outer": {
+        "id": "roof-2-outer",
+        "nodes": [
+          {
+            "id": "roof-2-0",
+            "x": 790,
+            "y": 1200,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "roof-2-1",
+            "x": 790,
+            "y": 410,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "curve"
+          },
+          {
+            "id": "roof-2-2",
+            "x": 1260,
+            "y": 410,
+            "mode": "smooth",
+            "in": [
+              1103.3333,
+              410
+            ],
+            "out": [
+              1304.6667,
+              410
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "roof-2-3",
+            "x": 1394,
+            "y": 394,
+            "mode": "independent",
+            "in": [
+              1347.1,
+              399.6
+            ],
+            "out": [
+              1396.1,
+              393.3
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "roof-2-4",
+            "x": 1400,
+            "y": 392,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "roof-2-5",
+            "x": 1400,
+            "y": 1200,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    },
+    {
+      "id": "roof-3",
+      "material": "brick",
+      "outer": {
+        "id": "roof-3-outer",
+        "nodes": [
+          {
+            "id": "roof-3-0",
+            "x": 1500,
+            "y": 1200,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "roof-3-1",
+            "x": 1500,
+            "y": 396,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "curve"
+          },
+          {
+            "id": "roof-3-2",
+            "x": 1910,
+            "y": 396,
+            "mode": "smooth",
+            "in": [
+              1773.3333,
+              396
+            ],
+            "out": [
+              1954.6667,
+              396
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "roof-3-3",
+            "x": 2044,
+            "y": 380,
+            "mode": "independent",
+            "in": [
+              1997.1,
+              385.6
+            ],
+            "out": [
+              2046.1,
+              379.3
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "roof-3-4",
+            "x": 2050,
+            "y": 378,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "roof-3-5",
+            "x": 2050,
+            "y": 1200,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    },
+    {
+      "id": "roof-4",
+      "material": "brick",
+      "outer": {
+        "id": "roof-4-outer",
+        "nodes": [
+          {
+            "id": "roof-4-0",
+            "x": 2150,
+            "y": 1200,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "roof-4-1",
+            "x": 2150,
+            "y": 400,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "curve"
+          },
+          {
+            "id": "roof-4-2",
+            "x": 2760,
+            "y": 400,
+            "mode": "smooth",
+            "in": [
+              2556.6667,
+              400
+            ],
+            "out": [
+              2804.6667,
+              400
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "roof-4-3",
+            "x": 2894,
+            "y": 384,
+            "mode": "independent",
+            "in": [
+              2847.1,
+              389.6
+            ],
+            "out": [
+              2896.1,
+              383.3
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "roof-4-4",
+            "x": 2900,
+            "y": 382,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "roof-4-5",
+            "x": 2900,
+            "y": 1200,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    },
+    {
+      "id": "roof-5",
+      "material": "brick",
+      "outer": {
+        "id": "roof-5-outer",
+        "nodes": [
+          {
+            "id": "roof-5-0",
+            "x": 3000,
+            "y": 1200,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "roof-5-1",
+            "x": 3000,
+            "y": 420,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "roof-5-2",
+            "x": 3800,
+            "y": 420,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "roof-5-3",
+            "x": 3800,
+            "y": 120,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "roof-5-4",
+            "x": 4200,
+            "y": 120,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "roof-5-5",
+            "x": 4200,
+            "y": 1200,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    },
+    {
+      "id": "water-tower-roof",
+      "material": "brick",
+      "outer": {
+        "id": "water-tower-roof-outer",
+        "nodes": [
+          {
+            "id": "water-tower-roof-0",
+            "x": 1700,
+            "y": 396,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "water-tower-roof-1",
+            "x": 1700,
+            "y": 370,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "water-tower-roof-2",
+            "x": 1840,
+            "y": 370,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "water-tower-roof-3",
+            "x": 1840,
+            "y": 396,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    }
+  ],
+  "apples": [
+    {
+      "x": 745,
+      "y": 330
+    },
+    {
+      "x": 1100,
+      "y": null
+    },
+    {
+      "x": 1770,
+      "y": null
+    },
+    {
+      "x": 2100,
+      "y": 320
+    },
+    {
+      "x": 2500,
+      "y": null
+    },
+    {
+      "x": 2950,
+      "y": 330
+    },
+    {
+      "x": 3400,
+      "y": null
+    }
+  ],
+  "spikes": [
+    {
+      "id": "spike-1",
+      "x": 1200,
+      "y": 396,
+      "radius": 14,
+      "spin": 0
+    },
+    {
+      "id": "spike-2",
+      "x": 1650,
+      "y": 382,
+      "radius": 14,
+      "spin": 0
+    },
+    {
+      "id": "spike-3",
+      "x": 2420,
+      "y": 386,
+      "radius": 14,
+      "spin": 0
+    },
+    {
+      "id": "spike-4",
+      "x": 2620,
+      "y": 386,
+      "radius": 14,
+      "spin": 0
+    },
+    {
+      "id": "spike-5",
+      "x": 2950,
+      "y": 250,
+      "radius": 18,
+      "spin": 2
+    },
+    {
+      "id": "spike-6",
+      "x": 3300,
+      "y": 406,
+      "radius": 14,
+      "spin": 0
+    }
+  ],
+  "props": [
+    {
+      "x": -60,
+      "y": null,
+      "type": "street-lamp",
+      "layer": "back"
+    },
+    {
+      "x": 150,
+      "y": null,
+      "type": "sponsor-banner",
+      "layer": "back"
+    },
+    {
+      "x": 300,
+      "y": null,
+      "type": "lit-windows",
+      "layer": "back"
+    },
+    {
+      "x": 500,
+      "y": null,
+      "type": "sign",
+      "layer": "front",
+      "text": "! GAP"
+    },
+    {
+      "x": 950,
+      "y": null,
+      "type": "sponsor-banner",
+      "layer": "back"
+    },
+    {
+      "x": 1050,
+      "y": null,
+      "type": "chimney",
+      "layer": "back"
+    },
+    {
+      "x": 1300,
+      "y": null,
+      "type": "antenna",
+      "layer": "back"
+    },
+    {
+      "x": 1600,
+      "y": null,
+      "type": "halfway-flag",
+      "layer": "back"
+    },
+    {
+      "x": 1560,
+      "y": null,
+      "type": "lit-windows",
+      "layer": "back"
+    },
+    {
+      "x": 1770,
+      "y": 370,
+      "type": "water-tower",
+      "layer": "back"
+    },
+    {
+      "x": 1950,
+      "y": null,
+      "type": "crane-lights",
+      "layer": "back"
+    },
+    {
+      "x": 2300,
+      "y": null,
+      "type": "sponsor-banner",
+      "layer": "back"
+    },
+    {
+      "x": 2520,
+      "y": null,
+      "type": "chimney",
+      "layer": "back"
+    },
+    {
+      "x": 2700,
+      "y": null,
+      "type": "lit-windows",
+      "layer": "back"
+    },
+    {
+      "x": 2800,
+      "y": null,
+      "type": "sign",
+      "layer": "front",
+      "text": "! LONG"
+    },
+    {
+      "x": 3150,
+      "y": null,
+      "type": "antenna",
+      "layer": "back"
+    },
+    {
+      "x": 3450,
+      "y": null,
+      "type": "sponsor-banner",
+      "layer": "back"
+    },
+    {
+      "x": 3700,
+      "y": null,
+      "type": "street-lamp",
+      "layer": "back"
+    },
+    {
+      "x": 650,
+      "y": null,
+      "type": "pigeon",
+      "layer": "back"
+    },
+    {
+      "x": 2200,
+      "y": null,
+      "type": "pigeon",
+      "layer": "back"
+    }
+  ],
+  "water": [],
+  "weather": {
+    "sun": 0,
+    "clouds": 0.35
+  },
+  "timeOfDay": "night",
+  "backdrop": "city",
+  "medals": {
+    "gold": 19,
+    "silver": 25,
+    "bronze": 34
+  }
+}

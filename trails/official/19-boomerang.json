@@ -1,0 +1,542 @@
+{
+  "name": "Boomerang",
+  "label": "BOOMERANG / 19",
+  "description": "Turning around in the air. The kicker curls past vertical, so it throws you straight up and slightly back. Hit it hard, press turn (Space) while you're in the air, and land facing back on the ledge above the run-up. The ledge leads to a second kicker facing the other way: do it again to reach the top ledge and the finish.",
+  "start": {
+    "x": 120,
+    "y": null,
+    "facing": 1
+  },
+  "finish": {
+    "x": 700,
+    "y": -80
+  },
+  "terrainBlocks": [
+    {
+      "id": "ground",
+      "material": "grass",
+      "outer": {
+        "id": "ground-outer",
+        "nodes": [
+          {
+            "id": "ground-0",
+            "x": -1000,
+            "y": 1200,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ground-1",
+            "x": -1000,
+            "y": 100,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "curve"
+          },
+          {
+            "id": "ground-2",
+            "x": -420,
+            "y": 100,
+            "mode": "smooth",
+            "in": [
+              -613.3333,
+              100
+            ],
+            "out": [
+              -380.0,
+              100
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ground-3",
+            "x": -300,
+            "y": 300,
+            "mode": "smooth",
+            "in": [
+              -340.0,
+              300
+            ],
+            "out": [
+              -273.3333,
+              300
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ground-4",
+            "x": -220,
+            "y": 300,
+            "mode": "independent",
+            "in": [
+              -248.0,
+              300.0
+            ],
+            "out": [
+              -206.0,
+              308.4
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ground-5",
+            "x": -180,
+            "y": 324,
+            "mode": "independent",
+            "in": [
+              -194.0,
+              315.6
+            ],
+            "out": [
+              -138.0,
+              324.0
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ground-6",
+            "x": -60,
+            "y": 324,
+            "mode": "independent",
+            "in": [
+              -102.0,
+              324.0
+            ],
+            "out": [
+              -46.0,
+              315.6
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ground-7",
+            "x": -20,
+            "y": 300,
+            "mode": "independent",
+            "in": [
+              -34.0,
+              308.4
+            ],
+            "out": [
+              214.5,
+              300.0
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ground-8",
+            "x": 650,
+            "y": 300,
+            "mode": "smooth",
+            "in": [
+              426.6667,
+              300
+            ],
+            "out": [
+              700.0,
+              300
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ground-9",
+            "x": 800,
+            "y": 282,
+            "mode": "independent",
+            "in": [
+              747.5,
+              288.3
+            ],
+            "out": [
+              825.2,
+              258.55
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ground-10",
+            "x": 872,
+            "y": 215,
+            "mode": "independent",
+            "in": [
+              846.8,
+              238.45
+            ],
+            "out": [
+              876.55,
+              209.75
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ground-11",
+            "x": 885,
+            "y": 200,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ground-12",
+            "x": 880,
+            "y": 150,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ground-13",
+            "x": 980,
+            "y": 150,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ground-14",
+            "x": 980,
+            "y": -150,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ground-15",
+            "x": 1300,
+            "y": -150,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ground-16",
+            "x": 1300,
+            "y": 1200,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    },
+    {
+      "id": "ledge-1",
+      "material": "dirt",
+      "outer": {
+        "id": "ledge-1-outer",
+        "nodes": [
+          {
+            "id": "ledge-1-0",
+            "x": 340,
+            "y": 140,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ledge-1-1",
+            "x": 340,
+            "y": -50,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ledge-1-2",
+            "x": 412,
+            "y": -50,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ledge-1-3",
+            "x": 407,
+            "y": 0,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "curve"
+          },
+          {
+            "id": "ledge-1-4",
+            "x": 420,
+            "y": 15,
+            "mode": "independent",
+            "in": [
+              415.45,
+              9.75
+            ],
+            "out": [
+              445.2,
+              38.45
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ledge-1-5",
+            "x": 492,
+            "y": 82,
+            "mode": "independent",
+            "in": [
+              466.8,
+              58.55
+            ],
+            "out": [
+              544.5,
+              88.3
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ledge-1-6",
+            "x": 642,
+            "y": 100,
+            "mode": "smooth",
+            "in": [
+              592.0,
+              100
+            ],
+            "out": [
+              701.3333,
+              100
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "ledge-1-7",
+            "x": 820,
+            "y": 100,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ledge-1-8",
+            "x": 820,
+            "y": 140,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    },
+    {
+      "id": "ledge-2",
+      "material": "dirt",
+      "outer": {
+        "id": "ledge-2-outer",
+        "nodes": [
+          {
+            "id": "ledge-2-0",
+            "x": 460,
+            "y": -80,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ledge-2-1",
+            "x": 800,
+            "y": -80,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ledge-2-2",
+            "x": 800,
+            "y": -50,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "ledge-2-3",
+            "x": 460,
+            "y": -50,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    }
+  ],
+  "apples": [
+    {
+      "x": 400,
+      "y": 270
+    },
+    {
+      "x": 760,
+      "y": 70
+    },
+    {
+      "x": 855,
+      "y": 40
+    },
+    {
+      "x": 560,
+      "y": 60
+    },
+    {
+      "x": 440,
+      "y": -140
+    },
+    {
+      "x": 540,
+      "y": -110
+    }
+  ],
+  "props": [
+    {
+      "x": -700,
+      "y": null,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": -520,
+      "y": null,
+      "type": "bush",
+      "layer": "back"
+    },
+    {
+      "x": -260,
+      "y": null,
+      "type": "reeds",
+      "layer": "front"
+    },
+    {
+      "x": -150,
+      "y": 302,
+      "type": "lily",
+      "layer": "back"
+    },
+    {
+      "x": -110,
+      "y": 302,
+      "type": "lily",
+      "layer": "back"
+    },
+    {
+      "x": -110,
+      "y": 302,
+      "type": "frog",
+      "layer": "back"
+    },
+    {
+      "x": -60,
+      "y": 302,
+      "type": "lily",
+      "layer": "back"
+    },
+    {
+      "x": 10,
+      "y": null,
+      "type": "reeds",
+      "layer": "front"
+    },
+    {
+      "x": 250,
+      "y": null,
+      "type": "sign",
+      "layer": "front",
+      "text": "TURN IN AIR"
+    },
+    {
+      "x": 560,
+      "y": 300,
+      "type": "bush",
+      "layer": "back"
+    },
+    {
+      "x": 940,
+      "y": 150,
+      "type": "sign",
+      "layer": "back",
+      "text": "\u2190 TURN"
+    },
+    {
+      "x": 1100,
+      "y": -150,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 720,
+      "y": 100,
+      "type": "flowers",
+      "layer": "front"
+    },
+    {
+      "x": 380,
+      "y": -50,
+      "type": "bush",
+      "layer": "back"
+    },
+    {
+      "x": 780,
+      "y": -80,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 600,
+      "y": -80,
+      "type": "flowers",
+      "layer": "front"
+    },
+    {
+      "x": 1220,
+      "y": -150,
+      "type": "bush",
+      "layer": "back"
+    }
+  ],
+  "spikes": [],
+  "water": [
+    {
+      "id": "water-1",
+      "x1": -220,
+      "x2": -20,
+      "y": 302,
+      "deep": false
+    }
+  ],
+  "weather": {
+    "sun": 0.5,
+    "clouds": 0.5,
+    "rain": 0.15
+  },
+  "timeOfDay": "morning",
+  "backdrop": "mountains",
+  "medals": {
+    "gold": 12,
+    "silver": 17,
+    "bronze": 25
+  }
+}
