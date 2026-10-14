@@ -29,14 +29,17 @@ const PAD = { a: 0, b: 1, x: 2, y: 3, lt: 6, rt: 7, select: 8, start: 9, up: 12,
 const STICK_DEADZONE = .25;
 
 /**
+ * `buttons` press their `data-action`. `indicators` handle their own clicks
+ * but still look pressed while their `data-shows` action is held.
  * @param {{
  *   element: HTMLElement,
  *   buttons: HTMLElement[],
+ *   indicators?: HTMLElement[],
  *   isActive: () => boolean,
  *   onPress: (action: string, source: 'key' | 'pointer' | 'pad') => void,
  * }} options
  */
-export function createInput({ element, buttons, isActive, onPress }) {
+export function createInput({ element, buttons, indicators = [], isActive, onPress }) {
   const keys = new Set();
   const pointers = new Map();
   const pad = { held: new Set(), lean: 0, previous: /** @type {boolean[]} */ ([]), connected: false, stickX: 0, stickY: 0 };
@@ -74,6 +77,7 @@ export function createInput({ element, buttons, isActive, onPress }) {
 
   function paint() {
     for (const button of buttons) button.classList.toggle('held', held(button.dataset.action || ''));
+    for (const button of indicators) button.classList.toggle('held', held(button.dataset.shows || ''));
   }
 
   /** Routes the next key press to `callback` (used by key remapping). */
@@ -94,6 +98,7 @@ export function createInput({ element, buttons, isActive, onPress }) {
     if (PRESS_ACTIONS.includes(action)) {
       if (!event.repeat) onPress(action, 'key');
       keys.add(event.code);
+      paint();
       return true;
     }
     if (!isActive()) return true;

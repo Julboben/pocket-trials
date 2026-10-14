@@ -49,6 +49,7 @@ export function startGame() {
   const input = createInput({
     element: game,
     buttons: [...document.querySelectorAll('[data-action]')],
+    indicators: [...document.querySelectorAll('[data-shows]')],
     isActive: () => session.state === 'running' && !menu.isOpen(),
     onPress: handlePress
   });

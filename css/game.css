@@ -718,7 +718,7 @@ h2 {
 .control-area {
     position: relative;
     margin-top: 0;
-    padding: 15px 18px 13px;
+    padding: 10px 18px 8px;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-pixel);
     background: var(--color-surface);
@@ -728,22 +728,120 @@ h2 {
 .control-buttons[hidden] {
     display: none;
 }
+/* The controls are drawn as a handheld: round lean buttons with flip as a
+   wide pill beside or below them, round B (brake) and A (gas) buttons on a
+   diagonal, and small pills for the rarer switches. Shapes are cut on the 3px
+   grid of the icons inside them, so a round button is 22 grid pixels across
+   (26 on phones) and flip is 11 high (13). Each button's hit area is the
+   whole cell around its shape, label included. Wide screens lay it all out
+   as one short band; phones stack it (see the end of the file). */
 .controls {
-    width: min(760px, 100%);
+    --round: 66px;
+    --flip-height: 33px;
+    --shape-round: polygon(
+        42px 0,
+        42px 3px,
+        51px 3px,
+        51px 6px,
+        54px 6px,
+        54px 9px,
+        57px 9px,
+        57px 12px,
+        60px 12px,
+        60px 15px,
+        63px 15px,
+        63px 24px,
+        66px 24px,
+        66px 42px,
+        63px 42px,
+        63px 51px,
+        60px 51px,
+        60px 54px,
+        57px 54px,
+        57px 57px,
+        54px 57px,
+        54px 60px,
+        51px 60px,
+        51px 63px,
+        42px 63px,
+        42px 66px,
+        24px 66px,
+        24px 63px,
+        15px 63px,
+        15px 60px,
+        12px 60px,
+        12px 57px,
+        9px 57px,
+        9px 54px,
+        6px 54px,
+        6px 51px,
+        3px 51px,
+        3px 42px,
+        0 42px,
+        0 24px,
+        3px 24px,
+        3px 15px,
+        6px 15px,
+        6px 12px,
+        9px 12px,
+        9px 9px,
+        12px 9px,
+        12px 6px,
+        15px 6px,
+        15px 3px,
+        24px 3px,
+        24px 0
+    );
+    --shape-flip: polygon(
+        calc(100% - 9px) 0,
+        calc(100% - 9px) 3px,
+        calc(100% - 6px) 3px,
+        calc(100% - 6px) 6px,
+        calc(100% - 3px) 6px,
+        calc(100% - 3px) 9px,
+        100% 9px,
+        100% 24px,
+        calc(100% - 3px) 24px,
+        calc(100% - 3px) 27px,
+        calc(100% - 6px) 27px,
+        calc(100% - 6px) 30px,
+        calc(100% - 9px) 30px,
+        calc(100% - 9px) 33px,
+        9px 33px,
+        9px 30px,
+        6px 30px,
+        6px 27px,
+        3px 27px,
+        3px 24px,
+        0 24px,
+        0 9px,
+        3px 9px,
+        3px 6px,
+        6px 6px,
+        6px 3px,
+        9px 3px,
+        9px 0
+    );
+    position: relative;
+    width: min(1040px, 100%);
     margin: 0 auto;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 0.8fr) minmax(
-            0,
-            1fr
-        ) minmax(0, 1.2fr);
-    gap: 8px;
+    /* Lean back, lean forward, flip; the three switches; brake, gas. The
+       last track mirrors the flip column when there is room, to centre the
+       switches. */
+    grid-template-columns:
+        var(--round) 8px var(--round) 12px 108px minmax(16px, 1fr)
+        84px 84px 84px minmax(16px, 1fr) var(--round) 8px var(--round)
+        minmax(0, 120px);
+    /* Gas sits 9px higher than brake; labels go in the last row. */
+    grid-template-rows: 9px 57px 9px 20px;
 }
 .control {
+    position: relative;
     width: 100%;
-    height: 64px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-pixel);
-    background: var(--color-surface-raised);
+    padding: 0;
+    border: 0;
+    background: transparent;
     color: var(--color-text);
     touch-action: none;
     display: flex;
@@ -751,13 +849,6 @@ h2 {
     align-items: center;
     justify-content: center;
     gap: 5px;
-    box-shadow: var(--shadow-pixel);
-}
-#down-control,
-#up-control {
-    width: 100%;
-    height: 64px;
-    border-radius: var(--radius-pixel);
 }
 .control .symbol {
     --px: 3px;
@@ -777,25 +868,291 @@ h2 {
 .control.sound[aria-pressed="false"] .symbol {
     --icon: var(--icon-sound-off);
 }
-/* Only the phone handheld (below) has room for these; elsewhere the keys and
-   the menu do the job. */
+
+#left-control {
+    grid-column: 1;
+    grid-row: 1 / 3;
+}
+#right-control {
+    grid-column: 3;
+    grid-row: 1 / 3;
+}
+#flip-control {
+    /* Level with the middle of the lean buttons, its label in line with
+       theirs. */
+    --label-drop: 18px;
+    grid-column: 5;
+    grid-row: 1 / 3;
+    align-self: start;
+    margin-top: 15px;
+}
+#headlight {
+    grid-column: 7;
+}
+#restart-control {
+    grid-column: 8;
+}
+#sound-control {
+    grid-column: 9;
+}
+#down-control {
+    grid-column: 11;
+    grid-row: 2 / 4;
+    --face: var(--color-accent);
+    color: var(--color-accent-ink);
+}
+#up-control {
+    grid-column: 13;
+    grid-row: 1 / 3;
+    --face: var(--color-green);
+    color: var(--color-green-ink);
+}
+
+/* The big buttons: a shadow and a face behind the icon, both cut to a pixel
+   shape, and the label printed on the shell below. */
+#left-control,
+#right-control,
+#flip-control {
+    --face: var(--color-surface-hover);
+}
+#left-control,
+#right-control,
+#flip-control,
+#down-control,
+#up-control {
+    isolation: isolate;
+}
+#left-control,
+#right-control,
+#down-control,
+#up-control {
+    place-self: start center;
+    width: var(--round);
+    aspect-ratio: 1;
+}
+#flip-control {
+    height: var(--flip-height);
+}
+#left-control.held,
+#right-control.held,
+#flip-control.held,
+#flip-control:active {
+    --face: var(--color-surface-raised);
+}
+#down-control.held {
+    --face: var(--color-accent-hover);
+}
+#up-control.held {
+    --face: var(--color-green-hover);
+}
+#left-control::before,
+#left-control::after,
+#right-control::before,
+#right-control::after,
+#flip-control::before,
+#flip-control::after,
+#down-control::before,
+#down-control::after,
+#up-control::before,
+#up-control::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+}
+#left-control::before,
+#right-control::before,
+#flip-control::before,
+#down-control::before,
+#up-control::before {
+    background: var(--color-shadow);
+    transform: translate(3px, 3px);
+}
+#left-control::after,
+#right-control::after,
+#flip-control::after,
+#down-control::after,
+#up-control::after {
+    background: var(--face);
+    box-shadow: inset -3px -3px 0 #0000002e;
+}
+#left-control.held,
+#right-control.held,
+#flip-control.held,
+#flip-control:active,
+#down-control.held,
+#up-control.held {
+    transform: translate(2px, 2px);
+}
+#left-control.held::before,
+#right-control.held::before,
+#flip-control.held::before,
+#flip-control:active::before,
+#down-control.held::before,
+#up-control.held::before {
+    transform: translate(1px, 1px);
+}
+#left-control.held::after,
+#right-control.held::after,
+#flip-control.held::after,
+#flip-control:active::after,
+#down-control.held::after,
+#up-control.held::after {
+    box-shadow: inset 3px 3px 0 #0000002e;
+}
+#left-control::before,
+#left-control::after,
+#right-control::before,
+#right-control::after,
+#down-control::before,
+#down-control::after,
+#up-control::before,
+#up-control::after {
+    clip-path: var(--shape-round);
+}
+#flip-control::before,
+#flip-control::after {
+    clip-path: var(--shape-flip);
+}
+#left-control .caption,
+#right-control .caption,
+#flip-control .caption,
+#down-control .caption,
+#up-control .caption {
+    position: absolute;
+    top: calc(100% + 8px + var(--label-drop, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--color-text-soft);
+    white-space: nowrap;
+}
+
+/* The switches: a small pill on the 2px grid of its icon, with the icon and
+   label underneath. The headlight pill glows gold while the light is on. */
+#headlight,
 #sound-control,
 #restart-control {
-    display: none;
+    --step: 2px;
+    --pill: var(--color-shell);
+    grid-row: 1 / 3;
+    align-self: start;
+    width: 84px;
+    max-width: 100%;
+    height: 44px;
+    isolation: isolate;
+    flex-flow: row wrap;
+    align-content: flex-start;
+    gap: 7px 5px;
+    padding: 4px 0 0;
 }
-.control.gas {
-    color: var(--color-green-ink);
-    background: var(--color-green);
-    border-color: #d7ecc0;
+#headlight[aria-pressed="true"] {
+    --pill: var(--color-gold);
 }
-.control.held {
+#headlight::before,
+#sound-control::before,
+#restart-control::before {
+    content: "";
+    flex: 0 0 44px;
+    margin-inline: calc((100% - 44px) / 2);
+    height: 12px;
+    background: var(--pill);
+}
+#headlight::after,
+#sound-control::after,
+#restart-control::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: 6px;
+    left: calc(50% - 20px);
+    width: 44px;
+    height: 12px;
+    background: var(--color-shadow);
+}
+#headlight::before,
+#headlight::after,
+#sound-control::before,
+#sound-control::after,
+#restart-control::before,
+#restart-control::after {
+    clip-path: polygon(
+        calc(var(--step) * 2) 0,
+        calc(100% - var(--step) * 2) 0,
+        calc(100% - var(--step) * 2) var(--step),
+        calc(100% - var(--step)) var(--step),
+        calc(100% - var(--step)) calc(var(--step) * 2),
+        100% calc(var(--step) * 2),
+        100% calc(100% - var(--step) * 2),
+        calc(100% - var(--step)) calc(100% - var(--step) * 2),
+        calc(100% - var(--step)) calc(100% - var(--step)),
+        calc(100% - var(--step) * 2) calc(100% - var(--step)),
+        calc(100% - var(--step) * 2) 100%,
+        calc(var(--step) * 2) 100%,
+        calc(var(--step) * 2) calc(100% - var(--step)),
+        var(--step) calc(100% - var(--step)),
+        var(--step) calc(100% - var(--step) * 2),
+        0 calc(100% - var(--step) * 2),
+        0 calc(var(--step) * 2),
+        var(--step) calc(var(--step) * 2),
+        var(--step) var(--step),
+        calc(var(--step) * 2) var(--step)
+    );
+}
+#headlight:active::before,
+#headlight.held::before,
+#sound-control:active::before,
+#restart-control:active::before,
+#restart-control.held::before {
     transform: translate(2px, 2px);
-    background: var(--color-surface-hover);
-    box-shadow: 1px 1px 0 var(--color-shadow);
 }
-.control.gas.held {
-    background: var(--color-green-hover);
-    box-shadow: 1px 1px 0 #7e9c6c;
+#headlight .symbol,
+#sound-control .symbol,
+#restart-control .symbol {
+    --px: 2px;
+}
+
+/* An italic H for Hjulben in 3px dots, six rows each one grid pixel left of
+   the last: a speaker grille under the switches, or under the gas on
+   phones. Positioned within its grid area, it takes no cell of its own. */
+.controls::after {
+    content: "";
+    position: absolute;
+    grid-column: 7 / 10;
+    grid-row: 1 / 5;
+    top: 54px;
+    left: calc(50% - 24px);
+    width: 3px;
+    height: 3px;
+    box-shadow:
+        15px 0 var(--color-shadow),
+        21px 0 var(--color-shadow),
+        39px 0 var(--color-shadow),
+        45px 0 var(--color-shadow),
+        12px 6px var(--color-shadow),
+        18px 6px var(--color-shadow),
+        36px 6px var(--color-shadow),
+        42px 6px var(--color-shadow),
+        9px 12px var(--color-shadow),
+        15px 12px var(--color-shadow),
+        21px 12px var(--color-shadow),
+        27px 12px var(--color-shadow),
+        33px 12px var(--color-shadow),
+        39px 12px var(--color-shadow),
+        6px 18px var(--color-shadow),
+        12px 18px var(--color-shadow),
+        18px 18px var(--color-shadow),
+        24px 18px var(--color-shadow),
+        30px 18px var(--color-shadow),
+        36px 18px var(--color-shadow),
+        3px 24px var(--color-shadow),
+        9px 24px var(--color-shadow),
+        27px 24px var(--color-shadow),
+        33px 24px var(--color-shadow),
+        0 30px var(--color-shadow),
+        6px 30px var(--color-shadow),
+        24px 30px var(--color-shadow),
+        30px 30px var(--color-shadow);
+    pointer-events: none;
 }
 
 .sr-only {
@@ -2230,7 +2587,6 @@ kbd {
 .pixel-ui .toast,
 .pixel-ui .modal,
 .pixel-ui .control-area,
-.pixel-ui .control,
 .pixel-ui .icon-button,
 .pixel-ui .dashboard-settings,
 .pixel-ui .setting-options,
@@ -2310,13 +2666,6 @@ kbd {
     .control-area {
         padding: 14px 10px 12px;
     }
-    .controls {
-        grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(
-                0,
-                0.8fr
-            ) minmax(0, 1fr) minmax(0, 1.2fr);
-        gap: 6px;
-    }
 }
 
 @media (max-width: 520px) {
@@ -2352,23 +2701,6 @@ kbd {
     .hud-pill {
         min-height: 30px;
         padding: 6px 8px;
-    }
-
-    .control {
-        width: 100%;
-        height: 60px;
-    }
-    .controls {
-        grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(
-                0,
-                0.8fr
-            ) minmax(0, 1fr) minmax(0, 1.2fr);
-        gap: 5px;
-    }
-    #down-control,
-    #up-control {
-        width: 100%;
-        height: 60px;
     }
     .how-grid {
         grid-template-columns: 1fr;
@@ -2432,12 +2764,6 @@ kbd {
 }
 
 @media (max-width: 350px) {
-    .control,
-    #down-control,
-    #up-control {
-        width: 100%;
-        height: 56px;
-    }
     .modal {
         padding: 20px 15px;
     }
@@ -2446,17 +2772,11 @@ kbd {
     }
 }
 
-/* Phones: the control area becomes a handheld. Lean back and lean forward
-   are round buttons under the left thumb with flip as a wide pill below
-   them; B (brake) and A (gas) sit on a diagonal under the right thumb. The
-   rarer switches are small pills along the top: lights on the left, so the
-   right thumb can stay on the gas, restart and sound on the right. Buttons
-   are drawn in chunky pixel shapes, but each one's hit area is the whole
-   cell around it, label included. */
-@media (max-width: 520px) {
-    .control-area {
-        /* Everything is drawn on the 3px grid of the icons inside the
-           buttons: a round button is 26 grid pixels across, flip 13 high. */
+/* Narrower screens stack the handheld: lean back and forward with flip below
+   them on the left, brake and gas on the right, and the switches along the
+   top. Lights is on the left so the right thumb can stay on the gas. */
+@media (max-width: 760px) {
+    .controls {
         --round: 78px;
         --flip-height: 39px;
         --shape-round: polygon(
@@ -2551,79 +2871,16 @@ kbd {
             12px 3px,
             12px 0
         );
-        flex: 1 1 auto;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-end;
-        padding: 12px 12px calc(14px + env(safe-area-inset-bottom, 0px));
-    }
-    /* Speaker grille in the bottom-right corner. */
-    .control-area::after {
-        content: "";
-        position: absolute;
-        right: 63px;
-        bottom: calc(44px + env(safe-area-inset-bottom, 0px));
-        width: 3px;
-        height: 3px;
-        /* An italic H for Hjulben in 3px dots: six rows, each one grid pixel
-           left of the last, with the crossbar on the middle two. */
-        box-shadow:
-            15px 0 var(--color-shadow),
-            21px 0 var(--color-shadow),
-            39px 0 var(--color-shadow),
-            45px 0 var(--color-shadow),
-            12px 6px var(--color-shadow),
-            18px 6px var(--color-shadow),
-            36px 6px var(--color-shadow),
-            42px 6px var(--color-shadow),
-            9px 12px var(--color-shadow),
-            15px 12px var(--color-shadow),
-            21px 12px var(--color-shadow),
-            27px 12px var(--color-shadow),
-            33px 12px var(--color-shadow),
-            39px 12px var(--color-shadow),
-            6px 18px var(--color-shadow),
-            12px 18px var(--color-shadow),
-            18px 18px var(--color-shadow),
-            24px 18px var(--color-shadow),
-            30px 18px var(--color-shadow),
-            36px 18px var(--color-shadow),
-            3px 24px var(--color-shadow),
-            9px 24px var(--color-shadow),
-            27px 24px var(--color-shadow),
-            33px 24px var(--color-shadow),
-            0 30px var(--color-shadow),
-            6px 30px var(--color-shadow),
-            24px 30px var(--color-shadow),
-            30px 30px var(--color-shadow);
-        pointer-events: none;
-    }
-    .controls {
+        width: min(420px, 100%);
         grid-template-columns:
             minmax(0, 1fr) 8px minmax(0, 1fr) 14px minmax(0, 1fr)
             6px minmax(0, 1fr);
-        /* Top switches, gap, two rows of leans and gas, their labels, flip,
-           and the flip and brake labels. */
+        /* Switches, gap, two rows of leans and gas, their labels, flip, and
+           the flip and brake labels. */
         grid-template-rows:
             44px 20px calc(var(--round) / 2) calc(var(--round) / 2)
             24px var(--flip-height) 30px;
-        grid-template-areas: none;
-        gap: 0;
     }
-    .control,
-    #down-control,
-    #up-control {
-        position: relative;
-        width: 100%;
-        height: auto;
-    }
-    #sound-control,
-    #restart-control {
-        display: flex;
-    }
-
-    /* The big buttons: a shadow and a face behind the icon, both cut to a
-       pixel shape, and the label printed on the shell below. */
     #left-control {
         grid-column: 1;
         grid-row: 3 / 5;
@@ -2633,169 +2890,33 @@ kbd {
         grid-row: 3 / 5;
     }
     #flip-control {
+        --label-drop: 0px;
         grid-column: 1 / 4;
         grid-row: 6;
+        align-self: stretch;
+        width: 100%;
+        height: auto;
+        margin-top: 0;
     }
     #up-control {
         grid-column: 7;
         grid-row: 3 / 5;
-        --face: var(--color-green);
     }
     #down-control {
         grid-column: 5;
         grid-row: 4 / 7;
-        --face: var(--color-accent);
-        color: var(--color-accent-ink);
-    }
-    #left-control,
-    #right-control,
-    #flip-control,
-    #down-control,
-    #up-control {
-        isolation: isolate;
-        border: 0;
-        background: transparent;
-        box-shadow: none;
-    }
-    #left-control,
-    #right-control,
-    #flip-control {
-        --face: var(--color-surface-hover);
     }
     #left-control,
     #right-control,
     #down-control,
     #up-control {
         place-self: center;
-        width: var(--round);
-        aspect-ratio: 1;
     }
-    #left-control.held,
-    #right-control.held,
-    #flip-control.held,
-    #flip-control:active {
-        --face: var(--color-surface-raised);
+    #headlight,
+    #sound-control,
+    #restart-control {
+        grid-row: 1;
     }
-    #down-control.held {
-        --face: var(--color-accent-hover);
-    }
-    #up-control.held {
-        --face: var(--color-green-hover);
-    }
-    #left-control::before,
-    #left-control::after,
-    #right-control::before,
-    #right-control::after,
-    #flip-control::before,
-    #flip-control::after,
-    #down-control::before,
-    #down-control::after,
-    #up-control::before,
-    #up-control::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        z-index: -1;
-    }
-    #left-control::before,
-    #right-control::before,
-    #flip-control::before,
-    #down-control::before,
-    #up-control::before {
-        background: var(--color-shadow);
-        transform: translate(3px, 3px);
-    }
-    #left-control::after,
-    #right-control::after,
-    #flip-control::after,
-    #down-control::after,
-    #up-control::after {
-        background: var(--face);
-        box-shadow: inset -3px -3px 0 #0000002e;
-    }
-    #left-control.held,
-    #right-control.held,
-    #flip-control.held,
-    #flip-control:active,
-    #down-control.held,
-    #up-control.held {
-        transform: translate(2px, 2px);
-        box-shadow: none;
-    }
-    #left-control.held::before,
-    #right-control.held::before,
-    #flip-control.held::before,
-    #flip-control:active::before,
-    #down-control.held::before,
-    #up-control.held::before {
-        transform: translate(1px, 1px);
-    }
-    #left-control.held::after,
-    #right-control.held::after,
-    #flip-control.held::after,
-    #flip-control:active::after,
-    #down-control.held::after,
-    #up-control.held::after {
-        box-shadow: inset 3px 3px 0 #0000002e;
-    }
-    #left-control::before,
-    #left-control::after,
-    #right-control::before,
-    #right-control::after,
-    #down-control::before,
-    #down-control::after,
-    #up-control::before,
-    #up-control::after {
-        clip-path: var(--shape-round);
-    }
-    #flip-control::before,
-    #flip-control::after {
-        clip-path: var(--shape-flip);
-    }
-    /* The top switches' pills, drawn on the 2px grid of their icons. */
-    #headlight::before,
-    #headlight::after,
-    #sound-control::before,
-    #sound-control::after,
-    #restart-control::before,
-    #restart-control::after {
-        clip-path: polygon(
-            calc(var(--step) * 2) 0,
-            calc(100% - var(--step) * 2) 0,
-            calc(100% - var(--step) * 2) var(--step),
-            calc(100% - var(--step)) var(--step),
-            calc(100% - var(--step)) calc(var(--step) * 2),
-            100% calc(var(--step) * 2),
-            100% calc(100% - var(--step) * 2),
-            calc(100% - var(--step)) calc(100% - var(--step) * 2),
-            calc(100% - var(--step)) calc(100% - var(--step)),
-            calc(100% - var(--step) * 2) calc(100% - var(--step)),
-            calc(100% - var(--step) * 2) 100%,
-            calc(var(--step) * 2) 100%,
-            calc(var(--step) * 2) calc(100% - var(--step)),
-            var(--step) calc(100% - var(--step)),
-            var(--step) calc(100% - var(--step) * 2),
-            0 calc(100% - var(--step) * 2),
-            0 calc(var(--step) * 2),
-            var(--step) calc(var(--step) * 2),
-            var(--step) var(--step),
-            calc(var(--step) * 2) var(--step)
-        );
-    }
-    #left-control .caption,
-    #right-control .caption,
-    #flip-control .caption,
-    #down-control .caption,
-    #up-control .caption {
-        position: absolute;
-        top: calc(100% + 8px);
-        left: 50%;
-        transform: translateX(-50%);
-        color: var(--color-text-soft);
-        white-space: nowrap;
-    }
-
-    /* The top switches: a small pill with its icon and label underneath. */
     #headlight {
         grid-column: 1 / 4;
         justify-self: start;
@@ -2806,61 +2927,26 @@ kbd {
     #sound-control {
         grid-column: 7;
     }
-    #headlight,
-    #sound-control,
-    #restart-control {
-        --step: 2px;
-        --pill: var(--color-shell);
-        grid-row: 1;
-        width: 84px;
-        max-width: 100%;
-        isolation: isolate;
-        flex-flow: row wrap;
-        align-content: flex-start;
-        gap: 7px 5px;
-        padding: 4px 0 0;
-        border: 0;
-        background: transparent;
-        box-shadow: none;
-    }
-    #headlight[aria-pressed="true"] {
-        --pill: var(--color-gold);
-    }
-    #headlight::before,
-    #sound-control::before,
-    #restart-control::before {
-        content: "";
-        flex: 0 0 44px;
-        margin-inline: calc((100% - 44px) / 2);
-        height: 12px;
-        background: var(--pill);
-    }
-    #headlight::after,
-    #sound-control::after,
-    #restart-control::after {
-        content: "";
-        position: absolute;
-        z-index: -1;
-        top: 6px;
-        left: calc(50% - 20px);
-        width: 44px;
-        height: 12px;
-        background: var(--color-shadow);
-    }
-    #headlight:active::before,
-    #sound-control:active::before,
-    #restart-control:active::before {
-        transform: translate(2px, 2px);
-    }
-    #headlight .symbol,
-    #sound-control .symbol,
-    #restart-control .symbol {
-        --px: 2px;
+    .controls::after {
+        grid-column: 7;
+        grid-row: 6 / 8;
+        top: calc(100% - 35px);
     }
 }
-/* Narrow phones: 22 grid pixels across, so four round buttons still fit. */
-@media (max-width: 370px) {
+/* Phones: the handheld fills the space under the game, buttons at the
+   bottom in thumb reach. */
+@media (max-width: 520px) {
     .control-area {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        padding: 12px 12px calc(14px + env(safe-area-inset-bottom, 0px));
+    }
+}
+/* Narrow phones: 22 grid pixels across again, so four round buttons fit. */
+@media (max-width: 370px) {
+    .controls {
         --round: 66px;
         --flip-height: 33px;
         --shape-round: polygon(
