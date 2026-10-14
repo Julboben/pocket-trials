@@ -393,7 +393,7 @@
     },
     {
       "id": "tyre-wall",
-      "material": "stone",
+      "material": "wood",
       "outer": {
         "id": "tyre-wall-outer",
         "nodes": [

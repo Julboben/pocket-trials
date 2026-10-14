@@ -210,6 +210,7 @@ Each block sets its own material with its `material` property. Available presets
 | `stone`  | Cobbled stone wall with a pale capstone edge |
 | `snow`   | Pale surface and cool subsurface         |
 | `brick`  | Brick pattern with a green rideable edge |
+| `wood`   | Staggered wooden planks with grain and knots |
 | `glass`  | See-through panes that let light in; can break |
 
 Material definitions live in `terrainMaterials` at the top of `js/materials.js`. Each preset controls fill, internal layers or pattern, edge colors, vegetation, and wheel-spray colors.
@@ -1106,6 +1107,11 @@ export const terrainMaterials = {
     fill: '#8d493d', layers: ['#a65a49', '#71392f'], detail: '#492b29aa', pattern: 'brick',
     edge: '#433534', surface: '#74a35a', vegetation: null,
     spray: ['#754239','#9a5748','#bd7961']
+  },
+  wood: {
+    fill: '#9a6a40', layers: ['#b4824f', '#78502f'], detail: '#3e261699', pattern: 'wood',
+    edge: '#4a2f1d', surface: '#c39360', vegetation: null,
+    spray: ['#7c5434','#a87a4b','#d2ad7c']
   },
   glass: {
     fill: '#9fcfd3', layers: ['#c4e6e6', '#82b6bd'], detail: '#ffffff99', pattern: 'glass',

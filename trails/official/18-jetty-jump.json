@@ -348,7 +348,7 @@
     },
     {
       "id": "jetty-1",
-      "material": "dirt",
+      "material": "wood",
       "outer": {
         "id": "jetty-1-outer",
         "nodes": [
@@ -430,7 +430,7 @@
     },
     {
       "id": "jetty-2",
-      "material": "dirt",
+      "material": "wood",
       "outer": {
         "id": "jetty-2-outer",
         "nodes": [
@@ -512,7 +512,7 @@
     },
     {
       "id": "jetty-3",
-      "material": "dirt",
+      "material": "wood",
       "outer": {
         "id": "jetty-3-outer",
         "nodes": [
