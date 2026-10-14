@@ -32,8 +32,22 @@ export const BIKE_LAMPS = {
     },
     tail: { x: -36, y: -26, rows: ["T"] },
   },
-  // A round lamp on the fork crown, and a block light behind the seat.
+  // A round lamp on the fork crown, and a block light on the rear rack.
   classic: {
+    head: {
+      x: 14,
+      y: -24,
+      rows: [
+        "KK ",
+        "Khh",
+        "Khh",
+        "KK ",
+      ],
+    },
+    tail: { x: -23, y: -24, rows: ["Tt", "tt"] },
+  },
+  // A round lamp on the fork crown, and a block light on the ducktail.
+  scrambler: {
     head: {
       x: 14,
       y: -24,

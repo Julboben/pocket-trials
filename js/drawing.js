@@ -1766,7 +1766,7 @@ const RIDER_TORSO = [
 
 // Selectable bike models drawn by createGameArt().drawBike. Every model keeps
 // the same seat, peg, and handlebar positions so any rider fits any bike.
-export const BIKE_MODELS = ["elasto", "classic"];
+export const BIKE_MODELS = ["elasto", "classic", "scrambler"];
 export const DEFAULT_BIKE = "elasto";
 
 /** The bike model a look rides (or `bike`, when given), falling back to the default. */
@@ -1848,7 +1848,52 @@ const ELASTO_MID = [
   "     KKKKKK   ",
 ];
 
+// The Pocket Classic: a sprung bicycle, pedalled, with gold springs, hubs
+// and chainring.
 const CLASSIC_COLORS = {
+  tire: "#203332",
+  tread: "#3c524d",
+  rim: "#b9c4af",
+  rimShade: "#7f8f84",
+  spoke: "#657a70",
+  gold: "#edb466",
+  goldLight: "#f1cb91",
+  goldDark: "#b07a3a",
+  chrome: "#dfe6d6",
+  steel: "#b9c4af",
+  steelDark: "#819084",
+  chain: "#45524d",
+  black: "#1b2124",
+  saddle: "#3e5750",
+  saddleDark: "#263a35",
+};
+
+// The chainring, centred on the crank: gold, lit from the top left, with
+// a dark spider and a steel bolt.
+const CLASSIC_CHAINRING = [
+  "  yyy  ",
+  " yYYYy ",
+  "yYk kYy",
+  "yY S yd",
+  "yy k yd",
+  " yyyyd ",
+  "  ddd  ",
+];
+
+// The saddle on its post, nose forward.
+const CLASSIC_SADDLE = [
+  "QQQQQQQ   ",
+  "qqqqqqqqqq",
+  "    S     ",
+];
+
+// The rear rack the tail light sits on, back to the seat post.
+const CLASSIC_RACK = [
+  "SSSSSSSSS",
+  "sssssssss",
+];
+
+const SCRAMBLER_COLORS = {
   tire: "#203332",
   tread: "#3c524d",
   rim: "#b9c4af",
@@ -1868,10 +1913,10 @@ const CLASSIC_COLORS = {
   seatDark: "#263a35",
 };
 
-// The Pocket Classic's sprung body, like the Elasto's: a ducktail seat over
-// a pinstriped side panel, and a rounded tank. G/L/D are the bike paint; see
-// drawClassicFrame for the other keys. The tail light sits on the ducktail.
-const CLASSIC_BODY = [
+// The Scrambler's sprung body, like the Elasto's: a ducktail seat over a
+// pinstriped side panel, and a rounded tank. G/L/D are the bike paint; see
+// drawScramblerFrame for the other keys. The tail light sits on the ducktail.
+const SCRAMBLER_BODY = [
   "     QQQQQQQQQ        ",
   "   qqqqqqqqqqq  LLLL  ",
   "LLLGGGGGGGGGGq LGGGGL ",
@@ -1880,14 +1925,14 @@ const CLASSIC_BODY = [
   "   DDDDDDDDD   DDDDDD ",
 ];
 
-const CLASSIC_MUFFLER = [
+const SCRAMBLER_MUFFLER = [
   "KWWWWWWW",
   "KSSSSSSs",
 ];
 
-// A single with a finned cylinder over round crankcases and the gold
-// clutch cover the Classic has always had.
-const CLASSIC_ENGINE = [
+// A single with a finned cylinder over round crankcases and a gold clutch
+// cover, in the Pocket Classic's gold.
+const SCRAMBLER_ENGINE = [
   "  SSSSS   ",
   "  sssss   ",
   "  SSSSS   ",
@@ -3537,6 +3582,47 @@ export function createGameArt(ctx) {
     const c = CLASSIC_COLORS;
     ctx.save();
     translateToDevice(point.x, point.y);
+    // A thin tire round a tall rim, lit from the top left and shaded below.
+    for (let y = -6; y <= 6; y++)
+      for (let x = -6; x <= 6; x++) {
+        const distance = Math.hypot(x, y);
+        if (distance <= 6.5 && distance >= 5.6)
+          pixelRect(x * 2, y * 2, 2, 2, c.tire);
+        else if (distance < 5.6 && distance >= 4.6)
+          pixelRect(x * 2, y * 2, 2, 2, x + y > 1 ? c.rimShade : c.rim);
+      }
+    const spin = point.spin || 0;
+    const blur = wheelBlur(point);
+    const shimmer = wheelShimmer(point);
+    if (blur > 0)
+      withAlpha(blur, () => {
+        drawWheelRing(5.6, 6.5, c.tread, 0.6, shimmer);
+        drawWheelRing(0, 4.6, c.spoke, 0.3, shimmer);
+      });
+    const treadPhase = Math.round(spin / (TAU / 32)) * (TAU / 32);
+    withAlpha(1 - blur * 0.6, () => {
+      for (let i = 0; i < 8; i++) {
+        const tread = treadPhase + (i * TAU) / 8;
+        pixelRect(
+          Math.round(Math.cos(tread) * 6) * 2,
+          Math.round(Math.sin(tread) * 6) * 2,
+          2,
+          2,
+          c.tread,
+        );
+      }
+    });
+    drawWheelDirt(point, dirt, blur);
+    drawSpokes(point, Math.round(spin / (TAU / 32)) * (TAU / 32), 8, c.spoke, blur);
+    pixelRect(-2, -2, 4, 4, c.goldDark);
+    pixelRect(-2, -2, 2, 2, c.goldLight);
+    ctx.restore();
+  }
+
+  function drawScramblerWheel(point, dirt) {
+    const c = SCRAMBLER_COLORS;
+    ctx.save();
+    translateToDevice(point.x, point.y);
     // Tire, then a polished rim lit from the top left and shaded below.
     for (let y = -6; y <= 6; y++)
       for (let x = -6; x <= 6; x++) {
@@ -4837,6 +4923,114 @@ export function createGameArt(ctx) {
   }) {
     const c = CLASSIC_COLORS;
     const colors = {
+      Q: c.saddle,
+      q: c.saddleDark,
+      S: c.steel,
+      s: c.steelDark,
+      y: c.gold,
+      Y: c.goldLight,
+      d: c.goldDark,
+      k: c.saddleDark,
+    };
+    const backMount = bodyPoint(-9, -15),
+      frontMount = bodyPoint(12, -23);
+    const crank = bodyPoint(-3, -1);
+    const seat = bodyPoint(-8, -19),
+      head = bodyPoint(13, -18);
+
+    // Chain, from the chainring round the gold cog on the rear hub.
+    path([bodyPoint(-3, -7), [-half, -3]], c.chain, 1);
+    path([bodyPoint(-3, 5), [-half, 3]], c.chain, 1);
+    path([[-half, -1], [-half, 1]], c.gold, 3);
+
+    // Rear rack under the tail light, braced to the rear axle.
+    path([bodyPoint(-25, -19), [-half, 0]], c.steelDark, 1);
+    bodyRows(-27, -20, CLASSIC_RACK, colors);
+
+    // Chrome mudguards over both wheels.
+    bodyPath(
+      [
+        [-15, -16],
+        [-24, -18],
+        [-33, -16],
+        [-37, -11],
+      ],
+      c.chrome,
+      1,
+    );
+    const axle = WHEELBASE / 2;
+    bodyPath(
+      [
+        [axle - 7, -16],
+        [axle + 1, -17],
+        [axle + 7, -14],
+      ],
+      c.chrome,
+      1,
+    );
+
+    // The diamond frame: stays to the rear axle, then the seat, top and down
+    // tubes, each lit along its top and shaded under.
+    path([[-half, 2], [crank[0], crank[1] + 2]], paint.dark, 1);
+    path([[-half, 0], crank], paint.base, 2);
+    path([[-half, 0], seat], paint.shade, 2);
+    path([[-half, 0], backMount], c.steelDark, 2);
+    path([[-half, -1], [backMount[0], backMount[1] - 1]], c.steel, 1);
+    spring(-half, 0, backMount[0], backMount[1], c.gold);
+    path([[head[0], head[1] + 2], [crank[0] + 1, crank[1] + 1]], paint.dark, 1);
+    path([head, crank], paint.base, 2);
+    path([crank, bodyPoint(-8, -20)], paint.base, 2);
+    path([[crank[0] - 1, crank[1]], bodyPoint(-9, -20)], paint.light, 1);
+    path([seat, head], paint.base, 2);
+    path([bodyPoint(-8, -20), bodyPoint(13, -19)], paint.light, 1);
+
+    bodyRows(-17, -24, CLASSIC_SADDLE, colors);
+    bodyRows(-10, -8, CLASSIC_CHAINRING, colors);
+    // Crank arm and pedal, under the rider's foot.
+    bodyPath(
+      [
+        [-3, -1],
+        [1, 4],
+      ],
+      c.steelDark,
+      2,
+    );
+    bodyPath(
+      [
+        [1, 5],
+        [3, 5],
+      ],
+      c.black,
+      2,
+    );
+
+    // Fork: a steel leg lit along its front, inside the coil spring.
+    path([[half, 0], frontMount], c.steelDark, 2);
+    path([[half + 1, 0], [frontMount[0] + 1, frontMount[1]]], c.chrome, 1);
+    spring(half, 0, frontMount[0], frontMount[1], c.gold);
+    // Stem and swept-back handlebar.
+    bodyPath(
+      [
+        [10, -23],
+        [12, -28],
+        [19, -28],
+      ],
+      c.saddleDark,
+      2,
+    );
+  }
+
+  function drawScramblerFrame({
+    paint,
+    path,
+    spring,
+    half,
+    bodyPoint,
+    bodyRows,
+    bodyPath,
+  }) {
+    const c = SCRAMBLER_COLORS;
+    const colors = {
       G: paint.base,
       L: paint.light,
       D: paint.dark,
@@ -4891,7 +5085,7 @@ export function createGameArt(ctx) {
       1,
     );
 
-    bodyRows(-11, -14, CLASSIC_ENGINE, colors);
+    bodyRows(-11, -14, SCRAMBLER_ENGINE, colors);
     // Chrome exhaust, under the engine and swept up to a scrambler muffler.
     bodyPath(
       [
@@ -4904,8 +5098,8 @@ export function createGameArt(ctx) {
       c.steelDark,
       1,
     );
-    bodyRows(-29, -12, CLASSIC_MUFFLER, colors);
-    bodyRows(-27, -24, CLASSIC_BODY, colors);
+    bodyRows(-29, -12, SCRAMBLER_MUFFLER, colors);
+    bodyRows(-27, -24, SCRAMBLER_BODY, colors);
 
     // Fork: a steel leg lit along its front, inside the coil spring.
     path([[half, 0], frontMount], c.steelDark, 2);
@@ -5042,6 +5236,7 @@ export function createGameArt(ctx) {
   const BIKES = {
     elasto: { wheel: drawElastoWheel, frame: drawElastoFrame },
     classic: { wheel: drawClassicWheel, frame: drawClassicFrame },
+    scrambler: { wheel: drawScramblerWheel, frame: drawScramblerFrame },
   };
 
   function drawBike({

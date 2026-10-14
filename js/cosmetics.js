@@ -148,6 +148,7 @@ export const LOOK_ITEMS = /** @type {LookItem[]} */ ([
   // Bikes only change the art: every model shares the seat, pegs and bars.
   { id: 'elasto', slot: 'bike', name: 'Elasto', model: 'elasto', shape: 'elasto', blurb: 'Long-travel trials bike.' },
   { id: 'classic', slot: 'bike', name: 'Pocket Classic', model: 'classic', shape: 'classic', blurb: 'The original. Still rides.' },
+  { id: 'scrambler', slot: 'bike', name: 'Scrambler', model: 'scrambler', shape: 'scrambler', blurb: 'Gold clutch, chrome pipe, ducktail seat.' },
 
   bikeColor('green', 'Green', ['#3aa63c', '#8fdc6e', '#1f6b2c'], '#2e8a34'),
   bikeColor('orange', 'Orange', ['#ee6f3f', '#f39a63', '#a8461f'], '#d95832'),
