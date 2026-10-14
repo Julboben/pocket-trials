@@ -10,6 +10,7 @@ import {
   TAU,
   SUSPENSION_REST_LENGTH,
   XPBD_THROTTLE_INPUT_RESPONSE,
+  XPBD_THROTTLE_RELEASE_RESPONSE,
   XPBD_LEAN_INPUT_RESPONSE,
   clamp,
   lerp,
@@ -416,7 +417,9 @@ function advanceRide(ride, input, hooks, events) {
   const coasting = !accelerating && !braking;
   const throttleTarget = accelerating && !braking ? 1 : 0;
   const throttleRate =
-    throttleTarget > ride.throttle ? XPBD_THROTTLE_INPUT_RESPONSE : 4;
+    throttleTarget > ride.throttle
+      ? XPBD_THROTTLE_INPUT_RESPONSE
+      : XPBD_THROTTLE_RELEASE_RESPONSE;
   ride.throttle = lerp(
     ride.throttle,
     throttleTarget,

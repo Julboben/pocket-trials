@@ -100,6 +100,28 @@ export const XPBD_MOTOR_ANGULAR_ACCELERATION = 808;
 // Engine torque tapers linearly to 28% at this wheel speed and keeps thinning
 // out above it without ever cutting off, so the bike has no top speed.
 export const XPBD_TORQUE_FALLOFF_SPEED = 340;
+// The engine between the throttle and the rear wheel. `rev` is its speed in
+// rear-wheel terms (rad/s the wheel turns with the clutch locked), and the
+// torque above follows it. Its flywheel is light, `inertia` times the rear
+// wheel's, so it revs up fast in a blip or in the air, and spinning it up
+// barely kicks the frame. Off the gas it falls back to `idle` with rate
+// `drag` (1/s), and it never revs past `redline`. A centrifugal clutch joins
+// it to the wheel, gripping harder as the revs rise: from nothing at `idle`
+// to full past idle + `engage`, carrying up to `clutch` times the peak torque.
+// It always slips a little under load, so the engine runs above the wheel's
+// speed and its drive comes in soft: held gas lifts the front a few degrees on
+// the flat and lets it settle, where a locked clutch loops the bike. The
+// price is slower steep climbs. `inertia` also sets how firmly the slipping
+// clutch couples: at .25 the front barely lifts, at .29 a 10° climb loops the
+// bike under held gas, and from .31 a 5° one does.
+export const ENGINE = {
+  inertia: .27,
+  idle: 3,
+  engage: 5,
+  clutch: 1.2,
+  drag: 3,
+  redline: 860 / 12,
+};
 // Full reaction: the torque that drives the rear wheel pushes the front up,
 // on climbs as on flat ground. Held throttle on a hill of about 40° or more
 // loops the bike over backward unless the rider leans forward.
@@ -125,7 +147,11 @@ export const XPBD_RIDER_MAX_GROUND_SPIN = 3;
 export const XPBD_TOUCHDOWN_SPIN_THRESHOLD = 3;
 export const XPBD_TOUCHDOWN_SPIN_ABSORPTION = .6;
 export const XPBD_THROTTLE_LEAN_ASSIST = .12;
-export const XPBD_THROTTLE_INPUT_RESPONSE = 1.1;
+// How fast the throttle opens and closes (1/s): about as fast as a twist grip,
+// so a blip counts, and it springs shut as soon as it is let go. The engine
+// and clutch shape how the torque then arrives.
+export const XPBD_THROTTLE_INPUT_RESPONSE = 10;
+export const XPBD_THROTTLE_RELEASE_RESPONSE = 12;
 export const XPBD_LEAN_INPUT_RESPONSE = 5.8;
 export const XPBD_UPHILL_FORWARD_LEAN_REDUCTION = 1.4;
 // Nose-up tilt from the slope (radians) at which the front wheel counts as

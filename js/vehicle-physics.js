@@ -24,6 +24,7 @@ import {
   XPBD_CHASSIS_TOP_INVERSE_MASS,
   XPBD_MOTOR_ANGULAR_ACCELERATION,
   XPBD_TORQUE_FALLOFF_SPEED,
+  ENGINE,
   XPBD_MOTOR_REACTION_SCALE,
   XPBD_RIDER_GROUND_ANGULAR_ACCELERATION,
   XPBD_RIDER_AIR_ANGULAR_ACCELERATION,
@@ -36,6 +37,7 @@ import {
   XPBD_TOUCHDOWN_SPIN_ABSORPTION,
   XPBD_THROTTLE_LEAN_ASSIST,
   XPBD_THROTTLE_INPUT_RESPONSE,
+  XPBD_THROTTLE_RELEASE_RESPONSE,
   XPBD_LEAN_INPUT_RESPONSE,
   XPBD_UPHILL_FORWARD_LEAN_REDUCTION,
   XPBD_UPHILL_FORWARD_LEAN_FULL_TILT,
@@ -281,6 +283,7 @@ export function createVehicle(rear, front) {
     riderAccelerations: new Float64Array(bikePoints.length * 2),
     reactionAccelerations: new Float64Array(bikePoints.length * 2),
     traction: { options: {} },
+    engine: { rev: ENGINE.idle },
   };
   fitSuspension(vehicle, 1);
   return vehicle;
@@ -991,6 +994,40 @@ function updateCrashedPassThrough(vehicle, trail) {
 
 // `controls.crashed` hands the bike to physics alone: the chassis collides with
 // the terrain so a riderless bike tips over and tumbles instead of sinking.
+// Engine torque at `rev`: full up to standstill and tapering linearly to 28%
+// at XPBD_TORQUE_FALLOFF_SPEED, then thinning out without ever cutting off.
+function torqueAt(rev) {
+  const ratio = Math.max(0, rev) * RADIUS / XPBD_TORQUE_FALLOFF_SPEED;
+  return (
+    XPBD_MOTOR_ANGULAR_ACCELERATION *
+    (ratio >= 1 ? 0.28 / ratio : 0.28 + 0.72 * (1 - ratio))
+  );
+}
+
+// One step of the engine. `wheelSpin` is the driven wheel's forward spin.
+// The clutch passes torque to the wheel only while the engine turns faster
+// than it, in proportion to the gap and up to what its grip at these revs
+// allows, so it always slips a little under load; the rest of the engine's
+// torque spins the flywheel up. Braking, the rider pulls the clutch in.
+// Returns the clutch's torque and the flywheel's, in rear-wheel terms.
+function runEngine(engine, throttle, wheelSpin, braking, crashed) {
+  const { inertia, idle, engage, clutch, drag, redline } = ENGINE;
+  const engineTorque = crashed ? 0 : throttle * torqueAt(engine.rev);
+  const grip = braking
+    ? 0
+    : clutch * XPBD_MOTOR_ANGULAR_ACCELERATION * clamp((engine.rev - idle) / engage, 0, 1);
+  // The torque that would bring engine and wheel to one speed this step.
+  const lockUp = ((engine.rev - wheelSpin) / STEP) * (inertia / (inertia + 1));
+  const clutchTorque = clamp(lockUp, 0, grip);
+  const revBefore = engine.rev;
+  engine.rev += ((engineTorque - clutchTorque) * STEP) / inertia;
+  engine.rev += (idle - engine.rev) * (1 - throttle) * (1 - exp(-drag * STEP));
+  engine.rev = clamp(engine.rev, idle, redline);
+  // The flywheel's change of spin, as a torque in rear-wheel terms.
+  const crankTorque = ((engine.rev - revBefore) / STEP) * inertia;
+  return { engineTorque, clutchTorque, crankTorque };
+}
+
 export function stepVehicle(vehicle, trail, controls, hooks = {}) {
   const { rear, front, chassis, constraints } = vehicle;
   const {
@@ -1016,6 +1053,11 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
       }
     }
   }
+  if (vehicle.lastFacing !== undefined && vehicle.lastFacing !== facing)
+    vehicle.engine.rev = Math.max(
+      ENGINE.idle,
+      facing * (facing > 0 ? rear : front).angularVelocity,
+    );
   vehicle.lastFacing = facing;
   fitSuspension(vehicle, facing);
   const grounded = rear.grounded || front.grounded;
@@ -1026,16 +1068,16 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
   const slope = terrainAt(trail, midpointX, midpointY).slope;
   const uphill = clamp(-slope * facing, 0, 1);
   const drivenWheel = facing > 0 ? rear : front;
-  // Engine speed: only a wheel turning forward winds the torque down.
-  const wheelSurfaceSpeed = Math.max(
-    0,
-    facing * drivenWheel.angularVelocity * RADIUS,
+  const { clutchTorque, crankTorque } = runEngine(
+    vehicle.engine,
+    throttle,
+    facing * drivenWheel.angularVelocity,
+    braking,
+    crashed,
   );
-  const speedRatio = wheelSurfaceSpeed / XPBD_TORQUE_FALLOFF_SPEED;
-  const torqueCurve =
-    speedRatio >= 1 ? 0.28 / speedRatio : 0.28 + 0.72 * (1 - speedRatio);
-  const angularDrive =
-    facing * XPBD_MOTOR_ANGULAR_ACCELERATION * throttle * torqueCurve;
+  // Torques here are in rear-wheel terms: the angular acceleration they give
+  // the wheel alone.
+  const angularDrive = facing * clutchTorque;
   const riderAssist = riderTorqueMultiplier(
     leanControl,
     facing,
@@ -1087,8 +1129,12 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
   // the front up. In the air the wheel's own spin turns the bike instead; see
   // the airborne wheels below.
   const drivenWheelAcceleration = drivenWheel.contact ? angularDrive : 0;
+  // The flywheel spinning up or down turns the frame the other way, on the
+  // ground and in the air alike.
   const motorReactionTorque =
-    -drivenWheelAcceleration * wheelMoment * XPBD_MOTOR_REACTION_SCALE;
+    -(drivenWheelAcceleration + facing * crankTorque) *
+    wheelMoment *
+    XPBD_MOTOR_REACTION_SCALE;
   const diveWheel = facing > 0 ? front : rear;
   const rollingForward = (rollingSpin(rear) + rollingSpin(front)) * facing > 0;
   const brakingWheelAcceleration =
@@ -1340,7 +1386,7 @@ export function createSimulation({ vehicle, trail, facing = 1, hooks = {} }) {
         exp(
           -((accelerating ? throttleTarget : 0) > throttle
             ? XPBD_THROTTLE_INPUT_RESPONSE
-            : 4) * STEP,
+            : XPBD_THROTTLE_RELEASE_RESPONSE) * STEP,
         ),
     );
     brakePressure = lerp(
