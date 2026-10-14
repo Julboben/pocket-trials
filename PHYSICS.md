@@ -93,6 +93,7 @@ The suspension damper is a velocity pass after the contact and traction solve, a
 ## Next steps
 
 1. Replace the bot-recorded fixtures with hand-ridden replays once handling tuning settles, since bot lines avoid some of the riskier features.
+2. Maybe an automatic gearbox, as other bike games have, for feel rather than handling: revs that climb and drop at each shift (good for engine sound) and a small surge as each gear bites. It would not change the held-gas wheelie, which happens at pull-away in first gear, where an automatic starts too. The torque curve already fades with speed as a gearbox with endless gears would. A shift is a sudden change of torque, so one at the wrong moment, mid-climb or with the front light, could lift the front or bog the bike down without the rider asking.
 
 ## Tried and rejected
 
