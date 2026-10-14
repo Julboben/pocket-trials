@@ -1848,6 +1848,56 @@ const ELASTO_MID = [
   "     KKKKKK   ",
 ];
 
+const CLASSIC_COLORS = {
+  tire: "#203332",
+  tread: "#3c524d",
+  rim: "#b9c4af",
+  rimShade: "#7f8f84",
+  spoke: "#657a70",
+  gold: "#edb466",
+  goldLight: "#f1cb91",
+  goldDark: "#b07a3a",
+  chrome: "#dfe6d6",
+  steel: "#b9c4af",
+  steelDark: "#819084",
+  black: "#1b2124",
+  case: "#435a52",
+  caseLight: "#5d756b",
+  caseDark: "#2f463d",
+  seat: "#3e5750",
+  seatDark: "#263a35",
+};
+
+// The Pocket Classic's sprung body, like the Elasto's: a ducktail seat over
+// a pinstriped side panel, and a rounded tank. G/L/D are the bike paint; see
+// drawClassicFrame for the other keys. The tail light sits on the ducktail.
+const CLASSIC_BODY = [
+  "     QQQQQQQQQ        ",
+  "   qqqqqqqqqqq  LLLL  ",
+  "LLLGGGGGGGGGGq LGGGGL ",
+  "GGGGyyyyyyyyGGLGGWWGGG",
+  " DDGGGGGGGGGDDDGGGGGGD",
+  "   DDDDDDDDD   DDDDDD ",
+];
+
+const CLASSIC_MUFFLER = [
+  "KWWWWWWW",
+  "KSSSSSSs",
+];
+
+// A single with a finned cylinder over round crankcases and the gold
+// clutch cover the Classic has always had.
+const CLASSIC_ENGINE = [
+  "  SSSSS   ",
+  "  sssss   ",
+  "  SSSSS   ",
+  " kCCCCCCk ",
+  "kcckyyYcck",
+  "kcyYYYYyck",
+  "kcyYYYYyck",
+  "kcckyyyccK",
+  " kkkkkkkk ",
+];
 
 function parseColor(color) {
   const hex = color.replace("#", "");
@@ -3484,24 +3534,45 @@ export function createGameArt(ctx) {
   }
 
   function drawClassicWheel(point, dirt) {
+    const c = CLASSIC_COLORS;
     ctx.save();
     translateToDevice(point.x, point.y);
-    const cx = 0,
-      cy = 0;
+    // Tire, then a polished rim lit from the top left and shaded below.
     for (let y = -6; y <= 6; y++)
       for (let x = -6; x <= 6; x++) {
         const distance = Math.hypot(x, y);
         if (distance <= 6.5 && distance >= 4.7)
-          pixelRect(cx + x * 2, cy + y * 2, 2, 2, "#203332");
+          pixelRect(x * 2, y * 2, 2, 2, c.tire);
         else if (distance < 4.7 && distance >= 3.5)
-          pixelRect(cx + x * 2, cy + y * 2, 2, 2, "#b9c4af");
+          pixelRect(x * 2, y * 2, 2, 2, x + y > 1 ? c.rimShade : c.rim);
       }
-    const phase = Math.round((point.spin || 0) / (TAU / 32)) * (TAU / 32);
+    const spin = point.spin || 0;
     const blur = wheelBlur(point);
-    if (blur > 0) withAlpha(blur, () => drawWheelRing(0, 3.5, "#657a70", 0.35, wheelShimmer(point)));
+    const shimmer = wheelShimmer(point);
+    if (blur > 0)
+      withAlpha(blur, () => {
+        drawWheelRing(5, 6.2, c.tread, 0.6, shimmer);
+        drawWheelRing(0, 3.5, c.spoke, 0.35, shimmer);
+      });
+    // Road tread: finer than the Elasto's knobs, so twice as many.
+    const treadPhase = Math.round(spin / (TAU / 32)) * (TAU / 32);
+    withAlpha(1 - blur * 0.6, () => {
+      for (let i = 0; i < 16; i += 2) {
+        const tread = treadPhase + (i * TAU) / 16;
+        pixelRect(
+          Math.round(Math.cos(tread) * 5.6) * 2,
+          Math.round(Math.sin(tread) * 5.6) * 2,
+          2,
+          2,
+          c.tread,
+        );
+      }
+    });
     drawWheelDirt(point, dirt, blur);
-    drawSpokes(point, phase, 4, "#657a70", blur);
-    pixelRect(cx - 2, cy - 2, 4, 4, "#f1cb91");
+    drawSpokes(point, Math.round(spin / (TAU / 32)) * (TAU / 32), 4, c.spoke, blur);
+    pixelRect(-4, -2, 8, 4, c.goldDark);
+    pixelRect(-2, -4, 4, 8, c.goldDark);
+    pixelRect(-2, -2, 4, 4, c.goldLight);
     ctx.restore();
   }
 
@@ -4761,40 +4832,113 @@ export function createGameArt(ctx) {
     spring,
     half,
     bodyPoint,
-    bodyRect,
+    bodyRows,
     bodyPath,
   }) {
+    const c = CLASSIC_COLORS;
+    const colors = {
+      G: paint.base,
+      L: paint.light,
+      D: paint.dark,
+      W: c.chrome,
+      Q: c.seat,
+      q: c.seatDark,
+      S: c.steel,
+      s: c.steelDark,
+      y: c.gold,
+      Y: c.goldLight,
+      C: c.caseLight,
+      c: c.case,
+      k: c.caseDark,
+      K: c.black,
+    };
     const backMount = bodyPoint(-9, -15),
       frontMount = bodyPoint(12, -23);
     const crank = bodyPoint(-3, -1);
 
+    // The thin twin-loop frame, each tube with a shadow under it.
+    path(
+      [[-half, 2], [crank[0], crank[1] + 2], [half, 2]],
+      paint.dark,
+      1,
+    );
     path(
       [[-half, 0], bodyPoint(-7, -18), bodyPoint(13, -17), [half, 0]],
       paint.shade,
       2,
     );
     path([[-half, 0], crank, [half, 0]], paint.base, 2);
-    path([[-half, 0], backMount], "#819084", 1);
-    path([[half, 0], frontMount], "#b9c4af", 2);
-    spring(-half, 0, backMount[0], backMount[1], "#f0b45f");
-    spring(half, 0, frontMount[0], frontMount[1], "#f0b45f");
+    path([[-half, 0], backMount], c.steelDark, 2);
+    path([[-half, -1], [backMount[0], backMount[1] - 1]], c.steel, 1);
+    spring(-half, 0, backMount[0], backMount[1], c.gold);
 
-    bodyRect(-9, -20, 24, 4, paint.base);
-    // Seat under the rider: a lit top over a dark base, rounded at the tail.
-    bodyRect(-17, -24, 18, 2, "#3e5750");
-    bodyRect(-19, -22, 20, 2, "#263a35");
+    // Rear fender, from the ducktail down over the rear wheel.
+    bodyPath(
+      [
+        [-24, -18],
+        [-32, -16],
+        [-36, -12],
+      ],
+      paint.base,
+      1,
+    );
+    bodyPath(
+      [
+        [-25, -20],
+        [-33, -18],
+      ],
+      paint.light,
+      1,
+    );
+
+    bodyRows(-11, -14, CLASSIC_ENGINE, colors);
+    // Chrome exhaust, under the engine and swept up to a scrambler muffler.
+    bodyPath(
+      [
+        [4, -9],
+        [7, -2],
+        [2, 3],
+        [-10, 3],
+        [-15, -7],
+      ],
+      c.steelDark,
+      1,
+    );
+    bodyRows(-29, -12, CLASSIC_MUFFLER, colors);
+    bodyRows(-27, -24, CLASSIC_BODY, colors);
+
+    // Fork: a steel leg lit along its front, inside the coil spring.
+    path([[half, 0], frontMount], c.steelDark, 2);
+    path([[half + 1, 0], [frontMount[0] + 1, frontMount[1]]], c.chrome, 1);
+    spring(half, 0, frontMount[0], frontMount[1], c.gold);
     bodyPath(
       [
         [10, -23],
         [12, -28],
         [19, -28],
       ],
-      "#263a35",
+      c.seatDark,
       2,
     );
-    bodyRect(-9, -8, 12, 10, "#435a52");
-    bodyRect(-5, -4, 10, 6, "#2f463d");
-    bodyRect(-3, -2, 6, 6, "#edb466");
+    // Short front fender over the resting front wheel, like the Elasto's.
+    const axle = WHEELBASE / 2;
+    bodyPath(
+      [
+        [axle - 7, -16],
+        [axle + 1, -17],
+        [axle + 7, -14],
+      ],
+      paint.base,
+      1,
+    );
+    bodyPath(
+      [
+        [axle - 5, -18],
+        [axle + 2, -18],
+      ],
+      paint.light,
+      1,
+    );
   }
 
   function drawElastoFrame({
