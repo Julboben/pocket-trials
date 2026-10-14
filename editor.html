@@ -244,139 +244,141 @@
                         aria-labelledby="tab-trail"
                         hidden
                     >
-                        <label
-                            >Name <input id="trail-name" type="text"
-                        /></label>
-                        <label
-                            >Author
-                            <input
-                                id="trail-author"
-                                type="text"
-                                maxlength="40"
-                                autocomplete="nickname"
-                                placeholder="Credited in the game"
-                        /></label>
-                        <label
-                            >Notes
-                            <textarea
-                                id="trail-description"
-                                rows="3"
-                                placeholder="Design notes, not shown in the game"
-                            ></textarea></label>
-                        <fieldset>
-                            <legend>TIME OF DAY</legend>
+                        <fieldset class="field-group" id="trail-fields">
                             <label
-                                >Time of day
-                                <select id="time-of-day">
-                                    <option value="morning">Morning</option>
-                                    <option value="noon">Noon</option>
-                                    <option value="evening">Evening</option>
-                                    <option value="night">Night</option>
-                                </select></label
-                            >
-                            <label
-                                >Backdrop
-                                <select id="backdrop">
-                                    <option value="hills">Hills</option>
-                                    <option value="mountains">Mountains</option>
-                                    <option value="forest">Forest</option>
-                                    <option value="desert">Desert</option>
-                                    <option value="city">City</option>
-                                </select></label
-                            >
-                        </fieldset>
-                        <fieldset>
-                            <legend>WEATHER</legend>
-                            <label
-                                ><span class="range-head"
-                                    >Sun
-                                    <output
-                                        id="weather-sun-value"
-                                        for="weather-sun"
-                                    ></output></span
-                                >
-                                <input
-                                    id="weather-sun"
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.05"
+                                >Name <input id="trail-name" type="text"
                             /></label>
                             <label
-                                ><span class="range-head"
-                                    >Clouds
-                                    <output
-                                        id="weather-clouds-value"
-                                        for="weather-clouds"
-                                    ></output></span
-                                >
+                                >Author
                                 <input
-                                    id="weather-clouds"
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.05"
+                                    id="trail-author"
+                                    type="text"
+                                    maxlength="40"
+                                    autocomplete="nickname"
+                                    placeholder="Credited in the game"
                             /></label>
                             <label
-                                ><span class="range-head"
-                                    >Fog
-                                    <output
-                                        id="weather-fog-value"
-                                        for="weather-fog"
-                                    ></output></span
+                                >Notes
+                                <textarea
+                                    id="trail-description"
+                                    rows="3"
+                                    placeholder="Design notes, not shown in the game"
+                                ></textarea></label>
+                            <fieldset>
+                                <legend>TIME OF DAY</legend>
+                                <label
+                                    >Time of day
+                                    <select id="time-of-day">
+                                        <option value="morning">Morning</option>
+                                        <option value="noon">Noon</option>
+                                        <option value="evening">Evening</option>
+                                        <option value="night">Night</option>
+                                    </select></label
                                 >
-                                <input
-                                    id="weather-fog"
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.05"
-                            /></label>
-                            <label
-                                ><span class="range-head"
-                                    >Rain
-                                    <output
-                                        id="weather-rain-value"
-                                        for="weather-rain"
-                                    ></output></span
+                                <label
+                                    >Backdrop
+                                    <select id="backdrop">
+                                        <option value="hills">Hills</option>
+                                        <option value="mountains">Mountains</option>
+                                        <option value="forest">Forest</option>
+                                        <option value="desert">Desert</option>
+                                        <option value="city">City</option>
+                                    </select></label
                                 >
-                                <input
-                                    id="weather-rain"
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.05"
-                            /></label>
-                            <label
-                                ><span class="range-head"
-                                    >Snow
-                                    <output
-                                        id="weather-snow-value"
-                                        for="weather-snow"
-                                    ></output></span
-                                >
-                                <input
-                                    id="weather-snow"
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.05"
-                            /></label>
-                            <label
-                                ><span class="range-head"
-                                    >Lightning
-                                    <output
-                                        id="weather-lightning-value"
-                                        for="weather-lightning"
-                                    ></output></span
-                                >
-                                <input
-                                    id="weather-lightning"
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.05"
-                            /></label>
+                            </fieldset>
+                            <fieldset>
+                                <legend>WEATHER</legend>
+                                <label
+                                    ><span class="range-head"
+                                        >Sun
+                                        <output
+                                            id="weather-sun-value"
+                                            for="weather-sun"
+                                        ></output></span
+                                    >
+                                    <input
+                                        id="weather-sun"
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                /></label>
+                                <label
+                                    ><span class="range-head"
+                                        >Clouds
+                                        <output
+                                            id="weather-clouds-value"
+                                            for="weather-clouds"
+                                        ></output></span
+                                    >
+                                    <input
+                                        id="weather-clouds"
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                /></label>
+                                <label
+                                    ><span class="range-head"
+                                        >Fog
+                                        <output
+                                            id="weather-fog-value"
+                                            for="weather-fog"
+                                        ></output></span
+                                    >
+                                    <input
+                                        id="weather-fog"
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                /></label>
+                                <label
+                                    ><span class="range-head"
+                                        >Rain
+                                        <output
+                                            id="weather-rain-value"
+                                            for="weather-rain"
+                                        ></output></span
+                                    >
+                                    <input
+                                        id="weather-rain"
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                /></label>
+                                <label
+                                    ><span class="range-head"
+                                        >Snow
+                                        <output
+                                            id="weather-snow-value"
+                                            for="weather-snow"
+                                        ></output></span
+                                    >
+                                    <input
+                                        id="weather-snow"
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                /></label>
+                                <label
+                                    ><span class="range-head"
+                                        >Lightning
+                                        <output
+                                            id="weather-lightning-value"
+                                            for="weather-lightning"
+                                        ></output></span
+                                    >
+                                    <input
+                                        id="weather-lightning"
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                /></label>
+                            </fieldset>
                         </fieldset>
                     </div>
 
@@ -426,7 +428,7 @@
                     ></ul>
 
                     <div id="selection-fields" hidden>
-                        <fieldset>
+                        <fieldset id="selection-fieldset">
                             <legend>SELECTION</legend>
                             <label
                                 >X

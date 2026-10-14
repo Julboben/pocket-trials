@@ -16,7 +16,7 @@ import { floorUnder, groundY, render } from "./render.js";
 import { blocksSelection } from "./selection.js";
 import { gridSpacing } from "./snap.js";
 import { editor } from "./state.js";
-import { showStatus } from "./status.js";
+import { refuseEdit, showStatus } from "./status.js";
 import { setTool, toolLayer, toolMaterial, toolSettings } from "./tools.js";
 
 export { isBackWall };
@@ -151,6 +151,7 @@ export function insertBlockNode(boundaryIndex, nodeIndex, t, blockIndex) {
 }
 
 export function addAt(point) {
+  if (refuseEdit()) return;
   pushHistory();
   if (editor.tool === "apple") {
     editor.trail.apples.push({ x: point.x, y: point.y });
@@ -531,6 +532,7 @@ const outlineKey = (boundary) =>
  * material, so the cave stays dark. Returns how many were added.
  */
 export function fillCavesWithBackWalls() {
+  if (refuseEdit()) return 0;
   const caves = selectedCaves();
   if (!caves.length) return 0;
   pushHistory();

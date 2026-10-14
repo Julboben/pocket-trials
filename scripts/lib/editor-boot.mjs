@@ -37,6 +37,16 @@ globalThis.addEventListener = (type, handler) => {
 
 await import('../../js/editor/main.js');
 
+// The fixture is a trail file, which only the dev server can write, so every
+// shape but `readonly` is opened as if the dev server were running. Without
+// it the trail is read-only and none of the editing gestures would apply.
+if (kind !== 'readonly') {
+  const { editor } = await import('../../js/editor/state.js');
+  const { updateTrailControls } = await import('../../js/editor/trails.js');
+  editor.devServer = true;
+  updateTrailControls();
+}
+
 const fire = (type, extra = {}) => canvas.dispatch(type, { pointerId: 1, button: 0, clientX: 0, clientY: 0, ...extra });
 // The editor opens centred on the start, so a screen position is only a world
 // position once the camera is subtracted. The interact checks measure it first.
@@ -170,6 +180,44 @@ if (kind === 'interact') {
   fire('pointerup');
   out.plainExact = ring()[cornerIndex].x === plainFrom.x + 7 && ring()[cornerIndex].y === plainFrom.y + 3;
   out.errors = [];
+  process.stdout.write(JSON.stringify(out));
+  process.exit(0);
+}
+
+// Without the dev server a file trail can't be saved, so it can't be renamed
+// or keep drafts either.
+if (kind === 'readonly') {
+  const { currentEntry } = await import('../../js/editor/trails.js');
+  const { listDrafts } = await import('../../js/editor/drafts.js');
+  const hidden = id => document.getElementById(id).hidden === true;
+  const out = {
+    errors: [],
+    renameHidden: hidden('rename-trail'),
+    draftHidden: hidden('save-draft') && hidden('versions-save-draft'),
+    deleteHidden: hidden('delete-trail'),
+    fieldsLocked: ['selection-fieldset', 'trail-fields'].every(id => document.getElementById(id).disabled === true),
+    toolsLocked: toolButton('block').disabled === true && toolButton('select').disabled === false,
+  };
+  // Every way of changing the trail is tried, and none of them does.
+  const before = current();
+  toolButton('apple').click();
+  fire('pointerdown', { clientX: 300, clientY: 300 });
+  fire('pointerup');
+  out.toolRefused = toolButton('select').classList.contains('active');
+  key('a', { code: 'KeyA', metaKey: true });
+  out.selectsAll = Boolean(document.getElementById('selection-fields').hidden === false);
+  for (let x = 0; x <= 1200; x += 150)
+    for (let y = 0; y <= 800; y += 200) drag([x, y], [x + 60, y + 40]);
+  key('a', { code: 'KeyA', metaKey: true });
+  for (const name of ['ArrowRight', 'ArrowUp', '[', ']']) key(name, { code: name });
+  key('x', { code: 'KeyX' });
+  key('r', { code: 'KeyR' });
+  key('Delete', { code: 'Delete' });
+  for (const code of ['KeyB', 'KeyA', 'KeyP', 'KeyW']) key('', { code });
+  canvas.dispatch('dblclick', { clientX: 400, clientY: 400 });
+  key('s', { code: 'KeyS', metaKey: true });
+  out.unchanged = JSON.stringify(current()) === JSON.stringify(before);
+  out.drafts = listDrafts(currentEntry().id).length;
   process.stdout.write(JSON.stringify(out));
   process.exit(0);
 }

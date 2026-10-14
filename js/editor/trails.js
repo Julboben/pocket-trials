@@ -35,7 +35,8 @@ import { pushHistory } from "./history.js";
 import { syncInspector } from "./inspector.js";
 import { render } from "./render.js";
 import { editor } from "./state.js";
-import { flash, refuse, showStatus } from "./status.js";
+import { flash, refuse, refuseReadOnly, showStatus } from "./status.js";
+import { NAVIGATION_TOOLS, setTool } from "./tools.js";
 import { focusOnStart } from "./view.js";
 
 const CURRENT_TRAIL_KEY = "hjulben-editor-current-v1";
@@ -128,7 +129,10 @@ export function announceVersion() {
     );
     return;
   }
-  if (editor.version?.kind !== "draft") return;
+  if (editor.version?.kind !== "draft") {
+    if (editor.readOnly) refuseReadOnly();
+    return;
+  }
   showStatus(
     "info",
     `Opened your draft (${formatDraftTime(editor.version.at)}). Switch versions from the label at the top.`,
@@ -136,6 +140,10 @@ export function announceVersion() {
 }
 
 export function saveDraft() {
+  if (editor.readOnly || !canSave()) {
+    refuseReadOnly();
+    return;
+  }
   if (!editor.version?.edited) {
     showStatus("info", "No changes since this version, so there is nothing new to save.");
     return;
@@ -310,6 +318,11 @@ export function canSave(entry = currentEntry()) {
 
 const isShipped = (entry) => entry?.source === "official" || entry?.source === "bonus";
 
+/** Only a custom trail this editor can write to can be deleted. */
+function canDelete(entry = currentEntry()) {
+  return entry?.source === "custom" && canSave(entry);
+}
+
 export function updateTrailControls() {
   const entry = currentEntry();
   $("save-trail").hidden = !canSave(entry);
@@ -322,8 +335,21 @@ export function updateTrailControls() {
     entry?.storage === "browser"
       ? "Save to this browser's trail library, where the game plays it (Cmd/Ctrl+Shift+S)"
       : `Write trails/${entry?.file} (Cmd/Ctrl+Shift+S)`;
-  $("delete-trail").hidden =
-    entry?.source !== "custom" || (entry.storage !== "browser" && !editor.devServer);
+  $("delete-trail").hidden = !canDelete(entry);
+  // A trail that can't be saved can't be edited either: it can be looked at,
+  // played, duplicated and exported. The fields stay visible but disabled, so
+  // its settings can still be read.
+  const readOnly = !canSave(entry);
+  editor.readOnly = readOnly;
+  for (const id of ["rename-trail", "save-draft", "versions-save-draft"]) $(id).hidden = readOnly;
+  for (const tool of document.querySelectorAll("[data-tool]"))
+    tool.disabled = readOnly && !NAVIGATION_TOOLS.has(tool.dataset.tool);
+  // A disabled fieldset disables every control inside it, including the
+  // segmented and picker buttons built from its selects.
+  for (const id of ["selection-fieldset", "trail-fields"]) $(id).disabled = readOnly;
+  $("trail-json").readOnly = readOnly;
+  $("import-json").disabled = readOnly;
+  if (readOnly && !NAVIGATION_TOOLS.has(editor.tool)) setTool("select");
   $("save-status").textContent = saveStatusText(entry);
   updateVersionChip();
 }
@@ -333,7 +359,7 @@ function saveStatusText(entry) {
     ? "Saved in this browser"
     : editor.devServer
       ? `Dev server · trails/${entry?.file}`
-      : "Read-only here · duplicate or export to keep changes";
+      : "Read-only here · duplicate to edit";
 }
 
 export function selectEntry(index) {
@@ -428,7 +454,7 @@ export async function createCustomTrail(data) {
 export async function deleteTrail() {
   const entry = currentEntry();
   if (
-    entry?.source !== "custom" ||
+    !canDelete(entry) ||
     !window.confirm(`Delete “${entry.trail.name}”? This cannot be undone.`)
   )
     return;

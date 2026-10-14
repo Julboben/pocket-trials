@@ -20,7 +20,7 @@ import {
   selectionItems,
 } from "./selection.js";
 import { editor } from "./state.js";
-import { showStatus } from "./status.js";
+import { refuseEdit, showStatus } from "./status.js";
 import { setTool } from "./tools.js";
 import { pointerWorld, viewportSize } from "./view.js";
 
@@ -214,6 +214,7 @@ function copyToClipboard(event, cut) {
     return;
   }
   event.clipboardData.setData("text/plain", JSON.stringify(payload));
+  if (cut && refuseEdit()) return;
   if (cut) {
     pushHistory();
     deleteItems(copied.objects);
@@ -236,6 +237,7 @@ export function bindClipboard() {
     const data = readClipboard(event.clipboardData?.getData("text/plain") || "");
     if (!data) return;
     event.preventDefault();
+    if (refuseEdit()) return;
     pasteClipboard(data);
     canvas.focus({ preventScroll: true });
   });

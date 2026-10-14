@@ -21,7 +21,7 @@ import {
 } from "./inspector.js";
 import { finishY, groundY, objectY, render } from "./render.js";
 import { editor, waters } from "./state.js";
-import { showStatus } from "./status.js";
+import { refuseEdit, showStatus } from "./status.js";
 import {
   propTypeOptions,
   renderToolSettings,
@@ -37,7 +37,7 @@ let lastNudge = 0;
 /** Move the selection with the arrow keys. Held or rapid presses are one undo step. */
 export function nudgeSelection(key, big) {
   const position = selectedPosition();
-  if (!position) return;
+  if (!position || refuseEdit()) return;
   const step = big ? 10 : 1;
   const dx = key === "ArrowLeft" ? -step : key === "ArrowRight" ? step : 0;
   const dy = key === "ArrowUp" ? -step : key === "ArrowDown" ? step : 0;
@@ -119,6 +119,7 @@ export function duplicateTarget(hit) {
 
 /** Step through prop types: the Prop tool's type, or else the selected prop's. */
 export function cyclePropType(direction) {
+  if (refuseEdit()) return;
   const types = propTypeOptions().map(([value]) => value);
   const next = (current) =>
     types[(types.indexOf(current) + direction + types.length) % types.length];
@@ -138,6 +139,7 @@ export function cyclePropType(direction) {
 
 /** Flip the Prop tool's next prop, or else the selected prop. */
 export function toggleFlip() {
+  if (refuseEdit()) return;
   if (editor.tool === "prop") {
     toolSettings.prop.flip = !toolSettings.prop.flip;
     saveToolSettings();
@@ -422,6 +424,7 @@ export function deleteItems(items) {
 
 export function deleteSelection() {
   if (!editor.selection || ["finish", "start"].includes(editor.selection.kind)) return;
+  if (refuseEdit()) return;
   const kind = editor.selection.kind;
   if (kind === "items") {
     pushHistory();

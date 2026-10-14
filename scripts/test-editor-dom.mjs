@@ -161,6 +161,22 @@ const reported = (report, label) => {
 }
 
 // ---------------------------------------------------------------------------
+// A trail that can't be saved here can't be renamed or keep drafts.
+// ---------------------------------------------------------------------------
+{
+  const report = await boot('readonly');
+  check('a read-only trail hides Rename', report.renameHidden === true);
+  check('and Save draft', report.draftHidden === true);
+  check('and Delete', report.deleteHidden === true);
+  check('and disables the selection and trail fields', report.fieldsLocked === true);
+  check('and every tool but Select and Pan', report.toolsLocked === true);
+  check('a tool shortcut leaves the Select tool on', report.toolRefused === true);
+  check('things can still be selected', report.selectsAll === true);
+  check('no drag, nudge, flip, rotate, delete or tool key changes it', report.unchanged === true);
+  check('Cmd+S saves no draft of it', report.drafts === 0, `(${report.drafts})`);
+}
+
+// ---------------------------------------------------------------------------
 // A validation message about one item selects it and brings it into view.
 // ---------------------------------------------------------------------------
 {

@@ -20,7 +20,7 @@ import { pickerSelect } from "./picker.js";
 import { bindPlaytest } from "./playtest.js";
 import { GAME_ART_KEY, render } from "./render.js";
 import { editor } from "./state.js";
-import { refuse, showStatus } from "./status.js";
+import { refuse, refuseEdit, showStatus } from "./status.js";
 import { propThumbnail } from "./thumbnails.js";
 import { TOOL_KEY_LABELS, materialLabel, segmentSelects, setTab, setTool } from "./tools.js";
 import {
@@ -120,6 +120,7 @@ const renameDialog = /** @type {HTMLDialogElement} */ ($("rename-dialog"));
 const renameInput = /** @type {HTMLInputElement} */ ($("rename-input"));
 
 $("rename-trail").addEventListener("click", () => {
+  if (refuseEdit()) return;
   renameInput.value = editor.trail.name;
   renameDialog.returnValue = "";
   renameDialog.showModal();
@@ -195,6 +196,7 @@ $("export-js").addEventListener("click", () => {
 });
 
 $("import-json").addEventListener("click", () => {
+  if (refuseEdit()) return;
   try {
     pushHistory();
     editor.trail = normalizeTrail(JSON.parse($("trail-json").value), editor.trailIndex);
@@ -228,6 +230,7 @@ resize();
 detectDevServer().then((available) => {
   editor.devServer = available;
   updateTrailControls();
+  render();
   document.querySelector(".editor-shell").removeAttribute("data-booting");
   announceVersion();
 });

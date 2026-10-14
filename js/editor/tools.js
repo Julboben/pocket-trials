@@ -6,7 +6,11 @@ import { terrainMaterials } from "../trails.js";
 import { $, canvas } from "./dom.js";
 import { pickerSelect } from "./picker.js";
 import { editor } from "./state.js";
+import { refuseEdit } from "./status.js";
 import { propThumbnail } from "./thumbnails.js";
+
+/** The tools that only look around, so they work on a read-only trail too. */
+export const NAVIGATION_TOOLS = new Set(["select", "pan"]);
 
 const TOOL_SETTINGS_KEY = "hjulben-editor-tool-settings-v1";
 
@@ -365,6 +369,7 @@ export function renderToolSettings() {
 }
 
 export function setTool(next) {
+  if (!NAVIGATION_TOOLS.has(next) && refuseEdit()) next = "select";
   editor.hoverPoint = null;
   editor.tool = next;
   document

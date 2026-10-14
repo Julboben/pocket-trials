@@ -56,7 +56,7 @@ import {
 } from "./selection.js";
 import { gridSpacing, snapToAngleAndGrid } from "./snap.js";
 import { clampZoom, editor } from "./state.js";
-import { showStatus } from "./status.js";
+import { refuseEdit, refuseReadOnly, showStatus } from "./status.js";
 import { PREVIEW_TOOLS, TOOL_KEYS, setTool } from "./tools.js";
 import { commitWater } from "./water.js";
 import { canSave, saveDraft, saveTrail } from "./trails.js";
@@ -134,6 +134,10 @@ function applyRotate(event) {
 
 // An Alt press that becomes a duplicate once the mouse moves.
 let altPress = null;
+
+// A press on a read-only trail, which would have been a drag: if it moves, the
+// author is told why nothing follows the mouse.
+let readOnlyPress = null;
 
 /**
  * The points a Shift-drag measures its angle from: the neighbours of a dragged
@@ -296,6 +300,7 @@ function resetPointerState() {
   editor.snapGuide = null;
   editor.marquee = null;
   altPress = null;
+  readOnlyPress = null;
   scalePoint = null;
   rotatePoint = null;
   pressClient = null;
@@ -543,7 +548,12 @@ export function bindInput() {
       if (stack.length > 1 && sameHit(stack[0], hit))
         showStatus("info", `${stack.length} things here. Click again to select the next one.`);
     }
-    if (editor.selection) {
+    if (editor.selection && editor.readOnly) {
+      // Pressing selects, so the inspector shows it; dragging says why it
+      // doesn't move.
+      readOnlyPress = { clientX: event.clientX, clientY: event.clientY };
+      canvas.setPointerCapture(event.pointerId);
+    } else if (editor.selection) {
       pressClient = { clientX: event.clientX, clientY: event.clientY };
       dragSnapshot = snapshot();
       dragOrigin = startDragOrigin(point);
@@ -557,7 +567,10 @@ export function bindInput() {
   canvas.addEventListener("pointermove", (event) => {
     editor.pointerClient = { clientX: event.clientX, clientY: event.clientY };
     // No button held: the release was missed, so end the drag here.
-    if ((dragging || panning || editor.marquee || altPress) && event.buttons === 0) {
+    if (
+      (dragging || panning || editor.marquee || altPress || readOnlyPress) &&
+      event.buttons === 0
+    ) {
       endPointer();
       return;
     }
@@ -592,6 +605,18 @@ export function bindInput() {
       renderView();
       return;
     }
+    if (readOnlyPress) {
+      if (
+        Math.hypot(
+          event.clientX - readOnlyPress.clientX,
+          event.clientY - readOnlyPress.clientY,
+        ) < 4
+      )
+        return;
+      readOnlyPress = null;
+      refuseEdit();
+      return;
+    }
     if (altPress) {
       // Wait for a real drag, so an Alt-click stays a click.
       if (
@@ -603,6 +628,7 @@ export function bindInput() {
         return;
       const press = altPress;
       altPress = null;
+      if (refuseEdit()) return;
       // One undo step covers both the copy and the move.
       const before = snapshot();
       const copy = duplicateTarget(press.hit);
@@ -663,6 +689,7 @@ export function bindInput() {
     const hit = hitTest(point, { preferEdges: true });
     // A double-click on an edge adds a point to it, keeping the edge's shape.
     if (hit?.kind === "blockEdge") {
+      if (refuseEdit()) return;
       pushHistory();
       insertBlockNode(hit.boundaryIndex, hit.index, hit.t, hit.blockIndex);
       syncInspector();
@@ -738,6 +765,7 @@ export function bindInput() {
       /** @type {HTMLElement} */ (document.activeElement)?.blur?.();
       if (!event.shiftKey) saveDraft();
       else if (canSave()) saveTrail();
+      else refuseReadOnly();
       return;
     }
     if ((event.metaKey || event.ctrlKey) && event.code === "KeyY") {

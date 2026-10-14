@@ -23,6 +23,9 @@ export const editor = {
   devServer: false,
   trailIndex: null,
   trail: null,
+  // A trail this editor can't save (official, bonus or file trails without
+  // the dev server) can be looked at, played and duplicated, but not edited.
+  readOnly: false,
   tool: "select",
   selection: null,
   cameraX: 0,

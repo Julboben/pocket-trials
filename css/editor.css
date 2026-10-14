@@ -84,6 +84,10 @@ button:hover, .back-game:hover { background: #3a535b; }
 .side-panel textarea { padding: 6px; resize: vertical; font-size: 10px; font-weight: 400; letter-spacing: 0; }
 .side-panel input[type="checkbox"] { width: auto; min-height: 0; }
 .side-panel fieldset:not(.tool-settings) { margin: 15px 0 0; padding: 13px; border: 1px solid var(--border); }
+.side-panel fieldset.field-group { min-width: 0; margin: 0; padding: 0; border: 0; }
+/* A read-only trail's fields can be read but not changed. */
+fieldset:disabled :is(input, select, textarea, button) { opacity: .55; cursor: not-allowed; }
+.tool:disabled { cursor: not-allowed; }
 .side-panel fieldset:not(.tool-settings) legend { padding: 0 5px; color: var(--muted); font-size: 8px; font-weight: 900; letter-spacing: 1.5px; }
 .segmented { display: inline-flex; gap: 2px; }
 .segmented button { flex: 1; min-height: 26px; padding: 4px 10px; border-width: 1px; font-size: 8px; }

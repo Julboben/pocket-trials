@@ -99,6 +99,7 @@ function scaleSpan(start, size, pivot, factor, min, side, alt) {
 
 /** The selection's box and its eight handles, in world units, or null. */
 export function scaleFrame() {
+  if (editor.readOnly) return null;
   const found = targets();
   if (!found) return null;
   const box = boxOf(
