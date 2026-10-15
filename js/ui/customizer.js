@@ -21,6 +21,8 @@ const SWATCH_VIEWS = {
   headCentred: { dx: -3, dy: -46, width: 30, height: 30 },
   // Headwear that rises well above a helmet, like the dunce cap.
   tallHead: { dx: -1, dy: -54, width: 40, height: 40 },
+  // Hair that piles above the head and falls past the shoulders.
+  bigHair: { dx: -3, dy: -47, width: 38, height: 38 },
   outfit: { dx: -8, dy: -30, width: 44, height: 44 },
   bike: { dx: 0, dy: -22, width: 88, height: 70 },
   // The big preview: the whole rider and bike, wheels and floor included.
@@ -31,6 +33,8 @@ const SWATCH_VIEWS = {
 // its swatches show the head bare.
 const PART_VIEWS = { hair: 'headCentred', helmet: 'headCentred', outfit: 'outfit', bike: 'bike' };
 const BARE_PARTS = new Set(['hair']);
+// The view for each part's `tall` items, which overflow its usual one.
+const TALL_VIEWS = { hair: 'bigHair', helmet: 'tallHead' };
 
 let pose = null;
 /** The rider at the first trail's start, which every preview and swatch shows. */
@@ -253,7 +257,7 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
       const swatch = element('canvas');
       swatch.setAttribute('aria-hidden', 'true');
       const shown = { ...look, ...(BARE_PARTS.has(part.id) ? { helmet: 'none' } : {}), [slot]: item.id };
-      paintLook(swatch, shown, item.tall ? 'tallHead' : view);
+      paintLook(swatch, shown, item.tall ? TALL_VIEWS[part.id] : view);
       option.append(swatch, element('small', '', item.name));
       if (locked) option.append(icon('lock'));
       // A locked style can't be worn, but tapping it says what unlocks it.

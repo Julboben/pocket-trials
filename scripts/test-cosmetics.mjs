@@ -156,20 +156,21 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
 
 {
   // The Pocket Classic takes 8 gold medals; the motocross helmet, The Bonny Tyler.
-  const mxTrail = 'bonus:01-the-bonny-tyler';
+  const curlsTrail = 'bonus:01-the-bonny-tyler';
   assert.deepEqual(lookUnlock('bike', 'classic'), { golds: 8 });
-  assert.deepEqual(lookUnlock('helmet', 'mx'), { trail: mxTrail });
+  assert.deepEqual(lookUnlock('hair', 'big-curls'), { trail: curlsTrail });
+  assert.equal(lookUnlock('helmet', 'mx'), null, 'the motocross helmet is everyone\'s');
 
   const progress = (golds, finished = []) => ({ trails: 0, golds, finished: id => finished.includes(id), has: () => false });
   const nobody = ownsWith(null);
   assert.ok(nobody('bike', 'elasto') && !nobody('bike', 'classic'), 'won items need a career');
   const fresh = ownsWith(progress(0));
-  assert.ok(fresh('bike', 'elasto') && !fresh('bike', 'classic') && !fresh('helmet', 'mx'));
+  assert.ok(fresh('bike', 'elasto') && !fresh('bike', 'classic') && !fresh('hair', 'big-curls'));
   assert.ok(!fresh('bike', 'rocket'), 'unknown items are never owned');
   assert.ok(!ownsWith(progress(7))('bike', 'classic'));
-  assert.ok(!ownsWith(progress(20))('helmet', 'mx'));
-  const veteran = ownsWith(progress(8, [mxTrail]));
-  assert.ok(veteran('bike', 'classic') && veteran('helmet', 'mx'));
+  assert.ok(!ownsWith(progress(20))('hair', 'big-curls'));
+  const veteran = ownsWith(progress(8, [curlsTrail]));
+  assert.ok(veteran('bike', 'classic') && veteran('hair', 'big-curls'));
 
   // The dunce cap is a secret: won by asking the console for a cheat, and not
   // listed in the Garage, even locked, until then.
@@ -178,7 +179,7 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
   assert.ok(!veteran('helmet', 'dunce') && caught('helmet', 'dunce'));
   assert.ok(!shownItemsForSlot('helmet', veteran).some(item => item.id === 'dunce'));
   assert.ok(shownItemsForSlot('helmet', caught).some(item => item.id === 'dunce'));
-  assert.ok(shownItemsForSlot('helmet', veteran).some(item => item.id === 'mx'), 'locked items that aren\'t secret still show');
+  assert.ok(shownItemsForSlot('hair', fresh).some(item => item.id === 'big-curls'), 'locked items that aren\'t secret still show');
   const dunce = lookParts({ ...DEFAULT_LOOK, helmet: 'dunce' });
   assert.ok(dunce.helmet && dunce.bareHead, 'the cap can be knocked off, and the head shows under it');
 }
@@ -203,8 +204,8 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
   const owns = (slot, id) => !(slot === 'bike' && id === 'classic');
   assert.equal(normalizeLook(look, { owns }).bike, DEFAULT_LOOK.bike);
   // A worn look keeps the rider's identity and swaps locked items for their starter ones.
-  const worn = ownedLook({ ...look, helmet: 'mx' }, isDefaultItem);
-  assert.deepEqual(worn, { ...look, helmet: STARTER_LOOKS.female.helmet, bike: STARTER_LOOKS.female.bike });
+  const worn = ownedLook({ ...look, hair: 'big-curls' }, isDefaultItem);
+  assert.deepEqual(worn, { ...look, hair: STARTER_LOOKS.female.hair, bike: STARTER_LOOKS.female.bike });
   assert.ok(!Object.hasOwn(normalizeLook({ ...look, extra: 1 }), 'extra'));
 
   assert.deepEqual(lookOf({ rider: 'female' }), legacyLook('female'), 'old records keep their rider');

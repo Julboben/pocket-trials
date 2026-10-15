@@ -1871,6 +1871,29 @@ const HAIR_EXTRAS = {
       " Od      ",
     ],
   },
+  // A big curly mane, as worn on the Bonny Tyler trail: piled high on the
+  // crown, bangs over the brow, and down past the shoulders.
+  mane: {
+    x: -8,
+    y: -8,
+    rows: [
+      "    OO OOO OO",
+      "   OhdOhdhOdhO",
+      "  OhhLhhLhhLhO",
+      " OhdhhdhhdhhdhO",
+      " OhLhhLhhLhhLhO",
+      "OdhhdhhdhhdhhO",
+      "OLhhLhhLhOOOO",
+      "OhdhhdhhO",
+      "OhLhhLhhO",
+      "OhhdhhdhO",
+      "OhhhhhhO",
+      " OhhdhhO",
+      " OhhhhOO",
+      "  OhhOhhO",
+      "   OO OO",
+    ],
+  },
   // Short on top, long at the back, down over the collar.
   mullet: { x: -4, y: -2, rows: ["Oh ", "Ohh", "Ohh", "Ohd", "Odd", " OO"] },
 };
@@ -5623,18 +5646,18 @@ export function createGameArt(ctx) {
     const key = parts.key + "|" + mode;
     if (headSprites.has(key)) return headSprites.get(key);
 
-    const canvas = createCanvas(28 / ART_PIXEL, 38 / ART_PIXEL);
+    const canvas = createCanvas(32 / ART_PIXEL, 38 / ART_PIXEL);
     const context = canvas.getContext("2d");
 
     // Local helmet anchor is (0, 0).
-    // Sprite bounds: x -14..14, y -26..12 (room for the motocross chin bar,
-    // wide brims and the dunce cap's point).
+    // Sprite bounds: x -16..16, y -26..12 (room for the motocross chin bar,
+    // wide brims, big hair and the dunce cap's point).
     context.setTransform(
       1 / ART_PIXEL,
       0,
       0,
       1 / ART_PIXEL,
-      14 / ART_PIXEL,
+      16 / ART_PIXEL,
       26 / ART_PIXEL,
     );
 
@@ -5652,7 +5675,7 @@ export function createGameArt(ctx) {
     translateToDevice(x, y);
     ctx.rotate(angle);
     ctx.scale(facing, 1);
-    ctx.drawImage(sprite, -14, -26, 28, 38);
+    ctx.drawImage(sprite, -16, -26, 32, 38);
     ctx.restore();
   }
 

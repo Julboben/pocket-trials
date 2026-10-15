@@ -68,8 +68,8 @@ const hairColor = (id, name, [hair, hairLight, hairShade, hairDark], lean) =>
 // Hair cuts, as drawn by drawBareHead: `cap` covers the crown ('short' stops
 // above the ear, 'long' falls to the nape, 'buzz' is the top row only, 'bald'
 // has none), `brow` draws an eyebrow, `ponytail` adds the swinging tail and
-// `extra` draws more hair over the head ('bun', 'buns', 'mohawk', 'afro' or
-// 'mullet'; see HAIR_EXTRAS in drawing.js).
+// `extra` draws more hair over the head ('bun', 'buns', 'mohawk', 'afro',
+// 'mane' or 'mullet'; see HAIR_EXTRAS in drawing.js).
 const hairStyle = (id, name, style, blurb, extra = {}) =>
   ({ id, slot: 'hair', name, blurb, style, shape: id, ...extra });
 
@@ -104,6 +104,7 @@ export const LOOK_ITEMS = /** @type {LookItem[]} */ ([
   hairStyle('space-buns', 'Space buns', { cap: 'long', brow: false, ponytail: false, extra: 'buns' }, 'Two buns, twice the style.', { lean: 'female' }),
   hairStyle('mohawk', 'Mohawk', { cap: 'bald', brow: true, ponytail: false, extra: 'mohawk' }, 'Built for headwinds.'),
   hairStyle('afro', 'Afro', { cap: 'bald', brow: true, ponytail: false, extra: 'afro' }, 'Big hair, soft landings.'),
+  hairStyle('big-curls', 'Total Eclipse', { cap: 'long', brow: false, ponytail: false, extra: 'mane' }, 'Turn around, bright eyes.', { lean: 'female', tall: true }),
   hairStyle('mullet', 'Mullet', { cap: 'short', brow: true, ponytail: false, extra: 'mullet' }, 'Business up front, trails out back.', { lean: 'male' }),
 
   hairColor('brown', 'Brown', ['#3d2a24', '#5e4334', '#2e1d19', '#1f1411'], 'male'),

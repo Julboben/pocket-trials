@@ -16,7 +16,7 @@ import { achievement } from './achievements.js';
 export const UNLOCKS = Object.freeze({
   'trail:bonus:01-the-bonny-tyler': { golds: 2 },
   'trail:bonus:02-the-mining-cave': { golds: 4 },
-  'look:helmet:mx': { trail: 'bonus:01-the-bonny-tyler' },
+  'look:hair:big-curls': { trail: 'bonus:01-the-bonny-tyler' },
   'look:bike:classic': { golds: 8 },
   'look:helmet:dunce': { achievement: 'i-saw-that' },
 });
