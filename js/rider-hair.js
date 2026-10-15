@@ -3,10 +3,9 @@ import { bodyPose } from './bike-lamps.js';
 const HAIR_STEP = 1 / 120;
 const HAIR_MAX_STEPS = 4;
 const HAIR_LENGTHS = [4, 4, 4, 4, 4];
-// Where the ponytail leaves the head: under the back of the helmet, or at the
-// nape of a bare head, which sits further forward.
-const HAIR_ROOT = [-8, -44];
-const BARE_HAIR_ROOT = [-6, -42];
+// Where the ponytail leaves the head: a high ponytail at the back of the
+// crown, in the same place with or without a helmet.
+const HAIR_ROOT = [-9, -46];
 const HAIR_REST = [-.55, .84];
 // Each strand's colour is the matching entry of the cut's `strands`.
 const HAIR_STRANDS = [
@@ -51,8 +50,8 @@ export function riderBodyFrame({ rear, front, facing = 1, flipVisual = facing, l
   };
 }
 
-export function hairRoot(pose, exact, bare = false) {
-  const [x, y] = bare ? BARE_HAIR_ROOT : HAIR_ROOT;
+export function hairRoot(pose, exact) {
+  const [x, y] = HAIR_ROOT;
   return riderBodyFrame(pose, exact).point(x, y);
 }
 

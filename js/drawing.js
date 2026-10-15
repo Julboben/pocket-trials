@@ -1611,8 +1611,9 @@ export function drawPixelRows(rect, x, y, rows, colors) {
 }
 
 // Motocross helmet facing right: a long peak over the goggles, a chin bar
-// jutting forward, and a stripe over the crown. Top left at (-9, -10), so
-// it sits a pixel above the bare head, its chin bar down over the jaw.
+// jutting forward, and a stripe over the crown. Top left at (-9, -12), so
+// it sits two pixels above the bare head and its chin bar clears the
+// shoulder.
 const MX_HELMET = [
   "  OOOOO    ",
   " OLLsLHOOOO",
@@ -1627,7 +1628,7 @@ const MX_HELMET = [
 
 /** The motocross helmet, centred on (0, 0) and facing right, like drawHelmetShell. */
 export function drawMxHelmet(rect, colors) {
-  drawPixelRows(rect, -9, -10, MX_HELMET, {
+  drawPixelRows(rect, -9, -12, MX_HELMET, {
     O: RIDER_OUTLINE,
     H: colors.helmet,
     L: colors.helmetLight,
@@ -1823,9 +1824,11 @@ function drawRiderHead(rect, parts, colors, { bare = !parts.helmet, loose = fals
 
 /**
  * The first redesign's helmet, centred on (0, 0) and facing right, drawn with
- * `rect(x, y, width, height, color)` in world units on a 2-unit pixel grid.
+ * `draw(x, y, width, height, color)` in world units on a 2-unit pixel grid.
+ * It sits a pixel above the centre, so it clears the collar.
  */
-export function drawHelmetShell(rect, colors) {
+export function drawHelmetShell(draw, colors) {
+  const rect = (x, y, width, height, color) => draw(x, y - 2, width, height, color);
   rect(-7, -4, 16, 8, RIDER_OUTLINE);
   rect(-5, -6, 12, 12, RIDER_OUTLINE);
 
@@ -1844,6 +1847,9 @@ export function drawHelmetShell(rect, colors) {
   rect(3, -4, 10, 2, colors.helmet);
   rect(5, -4, 6, 2, colors.helmetLight);
   rect(3, 4, 8, 2, colors.helmetShade);
+  // The lower edge, from under the jaw to the tip of the chin bar, where
+  // the bare head's jaw line is, so the neck below is the same length.
+  rect(-5, 6, 16, 2, RIDER_OUTLINE);
   rect(7, 2, 4, 2, colors.helmet);
 }
 
@@ -1950,8 +1956,9 @@ export function drawBareHead(rect, colors, hair, face = null) {
 }
 
 // The riding pose, in bike body coordinates before lean: where the helmet's
-// centre sits, and the hand on the handlebar every bike model shares.
-const RIDER_HEAD = [1, -46];
+// centre sits, over the collar, and the hand on the handlebar every bike
+// model shares. The ponytail's root in rider-hair.js follows the head.
+const RIDER_HEAD = [-1, -44];
 const RIDER_HAND = [16, -28];
 
 // The jersey, leaning forward from the hip on the seat to the shoulder. Top
@@ -5588,6 +5595,17 @@ export function createGameArt(ctx) {
       bodyRect(-5, -3, 10, 2, colors.sole);
       bodyRect(-3, -7, 4, 2, colors.trousersLight);
 
+      // Neck, slanting forward with the back from inside the collar, which
+      // covers its foot, up under the back of the skull rather than the chin.
+      // Only its front is outlined, so the back of the head runs straight
+      // down into the collar.
+      const neck = [
+        [-3 + shift, -37],
+        [-2 + shift, -40],
+      ];
+      bodyPath(neck.map(([x, y]) => [x + 2, y]), outline, 3);
+      bodyPath(neck, colors.skin, 2);
+
       // Jersey leaning over the tank, clear of the arm and tank in front.
       bodyRows(-16 + shift, -38, RIDER_TORSO, {
         O: outline,
@@ -5622,10 +5640,6 @@ export function createGameArt(ctx) {
       );
       bodyRect(hand[0] - 2, hand[1] - 2, 6, 4, colors.gloves);
       bodyRect(hand[0], hand[1] - 2, 4, 2, colors.jacketLight);
-
-      // Neck, partly tucked into the helmet and collar.
-      bodyRect(-2 + shift, -44, 8, 6, colors.skin);
-      bodyRect(2 + shift, -42, 4, 2, colors.skinLight);
 
       // The head is the same one the ragdoll shows, centred on the neck. It
       // moves with the body as one piece, by whole art pixels, so its own
@@ -5822,8 +5836,10 @@ export function createGameArt(ctx) {
       2,
     );
 
-    // NECK
-    pixelPath([point(p.shoulder), point(p.head)], colors.skin, 2, 2);
+    // NECK, outlined like the limbs, from inside the collar up to the head.
+    const neck = [between(p.shoulder, p.head, 0.3), point(p.head)];
+    pixelPath(neck, outline, 4, 2);
+    pixelPath(neck, colors.skin, 2, 2);
 
     // ARM
     pixelPath(

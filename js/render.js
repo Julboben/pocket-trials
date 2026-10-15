@@ -802,7 +802,7 @@ export function createRenderer(canvas) {
       const head = ride.ragdoll.points.head;
       return { x: head.x - ride.facing * 6, y: head.y };
     }
-    return hairRoot(riderPose(ride, flip), exact, lookParts(look).bareHead);
+    return hairRoot(riderPose(ride, flip), exact);
   }
 
   function hairState(ride, flip, look) {
