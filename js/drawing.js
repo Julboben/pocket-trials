@@ -1611,8 +1611,8 @@ export function drawPixelRows(rect, x, y, rows, colors) {
 }
 
 // Motocross helmet facing right: a long peak over the goggles, a chin bar
-// jutting forward, and a stripe over the crown. Top left at (-9, -8), so
-// its centre lines up with the full-face shell.
+// jutting forward, and a stripe over the crown. Top left at (-9, -10), so
+// it sits a pixel above the bare head, its chin bar down over the jaw.
 const MX_HELMET = [
   "  OOOOO    ",
   " OLLsLHOOOO",
@@ -1627,7 +1627,7 @@ const MX_HELMET = [
 
 /** The motocross helmet, centred on (0, 0) and facing right, like drawHelmetShell. */
 export function drawMxHelmet(rect, colors) {
-  drawPixelRows(rect, -9, -8, MX_HELMET, {
+  drawPixelRows(rect, -9, -10, MX_HELMET, {
     O: RIDER_OUTLINE,
     H: colors.helmet,
     L: colors.helmetLight,
