@@ -1826,6 +1826,7 @@ function drawRiderHead(rect, parts, colors, { bare = !parts.helmet, loose = fals
 // edge where the bare head's jaw line is. Top left at (-7, -8), a pixel
 // above the bare head, so it clears the collar.
 const HELMET_SHELL = [
+  "  OOOO    ",
   " OLLsLO   ",
   "OLLHsHLLLH",
   "OSSSSVvvV ",
@@ -1837,7 +1838,7 @@ const HELMET_SHELL = [
 
 /** The full-face helmet, centred on (0, 0) and facing right, like the bare head. */
 export function drawHelmetShell(rect, colors) {
-  drawPixelRows(rect, -7, -8, HELMET_SHELL, {
+  drawPixelRows(rect, -7, -10, HELMET_SHELL, {
     O: RIDER_OUTLINE,
     H: colors.helmet,
     L: colors.helmetLight,
