@@ -1639,43 +1639,185 @@ export function drawMxHelmet(rect, colors) {
   });
 }
 
-// Dunce cap: a paper cone sitting on the bare head, its brim over the top
-// of the hair. Top left at (-8, -26), so it rises well above the helmets.
-const DUNCE_CAP = [
-  "    O    ",
-  "   OLO   ",
-  "   OWO   ",
-  "  OLWSO  ",
-  "  OLWSO  ",
-  " OLWWWSO ",
-  " OLWWWSO ",
-  "OLWWWWWSO",
-  "OSSSSSSSO",
-  " OOOOOOO ",
-];
+// Headwear worn over the bare head, so the face (and some hair) shows
+// under it: pixel rows as in drawPixelRows, facing right, with their top
+// left in art pixels from the head's centre. H / L / S are the helmet colour
+// (base, light, shade), s its stripe and V / v its visor; the other keys are
+// HEADWEAR_COLORS.
+const HEADWEAR = {
+  // A paper cone, its brim over the top of the hair.
+  dunce: {
+    x: -4,
+    y: -13,
+    rows: [
+      "    O    ",
+      "   OWO   ",
+      "   OwO   ",
+      "  OWwgO  ",
+      "  OWwgO  ",
+      " OWwwwgO ",
+      " OWwwwgO ",
+      "OWwwwwwgO",
+      "OgggggggO",
+      " OOOOOOO ",
+    ],
+  },
+  // A baseball cap, peak forward.
+  cap: {
+    x: -3,
+    y: -6,
+    rows: [
+      "  OOOO    ",
+      " OLLHHO   ",
+      "OLHHHHSOOO",
+      "OSSSSSSHHO",
+      "      OOOO",
+    ],
+  },
+  // The same cap, peak backward.
+  "cap-back": {
+    x: -6,
+    y: -6,
+    rows: [
+      "    OOOO  ",
+      "   OLLHHO ",
+      "OOOLHHHHSO",
+      "OHHSSSSSSO",
+      "OOOO      ",
+    ],
+  },
+  // A knitted beanie with a folded cuff.
+  beanie: {
+    x: -3,
+    y: -6,
+    rows: [
+      "  OOO  ",
+      " OLHHO ",
+      "OHLHLSO",
+      "OsssssO",
+    ],
+  },
+  // A spotted bandana knotted at the back, its tails hanging down.
+  bandana: {
+    x: -5,
+    y: -5,
+    rows: [
+      "   OOOOO ",
+      " OOHsHsHO",
+      "OHOSSSSSO",
+      "OHHO     ",
+      " OHO     ",
+      "  O      ",
+    ],
+  },
+  // A cowboy hat: a creased crown with a band, and a brim curled up at the ends.
+  cowboy: {
+    x: -6,
+    y: -8,
+    rows: [
+      "    OOOOO   ",
+      "   OLHOHSO  ",
+      "   OLHHHSO  ",
+      "O  OsssssO O",
+      "OLHHHHHHHHSO",
+      " OO      OO ",
+    ],
+  },
+  // A vented bicycle helmet with a short peak.
+  bike: {
+    x: -4,
+    y: -6,
+    rows: [
+      "  OOOOO  ",
+      " OLVLVHO ",
+      "OLHHVHVHO",
+      "OHSSSSSOO",
+      "OSO      ",
+      " O       ",
+    ],
+  },
+  // An open-face helmet, goggles up on its front, down over the ears.
+  "open-face": {
+    x: -4,
+    y: -6,
+    rows: [
+      "  OOOOO  ",
+      " OLLHsHO ",
+      "OLHHHsHHO",
+      "OHHOvVVVO",
+      "OHO      ",
+      "OHO      ",
+      "OSO      ",
+      " O       ",
+    ],
+  },
+  // A riveted steel helmet with a horn either side.
+  viking: {
+    x: -6,
+    y: -9,
+    rows: [
+      " O        O ",
+      "OIO      OIO",
+      "OIO      OIO",
+      "OiIO OOOOIiO",
+      " OiIOmmMOiO ",
+      "  OOmMMMnO  ",
+      "  OMMKMKMnO ",
+      "  OnnnnnnnO ",
+    ],
+  },
+};
 
-/** The dunce cap on its own, centred on (0, 0) like the helmets; draw it over drawBareHead. */
-export function drawDunceCap(rect) {
-  drawPixelRows(rect, -8, -26, DUNCE_CAP, {
-    O: RIDER_OUTLINE,
-    W: "#e8e5d9",
-    L: "#fff8e7",
-    S: "#b5bcae",
+// The colours headwear has whatever the helmet colour: paper, steel, horn.
+const HEADWEAR_COLORS = {
+  O: RIDER_OUTLINE,
+  K: RIDER_OUTLINE,
+  W: "#fff8e7",
+  w: "#e8e5d9",
+  g: "#b5bcae",
+  M: "#b5bcae",
+  m: "#e8e5d9",
+  n: "#727c80",
+  I: "#fff8e7",
+  i: "#d9cfae",
+};
+
+// Hair that still shows under headwear; the rest is tucked under it.
+const HAIR_UNDER_HEADWEAR = new Set(["mullet"]);
+
+/** Whether a helmet shape is headwear worn over the bare head (see HEADWEAR). */
+export const isHeadwear = (shape) => Object.hasOwn(HEADWEAR, shape);
+
+/** Headwear on its own, centred on (0, 0) like the helmets; draw it over drawBareHead. */
+function drawHeadwear(rect, shape, colors) {
+  const wear = HEADWEAR[shape];
+  drawPixelRows(rect, wear.x * 2, wear.y * 2, wear.rows, {
+    ...HEADWEAR_COLORS,
+    H: colors.helmet,
+    L: colors.helmetLight,
+    S: colors.helmetShade,
+    s: colors.stripe,
+    V: colors.visor,
+    v: colors.visorLight,
   });
 }
 
 /**
  * The rider's head as `parts` (lookParts) wears it, centred on (0, 0) and
  * facing right: bare, or under its helmet. `loose` draws a knocked-off
- * helmet on its own, without the head a cap sits on.
+ * helmet on its own, without the head headwear sits on.
  */
 function drawRiderHead(rect, parts, colors, { bare = !parts.helmet, loose = false } = {}) {
   const shape = parts.shapes.helmet;
   if (bare) drawBareHead(rect, colors, parts.hair, parts.face);
   else if (shape === "mx") drawMxHelmet(rect, colors);
-  else if (shape === "dunce") {
-    if (!loose) drawBareHead(rect, colors, parts.hair, parts.face);
-    drawDunceCap(rect);
+  else if (isHeadwear(shape)) {
+    if (!loose) {
+      const { extra } = parts.hair;
+      const hair = extra && !HAIR_UNDER_HEADWEAR.has(extra) ? { ...parts.hair, extra: null } : parts.hair;
+      drawBareHead(rect, colors, hair, parts.face);
+    }
+    drawHeadwear(rect, shape, colors);
   } else drawHelmetShell(rect, colors);
 }
 
@@ -1705,6 +1847,34 @@ export function drawHelmetShell(rect, colors) {
   rect(7, 2, 4, 2, colors.helmet);
 }
 
+// More hair drawn over a bare head (a cut's `extra`), facing right: top left
+// in art pixels from the head's centre, and rows as in drawPixelRows, with
+// h the hair, L its highlight and d its shade.
+const HAIR_EXTRAS = {
+  // A knot on the back of the crown.
+  bun: { x: -4, y: -6, rows: [" OO ", "OLhO", "OhdO"] },
+  // One knot at the back of the crown and one at the front.
+  buns: { x: -4, y: -6, rows: [" OO  OO ", "OLhOOLhO", "OhdOOhdO"] },
+  // A crest along the crown over shaved sides.
+  mohawk: { x: -2, y: -6, rows: [" OOO ", "OhLhO", "OhhdO", " hhd "] },
+  // A round cloud over the crown and down the back, clear of the face.
+  afro: {
+    x: -5,
+    y: -6,
+    rows: [
+      "  OOOOO  ",
+      " OhLLhhO ",
+      "OhLhhhhhO",
+      "OhhhhhhdO",
+      "Ohhhd    ",
+      "Ohhd     ",
+      " Od      ",
+    ],
+  },
+  // Short on top, long at the back, down over the collar.
+  mullet: { x: -4, y: -2, rows: ["Oh ", "Ohh", "Ohh", "Ohd", "Odd", " OO"] },
+};
+
 /**
  * The rider's bare head, without a helmet or once it has come off, centred
  * where the helmet's centre is and facing right, in the same units as
@@ -1716,7 +1886,7 @@ export function drawHelmetShell(rect, colors) {
 export function drawBareHead(rect, colors, hair, face = null) {
   // One art pixel at column `c`, row `r` (2 world units each).
   const dot = (c, r, color, w = 1, h = 1) => rect(c * 2, r * 2, w * 2, h * 2, color);
-  const { cap = "short", brow = true } = hair ?? {};
+  const { cap = "short", brow = true, extra = null } = hair ?? {};
   const long = cap === "long";
 
   // Outline with clipped corners, then the face.
@@ -1741,10 +1911,19 @@ export function drawBareHead(rect, colors, hair, face = null) {
   // Ear, eye and brow, nose, mouth.
   dot(-1, -1, colors.skinShade);
   dot(1, -1, colors.eye);
-  if (brow) dot(1, -2, cap === "bald" ? colors.skinShade : colors.hairShade);
+  if (brow) dot(1, -2, cap === "bald" && !extra ? colors.skinShade : colors.hairShade);
   if (face?.lash) dot(2, -2, RIDER_OUTLINE);
   dot(3, 0, colors.skin);
   dot(2, 1, colors.mouth);
+
+  const more = HAIR_EXTRAS[extra];
+  if (more)
+    drawPixelRows(rect, more.x * 2, more.y * 2, more.rows, {
+      O: RIDER_OUTLINE,
+      h: colors.hair,
+      L: colors.hairLight,
+      d: colors.hairShade,
+    });
 }
 
 // The riding pose, in bike body coordinates before lean: where the helmet's
@@ -5411,9 +5590,15 @@ export function createGameArt(ctx) {
       bodyRect(-2 + shift, -44, 8, 6, colors.skin);
       bodyRect(2 + shift, -42, 4, 2, colors.skinLight);
 
-      // The head is the same one the ragdoll shows, centred on the neck.
+      // The head is the same one the ragdoll shows, centred on the neck. It
+      // moves with the body as one piece, by whole art pixels, so its own
+      // pixels never slip against each other as the body pitches.
+      const headX = RIDER_HEAD[0] + shift,
+        headY = RIDER_HEAD[1];
+      const headDX = Math.round((headX * pc - headY * ps - headX) / 2) * 2,
+        headDY = Math.round((headX * ps + headY * pc + drop - headY) / 2) * 2;
       const head = (x, y, width, height, color) =>
-        bodyRect(x + RIDER_HEAD[0] + shift, y + RIDER_HEAD[1], width, height, color);
+        rect(x + headX + headDX, y + headY + headDY, width, height, color);
       drawRiderHead(head, parts, colors);
     }
 
@@ -5438,18 +5623,18 @@ export function createGameArt(ctx) {
     const key = parts.key + "|" + mode;
     if (headSprites.has(key)) return headSprites.get(key);
 
-    const canvas = createCanvas(24 / ART_PIXEL, 38 / ART_PIXEL);
+    const canvas = createCanvas(28 / ART_PIXEL, 38 / ART_PIXEL);
     const context = canvas.getContext("2d");
 
     // Local helmet anchor is (0, 0).
-    // Sprite bounds: x -10..14, y -26..12 (room for the motocross chin bar
-    // and the dunce cap's point).
+    // Sprite bounds: x -14..14, y -26..12 (room for the motocross chin bar,
+    // wide brims and the dunce cap's point).
     context.setTransform(
       1 / ART_PIXEL,
       0,
       0,
       1 / ART_PIXEL,
-      10 / ART_PIXEL,
+      14 / ART_PIXEL,
       26 / ART_PIXEL,
     );
 
@@ -5467,7 +5652,7 @@ export function createGameArt(ctx) {
     translateToDevice(x, y);
     ctx.rotate(angle);
     ctx.scale(facing, 1);
-    ctx.drawImage(sprite, -10, -26, 24, 38);
+    ctx.drawImage(sprite, -14, -26, 28, 38);
     ctx.restore();
   }
 

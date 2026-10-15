@@ -9,7 +9,7 @@ import {
 } from '../js/cosmetics.js';
 import { lookUnlock } from '../js/unlocks.js';
 import { readFileSync } from 'node:fs';
-import { BIKE_MODELS } from '../js/drawing.js';
+import { BIKE_MODELS, isHeadwear } from '../js/drawing.js';
 import { BIKE_LAMPS } from '../js/bike-lamps.js';
 import { createRagdoll } from '../js/ragdoll.js';
 
@@ -50,6 +50,11 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
   assert.ok(lookItem('hair', 'bald')?.colorless);
   assert.equal(lookItem('gender', 'female').face.lash, true);
   for (const item of itemsForSlot('bike')) assert.ok(BIKE_MODELS.includes(item.model), `bike ${item.id} has a model`);
+  // Every helmet has art: a shell, or headwear drawn over the bare head, which shows under it.
+  for (const item of LOOK_ITEMS.filter(item => item.slot === 'helmet' && !item.bare)) {
+    assert.ok(['classic', 'mx'].includes(item.shape) || isHeadwear(item.shape), `helmet ${item.id} has art`);
+    assert.equal(Boolean(item.showsHead), isHeadwear(item.shape), `helmet ${item.id} shows the head only if it is headwear`);
+  }
   // Every bike model has a headlight and tail light for the lights to shine from.
   for (const model of BIKE_MODELS) {
     const lamps = BIKE_LAMPS[model];

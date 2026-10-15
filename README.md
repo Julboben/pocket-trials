@@ -42,6 +42,20 @@ The current version is a dependency-free browser prototype built with native Jav
 - Coda the corgi, who trots over to greet you with a woof, and sits and pants when you press `E`
 - 57 achievements for each rider, from career milestones and stunts on any trail (custom ones too), such as wheelies, big air and beating the world-best ghost, to lifetime totals like 100 crashes, announced as you earn them and listed in the menu. Secret ones stay hidden until earned, and a few easter eggs reward riders who open their dev tools (`js/easter-eggs.js`). Every unlock rule for bonus trails and rider items lives in `js/unlocks.js`, and a rule can ask for an achievement
 
+## Requirements
+
+Playing needs a current browser:
+
+| Browser                    | Minimum version |
+| -------------------------- | --------------- |
+| Safari (macOS, iOS/iPadOS) | 16.5            |
+| Chrome, Edge               | 112             |
+| Firefox                    | 117             |
+
+The floor is set by native CSS nesting in `css/game.css` (see [Stylesheets](#stylesheets)). The game also relies on JavaScript modules, `structuredClone` and `dvh` units, which these versions all support. There is no fallback: an older browser silently drops the nested rules, which breaks the phone layout and button states. The trail editor also uses `:has()`, so it needs Firefox 121 or newer.
+
+Development needs Node.js 24 (the version CI uses) and npm. The game itself has no build step; npm packages are only used by the scripts and the Netlify functions.
+
 ## Play
 
 Run a local static server from the project directory:
@@ -220,6 +234,7 @@ One-time setup:
 .
 ├── index.html          # Game markup and module entry point
 ├── css/
+│   ├── tokens.css      # Shared design tokens and the pixel font
 │   ├── game.css        # Game and dashboard presentation
 │   ├── editor.css      # Visual trail editor presentation
 │   └── icons.css       # Generated pixel icons (from icons/pixel-icons.mjs)
@@ -273,9 +288,78 @@ One-time setup:
 
 The game itself intentionally has no runtime dependencies. Only the Netlify functions use npm packages.
 
+## Stylesheets
+
+The CSS is plain CSS served as written, with no preprocessor or build step. Each page loads three stylesheets in this order:
+
+| Page          | Stylesheets                                           |
+| ------------- | ----------------------------------------------------- |
+| `index.html`  | `css/tokens.css`, `css/icons.css`, `css/game.css`     |
+| `editor.html` | `css/tokens.css`, `css/icons.css`, `css/editor.css`   |
+
+`tokens.css` holds the design tokens (see [Design tokens](#design-tokens)), `icons.css` is generated from the pixel icons, and the page stylesheet holds everything else. The service worker caches the stylesheets, so run `npm run sw` after changing one (`npm test` fails until you do).
+
+### How `game.css` is organised
+
+The file runs top to bottom in roughly the order the screen is built:
+
+1. Base: box sizing, the global `[hidden]` rule, `html`/`body`, buttons, focus rings
+2. Game shell: `.game` (including its loading, fullscreen and menu-open states), the viewport, HUD, scene labels, toasts
+3. Dialogs and results: `.overlay`/`.menu-confirm`, pause screen, `.modal`, `.primary`/`.secondary` buttons, the results card
+4. Settings controls: ranges, key bindings, setting groups and options
+5. The handheld controls: `.control-area`, `.controls`, then each pad button and switch
+6. Menu: screen and hero, saves and riders, menu actions, trails, leaderboard, Garage, How to Play, changelog, achievements
+7. Cross-cutting rules: `.pixel-ui`, reduced motion, account login, and the dev sandbox badge
+
+### Nesting conventions
+
+`game.css` uses native CSS nesting, so each component keeps its states, pseudo-elements, children and responsive overrides in one block:
+
+```css
+.toast {
+    opacity: 0;
+    transition: opacity 0.2s;
+    &.visible {
+        opacity: 1;
+    }
+    @media (max-width: 760px) {
+        overflow-wrap: anywhere;
+        line-height: 1.35;
+    }
+}
+```
+
+Keep these rules when editing it:
+
+- **Start every nested selector with `&`** (`& strong`, `&:hover`, `& > div`). Safari before 17.2 ignores nested selectors that start with a letter.
+- **Put declarations before nested rules** in a block. Browsers released before late 2024 move declarations that follow a nested rule up above it, which changes their order.
+- **Only nest selectors that extend the parent** (`.results-time strong`, `.toast.visible`). Don't nest a separate component like `.results-time` inside `.results`: that turns it into `.results .results-time` and raises its specificity.
+- **Only nest under a selector list whose selectors have the same specificity**, such as `.overlay, .menu-confirm` or the pad button ids. A nested rule takes the highest specificity in its parent list.
+- **Watch the order when moving a rule.** A later rule beats an earlier one of equal specificity, so a few responsive overrides stay outside their component, after the rules they must beat, with a comment saying so. Examples are the phone heights for `.menu-action` and its modifiers, and the phone grid for `.look-options`, which also has to override `.look-skins`.
+
+Don't add `.foo[hidden] { display: none; }` rules. The global `[hidden] { display: none !important; }` near the top already hides any element with the `hidden` attribute, even when its component sets `display: flex` or `grid`.
+
+`editor.css` is a separate, flat stylesheet and doesn't use nesting.
+
+### Breakpoints
+
+| Media query                                   | Used for                                                          |
+| --------------------------------------------- | ----------------------------------------------------------------- |
+| `(max-width: 760px)`                          | Tablets and phones: stacked handheld controls, full-width shell   |
+| `(max-width: 520px)`                          | Phones: edge-to-edge game, single-column menus, controls fill the space below the game |
+| `(max-width: 370px)`                          | Narrow phones: the round pad buttons go back to the small shape   |
+| `(max-width: 350px)`                          | Smallest phones: tighter modal padding and headings               |
+| `(max-width: 520px) and (min-height: 600px)`  | Portrait phones: home buttons pinned to the bottom of the menu    |
+| `(max-height: 500px)`                         | Short landscape phones: shorter menu rows                         |
+| `(hover: none)`, `(hover: none) and (pointer: coarse)` | Touch screens: no selection ring or keyboard hints        |
+
+### Handheld controls
+
+The pad buttons are cut to pixel shapes with `clip-path` polygons on the 3px grid of their icons. `.controls` defines the small shapes as `--shape-round-small` and `--shape-flip-small`; its nested `@media (max-width: 760px)` swaps in the larger phone shapes, and `@media (max-width: 370px)` points back to the small ones. Each button's `::before` is its shadow and `::after` its face, both clipped to that shape.
+
 ## Design tokens
 
-Shared interface colors, spacing, corner radii, typography, and pixel-shadow values are defined as CSS custom properties in `css/game.css`. Trail-specific canvas colors live under `trails/official/` and `trails/custom/`, shared terrain materials and catalog loading live in `js/trails.js`, and simulation constants live in `js/config.js`.
+Shared interface colors, spacing, corner radii, typography, and pixel-shadow values are defined as CSS custom properties in `css/tokens.css`, shared by the game and the editor. Page stylesheets use `var()` references instead of new literals: `npm run tokens:check` (part of `npm test`) fails when a colour, font size or weight is written out although a token has that value, when a `var()` has no definition, or when a token is unused. One-off values with no token are fine; give them a token once they repeat. Trail-specific canvas colors live under `trails/official/` and `trails/custom/`, shared terrain materials and catalog loading live in `js/trails.js`, and simulation constants live in `js/config.js`.
 
 UI icons are drawn as ASCII grids in `icons/pixel-icons.mjs` (`#` takes the text colour; other letters map to the icon's own palette). Run `npm run icons` to regenerate `css/icons.css`, then use one with `<span data-icon="clock"></span>`, or add one to a label with `data-icon-before`/`data-icon-after`. Set `--px` to scale it (keep it a whole number). The `logo` icon also generates the favicon and app icons (`icons/icon.svg`, `icons/icon-maskable.svg`, `icons/apple-touch-icon.png`).
 

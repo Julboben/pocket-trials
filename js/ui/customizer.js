@@ -17,8 +17,10 @@ import {
 // What each view frames, in world units around the bike's axles.
 const SWATCH_VIEWS = {
   head: { dx: 6, dy: -45, width: 30, height: 30 },
+  // The head centred, so cuts and headwear that reach down the back show whole.
+  headCentred: { dx: -3, dy: -46, width: 30, height: 30 },
   // Headwear that rises well above a helmet, like the dunce cap.
-  tallHead: { dx: 4, dy: -54, width: 40, height: 40 },
+  tallHead: { dx: -1, dy: -54, width: 40, height: 40 },
   outfit: { dx: -8, dy: -30, width: 44, height: 44 },
   bike: { dx: 0, dy: -22, width: 88, height: 70 },
   // The big preview: the whole rider and bike, wheels and floor included.
@@ -27,7 +29,7 @@ const SWATCH_VIEWS = {
 
 // Which view each part's style swatches use. Hair hides under a helmet, so
 // its swatches show the head bare.
-const PART_VIEWS = { hair: 'head', helmet: 'head', outfit: 'outfit', bike: 'bike' };
+const PART_VIEWS = { hair: 'headCentred', helmet: 'headCentred', outfit: 'outfit', bike: 'bike' };
 const BARE_PARTS = new Set(['hair']);
 
 let pose = null;

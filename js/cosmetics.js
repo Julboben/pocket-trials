@@ -67,7 +67,9 @@ const hairColor = (id, name, [hair, hairLight, hairShade, hairDark], lean) =>
 
 // Hair cuts, as drawn by drawBareHead: `cap` covers the crown ('short' stops
 // above the ear, 'long' falls to the nape, 'buzz' is the top row only, 'bald'
-// has none), `brow` draws an eyebrow and `ponytail` adds the swinging tail.
+// has none), `brow` draws an eyebrow, `ponytail` adds the swinging tail and
+// `extra` draws more hair over the head ('bun', 'buns', 'mohawk', 'afro' or
+// 'mullet'; see HAIR_EXTRAS in drawing.js).
 const hairStyle = (id, name, style, blurb, extra = {}) =>
   ({ id, slot: 'hair', name, blurb, style, shape: id, ...extra });
 
@@ -98,6 +100,11 @@ export const LOOK_ITEMS = /** @type {LookItem[]} */ ([
   hairStyle('bob', 'Bob', { cap: 'long', brow: false, ponytail: false }, 'Swings on every landing.', { lean: 'female' }),
   hairStyle('buzz', 'Buzz cut', { cap: 'buzz', brow: true, ponytail: false }, 'Low drag, no fuss.', { lean: 'male' }),
   hairStyle('bald', 'Bald', { cap: 'bald', brow: false, ponytail: false }, 'Nothing to mess up.', { colorless: true }),
+  hairStyle('man-bun', 'Man bun', { cap: 'short', brow: true, ponytail: false, extra: 'bun' }, 'Tied up and out of the way.', { lean: 'male' }),
+  hairStyle('space-buns', 'Space buns', { cap: 'long', brow: false, ponytail: false, extra: 'buns' }, 'Two buns, twice the style.', { lean: 'female' }),
+  hairStyle('mohawk', 'Mohawk', { cap: 'bald', brow: true, ponytail: false, extra: 'mohawk' }, 'Built for headwinds.'),
+  hairStyle('afro', 'Afro', { cap: 'bald', brow: true, ponytail: false, extra: 'afro' }, 'Big hair, soft landings.'),
+  hairStyle('mullet', 'Mullet', { cap: 'short', brow: true, ponytail: false, extra: 'mullet' }, 'Business up front, trails out back.', { lean: 'male' }),
 
   hairColor('brown', 'Brown', ['#3d2a24', '#5e4334', '#2e1d19', '#1f1411'], 'male'),
   hairColor('auburn', 'Auburn', ['#684438', '#8c5d48', '#54362d', '#2e1d19'], 'female'),
@@ -111,6 +118,18 @@ export const LOOK_ITEMS = /** @type {LookItem[]} */ ([
   { id: 'mx', slot: 'helmet', name: 'Motocross', shape: 'mx', blurb: 'Long peak, goggles, chin bar out front.' },
   // No helmet: the bare head shows while riding, and a crash has none to knock off.
   { id: 'none', slot: 'helmet', name: 'No helmet', bare: true, colorless: true, blurb: 'Wind in your hair. Mind the rocks.' },
+  // Headwear over the bare head: the face shows, and it still comes off in a crash.
+  { id: 'cap', slot: 'helmet', name: 'Cap', shape: 'cap', showsHead: true, blurb: 'Peak forward, eyes on the trail.' },
+  { id: 'cap-back', slot: 'helmet', name: 'Backwards cap', shape: 'cap-back', showsHead: true, blurb: 'Peak back. Maximum attitude.' },
+  { id: 'beanie', slot: 'helmet', name: 'Beanie', shape: 'beanie', showsHead: true, blurb: 'Warm ears on the snowy trails.' },
+  { id: 'bandana', slot: 'helmet', name: 'Bandana', shape: 'bandana', showsHead: true, blurb: 'Knotted at the back, spots up front.' },
+  { id: 'cowboy', slot: 'helmet', name: 'Cowboy hat', shape: 'cowboy', showsHead: true, tall: true, blurb: 'Rides out of the desert at sundown.' },
+  { id: 'bike', slot: 'helmet', name: 'Bike helmet', shape: 'bike', showsHead: true, blurb: 'Vented, for the Pocket Classic.' },
+  { id: 'open-face', slot: 'helmet', name: 'Open face', shape: 'open-face', showsHead: true, blurb: 'Goggles up, chin in the wind.' },
+  {
+    id: 'viking', slot: 'helmet', name: 'Viking', shape: 'viking', showsHead: true, tall: true, colorless: true,
+    blurb: 'Steel and horn. Raid every trail.'
+  },
   // A paper cone over the bare head, for riders caught asking for cheats. Secret:
   // the Garage only lists it once it is won.
   {
