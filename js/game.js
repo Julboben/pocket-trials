@@ -107,7 +107,8 @@ export function startGame() {
   }
 
   let lastTime = 0, accumulator = 0, landingSoundCooldown = 0, splashSoundCooldown = 0;
-  // A paused scene is still, so it is only redrawn when something changes it.
+  // A paused scene is still, as is the scene behind the results once it has
+  // settled, so it is only redrawn when something changes it.
   let redraw = true;
   /** Inputs of the current attempt, one per step, for saving a ghost. */
   let recorded = [], startStep = 0, flips = 0;
@@ -855,7 +856,8 @@ export function startGame() {
       const alpha = stepping ? accumulator / STEP : 1;
       overlay.setTimer(ride.elapsed);
       overlay.tick(now);
-      if (session.state !== 'paused' || redraw) {
+      const still = session.state === 'paused' || (session.state === 'won' && renderer.settled());
+      if (!still || redraw) {
         redraw = false;
         const restore = interpolateRide(ride, alpha);
         const ghostRide = ghost?.ride;

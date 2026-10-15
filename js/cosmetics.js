@@ -115,8 +115,8 @@ export const LOOK_ITEMS = /** @type {LookItem[]} */ ([
   hairColor('grey', 'Grey', ['#9b9a95', '#c9c8c1', '#727169', '#45443f']),
   hairColor('pink', 'Pink', ['#d97a9c', '#f2a6c0', '#ab5576', '#5e2a3d'], 'female'),
 
-  { id: 'classic', slot: 'helmet', name: 'Full face', shape: 'classic', blurb: 'Tinted visor, stripe on top.' },
   { id: 'mx', slot: 'helmet', name: 'Motocross', shape: 'mx', blurb: 'Long peak, goggles, chin bar out front.' },
+  { id: 'classic', slot: 'helmet', name: 'Full face (classic)', shape: 'classic', blurb: 'Tinted visor, stripe on top.' },
   // No helmet: the bare head shows while riding, and a crash has none to knock off.
   { id: 'none', slot: 'helmet', name: 'No helmet', bare: true, colorless: true, blurb: 'Wind in your hair. Mind the rocks.' },
   // Headwear over the bare head: the face shows, and it still comes off in a crash.
@@ -211,12 +211,12 @@ const anyItem = (slot, id) => Boolean(lookItem(slot, id));
 export const STARTER_LOOKS = Object.freeze({
   female: Object.freeze({
     gender: 'female', skin: 'light',
-    hair: 'ponytail', hairColor: 'auburn', helmet: 'classic', helmetColor: 'teal',
+    hair: 'ponytail', hairColor: 'auburn', helmet: 'mx', helmetColor: 'teal',
     outfit: 'street', outfitColor: 'pink', bike: 'elasto', bikeColor: 'green'
   }),
   male: Object.freeze({
     gender: 'male', skin: 'light',
-    hair: 'short', hairColor: 'brown', helmet: 'classic', helmetColor: 'orange',
+    hair: 'short', hairColor: 'brown', helmet: 'mx', helmetColor: 'orange',
     outfit: 'street', outfitColor: 'white', bike: 'elasto', bikeColor: 'green'
   }),
 });
@@ -294,7 +294,7 @@ export const sameLook = (a, b) => lookKey(a) === lookKey(b);
 /** Whether a part's style has no colour to pick (bald, no helmet). */
 export const isColorless = (look, part) => Boolean(lookItem(part.style, look?.[part.style])?.colorless);
 
-/** How a part reads in a list: "Auburn ponytail", "Bald", "Teal full face". */
+/** How a part reads in a list: "Auburn ponytail", "Bald", "Teal motocross". */
 export function partName(look, part) {
   const style = lookItem(part.style, look?.[part.style]);
   const color = lookItem(part.color, look?.[part.color]);

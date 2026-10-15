@@ -356,13 +356,16 @@ export function createAudio(getSnapshot) {
     const rainIntensity = clamp(Number(weather?.rain) || 0, 0, 1);
     const snow = clamp(Number(weather?.snow) || 0, 0, 1);
     const lightning = clamp(Number(weather?.lightning) || 0, 0, 1);
-    const inPlay = state !== 'menu';
+    // At the finish the rain and wind fade out under the win jingle, which is
+    // why the context is not suspended as it is for the pause screen.
+    const inPlay = state !== 'menu' && state !== 'won';
+    const fade = state === 'won' ? .8 : 0;
     const storm = (value) => clamp((value - .5) / .5, 0, 1) ** 1.3;
     const rainStorm = storm(rainIntensity);
     const rainLevel = inPlay && rainIntensity > 0
       ? (.012 + rainIntensity * .04 + rainStorm * .02) * (.94 + Math.sin(context.currentTime * .63) * .06)
       : 0;
-    rainGain.gain.setTargetAtTime(rainLevel, context.currentTime, .35);
+    rainGain.gain.setTargetAtTime(rainLevel, context.currentTime, fade || .35);
     // Wind comes with storms: a rainstorm, a blizzard (with a light breeze
     // in gentle snow), and some with lightning.
     const snowWind = Math.max(snow * .25, storm(snow));
@@ -379,7 +382,7 @@ export function createAudio(getSnapshot) {
       (260 + whistle * 280) + gust * (300 + whistle * 500) * (.5 + windStrength * .5), time, .3,
     );
     windFilter.Q.setTargetAtTime(.7 + whistle * .9, time, .5);
-    windGain.gain.setTargetAtTime(windStrength * (.03 + gust * .08), time, .4);
+    windGain.gain.setTargetAtTime(windStrength * (.03 + gust * .08), time, fade || .4);
   }
 
   return {

@@ -104,6 +104,8 @@ const SCENERY_SHADOWS = {
   hut: { width: 48, alpha: 0.15, thickness: 3, lift: 30 },
   snowman: { width: 16, alpha: 0.13, thickness: 3, lift: 20 },
 };
+/** Seconds the scene takes to slow to a stop behind the results. */
+const WIN_SETTLE = 0.7;
 const GHOST_ALPHA = 0.38;
 // World units around the hair root that the ghost's hair can reach.
 const GHOST_HAIR_REACH = 40;
@@ -211,6 +213,9 @@ export function createRenderer(canvas) {
   // not the wall clock, so it stops while the game is paused and nothing
   // carries on behind the pause screen (or jumps ahead after the menu).
   let sceneClock = 0;
+  // Seconds the results have been up. Behind them the scene slows to a stop,
+  // as it is still behind the pause screen, rather than freezing mid-burst.
+  let wonFor = 0;
   let frameNow = 0;
   // Birds and bats that have taken off, with when and which way, for the
   // current ride.
@@ -1420,7 +1425,12 @@ export function createRenderer(canvas) {
     debug,
   }) {
     const paused = state === "paused";
-    const animationDt = paused ? 0 : dt;
+    wonFor = state === "won" ? wonFor + dt : 0;
+    const settle = state === "won" ? Math.max(0, 1 - wonFor / WIN_SETTLE) ** 2 : 1;
+    const animationDt = paused ? 0 : dt * settle;
+    // The weather clock steps with the physics, which stops at the finish;
+    // keep it in step with the props while they slow down.
+    if (state === "won") effects.weather.time += animationDt;
     sceneClock += animationDt * 1000;
     const now = sceneClock;
     const focus = focusOf(ride);
@@ -1559,6 +1569,8 @@ export function createRenderer(canvas) {
     reset,
     land,
     takeWoofs,
+    /** Whether the scene behind the results has come to a stop. */
+    settled: () => wonFor >= WIN_SETTLE,
     interact,
     setInteractKey(label) {
       interactLabel = String(label || "");
