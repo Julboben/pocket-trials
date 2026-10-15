@@ -48,7 +48,7 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
   }
   assert.ok(lookItem('helmet', 'none')?.colorless, 'riding without a helmet is an option, with no colour');
   assert.ok(lookItem('hair', 'bald')?.colorless);
-  assert.equal(lookItem('gender', 'female').face.lash, true);
+  assert.equal(lookItem('gender', 'female').face.lips, true);
   for (const item of itemsForSlot('bike')) assert.ok(BIKE_MODELS.includes(item.model), `bike ${item.id} has a model`);
   // Every helmet has art: a shell, or headwear drawn over the bare head, which shows under it.
   for (const item of LOOK_ITEMS.filter(item => item.slot === 'helmet' && !item.bare)) {

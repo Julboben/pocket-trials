@@ -1611,24 +1611,23 @@ export function drawPixelRows(rect, x, y, rows, colors) {
 }
 
 // Motocross helmet facing right: a long peak over the goggles, a chin bar
-// jutting forward, and a stripe over the crown. Top left at (-9, -12), so
-// it sits two pixels above the bare head and its chin bar clears the
-// shoulder.
+// jutting forward, and a stripe over the crown, its back rounded. Top left
+// at (-7, -10), so it sits a pixel above the bare head and barely past its
+// back, and its chin bar clears the shoulder.
 const MX_HELMET = [
-  "  OOOOO    ",
-  " OLLsLHOOOO",
-  "OLHHsHHHLLO",
-  "OHHHsHOOOO ",
-  "OHHggOvVVO ",
-  "OHHHHOVVVO ",
-  "OSHHHHOOHHO",
-  " OSSHHHSSO ",
-  "  OOOOOOO  ",
+  "  OOOO    ",
+  " OLsLHOOOO",
+  "OLHsHHHLLO",
+  "OHHSOOOOO ",
+  "OHHHOvVVO ",
+  "OSHHHOOHHO",
+  " OSHHHSSO ",
+  "  OOOOOO  ",
 ];
 
 /** The motocross helmet, centred on (0, 0) and facing right, like drawHelmetShell. */
 export function drawMxHelmet(rect, colors) {
-  drawPixelRows(rect, -9, -12, MX_HELMET, {
+  drawPixelRows(rect, -7, -10, MX_HELMET, {
     O: RIDER_OUTLINE,
     H: colors.helmet,
     L: colors.helmetLight,
@@ -1810,47 +1809,43 @@ function drawHeadwear(rect, shape, colors) {
  */
 function drawRiderHead(rect, parts, colors, { bare = !parts.helmet, loose = false } = {}) {
   const shape = parts.shapes.helmet;
-  if (bare) drawBareHead(rect, colors, parts.hair, parts.face);
+  if (bare) drawBareHead(rect, colors, parts.hair);
   else if (shape === "mx") drawMxHelmet(rect, colors);
   else if (isHeadwear(shape)) {
     if (!loose) {
       const { extra } = parts.hair;
       const hair = extra && !HAIR_UNDER_HEADWEAR.has(extra) ? { ...parts.hair, extra: null } : parts.hair;
-      drawBareHead(rect, colors, hair, parts.face);
+      drawBareHead(rect, colors, hair);
     }
     drawHeadwear(rect, shape, colors);
   } else drawHelmetShell(rect, colors);
 }
 
-/**
- * The first redesign's helmet, centred on (0, 0) and facing right, drawn with
- * `draw(x, y, width, height, color)` in world units on a 2-unit pixel grid.
- * It sits a pixel above the centre, so it clears the collar.
- */
-export function drawHelmetShell(draw, colors) {
-  const rect = (x, y, width, height, color) => draw(x, y - 2, width, height, color);
-  rect(-7, -4, 16, 8, RIDER_OUTLINE);
-  rect(-5, -6, 12, 12, RIDER_OUTLINE);
+// The full-face helmet facing right: a shell with a stripe over the crown, a
+// tinted visor with a glint, and a chin bar, outlined all round, its lower
+// edge where the bare head's jaw line is. Top left at (-7, -8), a pixel
+// above the bare head, so it clears the collar.
+const HELMET_SHELL = [
+  " OLLsLO   ",
+  "OLLHsHLLLH",
+  "OSSSSVvvV ",
+  "OHHHHVVVV ",
+  "OSSSSOOHH ",
+  " OOOOSSSS ",
+  " OOOOOOOO ",
+];
 
-  rect(-5, -4, 12, 8, colors.helmet);
-  rect(-3, -6, 8, 2, colors.helmetLight);
-  rect(-5, -4, 4, 4, colors.helmetLight);
-  rect(-5, 2, 8, 2, colors.helmetShade);
-
-  rect(1, -6, 2, 6, colors.stripe);
-
-  rect(-5, -2, 8, 2, colors.helmetShade);
-  rect(3, -2, 8, 6, RIDER_OUTLINE);
-  rect(3, -2, 8, 4, colors.visor);
-  rect(5, -2, 4, 2, colors.visorLight);
-
-  rect(3, -4, 10, 2, colors.helmet);
-  rect(5, -4, 6, 2, colors.helmetLight);
-  rect(3, 4, 8, 2, colors.helmetShade);
-  // The lower edge, from under the jaw to the tip of the chin bar, where
-  // the bare head's jaw line is, so the neck below is the same length.
-  rect(-5, 6, 16, 2, RIDER_OUTLINE);
-  rect(7, 2, 4, 2, colors.helmet);
+/** The full-face helmet, centred on (0, 0) and facing right, like the bare head. */
+export function drawHelmetShell(rect, colors) {
+  drawPixelRows(rect, -7, -8, HELMET_SHELL, {
+    O: RIDER_OUTLINE,
+    H: colors.helmet,
+    L: colors.helmetLight,
+    S: colors.helmetShade,
+    s: colors.stripe,
+    V: colors.visor,
+    v: colors.visorLight,
+  });
 }
 
 // More hair drawn over a bare head (a cut's `extra`), facing right: top left
@@ -1904,46 +1899,50 @@ const HAIR_EXTRAS = {
   mullet: { x: -4, y: -2, rows: ["Oh ", "Ohh", "Ohh", "Ohd", "Odd", " OO"] },
 };
 
+// The rider's bare head facing right: the face with its outline, ear, eye
+// under a dark brow, nose and mouth, and no hair. Top left at (-6, -8), so
+// it is centred on (0, 0).
+const BARE_HEAD = [
+  " OOOOO ",
+  "OsssssO",
+  "OssssOO",
+  "OsdselO",
+  "Osslsss",
+  "OssssmO",
+  " OOOOO ",
+];
+
+// Hair over the bare head, as rows over BARE_HEAD: H the hair, h its shine.
+// A 'short' cap stops above the ear, a 'long' one has bangs and falls to
+// the nape, where a ponytail starts, a 'buzz' is the top row only, and a
+// 'bald' head only catches the light.
+const HAIR_CAPS = {
+  short: ["", " HhhHH ", " HHH", " H"],
+  long: ["", " HhhHH ", " HHHH", " H", "HH", "HH"],
+  buzz: ["", " HhhHH "],
+  bald: ["", "  ll"],
+};
+
 /**
  * The rider's bare head, without a helmet or once it has come off, centred
  * where the helmet's centre is and facing right, in the same units as
- * drawHelmetShell: hair, ear, eye under a brow, nose, and mouth. `hair` is the
- * cut from lookParts: a 'short' cap stops above the ear, a 'long' one has
- * bangs and falls to the nape, where a ponytail starts, a 'buzz' is the top
- * row only, and 'bald' has none. `face.lash` adds a lash flick by the eye.
+ * drawHelmetShell. `hair` is the cut from lookParts: its cap (HAIR_CAPS)
+ * and any extra hair over it (HAIR_EXTRAS).
  */
-export function drawBareHead(rect, colors, hair, face = null) {
-  // One art pixel at column `c`, row `r` (2 world units each).
-  const dot = (c, r, color, w = 1, h = 1) => rect(c * 2, r * 2, w * 2, h * 2, color);
-  const { cap = "short", brow = true, extra = null } = hair ?? {};
-  const long = cap === "long";
-
-  // Outline with clipped corners, then the face.
-  dot(-2, -4, RIDER_OUTLINE, 5, 7);
-  dot(-3, -3, RIDER_OUTLINE, 7, 5);
-  dot(-2, -3, colors.skin, 5, 5);
-  dot(0, 0, colors.skinLight);
-  dot(2, -2, colors.skinLight, 1, 2);
-
-  // Hair: a cap over the crown and down the back of the head.
-  if (cap === "bald") dot(-1, -3, colors.skinLight, 2, 1);
-  else {
-    dot(-2, -3, colors.hair, 5, 1);
-    if (cap !== "buzz") {
-      dot(-2, -2, colors.hair, long ? 4 : 3, 1);
-      dot(-2, -1, colors.hair, 1, long ? 3 : 1);
-    }
-    dot(-1, -3, colors.hairLight, 2, 1);
-    if (long) dot(-3, 0, colors.hair, 1, 2);
-  }
-
-  // Ear, eye and brow, nose, mouth.
-  dot(-1, -1, colors.skinShade);
-  dot(1, -1, colors.eye);
-  if (brow) dot(1, -2, cap === "bald" && !extra ? colors.skinShade : colors.hairShade);
-  if (face?.lash) dot(2, -2, RIDER_OUTLINE);
-  dot(3, 0, colors.skin);
-  dot(2, 1, colors.mouth);
+export function drawBareHead(rect, colors, hair) {
+  const { cap = "short", extra = null } = hair ?? {};
+  const palette = {
+    O: RIDER_OUTLINE,
+    s: colors.skin,
+    l: colors.skinLight,
+    d: colors.skinShade,
+    e: colors.eye,
+    m: colors.mouth,
+    H: colors.hair,
+    h: colors.hairLight,
+  };
+  drawPixelRows(rect, -6, -8, BARE_HEAD, palette);
+  if (HAIR_CAPS[cap]) drawPixelRows(rect, -6, -8, HAIR_CAPS[cap], palette);
 
   const more = HAIR_EXTRAS[extra];
   if (more)
