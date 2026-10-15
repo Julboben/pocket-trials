@@ -509,7 +509,7 @@ function advanceRide(ride, input, hooks, events) {
   // Like Elasto Mania, any touch of the player's hitbox takes an apple, even
   // just the edge of a wheel.
   for (const apple of ride.apples) {
-    if (!apple.taken && playerTouchesApple(apple, ride.time, player)) {
+    if (!apple.taken && playerTouchesApple(apple, player)) {
       apple.taken = true;
       ride.collected++;
       ride.splits.push(ride.elapsed);

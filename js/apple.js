@@ -1,9 +1,10 @@
 // @ts-check
-// The collectible apple: its sprite, its bob and what counts as touching it.
-// The ride and the renderer share these, so an apple is taken exactly when the
-// player's hitbox overlaps the drawn apple, and never before.
+// The collectible apple: its sprite and what counts as touching it. The ride
+// and the renderer share these, so an apple is taken exactly when the
+// player's hitbox overlaps the drawn apple, and never before. Apples hold
+// still, so their edge is easy to judge; a shine sweeping across them
+// (drawing.js) keeps them lively without moving a pixel.
 import { ART, distanceToRect, playerTouch, segmentToRect } from "./player-shape.js";
-import { sin } from "./det-math.js";
 
 export const APPLE_SPRITE = [
   ".....S.LL..",
@@ -35,22 +36,17 @@ const APPLE_PIXELS = APPLE_SPRITE.flatMap((line, row) =>
 const opaque = (column, row) =>
   column >= 0 && column < COLUMNS && row >= 0 && row < ROWS && APPLE_SPRITE[row][column] !== ".";
 
-/** How far the apple floats above or below its resting centre at `time` seconds. */
-export function appleBob(apple, time) {
-  return sin(time * 2.5 + apple.x) * 2;
-}
-
 /** The world position the apple is drawn at, snapped to the art grid. */
-export function appleDrawOrigin(apple, time) {
+function appleDrawOrigin(apple) {
   return {
     x: Math.round(apple.x / ART) * ART,
-    y: Math.round((apple.y + appleBob(apple, time)) / ART) * ART,
+    y: Math.round(apple.y / ART) * ART,
   };
 }
 
-/** The drawn apple at `time`, as a shape the player can touch. */
-export function appleShape(apple, time) {
-  const origin = appleDrawOrigin(apple, time);
+/** The drawn apple, as a shape the player can touch. */
+function appleShape(apple) {
+  const origin = appleDrawOrigin(apple);
   const left = origin.x + SPRITE_LEFT, top = origin.y + SPRITE_TOP;
   const pixels = () => APPLE_PIXELS.map(([ox, oy]) => [origin.x + ox, origin.y + oy]);
   return {
@@ -81,11 +77,25 @@ export function appleShape(apple, time) {
 }
 
 /**
- * Whether the player touches the apple at `time`.
+ * Whether the player touches the apple.
  * @param {{ x: number, y: number }} apple
- * @param {number} time
  * @param {import("./player-shape.js").Player} player
  */
-export function playerTouchesApple(apple, time, player) {
-  return playerTouch(appleShape(apple, time), player) !== null;
+export function playerTouchesApple(apple, player) {
+  return playerTouch(appleShape(apple), player) !== null;
+}
+
+// The shine crosses the apple every this many seconds, taking this long.
+const SHINE_PERIOD = 2.8;
+const SHINE_SWEEP = 0.5;
+
+/**
+ * Where the shine sweeping across the apple is at `seconds` on the scene
+ * clock: a diagonal of the sprite (column + row), or null between sweeps.
+ * Each apple sweeps at its own time, so a row of them doesn't flash at once.
+ */
+export function appleShine(apple, seconds) {
+  const phase = (((seconds + apple.x * 0.013) % SHINE_PERIOD) + SHINE_PERIOD) % SHINE_PERIOD;
+  if (phase >= SHINE_SWEEP) return null;
+  return Math.floor((phase / SHINE_SWEEP) * (COLUMNS + ROWS + 1)) - 1;
 }

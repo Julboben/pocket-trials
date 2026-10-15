@@ -29,7 +29,7 @@ import { waterBodies, waterColumns, surfaceWave } from "./water.js";
 import { createTerrainRenderer } from "./terrain-render.js";
 import { vehicleMetrics } from "./vehicle-physics.js";
 import { ragdollCenter } from "./ragdoll.js";
-import { appleBob } from "./apple.js";
+import { appleShine } from "./apple.js";
 import { spikeAngle } from "./spike.js";
 import {
   createRiderHair,
@@ -314,10 +314,6 @@ export function createRenderer(canvas) {
     }
   }
 
-  // The bob follows the ride clock, as the pickup does, so a touch is taken
-  // exactly where the apple is drawn. It is gameplay, so it stays with
-  // reduced motion.
-  const appleDrawY = (apple, ride) => apple.y + appleBob(apple, ride.time);
 
   function drawSceneryShadow(
     x,
@@ -369,7 +365,7 @@ export function createRenderer(canvas) {
     }
     for (const apple of ride.apples) {
       if (apple.taken || !inView(apple.x, 40)) continue;
-      drawSceneryShadow(apple.x, appleDrawY(apple, ride), light, {
+      drawSceneryShadow(apple.x, apple.y, light, {
         width: 8,
         alpha: 0.18,
         thickness: 3,
@@ -1002,18 +998,17 @@ export function createRenderer(canvas) {
     const markers = [];
     for (const apple of ride.apples) {
       if (apple.taken) continue;
-      const appleY = appleDrawY(apple, ride);
-      if (inView(apple.x, -APPLE_HINT_VISIBLE, appleY, -APPLE_HINT_VISIBLE)) {
-        drawHintArrow(apple.x, appleY - 40 + bob, 0, 1, 18);
+      if (inView(apple.x, -APPLE_HINT_VISIBLE, apple.y, -APPLE_HINT_VISIBLE)) {
+        drawHintArrow(apple.x, apple.y - 40 + bob, 0, 1, 18);
         continue;
       }
       const x = clamp(apple.x, cameraX + side, cameraX + W - side);
-      const y = clamp(appleY, cameraY + top, cameraY + H - bottom);
+      const y = clamp(apple.y, cameraY + top, cameraY + H - bottom);
       if (markers.some((marker) => Math.abs(marker.x - x) < 34 && Math.abs(marker.y - y) < 34)) continue;
       markers.push({ x, y });
-      const distance = Math.hypot(apple.x - x, appleY - y);
+      const distance = Math.hypot(apple.x - x, apple.y - y);
       const dx = (apple.x - x) / distance,
-        dy = (appleY - y) / distance;
+        dy = (apple.y - y) / distance;
       ctx.fillStyle = "#182321d9";
       ctx.fillRect(Math.round(x / 2) * 2 - 15, Math.round(y / 2) * 2 - 15, 30, 30);
       gameArt.drawApple(x, y + 1);
@@ -1358,12 +1353,12 @@ export function createRenderer(canvas) {
       );
   }
 
-  function drawApples(ride, now) {
+  // The shine is only decoration, so it follows the scene clock and is left
+  // out with reduced motion.
+  function drawApples(ride) {
     for (const apple of ride.apples) {
-      if (apple.taken) continue;
-      const appleY = appleDrawY(apple, ride);
-      if (!inView(apple.x, 30, appleY)) continue;
-      gameArt.drawApple(apple.x, appleY);
+      if (apple.taken || !inView(apple.x, 30, apple.y)) continue;
+      gameArt.drawApple(apple.x, apple.y, reducedMotion ? null : appleShine(apple, sceneClock / 1000));
     }
   }
 
@@ -1485,7 +1480,7 @@ export function createRenderer(canvas) {
     drawParticles(effects.particles, true);
     drawGoal(ride);
     drawSpikes(ride);
-    drawApples(ride, now);
+    drawApples(ride);
     const fog = fogAmount(trail.weather);
     if (fog) drawFog(fog, focus, ride.facing);
     drawGhost(ghost, ghostLook ?? look, animationDt);

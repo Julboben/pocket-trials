@@ -2501,6 +2501,13 @@ const APPLE_COLORS = {
   L: "#567a4e",
 };
 
+// The fruit's colours under the shine's bright leading edge and its softer
+// trail; the stem and leaf don't shine.
+const APPLE_SHINE = {
+  lead: { R: "#ffd9b8", D: "#f7a07a", H: "#fff1df" },
+  trail: { R: "#f9a27a", D: "#e2734f", H: "#ffdcbd" },
+};
+
 // Tree canopies are drawn once into sprites, down to these heights above the
 // ground anchor; the trunk below is drawn live so its base follows the slope.
 // The canopy never reaches below them, and the ground at the trunk never
@@ -3412,13 +3419,20 @@ export function createGameArt(ctx) {
     ctx.translate(Math.round(x * scale) / scale, Math.round(y * scale) / scale);
   }
 
-  function drawApple(x, y) {
+  /** The apple at (x, y); `shine` is the diagonal its shine is on (see appleShine), or null. */
+  function drawApple(x, y, shine = null) {
     const left = Math.round(x / ART_PIXEL) * ART_PIXEL - 11;
     const top = Math.round(y / ART_PIXEL) * ART_PIXEL - 12;
     for (let row = 0; row < APPLE_SPRITE.length; row++) {
       const line = APPLE_SPRITE[row];
       for (let column = 0; column < line.length; column++) {
-        const color = APPLE_COLORS[line[column]];
+        const key = line[column];
+        const diagonal = column + row;
+        const glint = shine === null ? null
+          : diagonal === shine ? APPLE_SHINE.lead
+          : diagonal === shine - 1 ? APPLE_SHINE.trail
+          : null;
+        const color = glint?.[key] ?? APPLE_COLORS[key];
         if (!color) continue;
         ctx.fillStyle = color;
         ctx.fillRect(
