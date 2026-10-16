@@ -11,7 +11,11 @@
 //   interact  using a prop of that type (see interactions.js)
 //   egg       an easter egg game.js reports by name: poking at the game from
 //             the console, breaking it, or a cheat code held down
-// Only event, finish, interact and egg achievements are stored, in
+//   editor    something done with the trail editor: publishing a custom trail,
+//             sharing one or finishing a play-test. It's handed to the game (see
+//             reportEditorFeat in trails.js), which gives it to the active rider.
+//             New trails published count towards the `published` stat
+// Only event, finish, interact, egg and editor achievements are stored, in
 // `save.achievements` as id -> time earned; the rest are worked out whenever
 // they're needed. Every trail counts, custom ones too, but editor play-tests
 // don't (see game.js). Ids are stored in saves, so they are never renamed or
@@ -27,24 +31,26 @@ import { WHEELBASE } from './config.js';
  * @typedef {{
  *   flips: number, time: number, medal: string | null, gold: number | null,
  *   helmet: boolean, bike: string, night: boolean, rain: boolean, snow: boolean,
- *   attempts: number, previousBest: number | null, worldBest: number | null, custom: boolean
+ *   attempts: number, previousBest: number | null, worldBest: number | null, custom: boolean,
+ *   shared: boolean
  * }} FinishedRun what a run that reached the finish did: its flips, time,
  *   medal and the gold time, whether the rider wore a helmet, the bike
  *   (item id), whether the trail is at night or has rain or snow, how many
  *   attempts it took since the trail was opened, the best time on the trail
- *   before it and the world-best time (null if none), and whether it is a
- *   custom trail
+ *   before it and the world-best time (null if none), whether it is a
+ *   custom trail, and whether it came from someone's share link
  * @typedef {{ type: 'air' | 'wheelie' | 'stoppie', time: number }} Feat
  *   a stretch in the air, on the back wheel only or on the front wheel only,
  *   in seconds
  * @typedef {{
- *   id: string, group: 'career' | 'riding' | 'lifetime', name: string, blurb: string, icon: string,
+ *   id: string, group: 'career' | 'riding' | 'lifetime' | 'trail-maker' | 'easter-eggs',
+ *   name: string, blurb: string, icon: string,
  *   secret?: boolean, hint?: string,
  *   career?: (progress: CareerProgress) => boolean,
  *   stat?: string, goal?: number, unit?: 'tenths',
  *   event?: (event: any) => boolean,
  *   finish?: (run: FinishedRun) => boolean,
- *   interact?: string, egg?: string
+ *   interact?: string, egg?: string, editor?: 'publish' | 'share' | 'playtest'
  * }} Achievement
  *   `hint` is shown in place of the blurb while a secret is still hidden.
  */
@@ -54,6 +60,7 @@ export const ACHIEVEMENT_GROUPS = Object.freeze([
   { id: 'career', title: 'CAREER', blurb: 'Progress through the official and bonus trails' },
   { id: 'riding', title: 'RIDING', blurb: 'Earned on any trail, custom ones too' },
   { id: 'lifetime', title: 'LIFETIME', blurb: 'Totals across every ride' },
+  { id: 'trail-maker', title: 'TRAIL MAKER', blurb: 'Build your own trails in the editor and share them' },
   { id: 'easter-eggs', title: 'EASTER EGGS', blurb: 'For the curious. Bring your dev tools.' },
 ].map(group => Object.freeze(group)));
 
@@ -277,6 +284,27 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
   },
 
   {
+    id: 'groundbreaker', group: 'trail-maker', name: 'Groundbreaker', icon: 'pencil',
+    blurb: 'Publish your first custom trail in the editor.', editor: 'publish'
+  },
+  {
+    id: 'test-pilot', group: 'trail-maker', name: 'Test Pilot', icon: 'play',
+    blurb: 'Finish a play-test of a trail in the editor.', editor: 'playtest'
+  },
+  {
+    id: 'show-and-tell', group: 'trail-maker', name: 'Show and Tell', icon: 'share',
+    blurb: 'Copy a share link for a trail in the editor.', editor: 'share'
+  },
+  {
+    id: 'trail-network', group: 'trail-maker', name: 'Trail Network', icon: 'publish',
+    blurb: 'Publish 5 different custom trails.', stat: 'published', goal: 5
+  },
+  {
+    id: 'guest-rider', group: 'trail-maker', name: 'Guest Rider', icon: 'download',
+    blurb: 'Finish a trail someone shared with you.', finish: run => run.shared
+  },
+
+  {
     id: 'under-the-hood', group: 'easter-eggs', name: 'Under the Hood', icon: 'terminal', secret: true,
     hint: 'Some query strings open doors.',
     blurb: 'Reach into a ride from the browser console.', egg: 'debug-console'
@@ -389,6 +417,20 @@ export const interactAchievements = type => ACHIEVEMENTS.filter(a => a.interact 
 
 /** The ids the easter egg `name` earns. */
 export const eggAchievements = name => ACHIEVEMENTS.filter(a => a.egg === name).map(a => a.id);
+
+/** The ids doing `feat` with the editor earns: 'publish', 'share' or 'playtest'. */
+export const editorAchievements = feat => ACHIEVEMENTS.filter(a => a.editor === feat).map(a => a.id);
+
+/**
+ * The editor's feats, feat -> how many times, as achievement ids and lifetime
+ * stat gains. 'new-trail' is a custom trail published for the first time.
+ * @param {Record<string, number>} feats
+ */
+export function editorProgress(feats) {
+  const ids = Object.keys(feats).flatMap(editorAchievements);
+  const published = feats['new-trail'] || 0;
+  return { ids, gains: published > 0 ? { published } : {} };
+}
 
 /**
  * Whether the physics has come apart: the wheels have left the finite world,

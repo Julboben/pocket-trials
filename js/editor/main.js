@@ -8,7 +8,7 @@ import {
   trailToModule,
   validateTrail,
 } from "../trail-schema.js";
-import { detectDevServer, terrainMaterials, trailEntries } from "../trails.js";
+import { detectDevServer, reportEditorFeat, terrainMaterials, trailEntries } from "../trails.js";
 import { DISCORD_LINK_LENGTH, trailShareUrl } from "../trail-link.js";
 import { bindAutosave } from "./autosave.js";
 import { bindClipboard } from "./clipboard.js";
@@ -214,6 +214,7 @@ $("share-trail").addEventListener("click", async () => {
     return;
   }
   const length = url.length.toLocaleString("en-US");
+  reportEditorFeat("share");
   try {
     await navigator.clipboard.writeText(url);
   } catch (_) {

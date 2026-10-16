@@ -80,11 +80,6 @@
                 ></div>
                 <div class="toast-stack">
                     <div class="toast" id="toast" role="status"></div>
-                    <div
-                        class="toast achievement-toast"
-                        id="achievement-toast"
-                        data-icon-before="trophy"
-                    ></div>
                     <button
                         class="primary crash-retry"
                         id="crash-retry"
@@ -1362,6 +1357,25 @@
                     </div>
                 </dialog>
             </section>
+            <!-- A popover, so it shows on the top layer: over the ride, the
+                 results dialog and the menu alike. -->
+            <div
+                class="achievement-popover"
+                id="achievement-popover"
+                popover="manual"
+                aria-hidden="true"
+            >
+                <span
+                    class="achievement-popover-icon"
+                    id="achievement-popover-icon"
+                    data-icon="trophy"
+                ></span>
+                <span class="achievement-popover-text">
+                    <small>ACHIEVEMENT UNLOCKED</small>
+                    <strong id="achievement-popover-name"></strong>
+                    <span id="achievement-popover-blurb"></span>
+                </span>
+            </div>
         </main>
         <script type="module" src="./js/main.js"></script>
         <noscript>Hjulben needs JavaScript.</noscript>

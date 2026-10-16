@@ -59,7 +59,7 @@ export function loadStoredState() {
  *   onPreferences: () => void
  * }} hooks
  */
-export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartCustom, onClose, onRetry, onPreferences, onWatchReplay }) {
+export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartCustom, onClose, onRetry, onPreferences, onWatchReplay, onRiderChange }) {
   let pendingSaveSlot = 0;
   $('app-version').textContent = 'v' + VERSION;
   let deleteArmedSlot = -1, deleteArmTimer = 0, leaderboardTrail = 0;
@@ -314,6 +314,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     session.savedTrail = session.saveGame?.trail || 0;
     session.look = riderLook();
     updateDashboard();
+    onRiderChange();
   }
 
   function disarmDelete() {

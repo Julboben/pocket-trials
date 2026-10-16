@@ -65,6 +65,39 @@ export function readPlaytestTrail() {
   }
 }
 
+// Trail Maker achievements (see editorProgress in achievements.js) waiting for
+// the game to give them to the active rider: the editor has no rider of its
+// own, and an editor play-test doesn't count as the rider's ride.
+export const EDITOR_FEATS_KEY = 'hjulben-editor-feats-v1';
+
+/**
+ * Notes a feat for the game to reward: 'publish', 'new-trail' (a custom trail
+ * published for the first time), 'share' or 'playtest'.
+ */
+export function reportEditorFeat(feat) {
+  const feats = readEditorFeats();
+  feats[feat] = (feats[feat] || 0) + 1;
+  try { store().setItem(EDITOR_FEATS_KEY, JSON.stringify(feats)); } catch (_) {}
+}
+
+/** @returns {Record<string, number>} feat -> times */
+function readEditorFeats() {
+  try {
+    const stored = JSON.parse(store().getItem(EDITOR_FEATS_KEY) || '{}');
+    if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return {};
+    return Object.fromEntries(Object.entries(stored).filter(([, times]) => Number.isInteger(times) && times > 0));
+  } catch (_) {
+    return {};
+  }
+}
+
+/** The feats reported since the last call, which forgets them. */
+export function takeEditorFeats() {
+  const feats = readEditorFeats();
+  if (Object.keys(feats).length) try { store().removeItem(EDITOR_FEATS_KEY); } catch (_) {}
+  return feats;
+}
+
 function readBrowserLibrary() {
   try {
     const stored = JSON.parse(store().getItem(BROWSER_TRAILS_KEY) || '[]');
@@ -78,8 +111,8 @@ function writeBrowserLibrary(library) {
   store().setItem(BROWSER_TRAILS_KEY, JSON.stringify(library));
 }
 
-function browserEntry({ key, trail }) {
-  return { id: `browser:${key}`, source: 'custom', storage: 'browser', key, file: null, name: trail.name, trail };
+function browserEntry({ key, trail, shared = false }) {
+  return { id: `browser:${key}`, source: 'custom', storage: 'browser', key, file: null, name: trail.name, trail, shared };
 }
 
 export function slugify(name) {
@@ -111,7 +144,8 @@ export function registerTrailEntry(entry) {
   return entry;
 }
 
-export function saveBrowserTrail(trail, key = null) {
+/** @param {{ shared?: boolean }} [options] `shared`: it came from someone's share link */
+export function saveBrowserTrail(trail, key = null, { shared = false } = {}) {
   const library = readBrowserLibrary();
   let storageKey = key;
   if (!storageKey) {
@@ -120,8 +154,9 @@ export function saveBrowserTrail(trail, key = null) {
     storageKey = base;
     for (let suffix = 2; taken.has(storageKey); suffix++) storageKey = `${base}-${suffix}`;
   }
-  const stored = { key: storageKey, trail: JSON.parse(JSON.stringify(trail)) };
   const index = library.findIndex(item => item.key === storageKey);
+  // Stays a shared trail when the editor saves it again.
+  const stored = { key: storageKey, trail: JSON.parse(JSON.stringify(trail)), ...(shared || library[index]?.shared ? { shared: true } : {}) };
   if (index >= 0) library[index] = stored; else library.push(stored);
   writeBrowserLibrary(library);
   return registerTrailEntry(browserEntry(stored));
@@ -129,12 +164,13 @@ export function saveBrowserTrail(trail, key = null) {
 
 /**
  * Saves a trail opened from a share link under Custom Trails. Opening the same
- * link again reuses the copy saved the first time.
+ * link again reuses the copy saved the first time. A link to one of your own
+ * trails finds that trail, which stays yours rather than becoming shared.
  */
 export function saveSharedTrail(trail) {
   const hash = trailHash(trail);
   return customTrailEntries.find(entry => entry.storage === 'browser' && entry.name === trail.name && trailHash(entry.trail) === hash)
-    || saveBrowserTrail(trail);
+    || saveBrowserTrail(trail, null, { shared: true });
 }
 
 export function removeTrailEntry(id) {

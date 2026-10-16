@@ -10,6 +10,7 @@ import {
   deleteBrowserTrail,
   deleteTrailFile,
   moveTrailFile,
+  reportEditorFeat,
   saveBrowserTrail,
   saveTrailFile,
   trailEntries,
@@ -417,6 +418,27 @@ async function persist(entry, data) {
   return { ...entry, movedFrom: oldFile };
 }
 
+// Custom trails published before, by id, so Trail Network counts each trail once.
+const PUBLISHED_KEY = "hjulben-published-trails-v1";
+
+/**
+ * Remembers a published trail by its ids (a renamed trail file gets a new
+ * one) and returns whether it is the first time any of them was published.
+ */
+function notePublished(ids) {
+  let known = [];
+  try {
+    known = JSON.parse(store().getItem(PUBLISHED_KEY) || "[]");
+  } catch (_) {}
+  const published = new Set(Array.isArray(known) ? known : []);
+  const first = !ids.some((id) => published.has(id));
+  for (const id of ids) published.add(id);
+  try {
+    store().setItem(PUBLISHED_KEY, JSON.stringify([...published]));
+  } catch (_) {}
+  return first;
+}
+
 export async function saveTrail() {
   const entry = currentEntry();
   if (!canSave(entry)) return;
@@ -430,8 +452,13 @@ export async function saveTrail() {
   if (errors.length && !refuse("publishing", errors)) return;
   if (isShipped(entry) && !(await confirmOverwrite(entry))) return;
   try {
+    const firstId = entry.id;
     const saved = await persist(entry, editor.trail);
     markSaved(entry.id);
+    if (entry.source === "custom") {
+      reportEditorFeat("publish");
+      if (notePublished([firstId, entry.id])) reportEditorFeat("new-trail");
+    }
     setVersion("saved", null, editor.trail);
     autosaveNow();
     buildPicker();

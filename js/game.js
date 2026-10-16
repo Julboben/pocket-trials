@@ -1,7 +1,7 @@
 // The game loop and state machine: loads trails, steps the ride at a fixed
 // rate, turns ride events into sound, effects and UI, and saves results.
 import { STEP, MAX_STEPS_PER_FRAME, clamp } from './config.js';
-import { trails, officialTrailEntries, bonusTrailEntries, customTrailEntries, readPlaytestTrail, PLAYTEST_EXIT_MESSAGE } from './trails.js';
+import { trails, officialTrailEntries, bonusTrailEntries, customTrailEntries, readPlaytestTrail, reportEditorFeat, takeEditorFeats, EDITOR_FEATS_KEY, PLAYTEST_EXIT_MESSAGE } from './trails.js';
 import { createAudio } from './audio.js';
 import { createPhysicsDebugger } from './physics-debug.js';
 import { createFpsMeter } from './fps-meter.js';
@@ -13,7 +13,7 @@ import {
   readBest, saveBest, readLeaderboard, recordLeaderboardRun, readGhost, saveGhost,
   saveProgress as persistProgress, savePreferences, clearSaveToken, recordAchievements
 } from './storage.js';
-import { bikeBroken, createFeatTracker, eggAchievements, eventAchievements, finishAchievements, interactAchievements, newlyEarned, statGains } from './achievements.js';
+import { bikeBroken, createFeatTracker, editorProgress, eggAchievements, eventAchievements, finishAchievements, interactAchievements, newlyEarned, statGains } from './achievements.js';
 import { createLimWatcher, installConsoleCheats } from './easter-eggs.js';
 import { submitOnlineRun, fetchWorldGhost, refreshOnlineBoard, cachedOnlineBoard } from './online-leaderboard.js';
 import { queueSaveSync } from './account.js';
@@ -65,7 +65,9 @@ export function startGame({ shared = null } = {}) {
     onClose: closeMainMenu,
     onRetry: retryFromMenu,
     onWatchReplay: watchReplay,
-    onPreferences: applyPreferences
+    onPreferences: applyPreferences,
+    // Editor achievements wait for a rider, so a new or newly picked one gets them.
+    onRiderChange: () => claimEditorFeats()
   });
 
   const params = new URLSearchParams(window.location.search);
@@ -253,6 +255,16 @@ export function startGame({ shared = null } = {}) {
     earn(eggAchievements(name));
   }
 
+  /**
+   * Gives the active rider the Trail Maker achievements for what the editor
+   * did since. They wait for a rider, and play-tests leave them for the game.
+   */
+  function claimEditorFeats() {
+    if (!session.saveGame || playtestTrail) return;
+    const { ids, gains } = editorProgress(takeEditorFeats());
+    earn(ids, gains);
+  }
+
   /** Lifetime stats and achievements from a ride event or feat. */
   function trackAchievements(event) {
     const gains = statGains(event), ids = eventAchievements(event);
@@ -277,7 +289,9 @@ export function startGame({ shared = null } = {}) {
       if (updated) Object.assign(saveGame, updated);
     }
     const earned = newlyEarned(before, progressOf(saveGame));
-    for (const { name } of earned) overlay.achievement(name);
+    for (const achievement of earned) overlay.achievement(achievement);
+    // Earned in the menu: its "earned" count is on screen.
+    if (earned.length && menu.isOpen()) menu.updateDashboard();
     if (fresh.length || Object.keys(gains).length || earned.length) queueSaveSync(saveGame);
   }
 
@@ -291,7 +305,8 @@ export function startGame({ shared = null } = {}) {
       flips, time: ride.elapsed, medal: medalFor(medals, ride.elapsed), gold: medals?.gold ?? null,
       helmet: lookParts(session.look).helmet, bike: session.look.bike,
       night: timeOfDay === 'night', rain: (weather?.rain ?? 0) > 0, snow: (weather?.snow ?? 0) > 0,
-      attempts, previousBest, worldBest, custom: session.trailSource === 'custom'
+      attempts, previousBest, worldBest, custom: session.trailSource === 'custom',
+      shared: session.trailSource === 'custom' && currentTrailEntry()?.shared === true
     });
   }
 
@@ -422,7 +437,7 @@ export function startGame({ shared = null } = {}) {
     const look = data.look || data.rider ? lookOf(data) : session.look;
     replay = { source, index, data, inputs: decodeInputs(data.inputs), step: 0, look, name: name || 'Replay' };
     menu.close();
-    game.classList.remove('menu-open');
+    setMenuOpen(false);
     session.rideSaveId = session.saveGame?.createdAt ?? null;
     session.gameLoopStarted = true;
     restartReplay();
@@ -534,14 +549,18 @@ export function startGame({ shared = null } = {}) {
     overlay.hide();
     $('crash-retry').hidden = true;
     holdWakeLock(false);
-    game.classList.add('menu-open');
+    setMenuOpen(true);
     menu.open();
+  }
+
+  function setMenuOpen(open) {
+    game.classList.toggle('menu-open', open);
   }
 
   function closeMainMenu() {
     if (!menu.canResume()) return;
     menu.close();
-    game.classList.remove('menu-open');
+    setMenuOpen(false);
     focusGame();
     const previous = session.stateBeforeMenu;
     if (previous === 'ragdoll') setState('ragdoll');
@@ -555,7 +574,7 @@ export function startGame({ shared = null } = {}) {
   function retryFromMenu() {
     if (!menu.canResume()) return;
     menu.close();
-    game.classList.remove('menu-open');
+    setMenuOpen(false);
     startFresh();
   }
 
@@ -563,7 +582,7 @@ export function startGame({ shared = null } = {}) {
     if (requiresSave && !session.saveGame) return;
     endReplay();
     menu.close();
-    game.classList.remove('menu-open');
+    setMenuOpen(false);
     openingTrail = true;
     load();
     setState('running');
@@ -608,6 +627,8 @@ export function startGame({ shared = null } = {}) {
       primaryLabel: 'Play Again',
       restartKey: restartKey()
     });
+    // Test Pilot: given to the rider back in the game, as play-tests don't count as riding.
+    if (!replay) reportEditorFeat('playtest');
     $('overlay-badge').textContent = 'PLAY TEST COMPLETED';
     $('overlay-description').textContent = 'Play-test runs are not saved. Press Escape to return to the editor.';
     $('overlay-description').hidden = false;
@@ -850,6 +871,8 @@ export function startGame({ shared = null } = {}) {
     const dt = lastTime ? Math.min((now - lastTime) / 1000, .05) : 1 / 60;
     lastTime = now;
     input.pollGamepad();
+    // Toasts time out in the menu too, where achievements can still be earned.
+    overlay.tick(now);
     const ride = session.ride;
     if (ride && !menu.isOpen()) {
       const { state } = session;
@@ -866,7 +889,6 @@ export function startGame({ shared = null } = {}) {
       const stepping = session.state === 'running' || session.state === 'ragdoll';
       const alpha = stepping ? accumulator / STEP : 1;
       overlay.setTimer(ride.elapsed);
-      overlay.tick(now);
       const still = session.state === 'paused' || (session.state === 'won' && renderer.settled());
       if (!still || redraw) {
         redraw = false;
@@ -978,6 +1000,17 @@ export function startGame({ shared = null } = {}) {
   window.addEventListener('keyup', event => lim.up(event.code), { capture: true });
   window.addEventListener('blur', () => lim.clear());
   installConsoleCheats(() => egg('cheat'));
+  // In the menu, the achievement card is a shortcut to the list. It ignores
+  // clicks on the ride (see the CSS), so it can't interrupt a run.
+  $('achievement-popover').addEventListener('click', () => {
+    if (!menu.isOpen() || !session.saveGame) return;
+    $('achievement-popover').hidePopover();
+    $('menu-achievements').click();
+  });
+  // Back from the editor: a reload, a page restored from the back-forward
+  // cache, or the editor open in another tab.
+  window.addEventListener('pageshow', event => { if (event.persisted) claimEditorFeats(); });
+  window.addEventListener('storage', event => { if (event.key === EDITOR_FEATS_KEY) claimEditorFeats(); });
 
   loadStoredState();
   applyPreferences();
@@ -991,6 +1024,7 @@ export function startGame({ shared = null } = {}) {
     overlay.toast(`Shared trail “${shared.entry.name}” · Saved under Custom Trails`, 5000);
   } else {
     showMainMenu();
+    claimEditorFeats();
     if (shared?.error) menu.showTrailsStatus(`Could not open the shared trail: ${shared.error.message}`, true);
   }
   requestAnimationFrame(frame);
