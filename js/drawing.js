@@ -3638,65 +3638,100 @@ export function createGameArt(ctx) {
   const FLOWER_COLORS = {
     open: {
       edge: "#b9c4af",
+      rim: "#d4dbc6",
       shade: "#e8ecd9",
       petal: "#fffdf4",
+      halo: "#fbf0ce",
       ring: "#d9953a",
       core: "#f4c64e",
       glint: "#fff0a8",
     },
     locked: {
       edge: "#758477",
+      rim: "#97a596",
       shade: "#b9c4af",
       petal: "#d9dccb",
+      halo: "#e8dcb0",
       ring: "#9c8452",
       core: "#c9b27a",
       glint: "#e8dcb0",
     },
   };
 
-  // Petals are rendered once per state, snapped to their palette, then rotated
-  // with nearest-neighbour sampling so they stay pixel-sharp.
-  function flowerSprite(locked) {
-    const key = locked ? "locked" : "open";
+  // The petals turn, but rotating a pixel sprite breaks up its edges. So each
+  // step of the turn is drawn straight onto the pixel grid instead: every art
+  // pixel is tested against the turned petals, and the outline is added
+  // afterwards as a ring one pixel wide round whatever they cover, so the
+  // flower's edge stays whole at every angle. The light stays put, from the
+  // upper right, while the petals turn under it. The petals repeat every
+  // eighth of a turn, so that is all that needs drawing.
+  const FLOWER_REACH = 20;
+  const FLOWER_STEPS = 24;
+  // Petal layers: distance out from the centre, half-length, half-width.
+  const FLOWER_SHADE = [9.5, 6.5, 2.6];
+  const FLOWER_FACE = [10, 5, 2];
+  function flowerFrame(locked, step) {
+    const key = `${locked ? "locked" : "open"}:${step}`;
     if (flowerSprites.has(key)) return flowerSprites.get(key);
-    const reach = 20;
-    const size = (reach * 2) / ART_PIXEL;
-    const canvas = createCanvas(size, size);
-    const context = canvas.getContext("2d");
-    context.setTransform(
-      1 / ART_PIXEL,
-      0,
-      0,
-      1 / ART_PIXEL,
-      size / 2,
-      size / 2,
-    );
-    const c = FLOWER_COLORS[key];
-    const petals = (distance, along, across, color) => {
-      context.fillStyle = color;
-      for (let i = 0; i < 8; i++) {
-        const angle = (i * TAU) / 8;
-        context.beginPath();
-        context.ellipse(
-          Math.cos(angle) * distance,
-          Math.sin(angle) * distance,
-          along,
-          across,
-          angle,
-          0,
-          TAU,
-        );
-        context.fill();
+    const cells = (FLOWER_REACH * 2) / ART_PIXEL;
+    const turn = (step / FLOWER_STEPS) * (TAU / 8);
+    const axes = Array.from({ length: 8 }, (_, i) => {
+      const angle = turn + (i * TAU) / 8;
+      return [Math.cos(angle), Math.sin(angle)];
+    });
+    const covers = ([distance, along, across], px, py) =>
+      axes.some(([ux, uy]) => {
+        const dx = px - ux * distance, dy = py - uy * distance;
+        const u = (dx * ux + dy * uy) / along, v = (dy * ux - dx * uy) / across;
+        return u * u + v * v <= 1;
+      });
+    // Each pixel takes the layer covering at least half of it (four samples).
+    const layer = (column, row) => {
+      let face = 0, shade = 0;
+      for (const [sx, sy] of [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]]) {
+        const px = (column + sx) * ART_PIXEL - FLOWER_REACH;
+        const py = (row + sy) * ART_PIXEL - FLOWER_REACH;
+        if (covers(FLOWER_FACE, px, py)) face++;
+        else if (covers(FLOWER_SHADE, px, py)) shade++;
       }
+      return face >= 2 ? 2 : face + shade >= 2 ? 1 : 0;
     };
-    petals(9, 8, 4, c.edge); // outline
-    petals(9, 6.5, 3, c.shade); // shaded petal base
-    petals(10, 5, 2, c.petal); // bright petal face
-    quantizeToPalette(context, size, size, [c.edge, c.shade, c.petal]);
-    const sprite = { canvas, reach };
-    flowerSprites.set(key, sprite);
-    return sprite;
+    const grid = [];
+    for (let row = 0; row < cells; row++)
+      for (let column = 0; column < cells; column++) grid.push(layer(column, row));
+    const filled = (column, row) =>
+      column >= 0 && row >= 0 && column < cells && row < cells && grid[row * cells + column] > 0;
+    const c = FLOWER_COLORS[locked ? "locked" : "open"];
+    const canvas = createCanvas(cells, cells);
+    const context = canvas.getContext("2d");
+    for (let row = 0; row < cells; row++)
+      for (let column = 0; column < cells; column++) {
+        const value = grid[row * cells + column];
+        let color = value === 2 ? c.petal : value === 1 ? c.shade : null;
+        if (!color) {
+          // Side neighbours only, so the outline doesn't bridge the gaps
+          // between petals.
+          const touching =
+            filled(column - 1, row) || filled(column + 1, row) ||
+            filled(column, row - 1) || filled(column, row + 1);
+          if (!touching) continue;
+          // Edges facing the light are softer than those in shadow.
+          color = filled(column - 1, row + 1) && !filled(column + 1, row - 1) ? c.rim : c.edge;
+        }
+        context.fillStyle = color;
+        context.fillRect(column, row, 1, 1);
+      }
+    const frame = { canvas, reach: FLOWER_REACH };
+    flowerSprites.set(key, frame);
+    return frame;
   }
+
+  // Sparkles twinkling round an open flower: where on the ring, and when.
+  const FLOWER_SPARKLES = [
+    [-0.7, 0],
+    [1.4, 0.35],
+    [2.9, 0.7],
+  ];
 
   // Pass your game clock as `time` (seconds) so the flower stops when paused.
   function drawFlag(x, y, unlocked, time) {
@@ -3708,29 +3743,52 @@ export function createGameArt(ctx) {
     const cy = Math.round((y - FINISH_FLOWER_LIFT) / ART_PIXEL) * ART_PIXEL;
     const c = FLOWER_COLORS[unlocked ? "open" : "locked"];
 
-    if (unlocked) drawPixelDisc(cx, cy, 24, "#fbf0ce50", ART_PIXEL);
+    if (unlocked) {
+      // A halo that breathes slowly, brighter towards the middle.
+      const alpha = ctx.globalAlpha;
+      const breath = seconds ? 0.5 + 0.5 * Math.sin(seconds * 2.2) : 0.5;
+      ctx.globalAlpha = alpha * 0.28;
+      drawPixelDisc(cx, cy, 26, c.halo, ART_PIXEL);
+      ctx.globalAlpha = alpha * (0.2 + 0.15 * breath);
+      drawPixelDisc(cx, cy, 20, c.halo, ART_PIXEL);
+      ctx.globalAlpha = alpha;
+    }
 
-    // Rotating petals (8-fold symmetric, so the angle can wrap every 1/8 turn).
-    const sprite = flowerSprite(!unlocked);
-    const angle = (seconds * (unlocked ? 1.6 : 0.35)) % (TAU / 8);
+    const turn = (seconds * (unlocked ? 1.6 : 0.35)) % (TAU / 8);
+    const step = Math.floor((turn / (TAU / 8)) * FLOWER_STEPS) % FLOWER_STEPS;
+    const frame = flowerFrame(!unlocked, step);
     ctx.save();
     ctx.imageSmoothingEnabled = false;
-    ctx.translate(cx, cy);
-    ctx.rotate(angle);
     ctx.drawImage(
-      sprite.canvas,
-      -sprite.reach,
-      -sprite.reach,
-      sprite.reach * 2,
-      sprite.reach * 2,
+      frame.canvas,
+      cx - frame.reach,
+      cy - frame.reach,
+      frame.reach * 2,
+      frame.reach * 2,
     );
     ctx.restore();
 
     // Centre stays unrotated, so its highlight always faces the sun.
     drawPixelDisc(cx, cy, 7, c.ring, ART_PIXEL);
     drawPixelDisc(cx, cy, 5, c.core, ART_PIXEL);
+    pixelRect(cx - 4, cy + 2, 2, 2, c.ring, 2);
     pixelRect(cx, cy - 4, 4, 2, c.glint, 2);
     pixelRect(cx + 2, cy - 2, 2, 2, c.glint, 2);
+
+    // Once open, sparkles twinkle in and out round it; none with reduced motion.
+    if (unlocked && seconds) {
+      for (const [angle, offset] of FLOWER_SPARKLES) {
+        const phase = (seconds * 0.8 + offset) % 1;
+        if (phase > 0.4) continue;
+        const size = phase < 0.1 || phase > 0.3 ? 1 : 2;
+        const sx = Math.round((cx + Math.cos(angle) * 23) / 2) * 2;
+        const sy = Math.round((cy + Math.sin(angle) * 23) / 2) * 2;
+        pixelRect(sx, sy, 2, 2, c.glint, 2);
+        if (size > 1)
+          for (const [dx, dy] of [[-2, 0], [2, 0], [0, -2], [0, 2]])
+            pixelRect(sx + dx, sy + dy, 2, 2, c.halo, 2);
+      }
+    }
   }
 
   function starPath(context, points, outer, inner) {

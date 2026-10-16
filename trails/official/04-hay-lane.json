@@ -1188,13 +1188,6 @@
       "layer": "back"
     },
     {
-      "x": 1668,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "!"
-    },
-    {
       "x": 1900,
       "y": 336,
       "type": "beehive",
@@ -1267,13 +1260,6 @@
       "layer": "back"
     },
     {
-      "x": 3046,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "! SLOW"
-    },
-    {
       "x": 3200,
       "y": 395.84652899947093,
       "type": "flowers",
@@ -1313,6 +1299,18 @@
       "x": 3864,
       "y": 162,
       "type": "apple",
+      "layer": "back"
+    },
+    {
+      "x": 1673.5388270551757,
+      "y": 281.675026598424,
+      "type": "warning-bang",
+      "layer": "back"
+    },
+    {
+      "x": 3054.502650878238,
+      "y": 319.5970326786909,
+      "type": "warning-bang",
       "layer": "back"
     }
   ],
