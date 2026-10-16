@@ -10,6 +10,23 @@ const REV_PITCH_CURVE = .7;
 const FULL_STRAIN_CLUTCH = .3;
 
 /**
+ * How a skidding tyre sounds on each surface: a band of scrub noise (`band`
+ * Hz, `q`, `level`) and, on hard ground, the rubber's squeal, a narrow band
+ * at `squealAt` Hz. Loose ground tears and hisses; hard ground screeches.
+ */
+const SKID_VOICES = {
+  grass: { band: 420, q: .6, level: .8, squeal: 0, squealAt: 900 },
+  dirt: { band: 700, q: .5, level: 1, squeal: 0, squealAt: 900 },
+  sand: { band: 2200, q: .35, level: .75, squeal: 0, squealAt: 900 },
+  snow: { band: 1300, q: 1.2, level: .55, squeal: .2, squealAt: 850 },
+  concrete: { band: 1000, q: .8, level: .4, squeal: 1, squealAt: 1250 },
+  brick: { band: 850, q: .7, level: .5, squeal: .6, squealAt: 1100 },
+  stone: { band: 1500, q: 1.5, level: .6, squeal: .35, squealAt: 1600 },
+  wood: { band: 320, q: 1.4, level: .7, squeal: .3, squealAt: 700 },
+  glass: { band: 2600, q: 2, level: .3, squeal: 1, squealAt: 2100 },
+};
+
+/**
  * One cycle of exhaust pressure: a sharp spike as the port opens, the
  * suction dip behind it, and a small reflection back from the pipe.
  */
@@ -119,6 +136,11 @@ export function createAudio(getSnapshot) {
     skidFilter.type = 'bandpass'; skidFilter.frequency.value = 520; skidFilter.Q.value = .7;
     skidGain.gain.value = 0;
     skid.connect(skidFilter); skidFilter.connect(skidGain); skidGain.connect(master); skid.start();
+    const squealFilter = context.createBiquadFilter();
+    const squealGain = context.createGain();
+    squealFilter.type = 'bandpass'; squealFilter.frequency.value = 1250; squealFilter.Q.value = 14;
+    squealGain.gain.value = 0;
+    skid.connect(squealFilter); squealFilter.connect(squealGain); squealGain.connect(master);
 
     const rainBuffer = context.createBuffer(1, context.sampleRate * 4, context.sampleRate);
     const rainData = rainBuffer.getChannelData(0);
@@ -174,7 +196,7 @@ export function createAudio(getSnapshot) {
     echo.connect(master);
     audio = {
       context, master, engine, engineDrive, engineFilter, enginePipe, engineGain, raspFilter, raspLevel,
-      pitchDrift, levelDrift, noiseBuffer, skidGain, rainGain,
+      pitchDrift, levelDrift, noiseBuffer, skidFilter, skidGain, squealFilter, squealGain, rainGain,
       windFilter, windGain, brownBuffer: windBuffer, echo,
       // Whether the context is suspended for the pause screen (see update).
       paused: false,
@@ -322,7 +344,7 @@ export function createAudio(getSnapshot) {
   function update() {
     if (!audio) return;
     const { state, rear, front, engine, gas, started, brakePressure, weather } = getSnapshot();
-    const { context, skidGain, rainGain, windFilter, windGain } = audio;
+    const { context, skidFilter, skidGain, squealFilter, squealGain, rainGain, windFilter, windGain } = audio;
     // Pausing freezes every sound where it is (rain, wind, a rolling thunder
     // clap, the engine) by suspending the whole context; resuming carries on.
     const paused = state === 'paused';
@@ -336,7 +358,16 @@ export function createAudio(getSnapshot) {
     const grounded = rear && front && (rear.grounded || front.grounded);
     updateEngine(state, engine, Boolean(gas), !started);
     const skidLevel = running && grounded && speed > 24 ? brakePressure * clamp(speed / 220, 0, 1) * .16 : 0;
-    skidGain.gain.setTargetAtTime(skidLevel, context.currentTime, .025);
+    // The skid sounds like the ground under the tyre doing it: the rear when
+    // it is down, else the front.
+    const skidding = rear?.grounded ? rear : front;
+    const voice = SKID_VOICES[skidding?.material] || SKID_VOICES.dirt;
+    skidFilter.frequency.setTargetAtTime(voice.band, context.currentTime, .05);
+    skidFilter.Q.setTargetAtTime(voice.q, context.currentTime, .05);
+    squealFilter.frequency.setTargetAtTime(voice.squealAt * (.9 + clamp(speed / 300, 0, 1) * .2), context.currentTime, .05);
+    skidGain.gain.setTargetAtTime(skidLevel * voice.level, context.currentTime, .025);
+    // The narrow squeal band passes little of the noise, so it is boosted.
+    squealGain.gain.setTargetAtTime(skidLevel * voice.squeal * 2.5, context.currentTime, .025);
     const rainIntensity = clamp(Number(weather?.rain) || 0, 0, 1);
     const snow = clamp(Number(weather?.snow) || 0, 0, 1);
     const lightning = clamp(Number(weather?.lightning) || 0, 0, 1);
@@ -418,6 +449,23 @@ export function createAudio(getSnapshot) {
       } else {
         playNoise(.1, .035, 1150);
         playTone(230, .12, 'triangle', .035, 0, 340);
+      }
+    },
+    /**
+     * A suspension leg reaching the end of its stroke: a dull thud as it
+     * bottoms on a big landing, or a lighter clack as it tops out. `speed`
+     * is how fast the leg was moving, in px/s.
+     */
+    suspension(end, speed) {
+      if (end === 'bottom') {
+        const strength = clamp((speed - 100) / 300, 0, 1);
+        playTone(78 - strength * 18, .09 + strength * .05, 'triangle', .04 + strength * .05, 0, 44);
+        playNoise(.05 + strength * .03, .02 + strength * .035, 380 + strength * 200);
+        playTone(310, .035, 'square', .008 + strength * .012, .004, 220);
+      } else {
+        const strength = clamp((speed - 50) / 200, 0, 1);
+        playTone(150, .05, 'triangle', .025 + strength * .03, 0, 105);
+        playNoise(.03, .012 + strength * .018, 1300);
       }
     },
     land(impactSpeed) {

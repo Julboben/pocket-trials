@@ -165,6 +165,51 @@ import {
   snowmanGaze,
 } from "./mountain-props.js";
 import {
+  BANNER_TOP,
+  CAMERA_TALLY,
+  CAMERA_TOWER_BODY_BOTTOM,
+  CAMERA_TOWER_LEGS,
+  HALFWAY_BEACON,
+  HALFWAY_BOARD,
+  HALFWAY_LIGHT,
+  HAY_BALES_BOUNDS,
+  PIT_BOARD,
+  PIT_BOARD_BOTTOM,
+  SPECTATORS,
+  TAPE_STAKES,
+  TUTORIAL_BOUNDS,
+  TYRE_WALL_BOUNDS,
+  bannerLayout,
+  bannerStyle,
+  cameraTallyOn,
+  drawArrowSign,
+  drawBanner,
+  drawCamera,
+  drawCameraTower,
+  drawCourseTape,
+  drawHalfwayFlag,
+  drawHayBales,
+  drawMarshal,
+  drawPerson,
+  drawPetrolCan,
+  drawPitBoard,
+  drawSignPost,
+  drawTutorialFlip,
+  drawTutorialLean,
+  drawTutorialLight,
+  drawTyreWall,
+  drawWarningBang,
+  drawWarningSkull,
+  drawWarningTriangle,
+  halfwayFlash,
+  halfwayTextColor,
+  marshalFlag,
+  pitBoardText,
+  spectatorHop,
+  spectatorMood,
+  splitText,
+} from "./event-props.js";
+import {
   CORGI_BOUNDS,
   CORGI_RANGE,
   CORGI_STEP,
@@ -190,6 +235,9 @@ const GROUND_ALIGNED_PROP_SPANS = {
   dumpster: [-36, 32],
   skull: [-14, 14],
   "car-wreck": [-48, 48],
+  "tyre-wall": [-44, 44],
+  "hay-bales": [-34, 34],
+  "petrol-can": [-10, 10],
 };
 
 /**
@@ -972,7 +1020,20 @@ export function sunShadowOffset({
 export const WALL_PROPS = new Set(["vines", "roots", "moss"]);
 // Graffiti is painted onto the rock itself rather than stood in front of it or
 // behind it, so it is drawn just after the terrain whatever its layer.
-export const PAINTED_PROPS = new Set(["graffiti"]);
+export const PAINTED_PROPS = new Set(["graffiti", "tutorial-lean", "tutorial-flip", "tutorial-light"]);
+// The art of each painted prop: its local bounds and how to draw it.
+const PAINTED_ART = {
+  graffiti: { bounds: GRAFFITI_BOUNDS, draw: drawGraffiti },
+  "tutorial-lean": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLean },
+  "tutorial-flip": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialFlip },
+  "tutorial-light": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLight },
+};
+/** A painted prop's local bounds, [left, top, right, bottom]. */
+export const paintedBounds = (type) => (PAINTED_ART[type] ?? PAINTED_ART.graffiti).bounds;
+// Props whose `text` the author sets: signs, banners and pit boards.
+export const TEXT_PROPS = new Set(["sign", "banner", "pit-board"]);
+// Props that print text or numbers, which would read backwards mirrored.
+const LETTERED_PROPS = new Set(["banner", "pit-board", "halfway-flag"]);
 // Props that hang from a cave ceiling. Each looks up from its anchor for the
 // nearest roof; see propWallFit.
 export const CEILING_PROPS = new Set([
@@ -986,10 +1047,12 @@ export const CEILING_PROPS = new Set([
 // Cave props that fit themselves to the rock around them: support beams reach
 // up to the roof, and a mine cart's rails run along the floor to the walls.
 const CAVE_FITTED_PROPS = new Set([...CEILING_PROPS, "beams", "minecart"]);
-// Signs and graffiti would mirror their text, wall props already turn to face
+// Signs, banners, pit boards and the halfway flag would mirror their text,
+// as would graffiti; wall props already turn to face
 // the wall, and ceiling props and beams are symmetric or lit from the right.
 export const canFlip = (type) =>
   type !== "sign" &&
+  !LETTERED_PROPS.has(type) &&
   type !== "beams" &&
   !WALL_PROPS.has(type) &&
   !PAINTED_PROPS.has(type) &&
@@ -1479,18 +1542,19 @@ function graffitiSprite(trail, prop) {
   const angle = propRotation(prop);
   const cached = graffitiPaint.get(prop);
   if (cached && cached.x === prop.x && cached.y === y && cached.angle === angle
-    && cached.geometry === geometry)
+    && cached.type === prop.type && cached.geometry === geometry)
     return cached.sprite;
 
-  const [left, top, right, bottom] = angle ? graffitiTurnedBounds() : GRAFFITI_BOUNDS;
+  const art = PAINTED_ART[prop.type] ?? PAINTED_ART.graffiti;
+  const [left, top, right, bottom] = angle ? graffitiTurnedBounds(prop.type) : art.bounds;
   const columns = (right - left) / ART_PIXEL;
   const rows = (bottom - top) / ART_PIXEL;
   const canvas = createCanvas(columns, rows);
   const context = canvas.getContext("2d");
-  if (angle) context.putImageData(turnedGraffiti(angle, columns, rows, left, top), 0, 0);
+  if (angle) context.putImageData(turnedGraffiti(art, angle, columns, rows, left, top), 0, 0);
   else {
     context.setTransform(1 / ART_PIXEL, 0, 0, 1 / ART_PIXEL, -left / ART_PIXEL, -top / ART_PIXEL);
-    drawGraffiti(createDrawingTools(context));
+    art.draw(createDrawingTools(context));
     context.setTransform(1, 0, 0, 1, 0, 0);
   }
 
@@ -1515,13 +1579,13 @@ function graffitiSprite(trail, prop) {
     }
   }
   const sprite = { canvas, left: anchorX + left, top: anchorY + top, width: right - left, height: bottom - top };
-  graffitiPaint.set(prop, { x: prop.x, y, angle, geometry, sprite });
+  graffitiPaint.set(prop, { x: prop.x, y, angle, type: prop.type, geometry, sprite });
   return sprite;
 }
 
-/** A square around the anchor that holds the graffiti at any angle. */
-export function graffitiTurnedBounds() {
-  const [left, top, right, bottom] = GRAFFITI_BOUNDS;
+/** A square around the anchor that holds a painted prop at any angle. */
+export function graffitiTurnedBounds(type = "graffiti") {
+  const [left, top, right, bottom] = paintedBounds(type);
   const reach = Math.ceil(Math.hypot(Math.max(-left, right), Math.max(-top, bottom)) / ART_PIXEL) * ART_PIXEL;
   return [-reach, -reach, reach, reach];
 }
@@ -1531,13 +1595,13 @@ export function graffitiTurnedBounds() {
  * canvas pixel, each taken from the nearest pixel of the upright art so the
  * paint stays crisp.
  */
-function turnedGraffiti(angle, columns, rows, left, top) {
-  const [artLeft, artTop, artRight, artBottom] = GRAFFITI_BOUNDS;
+function turnedGraffiti(art, angle, columns, rows, left, top) {
+  const [artLeft, artTop, artRight, artBottom] = art.bounds;
   const artColumns = (artRight - artLeft) / ART_PIXEL;
   const artRows = (artBottom - artTop) / ART_PIXEL;
   const upright = createCanvas(artColumns, artRows).getContext("2d");
   upright.setTransform(1 / ART_PIXEL, 0, 0, 1 / ART_PIXEL, -artLeft / ART_PIXEL, -artTop / ART_PIXEL);
-  drawGraffiti(createDrawingTools(upright));
+  art.draw(createDrawingTools(upright));
   const source = upright.getImageData(0, 0, artColumns, artRows).data;
   const turned = upright.createImageData(columns, rows);
   const c = Math.cos(angle), s = Math.sin(angle);
@@ -3224,6 +3288,18 @@ const CANOPY_SPRITES = {
   hut: { bounds: HUT_BOUNDS, draw: drawHut },
   cairn: { bounds: [-16, -44, 16, 0], draw: drawCairn },
   snowman: { bounds: [-28, -78, 28, 0], draw: drawSnowman },
+  "tyre-wall": { bounds: TYRE_WALL_BOUNDS, draw: drawTyreWall },
+  "hay-bales": { bounds: HAY_BALES_BOUNDS, draw: drawHayBales },
+  "pit-board": { bounds: [PIT_BOARD.left, PIT_BOARD.top, PIT_BOARD.left + PIT_BOARD.width, PIT_BOARD_BOTTOM + 4], draw: drawPitBoard },
+  "petrol-can": { bounds: [-12, -36, 12, 0], draw: drawPetrolCan },
+  "camera-tower": { bounds: [-30, -152, 30, CAMERA_TOWER_BODY_BOTTOM], draw: drawCameraTower },
+  "warning-triangle": { bounds: [-18, -58, 18, -22], draw: drawWarningTriangle },
+  "warning-bang": { bounds: [-16, -56, 16, -24], draw: drawWarningBang },
+  "warning-skull": { bounds: [-16, -56, 16, -24], draw: drawWarningSkull },
+  "arrow-sign": { bounds: [-24, -48, 24, -24], draw: drawArrowSign },
+  "tutorial-lean": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLean },
+  "tutorial-flip": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialFlip },
+  "tutorial-light": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLight },
 };
 const canopySprites = new Map();
 
@@ -3334,6 +3410,26 @@ const PROP_EXTENTS = {
   // the left in the world when the hut is flipped.
   hut: [-100, -204, 100],
   snowman: [-28, -78, 28],
+  "tyre-wall": [-48, -34, 48],
+  "hay-bales": [-38, -42, 38],
+  // The tape's loose end blows out past either stake.
+  "course-tape": [TAPE_STAKES[0] - 26, -40, TAPE_STAKES[1] + 26],
+  // Wide enough for the longest banner text, posts and all.
+  banner: [-92, BANNER_TOP - 6, 92],
+  spectators: [-36, -72, 36],
+  "pit-board": [PIT_BOARD.left - 2, PIT_BOARD.top - 2, PIT_BOARD.left + PIT_BOARD.width + 2],
+  "petrol-can": [-12, -36, 12],
+  "marshal-start": [-36, -88, 44],
+  "marshal-finish": [-36, -88, 44],
+  "camera-tower": [-30, -152, 30],
+  "warning-triangle": [-18, -60, 18],
+  "warning-bang": [-16, -58, 16],
+  "warning-skull": [-16, -58, 16],
+  "arrow-sign": [-24, -50, 24],
+  "halfway-flag": [-6, HALFWAY_BEACON.y - 8, HALFWAY_BOARD.left + HALFWAY_BOARD.width + 2],
+  "tutorial-lean": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
+  "tutorial-flip": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
+  "tutorial-light": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
 };
 // How far below its anchor each ceiling prop's art can reach.
 const CEILING_HANG = {
@@ -3394,7 +3490,7 @@ function propBounds(type, angle, groundOffset, text, flip = false) {
   if (type === "tyre") bottom = Math.max(bottom, TYRE_SINK);
   if (type === "car-wreck") bottom = Math.max(bottom, WRECK_SINK);
   if (type === "vulture") bottom = Math.max(bottom, VULTURE_ORBIT.y + 12);
-  if (type === "graffiti") bottom = Math.max(bottom, GRAFFITI_BOUNDS[3]);
+  if (PAINTED_PROPS.has(type)) bottom = Math.max(bottom, paintedBounds(type)[3]);
   if (CEILING_HANG[type]) bottom = Math.max(bottom, CEILING_HANG[type]);
   if (WATER_HANG[type]) bottom = Math.max(bottom, WATER_HANG[type]);
   // Wall props reach below their anchor, so faded ones need a taller box.
@@ -3690,6 +3786,23 @@ export function createGameArt(ctx) {
   }
 
   /** Clumps of dirt on the tyre, turning with it; a fast wheel smears them into a tint. */
+  // The tyre being drawn, squished against the ground: { level, dx, dy }
+  // with (dx, dy) toward the ground, or null for a round tyre. Level 1 cuts
+  // the tyre's outer row where it meets the ground, which leaves a flat patch
+  // on the ground line; level 2 also bulges the sidewalls above it.
+  let tyre = null;
+  const onTyre = (x, y) => !tyre || x * tyre.dx + y * tyre.dy <= 5.5;
+  function drawTyreBulge(color) {
+    if (!tyre || tyre.level < 2) return;
+    for (let y = -7; y <= 7; y++)
+      for (let x = -7; x <= 7; x++) {
+        const distance = Math.hypot(x, y),
+          toward = x * tyre.dx + y * tyre.dy;
+        if (distance > 6.5 && distance <= 7.3 && toward >= 1.5 && toward <= 4.5)
+          pixelRect(x * 2, y * 2, 2, 2, color);
+      }
+  }
+
   function drawWheelDirt(point, dirt, blur) {
     if (!dirt?.length) return;
     if (blur > 0)
@@ -3699,8 +3812,11 @@ export function createGameArt(ctx) {
     for (const clump of dirt) {
       const turn = (point.spin || 0) + clump.angle;
       const angle = Math.round(turn / (TAU / 32)) * (TAU / 32);
+      const cx = Math.round(Math.cos(angle) * 6),
+        cy = Math.round(Math.sin(angle) * 6);
+      if (!onTyre(cx, cy)) continue;
       withAlpha((1 - blur) * Math.min(1, clump.life / 1.2), () => {
-        pixelRect(Math.round(Math.cos(angle) * 6) * 2, Math.round(Math.sin(angle) * 6) * 2, 2, 2, clump.color);
+        pixelRect(cx * 2, cy * 2, 2, 2, clump.color);
         if (clump.size > 1)
           pixelRect(
             Math.round(Math.cos(angle + 0.25) * 5.2) * 2,
@@ -3720,11 +3836,13 @@ export function createGameArt(ctx) {
     for (let y = -6; y <= 6; y++)
       for (let x = -6; x <= 6; x++) {
         const distance = Math.hypot(x, y);
-        if (distance <= 6.5 && distance >= 4.9)
-          pixelRect(x * 2, y * 2, 2, 2, c.tire);
+        if (distance <= 6.5 && distance >= 4.9) {
+          if (onTyre(x, y)) pixelRect(x * 2, y * 2, 2, 2, c.tire);
+        }
         else if (distance < 4.9 && distance >= 4)
           pixelRect(x * 2, y * 2, 2, 2, c.rim);
       }
+    drawTyreBulge(c.tire);
     const spin = point.spin || 0;
     const blur = wheelBlur(point);
     const shimmer = wheelShimmer(point);
@@ -3737,13 +3855,9 @@ export function createGameArt(ctx) {
     withAlpha(1 - blur * 0.6, () => {
       for (let i = 0; i < 8; i++) {
         const tread = treadPhase + (i * TAU) / 8;
-        pixelRect(
-          Math.round(Math.cos(tread) * 5.6) * 2,
-          Math.round(Math.sin(tread) * 5.6) * 2,
-          2,
-          2,
-          c.tread,
-        );
+        const tx = Math.round(Math.cos(tread) * 5.6),
+          ty = Math.round(Math.sin(tread) * 5.6);
+        if (onTyre(tx, ty)) pixelRect(tx * 2, ty * 2, 2, 2, c.tread);
       }
     });
     drawWheelDirt(point, dirt, blur);
@@ -3778,7 +3892,7 @@ export function createGameArt(ctx) {
     for (let y = -6; y <= 6; y++)
       for (let x = -6; x <= 6; x++) {
         const distance = Math.hypot(x, y);
-        if (distance < inner || distance > outer) continue;
+        if (distance < inner || distance > outer || !onTyre(x, y)) continue;
         if (density < 1 && ((x * 7 + y * 13 + shimmer) & 7) >= density * 8) continue;
         pixelRect(x * 2, y * 2, 2, 2, color);
       }
@@ -3815,11 +3929,13 @@ export function createGameArt(ctx) {
     for (let y = -6; y <= 6; y++)
       for (let x = -6; x <= 6; x++) {
         const distance = Math.hypot(x, y);
-        if (distance <= 6.5 && distance >= 5.6)
-          pixelRect(x * 2, y * 2, 2, 2, c.tire);
+        if (distance <= 6.5 && distance >= 5.6) {
+          if (onTyre(x, y)) pixelRect(x * 2, y * 2, 2, 2, c.tire);
+        }
         else if (distance < 5.6 && distance >= 4.6)
           pixelRect(x * 2, y * 2, 2, 2, x + y > 1 ? c.rimShade : c.rim);
       }
+    drawTyreBulge(c.tire);
     const spin = point.spin || 0;
     const blur = wheelBlur(point);
     const shimmer = wheelShimmer(point);
@@ -3832,13 +3948,9 @@ export function createGameArt(ctx) {
     withAlpha(1 - blur * 0.6, () => {
       for (let i = 0; i < 8; i++) {
         const tread = treadPhase + (i * TAU) / 8;
-        pixelRect(
-          Math.round(Math.cos(tread) * 6) * 2,
-          Math.round(Math.sin(tread) * 6) * 2,
-          2,
-          2,
-          c.tread,
-        );
+        const tx = Math.round(Math.cos(tread) * 6),
+          ty = Math.round(Math.sin(tread) * 6);
+        if (onTyre(tx, ty)) pixelRect(tx * 2, ty * 2, 2, 2, c.tread);
       }
     });
     drawWheelDirt(point, dirt, blur);
@@ -3856,11 +3968,13 @@ export function createGameArt(ctx) {
     for (let y = -6; y <= 6; y++)
       for (let x = -6; x <= 6; x++) {
         const distance = Math.hypot(x, y);
-        if (distance <= 6.5 && distance >= 4.7)
-          pixelRect(x * 2, y * 2, 2, 2, c.tire);
+        if (distance <= 6.5 && distance >= 4.7) {
+          if (onTyre(x, y)) pixelRect(x * 2, y * 2, 2, 2, c.tire);
+        }
         else if (distance < 4.7 && distance >= 3.5)
           pixelRect(x * 2, y * 2, 2, 2, x + y > 1 ? c.rimShade : c.rim);
       }
+    drawTyreBulge(c.tire);
     const spin = point.spin || 0;
     const blur = wheelBlur(point);
     const shimmer = wheelShimmer(point);
@@ -3874,13 +3988,9 @@ export function createGameArt(ctx) {
     withAlpha(1 - blur * 0.6, () => {
       for (let i = 0; i < 16; i += 2) {
         const tread = treadPhase + (i * TAU) / 16;
-        pixelRect(
-          Math.round(Math.cos(tread) * 5.6) * 2,
-          Math.round(Math.sin(tread) * 5.6) * 2,
-          2,
-          2,
-          c.tread,
-        );
+        const tx = Math.round(Math.cos(tread) * 5.6),
+          ty = Math.round(Math.sin(tread) * 5.6);
+        if (onTyre(tx, ty)) pixelRect(tx * 2, ty * 2, 2, 2, c.tread);
       }
     });
     drawWheelDirt(point, dirt, blur);
@@ -5036,6 +5146,90 @@ export function createGameArt(ctx) {
       // down at them too; the carrot turns with them.
       const dy = Number.isFinite(scene.riderY) ? scene.riderY - (y + SNOWMAN_EYE_HEIGHT) : null;
       drawSnowmanFace({ pixelRect }, snowmanGaze(riderSide(scene, x, mirrored), dy));
+    } else if (
+      type === "tyre-wall" ||
+      type === "hay-bales" ||
+      type === "petrol-can" ||
+      PAINTED_PROPS.has(type)
+    ) {
+      drawCanopy(type);
+    } else if (type === "course-tape") {
+      // The loose end blows downwind: left, like the snow and rain, so the
+      // other way when flipped.
+      drawCourseTape({ pixelRect }, groundOffset, scene.time || 0, scene.wind ?? 0.25, propNoise(x, 13), mirrored ? 1 : -1);
+    } else if (type === "banner") {
+      const style = bannerStyle(text, propNoise(x, 14));
+      drawBanner({ pixelRect, drawPixelDisc }, style, groundOffset);
+      const layout = bannerLayout(style);
+      drawPixelText(style.name, layout.text.x, layout.text.y, style.colors.text, { align: "left" });
+      if (Number.isInteger(style.umlaut)) {
+        const ux = layout.text.x + style.umlaut * 8;
+        pixelRect(ux, layout.text.y - 4, 2, 2, style.colors.text, 2);
+        pixelRect(ux + 4, layout.text.y - 4, 2, 2, style.colors.text, 2);
+      }
+    } else if (type === "spectators") {
+      // They cheer as the rider goes by and duck from a crash nearby.
+      const mood = spectatorMood(scene, x, y);
+      const phase = propNoise(x, 15);
+      SPECTATORS.forEach(({ x: sx, look }, index) => {
+        const hop = mood === "cheer" ? spectatorHop(scene.time || 0, index, phase) : 0;
+        ctx.save();
+        ctx.translate(sx, Math.round(groundOffset(sx) / 2) * 2 + hop);
+        drawPerson({ pixelRect }, look, mood);
+        ctx.restore();
+      });
+    } else if (type === "pit-board") {
+      drawCanopy(type);
+      rectDownTo(-2, PIT_BOARD_BOTTOM + 4, 2, STEEL.dark, 2, groundOffset);
+      rectDownTo(0, PIT_BOARD_BOTTOM + 4, 2, STEEL.light, 2, groundOffset);
+      const label = pitBoardText(text, propNoise(x, 16));
+      const big = label.length <= 2;
+      drawPixelText(label, 0, PIT_BOARD.top + (big ? 4 : 10), "#fffdf4", { pixel: big ? 4 : 2 });
+    } else if (type === "marshal-start" || type === "marshal-finish") {
+      ctx.translate(0, Math.round(groundOffset(0) / 2) * 2);
+      drawMarshal({ pixelRect, pixelPath }, type, marshalFlag(scene, x, y, propNoise(x, 17)), scene.time || 0);
+    } else if (type === "camera-tower") {
+      drawCanopy(type);
+      for (const [index, lx] of CAMERA_TOWER_LEGS.entries()) {
+        rectDownTo(lx, CAMERA_TOWER_BODY_BOTTOM, 2, index ? STEEL.mid : STEEL.dark, 2, groundOffset);
+        rectDownTo(lx + 2, CAMERA_TOWER_BODY_BOTTOM, 2, index ? STEEL.light : STEEL.base, 2, groundOffset);
+        const foot = Math.round(groundOffset(lx + 2) / 2) * 2;
+        pixelRect(lx - 2, foot - 2, 8, 2, STEEL.dark, 2);
+      }
+      // The camera follows the rider, its tally light blinking while it rolls.
+      drawCamera({ pixelRect, drawPixelDisc }, riderSide(scene, x, mirrored), cameraTallyOn(scene.time || 0));
+    } else if (
+      type === "warning-triangle" ||
+      type === "warning-bang" ||
+      type === "warning-skull" ||
+      type === "arrow-sign"
+    ) {
+      drawSignPost({ pixelRect }, type === "warning-skull" || type === "arrow-sign", groundOffset);
+      drawCanopy(type);
+    } else if (type === "halfway-flag") {
+      // Pale until the rider passes (scene.passed), then lit, with the split
+      // on its timing board.
+      const passed = scene.passed;
+      drawHalfwayFlag({ pixelRect }, Boolean(passed), groundOffset, scene.time || 0, scene.wind ?? 0.25, propNoise(x, 18));
+      const { left, top, width } = HALFWAY_BOARD;
+      drawPixelText(splitText(passed?.split), left + width / 2, top + 3, halfwayTextColor(Boolean(passed)));
+      const flash = passed && scene.time ? halfwayFlash(passed.age) : null;
+      if (flash) {
+        const base = ctx.globalAlpha;
+        ctx.globalAlpha = base * flash.alpha * 0.6;
+        for (let i = 0; i < 16; i++) {
+          const angle = (i / 16) * Math.PI * 2;
+          pixelRect(
+            Math.round((HALFWAY_BEACON.x + Math.cos(angle) * flash.radius) / 2) * 2 - 1,
+            Math.round((HALFWAY_BEACON.y + Math.sin(angle) * flash.radius) / 2) * 2 - 1,
+            2,
+            2,
+            HALFWAY_LIGHT.glow,
+            2,
+          );
+        }
+        ctx.globalAlpha = base;
+      }
     } else if (type === "vulture" && scene.swoop) {
       // Swooping down to a crashed rider: drawn at its body, which x and y
       // already are (see vultureSwoop).
@@ -5492,12 +5686,16 @@ export function createGameArt(ctx) {
     look = null,
     bike = null,
     dirt = null,
+    squish = null,
   }) {
     const parts = lookParts(look);
     const modelId = bikeModel(look, bike);
     const model = BIKES[modelId];
+    tyre = squish?.rear.level ? squish.rear : null;
     model.wheel(rear, dirt?.rear);
+    tyre = squish?.front.level ? squish.front : null;
     model.wheel(front, dirt?.front);
+    tyre = null;
     const sprite = bikeCanvas();
     const { context, size } = sprite;
     const {
@@ -5943,7 +6141,7 @@ export function createGameArt(ctx) {
     groundOffset = () => 0,
     flip = false,
     time = 0,
-    { dark = true, trail = null, prop = null, fit = null, emissive = false, rotation = 0 } = {},
+    { dark = true, trail = null, prop = null, fit = null, emissive = false, rotation = 0, lit = false } = {},
   ) {
     const dir = flip ? -1 : 1;
     const strength = dark ? 1 : 0.5;
@@ -5998,6 +6196,31 @@ export function createGameArt(ctx) {
       ctx.globalCompositeOperation = "source-over";
       ctx.globalAlpha = 1;
       drawMushroomSpots({ pixelRect }, (local) => groundOffset(local * dir));
+    } else if (type === "camera-tower") {
+      // The tally light, blinking while the camera rolls.
+      if (cameraTallyOn(time)) {
+        const cx = dir * CAMERA_TALLY.x;
+        if (!emissive) {
+          ctx.globalCompositeOperation = "screen";
+          ctx.globalAlpha = 0.3 * strength;
+          drawPixelDisc(cx, CAMERA_TALLY.y, 6, "#e8755b", 2);
+          ctx.globalCompositeOperation = "source-over";
+          ctx.globalAlpha = 1;
+        }
+        pixelRect(cx - 2, CAMERA_TALLY.y - 1, 4, 2, "#ffc295", 2);
+      }
+    } else if (type === "halfway-flag") {
+      // The beacon, once the rider has passed.
+      if (lit) {
+        const { x: bx, y: by } = HALFWAY_BEACON;
+        ctx.globalCompositeOperation = "screen";
+        ctx.globalAlpha = 0.3 * strength;
+        drawPixelDisc(bx, by - 1, 12, HALFWAY_LIGHT.glow, 2);
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = 1;
+        pixelRect(bx - 4, by - 4, 8, 6, HALFWAY_LIGHT.glow, 2);
+        pixelRect(bx - 2, by - 2, 4, 2, HALFWAY_LIGHT.core, 2);
+      }
     } else if (!dark) {
       // Lamps, crane lights and hut windows stay off by day.
     } else if (type === "hut") {

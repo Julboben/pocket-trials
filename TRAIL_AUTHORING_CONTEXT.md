@@ -260,11 +260,15 @@ props: [
 ];
 ```
 
-Available prop types are `tree`, `pine`, `sapling`, `pine-small`, `bush`, `fence`, `rock`, `boulder`, `pebbles`, `flowers`, `stump`, `cactus`, `cactus-small`, the desert props `skull`, `tumbleweed`, `car-wreck`, `water-tower`, `windmill`, `heat-haze` and `vulture`, the mountain props `cairn`, `ski-lift`, `icicles`, `snow-pine`, `hut` and `snowman`, `crystal`, `sign`, the woodland prop `squirrel`, `corgi` (Coda), the wall props `vines`, `roots` and `moss`, the farm props `crates`, `apple` (a small decorative apple to hang in trees or fill crates and the wheelbarrow; it is not collected), `ladder`, `wheelbarrow`, `scarecrow`, `beehive` and `tyre`, the street props `cone`, `barrier`, `dumpster`, `lamp` and `bird`, the building-site props `crane` and `scaffolding`, the cave props `hanging-roots`, `stalactites`, `drip`, `lantern`, `bats`, `mushrooms`, `minecart` and `beams`, the water props `lily`, `reeds`, `seaweed`, `fish` and `duck`, and `graffiti`. `y: null` anchors a prop to the topmost surface at `x`; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front`: `back`-layer props are drawn behind the terrain as well as the gameplay, while `front`-layer props are drawn in front of the gameplay.
+Available prop types are `tree`, `pine`, `sapling`, `pine-small`, `bush`, `fence`, `rock`, `boulder`, `pebbles`, `flowers`, `stump`, `cactus`, `cactus-small`, the desert props `skull`, `tumbleweed`, `car-wreck`, `water-tower`, `windmill`, `heat-haze` and `vulture`, the mountain props `cairn`, `ski-lift`, `icicles`, `snow-pine`, `hut` and `snowman`, `crystal`, `sign`, the woodland prop `squirrel`, `corgi` (Coda), the wall props `vines`, `roots` and `moss`, the farm props `crates`, `apple` (a small decorative apple to hang in trees or fill crates and the wheelbarrow; it is not collected), `ladder`, `wheelbarrow`, `scarecrow`, `beehive` and `tyre`, the street props `cone`, `barrier`, `dumpster`, `lamp` and `bird`, the building-site props `crane` and `scaffolding`, the cave props `hanging-roots`, `stalactites`, `drip`, `lantern`, `bats`, `mushrooms`, `minecart` and `beams`, the water props `lily`, `reeds`, `seaweed`, `fish` and `duck`, the trials-event props `tyre-wall`, `hay-bales`, `course-tape`, `banner`, `spectators`, `pit-board`, `petrol-can`, `marshal-start`, `marshal-finish` and `camera-tower`, the trail hints `warning-triangle`, `warning-bang`, `warning-skull`, `arrow-sign` and `halfway-flag`, `graffiti`, and the sprayed tutorial drawings `tutorial-lean`, `tutorial-flip` and `tutorial-light`. `y: null` anchors a prop to the topmost surface at `x`; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front`: `back`-layer props are drawn behind the terrain as well as the gameplay, while `front`-layer props are drawn in front of the gameplay.
 
 A `sign` prop carries an optional `text` string that is drawn on its board with the game's pixel font. Text wraps onto up to 4 lines of 10 characters; supported characters are `A`–`Z`, `0`–`9`, space, and `→` `←` `↑` `↓` `/` `.` `!` `+` `-` `:` `×` `'`. Lowercase is drawn as uppercase, anything else draws as `#`, and text that doesn't fit is cut off. In the editor's text field, typing `>`, `<` or `^` enters `→`, `←` or `↑`.
 
-Use the editor's **Prop** tool to place a prop. Select it to drag it, edit its type and layer in the inspector — plus its text, for signs — or remove it with **Delete Selection**, `Delete`, or `Backspace`.
+A `banner` and a `pit-board` take `text` too. A blank banner shows one of the made-up sponsors (Knobbly Tyres, Äpple Oil or Hjulben Racing), picked by its position; typing a sponsor's name shows that sponsor's banner, and any other text (up to 16 characters) is printed on a plain blue banner. A pit board shows its text (up to 4 characters) or, when blank, a position from `P1` to `P9`. Neither can be flipped, nor can the `halfway-flag`, so their text always reads the right way round.
+
+Some event props react to the ride. `spectators` cheer while the rider is close, duck when the rider crashes nearby and then wince until the restart. The marshals wave their flag while the rider is close: `marshal-start` a green flag, `marshal-finish` the checkered one. The `camera-tower`'s camera turns to follow the rider, and its red tally light blinks. The `course-tape` flutters in the wind, its loose end blowing downwind. A `halfway-flag` is pale until the rider rides past it, when its beacon lights up and its timing board shows the ride time it was passed at, in the same format as the timer. `arrow-sign` points right; flip it to point left or rotate it to point up or down. The tutorial drawings are painted onto the rock like `graffiti`: lean back (`←`), flip (a loop round the bike, `←`) and the headlight (`L`). All of this is decoration and never changes the ride.
+
+Use the editor's **Prop** tool to place a prop. Select it to drag it, edit its type and layer in the inspector — plus its text, for signs, banners and pit boards — or remove it with **Delete Selection**, `Delete`, or `Backspace`.
 
 ## Spikes
 
@@ -446,6 +450,7 @@ import { fallLine, terrainAt, terrainGeometry } from "./terrain.js";
 import { hypot } from "./det-math.js";
 import {
   signLines,
+  TEXT_PROPS,
   SIGN_LINE_CHARACTERS,
   SIGN_MAX_LINES,
   TIMES_OF_DAY,
@@ -455,6 +460,7 @@ import {
 import { RADIUS, WHEELBASE } from "./config.js";
 import { WATER_SIZE, normalizeWater, waterAt, waterBodies, waterColumns } from "./water.js";
 import { WATER_PROPS, SURFACE_PROPS, waterPropBody } from "./water-props.js";
+import { BANNER_MAX } from "./event-props.js";
 import { FINISH_FLOWER_LIFT, bikeTouchesFlower } from "./finish.js";
 import {
   normalizeBlocks as normalizeTerrainBlocks,
@@ -711,7 +717,7 @@ export function normalizeTrail(input, index = 0) {
         type: String(prop.type || "tree"),
         layer: prop.layer === "front" ? "front" : "back",
         text:
-          prop.type === "sign" && typeof prop.text === "string"
+          TEXT_PROPS.has(prop.type) && typeof prop.text === "string"
             ? prop.text
             : undefined,
         flip: prop.flip === true ? true : undefined,
@@ -928,6 +934,24 @@ export function validateTrail(trail) {
         "snow-pine",
         "hut",
         "snowman",
+        "tyre-wall",
+        "hay-bales",
+        "course-tape",
+        "banner",
+        "spectators",
+        "pit-board",
+        "petrol-can",
+        "marshal-start",
+        "marshal-finish",
+        "camera-tower",
+        "warning-triangle",
+        "warning-bang",
+        "warning-skull",
+        "arrow-sign",
+        "halfway-flag",
+        "tutorial-lean",
+        "tutorial-flip",
+        "tutorial-light",
         ...WATER_PROPS,
       ].includes(prop.type)
     )
@@ -961,6 +985,15 @@ export function validateTrail(trail) {
           `Sign ${index + 1} text contains characters the pixel font cannot draw.`,
           target,
         );
+    }
+    if ((prop.type === "banner" || prop.type === "pit-board") && typeof prop.text === "string") {
+      const name = prop.type === "banner" ? "Banner" : "Pit board";
+      const limit = prop.type === "banner" ? BANNER_MAX : 4;
+      const label = prop.text.trim().toUpperCase().replace(/Ä/g, "A");
+      if (label.length > limit)
+        warning(`${name} ${index + 1} text is longer than ${limit} characters and will be cut off.`, target);
+      else if (/[^A-Z0-9 \/.!+:\-#']/.test(label))
+        warning(`${name} ${index + 1} text contains characters the pixel font cannot draw.`, target);
     }
   }
   for (const [index, spike] of (trail.spikes || []).entries()) {
@@ -1241,16 +1274,16 @@ Example trail: easy.
           },
           {
             "id": "n8",
-            "x": 455.3291,
-            "y": 322,
+            "x": 450,
+            "y": 320,
             "mode": "corner",
             "in": [
-              363.6624,
-              322
+              358.3333,
+              320
             ],
             "out": [
-              481.1624,
-              322
+              475.8333,
+              320
             ],
             "edge": "curve"
           },

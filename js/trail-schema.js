@@ -2,6 +2,7 @@ import { fallLine, terrainAt, terrainGeometry } from "./terrain.js";
 import { hypot } from "./det-math.js";
 import {
   signLines,
+  TEXT_PROPS,
   SIGN_LINE_CHARACTERS,
   SIGN_MAX_LINES,
   TIMES_OF_DAY,
@@ -11,6 +12,7 @@ import {
 import { RADIUS, WHEELBASE } from "./config.js";
 import { WATER_SIZE, normalizeWater, waterAt, waterBodies, waterColumns } from "./water.js";
 import { WATER_PROPS, SURFACE_PROPS, waterPropBody } from "./water-props.js";
+import { BANNER_MAX } from "./event-props.js";
 import { FINISH_FLOWER_LIFT, bikeTouchesFlower } from "./finish.js";
 import {
   normalizeBlocks as normalizeTerrainBlocks,
@@ -267,7 +269,7 @@ export function normalizeTrail(input, index = 0) {
         type: String(prop.type || "tree"),
         layer: prop.layer === "front" ? "front" : "back",
         text:
-          prop.type === "sign" && typeof prop.text === "string"
+          TEXT_PROPS.has(prop.type) && typeof prop.text === "string"
             ? prop.text
             : undefined,
         flip: prop.flip === true ? true : undefined,
@@ -484,6 +486,24 @@ export function validateTrail(trail) {
         "snow-pine",
         "hut",
         "snowman",
+        "tyre-wall",
+        "hay-bales",
+        "course-tape",
+        "banner",
+        "spectators",
+        "pit-board",
+        "petrol-can",
+        "marshal-start",
+        "marshal-finish",
+        "camera-tower",
+        "warning-triangle",
+        "warning-bang",
+        "warning-skull",
+        "arrow-sign",
+        "halfway-flag",
+        "tutorial-lean",
+        "tutorial-flip",
+        "tutorial-light",
         ...WATER_PROPS,
       ].includes(prop.type)
     )
@@ -517,6 +537,15 @@ export function validateTrail(trail) {
           `Sign ${index + 1} text contains characters the pixel font cannot draw.`,
           target,
         );
+    }
+    if ((prop.type === "banner" || prop.type === "pit-board") && typeof prop.text === "string") {
+      const name = prop.type === "banner" ? "Banner" : "Pit board";
+      const limit = prop.type === "banner" ? BANNER_MAX : 4;
+      const label = prop.text.trim().toUpperCase().replace(/Ä/g, "A");
+      if (label.length > limit)
+        warning(`${name} ${index + 1} text is longer than ${limit} characters and will be cut off.`, target);
+      else if (/[^A-Z0-9 \/.!+:\-#']/.test(label))
+        warning(`${name} ${index + 1} text contains characters the pixel font cannot draw.`, target);
     }
   }
   for (const [index, spike] of (trail.spikes || []).entries()) {

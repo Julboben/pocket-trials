@@ -1,5 +1,5 @@
 // The selection and trail panels on the right.
-import { canFlip, canRotate } from "../drawing.js";
+import { TEXT_PROPS, canFlip, canRotate } from "../drawing.js";
 import {
   cubicPoint,
   edgeCurve,
@@ -187,7 +187,7 @@ export function syncInspector({ live = false } = {}) {
   $("selection-prop-type-row").hidden = editor.selection?.kind !== "prop";
   $("selection-layer-row").hidden = editor.selection?.kind !== "prop";
   $("selection-prop-text-row").hidden =
-    editor.selection?.kind !== "prop" || editor.trail.props[editor.selection.index]?.type !== "sign";
+    editor.selection?.kind !== "prop" || !TEXT_PROPS.has(editor.trail.props[editor.selection.index]?.type);
   const selectedProp = editor.selection?.kind === "prop" ? editor.trail.props[editor.selection.index] : null;
   $("selection-flip-row").hidden = !selectedProp || !canFlip(selectedProp.type);
   if (selectedProp) $("selection-flip").value = String(Boolean(selectedProp.flip));

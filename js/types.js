@@ -103,6 +103,7 @@
  *   | { type: 'airTurn', full: boolean }
  *   | { type: 'flip', count: number, direction: number }
  *   | { type: 'land', impact: number }
+ *   | { type: 'suspension', end: 'bottom' | 'top', wheel: 'rear' | 'front', speed: number }
  *   | { type: 'crash', cause: 'spike' | 'head' | 'fall' | 'water', x: number, y: number }
  *   | { type: 'splash', x: number, y: number, speed: number, rider: boolean }
  *   | { type: 'helmet', x: number, y: number, speed: number }

@@ -110,7 +110,7 @@ export function startGame({ shared = null } = {}) {
     };
   }
 
-  let lastTime = 0, accumulator = 0, landingSoundCooldown = 0, splashSoundCooldown = 0;
+  let lastTime = 0, accumulator = 0, landingSoundCooldown = 0, splashSoundCooldown = 0, suspensionSoundCooldown = 0;
   // A paused scene is still, as is the scene behind the results once it has
   // settled, so it is only redrawn when something changes it.
   let redraw = true;
@@ -366,7 +366,7 @@ export function startGame({ shared = null } = {}) {
     const ride = createRide(trail, { seed, helmet: lookParts(replay?.look ?? session.look).helmet });
     session.ride = ride;
     recorded = []; startStep = 0; flips = 0; broken = false;
-    accumulator = 0; landingSoundCooldown = 0; splashSoundCooldown = 0;
+    accumulator = 0; landingSoundCooldown = 0; splashSoundCooldown = 0; suspensionSoundCooldown = 0;
     effects.reset(trail);
     renderer.reset(trail, ride.facing);
     camera.reset();
@@ -718,6 +718,11 @@ export function startGame({ shared = null } = {}) {
           renderer.land((ride.rear.x + ride.front.x) / 2, (ride.rear.y + ride.front.y) / 2, clamp(.4 + (event.impact - HARD_LANDING_IMPACT) / 380, .4, 1));
         }
         break;
+      case 'suspension':
+        if (ride.status !== 'running' || suspensionSoundCooldown > 0) break;
+        sounds.suspension(event.end, event.speed);
+        suspensionSoundCooldown = .06;
+        break;
       case 'splash':
         effects.splash(event.x, event.y, event.speed);
         if (splashSoundCooldown <= 0) {
@@ -784,6 +789,7 @@ export function startGame({ shared = null } = {}) {
     if (thunder) sounds.thunder(thunder.intensity, thunder.distance, thunder.x);
     landingSoundCooldown = Math.max(0, landingSoundCooldown - STEP);
     splashSoundCooldown = Math.max(0, splashSoundCooldown - STEP);
+    suspensionSoundCooldown = Math.max(0, suspensionSoundCooldown - STEP);
     physicsDebug.begin({ state: session.state, time: ride.elapsed, trail: session.trail.name, source: session.trailSource, facing: ride.facing, throttle: ride.throttle }, ride.rear, ride.front);
 
     // Holding restart keeps the bike on the start line with the clock stopped.
@@ -824,6 +830,7 @@ export function startGame({ shared = null } = {}) {
     effects.waterWake(ride, speed);
     effects.brakeMarks(ride, speed, stepInput.braking);
     effects.wheelGrime(ride, stepInput.braking);
+    effects.squishTyres(ride);
     // A crash throws away the feat in progress; reaching the finish completes it.
     if (replay) feats.reset();
     else if (ride.status === 'running') feats.step(ride.rear.grounded, ride.front.grounded).forEach(trackAchievements);

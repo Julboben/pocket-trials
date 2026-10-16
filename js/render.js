@@ -12,6 +12,7 @@ import {
   fogColor,
   PAINTED_PROPS,
   graffitiTurnedBounds,
+  paintedBounds,
   paintedPropY,
   propAlignmentSlope,
   propGroundOffset,
@@ -41,7 +42,8 @@ import {
 import { lookParts } from "./cosmetics.js";
 import { reducedMotion } from "./state.js";
 import { createLighting } from "./lighting.js";
-import { CRANE_LIGHTS, GRAFFITI_BOUNDS, LAMP_HEAD } from "./city-props.js";
+import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
+import { CAMERA_TALLY, HALFWAY_BEACON, HALFWAY_REACH } from "./event-props.js";
 import { WATER_PROPS, FISH_DART, FISH_RANGE } from "./water-props.js";
 import { SQUIRREL_HIDE_MAX, SQUIRREL_RANGE } from "./forest-props.js";
 import {
@@ -103,6 +105,11 @@ const SCENERY_SHADOWS = {
   "snow-pine": { width: 16, alpha: 0.15, thickness: 3, lift: 38 },
   hut: { width: 48, alpha: 0.15, thickness: 3, lift: 30 },
   snowman: { width: 16, alpha: 0.13, thickness: 3, lift: 20 },
+  "tyre-wall": { width: 30, alpha: 0.15, thickness: 3, lift: 14 },
+  "hay-bales": { width: 26, alpha: 0.14, thickness: 3, lift: 16 },
+  "petrol-can": { width: 8, alpha: 0.14, thickness: 3, lift: 10 },
+  spectators: { width: 30, alpha: 0.12, thickness: 3, lift: 20 },
+  "camera-tower": { width: 24, alpha: 0.14, thickness: 3, lift: 50 },
 };
 /** Seconds the scene takes to slow to a stop behind the results. */
 const WIN_SETTLE = 0.7;
@@ -136,9 +143,19 @@ const PROP_RISE = {
   "snow-pine": 192,
   hut: 204,
   snowman: 80,
+  "camera-tower": 154,
+  "halfway-flag": 126,
 };
 // How far each prop's art hangs below its anchor, for culling.
-const PROP_HANG = { vines: 148, roots: 28, moss: 28, graffiti: 38 };
+const PROP_HANG = {
+  vines: 148,
+  roots: 28,
+  moss: 28,
+  graffiti: 38,
+  "tutorial-lean": 34,
+  "tutorial-flip": 34,
+  "tutorial-light": 34,
+};
 // How far each prop's art reaches either side of its anchor, for culling.
 const PROP_REACH = {
   crane: 180,
@@ -152,6 +169,8 @@ const PROP_REACH = {
   "heat-haze": HAZE_HALF + 10,
   "ski-lift": CABLE_HALF + 30,
   hut: 104,
+  banner: 96,
+  "course-tape": 76,
 };
 // Perched birds and ducks take off, roosting bats scatter, fish dart off and
 // squirrels run for a tree when the rider comes within `x` and `y` of them;
@@ -167,7 +186,7 @@ const STARTLE = {
 // and it is left out with reduced motion and in the lighter graphics mode.
 const HAZE_PROPS = new Set(["heat-haze"]);
 // Props that glow, and how far their light reaches either side, for culling.
-const GLOW_REACH = { lamp: 70, crane: 180, lantern: 100, mushrooms: 40, hut: 60 };
+const GLOW_REACH = { lamp: 70, crane: 180, lantern: 100, mushrooms: 40, hut: 60, "camera-tower": 30, "halfway-flag": 30 };
 // How far a hair strand may sink into a floor and still be lifted back onto it.
 const HAIR_GROUND_ALLOWANCE = 8;
 // Markers for missing apples out of view keep this far (world units) inside
@@ -194,7 +213,8 @@ export function createRenderer(canvas) {
     H = 410,
     pixelScale = 1;
   /** The player's tyre dirt from the effects; the ghost's wheels stay clean. */
-  let wheelDirt = null;
+  let wheelDirt = null,
+    wheelSquish = null;
   let hair = null,
     ghostHair = null,
     flipVisual = 1,
@@ -225,6 +245,12 @@ export function createRenderer(canvas) {
   // and when they set off. `crashedAt` is when the ragdoll first appeared.
   const swoops = new Map();
   let crashedAt = null;
+  // When the rider last came off, for the spectators to duck (scene clock, ms).
+  let crashStart = null;
+  // Halfway flags the rider has passed this ride: the split, and when.
+  const passes = new Map();
+  let passRide = null;
+  let passFromX = null;
   // Each corgi's state (see corgiStep) for the current ride, and how many
   // woofs have gone off in view since game.js last asked, for the sound.
   const corgis = new Map();
@@ -530,13 +556,33 @@ export function createRenderer(canvas) {
     }
   }
 
+  // A halfway flag lights up once the rider rides past it, keeping the ride
+  // time it was passed at for its timing board. Purely visual.
+  function watchHalfway(ride, focus, now) {
+    if (passRide !== ride) {
+      passes.clear();
+      passRide = ride;
+      passFromX = null;
+    }
+    const fromX = passFromX;
+    passFromX = ride.ragdoll ? null : focus.x;
+    if (!ride.started || ride.ragdoll || fromX === null || fromX === focus.x) return;
+    for (const prop of trail.props || []) {
+      if (prop.type !== "halfway-flag" || passes.has(prop)) continue;
+      if ((fromX - prop.x) * (focus.x - prop.x) > 0) continue;
+      const y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
+      if (!Number.isFinite(y) || Math.abs(focus.y - y) > HALFWAY_REACH) continue;
+      passes.set(prop, { split: ride.elapsed, start: now });
+    }
+  }
+
   // Graffiti, painted onto the rock just after the terrain is drawn.
   function drawWallPaint() {
     for (const prop of trail.props || []) {
       if (!PAINTED_PROPS.has(prop.type) || !inView(prop.x, 70)) continue;
       const y = paintedPropY(trail, prop);
       if (y === null) continue;
-      const [, top, , bottom] = propRotation(prop) ? graffitiTurnedBounds() : GRAFFITI_BOUNDS;
+      const [, top, , bottom] = propRotation(prop) ? graffitiTurnedBounds(prop.type) : paintedBounds(prop.type);
       if (!inView(prop.x, 70, y + bottom + 2, bottom - top + 2)) continue;
       gameArt.drawWallPaint(trail, prop);
     }
@@ -560,10 +606,16 @@ export function createRenderer(canvas) {
             ? [0, LAMP_HEAD.y]
             : prop.type === "hut"
               ? HUT_WINDOW_CENTRE
-              : [0, -10];
+              : prop.type === "camera-tower"
+                ? [CAMERA_TALLY.x, CAMERA_TALLY.y]
+                : prop.type === "halfway-flag"
+                  ? [HALFWAY_BEACON.x, HALFWAY_BEACON.y]
+                  : [0, -10];
       const head = propPoint(prop, y, hx, hy);
       const dark = lighting.isDark(trail, head.x, head.y);
       if (!dark && (prop.type === "lamp" || prop.type === "crane" || prop.type === "hut")) continue;
+      const lit = passes.has(prop);
+      if (prop.type === "halfway-flag" && !lit) continue;
       const fit = propWallFit(trail, prop);
       let [rise, hang] = propSpan(prop.type, fit) || [PROP_RISE[prop.type] ?? 90, 0];
       if (rotation) rise = hang = Math.max(rise, hang);
@@ -575,7 +627,7 @@ export function createRenderer(canvas) {
         propGroundOffset(trail, prop),
         prop.flip,
         propScene.time,
-        { dark, trail, prop, fit, emissive: true, rotation },
+        { dark, trail, prop, fit, emissive: true, rotation, lit },
       );
     }
   }
@@ -627,6 +679,8 @@ export function createRenderer(canvas) {
       let scene = propScene;
       const corgi = corgis.get(prop);
       if (corgi) scene = { ...propScene, corgi };
+      const pass = passes.get(prop);
+      if (pass) scene = { ...propScene, passed: { split: pass.split, age: (frameNow - pass.start) / 1000 } };
       const flight = flights.get(prop);
       if (flight) {
         const age = (frameNow - flight.start) / 1000;
@@ -916,6 +970,7 @@ export function createRenderer(canvas) {
       leanVisual: ride.leanVisual,
       look,
       dirt: wheelDirt,
+      squish: wheelSquish,
     };
   }
 
@@ -1436,16 +1491,21 @@ export function createRenderer(canvas) {
     const focus = focusOf(ride);
     // The ride is already interpolated for this frame, and nothing here feeds
     // back into the simulation, so replays are unaffected.
+    if (!ride.ragdoll) crashStart = null;
+    else crashStart ??= now;
     propScene = {
       time: reducedMotion ? 0 : now / 1000,
       riderX: focus.x,
       riderY: focus.y,
       wind: windStrength(trail.weather),
       landing,
+      // Where the rider came off, and how long ago, for the spectators.
+      crash: ride.ragdoll ? { x: focus.x, y: focus.y, age: (now - crashStart) / 1000 } : null,
     };
     frameNow = now;
     startleProps(ride, focus, now);
     watchCrash(ride, focus, now);
+    watchHalfway(ride, focus, now);
     walkCorgis(ride, focus, animationDt);
     camera.follow(focus, {
       facing: ride.facing,
@@ -1480,6 +1540,7 @@ export function createRenderer(canvas) {
     ctx.translate(-cameraX, -cameraY);
     effects.update(animationDt);
     wheelDirt = effects.wheelDirt;
+    wheelSquish = effects.tyreSquish;
     backWallRenderer.draw(ctx, trail, cameraX, cameraY, W, H);
     drawProps("back", full);
     terrainRenderer.draw(ctx, ride.trail, cameraX, cameraY, W, H);
@@ -1544,6 +1605,7 @@ export function createRenderer(canvas) {
     cameraY = Math.round(view.y * worldToDevice) / worldToDevice;
     flipVisual = ride.facing;
     wheelDirt = null;
+    wheelSquish = null;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(worldToDevice, 0, 0, worldToDevice, 0, 0);

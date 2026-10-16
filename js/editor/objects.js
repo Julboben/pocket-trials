@@ -36,7 +36,9 @@ function entries() {
   add("prop", editor.trail.props, (prop) =>
     prop.type === "sign" && prop.text
       ? `Sign: ${prop.text}`
-      : propNames.get(prop.type) || materialLabel(prop.type || "prop"),
+      : (prop.type === "banner" || prop.type === "pit-board") && prop.text
+        ? `${propNames.get(prop.type)}: ${prop.text}`
+        : propNames.get(prop.type) || materialLabel(prop.type || "prop"),
   );
   add("water", waters(), () => "Water");
   add("spike", editor.trail.spikes, () => "Spike");

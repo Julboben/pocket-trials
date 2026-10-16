@@ -94,23 +94,23 @@ A plan for the props to add to each level theme, plus guidelines for making them
 ## 🏁 Motocross track and event props
 *These suit every level and make it feel like a trials event.*
 
-- [ ] **Tyre walls**: stacked tyres in different colours.
-- [ ] **Hay bale barriers**: placed along dangerous drops.
-- [ ] **Course tape and stakes**: strung between two points to mark the line.
-- [ ] **Sponsor banners**: made-up brands such as *Knobbly Tyres*, *Äpple Oil* and *Hjulben Racing*.
-- [ ] **Spectators**: cheer, or duck when you crash nearby.
-- [ ] **Pit board with a number**
-- [ ] **Petrol can**
-- [ ] **Marshal flags**: the start marshal waves a green flag, and a checkered flag is waved at the finish.
-- [ ] **Camera tower**: a small wink at the replay system.
+- [x] **Tyre walls**: stacked tyres in different colours.
+- [x] **Hay bale barriers**: placed along dangerous drops.
+- [x] **Course tape and stakes**: strung between two points to mark the line.
+- [x] **Sponsor banners**: made-up brands such as *Knobbly Tyres*, *Äpple Oil* and *Hjulben Racing*.
+- [x] **Spectators**: cheer, or duck when you crash nearby.
+- [x] **Pit board with a number**
+- [x] **Petrol can**
+- [x] **Marshal flags**: the start marshal waves a green flag, and a checkered flag is waved at the finish.
+- [x] **Camera tower**: a small wink at the replay system.
 
 ## 🧭 Props that help gameplay
 *Decoration that teaches the player without text.*
 
-- [ ] **Warning signs**: before steep drops or spikes, using a skull, a ⚠ or a "!" board.
-- [ ] **Arrow signs**: point the way on routes that double back or loop.
-- [ ] **Halfway flag**: lights up when passed and matches the split times.
-- [ ] **Graffiti-style tutorial drawings**: Showing the controls (lean back, flip, light etc).
+- [x] **Warning signs**: before steep drops or spikes, using a skull, a ⚠ or a "!" board.
+- [x] **Arrow signs**: point the way on routes that double back or loop.
+- [x] **Halfway flag**: lights up when passed and matches the split times.
+- [x] **Graffiti-style tutorial drawings**: Showing the controls (lean back, flip, light etc).
 - [ ] **"Missed apple" hint**: a basket of apples near a hidden route.
 
 ---
