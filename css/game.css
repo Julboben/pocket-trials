@@ -1516,10 +1516,12 @@ h2 {
 }
 .menu-tab {
     --px: 2px;
+    /* The tabs share the bar's full width. */
+    flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 150px;
     min-height: 40px;
     /* Stands on the rule. */
     margin-bottom: 0;
@@ -1541,13 +1543,10 @@ h2 {
         color: var(--color-text);
         /* The open tab's accent strip along its top. */
         box-shadow: inset 0 3px 0 var(--color-accent);
-        &::before {
+        &::before,
+        & [data-icon] {
             color: var(--color-accent);
         }
-    }
-    @media (max-width: 520px) {
-        flex: 1;
-        min-width: 0;
     }
 }
 
@@ -2440,37 +2439,16 @@ h2 {
 }
 .look-top {
     display: grid;
-    grid-template-columns: 128px minmax(0, 1fr);
-    gap: 8px;
-    @media (max-width: 520px) {
-        grid-template-columns: 1fr;
-    }
+    gap: 12px;
 }
+/* The Garage's tabs also show the part worn. */
 .look-tabs {
-    display: grid;
-    gap: 4px;
-    align-content: start;
-    @media (max-width: 520px) {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
+    margin-bottom: 0;
 }
 .look-tab {
-    --px: 2px;
-    min-height: 44px;
-    padding: 6px 8px;
-    display: flex;
-    align-items: center;
     gap: 8px;
-    border: 1px solid var(--color-border);
-    background: var(--color-surface);
-    color: var(--color-text);
-    text-align: left;
-    &:not([aria-selected="true"]):hover {
-        background: var(--color-surface-hover);
-    }
+    padding: 6px 10px;
     & b {
-        font-size: var(--text-md);
-        font-weight: var(--weight-heavy);
         letter-spacing: 1px;
     }
     & small {
@@ -2479,30 +2457,25 @@ h2 {
         font-size: var(--text-xs);
         text-overflow: ellipsis;
         white-space: nowrap;
-        @media (max-width: 520px) {
-            display: none;
-        }
     }
-    &[aria-selected="true"] {
-        border-color: var(--color-accent);
-        background: var(--color-accent);
-        color: var(--color-accent-ink);
-        & small {
-            color: var(--color-accent-ink-muted);
-        }
-    }
+    /* Too narrow for the part's name: the icon sits over the label. */
     @media (max-width: 520px) {
         flex-direction: column;
-        justify-content: flex-end;
         gap: 4px;
         padding: 6px 2px;
-        text-align: center;
+        & small {
+            display: none;
+        }
     }
 }
 .look-tab-text {
     min-width: 0;
     display: grid;
     gap: 2px;
+    text-align: left;
+    @media (max-width: 520px) {
+        text-align: center;
+    }
 }
 .look-stage {
     position: relative;
@@ -2561,17 +2534,13 @@ h2 {
         color: var(--color-accent);
     }
 }
-/* Each block of the customizer sits on its own dark panel. */
-.look-tabs,
-.look-section,
-.look-actions {
+/* Each block of the customizer sits on its own dark panel; its buttons
+   sit below, on the scenery like the rest of the menu's. */
+.look-section {
     padding: 10px;
     border: 1px solid var(--color-border);
     background: #15232899;
     box-shadow: var(--shadow-pixel);
-}
-.look-tabs {
-    padding: 6px;
 }
 .look-section {
     display: grid;

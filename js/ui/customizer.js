@@ -140,12 +140,12 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
 
   root.classList.add('look-editor');
 
-  // Tabs, one per part, beside the big preview.
-  const tabs = element('div', 'look-tabs');
+  // Tabs, one per part, over the big preview; styled like the menu's other tab bars.
+  const tabs = element('div', 'menu-tabs look-tabs');
   tabs.setAttribute('role', 'tablist');
   tabs.setAttribute('aria-label', 'Rider look');
   const tabButtons = LOOK_PARTS.map(entry => {
-    const tab = element('button', 'look-tab');
+    const tab = element('button', 'menu-tab look-tab');
     tab.type = 'button';
     tab.setAttribute('role', 'tab');
     tab.dataset.lookPart = entry.id;
