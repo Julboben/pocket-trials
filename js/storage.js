@@ -382,5 +382,6 @@ export function recordLeaderboardRun(trailId, run) {
   const ranked = rankRuns([...(Array.isArray(boards[trailId]) ? boards[trailId] : []), entry]);
   boards[trailId] = ranked;
   writeJson(LEADERBOARD_KEY, boards);
-  return ranked.findIndex(item => item.date === entry.date && item.time === entry.time) + 1 || null;
+  // The rider's row, which is their best: a slower run doesn't get a row of its own.
+  return ranked.findIndex(item => runOwner(item) === runOwner(entry)) + 1 || null;
 }

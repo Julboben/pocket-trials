@@ -134,59 +134,57 @@
                                     id="results-delta"
                                 ></span>
                             </div>
-                            <div
-                                class="results-medal"
-                                id="results-medal"
-                                data-medal=""
-                            ></div>
-                            <dl class="results-stats">
-                                <div>
-                                    <dt id="results-rank-label">RANK</dt>
-                                    <dd id="results-rank">—</dd>
-                                </div>
-                                <div>
-                                    <dt>BEST</dt>
-                                    <dd id="results-best">—</dd>
-                                </div>
-                                <div>
-                                    <dt>FLIPS</dt>
-                                    <dd id="results-flips">0</dd>
-                                </div>
-                            </dl>
+                            <ol
+                                class="results-medals"
+                                id="results-medals"
+                                aria-label="Medal target times"
+                            ></ol>
+                            <p class="results-rank">
+                                <span id="results-best" hidden>YOUR BEST</span>
+                                <strong id="results-best-time" hidden></strong>
+                                <span id="results-rank-sep" aria-hidden="true" hidden>·</span>
+                                <span id="results-rank-label">RANK</span>
+                                <strong id="results-rank">—</strong>
+                            </p>
                             <p
                                 class="results-rival"
                                 id="results-rival"
                                 hidden
                             ></p>
-                            <ol
-                                class="results-targets"
-                                id="results-targets"
-                                aria-label="Medal target times"
-                            ></ol>
                         </div>
-                        <p id="overlay-description">
-                            Your helmet hit the ground. Reset and give the trail
-                            another run.
-                        </p>
+                        <p id="overlay-description" hidden></p>
                         <button
                             class="primary"
                             id="primary"
                             data-icon-after="arrow-right"
                             autofocus
                         >
-                            Play Again
+                            <span id="primary-label">Play Again</span
+                            ><kbd class="results-key" aria-hidden="true"
+                                >Enter</kbd
+                            >
                         </button>
-                        <button class="secondary" id="secondary" hidden="">
-                            Back to Menu
-                        </button>
-                        <button
-                            class="results-link"
-                            id="watch-replay"
-                            data-icon-before="play"
-                        >
-                            Watch Replay
-                        </button>
-                        <p class="results-hint" id="results-hint" hidden></p>
+                        <div class="results-actions">
+                            <button
+                                class="secondary"
+                                id="secondary"
+                                data-icon-before="retry"
+                            >
+                                Retry<kbd
+                                    class="results-key"
+                                    id="retry-key"
+                                    aria-hidden="true"
+                                    >R</kbd
+                                >
+                            </button>
+                            <button
+                                class="secondary"
+                                id="watch-replay"
+                                data-icon-before="play"
+                            >
+                                Replay
+                            </button>
+                        </div>
                     </div>
                 </dialog>
                 <div class="pause-overlay" id="pause-overlay" hidden>

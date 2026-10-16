@@ -603,7 +603,7 @@ export function startGame({ shared = null } = {}) {
     }
     const medals = session.trail.medals;
     overlay.showResults({
-      official: false, time, previousBest, rank: null, medals, medal: medalFor(medals, time), flips,
+      official: false, time, previousBest, rank: null, medals, medal: medalFor(medals, time),
       apples: ride.apples.length, author: session.trail.author,
       primaryLabel: 'Play Again',
       restartKey: restartKey()
@@ -663,7 +663,7 @@ export function startGame({ shared = null } = {}) {
       : null;
     overlay.showResults({
       official, bonus: session.trailSource === 'bonus', time, previousBest, rank, worldPending: !!submission,
-      medals, medal: medalFor(medals, time), flips,
+      medals, medal: medalFor(medals, time),
       apples: ride.apples.length, author: session.trail.author,
       primaryLabel: official && !last ? 'Next Trail' : 'Play Again',
       restartKey: restartKey()

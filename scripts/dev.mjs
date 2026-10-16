@@ -94,6 +94,9 @@ const server = http.createServer(async (request, response) => {
     const hostname = (request.headers.host || '').replace(/:\d+$/, '');
     if (pathname.startsWith('/api/') && !['localhost', '127.0.0.1', '[::1]'].includes(hostname)) return sendJson(response, 403, { error: 'The trail API only accepts local requests.' });
     if (pathname === '/api/dev') return sendJson(response, 200, { writable: true });
+    // No online board here. An empty answer, rather than a 404, keeps the console
+    // clean; the client can't parse it, so it quietly uses the local board.
+    if (pathname === '/api/leaderboard') { response.writeHead(204, { 'Cache-Control': 'no-store' }); return response.end(); }
     if (pathname.startsWith('/api/trails/')) return await handleTrailRequest(request, response, pathname.slice('/api/trails/'.length));
     if (request.method !== 'GET' && request.method !== 'HEAD') return sendJson(response, 405, { error: 'Method not allowed.' });
     await serveStatic(request, response, pathname);

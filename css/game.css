@@ -562,9 +562,14 @@ h2 {
     }
 }
 .secondary {
-    background: var(--color-green);
+    padding: 11px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    box-shadow: var(--shadow-pixel-small);
+    font-size: var(--text-md);
     &:hover {
-        background: var(--color-green-hover);
+        background: var(--color-surface-hover);
     }
 }
 
@@ -603,61 +608,58 @@ h2 {
         color: var(--color-behind);
     }
 }
-.results-medal {
+.results-medals {
     display: flex;
     justify-content: center;
-    align-items: center;
-    justify-self: center;
-    min-height: 24px;
-    padding: 5px 12px;
-    border-radius: var(--radius-pixel);
-    font-size: var(--text-md);
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--color-text-faint);
+    font-size: var(--text-sm);
     font-weight: var(--weight-heavy);
-    letter-spacing: 2px;
-    box-shadow: var(--shadow-pixel-small);
+    letter-spacing: 1px;
+    font-variant-numeric: tabular-nums;
     &:empty {
         display: none;
     }
-    &[data-medal="gold"] {
+    & li {
+        padding: 5px 8px;
+        border-radius: var(--radius-pixel);
+    }
+    & .reached {
+        color: var(--color-text-soft);
+    }
+    & [data-medal] {
+        box-shadow: var(--shadow-pixel-small);
+    }
+    & [data-medal="gold"] {
         background: var(--color-medal-gold);
         color: #3d2c07;
     }
-    &[data-medal="silver"] {
+    & [data-medal="silver"] {
         background: var(--color-medal-silver);
         color: #27322f;
     }
-    &[data-medal="bronze"] {
+    & [data-medal="bronze"] {
         background: var(--color-medal-bronze);
         color: #2f1a0c;
     }
-    &[data-medal="none"] {
-        background: var(--color-surface-raised);
-        color: var(--color-text-soft);
-        box-shadow: none;
-    }
 }
-.results-stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    margin: 0;
-    & div {
-        padding: 7px 4px;
-        border: 1px solid var(--color-border);
-        background: var(--color-surface);
-    }
-    & dt {
-        color: var(--color-text-muted);
-        font-size: var(--text-xs);
-        font-weight: var(--weight-heavy);
-        letter-spacing: 1.5px;
-    }
-    & dd {
-        margin: 3px 0 0;
+.modal .results-rank {
+    display: flex;
+    justify-content: center;
+    align-items: baseline;
+    gap: 8px;
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-heavy);
+    line-height: 16px;
+    letter-spacing: 1.5px;
+    & strong {
+        color: var(--color-text);
         font-size: var(--text-xl);
-        /* Fixed, so the "…" placeholder and the rank are the same height. */
-        line-height: 16px;
-        font-weight: var(--weight-heavy);
+        letter-spacing: 0;
         font-variant-numeric: tabular-nums;
     }
 }
@@ -701,49 +703,34 @@ h2 {
         opacity: 0.9;
     }
 }
-.results-targets {
-    display: flex;
-    justify-content: center;
-    gap: 12px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    color: var(--color-text-muted);
-    font-size: var(--text-sm);
-    font-weight: var(--weight-heavy);
-    &:empty {
-        display: none;
-    }
-    & .reached {
-        color: var(--color-text);
-    }
+.results-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
 }
-.results-link {
-    align-self: center;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 6px 10px;
-    border: 0;
+#primary {
+    position: relative;
+}
+.results-key {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    translate: 0 -50%;
+    padding: 1px 5px;
+    border: 1px solid currentColor;
     background: none;
-    color: var(--color-text-muted);
-    font-size: var(--text-md);
-    font-weight: var(--weight-heavy);
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    &:hover,
-    &:focus-visible {
-        color: var(--color-text);
-    }
-}
-.results-hint {
-    margin: 0;
-    color: var(--color-text-faint);
-    font-size: var(--text-sm);
-    letter-spacing: 0.5px;
+    color: inherit;
+    font-size: var(--text-xs);
+    opacity: 0.55;
     /* Keyboard shortcuts mean nothing on a touch screen. */
     @media (hover: none) and (pointer: coarse) {
         display: none;
+    }
+    .secondary & {
+        position: static;
+        translate: none;
+        margin-left: 8px;
+        vertical-align: 1px;
     }
 }
 
