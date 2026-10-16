@@ -1111,6 +1111,13 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     $('import-trail-status').classList.toggle('error', isError);
   }
 
+  /** Opens the trail list with a message by Import trail, such as why a share link failed. */
+  function showTrailsStatus(text, isError = false) {
+    buildTrailCards();
+    showView('trails');
+    setImportStatus(text, isError);
+  }
+
   function persistPreferences() {
     savePreferences(session.preferences);
     onPreferences();
@@ -1343,5 +1350,5 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     if ($('menu-home').hidden) { goBack(); return true; }
     return false;
   };
-  return { open, close, isOpen, updateDashboard, drawBackground, syncSettings, handlePad, showView, canResume, back, refreshCloudSave };
+  return { open, close, isOpen, showTrailsStatus, updateDashboard, drawBackground, syncSettings, handlePad, showView, canResume, back, refreshCloudSave };
 }

@@ -1,6 +1,25 @@
 import { startGame } from './game.js';
+import { readSharedTrail, trailLinkFromHash } from './trail-link.js';
+import { customTrailEntries, saveSharedTrail } from './trails.js';
 
-startGame();
+// A share link (#trail=…) rides its trail straight away and keeps it under
+// Custom Trails.
+let shared = null;
+try {
+  const trail = await readSharedTrail(window.location.hash, customTrailEntries.length);
+  if (trail) shared = { entry: saveSharedTrail(trail) };
+} catch (error) {
+  shared = { error };
+}
+// So a reload doesn't open the trail again, and the address bar stays short.
+if (shared) history.replaceState(null, '', window.location.pathname + window.location.search);
+
+startGame({ shared });
+
+// A share link opened in a tab that already has the game only changes the hash.
+window.addEventListener('hashchange', () => {
+  if (trailLinkFromHash(window.location.hash) !== null) window.location.reload();
+});
 
 // Offline play once installed. The worker serves the game's own files from
 // its cache, so a deploy shows up on the load after the one that installed it;

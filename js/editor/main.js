@@ -9,6 +9,7 @@ import {
   validateTrail,
 } from "../trail-schema.js";
 import { detectDevServer, terrainMaterials, trailEntries } from "../trails.js";
+import { DISCORD_LINK_LENGTH, trailShareUrl } from "../trail-link.js";
 import { bindAutosave } from "./autosave.js";
 import { bindClipboard } from "./clipboard.js";
 import { $, wrap } from "./dom.js";
@@ -193,6 +194,35 @@ $("export-js").addEventListener("click", () => {
     trailToModule(editor.trail),
     "text/javascript",
   );
+});
+
+// The whole trail rides in the link's hash, so sharing needs no server.
+$("share-trail").addEventListener("click", async () => {
+  const errors = validateTrail(editor.trail).filter(
+    (message) => message.type === "error",
+  );
+  if (errors.length && !refuse("sharing", errors)) return;
+  let url;
+  try {
+    url = await trailShareUrl(editor.trail, new URL("./", window.location.href));
+  } catch (error) {
+    showStatus("error", `Could not make a share link: ${error.message}`);
+    return;
+  }
+  const length = url.length.toLocaleString("en-US");
+  try {
+    await navigator.clipboard.writeText(url);
+  } catch (_) {
+    // No clipboard access (an insecure page, or permission refused).
+    window.prompt("Copy this link to share the trail:", url);
+    return;
+  }
+  if (url.length > DISCORD_LINK_LENGTH) {
+    showStatus(
+      "info",
+      `Share link copied · ${length} characters is too long for a Discord message, so post it somewhere else, or share the exported JSON file`,
+    );
+  } else showStatus("info", `Share link copied (${length} characters). Opening it plays the trail and saves it under Custom Trails.`);
 });
 
 $("import-json").addEventListener("click", () => {

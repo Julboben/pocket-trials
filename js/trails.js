@@ -1,4 +1,5 @@
 import { store } from './local-store.js';
+import { trailHash } from './trail-hash.js';
 export { terrainMaterials } from './materials.js';
 
 async function loadJson(url, description) {
@@ -124,6 +125,16 @@ export function saveBrowserTrail(trail, key = null) {
   if (index >= 0) library[index] = stored; else library.push(stored);
   writeBrowserLibrary(library);
   return registerTrailEntry(browserEntry(stored));
+}
+
+/**
+ * Saves a trail opened from a share link under Custom Trails. Opening the same
+ * link again reuses the copy saved the first time.
+ */
+export function saveSharedTrail(trail) {
+  const hash = trailHash(trail);
+  return customTrailEntries.find(entry => entry.storage === 'browser' && entry.name === trail.name && trailHash(entry.trail) === hash)
+    || saveBrowserTrail(trail);
 }
 
 export function removeTrailEntry(id) {

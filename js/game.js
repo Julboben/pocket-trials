@@ -31,7 +31,11 @@ const LANDING_SOUND_IMPACT = 45;
 const HARD_LANDING_IMPACT = 170;
 const CRASH_COLORS = { spike: '#d95832', head: '#ed8b54', fall: '#ed8b54', water: '#8fd6e8' };
 
-export function startGame() {
+/**
+ * @param {{ shared?: { entry?: any, error?: Error } | null }} [options]
+ *   `shared`: the trail a share link opened (see trail-link.js), or why it couldn't.
+ */
+export function startGame({ shared = null } = {}) {
   const game = $('game');
   const renderer = createRenderer(/** @type {HTMLCanvasElement} */ ($('canvas')));
   const camera = createCamera();
@@ -975,7 +979,13 @@ export function startGame() {
   if (playtestTrail) {
     $('menu').setAttribute('aria-label', 'Back to the editor');
     startSelectedTrail(loadPlaytestTrail, false);
-  } else showMainMenu();
+  } else if (shared?.entry) {
+    startSelectedTrail(() => loadCustomTrail(customTrailEntries.indexOf(shared.entry)), false);
+    overlay.toast(`Shared trail “${shared.entry.name}” · Saved under Custom Trails`, 5000);
+  } else {
+    showMainMenu();
+    if (shared?.error) menu.showTrailsStatus(`Could not open the shared trail: ${shared.error.message}`, true);
+  }
   requestAnimationFrame(frame);
   // Queued after the first frame, so the reveal shows a fully drawn screen.
   requestAnimationFrame(() => game.removeAttribute('data-booting'));
