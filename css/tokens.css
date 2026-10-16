@@ -58,6 +58,9 @@
     --color-medal-gold: #f1c75b;
     --color-medal-silver: #c9d2d0;
     --color-medal-bronze: #c98553;
+    /* Gamepad face buttons; A and Y use green and gold. */
+    --color-pad-b: #e6866f;
+    --color-pad-x: #7fb2d9;
 
     /* Status */
     --color-ahead: #9fd88a;

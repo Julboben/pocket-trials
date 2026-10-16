@@ -974,7 +974,40 @@
                                     BACK
                                 </button>
                             </div>
-                            <div class="dashboard-settings">
+                            <div
+                                class="menu-tabs"
+                                role="tablist"
+                                aria-label="Settings"
+                            >
+                                <button
+                                    type="button"
+                                    class="menu-tab"
+                                    role="tab"
+                                    id="settings-tab-general"
+                                    aria-controls="settings-general"
+                                    aria-selected="true"
+                                    data-icon-before="gear"
+                                >
+                                    GENERAL
+                                </button>
+                                <button
+                                    type="button"
+                                    class="menu-tab"
+                                    role="tab"
+                                    id="settings-tab-controls"
+                                    aria-controls="settings-controls"
+                                    aria-selected="false"
+                                    data-icon-before="keyboard"
+                                >
+                                    CONTROLS
+                                </button>
+                            </div>
+                            <div
+                                class="dashboard-settings"
+                                id="settings-general"
+                                role="tabpanel"
+                                aria-labelledby="settings-tab-general"
+                            >
                                 <h4 class="settings-section">DISPLAY</h4>
                                 <div
                                     class="setting-group"
@@ -1238,7 +1271,22 @@
                                         </button>
                                     </div>
                                 </div>
-                                <h4 class="settings-section">CONTROLS</h4>
+                                <button
+                                    type="button"
+                                    class="menu-back settings-reset"
+                                    id="reset-settings"
+                                    data-icon-before="undo"
+                                >
+                                    RESET ALL SETTINGS
+                                </button>
+                            </div>
+                            <div
+                                class="dashboard-settings"
+                                id="settings-controls"
+                                role="tabpanel"
+                                aria-labelledby="settings-tab-controls"
+                                hidden
+                            >
                                 <div
                                     class="setting-group setting-keys"
                                     role="group"
@@ -1247,26 +1295,33 @@
                                     <span
                                         class="setting-label"
                                         id="setting-label-9"
-                                        >KEYS</span
+                                        >KEYBOARD</span
                                     >
                                     <div
                                         class="key-bindings"
                                         id="key-bindings"
                                     ></div>
-                                    <p class="setting-note" id="gamepad-note">
-                                        Gamepad: RT/A gas · LT/X brake · stick
-                                        or d-pad lean · B turn · Y restart ·
-                                        Start pause
+                                </div>
+                                <div
+                                    class="setting-group setting-gamepad"
+                                    role="group"
+                                    aria-labelledby="setting-label-10"
+                                >
+                                    <span
+                                        class="setting-label"
+                                        id="setting-label-10"
+                                        >GAMEPAD</span
+                                    >
+                                    <div
+                                        class="gamepad-figure"
+                                        id="gamepad-diagram"
+                                    ></div>
+                                    <p class="setting-note">
+                                        In menus: stick or d-pad moves · A
+                                        selects · B goes back · LB / RB switch
+                                        tabs
                                     </p>
                                 </div>
-
-                                <button
-                                    type="button"
-                                    class="menu-back settings-reset"
-                                    id="reset-settings"
-                                >
-                                    RESET ALL SETTINGS
-                                </button>
                             </div>
                         </div>
                     </div>

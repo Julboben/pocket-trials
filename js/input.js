@@ -25,7 +25,7 @@ export function keyLabel(code) {
 }
 
 // Standard gamepad layout (https://w3c.github.io/gamepad/#remapping).
-const PAD = { a: 0, b: 1, x: 2, y: 3, lt: 6, rt: 7, select: 8, start: 9, up: 12, down: 13, left: 14, right: 15 };
+const PAD = { a: 0, b: 1, x: 2, y: 3, lb: 4, rb: 5, lt: 6, rt: 7, select: 8, start: 9, up: 12, down: 13, left: 14, right: 15 };
 const STICK_DEADZONE = .25;
 
 /**
@@ -138,7 +138,9 @@ export function createInput({ element, buttons, indicators = [], isActive, onPre
     pad.connected = Boolean(gamepad);
     if (!gamepad) { pad.previous = []; return; }
     const pressed = gamepad.buttons.map(button => button.pressed || button.value > .5);
-    const edge = index => pressed[index] && !pad.previous[index];
+    // Compared with the last frame's buttons, kept before they're replaced.
+    const previous = pad.previous;
+    const edge = index => pressed[index] && !previous[index];
     pad.previous = pressed;
     const active = isActive();
     if (active) {
@@ -158,6 +160,9 @@ export function createInput({ element, buttons, indicators = [], isActive, onPre
     if (edge(PAD.select)) onPress('menu', 'pad');
     if (!active) {
       if (edge(PAD.a)) onPress('confirm', 'pad');
+      // The bumpers do nothing on the bike; in menus they switch tabs.
+      if (edge(PAD.lb)) onPress('tab-prev', 'pad');
+      if (edge(PAD.rb)) onPress('tab-next', 'pad');
       const direction = value => Math.abs(value) > .6 ? Math.sign(value) : 0;
       const stickX = direction(gamepad.axes[0] || 0), stickY = direction(gamepad.axes[1] || 0);
       const movedX = stickX !== pad.stickX ? stickX : 0, movedY = stickY !== pad.stickY ? stickY : 0;

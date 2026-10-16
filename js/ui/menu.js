@@ -17,6 +17,7 @@ import { NAME_HINT, disallowedNameChars } from '../rider-name.js';
 import { RIDE_VERSION } from '../ride.js';
 import { normalizeAuthor, normalizeTrail, validateTrail, medalFor } from '../trail-schema.js';
 import { ACTION_LABELS, keyLabel } from '../input.js';
+import { createGamepadDiagram } from './gamepad-diagram.js';
 import { VERSION } from '../version.js';
 import { RELEASES } from '../changelog.js';
 import { ACHIEVEMENTS, ACHIEVEMENT_GROUPS, statProgressText } from '../achievements.js';
@@ -258,7 +259,8 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     if (!session.saveGame) return;
     $('garage-rider').textContent = session.saveGame.name;
     garageOwns = lookOwner(session.saveGame);
-    garage.setLook(session.look, { tab: 'hair' });
+    // Opens on the tab the rider was last on.
+    garage.setLook(session.look);
     syncGarage();
     showView('look');
   }
@@ -503,7 +505,9 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   function controls() {
     if (isLookConfirmOpen()) return [...$('look-confirm').querySelectorAll('button')];
     const visibleView = document.querySelector('.menu-view:not([hidden])');
-    return visibleView ? [...visibleView.querySelectorAll('button:not([disabled]):not([hidden]), input:not([disabled])')] : [];
+    // Skips controls in hidden parts of the view, such as another tab's panel.
+    return visibleView ? [...visibleView.querySelectorAll('button:not([disabled]), input:not([disabled])')]
+      .filter(control => !control.closest('[hidden]')) : [];
   }
 
   function selectControl(control) {
@@ -522,6 +526,27 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     selectControl(list[next]);
     sounds.menuMove();
     return true;
+  }
+
+  /** LB / RB on a gamepad: the previous or next tab of the open view's tab bar, wrapping round. */
+  function stepTab(direction) {
+    if (isLookConfirmOpen()) return;
+    const tablist = [...document.querySelectorAll('.menu-view:not([hidden]) [role="tablist"]')]
+      .find(list => !list.closest('[hidden]'));
+    if (!tablist) return;
+    const tabs = [...tablist.querySelectorAll('[role="tab"]')];
+    const current = tabs.findIndex(tab => tab.getAttribute('aria-selected') === 'true');
+    const next = /** @type {HTMLElement} */ (tabs[(current + direction + tabs.length) % tabs.length]);
+    next.click();
+    selectControl(next);
+  }
+
+  /** Settings tabs; the one picked stays picked for the next visit. */
+  function showSettingsTab(picked) {
+    document.querySelectorAll('#menu-settings-view [role="tab"]').forEach(tab => {
+      tab.setAttribute('aria-selected', String(tab === picked));
+      $(tab.getAttribute('aria-controls')).hidden = tab !== picked;
+    });
   }
 
   function showView(view) {
@@ -1156,12 +1181,16 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     reset.type = 'button';
     reset.className = 'menu-back key-reset';
     reset.textContent = 'RESET KEYS';
+    reset.dataset.iconBefore = 'undo';
     reset.addEventListener('click', () => {
       session.preferences.bindings = structuredClone(DEFAULT_BINDINGS);
       persistPreferences();
     });
     $('key-bindings').replaceChildren(...buttons, reset);
   }
+
+  // Gamepad buttons aren't remappable, so the diagram is drawn once.
+  $('gamepad-diagram').append(...createGamepadDiagram());
 
   function syncSettings() {
     document.querySelectorAll('[data-setting]').forEach(button => {
@@ -1187,6 +1216,8 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     } else if (action === 'confirm') {
       const selected = $('menu-screen').querySelector('.menu-selected');
       if (selected instanceof HTMLButtonElement) selected.click();
+    } else if (action === 'tab-prev' || action === 'tab-next') {
+      stepTab(action === 'tab-prev' ? -1 : 1);
     } else if (action === 'cancel') {
       if (closeTrailPicker(true)) sounds.menuBack();
       else if ($('menu-home').hidden) { sounds.menuBack(); goBack(); } else onClose();
@@ -1198,6 +1229,9 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   $('menu-whats-new').addEventListener('click', showChangelog);
   $('menu-editor').addEventListener('click', () => { window.location.href = './editor.html'; });
   $('menu-settings').addEventListener('click', () => { syncSettings(); showView('settings'); });
+  document.querySelectorAll('#menu-settings-view [role="tab"]').forEach(tab => {
+    tab.addEventListener('click', () => showSettingsTab(tab));
+  });
   $('menu-screen').addEventListener('keydown', event => {
     if (input.capturing) return;
     // Left and right adjust a focused slider instead of moving the selection.

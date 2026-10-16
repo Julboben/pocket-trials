@@ -804,6 +804,133 @@ h2 {
     grid-column: 1 / -1;
     justify-self: start;
 }
+.setting-group.setting-gamepad {
+    /* The diagram needs the full width to keep its labels readable. */
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+}
+.gamepad-figure {
+    container-type: inline-size;
+    justify-self: center;
+    min-width: 0;
+    width: 100%;
+    max-width: 540px;
+    overflow: hidden;
+}
+.gamepad-diagram {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    shape-rendering: crispEdges;
+    & .pad-shell {
+        fill: var(--color-surface-hover);
+    }
+    & .pad-trigger,
+    & .pad-dpad,
+    & .pad-stick,
+    & .pad-small {
+        fill: var(--color-text-soft);
+    }
+    & .pad-well {
+        fill: var(--color-shell);
+    }
+    & .pad-idle {
+        fill: var(--color-border);
+    }
+    & .pad-face-a {
+        fill: var(--color-green);
+    }
+    & .pad-face-b {
+        fill: var(--color-pad-b);
+    }
+    & .pad-face-x {
+        fill: var(--color-pad-x);
+    }
+    & .pad-face-y {
+        fill: var(--color-medal-gold);
+    }
+    & .pad-letter {
+        fill: var(--color-shell);
+        font-size: var(--text-sm);
+        font-weight: var(--weight-heavy);
+        text-anchor: middle;
+        dominant-baseline: central;
+    }
+    & .pad-leader {
+        fill: none;
+        stroke: var(--color-text-faint);
+        stroke-width: 1;
+    }
+    & .pad-leader-end {
+        fill: var(--color-text-faint);
+    }
+    & .pad-callout {
+        font-size: var(--text-sm);
+        font-weight: var(--weight-heavy);
+        letter-spacing: 0.5px;
+        dominant-baseline: central;
+    }
+    & .pad-key {
+        fill: var(--color-text);
+    }
+    & .pad-action {
+        fill: var(--color-text-muted);
+    }
+    /* Too narrow for readable callouts: crop to the pad and list them below. */
+    @container (max-width: 420px) {
+        /* The pad spans x 137–327 of the 460-wide drawing. */
+        width: calc(100% * 460 / 190);
+        margin-left: calc(-100% * 137 / 190);
+        /* And trim the empty band above the triggers where Select and Start's leaders run. */
+        margin-top: calc(-100% * 22 / 190);
+        & .pad-callout,
+        & .pad-leader,
+        & .pad-leader-end {
+            display: none;
+        }
+    }
+}
+.gamepad-legend {
+    display: none;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 12px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-heavy);
+    text-transform: uppercase;
+    & li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    @container (max-width: 420px) {
+        display: grid;
+    }
+}
+.gamepad-chip {
+    min-width: 20px;
+    padding: 2px 5px;
+    border-radius: var(--radius-pixel);
+    background: var(--color-text-soft);
+    color: var(--color-shell);
+    text-align: center;
+    &[data-face="a"] {
+        background: var(--color-green);
+    }
+    &[data-face="b"] {
+        background: var(--color-pad-b);
+    }
+    &[data-face="x"] {
+        background: var(--color-pad-x);
+    }
+    &[data-face="y"] {
+        background: var(--color-medal-gold);
+    }
+}
 
 .control-area {
     position: relative;
@@ -1376,6 +1503,52 @@ h2 {
     overflow: hidden;
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
+}
+
+/* A view's tab bar: tabs stand on a ledge, and the open one joins it like a folder tab. */
+.menu-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+    /* The same colour as the open tab, which flows into it. */
+    border-bottom: 3px solid var(--color-surface);
+    box-shadow: 0 3px 0 var(--color-shadow);
+}
+.menu-tab {
+    --px: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 150px;
+    min-height: 40px;
+    /* Stands on the rule. */
+    margin-bottom: 0;
+    padding: 9px 18px;
+    border: 1px solid var(--color-border);
+    border-bottom: 0;
+    border-radius: var(--radius-pixel) var(--radius-pixel) 0 0;
+    background: #15232899;
+    color: var(--color-text-muted);
+    font-size: var(--text-md);
+    font-weight: var(--weight-heavy);
+    letter-spacing: 1px;
+    &:not([aria-selected="true"]):hover {
+        background: var(--color-surface);
+        color: var(--color-text);
+    }
+    &[aria-selected="true"] {
+        background: var(--color-surface);
+        color: var(--color-text);
+        /* The open tab's accent strip along its top. */
+        box-shadow: inset 0 3px 0 var(--color-accent);
+        &::before {
+            color: var(--color-accent);
+        }
+    }
+    @media (max-width: 520px) {
+        flex: 1;
+        min-width: 0;
+    }
 }
 
 .dashboard-settings {
