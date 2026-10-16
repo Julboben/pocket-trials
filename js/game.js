@@ -46,7 +46,7 @@ export function startGame({ shared = null } = {}) {
   const sounds = createAudio(() => {
     const ride = session.ride;
     return {
-      state: session.state, rear: ride?.rear, front: ride?.front, facing: ride?.facing ?? 1, gas: gasHeld && session.state === 'running', started: ride?.started ?? false,
+      state: session.state, rear: ride?.rear, front: ride?.front, engine: ride?.vehicle.engine, gas: gasHeld && session.state === 'running', started: ride?.started ?? false,
       brakePressure: ride?.brakePressure ?? 0, weather: session.trail?.weather,
     };
   });

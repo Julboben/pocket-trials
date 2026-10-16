@@ -14,6 +14,7 @@ The staged physics roadmap is implemented in `js/vehicle-physics.js`: a physical
 - No wheel-to-wheel link: as in Elasto Mania, each wheel hangs from the chassis on its own leg, so the wheelbase gives a few pixels on hard landings
 - A front fork and a rear shock that differ as on a motocross bike, each with a rising-rate spring in place of a stiff bump stop, and a bottoming cone (`FORK_SUSPENSION` and `SHOCK_SUSPENSION` in `js/config.js`):
   - The fork is on the leading wheel and the shock on the trailing one, whichever way the rider faces
+  - On a flip they swap wheels, and each wheel's line of travel turns to its new rake over 0.15 s (`SUSPENSION_FLIP_TIME`), about as long as the drawn bike takes to turn around. Turned in one step, a compressed wheel sat up to about 6 px off its new line and the slider snapped it there: flipping at rest jolted the chassis by 49 px/s, and at the bottom of a 60 px landing by 143 px/s against 18 px/s unflipped. Eased, the jolts are 3 px/s and no more than the landing's own. The jolt lasted one step, so it moved the body by under a quarter pixel: this tidies the solve rather than changing the feel
   - The fork is raked back 23°, as the drawn fork is, so its wheel travels up and back as it compresses. A step face or square edge pushes the wheel up into the fork instead of stopping it dead and pitching the bike over the bars: of 72 simple attempts at a single step, 44 instead of 28 get up a 14 px step and 20 instead of 7 an 18 px one. The rear wheel travels square to the frame
   - The fork is linear until its air spring ramps up over the last 7 px of travel. Its lighter damping (0.22 compression, 0.38 rebound) lets it recover quickly for the next bump. It sags 3.4 px at rest
   - The shock's linkage makes it progressive over the whole stroke, from a soft start: it sags 5 px at rest, about a third of its travel as race sag is set, which leaves it droop to keep the tire on the ground as the weight comes off it. Firmer damping (0.28 compression, 0.55 rebound) keeps it from kicking the bike over the bars
@@ -26,6 +27,7 @@ The staged physics roadmap is implemented in `js/vehicle-physics.js`: a physical
 - The motor spins the tread at most a small slip ahead of the ground, and engine torque only tapers while the wheel turns forward, so the throttle hooks up to stop a bike sliding back down a hill
 - Wheel angular velocity driven by throttle and braking
 - An engine between the throttle and the rear wheel (`ENGINE` in `js/config.js`), with a light flywheel and a centrifugal clutch that grips harder as the revs rise. The clutch always slips a little under load, so the engine runs above the wheel's speed and its drive comes in soft. The throttle opens about as fast as a twist grip, most of the way in a tenth of a second, so a blip counts, and springs shut when let go. The rider pulls the clutch in to brake
+  - The engine sound (`js/audio.js`) plays this engine: its pitch follows the revs, and how hard it barks follows the clutch's pull on the wheel. So you hear the clutch slip pulling away, the bog on a climb, the drop to idle off the gas and the spin-up to the limiter in the air. There are no gear shifts, as the engine has one gear
   - Held gas with no lean lifts the front about 3° on the flat and lets it settle within a second, and runs to 472 px/s in 3 s. Over a small bump it lifts about 15° and settles; on a 5° climb about 6°. On a 10° climb it loops the bike unless the rider leans forward, as it did before the engine. A wheelie on held gas is unstable, so a lift clearly visible on the flat would loop on gentle slopes: from flywheel .29 a 10° climb loops, from .31 a 5° one
   - A 45° hill is climbed from all seven test run-ups, against five before, but more slowly: 25° and 35° hills take about 4.8 s instead of 4.2–4.4 and 3.8–4.0, and 45° about 6–8 s instead of 4–4.7
 - Rider lean, as in Elasto Mania, is a turning push on the bike, and it follows the input most of the way in a quarter second (10/s), quick enough to time a pop onto a step. Held too long it loops the bike, which is part of the challenge. Of 864 simple attempts at a single step, 254 instead of 202 get up a 14 px one, 40 instead of 30 a 22 px one and 12 instead of none a 30 px one
@@ -57,6 +59,7 @@ The automated suite covers:
 - Full-vehicle flat acceleration and braking-versus-coasting runs
 - Stationary wheel lift and airborne rotation
 - Mirrored left/right hill climbing
+- Flipping at rest and at the bottom of a landing without a suspension pop
 - Valley settling
 - One-wheel landing and second-wheel recovery
 - Hard landings: a gentle rebound from big flat drops with only brief bottoming, and no buck over the other wheel after landing hard on one

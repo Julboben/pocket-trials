@@ -62,7 +62,7 @@ const everyTrail = (finished, total) => total > 0 && finished >= total;
 /** Every achievement, in the order the menu lists them. */
 export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze([
   {
-    id: 'first-steps', group: 'career', name: 'First Steps', icon: 'flag',
+    id: 'first-steps', group: 'career', name: 'First Steps', icon: 'footprints',
     blurb: 'Finish your first official trail.', career: p => p.trails >= 1
   },
   {
@@ -74,7 +74,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Win your first gold medal.', career: p => p.golds >= 1
   },
   {
-    id: 'gold-rush', group: 'career', name: 'Gold Rush', icon: 'trophy',
+    id: 'gold-rush', group: 'career', name: 'Gold Rush', icon: 'pickaxe',
     blurb: 'Win gold on every official trail.', career: p => everyTrail(p.golds, p.officialTotal)
   },
   {
@@ -82,17 +82,17 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Finish a bonus trail.', career: p => p.bonusFinished >= 1
   },
   {
-    id: 'completionist', group: 'career', name: 'Completionist', icon: 'trophy',
+    id: 'completionist', group: 'career', name: 'Completionist', icon: 'crown',
     blurb: 'Finish every official and bonus trail.',
     career: p => everyTrail(p.trails, p.officialTotal) && p.bonusFinished >= p.bonusTotal
   },
   {
-    id: 'halfway-there', group: 'career', name: 'Halfway There', icon: 'flag',
+    id: 'halfway-there', group: 'career', name: 'Halfway There', icon: 'halfway',
     blurb: 'Finish half of the official trails.',
     career: p => p.officialTotal > 0 && p.trails >= Math.ceil(p.officialTotal / 2)
   },
   {
-    id: 'hat-trick', group: 'career', name: 'Hat Trick', icon: 'trophy',
+    id: 'hat-trick', group: 'career', name: 'Hat Trick', icon: 'medals',
     blurb: 'Win 3 gold medals.', career: p => p.golds >= 3
   },
   {
@@ -109,7 +109,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Land a triple flip in one jump.', event: e => e.type === 'flip' && e.count >= 3
   },
   {
-    id: 'flip-circus', group: 'riding', name: 'Flip Circus', icon: 'rotate-right',
+    id: 'flip-circus', group: 'riding', name: 'Flip Circus', icon: 'tent',
     blurb: 'Land 5 flips in one run and finish it.', finish: run => run.flips >= 5
   },
   {
@@ -162,11 +162,11 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Win a gold medal on a night trail.', finish: run => run.night && run.medal === 'gold'
   },
   {
-    id: 'show-off', group: 'riding', name: 'Show-Off', icon: 'rotate-right',
+    id: 'show-off', group: 'riding', name: 'Show-Off', icon: 'shades',
     blurb: 'Land 10 flips in one run and finish it.', finish: run => run.flips >= 10
   },
   {
-    id: 'spin-cycle', group: 'riding', name: 'Spin Cycle', icon: 'rotate-right', secret: true,
+    id: 'spin-cycle', group: 'riding', name: 'Spin Cycle', icon: 'washer', secret: true,
     blurb: 'Land a quadruple flip in one jump.', event: e => e.type === 'flip' && e.count >= 4
   },
   {
@@ -185,7 +185,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     finish: run => Number.isFinite(run.worldBest) && run.time < run.worldBest
   },
   {
-    id: 'leaps-and-bounds', group: 'riding', name: 'Leaps and Bounds', icon: 'clock',
+    id: 'leaps-and-bounds', group: 'riding', name: 'Leaps and Bounds', icon: 'fast-forward',
     blurb: 'Take 5 seconds off your best time on a trail.',
     finish: run => Number.isFinite(run.previousBest) && run.previousBest - run.time >= 5
   },
@@ -222,11 +222,11 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Fall out of the world.', event: e => e.type === 'crash' && e.cause === 'fall'
   },
   {
-    id: 'not-so-fast', group: 'riding', name: 'Not So Fast', icon: 'apple', secret: true,
+    id: 'not-so-fast', group: 'riding', name: 'Not So Fast', icon: 'no-entry', secret: true,
     blurb: 'Reach the finish with apples still missing.', event: e => e.type === 'goalLocked'
   },
   {
-    id: 'patience', group: 'riding', name: 'Patience', icon: 'snail', secret: true,
+    id: 'patience', group: 'riding', name: 'Patience', icon: 'hourglass', secret: true,
     blurb: 'Wait a whole minute at the start before setting off.', event: e => e.type === 'start' && e.wait >= 60
   },
   {
@@ -236,11 +236,11 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
   },
 
   {
-    id: 'frequent-flyer', group: 'lifetime', name: 'Frequent Flyer', icon: 'rotate-right',
+    id: 'frequent-flyer', group: 'lifetime', name: 'Frequent Flyer', icon: 'plane',
     blurb: 'Land 100 flips.', stat: 'flips', goal: 100
   },
   {
-    id: 'crash-test-dummy', group: 'lifetime', name: 'Crash Test Dummy', icon: 'crash',
+    id: 'crash-test-dummy', group: 'lifetime', name: 'Crash Test Dummy', icon: 'dummy',
     blurb: 'Crash 100 times.', stat: 'crashes', goal: 100
   },
   {
@@ -252,7 +252,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Shatter 50 glass panes.', stat: 'panes', goal: 50
   },
   {
-    id: 'satellite', group: 'lifetime', name: 'Satellite', icon: 'rotate-right',
+    id: 'satellite', group: 'lifetime', name: 'Satellite', icon: 'satellite',
     blurb: 'Land 1,000 flips.', stat: 'flips', goal: 1000
   },
   {
@@ -260,11 +260,11 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Crash 500 times.', stat: 'crashes', goal: 500
   },
   {
-    id: 'orchard-keeper', group: 'lifetime', name: 'Orchard Keeper', icon: 'apple',
+    id: 'orchard-keeper', group: 'lifetime', name: 'Orchard Keeper', icon: 'basket',
     blurb: 'Collect 2,500 apples.', stat: 'apples', goal: 2500
   },
   {
-    id: 'window-shopper', group: 'lifetime', name: 'Window Shopper', icon: 'shatter',
+    id: 'window-shopper', group: 'lifetime', name: 'Window Shopper', icon: 'bag',
     blurb: 'Shatter 250 glass panes.', stat: 'panes', goal: 250
   },
   {
@@ -272,12 +272,12 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Spend 10 minutes in the air.', stat: 'airtime', goal: 6000, unit: 'tenths'
   },
   {
-    id: 'one-wheel-wonder', group: 'lifetime', name: 'One-Wheel Wonder', icon: 'wheelie',
+    id: 'one-wheel-wonder', group: 'lifetime', name: 'One-Wheel Wonder', icon: 'unicycle',
     blurb: 'Spend 5 minutes on your back wheel.', stat: 'wheelie', goal: 3000, unit: 'tenths'
   },
 
   {
-    id: 'under-the-hood', group: 'easter-eggs', name: 'Under the Hood', icon: 'wrench', secret: true,
+    id: 'under-the-hood', group: 'easter-eggs', name: 'Under the Hood', icon: 'terminal', secret: true,
     hint: 'Some query strings open doors.',
     blurb: 'Reach into a ride from the browser console.', egg: 'debug-console'
   },
@@ -292,7 +292,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Send a world time the server can’t reproduce.', egg: 'rejected-run'
   },
   {
-    id: 'here-be-kraken', group: 'easter-eggs', name: 'Here Be Kraken', icon: 'crash', secret: true,
+    id: 'here-be-kraken', group: 'easter-eggs', name: 'Here Be Kraken', icon: 'kraken', secret: true,
     hint: 'Every physics engine has its limits.',
     blurb: 'Break the physics: pull the bike apart.', egg: 'kraken'
   },
@@ -301,7 +301,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     hint: 'Wolfenstein 3D had a cheat. It still works.', blurb: 'Hold L, I and M at once.', egg: 'lim'
   },
   {
-    id: 'any-percent', group: 'easter-eggs', name: 'Any%', icon: 'flag', secret: true,
+    id: 'any-percent', group: 'easter-eggs', name: 'Any%', icon: 'bolt', secret: true,
     hint: 'Some trails are shorter than others. Make one.',
     blurb: 'Finish a trail in under a second.', finish: run => run.time < 1
   },

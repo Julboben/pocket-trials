@@ -415,6 +415,40 @@ function determinismAndFlipScenario() {
   return { facing: first.facing, finalX: first.metrics.center.x, finalSpeed: first.metrics.speedX };
 }
 
+// On a flip the fork and shock swap wheels. Their lines of travel turn over a
+// few steps, so a compressed wheel is not snapped onto its new line in one
+// step: turned at once, flipping at rest jolted the chassis by 49 px/s and at
+// the bottom of a 60 px landing by 143 px/s, against 18 px/s unflipped.
+function flipWhileCompressedScenario() {
+  const velocities = simulation => simulation.vehicle.chassisPoints.map(point => [(point.x - point.ox) / STEP, (point.y - point.oy) / STEP]);
+  const worstJolt = (makeSimulation, steps, flipAt) => {
+    const simulation = makeSimulation();
+    let previous = velocities(simulation), worst = 0;
+    for (let index = 0; index < steps; index++) {
+      step(simulation, { flip: index === flipAt });
+      const current = velocities(simulation);
+      if (index >= flipAt) worst = Math.max(worst, ...current.map((v, i) => Math.hypot(v[0] - previous[i][0], v[1] - previous[i][1])));
+      previous = current;
+    }
+    return worst;
+  };
+  const resting = () => run(createSimulation(flatTrail(), { x: 300 }), 240, {});
+  const atRest = worstJolt(resting, 30, 0);
+  // The step of deepest compression after a 60 px drop.
+  const probe = droppedSimulation(60, 0);
+  let deepest = 0, bottom = 0;
+  for (let index = 0; index < 240; index++) {
+    step(probe, {});
+    const compression = probe.vehicle.rear.compression + probe.vehicle.front.compression;
+    if (compression > deepest) { deepest = compression; bottom = index; }
+  }
+  const landing = worstJolt(() => droppedSimulation(60, 0), bottom + 30, bottom);
+  const unflipped = worstJolt(() => droppedSimulation(60, 0), bottom + 30, -1 - bottom);
+  assert.ok(atRest < 10, `flipping at rest must not jolt the chassis: ${atRest} px/s`);
+  assert.ok(landing < unflipped + 10, `flipping at the bottom of a landing must not pop the suspension: ${landing} vs ${unflipped} px/s unflipped`);
+  return { atRest, landing, unflipped };
+}
+
 function landingSagScenario() {
   const sinkFrom = drop => {
     const simulation = createSimulation(flatTrail());
@@ -902,7 +936,8 @@ const results = {
   sharpBend: sharpBendScenario(),
   hanging: hangingScenario(),
   flipKeepsTiresRolling: flipKeepsTiresRollingScenario(),
-  determinismAndFlip: determinismAndFlipScenario()
+  determinismAndFlip: determinismAndFlipScenario(),
+  flipWhileCompressed: flipWhileCompressedScenario()
 };
 console.log('Vehicle integrated scenarios passed.');
 console.table(results);

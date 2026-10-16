@@ -81,6 +81,10 @@ export const SHOCK_SUSPENSION = {
   bottomingStart: 9,
   bottomingDamping: .95,
 };
+// On a flip the fork and shock swap wheels. Each wheel's line of travel turns
+// to its new rake over this many seconds, about as long as the drawn bike
+// takes to turn around, rather than in one step.
+export const SUSPENSION_FLIP_TIME = .15;
 export const WHEEL_INERTIA = .5;
 // Share of its spin (per second) a wheel off the ground loses to bearing,
 // seal and brake-pad drag, so a wheel spinning in the air or on a crashed

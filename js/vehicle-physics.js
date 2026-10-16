@@ -16,6 +16,7 @@ import {
   XPBD_SUSPENSION_TOP_OUT_COMPLIANCE,
   FORK_SUSPENSION,
   SHOCK_SUSPENSION,
+  SUSPENSION_FLIP_TIME,
   WHEEL_INERTIA,
   WHEEL_SPIN_DRAG,
   WHEEL_FRICTION,
@@ -129,14 +130,23 @@ function fitSuspension({ suspension, chassis }, facing) {
     0
       ? -1
       : 1;
-  for (const { wheel, spring, topOut, slider, limit } of suspension) {
+  for (const leg of suspension) {
+    const { wheel, spring, topOut, slider, limit } = leg;
     const leading = (wheel === suspension[1].wheel) === facing > 0;
     const settings = leading ? FORK_SUSPENSION : SHOCK_SUSPENSION;
     spring.settings = settings;
     spring.damping = settings.damping;
     spring.reboundDamping = settings.reboundDamping;
-    const square = cos(settings.rake),
-      lean = sin(settings.rake) * facing;
+    // On a flip the fork's raked line becomes the shock's square one and
+    // back. Turned in one step, a compressed wheel would sit a few px off its
+    // new line and the slider would snap it there, so the line turns over
+    // SUSPENSION_FLIP_TIME instead.
+    const rake = settings.rake * facing;
+    const turn = (FORK_SUSPENSION.rake * STEP) / SUSPENSION_FLIP_TIME;
+    leg.rake =
+      leg.rake === undefined ? rake : clamp(rake, leg.rake - turn, leg.rake + turn);
+    const square = cos(leg.rake),
+      lean = sin(leg.rake);
     for (const leg of [spring, topOut, limit]) {
       leg.along = lean;
       leg.across = down * square;
@@ -1014,6 +1024,8 @@ function runEngine(engine, throttle, wheelSpin, braking, crashed) {
   engine.rev = clamp(engine.rev, idle, redline);
   // The flywheel's change of spin, as a torque in rear-wheel terms.
   const crankTorque = ((engine.rev - revBefore) / STEP) * inertia;
+  // Kept for the engine sound: how hard the clutch pulls on the wheel.
+  engine.clutchTorque = clutchTorque;
   return { engineTorque, clutchTorque, crankTorque };
 }
 
