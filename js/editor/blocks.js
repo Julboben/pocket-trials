@@ -6,6 +6,7 @@ import {
   edgeCurve,
   insertBoundaryNode,
   isCurvedEdge,
+  mergeBlocks,
   normalizeBlocks,
   rectangleBlock,
 } from "../terrain-geometry.js";
@@ -469,6 +470,39 @@ export function commitShape(kind, points, closed, rect = false, circle = null) {
     reason || `The cut did not overlap any ${back ? "back wall" : "terrain block"}.`,
   );
   return false;
+}
+
+/**
+ * Merges the selected blocks into one, in the largest block's material. The
+ * merged block takes the place of the topmost one, so it is not hidden behind
+ * blocks that were drawn between them. Says why when they can't be merged.
+ */
+export function mergeSelectedBlocks() {
+  if (refuseEdit()) return false;
+  const list = blocks();
+  const indices = selectedBlocks().filter((index) => list[index]);
+  const result = mergeBlocks(indices.map((index) => list[index]));
+  if (!result.changed) {
+    showStatus("warning", result.reason);
+    return false;
+  }
+  pushHistory();
+  const top = Math.max(...indices);
+  const merged = normalizeBlocks([result.block], "grass")[0];
+  editor.trail.terrainBlocks = list.flatMap((block, index) => {
+    if (index === top) return [merged];
+    return indices.includes(index) ? [] : [block];
+  });
+  editor.selection = {
+    kind: "block",
+    blockIndex: top - indices.filter((index) => index < top).length,
+  };
+  const mixed = new Set(indices.map((index) => list[index].material)).size > 1;
+  showStatus(
+    "info",
+    `Merged ${indices.length} ${isBackWall(merged) ? "back walls" : "blocks"}${mixed ? ` into ${merged.material}` : ""}.`,
+  );
+  return true;
 }
 
 /** A copy of a block with fresh ids, so it's fully independent of the original. */

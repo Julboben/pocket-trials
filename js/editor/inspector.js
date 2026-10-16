@@ -21,6 +21,7 @@ import {
   boundaryAt,
   fillCavesWithBackWalls,
   isBackWall,
+  mergeSelectedBlocks,
   realignSmooth,
   replaceBlock,
   replaceBoundary,
@@ -172,6 +173,7 @@ export function syncInspector({ live = false } = {}) {
   $("selection-material-row").hidden = !isBlock;
   $("selection-block-layer-row").hidden = !isBlock;
   $("fill-back-walls").hidden = !selectedCaves().length;
+  $("merge-blocks").hidden = selectedBlocks().length < 2;
   $("selection-edge-row").hidden = !["blockPoint", "blockEdge"].includes(
     editor.selection?.kind,
   );
@@ -553,6 +555,12 @@ export function bindInspector() {
         "info",
         `Added ${added === 1 ? "a back wall" : `${added} back walls`}; ${added === 1 ? "the cave stays" : "the caves stay"} dark.`,
       );
+    syncInspector();
+    render();
+  });
+
+  $("merge-blocks").addEventListener("click", () => {
+    mergeSelectedBlocks();
     syncInspector();
     render();
   });

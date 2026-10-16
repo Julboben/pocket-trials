@@ -842,7 +842,7 @@
         "nodes": [
           {
             "id": "back-wall-0",
-            "x": 0,
+            "x": -200,
             "y": 440,
             "mode": "corner",
             "in": null,
@@ -851,7 +851,7 @@
           },
           {
             "id": "back-wall-1",
-            "x": 700,
+            "x": 900,
             "y": 440,
             "mode": "corner",
             "in": null,
@@ -860,8 +860,8 @@
           },
           {
             "id": "back-wall-2",
-            "x": 700,
-            "y": 1000,
+            "x": 900,
+            "y": 1100,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -869,8 +869,8 @@
           },
           {
             "id": "back-wall-3",
-            "x": 0,
-            "y": 1000,
+            "x": -200,
+            "y": 1100,
             "mode": "corner",
             "in": null,
             "out": null,
