@@ -511,6 +511,8 @@ if (kind === 'locks') {
   out.groupCount = document.getElementById('object-groups').children.length;
   groupLock('back').click();
   out.badge = document.getElementById('tab-objects').getAttribute('data-icon-after');
+  // A group lock belongs to this trail alone.
+  out.groupLockKeys = [...localStorage.store.keys()].filter(name => name.includes('locked-groups'));
   // Locked, the same press draws a box, which takes only the apple.
   out.boxOverWall = box()?.kind ?? null;
   key('a', { code: 'KeyA', metaKey: true });

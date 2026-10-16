@@ -32,6 +32,7 @@ import {
   updateVersionChip,
 } from "./drafts.js";
 import { pushHistory } from "./history.js";
+import { moveLocks } from "./locks.js";
 import { syncInspector } from "./inspector.js";
 import { render } from "./render.js";
 import { editor } from "./state.js";
@@ -411,6 +412,7 @@ async function persist(entry, data) {
   const oldFile = entry.file;
   await moveTrailFile(entry, file, data);
   moveDrafts(oldId, entry.id);
+  moveLocks(oldId, entry.id);
   rememberTrail();
   return { ...entry, movedFrom: oldFile };
 }

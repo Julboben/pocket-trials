@@ -1,15 +1,15 @@
 {
   "name": "Night Shift",
   "label": "NIGHT SHIFT / 29",
-  "description": "The first full night. The street lamps light the route, and between them your headlight is all you have. Apples can only be seen where light reaches them, so some are hiding in the dark between the lamps: ride slowly enough for your headlight to find them. Watch for the spike under the dark stretch after the ramp.",
-  "start": {
-    "x": 0,
-    "y": null,
-    "facing": 1
-  },
   "finish": {
     "x": 2720,
-    "y": null
+    "y": 318
+  },
+  "description": "The first full night. The street lamps light the route, and between them your headlight is all you have. Apples can only be seen where light reaches them, so some are hiding in the dark between the lamps: ride slowly enough for your headlight to find them. Watch for the spike under the dark stretch after the ramp.",
+  "start": {
+    "x": 90,
+    "y": null,
+    "facing": 1
   },
   "terrainBlocks": [
     {
@@ -97,7 +97,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "street-9",
@@ -268,22 +268,6 @@
       "y": null
     }
   ],
-  "spikes": [
-    {
-      "id": "spike-1",
-      "x": 1900,
-      "y": 386,
-      "radius": 14,
-      "spin": 0
-    },
-    {
-      "id": "spike-2",
-      "x": 2200,
-      "y": 386,
-      "radius": 14,
-      "spin": 0
-    }
-  ],
   "props": [
     {
       "x": 40,
@@ -352,13 +336,6 @@
       "layer": "back"
     },
     {
-      "x": 160,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "NIGHT SHIFT"
-    },
-    {
       "x": 620,
       "y": null,
       "type": "dumpster",
@@ -383,6 +360,7 @@
       "layer": "front"
     }
   ],
+  "spikes": [],
   "water": [],
   "weather": {
     "sun": 0,

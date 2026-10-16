@@ -1,15 +1,15 @@
 {
   "name": "Kickback",
   "label": "KICKBACK / 07",
-  "description": "Steep faces kick the front wheel up. Lean forward to keep it down, or ease off and let it rise into a wheelie and ride it up. The faces get steeper as the evening draws in: 47\u00b0, then 52\u00b0, a two-step at 50\u00b0 and 58\u00b0, and the last at 60\u00b0. If you stall, roll back, take a longer run-up and try again.",
+  "finish": {
+    "x": 2840,
+    "y": 236
+  },
+  "description": "Steep faces kick the front wheel up. Lean forward to keep it down, or ease off and let it rise into a wheelie and ride it up. The faces get steeper as the evening draws in: 47°, then 52°, a two-step at 50° and 58°, and the last at 60°. If you stall, roll back, take a longer run-up and try again.",
   "start": {
     "x": 90,
     "y": null,
     "facing": 1
-  },
-  "finish": {
-    "x": 2840,
-    "y": null
   },
   "terrainBlocks": [
     {
@@ -25,7 +25,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-1",
@@ -37,7 +37,7 @@
               120
             ],
             "out": [
-              -380.0,
+              -380,
               120
             ],
             "edge": "curve"
@@ -48,7 +48,7 @@
             "y": 320,
             "mode": "smooth",
             "in": [
-              -340.0,
+              -340,
               320
             ],
             "out": [
@@ -82,7 +82,7 @@
               320
             ],
             "out": [
-              340.0,
+              340,
               320
             ],
             "edge": "curve"
@@ -93,7 +93,7 @@
             "y": 300,
             "mode": "smooth",
             "in": [
-              380.0,
+              380,
               300
             ],
             "out": [
@@ -112,7 +112,7 @@
               322
             ],
             "out": [
-              600.0,
+              600,
               322
             ],
             "edge": "curve"
@@ -133,7 +133,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-9",
@@ -145,7 +145,7 @@
               288
             ],
             "out": [
-              940.0,
+              940,
               288
             ],
             "edge": "curve"
@@ -156,7 +156,7 @@
             "y": 316,
             "mode": "smooth",
             "in": [
-              980.0,
+              980,
               316
             ],
             "out": [
@@ -181,7 +181,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-13",
@@ -189,7 +189,7 @@
             "y": 262,
             "mode": "smooth",
             "in": [
-              1335.0,
+              1335,
               262
             ],
             "out": [
@@ -247,7 +247,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-19",
@@ -295,7 +295,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-23",
@@ -303,11 +303,11 @@
             "y": 266,
             "mode": "smooth",
             "in": [
-              2820.0,
+              2820,
               266
             ],
             "out": [
-              2960.0,
+              2960,
               266
             ],
             "edge": "curve"
@@ -318,11 +318,11 @@
             "y": 266,
             "mode": "smooth",
             "in": [
-              3000.0,
+              3000,
               266
             ],
             "out": [
-              3080.0,
+              3080,
               266
             ],
             "edge": "curve"
@@ -333,7 +333,7 @@
             "y": 70,
             "mode": "smooth",
             "in": [
-              3120.0,
+              3120,
               70
             ],
             "out": [
@@ -418,13 +418,6 @@
       "layer": "back"
     },
     {
-      "x": 160,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "LEAN \u2192"
-    },
-    {
       "x": 240,
       "y": null,
       "type": "pine",
@@ -441,13 +434,6 @@
       "y": null,
       "type": "pine-small",
       "layer": "back"
-    },
-    {
-      "x": 640,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "!"
     },
     {
       "x": 696,
@@ -504,13 +490,6 @@
       "layer": "back"
     },
     {
-      "x": 1660,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "!"
-    },
-    {
       "x": 1718,
       "y": 309,
       "type": "moss",
@@ -551,13 +530,6 @@
       "y": null,
       "type": "boulder",
       "layer": "back"
-    },
-    {
-      "x": 2540,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "!"
     },
     {
       "x": 2600,

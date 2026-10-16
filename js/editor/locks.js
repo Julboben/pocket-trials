@@ -3,9 +3,9 @@
 // working, not part of the trail, so they live in local storage and never in
 // the trail file.
 //
-// Group locks apply to every trail. Item locks belong to one trail: a block is
-// known by its id, and anything else by its content, which can't change while
-// it is locked.
+// Both kinds of lock belong to one trail: locking the props on one trail leaves
+// them free on the next. A locked item is known by its block's id, or else by
+// its content, which can't change while it is locked.
 import { store } from "../local-store.js";
 import { isBackWall } from "../trail-schema.js";
 import { editor, waters } from "./state.js";
@@ -22,11 +22,13 @@ export const LOCK_GROUPS = [
   { key: "apples", label: "Apples" },
 ];
 
-const GROUPS_KEY = "hjulben-editor-locked-groups";
+// Group locks used to apply to every trail, under this one key.
+const OLD_GROUPS_KEY = "hjulben-editor-locked-groups";
+const GROUPS_PREFIX = "hjulben-editor-locked-groups-";
 const ITEMS_PREFIX = "hjulben-editor-locked-items-";
 
-let lockedGroups = null;
-let itemLocks = { id: undefined, keys: new Set() };
+// The locks of the trail they were read for; read again when another opens.
+let locks = { id: undefined, groups: new Set(), items: new Set() };
 
 function read(key) {
   try {
@@ -46,16 +48,36 @@ function write(key, set) {
   }
 }
 
-function groups() {
-  return (lockedGroups ??= read(GROUPS_KEY));
+/** The current trail's locks. A trail with no id yet keeps them until reload. */
+function current() {
+  const id = currentEntry()?.id ?? null;
+  if (locks.id !== id) {
+    locks =
+      id === null
+        ? { id, groups: new Set(), items: new Set() }
+        : { id, groups: read(GROUPS_PREFIX + id), items: read(ITEMS_PREFIX + id) };
+    try {
+      store().removeItem(OLD_GROUPS_KEY);
+    } catch (_) {}
+  }
+  return locks;
 }
 
-/** The current trail's item locks, read again when another trail is opened. */
-function items() {
-  const id = currentEntry()?.id ?? null;
-  if (itemLocks.id !== id)
-    itemLocks = { id, keys: id === null ? new Set() : read(ITEMS_PREFIX + id) };
-  return itemLocks.keys;
+const groups = () => current().groups;
+const items = () => current().items;
+
+/** Keep a trail's locks when it moves to a new id, as a rename does. */
+export function moveLocks(from, to) {
+  if (from === to) return;
+  try {
+    for (const prefix of [GROUPS_PREFIX, ITEMS_PREFIX]) {
+      const value = store().getItem(prefix + from);
+      if (value !== null) store().setItem(prefix + to, value);
+      store().removeItem(prefix + from);
+    }
+  } catch (_) {}
+  // Storage always holds the latest locks, so they are simply read again.
+  locks = { id: undefined, groups: new Set(), items: new Set() };
 }
 
 // ---- What an object is -----------------------------------------------------
@@ -170,7 +192,7 @@ export function anyLocked() {
 export function setGroupLocked(key, locked) {
   if (locked) groups().add(key);
   else groups().delete(key);
-  write(GROUPS_KEY, groups());
+  if (locks.id !== null) write(GROUPS_PREFIX + locks.id, groups());
 }
 
 export function setItemLocked(type, index, locked) {
@@ -189,7 +211,7 @@ export function setItemLocked(type, index, locked) {
  */
 export function pruneItemLocks() {
   const keys = items();
-  if (itemLocks.id === null) return;
+  if (locks.id === null) return;
   const present = new Set();
   const all = [
     ["block", editor.trail.terrainBlocks || []],
@@ -198,7 +220,7 @@ export function pruneItemLocks() {
   for (const [type, list] of all)
     list.forEach((_, index) => present.add(itemKey(type, index)));
   for (const key of keys) if (!present.has(key)) keys.delete(key);
-  write(ITEMS_PREFIX + itemLocks.id, keys);
+  write(ITEMS_PREFIX + locks.id, keys);
 }
 
 /** The group a drawing tool adds to, or null when it adds nothing lockable. */

@@ -109,6 +109,7 @@ const reported = (report, label) => {
   reported(report, 'locks');
   check('unlocked, a press on a back wall takes it', report.unlockedTakesWall === 'BACK WALL', `("${report.unlockedTakesWall}")`);
   check('the Objects tab opens and lists every group', report.panelShown && report.groupCount === 7);
+  check('a group lock is kept for this trail only', JSON.stringify(report.groupLockKeys) === '["hjulben-editor-locked-groups-t1"]', `(${JSON.stringify(report.groupLockKeys)})`);
   check('the tab shows a lock while anything is locked', report.badge === 'lock' && report.badgeGone === null);
   check('with back walls locked, a press on one draws a box that takes the apple', report.boxOverWall === 'apple', `(${report.boxOverWall})`);
   check('select all leaves a locked back wall out', JSON.stringify(report.selectAllBlocks) === '[0]', `(${report.selectAllBlocks})`);

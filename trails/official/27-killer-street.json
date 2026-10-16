@@ -1,15 +1,15 @@
 {
   "name": "Killer Street",
   "label": "KILLER STREET / 27",
-  "description": "Spikes: touch one and the run is over. The first one hangs well above the street, out of your way, so take a look at it. Further on they sit on the route with plenty of room between them: pop the kerb, keep your speed steady, and hop or roll through the gaps. Don't rush.",
-  "start": {
-    "x": 0,
-    "y": null,
-    "facing": 1
-  },
   "finish": {
     "x": 2700,
     "y": null
+  },
+  "description": "Spikes: touch one and the run is over. The first one hangs well above the street, out of your way, so take a look at it. Further on they sit on the route with plenty of room between them: pop the kerb, keep your speed steady, and hop or roll through the gaps. Don't rush.",
+  "start": {
+    "x": 90,
+    "y": null,
+    "facing": 1
   },
   "terrainBlocks": [
     {
@@ -97,7 +97,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "street-9",
@@ -287,37 +287,8 @@
   ],
   "spikes": [
     {
-      "id": "spike-1",
       "x": 600,
       "y": 250,
-      "radius": 14,
-      "spin": 0
-    },
-    {
-      "id": "spike-2",
-      "x": 820,
-      "y": 386,
-      "radius": 14,
-      "spin": 0
-    },
-    {
-      "id": "spike-3",
-      "x": 1600,
-      "y": 386,
-      "radius": 14,
-      "spin": 0
-    },
-    {
-      "id": "spike-4",
-      "x": 2000,
-      "y": 386,
-      "radius": 14,
-      "spin": 0
-    },
-    {
-      "id": "spike-5",
-      "x": 2240,
-      "y": 386,
       "radius": 14,
       "spin": 0
     }

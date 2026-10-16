@@ -1,19 +1,15 @@
 {
   "name": "Rooftops",
   "label": "ROOFTOPS / 30",
-  "description": "The City finale, at night across the rooftops. Fly the gaps between buildings off the low parapets: 90, 100, 100 and 100 units across. Pop up the box on the third roof, mind the spikes and keep away from the spinner above the last gap: jump long, not high. The flag halfway along saves your progress.",
-  "start": {
-    "x": 0,
-    "y": null,
-    "facing": 1
-  },
   "finish": {
     "x": 3650,
     "y": null
   },
-  "checkpoint": {
-    "x": 1600,
-    "y": null
+  "description": "The City finale, at night across the rooftops. Fly the gaps between buildings off the low parapets: 90, 100, 100 and 100 units across. Pop up the box on the third roof, mind the spikes and keep away from the spinner above the last gap: jump long, not high. The flag halfway along saves your progress.",
+  "start": {
+    "x": 90,
+    "y": null,
+    "facing": 1
   },
   "terrainBlocks": [
     {
@@ -56,7 +52,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "roof-1-4",
@@ -132,7 +128,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "roof-2-2",
@@ -208,7 +204,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "roof-3-2",
@@ -284,7 +280,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "roof-4-2",
@@ -479,63 +475,12 @@
       "y": null
     }
   ],
-  "spikes": [
-    {
-      "id": "spike-1",
-      "x": 1200,
-      "y": 396,
-      "radius": 14,
-      "spin": 0
-    },
-    {
-      "id": "spike-2",
-      "x": 1650,
-      "y": 382,
-      "radius": 14,
-      "spin": 0
-    },
-    {
-      "id": "spike-3",
-      "x": 2420,
-      "y": 386,
-      "radius": 14,
-      "spin": 0
-    },
-    {
-      "id": "spike-4",
-      "x": 2620,
-      "y": 386,
-      "radius": 14,
-      "spin": 0
-    },
-    {
-      "id": "spike-5",
-      "x": 2950,
-      "y": 250,
-      "radius": 18,
-      "spin": 2
-    },
-    {
-      "id": "spike-6",
-      "x": 3300,
-      "y": 406,
-      "radius": 14,
-      "spin": 0
-    }
-  ],
   "props": [
     {
       "x": -60,
       "y": null,
       "type": "lamp",
       "layer": "back"
-    },
-    {
-      "x": 500,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "! GAP"
     },
     {
       "x": 1770,
@@ -548,13 +493,6 @@
       "y": null,
       "type": "crane",
       "layer": "back"
-    },
-    {
-      "x": 2800,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "! LONG"
     },
     {
       "x": 3700,
@@ -575,10 +513,34 @@
       "layer": "back"
     }
   ],
+  "spikes": [
+    {
+      "x": 741.7261312414591,
+      "y": 412.78691822688086,
+      "radius": 14,
+      "spin": 0
+    },
+    {
+      "x": 1448.4179083681424,
+      "y": 427.2150570370227,
+      "radius": 14,
+      "spin": 0
+    },
+    {
+      "x": 2950,
+      "y": 250,
+      "radius": 18,
+      "spin": 2
+    }
+  ],
   "water": [],
   "weather": {
     "sun": 0,
     "clouds": 0.35
+  },
+  "checkpoint": {
+    "x": 1600,
+    "y": null
   },
   "timeOfDay": "night",
   "backdrop": "city",

@@ -1,15 +1,15 @@
 {
   "name": "Thunderhead",
   "label": "THUNDERHEAD / 34",
-  "description": "A night storm on the ridge. It's pitch dark between the lightning flashes: each flash lights up the whole route for a moment, so watch what's ahead and remember it. Pop the rock step, hit the kicker over the 100 unit gap with speed, climb the ridge and roll off the ledge on the far side. The rain makes the rock slippery: go easy on the throttle on the climbs.",
-  "start": {
-    "x": 0,
-    "y": null,
-    "facing": 1
-  },
   "finish": {
     "x": 2850,
-    "y": null
+    "y": 266
+  },
+  "description": "A night storm on the ridge. It's pitch dark between the lightning flashes: each flash lights up the whole route for a moment, so watch what's ahead and remember it. Pop the rock step, hit the kicker over the 100 unit gap with speed, climb the ridge and roll off the ledge on the far side. The rain makes the rock slippery: go easy on the throttle on the climbs.",
+  "start": {
+    "x": 90,
+    "y": null,
+    "facing": 1
   },
   "terrainBlocks": [
     {
@@ -34,7 +34,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ridge-1-2",
@@ -46,7 +46,7 @@
               40
             ],
             "out": [
-              -380.0,
+              -380,
               40
             ],
             "edge": "curve"
@@ -57,7 +57,7 @@
             "y": 300,
             "mode": "smooth",
             "in": [
-              -340.0,
+              -340,
               300
             ],
             "out": [
@@ -76,7 +76,7 @@
               300
             ],
             "out": [
-              260.0,
+              260,
               300
             ],
             "edge": "curve"
@@ -87,11 +87,11 @@
             "y": 270,
             "mode": "smooth",
             "in": [
-              320.0,
+              320,
               270
             ],
             "out": [
-              440.0,
+              440,
               270
             ],
             "edge": "curve"
@@ -102,11 +102,11 @@
             "y": 300,
             "mode": "smooth",
             "in": [
-              500.0,
+              500,
               300
             ],
             "out": [
-              640.0,
+              640,
               300
             ],
             "edge": "curve"
@@ -127,7 +127,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ridge-1-9",
@@ -135,7 +135,7 @@
             "y": 272,
             "mode": "smooth",
             "in": [
-              1000.0,
+              1000,
               272
             ],
             "out": [
@@ -180,7 +180,7 @@
             "y": 300,
             "mode": "independent",
             "in": [
-              1704.0,
+              1704,
               310.5
             ],
             "out": [
@@ -233,7 +233,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ridge-2-2",
@@ -311,7 +311,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ridge-2-8",
@@ -319,11 +319,11 @@
             "y": 316,
             "mode": "smooth",
             "in": [
-              2668.0,
+              2668,
               316
             ],
             "out": [
-              2800.0,
+              2800,
               316
             ],
             "edge": "curve"
@@ -334,11 +334,11 @@
             "y": 316,
             "mode": "smooth",
             "in": [
-              2900.0,
+              2900,
               316
             ],
             "out": [
-              3040.0,
+              3040,
               316
             ],
             "edge": "curve"
@@ -349,7 +349,7 @@
             "y": 60,
             "mode": "smooth",
             "in": [
-              3080.0,
+              3080,
               60
             ],
             "out": [
@@ -397,26 +397,6 @@
     {
       "x": 2550,
       "y": null
-    },
-    {
-      "x": 2750,
-      "y": null
-    }
-  ],
-  "spikes": [
-    {
-      "id": "spike-1",
-      "x": 1450,
-      "y": 316,
-      "radius": 14,
-      "spin": 0
-    },
-    {
-      "id": "spike-2",
-      "x": 2200,
-      "y": 316,
-      "radius": 14,
-      "spin": 0
     }
   ],
   "props": [
@@ -446,13 +426,6 @@
       "text": "STORM"
     },
     {
-      "x": 700,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "! STEP"
-    },
-    {
       "x": 1000,
       "y": null,
       "type": "cairn",
@@ -463,13 +436,6 @@
       "y": null,
       "type": "snow-pine",
       "layer": "back"
-    },
-    {
-      "x": 1550,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "! GAP"
     },
     {
       "x": 1680,
@@ -490,13 +456,6 @@
       "layer": "back"
     },
     {
-      "x": 2560,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "! DROP"
-    },
-    {
       "x": 2800,
       "y": null,
       "type": "cairn",
@@ -507,6 +466,14 @@
       "y": 60,
       "type": "snow-pine",
       "layer": "back"
+    }
+  ],
+  "spikes": [
+    {
+      "x": 1840,
+      "y": 316,
+      "radius": 14,
+      "spin": 0
     }
   ],
   "water": [],

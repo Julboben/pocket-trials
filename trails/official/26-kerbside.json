@@ -350,13 +350,6 @@
       "layer": "back"
     },
     {
-      "x": 120,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "KERBS"
-    },
-    {
       "x": 300,
       "y": null,
       "type": "cone",
@@ -397,13 +390,6 @@
       "y": null,
       "type": "lamp",
       "layer": "back"
-    },
-    {
-      "x": 1450,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "STAIRS"
     },
     {
       "x": 1640,

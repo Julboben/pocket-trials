@@ -1,15 +1,15 @@
 {
   "name": "Spin Cycle",
   "label": "SPIN CYCLE / 28",
-  "description": "Spinning spikes and spikes hanging under ledges: this time it's how high you go that matters. Under the ledges, stay low: no wheelies and no big hops. Pop the kerbs gently. Off the ramp, the spinning spikes hang above the landing, so jump long and flat, not high. Time your run past the spinners.",
-  "start": {
-    "x": 0,
-    "y": null,
-    "facing": 1
-  },
   "finish": {
     "x": 2800,
     "y": null
+  },
+  "description": "Spinning spikes and spikes hanging under ledges: this time it's how high you go that matters. Under the ledges, stay low: no wheelies and no big hops. Pop the kerbs gently. Off the ramp, the spinning spikes hang above the landing, so jump long and flat, not high. Time your run past the spinners.",
+  "start": {
+    "x": 90,
+    "y": null,
+    "facing": 1
   },
   "terrainBlocks": [
     {
@@ -97,7 +97,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "street-9",
@@ -305,7 +305,7 @@
     },
     {
       "x": 800,
-      "y": null
+      "y": 320
     },
     {
       "x": 1250,
@@ -313,73 +313,15 @@
     },
     {
       "x": 1900,
-      "y": null
+      "y": 330
     },
     {
       "x": 2120,
-      "y": null
+      "y": 330
     },
     {
       "x": 2700,
       "y": null
-    }
-  ],
-  "spikes": [
-    {
-      "id": "spike-1",
-      "x": 720,
-      "y": 282,
-      "radius": 14,
-      "spin": 0
-    },
-    {
-      "id": "spike-2",
-      "x": 880,
-      "y": 282,
-      "radius": 14,
-      "spin": 0
-    },
-    {
-      "id": "spike-3",
-      "x": 1250,
-      "y": 250,
-      "radius": 18,
-      "spin": 1.5
-    },
-    {
-      "id": "spike-4",
-      "x": 1800,
-      "y": 290,
-      "radius": 16,
-      "spin": -2
-    },
-    {
-      "id": "spike-5",
-      "x": 1990,
-      "y": 272,
-      "radius": 14,
-      "spin": 0
-    },
-    {
-      "id": "spike-6",
-      "x": 2250,
-      "y": 272,
-      "radius": 14,
-      "spin": 0
-    },
-    {
-      "id": "spike-7",
-      "x": 2120,
-      "y": 272,
-      "radius": 12,
-      "spin": 0
-    },
-    {
-      "id": "spike-8",
-      "x": 2650,
-      "y": 200,
-      "radius": 18,
-      "spin": 2
     }
   ],
   "props": [
@@ -486,6 +428,44 @@
       "y": 240,
       "type": "bird",
       "layer": "back"
+    }
+  ],
+  "spikes": [
+    {
+      "x": 1250,
+      "y": 250,
+      "radius": 18,
+      "spin": 1.5
+    },
+    {
+      "x": 1800,
+      "y": 290,
+      "radius": 16,
+      "spin": -2
+    },
+    {
+      "x": 1990,
+      "y": 272,
+      "radius": 14,
+      "spin": 0
+    },
+    {
+      "x": 2250,
+      "y": 272,
+      "radius": 14,
+      "spin": 0
+    },
+    {
+      "x": 2120,
+      "y": 272,
+      "radius": 12,
+      "spin": 0
+    },
+    {
+      "x": 2650,
+      "y": 200,
+      "radius": 18,
+      "spin": 2
     }
   ],
   "water": [],

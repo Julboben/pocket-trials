@@ -58,7 +58,10 @@ button:hover, .back-game:hover { background: var(--color-surface-hover); }
 .side-panel { flex: 1; }
 .tool-group { margin-bottom: 12px; }
 /* The Objects tab: every group and item on the trail, with its lock. */
-.side-tab[data-icon-after]::after { margin-left: 5px; --px: 1px; }
+/* A badge beside the label. Its negative right margin cancels its own width, so
+   the label stays centred and on one line, as it is without the badge. */
+.side-tab { display: flex; align-items: center; justify-content: center; white-space: nowrap; }
+.side-tab[data-icon-after]::after { --px: 1px; --gap: 6px; margin: 0 calc(-1 * (var(--icon-w) * var(--px) + var(--gap))) 0 var(--gap); }
 .objects-hint { margin: 0 0 10px; color: var(--color-text-muted); font-size: var(--text-xs); line-height: 1.4; }
 .object-groups, .object-items { margin: 0; padding: 0; list-style: none; }
 .object-groups { display: grid; gap: 4px; }

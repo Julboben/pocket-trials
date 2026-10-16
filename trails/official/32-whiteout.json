@@ -1,15 +1,15 @@
 {
   "name": "Whiteout",
   "label": "WHITEOUT / 32",
-  "description": "The fog closes in and you can't see far ahead. Trust the markers: the ski lift pylons run along the route, cairns mark the safe line, and the signs warn of what's coming before you can see it. A drop, a gully, a kicker and a step-up are hidden in the white. Ride at a speed that lets you react.",
-  "start": {
-    "x": 0,
-    "y": null,
-    "facing": 1
-  },
   "finish": {
     "x": 3450,
-    "y": null
+    "y": 270
+  },
+  "description": "The fog closes in and you can't see far ahead. Trust the markers: the ski lift pylons run along the route, cairns mark the safe line, and the signs warn of what's coming before you can see it. A drop, a gully, a kicker and a step-up are hidden in the white. Ride at a speed that lets you react.",
+  "start": {
+    "x": 90,
+    "y": null,
+    "facing": 1
   },
   "terrainBlocks": [
     {
@@ -34,7 +34,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-2",
@@ -46,7 +46,7 @@
               40
             ],
             "out": [
-              -380.0,
+              -380,
               40
             ],
             "edge": "curve"
@@ -57,7 +57,7 @@
             "y": 300,
             "mode": "smooth",
             "in": [
-              -340.0,
+              -340,
               300
             ],
             "out": [
@@ -76,7 +76,7 @@
               300
             ],
             "out": [
-              340.0,
+              340,
               300
             ],
             "edge": "curve"
@@ -87,11 +87,11 @@
             "y": 250,
             "mode": "smooth",
             "in": [
-              430.0,
+              430,
               250
             ],
             "out": [
-              600.0,
+              600,
               250
             ],
             "edge": "curve"
@@ -102,7 +102,7 @@
             "y": 300,
             "mode": "smooth",
             "in": [
-              680.0,
+              680,
               300
             ],
             "out": [
@@ -127,7 +127,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-9",
@@ -165,11 +165,11 @@
             "y": 440,
             "mode": "independent",
             "in": [
-              1591.0,
+              1591,
               415.5
             ],
             "out": [
-              1682.0,
+              1682,
               443.5
             ],
             "edge": "curve"
@@ -180,11 +180,11 @@
             "y": 450,
             "mode": "smooth",
             "in": [
-              1720.0,
+              1720,
               450
             ],
             "out": [
-              1800.0,
+              1800,
               450
             ],
             "edge": "curve"
@@ -195,11 +195,11 @@
             "y": 440,
             "mode": "independent",
             "in": [
-              1838.0,
+              1838,
               443.5
             ],
             "out": [
-              1929.0,
+              1929,
               415.5
             ],
             "edge": "curve"
@@ -229,7 +229,7 @@
               360
             ],
             "out": [
-              2360.0,
+              2360,
               360
             ],
             "edge": "curve"
@@ -240,12 +240,12 @@
             "y": 320,
             "mode": "independent",
             "in": [
-              2417.0,
-              334.0
+              2417,
+              334
             ],
             "out": [
-              2501.0,
-              313.0
+              2501,
+              313
             ],
             "edge": "curve"
           },
@@ -265,7 +265,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-19",
@@ -298,7 +298,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-22",
@@ -325,7 +325,7 @@
               300
             ],
             "out": [
-              3600.0,
+              3600,
               300
             ],
             "edge": "curve"
@@ -336,11 +336,11 @@
             "y": 60,
             "mode": "smooth",
             "in": [
-              3640.0,
+              3640,
               60
             ],
             "out": [
-              3820.0,
+              3820,
               60
             ],
             "edge": "curve"
@@ -458,24 +458,10 @@
       "layer": "front"
     },
     {
-      "x": 880,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "! DROP"
-    },
-    {
       "x": 960,
       "y": null,
       "type": "cairn",
       "layer": "front"
-    },
-    {
-      "x": 1440,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "GULLY"
     },
     {
       "x": 1600,
@@ -490,24 +476,10 @@
       "layer": "front"
     },
     {
-      "x": 2360,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "JUMP \u2192"
-    },
-    {
       "x": 2620,
       "y": null,
       "type": "cairn",
       "layer": "front"
-    },
-    {
-      "x": 2880,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "! STEP"
     },
     {
       "x": 3050,
