@@ -766,13 +766,13 @@
     {
       "x": 760,
       "y": 158,
-      "type": "stalactite",
+      "type": "stalactites",
       "layer": "back"
     },
     {
       "x": 1020,
       "y": 208,
-      "type": "stalactite",
+      "type": "stalactites",
       "layer": "back"
     },
     {
@@ -791,13 +791,13 @@
     {
       "x": 1300,
       "y": 196,
-      "type": "stalactite",
+      "type": "stalactites",
       "layer": "back"
     },
     {
       "x": 1400,
       "y": 196,
-      "type": "stalactite",
+      "type": "stalactites",
       "layer": "back"
     },
     {
@@ -810,7 +810,7 @@
     {
       "x": 1760,
       "y": 226,
-      "type": "stalactite",
+      "type": "stalactites",
       "layer": "back"
     },
     {
@@ -828,13 +828,13 @@
     {
       "x": 2050,
       "y": 242,
-      "type": "stalactite",
+      "type": "stalactites",
       "layer": "back"
     },
     {
       "x": 2200,
       "y": 242,
-      "type": "stalactite",
+      "type": "stalactites",
       "layer": "back"
     },
     {

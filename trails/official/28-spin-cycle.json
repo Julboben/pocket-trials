@@ -386,7 +386,7 @@
     {
       "x": -80,
       "y": null,
-      "type": "street-lamp",
+      "type": "lamp",
       "layer": "back"
     },
     {
@@ -411,7 +411,7 @@
     {
       "x": 700,
       "y": 250,
-      "type": "pigeon",
+      "type": "bird",
       "layer": "back"
     },
     {
@@ -472,13 +472,7 @@
     {
       "x": 2560,
       "y": 370,
-      "type": "street-lamp",
-      "layer": "back"
-    },
-    {
-      "x": 2820,
-      "y": 370,
-      "type": "bench",
+      "type": "lamp",
       "layer": "back"
     },
     {
@@ -490,7 +484,7 @@
     {
       "x": 2100,
       "y": 240,
-      "type": "pigeon",
+      "type": "bird",
       "layer": "back"
     }
   ],

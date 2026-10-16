@@ -1294,7 +1294,7 @@
     {
       "x": 1300,
       "y": 40,
-      "type": "bat",
+      "type": "bats",
       "layer": "back"
     },
     {
@@ -1312,7 +1312,7 @@
     {
       "x": 1900,
       "y": 560,
-      "type": "glow-mushroom",
+      "type": "mushrooms",
       "layer": "back"
     },
     {
@@ -1331,7 +1331,7 @@
     {
       "x": 2280,
       "y": 420,
-      "type": "glow-mushroom",
+      "type": "mushrooms",
       "layer": "front"
     },
     {
@@ -1349,7 +1349,7 @@
     {
       "x": 2600,
       "y": 300,
-      "type": "beam",
+      "type": "beams",
       "layer": "back"
     },
     {
@@ -1367,7 +1367,7 @@
     {
       "x": 1871.8449228285867,
       "y": -29.382153606330235,
-      "type": "bat",
+      "type": "bats",
       "layer": "back"
     },
     {

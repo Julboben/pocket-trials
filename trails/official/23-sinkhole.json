@@ -455,13 +455,13 @@
     {
       "x": 1000,
       "y": 440,
-      "type": "glow-mushroom",
+      "type": "mushrooms",
       "layer": "front"
     },
     {
       "x": 1050,
       "y": 296,
-      "type": "bat",
+      "type": "bats",
       "layer": "back"
     },
     {
@@ -473,25 +473,25 @@
     {
       "x": 1250,
       "y": 302,
-      "type": "stalactite",
+      "type": "stalactites",
       "layer": "back"
     },
     {
       "x": 1420,
       "y": 302,
-      "type": "bat",
+      "type": "bats",
       "layer": "back"
     },
     {
       "x": 1480,
       "y": 440,
-      "type": "glow-mushroom",
+      "type": "mushrooms",
       "layer": "back"
     },
     {
       "x": 1560,
       "y": 440,
-      "type": "glow-mushroom",
+      "type": "mushrooms",
       "layer": "front"
     },
     {
@@ -503,13 +503,13 @@
     {
       "x": 1800,
       "y": 440,
-      "type": "glow-mushroom",
+      "type": "mushrooms",
       "layer": "back"
     },
     {
       "x": 1840,
       "y": 300,
-      "type": "bat",
+      "type": "bats",
       "layer": "back"
     },
     {

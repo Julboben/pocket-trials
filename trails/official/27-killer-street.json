@@ -196,7 +196,7 @@
     {
       "x": -80,
       "y": null,
-      "type": "street-lamp",
+      "type": "lamp",
       "layer": "back"
     },
     {
@@ -209,7 +209,7 @@
     {
       "x": 300,
       "y": null,
-      "type": "pigeon",
+      "type": "bird",
       "layer": "front"
     },
     {
@@ -221,7 +221,7 @@
     {
       "x": 660,
       "y": null,
-      "type": "pigeon",
+      "type": "bird",
       "layer": "back"
     },
     {
@@ -245,13 +245,13 @@
     {
       "x": 1250,
       "y": 374,
-      "type": "pigeon",
+      "type": "bird",
       "layer": "front"
     },
     {
       "x": 1520,
       "y": null,
-      "type": "street-lamp",
+      "type": "lamp",
       "layer": "back"
     },
     {
@@ -263,7 +263,7 @@
     {
       "x": 1880,
       "y": null,
-      "type": "pigeon",
+      "type": "bird",
       "layer": "front"
     },
     {
@@ -281,13 +281,7 @@
     {
       "x": 2650,
       "y": null,
-      "type": "street-lamp",
-      "layer": "back"
-    },
-    {
-      "x": 2750,
-      "y": null,
-      "type": "bench",
+      "type": "lamp",
       "layer": "back"
     }
   ],

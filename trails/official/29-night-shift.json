@@ -288,97 +288,67 @@
     {
       "x": 40,
       "y": null,
-      "type": "street-lamp",
+      "type": "lamp",
       "layer": "back"
     },
     {
       "x": 420,
       "y": null,
-      "type": "street-lamp",
+      "type": "lamp",
       "layer": "back"
     },
     {
       "x": 780,
       "y": null,
-      "type": "street-lamp",
+      "type": "lamp",
       "layer": "back"
     },
     {
       "x": 1250,
       "y": null,
-      "type": "street-lamp",
+      "type": "lamp",
       "layer": "back"
     },
     {
       "x": 1500,
       "y": null,
-      "type": "street-lamp",
+      "type": "lamp",
       "layer": "back"
     },
     {
       "x": 1700,
       "y": null,
-      "type": "street-lamp",
+      "type": "lamp",
       "layer": "back"
     },
     {
       "x": 2050,
       "y": null,
-      "type": "street-lamp",
+      "type": "lamp",
       "layer": "back"
     },
     {
       "x": 2450,
       "y": null,
-      "type": "street-lamp",
+      "type": "lamp",
       "layer": "back"
     },
     {
       "x": 2700,
       "y": null,
-      "type": "street-lamp",
-      "layer": "back"
-    },
-    {
-      "x": -300,
-      "y": 100,
-      "type": "lit-windows",
-      "layer": "back"
-    },
-    {
-      "x": 300,
-      "y": null,
-      "type": "lit-windows",
-      "layer": "back"
-    },
-    {
-      "x": 1000,
-      "y": null,
-      "type": "lit-windows",
-      "layer": "back"
-    },
-    {
-      "x": 1900,
-      "y": null,
-      "type": "lit-windows",
-      "layer": "back"
-    },
-    {
-      "x": 2550,
-      "y": null,
-      "type": "lit-windows",
+      "type": "lamp",
       "layer": "back"
     },
     {
       "x": 1100,
       "y": null,
-      "type": "crane-lights",
+      "type": "crane",
       "layer": "back"
     },
     {
       "x": 2250,
       "y": null,
-      "type": "crane-lights",
+      "type": "crane",
       "layer": "back"
     },
     {
@@ -403,7 +373,7 @@
     {
       "x": 1700,
       "y": 360,
-      "type": "pigeon",
+      "type": "bird",
       "layer": "back"
     },
     {
@@ -411,12 +381,6 @@
       "y": null,
       "type": "barrier",
       "layer": "front"
-    },
-    {
-      "x": 3000,
-      "y": 48,
-      "type": "lit-windows",
-      "layer": "back"
     }
   ],
   "water": [],

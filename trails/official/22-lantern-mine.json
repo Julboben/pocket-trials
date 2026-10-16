@@ -496,7 +496,7 @@
     {
       "x": 420,
       "y": 300,
-      "type": "beam",
+      "type": "beams",
       "layer": "back"
     },
     {
@@ -514,7 +514,7 @@
     {
       "x": 700,
       "y": 345,
-      "type": "beam",
+      "type": "beams",
       "layer": "back"
     },
     {
@@ -526,7 +526,7 @@
     {
       "x": 1050,
       "y": 420,
-      "type": "beam",
+      "type": "beams",
       "layer": "back"
     },
     {
@@ -551,7 +551,7 @@
     {
       "x": 1400,
       "y": 490,
-      "type": "beam",
+      "type": "beams",
       "layer": "back"
     },
     {
@@ -575,7 +575,7 @@
     {
       "x": 1800,
       "y": 520,
-      "type": "beam",
+      "type": "beams",
       "layer": "back"
     },
     {
@@ -593,7 +593,7 @@
     {
       "x": 2060,
       "y": 440,
-      "type": "beam",
+      "type": "beams",
       "layer": "back"
     },
     {

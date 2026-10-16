@@ -527,19 +527,7 @@
     {
       "x": -60,
       "y": null,
-      "type": "street-lamp",
-      "layer": "back"
-    },
-    {
-      "x": 150,
-      "y": null,
-      "type": "sponsor-banner",
-      "layer": "back"
-    },
-    {
-      "x": 300,
-      "y": null,
-      "type": "lit-windows",
+      "type": "lamp",
       "layer": "back"
     },
     {
@@ -550,36 +538,6 @@
       "text": "! GAP"
     },
     {
-      "x": 950,
-      "y": null,
-      "type": "sponsor-banner",
-      "layer": "back"
-    },
-    {
-      "x": 1050,
-      "y": null,
-      "type": "chimney",
-      "layer": "back"
-    },
-    {
-      "x": 1300,
-      "y": null,
-      "type": "antenna",
-      "layer": "back"
-    },
-    {
-      "x": 1600,
-      "y": null,
-      "type": "halfway-flag",
-      "layer": "back"
-    },
-    {
-      "x": 1560,
-      "y": null,
-      "type": "lit-windows",
-      "layer": "back"
-    },
-    {
       "x": 1770,
       "y": 370,
       "type": "water-tower",
@@ -588,25 +546,7 @@
     {
       "x": 1950,
       "y": null,
-      "type": "crane-lights",
-      "layer": "back"
-    },
-    {
-      "x": 2300,
-      "y": null,
-      "type": "sponsor-banner",
-      "layer": "back"
-    },
-    {
-      "x": 2520,
-      "y": null,
-      "type": "chimney",
-      "layer": "back"
-    },
-    {
-      "x": 2700,
-      "y": null,
-      "type": "lit-windows",
+      "type": "crane",
       "layer": "back"
     },
     {
@@ -617,33 +557,21 @@
       "text": "! LONG"
     },
     {
-      "x": 3150,
-      "y": null,
-      "type": "antenna",
-      "layer": "back"
-    },
-    {
-      "x": 3450,
-      "y": null,
-      "type": "sponsor-banner",
-      "layer": "back"
-    },
-    {
       "x": 3700,
       "y": null,
-      "type": "street-lamp",
+      "type": "lamp",
       "layer": "back"
     },
     {
       "x": 650,
       "y": null,
-      "type": "pigeon",
+      "type": "bird",
       "layer": "back"
     },
     {
       "x": 2200,
       "y": null,
-      "type": "pigeon",
+      "type": "bird",
       "layer": "back"
     }
   ],
