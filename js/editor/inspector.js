@@ -34,6 +34,7 @@ import { pushHistory, updateHistoryButtons } from "./history.js";
 import { scheduleAutosave } from "./autosave.js";
 import { updateVersionChip } from "./drafts.js";
 import { closeMenu, updateValidationBadge } from "./menu.js";
+import { renderObjects } from "./objects.js";
 import { showStatus } from "./status.js";
 import {
   finishY,
@@ -47,6 +48,7 @@ import {
   groupTitle,
   itemsCentre,
   moveItems,
+  releaseLocked,
   revealItem,
   selectionItems,
 } from "./selection.js";
@@ -137,6 +139,7 @@ const BLOCK_KINDS = [
  * they wait until the pointer pauses or is released.
  */
 export function syncInspector({ live = false } = {}) {
+  releaseLocked();
   syncTerrain();
   $("trail-name").value = editor.trail.name;
   $("trail-author").value = editor.trail.author || "";
@@ -249,6 +252,7 @@ function syncDetails() {
   const json = JSON.stringify(editor.trail, null, 2);
   $("trail-json").value = json;
   updateVersionChip(json);
+  renderObjects();
   scheduleAutosave();
   const messages = validateTrail(editor.trail);
   $("validation-list").replaceChildren(

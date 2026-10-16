@@ -554,6 +554,27 @@ export default {
     ####.####
     #########
   `,
+  // An open padlock, for what the editor's Objects tab has left unlocked.
+  unlock: `
+    ..#####..
+    .##...##.
+    .#.....#.
+    .......#.
+    #########
+    ####.####
+    ###...###
+    ####.####
+    #########
+  `,
+  // The Objects tab's groups, closed and open.
+  'caret-right': `
+    #..
+    ##.
+    ###
+    ##.
+    #..
+  `,
+  'caret-down': { rotate: 'caret-right', turns: 1 },
   garage: `
     ....#....
     ...###...

@@ -382,6 +382,88 @@ if (kind === 'rotate') {
 
 // A roof or cave ceiling placed or dragged over something standing on the
 // ground must not lift it onto the new top.
+// Locking a group or an item in the Objects tab, and what it then refuses.
+if (kind === 'locks') {
+  const { editor } = await import('../../js/editor/state.js');
+  // Find the camera as the interact checks do.
+  toolButton('apple').click();
+  fire('pointerdown', { clientX: 0, clientY: 0 });
+  fire('pointerup');
+  const probe = current().apples.at(-1);
+  cameraX = probe.x;
+  cameraY = probe.y;
+  document.getElementById('undo').click();
+  toolButton('select').click();
+
+  const out = { errors: [] };
+  const title = () => document.getElementById('selection-title').textContent;
+  const groupRow = key => document.getElementById('object-groups').children[['terrain', 'back', 'backProps', 'frontProps', 'water', 'spikes', 'apples'].indexOf(key)];
+  const groupLock = key => groupRow(key).children[0].children[1];
+  const box = () => {
+    drag([1000, 100], [1400, 500]);
+    return editor.selection;
+  };
+
+  // Unlocked, a press on the back wall takes the back wall.
+  drag([1100, 100], [1100, 100]);
+  out.unlockedTakesWall = title();
+  editor.selection = null;
+
+  // The stub DOM only finds tool buttons by selector, so the tab is opened directly.
+  const { setTab } = await import('../../js/editor/tools.js');
+  setTab('objects');
+  out.panelShown = document.getElementById('panel-objects').hidden === false;
+  out.groupCount = document.getElementById('object-groups').children.length;
+  groupLock('back').click();
+  out.badge = document.getElementById('tab-objects').getAttribute('data-icon-after');
+  // Locked, the same press draws a box, which takes only the apple.
+  out.boxOverWall = box()?.kind ?? null;
+  key('a', { code: 'KeyA', metaKey: true });
+  out.selectAllBlocks = (editor.selection.items || []).filter(item => item.type === 'block').map(item => item.index);
+  // The Block tool can't add to a locked group.
+  const { toolSettings } = await import('../../js/editor/tools.js');
+  toolButton('block').click();
+  toolSettings.block.layer = 'back';
+  const blocksBefore = current().terrainBlocks.length;
+  drag([1000, 700], [1200, 800], { altKey: true });
+  out.blockRefused = current().terrainBlocks.length === blocksBefore;
+  toolSettings.block.layer = 'terrain';
+  toolButton('select').click();
+
+  // Unlocking the group, then locking only the apple.
+  groupLock('back').click();
+  out.badgeGone = document.getElementById('tab-objects').getAttribute('data-icon-after');
+  groupRow('apples').children[0].children[0].click();
+  const appleRow = groupRow('apples').children[1].children[0];
+  out.appleName = appleRow.children[0].textContent;
+  appleRow.children[1].click();
+  editor.selection = null;
+  // Cmd draws a box even over the (now unlocked) back wall.
+  drag([1150, 250], [1250, 350], { metaKey: true });
+  out.lockedAppleBoxed = editor.selection?.kind ?? null;
+  out.notInFile = !/"locked"|"lock"/.test(JSON.stringify(current()));
+
+  // Locking what is selected lets go of it.
+  drag([200, 450], [200, 450]);
+  out.slabSelected = editor.selection?.kind ?? null;
+  groupLock('terrain').click();
+  out.releasedOnLock = editor.selection;
+  groupLock('terrain').click();
+
+  // A cut skips a locked group: lock the terrain and cut through the slab.
+  groupLock('terrain').click();
+  const slab = JSON.stringify(current().terrainBlocks[0]);
+  toolButton('cut').click();
+  toolSettings.cut.layer = 'terrain';
+  fire('pointerdown', world(380, 250));
+  for (const [x, y] of [[420, 250], [420, 650], [380, 650]]) fire('pointermove', world(x, y));
+  fire('pointerup');
+  out.cutRefused = JSON.stringify(current().terrainBlocks[0]) === slab && current().terrainBlocks.length === 2;
+  groupLock('terrain').click();
+  process.stdout.write(JSON.stringify(out));
+  process.exit(0);
+}
+
 if (kind === 'covered') {
   toolButton('apple').click();
   fire('pointerdown', { clientX: 0, clientY: 0 });

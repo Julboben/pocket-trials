@@ -12,6 +12,7 @@ import {
 } from "../terrain-geometry.js";
 import { ctx } from "./dom.js";
 import { pushHistory } from "./history.js";
+import { isBlockLocked } from "./locks.js";
 import { syncInspector } from "./inspector.js";
 import { floorUnder, groundY, render } from "./render.js";
 import { blocksSelection } from "./selection.js";
@@ -439,7 +440,8 @@ export function commitShape(kind, points, closed, rect = false, circle = null) {
   };
   let reason = null;
   const back = toolLayer("cut") === "back";
-  const onLayer = (index) => blocks()[index] && isBackWall(blocks()[index]) === back;
+  const onLayer = (index) =>
+    blocks()[index] && isBackWall(blocks()[index]) === back && !isBlockLocked(index);
   // Cut from the last index down, so pieces inserted after a block never shift
   // the indices of the blocks still to be cut.
   const selected = selectedBlocks().filter(onLayer).sort((a, b) => b - a);

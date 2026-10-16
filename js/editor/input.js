@@ -57,7 +57,8 @@ import {
 import { gridSpacing, snapToAngleAndGrid } from "./snap.js";
 import { clampZoom, editor } from "./state.js";
 import { refuseEdit, refuseReadOnly, showStatus } from "./status.js";
-import { PREVIEW_TOOLS, TOOL_KEYS, setTool } from "./tools.js";
+import { PREVIEW_TOOLS, TOOL_KEYS, setTool, toolSettings } from "./tools.js";
+import { groupLabel, isGroupLocked, toolGroup } from "./locks.js";
 import { commitWater } from "./water.js";
 import { canSave, saveDraft, saveTrail } from "./trails.js";
 import {
@@ -444,6 +445,12 @@ export function bindInput() {
         cameraY: editor.cameraY,
       };
       canvas.setPointerCapture(event.pointerId);
+      return;
+    }
+    // A tool that adds to, or cuts, a locked group does nothing until it is unlocked.
+    const group = toolGroup(editor.tool, toolSettings);
+    if (!editor.readOnly && group && isGroupLocked(group)) {
+      showStatus("warning", `The ${groupLabel(group).toLowerCase()} group is locked. Unlock it in the Objects tab.`);
       return;
     }
     if (editor.tool === "block" || editor.tool === "cut" || editor.tool === "water") {

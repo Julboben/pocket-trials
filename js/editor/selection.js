@@ -14,6 +14,7 @@ import {
   withBoundary,
 } from "./blocks.js";
 import { pushHistory } from "./history.js";
+import { isBlockLocked, isHitLocked, isSelectionItemLocked } from "./locks.js";
 import {
   selectedPosition,
   syncInspector,
@@ -228,6 +229,21 @@ export function makeSelection(list) {
   return { kind: item.type, index: item.index };
 }
 
+/**
+ * Let go of anything locked: after locking it, or when undo, a paste or a
+ * layer change brings a locked thing back into the selection.
+ */
+export function releaseLocked() {
+  const selection = editor.selection;
+  if (!selection) return;
+  if (selection.kind !== "items") {
+    if (isHitLocked(selection)) editor.selection = null;
+    return;
+  }
+  const items = selection.items.filter((item) => !isSelectionItemLocked(item));
+  if (items.length !== selection.items.length) editor.selection = makeSelection(items);
+}
+
 export function blocksSelection(indices) {
   return makeSelection(indices.map((index) => ({ type: "block", index })));
 }
@@ -330,7 +346,7 @@ export function moveItems(x, y) {
 /**
  * Everything inside the box between two world points: blocks that are wholly
  * inside, points of the others, and apples, props, spikes and water (by the
- * middle of its surface).
+ * middle of its surface). Locked things are left out.
  */
 function itemsInBox(from, to) {
   const left = Math.min(from.x, to.x),
@@ -341,6 +357,7 @@ function itemsInBox(from, to) {
     x >= left && x <= right && y >= top && y <= bottom;
   const found = [];
   for (const [blockIndex, block] of blocks().entries()) {
+    if (isBlockLocked(blockIndex)) continue;
     const nodes = blockNodes(block);
     if (nodes.length && nodes.every((node) => inside([node.x, node.y]))) {
       found.push({ type: "block", index: blockIndex });
@@ -357,7 +374,7 @@ function itemsInBox(from, to) {
     list.forEach((_, index) => {
       const item = { type, index };
       const position = itemPosition(item);
-      if (position && inside(position)) found.push(item);
+      if (position && inside(position) && !isSelectionItemLocked(item)) found.push(item);
     });
   }
   for (const item of [{ type: "start" }, { type: "finish" }])
@@ -517,13 +534,16 @@ export function revealItem(item) {
   render();
 }
 
-/** Every block, apple, prop, spike and water body, and the start and finish. */
+/**
+ * Every block, apple, prop, spike and water body that isn't locked, and the
+ * start and finish.
+ */
 export function selectAll() {
   const items = blocks().map((_, index) => ({ type: "block", index }));
   for (const [type, list] of Object.entries(OBJECT_LISTS()))
     list.forEach((_, index) => items.push({ type, index }));
   items.push({ type: "start" }, { type: "finish" });
-  editor.selection = makeSelection(items);
+  editor.selection = makeSelection(items.filter((item) => !isSelectionItemLocked(item)));
   setTool("select");
   syncInspector();
   render();

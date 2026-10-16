@@ -4,6 +4,7 @@ import { SPIKE_RADIUS } from "../trail-schema.js";
 import { WATER_SIZE, WATER_WIPEOUT_DEPTH } from "../water.js";
 import { terrainMaterials } from "../trails.js";
 import { $, canvas } from "./dom.js";
+import { renderObjects } from "./objects.js";
 import { pickerSelect } from "./picker.js";
 import { editor } from "./state.js";
 import { refuseEdit } from "./status.js";
@@ -390,4 +391,6 @@ export function setTab(name) {
   });
   $("panel-tools").hidden = name !== "tools";
   $("panel-trail").hidden = name !== "trail";
+  $("panel-objects").hidden = name !== "objects";
+  renderObjects();
 }

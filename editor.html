@@ -163,6 +163,16 @@
                         >
                             TRAIL
                         </button>
+                        <button
+                            class="side-tab"
+                            role="tab"
+                            id="tab-objects"
+                            aria-selected="false"
+                            aria-controls="panel-objects"
+                            data-tab="objects"
+                        >
+                            OBJECTS
+                        </button>
                     </div>
 
                     <div
@@ -384,6 +394,21 @@
                                 /></label>
                             </fieldset>
                         </fieldset>
+                    </div>
+
+                    <div
+                        class="side-panel"
+                        id="panel-objects"
+                        role="tabpanel"
+                        aria-labelledby="tab-objects"
+                        hidden
+                    >
+                        <p class="objects-hint">
+                            Click a name to select it and bring it into view.
+                            Anything locked is still drawn, but can't be
+                            selected or changed.
+                        </p>
+                        <ul class="object-groups" id="object-groups"></ul>
                     </div>
 
                     <div class="toolbox-footer">

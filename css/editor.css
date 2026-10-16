@@ -51,12 +51,29 @@ button:hover, .back-game:hover { background: var(--color-surface-hover); }
 .inspector { width: 270px; visibility: visible; transition: visibility 0s; }
 .inspector:not(.open) { visibility: hidden; transition: visibility 0s .12s; }
 @media (prefers-reduced-motion: reduce) { .workspace, .inspector, .inspector:not(.open) { transition: none; } }
-.side-tabs { margin-bottom: 14px; display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--color-border); }
+.side-tabs { margin-bottom: 14px; display: grid; grid-template-columns: 1fr 1fr 1fr; border-bottom: 1px solid var(--color-border); }
 .side-tab { min-height: 34px; border: 0; border-bottom: 3px solid transparent; background: none; box-shadow: none; color: var(--color-text-muted); font-size: var(--text-sm); letter-spacing: 1.5px; }
 .side-tab:hover { background: none; color: var(--color-text); }
 .side-tab.active { border-bottom-color: var(--color-accent); color: var(--color-text); }
 .side-panel { flex: 1; }
 .tool-group { margin-bottom: 12px; }
+/* The Objects tab: every group and item on the trail, with its lock. */
+.side-tab[data-icon-after]::after { margin-left: 5px; --px: 1px; }
+.objects-hint { margin: 0 0 10px; color: var(--color-text-muted); font-size: var(--text-xs); line-height: 1.4; }
+.object-groups, .object-items { margin: 0; padding: 0; list-style: none; }
+.object-groups { display: grid; gap: 4px; }
+.object-items { margin: 3px 0 4px 12px; display: grid; gap: 2px; }
+.object-row { display: flex; gap: 4px; align-items: stretch; }
+.object-row button { min-height: 28px; border: 0; border-radius: 0; background: var(--color-row); box-shadow: none; font-size: var(--text-xs); }
+.object-row button:hover:not(:disabled) { background: var(--color-row-hover); }
+.object-row button:disabled { cursor: default; }
+.object-name { flex: 1; min-width: 0; padding: 0 8px; display: flex; gap: 6px; align-items: center; overflow: hidden; text-align: left; white-space: nowrap; text-overflow: ellipsis; }
+.object-name [data-icon] { color: var(--color-text-muted); }
+.object-count { margin-left: auto; color: var(--color-text-muted); }
+.object-lock { width: 30px; padding: 0; color: var(--color-text-faint); }
+.object-lock[aria-pressed="true"] { color: var(--color-accent); }
+.object-row.locked .object-name { color: var(--color-text-muted); }
+.object-row.selected .object-name { box-shadow: inset 3px 0 0 var(--color-accent); color: var(--color-text); }
 .tool-group h3 { margin: 0 0 6px; color: var(--color-text-muted); font-size: var(--text-xs); letter-spacing: 1.5px; }
 .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .tool { width: 100%; min-height: 36px; padding: 7px 9px; display: flex; align-items: center; gap: 7px; text-align: left; font-size: var(--text-2xl); }

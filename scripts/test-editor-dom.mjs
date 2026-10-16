@@ -102,6 +102,25 @@ const reported = (report, label) => {
 }
 
 // ---------------------------------------------------------------------------
+// Locks in the Objects tab.
+// ---------------------------------------------------------------------------
+{
+  const report = await boot('locks');
+  reported(report, 'locks');
+  check('unlocked, a press on a back wall takes it', report.unlockedTakesWall === 'BACK WALL', `("${report.unlockedTakesWall}")`);
+  check('the Objects tab opens and lists every group', report.panelShown && report.groupCount === 7);
+  check('the tab shows a lock while anything is locked', report.badge === 'lock' && report.badgeGone === null);
+  check('with back walls locked, a press on one draws a box that takes the apple', report.boxOverWall === 'apple', `(${report.boxOverWall})`);
+  check('select all leaves a locked back wall out', JSON.stringify(report.selectAllBlocks) === '[0]', `(${report.selectAllBlocks})`);
+  check('the Block tool will not draw onto a locked group', report.blockRefused);
+  check('an item is listed by name', report.appleName === 'Apple', `("${report.appleName}")`);
+  check('a locked item is left out of a selection box', report.lockedAppleBoxed === null, `(${report.lockedAppleBoxed})`);
+  check('locks are not saved in the trail', report.notInFile);
+  check('a cut leaves a locked group alone', report.cutRefused);
+  check('locking what is selected lets go of it', report.slabSelected === 'block' && report.releasedOnLock === null, `(${report.slabSelected}, ${JSON.stringify(report.releasedOnLock)})`);
+}
+
+// ---------------------------------------------------------------------------
 // A roof over something on the ground leaves it where it stood.
 // ---------------------------------------------------------------------------
 {

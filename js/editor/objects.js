@@ -1,0 +1,199 @@
+// The Objects tab: everything on the trail, grouped, where groups and single
+// items are locked and unlocked, and where a click finds and selects a thing.
+import { blocks } from "./blocks.js";
+import { $ } from "./dom.js";
+import {
+  LOCK_GROUPS,
+  anyLocked,
+  groupOf,
+  isGroupLocked,
+  isItemLocked,
+  pruneItemLocks,
+  setGroupLocked,
+  setItemLocked,
+} from "./locks.js";
+import { syncInspector } from "./inspector.js";
+import { render } from "./render.js";
+import { itemPosition, revealItem, selectionItems } from "./selection.js";
+import { editor, waters } from "./state.js";
+import { materialLabel, propTypeOptions } from "./tools.js";
+import { centerOn } from "./view.js";
+
+// Groups start closed, since a trail can have dozens of props.
+const expanded = new Set();
+// What the list last showed, so a redraw that would change nothing is skipped.
+let shown = null;
+
+/** Every lockable thing on the trail, with its group and a readable name. */
+function entries() {
+  const propNames = new Map(propTypeOptions());
+  const list = [];
+  const add = (type, objects, name) =>
+    objects.forEach((object, index) =>
+      list.push({ type, index, group: groupOf(type, object), name: name(object) }),
+    );
+  add("block", blocks(), (block) => materialLabel(block.material || "grass"));
+  add("prop", editor.trail.props, (prop) =>
+    prop.type === "sign" && prop.text
+      ? `Sign: ${prop.text}`
+      : propNames.get(prop.type) || materialLabel(prop.type || "prop"),
+  );
+  add("water", waters(), () => "Water");
+  add("spike", editor.trail.spikes, () => "Spike");
+  add("apple", editor.trail.apples, () => "Apple");
+  // Number repeated names within each group: Tree 1, Tree 2.
+  const totals = new Map();
+  for (const entry of list) {
+    const key = `${entry.group}/${entry.name}`;
+    totals.set(key, (totals.get(key) || 0) + 1);
+  }
+  const counters = new Map();
+  for (const entry of list) {
+    const key = `${entry.group}/${entry.name}`;
+    if (totals.get(key) < 2) continue;
+    counters.set(key, (counters.get(key) || 0) + 1);
+    entry.name = `${entry.name} ${counters.get(key)}`;
+  }
+  for (const entry of list) entry.locked = isItemLocked(entry.type, entry.index);
+  return list;
+}
+
+/** Is an item selected, whole or through one of its points? */
+function selectedKeys() {
+  const keys = new Set();
+  for (const item of selectionItems())
+    keys.add(item.type === "point" ? `block:${item.blockIndex}` : `${item.type}:${item.index}`);
+  if (Number.isInteger(editor.selection?.blockIndex))
+    keys.add(`block:${editor.selection.blockIndex}`);
+  return keys;
+}
+
+function lockButton(locked, label, onClick, disabled = false) {
+  const button = document.createElement("button");
+  button.className = "object-lock";
+  button.type = "button";
+  button.disabled = disabled;
+  button.setAttribute("aria-pressed", String(locked));
+  button.setAttribute("aria-label", `${locked ? "Unlock" : "Lock"} ${label}`);
+  button.title = disabled ? "The whole group is locked" : `${locked ? "Unlock" : "Lock"} ${label}`;
+  const icon = document.createElement("span");
+  icon.dataset.icon = locked ? "lock" : "unlock";
+  icon.setAttribute("aria-hidden", "true");
+  button.append(icon);
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+/** After a lock changes: let go of what it locked, and redraw. */
+function changed() {
+  syncInspector();
+  render();
+}
+
+/** The tab's lock badge, shown whenever anything is locked. */
+function syncTabBadge() {
+  const tab = $("tab-objects");
+  if (anyLocked()) tab.setAttribute("data-icon-after", "lock");
+  else tab.removeAttribute("data-icon-after");
+}
+
+/** Redraw the list, if the tab is open and anything in it changed. */
+export function renderObjects() {
+  syncTabBadge();
+  if ($("panel-objects").hidden) {
+    shown = null;
+    return;
+  }
+  const list = entries();
+  const selected = selectedKeys();
+  const signature = JSON.stringify([
+    list,
+    [...selected],
+    [...expanded],
+    LOCK_GROUPS.map((group) => isGroupLocked(group.key)),
+  ]);
+  if (signature === shown) return;
+  shown = signature;
+  pruneItemLocks();
+
+  const groups = LOCK_GROUPS.map((group) => {
+    const members = list.filter((entry) => entry.group === group.key);
+    const groupLocked = isGroupLocked(group.key);
+    const open = expanded.has(group.key) && members.length > 0;
+    const item = document.createElement("li");
+    item.className = "object-group";
+
+    const head = document.createElement("div");
+    head.className = "object-row object-group-row";
+    head.classList.toggle("locked", groupLocked);
+    const toggle = document.createElement("button");
+    toggle.className = "object-name";
+    toggle.type = "button";
+    toggle.disabled = !members.length;
+    toggle.setAttribute("aria-expanded", String(open));
+    const caret = document.createElement("span");
+    caret.dataset.icon = open ? "caret-down" : "caret-right";
+    caret.setAttribute("aria-hidden", "true");
+    const label = document.createElement("span");
+    label.textContent = group.label;
+    const count = document.createElement("span");
+    count.className = "object-count";
+    count.textContent = String(members.length);
+    toggle.append(caret, label, count);
+    toggle.addEventListener("click", () => {
+      if (expanded.has(group.key)) expanded.delete(group.key);
+      else expanded.add(group.key);
+      renderObjects();
+    });
+    head.append(
+      toggle,
+      lockButton(groupLocked, `all ${group.label.toLowerCase()}`, () => {
+        setGroupLocked(group.key, !groupLocked);
+        changed();
+      }),
+    );
+    item.append(head);
+
+    if (open) {
+      const rows = document.createElement("ul");
+      rows.className = "object-items";
+      for (const entry of members) {
+        const locked = groupLocked || entry.locked;
+        const row = document.createElement("li");
+        row.className = "object-row";
+        row.classList.toggle("locked", locked);
+        row.classList.toggle("selected", selected.has(`${entry.type}:${entry.index}`));
+        const name = document.createElement("button");
+        name.className = "object-name";
+        name.type = "button";
+        name.textContent = entry.name;
+        name.title = locked ? `${entry.name} is locked: click to bring it into view` : `Select ${entry.name}`;
+        name.addEventListener("click", () => {
+          const target = { type: entry.type, index: entry.index };
+          // A locked thing can't be selected, but it can still be found.
+          if (locked) {
+            const position = itemPosition(target);
+            if (position) centerOn(...position);
+            render();
+          } else revealItem(target);
+        });
+        row.append(
+          name,
+          lockButton(
+            locked,
+            entry.name,
+            () => {
+              setItemLocked(entry.type, entry.index, !entry.locked);
+              changed();
+            },
+            groupLocked,
+          ),
+        );
+        rows.append(row);
+      }
+      item.append(rows);
+    }
+    return item;
+  });
+  $("object-groups").replaceChildren(...groups);
+}
