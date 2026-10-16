@@ -1995,6 +1995,9 @@ export function bikeLampPoints({ rear, front, facing = 1, look = null, bike = nu
   return { head: posedBodyPoint(lenses.head, pose), tail: posedBodyPoint(lenses.tail, pose) };
 }
 
+/** Length of the Elasto fork's lower leg, from the axle (art px). */
+const ELASTO_FORK_SLIDER_LENGTH = 11;
+
 const ELASTO_COLORS = {
   green: "#3aa63c",
   greenLight: "#8fdc6e",
@@ -5390,7 +5393,15 @@ export function createGameArt(ctx) {
       shockTop = bodyPoint(-6, -20),
       forkTop = bodyPoint(14, -26);
     const shockBase = [-half + (pivot[0] + half) * 0.45, pivot[1] * 0.45];
-    const forkSlider = [half + (forkTop[0] - half) * 0.45, forkTop[1] * 0.45];
+    // The fork's lower leg is bolted to the axle and keeps its length, so the
+    // stanchion above it shows the fork's travel: about 17 px of it topped
+    // out, 14 at sag, and 2 to 4 at the bottom of the stroke.
+    const forkLength = Math.hypot(forkTop[0] - half, forkTop[1]) || 1;
+    const sliderShare = Math.min(1, ELASTO_FORK_SLIDER_LENGTH / forkLength);
+    const forkSlider = [
+      half + (forkTop[0] - half) * sliderShare,
+      forkTop[1] * sliderShare,
+    ];
 
     path([[-half, 0], pivot], c.silver, 2);
     path(
