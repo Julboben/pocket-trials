@@ -1,15 +1,15 @@
 {
   "name": "The Shaft",
   "label": "THE SHAFT / 24",
+  "finish": {
+    "x": -491,
+    "y": 372
+  },
   "description": "You start at the bottom of a mine shaft, and the only way out is up. Kick off the little ramp onto the first ledge, turn around (Space) and jump to the ledge on the other side, a little higher each time. Seven ledges take you to the rim, which juts out over the shaft. Ride left along the top and fly off the last kicker: the finish floats in the air above it.",
   "start": {
     "x": 120,
-    "y": 1000,
+    "y": 987,
     "facing": 1
-  },
-  "finish": {
-    "x": -490,
-    "y": 340
   },
   "terrainBlocks": [
     {
@@ -34,7 +34,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-2",
@@ -46,7 +46,7 @@
               240
             ],
             "out": [
-              -720.0,
+              -720,
               240
             ],
             "edge": "curve"
@@ -57,11 +57,11 @@
             "y": 440,
             "mode": "smooth",
             "in": [
-              -680.0,
+              -680,
               440
             ],
             "out": [
-              -570.0,
+              -570,
               440
             ],
             "edge": "curve"
@@ -82,7 +82,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-6",
@@ -105,11 +105,11 @@
             "y": 440,
             "mode": "smooth",
             "in": [
-              -332.0,
+              -332,
               440
             ],
             "out": [
-              -110.0,
+              -110,
               440
             ],
             "edge": "curve"
@@ -148,7 +148,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-12",
@@ -251,7 +251,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ledge-1-1",
@@ -363,7 +363,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ledge-2-4",
@@ -421,7 +421,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ledge-3-1",
@@ -533,7 +533,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ledge-4-4",
@@ -591,7 +591,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ledge-5-1",
@@ -703,7 +703,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ledge-6-4",
@@ -761,7 +761,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ledge-7-1",
@@ -836,6 +836,7 @@
     {
       "id": "back-wall",
       "material": "stone",
+      "layer": "back",
       "outer": {
         "id": "back-wall-outer",
         "nodes": [
@@ -877,8 +878,7 @@
           }
         ]
       },
-      "inner": [],
-      "layer": "back"
+      "inner": []
     }
   ],
   "apples": [
@@ -917,7 +917,7 @@
       "y": 1000,
       "type": "sign",
       "layer": "front",
-      "text": "\u2191 UP"
+      "text": "↑ UP"
     },
     {
       "x": 40,
@@ -940,7 +940,7 @@
     {
       "x": 80,
       "y": 465,
-      "type": "stalactite",
+      "type": "stalactites",
       "layer": "back"
     },
     {
@@ -954,7 +954,7 @@
       "y": 440,
       "type": "sign",
       "layer": "front",
-      "text": "\u2190 FINISH"
+      "text": "← FINISH"
     },
     {
       "x": -400,
@@ -988,14 +988,14 @@
     },
     {
       "x": 600,
-      "y": 930,
+      "y": 850,
       "type": "lantern",
       "layer": "back"
     },
     {
       "x": 100,
       "y": 860,
-      "type": "glow-mushroom",
+      "type": "mushrooms",
       "layer": "front"
     },
     {
@@ -1006,19 +1006,19 @@
     },
     {
       "x": 600,
-      "y": 790,
+      "y": 710,
       "type": "lantern",
       "layer": "back"
     },
     {
       "x": 100,
       "y": 720,
-      "type": "glow-mushroom",
+      "type": "mushrooms",
       "layer": "front"
     },
     {
       "x": 600,
-      "y": 650,
+      "y": 570,
       "type": "lantern",
       "layer": "back"
     },
@@ -1030,13 +1030,19 @@
     },
     {
       "x": 100,
-      "y": 580,
-      "type": "glow-mushroom",
-      "layer": "front"
+      "y": 778.290376865476,
+      "type": "lantern",
+      "layer": "back"
     },
     {
-      "x": 600,
-      "y": 510,
+      "x": 100,
+      "y": 640,
+      "type": "lantern",
+      "layer": "back"
+    },
+    {
+      "x": 99,
+      "y": 500,
       "type": "lantern",
       "layer": "back"
     }

@@ -512,7 +512,7 @@ export function validateTrail(trail) {
           `Sign ${index + 1} text doesn't fit in ${SIGN_MAX_LINES} lines of ${SIGN_LINE_CHARACTERS} characters and will be cut off.`,
           target,
         );
-      else if (/[^A-Z0-9 →\/.!+:\-×#']/.test(prop.text.toUpperCase()))
+      else if (/[^A-Z0-9 →←↑↓\/.!+:\-×#']/.test(prop.text.toUpperCase()))
         warning(
           `Sign ${index + 1} text contains characters the pixel font cannot draw.`,
           target,

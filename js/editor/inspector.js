@@ -453,6 +453,7 @@ function bindTrailInput(id, apply) {
 }
 
 let propTextPending = false;
+const SIGN_ARROW_KEYS = { "<": "←", ">": "→", "^": "↑" };
 
 export function bindInspector() {
   bindTrailInput("trail-name", setTrailName);
@@ -657,7 +658,15 @@ export function bindInspector() {
       pushHistory();
       propTextPending = false;
     }
-    editor.trail.props[editor.selection.index].text = event.target.value;
+    // The pixel font has no < > ^, so they stand in for the arrows it does have.
+    const field = event.target;
+    const value = field.value.replace(/[<>^]/g, (key) => SIGN_ARROW_KEYS[key]);
+    if (value !== field.value) {
+      const caret = field.selectionStart;
+      field.value = value;
+      field.setSelectionRange(caret, caret);
+    }
+    editor.trail.props[editor.selection.index].text = value;
     render();
   });
 

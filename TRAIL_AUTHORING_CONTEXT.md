@@ -262,7 +262,7 @@ props: [
 
 Available prop types are `tree`, `pine`, `sapling`, `pine-small`, `bush`, `fence`, `rock`, `boulder`, `pebbles`, `flowers`, `stump`, `cactus`, `cactus-small`, the desert props `skull`, `tumbleweed`, `car-wreck`, `water-tower`, `windmill`, `heat-haze` and `vulture`, the mountain props `cairn`, `ski-lift`, `icicles`, `snow-pine`, `hut` and `snowman`, `crystal`, `sign`, the woodland prop `squirrel`, `corgi` (Coda), the wall props `vines`, `roots` and `moss`, the farm props `crates`, `apple` (a small decorative apple to hang in trees or fill crates and the wheelbarrow; it is not collected), `ladder`, `wheelbarrow`, `scarecrow`, `beehive` and `tyre`, the street props `cone`, `barrier`, `dumpster`, `lamp` and `bird`, the building-site props `crane` and `scaffolding`, the cave props `hanging-roots`, `stalactites`, `drip`, `lantern`, `bats`, `mushrooms`, `minecart` and `beams`, the water props `lily`, `reeds`, `seaweed`, `fish` and `duck`, and `graffiti`. `y: null` anchors a prop to the topmost surface at `x`; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front`: `back`-layer props are drawn behind the terrain as well as the gameplay, while `front`-layer props are drawn in front of the gameplay.
 
-A `sign` prop carries an optional `text` string that is drawn on its board with the game's pixel font. Text is limited to 8 characters; supported characters are `A`–`Z`, `0`–`9`, space, and `→` `/` `.` `!` `+` `-` `:` `×`. Anything else draws as `#`, and longer text is cut off.
+A `sign` prop carries an optional `text` string that is drawn on its board with the game's pixel font. Text wraps onto up to 4 lines of 10 characters; supported characters are `A`–`Z`, `0`–`9`, space, and `→` `←` `↑` `↓` `/` `.` `!` `+` `-` `:` `×` `'`. Lowercase is drawn as uppercase, anything else draws as `#`, and text that doesn't fit is cut off. In the editor's text field, typing `>`, `<` or `^` enters `→`, `←` or `↑`.
 
 Use the editor's **Prop** tool to place a prop. Select it to drag it, edit its type and layer in the inspector — plus its text, for signs — or remove it with **Delete Selection**, `Delete`, or `Backspace`.
 
@@ -956,7 +956,7 @@ export function validateTrail(trail) {
           `Sign ${index + 1} text doesn't fit in ${SIGN_MAX_LINES} lines of ${SIGN_LINE_CHARACTERS} characters and will be cut off.`,
           target,
         );
-      else if (/[^A-Z0-9 →\/.!+:\-×#']/.test(prop.text.toUpperCase()))
+      else if (/[^A-Z0-9 →←↑↓\/.!+:\-×#']/.test(prop.text.toUpperCase()))
         warning(
           `Sign ${index + 1} text contains characters the pixel font cannot draw.`,
           target,
@@ -4459,12 +4459,12 @@ Example trail: advanced.
             "y": 146.1362,
             "mode": "corner",
             "in": [
-              1600.1795427911093,
-              143.51957652301337
+              1600.1795,
+              143.5196
             ],
             "out": [
-              1632.3312263874582,
-              139.3089187980834
+              1632.3312,
+              139.3089
             ],
             "edge": "curve"
           },
@@ -5365,8 +5365,9 @@ Example trail: advanced.
   "water": [],
   "weather": {
     "sun": 0.7,
-    "clouds": 0.35,
-    "snow": 1
+    "clouds": 1,
+    "snow": 1,
+    "fog": 0.5
   },
   "medals": {
     "gold": 20,
