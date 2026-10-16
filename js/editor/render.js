@@ -23,7 +23,8 @@ import {
   traceBlock,
 } from "./blocks.js";
 import { $, art, backWallArt, canvas, ctx, terrainArt } from "./dom.js";
-import { scaleFrame } from "./scale.js";
+import { scaleFrame, scaling } from "./scale.js";
+import { selectionBox } from "./selection.js";
 import { rotateHandle, rotationAngle } from "./rotate.js";
 import { gridSpacing } from "./snap.js";
 import { editor, waters } from "./state.js";
@@ -598,6 +599,7 @@ export function render() {
   drawRotateHandle();
   drawSnapGuide();
   drawMarquee();
+  drawSizeTag();
   ctx.restore();
 }
 
@@ -644,17 +646,12 @@ function drawRotateHandle() {
   ctx.fill();
   ctx.stroke();
   const angle = rotationAngle();
-  if (angle !== null) {
-    ctx.font = `${12 / editor.zoom}px system-ui, sans-serif`;
-    const label = `${angle > 0 ? "+" : ""}${Math.round(angle * 10) / 10}\u00b0`;
-    const lx = x + 12 / editor.zoom,
-      ly = y - 12 / editor.zoom;
-    ctx.lineWidth = 3 / editor.zoom;
-    ctx.strokeStyle = "#17262b";
-    ctx.strokeText(label, lx, ly);
-    ctx.fillStyle = "#fff3be";
-    ctx.fillText(label, lx, ly);
-  }
+  if (angle !== null)
+    drawTag(
+      `${angle > 0 ? "+" : ""}${Math.round(angle * 10) / 10}\u00b0`,
+      x + 12 / editor.zoom,
+      y - 12 / editor.zoom,
+    );
   ctx.restore();
 }
 
@@ -675,16 +672,46 @@ function drawSnapGuide() {
   ctx.arc(to.x, to.y, 8 / editor.zoom, 0, Math.PI * 2);
   ctx.strokeStyle = "#fff3be";
   ctx.stroke();
+  ctx.restore();
+  drawTag(
+    `${Math.round(angle * 10) / 10}\u00b0 \u00b7 ${Math.round(length)}`,
+    to.x + 12 / editor.zoom,
+    to.y - 12 / editor.zoom,
+  );
+}
+
+/** A short label beside a world point, readable over any background. */
+function drawTag(label, x, y) {
+  ctx.save();
   ctx.font = `${12 / editor.zoom}px system-ui, sans-serif`;
-  const label = `${Math.round(angle * 10) / 10}\u00b0 \u00b7 ${Math.round(length)}`;
-  const x = to.x + 12 / editor.zoom,
-    y = to.y - 12 / editor.zoom;
   ctx.lineWidth = 3 / editor.zoom;
   ctx.strokeStyle = "#17262b";
   ctx.strokeText(label, x, y);
   ctx.fillStyle = "#fff3be";
   ctx.fillText(label, x, y);
   ctx.restore();
+}
+
+/** Width × height beside a shape being drawn, or a selection being scaled. */
+function drawSizeTag() {
+  const shape = editor.pendingShape;
+  let box = null,
+    at = null;
+  if (shape?.points.length >= 2) {
+    const xs = shape.points.map(([x]) => x),
+      ys = shape.points.map(([, y]) => y);
+    box = { left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
+    at = shape.end;
+  } else if (scaling()) {
+    const frame = scaleFrame()?.frame;
+    box = selectionBox();
+    at = frame && [frame.right, frame.bottom];
+  }
+  if (!box || !at) return;
+  const width = Math.round(box.right - box.left),
+    height = Math.round(box.bottom - box.top);
+  // Below and right of the pointer, clear of the cursor.
+  drawTag(`${width} × ${height}`, at[0] + 12 / editor.zoom, at[1] + 24 / editor.zoom);
 }
 
 /** A faded copy of what the current tool will place, under the cursor. */

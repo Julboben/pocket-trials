@@ -76,6 +76,13 @@ A plan for the props to add to each level theme, plus guidelines for making them
 - [x] **Wanted poster**: with a mugshot of a rider in a helmet.
 - [x] **Tally marks**: scratched into the rock.
 
+## 🕷️ Spiders
+
+- [x] **Spiderweb**: an orb web that trembles as you pass, its spider scurrying up out of the way.
+- [x] **Cobweb**: a dusty sheet sagging from the roof, tatters stirring in the wind.
+- [x] **Dangling spider**: lets itself down on a thread, and climbs back up when you come close.
+- [x] **Cocoon**: wrapped in silk, swaying, and twitching now and then.
+
 ## 🕳️ Caves and underground
 *For the new terrain.*
 

@@ -178,6 +178,13 @@ const reported = (report, label) => {
   check('Spin sets every selected spike', json(report.spins) === json([-0.5, -0.5]), `(${json(report.spins)})`);
   check('X flips the whole group, then unflips it', json(report.keyFlip) === json([true, true, false]) && json(report.keyUnflip) === json([false, false, false]), `(${json(report.keyFlip)}, ${json(report.keyUnflip)})`);
   check('] gives the whole group one type', report.cycled === 1, `(${report.cycled})`);
+  check('a plain click in the Objects tab selects one thing', json(report.listPlain) === json(['spike0']), `(${json(report.listPlain)})`);
+  check('Cmd-click in the Objects tab adds to the selection', json(report.listAdded) === json(['spike0', 'spike1']), `(${json(report.listAdded)})`);
+  check('Ctrl-click in the Objects tab takes a thing out again', json(report.listRemoved) === json(['spike1']), `(${json(report.listRemoved)})`);
+  check('Shift-click in the Objects tab adds the rows between', json(report.listRange) === json(['prop0', 'prop2']), `(${json(report.listRange)})`);
+  check('a lone spike shows no size', report.loneSizeHidden === true);
+  check('two spikes show how far apart they are', report.spikeSize === '200 × 0', `("${report.spikeSize}")`);
+  check('a block shows its width and height', report.blockSize === '800 × 300', `("${report.blockSize}")`);
 }
 
 // ---------------------------------------------------------------------------

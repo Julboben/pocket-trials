@@ -511,6 +511,10 @@ export function validateTrail(trail) {
         "ball-and-chain",
         "wanted-poster",
         "tally-marks",
+        "spiderweb",
+        "cobweb",
+        "spider",
+        "cocoon",
         ...WATER_PROPS,
       ].includes(prop.type)
     )

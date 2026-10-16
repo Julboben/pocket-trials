@@ -405,6 +405,8 @@
                     >
                         <p class="objects-hint">
                             Click a name to select it and bring it into view.
+                            Cmd/Ctrl-click adds it to the selection or takes it
+                            out, and Shift-click adds every row up to it.
                             Anything locked is still drawn, but can't be
                             selected or changed.
                         </p>
@@ -467,6 +469,10 @@
                                 >Y
                                 <input id="selection-y" type="number" step="1"
                             /></label>
+                            <div class="field-row" id="selection-size-row" hidden>
+                                Size (width × height)
+                                <output id="selection-size" class="size-readout"></output>
+                            </div>
                             <label id="selection-material-row" hidden
                                 >Material
                                 <select id="selection-material"></select
@@ -657,6 +663,14 @@
                                         <option value="tally-marks">
                                             Tally marks
                                         </option>
+                                    </optgroup>
+                                    <optgroup label="Spiders">
+                                        <option value="spiderweb">Spiderweb</option>
+                                        <option value="cobweb">Cobweb</option>
+                                        <option value="spider">
+                                            Dangling spider
+                                        </option>
+                                        <option value="cocoon">Cocoon</option>
                                     </optgroup>
                                     <optgroup label="Cave">
                                         <option value="hanging-roots">

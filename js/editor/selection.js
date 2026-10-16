@@ -1,6 +1,11 @@
 // Selecting, moving, nudging, duplicating and deleting things.
 import { canFlip } from "../drawing.js";
-import { moveBlock, nextId, removeBoundaryNodes } from "../terrain-geometry.js";
+import {
+  flattenBoundary,
+  moveBlock,
+  nextId,
+  removeBoundaryNodes,
+} from "../terrain-geometry.js";
 import {
   blocks,
   boundariesOf,
@@ -287,6 +292,34 @@ export function groupTitle(items) {
 /** Every point of a block, outer rings first. */
 export function blockNodes(block) {
   return boundariesOf(block).flatMap((boundary) => boundary.nodes);
+}
+
+/**
+ * The box around the selection in world units, or null: blocks by their
+ * outline, curves included, water by its rectangle, and anything else by
+ * where it stands.
+ */
+export function selectionBox() {
+  let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+  const add = ([x, y]) => {
+    left = Math.min(left, x);
+    right = Math.max(right, x);
+    top = Math.min(top, y);
+    bottom = Math.max(bottom, y);
+  };
+  for (const item of selectionItems()) {
+    const block = item.type === "block" ? blocks()[item.index] : null;
+    const body = item.type === "water" ? waters()[item.index] : null;
+    if (block) flattenBoundary(block.outer).points.forEach(add);
+    else if (body) {
+      add([body.x, body.y]);
+      add([body.x + body.width, body.y + body.depth]);
+    } else {
+      const position = itemPosition(item);
+      if (position) add(position);
+    }
+  }
+  return Number.isFinite(left) ? { left, top, right, bottom } : null;
 }
 
 export function itemPosition(item) {

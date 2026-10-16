@@ -835,7 +835,7 @@
     },
     {
       "id": "back-wall",
-      "material": "stone",
+      "material": "concrete",
       "layer": "back",
       "outer": {
         "id": "back-wall-outer",
@@ -908,12 +908,12 @@
     },
     {
       "x": -100,
-      "y": 415
+      "y": 395
     }
   ],
   "props": [
     {
-      "x": 240,
+      "x": 370,
       "y": 1000,
       "type": "sign",
       "layer": "front",
@@ -950,7 +950,7 @@
       "layer": "back"
     },
     {
-      "x": -60,
+      "x": 140,
       "y": 440,
       "type": "sign",
       "layer": "front",
@@ -958,7 +958,7 @@
     },
     {
       "x": -400,
-      "y": 440,
+      "y": 430,
       "type": "pine",
       "layer": "back"
     },
@@ -1053,9 +1053,21 @@
       "layer": "back"
     },
     {
-      "x": 583.4189232375261,
-      "y": 929.3924329917197,
+      "x": 575.006731570701,
+      "y": 789.9088224682595,
       "type": "jail-cell",
+      "layer": "back"
+    },
+    {
+      "x": 71.65806817214153,
+      "y": 908.1914713780354,
+      "type": "cobweb",
+      "layer": "back"
+    },
+    {
+      "x": 664.5195800709582,
+      "y": 699.4158241677841,
+      "type": "spiderweb",
       "layer": "back"
     }
   ],

@@ -1,5 +1,7 @@
 // The Objects tab: everything on the trail, grouped, where groups and single
 // items are locked and unlocked, and where a click finds and selects a thing.
+// Cmd/Ctrl-click adds a thing to the selection or takes it out, and
+// Shift-click adds every row between it and the last one clicked.
 import { blocks } from "./blocks.js";
 import { $ } from "./dom.js";
 import {
@@ -14,13 +16,21 @@ import {
 } from "./locks.js";
 import { syncInspector } from "./inspector.js";
 import { render } from "./render.js";
-import { itemPosition, revealItem, selectionItems } from "./selection.js";
+import {
+  itemPosition,
+  makeSelection,
+  revealItem,
+  sameItem,
+  selectionItems,
+} from "./selection.js";
 import { editor, waters } from "./state.js";
-import { materialLabel, propTypeOptions } from "./tools.js";
+import { materialLabel, propTypeOptions, setTool } from "./tools.js";
 import { centerOn } from "./view.js";
 
 // Groups start closed, since a trail can have dozens of props.
 const expanded = new Set();
+// The row last clicked, where a Shift-click range starts.
+let anchor = null;
 // What the list last showed, so a redraw that would change nothing is skipped.
 let shown = null;
 
@@ -87,6 +97,40 @@ function lockButton(locked, label, onClick, disabled = false) {
 }
 
 /** After a lock changes: let go of what it locked, and redraw. */
+function select(items) {
+  editor.selection = makeSelection(items);
+  setTool("select");
+  syncInspector();
+  render();
+}
+
+/** A click on an unlocked row: select it, or with a modifier, add to the selection. */
+function clickRow(event, entry, members) {
+  const target = { type: entry.type, index: entry.index };
+  const from = anchor
+    ? members.findIndex((other) => other.type === anchor.type && other.index === anchor.index)
+    : -1;
+  if (event.shiftKey && from >= 0) {
+    const to = members.indexOf(entry);
+    const span = members
+      .slice(Math.min(from, to), Math.max(from, to) + 1)
+      .filter((other) => !other.locked)
+      .map((other) => ({ type: other.type, index: other.index }));
+    // The anchor stays put, so another Shift-click reaches from the same row.
+    select([...selectionItems(), ...span]);
+    return;
+  }
+  anchor = target;
+  if (event.metaKey || event.ctrlKey || event.shiftKey) {
+    const items = selectionItems();
+    select(
+      items.some((item) => sameItem(item, target))
+        ? items.filter((item) => !sameItem(item, target))
+        : [...items, target],
+    );
+  } else revealItem(target);
+}
+
 function changed() {
   syncInspector();
   render();
@@ -169,15 +213,17 @@ export function renderObjects() {
         name.className = "object-name";
         name.type = "button";
         name.textContent = entry.name;
-        name.title = locked ? `${entry.name} is locked: click to bring it into view` : `Select ${entry.name}`;
-        name.addEventListener("click", () => {
-          const target = { type: entry.type, index: entry.index };
+        name.title = locked
+          ? `${entry.name} is locked: click to bring it into view`
+          : `Select ${entry.name}; Cmd/Ctrl-click to add or remove it, Shift-click to add a range`;
+        name.addEventListener("click", (event) => {
           // A locked thing can't be selected, but it can still be found.
-          if (locked) {
-            const position = itemPosition(target);
+          if (!locked) clickRow(event, entry, members);
+          else {
+            const position = itemPosition({ type: entry.type, index: entry.index });
             if (position) centerOn(...position);
             render();
-          } else revealItem(target);
+          }
         });
         row.append(
           name,

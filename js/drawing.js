@@ -240,6 +240,21 @@ import {
   tunnelPeek,
 } from "./prison-props.js";
 import {
+  COBWEB_HANG,
+  COCOON_HANG,
+  SPIDER_DROP,
+  WEB_HANG,
+  cocoonMotion,
+  danglingSpider,
+  drawCobweb,
+  drawCocoon,
+  drawDanglingSpider,
+  drawSpider,
+  drawSpiderweb,
+  webSize,
+  webState,
+} from "./spider-props.js";
+import {
   CORGI_BOUNDS,
   CORGI_RANGE,
   CORGI_STEP,
@@ -1077,6 +1092,10 @@ export const CEILING_PROPS = new Set([
   "lantern",
   "bats",
   "icicles",
+  "spiderweb",
+  "cobweb",
+  "spider",
+  "cocoon",
 ]);
 // Cave props that fit themselves to the rock around them: support beams reach
 // up to the roof, and a mine cart's rails run along the floor to the walls.
@@ -1492,6 +1511,10 @@ export function propSpan(type, fit) {
     bats: 120,
     // Icicles, and the meltwater dripping off them to the floor.
     icicles: Math.max(fit?.drop ?? ICICLE_REACH + 200, ICICLE_REACH) + 8,
+    spiderweb: WEB_HANG + 8,
+    cobweb: COBWEB_HANG + 4,
+    spider: SPIDER_DROP + 16,
+    cocoon: COCOON_HANG + 4,
   }[type];
   return [Math.max(0, -ceiling) + (type === "bats" ? 120 : 4), Math.max(0, ceiling + below)];
 }
@@ -3445,6 +3468,10 @@ const PROP_EXTENTS = {
   // The rope runs out either side and climbs above the tower to the right.
   "ski-lift": [-CABLE_HALF - 24, Math.min(PYLON_TOP, CABLE_TOP) - 4, CABLE_HALF + 24],
   icicles: [-22, -CEILING_REACH - 4, 22],
+  spiderweb: [-36, -CEILING_REACH - 4, 36],
+  cobweb: [-40, -CEILING_REACH - 4, 40],
+  spider: [-14, -CEILING_REACH - 4, 14],
+  cocoon: [-12, -CEILING_REACH - 4, 12],
   // Room for the snow a hard landing knocks off, and the cloud it raises.
   "snow-pine": [-70, -192, 70],
   // Room for the chimney smoke rising and blowing downwind, which stays to
@@ -3489,6 +3516,10 @@ const CEILING_HANG = {
   lantern: 4,
   bats: 20,
   icicles: 260,
+  spiderweb: WEB_HANG,
+  cobweb: COBWEB_HANG,
+  spider: SPIDER_DROP + 12,
+  cocoon: COCOON_HANG,
 };
 // How far below its anchor each water prop's art can reach, once moved onto
 // the surface, to its depth or down to the bed.
@@ -5385,6 +5416,25 @@ export function createGameArt(ctx) {
           const drop = Number.isFinite(fit.drop) ? fit.drop - tip.y + 2 : null;
           drawDrip(tools, { base: ICE.light, dark: ICE.base }, drop, scene.time || 0, noise(4));
         }
+        else if (type === "spiderweb") {
+          // The web trembles as the rider passes, and its spider scurries up
+          // out of the way.
+          const { hub } = webSize(room);
+          const state = webState(scene, x, y + roof + hub);
+          const sway = scene.time ? Math.sin(scene.time * 0.9 + noise(5) * 6) * (scene.wind ?? 0) : 0;
+          const { spider } = drawSpiderweb({ pixelRect, pixelPath }, room, noise, state, sway);
+          ctx.translate(spider[0], spider[1]);
+          drawSpider({ pixelRect, drawPixelDisc }, state.dare < 1 && scene.time ? Math.floor(scene.time * 12) % 2 : 0);
+        } else if (type === "cobweb")
+          drawCobweb({ pixelRect, pixelPath }, room, noise, scene.time || 0, scene.wind ?? 0, -1);
+        else if (type === "spider") {
+          // Lets itself down on its thread, and climbs back up when the rider comes.
+          const hang = danglingSpider(scene, x, y + roof, room, noise(6));
+          const { spider } = drawDanglingSpider({ pixelPath }, hang);
+          ctx.translate(spider[0], spider[1]);
+          drawSpider({ pixelRect, drawPixelDisc }, hang.step);
+        } else if (type === "cocoon")
+          drawCocoon({ pixelRect, pixelPath }, room, cocoonMotion(scene.time || 0, scene.wind ?? 0, noise(7)));
         else drawBats(x, scene);
       }
     } else if (WATER_PROPS.has(type)) {

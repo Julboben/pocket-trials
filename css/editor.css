@@ -128,6 +128,7 @@ fieldset:disabled :is(input, select, textarea, button) { opacity: .55; cursor: n
 input[type="range"] { padding: 0; accent-color: var(--color-accent); }
 .range-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .range-head output { color: var(--color-text); font-variant-numeric: tabular-nums; }
+.size-readout { color: var(--color-text); font-variant-numeric: tabular-nums; }
 .wide-action { width: 100%; min-height: 34px; margin-bottom: 10px; font-size: var(--text-xs); }
 .danger { width: 100%; min-height: 34px; border-color: var(--color-danger-border); color: var(--color-danger-text); font-size: var(--text-xs); }
 .icon-button, .header-actions .icon-button, .trail-actions .icon-button { position: relative; width: 34px; min-height: 34px; padding: 0; display: inline-grid; place-items: center; }

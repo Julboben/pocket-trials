@@ -51,6 +51,7 @@ import {
   releaseLocked,
   revealItem,
   selectedOf,
+  selectionBox,
   flippableProps,
   selectionItems,
 } from "./selection.js";
@@ -169,6 +170,12 @@ export function syncInspector({ live = false } = {}) {
     $("selection-x").value = Math.round(position[0]);
     $("selection-y").value = Math.round(position[1]);
   }
+  // How big the selection is, or how far apart a group's things stand. Water
+  // on its own has its own Width and Depth fields.
+  const box = editor.selection?.kind === "water" ? null : selectionBox();
+  const size = box && [box.right - box.left, box.bottom - box.top].map(Math.round);
+  $("selection-size-row").hidden = !size || !(size[0] || size[1]);
+  if (size) $("selection-size").textContent = `${size[0]} × ${size[1]}`;
   // A group with blocks in it can change their material together.
   const isBlock =
     BLOCK_KINDS.includes(editor.selection?.kind) || selectedBlocks().length > 0;

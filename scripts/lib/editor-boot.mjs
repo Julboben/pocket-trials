@@ -440,6 +440,37 @@ if (kind === 'group') {
   out.keyUnflip = current().props.map(prop => Boolean(prop.flip));
   key(']');
   out.cycled = new Set(current().props.map(prop => prop.type)).size;
+  undo.click();
+  undo.click();
+  undo.click();
+
+  // Selecting from the Objects tab: Cmd/Ctrl-click toggles, Shift-click adds a range.
+  const { setTab } = await import('../../js/editor/tools.js');
+  setTab('objects');
+  const groupRow = name => document.getElementById('object-groups').children[['terrain', 'back', 'backProps', 'frontProps', 'water', 'spikes', 'apples'].indexOf(name)];
+  const rowName = (group, index) => groupRow(group).children[1].children[index].children[0];
+  const picked = () => editor.selection?.kind === 'items'
+    ? editor.selection.items.map(item => `${item.type}${item.index}`)
+    : editor.selection ? [`${editor.selection.kind}${editor.selection.index}`] : [];
+  groupRow('spikes').children[0].children[0].click();
+  rowName('spikes', 0).click();
+  out.listPlain = picked();
+  // A lone spike has no size.
+  out.loneSizeHidden = field('selection-size-row').hidden === true;
+  rowName('spikes', 1).dispatch('click', { metaKey: true });
+  out.listAdded = picked();
+  out.spikeSize = field('selection-size').textContent;
+  rowName('spikes', 0).dispatch('click', { ctrlKey: true });
+  out.listRemoved = picked();
+  groupRow('backProps').children[0].children[0].click();
+  rowName('backProps', 0).click();
+  rowName('backProps', 1).dispatch('click', { shiftKey: true });
+  out.listRange = picked();
+
+  // A block measures by its outline.
+  editor.selection = { kind: 'block', blockIndex: 0 };
+  syncInspector();
+  out.blockSize = field('selection-size').textContent;
   process.stdout.write(JSON.stringify(out));
   process.exit(0);
 }
