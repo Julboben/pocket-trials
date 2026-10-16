@@ -1974,6 +1974,20 @@ h2 {
     font-size: var(--text-sm);
     line-height: 1.5;
 }
+.save-slot-name {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+/* The rider's gender symbol before their name, in blue or pink. */
+.save-gender {
+    --px: 1px;
+    color: var(--color-gender-male);
+    &[data-gender="female"] {
+        color: var(--color-gender-female);
+    }
+}
 .save-slot-copy {
     min-width: 0;
     display: flex;

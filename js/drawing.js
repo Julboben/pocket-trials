@@ -1769,7 +1769,7 @@ const HEADWEAR = {
   // A paper cone, its brim over the top of the hair.
   dunce: {
     x: -4,
-    y: -13,
+    y: -11,
     rows: [
       "    O    ",
       "   OWO   ",
@@ -1834,7 +1834,7 @@ const HEADWEAR = {
   // A cowboy hat: a creased crown with a band, and a brim curled up at the ends.
   cowboy: {
     x: -6,
-    y: -8,
+    y: -7,
     rows: [
       "    OOOOO   ",
       "   OLHOHSO  ",

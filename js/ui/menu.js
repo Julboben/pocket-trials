@@ -356,8 +356,12 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
       button.setAttribute('aria-pressed', String(Boolean(save) && index === session.activeSaveSlot));
       const active = save && index === session.activeSaveSlot ? ' · ACTIVE' : '';
       const mode = save ? (save.token ? ' · ONLINE' : save.online ? ' · SIGNED OUT' : ' · OFFLINE') : '';
+      const gender = save?.look.gender === 'female' ? 'female' : 'male';
       button.innerHTML = save
-        ? '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + active + mode + '</span><strong>' + save.name + '</strong><small>'
+        ? '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + active + mode + '</span>'
+          // The rider's gender before their name, in the creator's symbols.
+          + '<span class="save-slot-name"><span class="save-gender" data-gender="' + gender + '" data-icon="' + gender + '" aria-hidden="true"></span>'
+          + '<strong>' + save.name + '<span class="sr-only">, ' + gender + '</span></strong></span><small>'
           + (save.unlocked + 1) + ' / ' + trails.length + ' trails · ' + trails[save.trail].name + '</small></span>'
         : '<span class="save-avatar empty"><span data-icon="plus" aria-hidden="true"></span></span>'
           + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + '</span><strong>NEW RIDER</strong><small>Start a fresh career in this slot</small></span>';
@@ -864,14 +868,28 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     ));
     row.classList.toggle('mine', mine);
     const avatar = riderAvatar(run.look);
+    // The rider's gender before their name, as in the rider list.
+    const gender = run.look?.gender === 'female' ? 'female' : 'male';
+    const genderMark = document.createElement('span');
+    genderMark.className = 'save-gender';
+    genderMark.dataset.gender = gender;
+    genderMark.dataset.icon = gender;
+    genderMark.setAttribute('aria-hidden', 'true');
     const copy = document.createElement('span');
     copy.className = 'leaderboard-copy';
     const name = document.createElement('strong');
     name.textContent = runnerName(run.name) + (mine ? ' · YOU' : '');
+    const spoken = document.createElement('span');
+    spoken.className = 'sr-only';
+    spoken.textContent = ', ' + gender;
+    name.append(spoken);
     const detail = document.createElement('small');
     const date = run.date ? new Date(run.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase() : 'CAREER BEST';
     detail.textContent = (run.name && run.slot === null ? 'ONLINE' : run.slot === null ? 'NO SAVE' : 'SLOT ' + (run.slot + 1)) + ' · ' + date;
-    copy.append(name, detail);
+    const nameLine = document.createElement('span');
+    nameLine.className = 'save-slot-name';
+    nameLine.append(genderMark, name);
+    copy.append(nameLine, detail);
     const time = document.createElement('span');
     time.className = 'leaderboard-time';
     time.textContent = runTimeText(run.time);

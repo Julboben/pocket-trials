@@ -104,7 +104,7 @@ export const LOOK_ITEMS = /** @type {LookItem[]} */ ([
   hairStyle('space-buns', 'Space buns', { cap: 'long', ponytail: false, extra: 'buns' }, 'Two buns, twice the style.', { lean: 'female' }),
   hairStyle('mohawk', 'Mohawk', { cap: 'bald', ponytail: false, extra: 'mohawk' }, 'Built for headwinds.'),
   hairStyle('afro', 'Afro', { cap: 'bald', ponytail: false, extra: 'afro' }, 'Big hair, soft landings.'),
-  hairStyle('big-curls', 'Total Eclipse', { cap: 'long', ponytail: false, extra: 'mane' }, 'Turn around, bright eyes.', { lean: 'female', tall: true }),
+  hairStyle('big-curls', 'Total Eclipse', { cap: 'long', ponytail: false, extra: 'mane' }, 'Turn around, bright eyes.', { lean: 'female' }),
   hairStyle('mullet', 'Mullet', { cap: 'short', ponytail: false, extra: 'mullet' }, 'Business up front, trails out back.', { lean: 'male' }),
 
   hairColor('brown', 'Brown', ['#3d2a24', '#5e4334', '#2e1d19', '#1f1411'], 'male'),
@@ -124,17 +124,17 @@ export const LOOK_ITEMS = /** @type {LookItem[]} */ ([
   { id: 'cap-back', slot: 'helmet', name: 'Backwards cap', shape: 'cap-back', showsHead: true, blurb: 'Peak back. Maximum attitude.' },
   { id: 'beanie', slot: 'helmet', name: 'Beanie', shape: 'beanie', showsHead: true, blurb: 'Warm ears on the snowy trails.' },
   { id: 'bandana', slot: 'helmet', name: 'Bandana', shape: 'bandana', showsHead: true, blurb: 'Knotted at the back, spots up front.' },
-  { id: 'cowboy', slot: 'helmet', name: 'Cowboy hat', shape: 'cowboy', showsHead: true, tall: true, blurb: 'Rides out of the desert at sundown.' },
+  { id: 'cowboy', slot: 'helmet', name: 'Cowboy hat', shape: 'cowboy', showsHead: true, blurb: 'Rides out of the desert at sundown.' },
   { id: 'bike', slot: 'helmet', name: 'Bike helmet', shape: 'bike', showsHead: true, blurb: 'Vented, for the Pocket Classic.' },
   { id: 'open-face', slot: 'helmet', name: 'Open face', shape: 'open-face', showsHead: true, blurb: 'Goggles up, chin in the wind.' },
   {
-    id: 'viking', slot: 'helmet', name: 'Viking', shape: 'viking', showsHead: true, tall: true, colorless: true,
+    id: 'viking', slot: 'helmet', name: 'Viking', shape: 'viking', showsHead: true, colorless: true,
     blurb: 'Steel and horn. Raid every trail.'
   },
   // A paper cone over the bare head, for riders caught asking for cheats. Secret:
   // the Garage only lists it once it is won.
   {
-    id: 'dunce', slot: 'helmet', name: 'Dunce cap', shape: 'dunce', showsHead: true, tall: true, colorless: true, secret: true,
+    id: 'dunce', slot: 'helmet', name: 'Dunce cap', shape: 'dunce', showsHead: true, colorless: true, secret: true,
     blurb: 'Go sit in the corner.'
   },
 

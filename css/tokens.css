@@ -88,6 +88,9 @@
     /* Rider avatars */
     --color-male-bg: #dce4d8;
     --color-male: #4f695d;
+    /* The gender symbols on a rider's avatar. */
+    --color-gender-male: #6fa3e6;
+    --color-gender-female: #ee8db0;
 
     /* Shape and elevation */
     --radius-pixel: 2px;
