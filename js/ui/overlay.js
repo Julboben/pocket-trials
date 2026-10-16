@@ -31,7 +31,7 @@ export function createOverlay() {
     toastUntil = 0,
     splitUntil = 0,
     achievementUntil = 0;
-  /** @type {{ name: string, blurb: string, icon: string }[]} achievements waiting for their turn on screen */
+  /** @type {{ label: string, name: string, blurb: string, icon: string, opens: string }[]} cards waiting for their turn on screen */
   const achievementQueue = [];
 
   /**
@@ -120,7 +120,19 @@ export function createOverlay() {
    * @param {{ name: string, blurb: string, icon: string }} earned
    */
   function achievement(earned) {
-    achievementQueue.push(earned);
+    queueCard({ ...earned, label: "ACHIEVEMENT UNLOCKED", opens: "achievements" });
+  }
+
+  /**
+   * Announces a rider item won for the Garage, on the same card.
+   * @param {{ name: string, blurb: string, icon: string }} item see gearCard in cosmetics.js
+   */
+  function gear(item) {
+    queueCard({ ...item, label: "NEW GEAR", opens: "garage" });
+  }
+
+  function queueCard(card) {
+    achievementQueue.push(card);
     if (!achievementUntil) nextAchievement(performance.now());
   }
 
@@ -131,6 +143,9 @@ export function createOverlay() {
       achievementUntil = 0;
       return;
     }
+    // Which menu view the card opens when tapped there: see game.js.
+    popover.dataset.opens = earned.opens;
+    $("achievement-popover-label").textContent = earned.label;
     $("achievement-popover-icon").dataset.icon = earned.icon;
     $("achievement-popover-name").textContent = earned.name;
     $("achievement-popover-blurb").textContent = earned.blurb;
@@ -139,7 +154,7 @@ export function createOverlay() {
     placeAchievement();
     popover.showPopover();
     achievementUntil = now + 4000;
-    announce("Achievement earned: " + earned.name + ". " + earned.blurb);
+    announce((earned.opens === "garage" ? "New gear: " : "Achievement earned: ") + earned.name + ". " + earned.blurb);
   }
 
   /** The top layer is the whole window, so the card is pinned to the game's corner. */
@@ -384,6 +399,7 @@ export function createOverlay() {
     toast,
     clearToast,
     achievement,
+    gear,
     split,
     tick,
     announce,

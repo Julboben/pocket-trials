@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {
   LOOK_SLOTS, IDENTITY_SLOTS, LOOK_PARTS, SLOT_LABELS, LOOK_ITEMS, DEFAULT_LOOK, STARTER_LOOKS, lookItem, itemsForSlot,
   isDefaultItem, starterLook, legacyLook, legacyRider, normalizeLook, keepIdentity, lookOf, isCompleteLook, lookKey,
-  sameLook, isColorless, partName, randomLook, lookParts, ownsWith, ownedLook, shownItemsForSlot
+  sameLook, isColorless, partName, randomLook, lookParts, ownsWith, ownedLook, shownItemsForSlot, newlyUnlockedItems, gearCard
 } from '../js/cosmetics.js';
 import { lookUnlock } from '../js/unlocks.js';
 import { readFileSync } from 'node:fs';
@@ -155,22 +155,42 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
 // --- Unlocks --------------------------------------------------------------------
 
 {
-  // The Pocket Classic takes 8 gold medals; the motocross helmet, The Bonny Tyler.
+  // The Pocket Classic takes Career Rider; Total Eclipse, The Bonny Tyler.
   const curlsTrail = 'bonus:01-the-bonny-tyler';
-  assert.deepEqual(lookUnlock('bike', 'classic'), { golds: 8 });
+  assert.deepEqual(lookUnlock('bike', 'classic'), { achievement: 'career-rider' });
   assert.deepEqual(lookUnlock('hair', 'big-curls'), { trail: curlsTrail });
   assert.equal(lookUnlock('helmet', 'mx'), null, 'the motocross helmet is everyone\'s');
 
-  const progress = (golds, finished = []) => ({ trails: 0, golds, finished: id => finished.includes(id), has: () => false });
+  const progress = (golds, finished = [], earned = []) =>
+    ({ trails: 0, golds, finished: id => finished.includes(id), has: id => earned.includes(id) });
   const nobody = ownsWith(null);
   assert.ok(nobody('bike', 'elasto') && !nobody('bike', 'classic'), 'won items need a career');
   const fresh = ownsWith(progress(0));
   assert.ok(fresh('bike', 'elasto') && !fresh('bike', 'classic') && !fresh('hair', 'big-curls'));
   assert.ok(!fresh('bike', 'rocket'), 'unknown items are never owned');
-  assert.ok(!ownsWith(progress(7))('bike', 'classic'));
+  assert.ok(!ownsWith(progress(37))('bike', 'classic'), 'golds alone don\'t win the Classic');
   assert.ok(!ownsWith(progress(20))('hair', 'big-curls'));
-  const veteran = ownsWith(progress(8, [curlsTrail]));
-  assert.ok(veteran('bike', 'classic') && veteran('hair', 'big-curls'));
+  const veteran = ownsWith(progress(8, [curlsTrail], ['career-rider']));
+  assert.ok(veteran('bike', 'classic') && veteran('helmet', 'bike') && veteran('hair', 'big-curls'));
+
+  // Each chapter's gear comes with its last trail: the cowboy hat with the desert's.
+  assert.ok(!fresh('helmet', 'cowboy'));
+  assert.ok(ownsWith(progress(0, ['official:15-mirage']))('helmet', 'cowboy'));
+  assert.ok(ownsWith(progress(0, ['official:30-rooftops']))('bike', 'scrambler'));
+
+  // What a step of progress won, for the game's New Gear card.
+  const won = newlyUnlockedItems(progress(0), progress(0, ['official:15-mirage'], ['career-rider']));
+  assert.deepEqual(won.map(item => `${item.slot}:${item.id}`).sort(), ['bike:classic', 'helmet:bike', 'helmet:cowboy']);
+  assert.deepEqual(newlyUnlockedItems(progress(0), progress(0)), [], 'nothing new, nothing announced');
+  assert.deepEqual(gearCard(lookItem('helmet', 'cowboy')), { name: 'Cowboy hat', blurb: 'Rides out of the desert at sundown.', icon: 'helmet' });
+  assert.deepEqual(gearCard(lookItem('outfitColor', 'yellow')), { name: 'Hi-vis', blurb: 'New outfit colour in the Garage.', icon: 'jacket' });
+
+  // Both starter looks are everyone's: a new rider can always keep theirs.
+  for (const gender of ['female', 'male']) {
+    for (const [slot, id] of Object.entries(starterLook(gender))) {
+      assert.ok(fresh(slot, id), `the ${gender} starter's ${slot} ${id} is open from the start`);
+    }
+  }
 
   // The dunce cap is a secret: won by asking the console for a cheat, and not
   // listed in the Garage, even locked, until then.
@@ -205,7 +225,8 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
   assert.equal(normalizeLook(look, { owns }).bike, DEFAULT_LOOK.bike);
   // A worn look keeps the rider's identity and swaps locked items for their starter ones.
   const worn = ownedLook({ ...look, hair: 'big-curls' }, isDefaultItem);
-  assert.deepEqual(worn, { ...look, hair: STARTER_LOOKS.female.hair, bike: STARTER_LOOKS.female.bike });
+  const starter = STARTER_LOOKS.female;
+  assert.deepEqual(worn, { ...look, hair: starter.hair, outfitColor: starter.outfitColor, bike: starter.bike });
   assert.ok(!Object.hasOwn(normalizeLook({ ...look, extra: 1 }), 'extra'));
 
   assert.deepEqual(lookOf({ rider: 'female' }), legacyLook('female'), 'old records keep their rider');
@@ -250,7 +271,7 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
   assert.equal(broken, null, 'saves with neither a look nor a rider are dropped');
   assert.deepEqual(newer.look, { ...DEFAULT_LOOK, skin: 'deep', helmet: 'none' });
 
-  const look = { ...starterLook('male', 'fair'), hair: 'buzz', hairColor: 'red', helmet: 'none', bike: 'classic', bikeColor: 'black' };
+  const look = { ...starterLook('male', 'fair'), hair: 'buzz', hairColor: 'red', helmet: 'none', bike: 'classic', bikeColor: 'blue' };
   const created = storage.createSave(1, look, 9, 'NEWBIE');
   assert.deepEqual(created.look, { ...look, bike: STARTER_LOOKS.male.bike }, 'a new rider has won nothing yet');
   assert.equal(created.rider, 'male');

@@ -204,6 +204,27 @@ export const isDefaultItem = (slot, id) => Boolean(lookItem(slot, id)) && !lookU
 export const ownsWith = progress => (slot, id) =>
   Boolean(lookItem(slot, id)) && unlockStatus(lookUnlock(slot, id), progress).open;
 
+/**
+ * The items a career has won between two snapshots of its progress (see
+ * progressOf in state.js): what a finished trail or an achievement unlocked.
+ * @param {import('./unlocks.js').UnlockProgress} before
+ * @param {import('./unlocks.js').UnlockProgress} after
+ */
+export const newlyUnlockedItems = (before, after) => LOOK_ITEMS.filter(item => {
+  const rule = lookUnlock(item.slot, item.id);
+  return rule && !unlockStatus(rule, before).open && unlockStatus(rule, after).open;
+});
+
+/** How the game announces a won item: its name, a line about it and its part's icon. */
+export function gearCard(item) {
+  const part = LOOK_PARTS.find(entry => entry.style === item.slot || entry.color === item.slot);
+  return {
+    name: item.name,
+    blurb: item.blurb ?? `New ${SLOT_LABELS[item.slot].toLowerCase()} in the Garage.`,
+    icon: part?.icon ?? 'garage',
+  };
+}
+
 /** Any item in the catalog: for looks already worn in a save, run or ghost. */
 const anyItem = (slot, id) => Boolean(lookItem(slot, id));
 

@@ -22,7 +22,7 @@ import { createCamera } from './camera.js';
 import { createEffects } from './effects.js';
 import { createRenderer } from './render.js';
 import { riderPalette } from './drawing.js';
-import { legacyRider, lookOf, lookParts } from './cosmetics.js';
+import { gearCard, legacyRider, lookOf, lookParts, newlyUnlockedItems } from './cosmetics.js';
 import { createOverlay } from './ui/overlay.js';
 import { createMenu, loadStoredState } from './ui/menu.js';
 import { $, session, currentTrailEntry, trailKey, timeText, isRankedSource, bonusUnlock, riderLook, progressOf } from './state.js';
@@ -274,7 +274,8 @@ export function startGame({ shared = null } = {}) {
   /**
    * Gives the active save the achievements in `ids` and adds `gains` to its
    * lifetime stats, then announces every achievement that is new since
-   * `before`, including career and stat ones the change completed. Without a
+   * `before`, including career and stat ones the change completed, and the
+   * gear the run or those achievements won. Without a
    * save nothing is kept: achievements belong to a rider. Editor play-tests
    * never count, like their times.
    * @param {string[]} ids
@@ -288,10 +289,14 @@ export function startGame({ shared = null } = {}) {
       const updated = recordAchievements(session.activeSaveSlot, trails.length, fresh, gains);
       if (updated) Object.assign(saveGame, updated);
     }
-    const earned = newlyEarned(before, progressOf(saveGame));
+    const after = progressOf(saveGame);
+    const earned = newlyEarned(before, after);
     for (const achievement of earned) overlay.achievement(achievement);
+    // The gear the run or those achievements won (see unlocks.js), for the Garage.
+    const won = newlyUnlockedItems(before, after);
+    for (const item of won) overlay.gear(gearCard(item));
     // Earned in the menu: its "earned" count is on screen.
-    if (earned.length && menu.isOpen()) menu.updateDashboard();
+    if ((earned.length || won.length) && menu.isOpen()) menu.updateDashboard();
     if (fresh.length || Object.keys(gains).length || earned.length) queueSaveSync(saveGame);
   }
 
@@ -1000,12 +1005,13 @@ export function startGame({ shared = null } = {}) {
   window.addEventListener('keyup', event => lim.up(event.code), { capture: true });
   window.addEventListener('blur', () => lim.clear());
   installConsoleCheats(() => egg('cheat'));
-  // In the menu, the achievement card is a shortcut to the list. It ignores
-  // clicks on the ride (see the CSS), so it can't interrupt a run.
+  // In the menu, the card is a shortcut to the achievements or the Garage. It
+  // ignores clicks on the ride (see the CSS), so it can't interrupt a run.
   $('achievement-popover').addEventListener('click', () => {
     if (!menu.isOpen() || !session.saveGame) return;
-    $('achievement-popover').hidePopover();
-    $('menu-achievements').click();
+    const popover = $('achievement-popover');
+    popover.hidePopover();
+    $(popover.dataset.opens === 'garage' ? 'menu-garage' : 'menu-achievements').click();
   });
   // Back from the editor: a reload, a page restored from the back-forward
   // cache, or the editor open in another tab.
