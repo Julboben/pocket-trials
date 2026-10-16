@@ -44,6 +44,7 @@ import { reducedMotion } from "./state.js";
 import { createLighting } from "./lighting.js";
 import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
 import { CAMERA_TALLY, HALFWAY_BEACON, HALFWAY_REACH } from "./event-props.js";
+import { SEARCHLIGHT, SEARCHLIGHT_BEAM } from "./prison-props.js";
 import { WATER_PROPS, FISH_DART, FISH_RANGE } from "./water-props.js";
 import { SQUIRREL_HIDE_MAX, SQUIRREL_RANGE } from "./forest-props.js";
 import {
@@ -110,6 +111,10 @@ const SCENERY_SHADOWS = {
   "petrol-can": { width: 8, alpha: 0.14, thickness: 3, lift: 10 },
   spectators: { width: 30, alpha: 0.12, thickness: 3, lift: 20 },
   "camera-tower": { width: 24, alpha: 0.14, thickness: 3, lift: 50 },
+  "prison-fence": { width: 40, alpha: 0.1, thickness: 3, lift: 20 },
+  watchtower: { width: 28, alpha: 0.15, thickness: 3, lift: 60 },
+  "jail-cell": { width: 36, alpha: 0.15, thickness: 3, lift: 26 },
+  "ball-and-chain": { width: 10, alpha: 0.14, thickness: 3, lift: 6 },
 };
 /** Seconds the scene takes to slow to a stop behind the results. */
 const WIN_SETTLE = 0.7;
@@ -145,6 +150,7 @@ const PROP_RISE = {
   snowman: 80,
   "camera-tower": 154,
   "halfway-flag": 126,
+  watchtower: -SEARCHLIGHT.y + 14,
 };
 // How far each prop's art hangs below its anchor, for culling.
 const PROP_HANG = {
@@ -155,6 +161,7 @@ const PROP_HANG = {
   "tutorial-lean": 34,
   "tutorial-flip": 34,
   "tutorial-light": 34,
+  "tally-marks": 18,
 };
 // How far each prop's art reaches either side of its anchor, for culling.
 const PROP_REACH = {
@@ -186,7 +193,7 @@ const STARTLE = {
 // and it is left out with reduced motion and in the lighter graphics mode.
 const HAZE_PROPS = new Set(["heat-haze"]);
 // Props that glow, and how far their light reaches either side, for culling.
-const GLOW_REACH = { lamp: 70, crane: 180, lantern: 100, mushrooms: 40, hut: 60, "camera-tower": 30, "halfway-flag": 30 };
+const GLOW_REACH = { lamp: 70, crane: 180, lantern: 100, mushrooms: 40, hut: 60, "camera-tower": 30, "halfway-flag": 30, watchtower: SEARCHLIGHT_BEAM.length + 20 };
 // How far a hair strand may sink into a floor and still be lifted back onto it.
 const HAIR_GROUND_ALLOWANCE = 8;
 // Markers for missing apples out of view keep this far (world units) inside
@@ -610,10 +617,12 @@ export function createRenderer(canvas) {
                 ? [CAMERA_TALLY.x, CAMERA_TALLY.y]
                 : prop.type === "halfway-flag"
                   ? [HALFWAY_BEACON.x, HALFWAY_BEACON.y]
-                  : [0, -10];
+                  : prop.type === "watchtower"
+                    ? [SEARCHLIGHT.x, SEARCHLIGHT.y]
+                    : [0, -10];
       const head = propPoint(prop, y, hx, hy);
       const dark = lighting.isDark(trail, head.x, head.y);
-      if (!dark && (prop.type === "lamp" || prop.type === "crane" || prop.type === "hut")) continue;
+      if (!dark && (prop.type === "lamp" || prop.type === "crane" || prop.type === "hut" || prop.type === "watchtower")) continue;
       const lit = passes.has(prop);
       if (prop.type === "halfway-flag" && !lit) continue;
       const fit = propWallFit(trail, prop);
@@ -627,7 +636,7 @@ export function createRenderer(canvas) {
         propGroundOffset(trail, prop),
         prop.flip,
         propScene.time,
-        { dark, trail, prop, fit, emissive: true, rotation, lit },
+        { dark, trail, prop, fit, emissive: true, rotation, lit, rider: { x: propScene.riderX, y: propScene.riderY } },
       );
     }
   }

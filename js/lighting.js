@@ -22,6 +22,7 @@ import { backWallGeometry, terrainAt, terrainGeometry } from "./terrain.js";
 import { LANTERN_CENTRE } from "./cave-props.js";
 import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
 import { HUT_WINDOW_CENTRE } from "./mountain-props.js";
+import { SEARCHLIGHT } from "./prison-props.js";
 
 // Per time of day: the light open sky gives, the light deep in a cave, how far
 // sky light soaks down through rock and fades in sideways through air, and how
@@ -246,7 +247,7 @@ export function createLighting() {
     const lights = [];
     for (const prop of trail.props || []) {
       const { type } = prop;
-      if (!["lantern", "lamp", "mushrooms", "crane", "hut"].includes(type)) continue;
+      if (!["lantern", "lamp", "mushrooms", "crane", "hut", "watchtower"].includes(type)) continue;
       const ground = terrainAt(trail, prop.x);
       if (!ground.solid && !Number.isFinite(prop.y)) continue;
       const y = Number.isFinite(prop.y) ? prop.y : ground.y;
@@ -270,6 +271,12 @@ export function createLighting() {
         const window = at(...HUT_WINDOW_CENTRE);
         if (!darkAt(entry, window.x, window.y)) continue;
         lights.push({ kind: "lantern", phase: prop.x, x: window.x, y: window.y, radius: 110, color: LANTERN, strength: 0.8, flare: LANTERN_FLARE });
+      } else if (type === "watchtower") {
+        // A glow round the searchlight itself, after dark; its beam moves, so
+        // drawing.js draws that.
+        const lamp = at(SEARCHLIGHT.x, SEARCHLIGHT.y);
+        if (!darkAt(entry, lamp.x, lamp.y)) continue;
+        lights.push({ x: lamp.x, y: lamp.y, radius: 56, color: LAMP, strength: 0.6, flare: LAMP_FLARE });
       } else {
         const top = at(...CRANE_LIGHTS[0]);
         if (!darkAt(entry, top.x, top.y)) continue;

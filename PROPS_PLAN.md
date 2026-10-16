@@ -66,6 +66,16 @@ A plan for the props to add to each level theme, plus guidelines for making them
 - [x] **Scaffolding**: in the foreground.
 - [ ] **Bench**
 
+## ⛓️ Prison
+
+- [x] **Prison fence**: chain-link, topped with razor wire.
+- [x] **Watchtower**: its searchlight sweeps, locks on to the rider and throws a beam after dark.
+- [x] **Jail cell**: the prisoner lounges on the bunk, then rattles the bars as you ride by.
+- [x] **Escape tunnel**: a prisoner peeks out and ducks back down when you come close.
+- [x] **Ball and chain**
+- [x] **Wanted poster**: with a mugshot of a rider in a helmet.
+- [x] **Tally marks**: scratched into the rock.
+
 ## 🕳️ Caves and underground
 *For the new terrain.*
 

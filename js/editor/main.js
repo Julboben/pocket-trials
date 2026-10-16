@@ -73,7 +73,11 @@ segmentSelects(document);
 
 pickerSelect($("trail-picker"), { title: "Trail" });
 
-pickerSelect($("selection-prop-type"), { title: "Prop", thumbnail: propThumbnail });
+pickerSelect($("selection-prop-type"), {
+  title: "Prop",
+  thumbnail: propThumbnail,
+  placeholder: "Mixed",
+});
 
 document
   .querySelectorAll("[data-tool]")

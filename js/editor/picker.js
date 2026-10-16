@@ -254,8 +254,9 @@ function open(select, { title, thumbnail }) {
 /**
  * Show `select` as a button that opens the searchable picker. `title` names
  * one option ("Prop"); `thumbnail(value)` may return an image URL for each.
+ * `placeholder` labels the button when no option is chosen.
  */
-export function pickerSelect(select, { title, thumbnail = null }) {
+export function pickerSelect(select, { title, thumbnail = null, placeholder = "" }) {
   if (!selectValue || select.dataset.picker) return;
   select.dataset.picker = "1";
   bind();
@@ -268,7 +269,7 @@ export function pickerSelect(select, { title, thumbnail = null }) {
     const option = select.selectedOptions[0];
     const label = document.createElement("span");
     label.className = "picker-trigger-label";
-    label.textContent = option ? clean(option.textContent) : "";
+    label.textContent = option ? clean(option.textContent) : placeholder;
     trigger.replaceChildren(
       ...(thumbnail && option ? [thumbnailImage(thumbnail, option.value)] : []),
       ...(option?.dataset.marker ? [markerLabel(option.dataset.marker)] : []),

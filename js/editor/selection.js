@@ -118,7 +118,10 @@ export function duplicateTarget(hit) {
   return null;
 }
 
-/** Step through prop types: the Prop tool's type, or else the selected prop's. */
+/**
+ * Step through prop types: the Prop tool's type, or else the selected props'.
+ * A group of mixed props all become the type after the first one's.
+ */
 export function cyclePropType(direction) {
   if (refuseEdit()) return;
   const types = propTypeOptions().map(([value]) => value);
@@ -128,31 +131,37 @@ export function cyclePropType(direction) {
     toolSettings.prop.type = next(toolSettings.prop.type);
     saveToolSettings();
     renderToolSettings();
-  } else if (editor.selection?.kind === "prop") {
-    const prop = editor.trail.props[editor.selection.index];
+  } else if (selectedOf("prop").length) {
+    const props = selectedOf("prop").map((index) => editor.trail.props[index]);
+    const type = next(props[0].type);
     pushHistory();
-    prop.type = next(prop.type);
-    if (prop.type === "sign" && typeof prop.text !== "string") prop.text = "";
+    for (const prop of props) {
+      prop.type = type;
+      if (prop.type === "sign" && typeof prop.text !== "string") prop.text = "";
+    }
     syncInspector();
   } else return;
   render();
 }
 
-/** Flip the Prop tool's next prop, or else the selected prop. */
+/**
+ * Flip the Prop tool's next prop, or else the selected props. A group flips
+ * together: back to normal if every one is flipped, otherwise all flipped.
+ */
 export function toggleFlip() {
   if (refuseEdit()) return;
   if (editor.tool === "prop") {
     toolSettings.prop.flip = !toolSettings.prop.flip;
     saveToolSettings();
     renderToolSettings();
-  } else if (
-    editor.selection?.kind === "prop" &&
-    canFlip(editor.trail.props[editor.selection.index].type)
-  ) {
+  } else if (flippableProps().length) {
+    const props = flippableProps();
+    const flip = !props.every((prop) => prop.flip);
     pushHistory();
-    const prop = editor.trail.props[editor.selection.index];
-    if (prop.flip) delete prop.flip;
-    else prop.flip = true;
+    for (const prop of props) {
+      if (flip) prop.flip = true;
+      else delete prop.flip;
+    }
     syncInspector();
   } else return;
   render();
@@ -166,6 +175,25 @@ export const OBJECT_LISTS = () => ({
   spike: editor.trail.spikes,
   water: waters(),
 });
+
+/** Indices of the selected objects of one type: a lone one, or each one in a group. */
+export function selectedOf(type) {
+  const list = OBJECT_LISTS()[type];
+  if (editor.selection?.kind === "items")
+    return editor.selection.items
+      .filter((item) => item.type === type && list?.[item.index])
+      .map((item) => item.index);
+  return editor.selection?.kind === type && list?.[editor.selection.index]
+    ? [editor.selection.index]
+    : [];
+}
+
+/** The selected props that can be flipped. */
+export function flippableProps() {
+  return selectedOf("prop")
+    .map((index) => editor.trail.props[index])
+    .filter((prop) => canFlip(prop.type));
+}
 
 export function sameItem(a, b) {
   if (a.type !== b.type || a.index !== b.index) return false;

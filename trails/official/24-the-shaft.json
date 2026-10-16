@@ -990,7 +990,7 @@
       "x": 600,
       "y": 850,
       "type": "lantern",
-      "layer": "back"
+      "layer": "front"
     },
     {
       "x": 100,
@@ -1008,7 +1008,7 @@
       "x": 600,
       "y": 710,
       "type": "lantern",
-      "layer": "back"
+      "layer": "front"
     },
     {
       "x": 100,
@@ -1044,6 +1044,18 @@
       "x": 99,
       "y": 500,
       "type": "lantern",
+      "layer": "back"
+    },
+    {
+      "x": 658.159227993991,
+      "y": 929.7207232377234,
+      "type": "jail-cell",
+      "layer": "back"
+    },
+    {
+      "x": 583.4189232375261,
+      "y": 929.3924329917197,
+      "type": "jail-cell",
       "layer": "back"
     }
   ],

@@ -1,5 +1,5 @@
 // The selection and trail panels on the right.
-import { TEXT_PROPS, canFlip, canRotate } from "../drawing.js";
+import { TEXT_PROPS, canRotate } from "../drawing.js";
 import {
   cubicPoint,
   edgeCurve,
@@ -50,6 +50,8 @@ import {
   moveItems,
   releaseLocked,
   revealItem,
+  selectedOf,
+  flippableProps,
   selectionItems,
 } from "./selection.js";
 import { editor, waters } from "./state.js";
@@ -184,20 +186,35 @@ export function syncInspector({ live = false } = {}) {
     editor.selection?.kind,
   );
   $("selection-facing-row").hidden = editor.selection?.kind !== "start";
-  $("selection-prop-type-row").hidden = editor.selection?.kind !== "prop";
-  $("selection-layer-row").hidden = editor.selection?.kind !== "prop";
+  // A group's props and spikes share their type, layer, flip, radius and spin
+  // fields. Where they differ the field shows Mixed, and a new value sets them all.
+  const props = selectedOf("prop").map((index) => editor.trail.props[index]);
+  const flippable = flippableProps();
+  $("selection-prop-type-row").hidden = !props.length;
+  $("selection-layer-row").hidden = !props.length;
+  $("selection-flip-row").hidden = !flippable.length;
+  if (props.length) {
+    $("selection-prop-type").value = shared(props.map((prop) => prop.type));
+    $("selection-layer").value = shared(props.map(propLayer));
+  }
+  if (flippable.length)
+    $("selection-flip").value = shared(flippable.map((prop) => String(Boolean(prop.flip))));
   $("selection-prop-text-row").hidden =
     editor.selection?.kind !== "prop" || !TEXT_PROPS.has(editor.trail.props[editor.selection.index]?.type);
   const selectedProp = editor.selection?.kind === "prop" ? editor.trail.props[editor.selection.index] : null;
-  $("selection-flip-row").hidden = !selectedProp || !canFlip(selectedProp.type);
-  if (selectedProp) $("selection-flip").value = String(Boolean(selectedProp.flip));
   $("selection-rotation-row").hidden = !selectedProp || !canRotate(selectedProp.type);
   if (selectedProp && document.activeElement !== $("selection-rotation"))
     $("selection-rotation").value = selectedProp.rotation || 0;
   // A lone prop has its own Rotation field; blocks and groups turn by a quarter.
   $("selection-rotate-row").hidden = Boolean(selectedProp) || !canRotateSelection();
-  $("selection-radius-row").hidden = editor.selection?.kind !== "spike";
-  $("selection-spin-row").hidden = editor.selection?.kind !== "spike";
+  const spikes = selectedOf("spike").map((index) => editor.trail.spikes[index]);
+  for (const key of ["radius", "spin"]) {
+    $(`selection-${key}-row`).hidden = !spikes.length;
+    if (!spikes.length) continue;
+    const value = shared(spikes.map((spike) => spike[key]));
+    $(`selection-${key}`).value = value;
+    $(`selection-${key}`).placeholder = value === "" ? "Mixed" : "";
+  }
   const selectedWater =
     editor.selection?.kind === "water" ? waters()[editor.selection.index] : null;
   $("selection-water-width-row").hidden = !selectedWater;
@@ -229,13 +246,7 @@ export function syncInspector({ live = false } = {}) {
   if (editor.selection?.kind === "start")
     $("selection-facing").value = String(editor.trail.start.facing);
   if (editor.selection?.kind === "prop") {
-    $("selection-prop-type").value = editor.trail.props[editor.selection.index].type;
-    $("selection-layer").value = editor.trail.props[editor.selection.index].layer;
     $("selection-prop-text").value = editor.trail.props[editor.selection.index].text || "";
-  }
-  if (editor.selection?.kind === "spike") {
-    $("selection-radius").value = editor.trail.spikes[editor.selection.index].radius;
-    $("selection-spin").value = editor.trail.spikes[editor.selection.index].spin;
   }
   if (live) {
     clearTimeout(pendingDetails);
@@ -245,6 +256,11 @@ export function syncInspector({ live = false } = {}) {
 }
 
 let pendingDetails = null;
+
+const propLayer = (prop) => (prop.layer === "front" ? "front" : "back");
+
+/** The value every one of `values` has, or "" when they differ. */
+const shared = (values) => (new Set(values).size === 1 ? values[0] : "");
 
 function syncDetails() {
   clearTimeout(pendingDetails);
@@ -610,12 +626,15 @@ export function bindInspector() {
   });
 
   $("selection-flip").addEventListener("change", (event) => {
-    if (editor.selection?.kind !== "prop") return;
-    const prop = editor.trail.props[editor.selection.index];
-    if (!canFlip(prop.type)) return;
-    pushHistory();
-    if (event.target.value === "true") prop.flip = true;
-    else delete prop.flip;
+    const flip = event.target.value === "true";
+    const chosen = flippableProps().filter((prop) => Boolean(prop.flip) !== flip);
+    if (chosen.length) {
+      pushHistory();
+      for (const prop of chosen) {
+        if (flip) prop.flip = true;
+        else delete prop.flip;
+      }
+    }
     syncInspector();
     render();
   });
@@ -642,20 +661,30 @@ export function bindInspector() {
     });
 
   $("selection-prop-type").addEventListener("change", (event) => {
-    if (editor.selection?.kind !== "prop") return;
-    pushHistory();
-    const prop = editor.trail.props[editor.selection.index];
-    prop.type = event.target.value;
-    if (prop.type === "sign" && typeof prop.text !== "string") prop.text = "";
+    const type = event.target.value;
+    const chosen = selectedOf("prop")
+      .map((index) => editor.trail.props[index])
+      .filter((prop) => prop.type !== type);
+    if (type && chosen.length) {
+      pushHistory();
+      for (const prop of chosen) {
+        prop.type = type;
+        if (prop.type === "sign" && typeof prop.text !== "string") prop.text = "";
+      }
+    }
     syncInspector();
     render();
   });
 
   $("selection-layer").addEventListener("change", (event) => {
-    if (editor.selection?.kind !== "prop") return;
-    pushHistory();
-    editor.trail.props[editor.selection.index].layer =
-      event.target.value === "front" ? "front" : "back";
+    const layer = event.target.value === "front" ? "front" : "back";
+    const chosen = selectedOf("prop")
+      .map((index) => editor.trail.props[index])
+      .filter((prop) => propLayer(prop) !== layer);
+    if (chosen.length) {
+      pushHistory();
+      for (const prop of chosen) prop.layer = layer;
+    }
     syncInspector();
     render();
   });
@@ -684,25 +713,28 @@ export function bindInspector() {
 
   $("selection-prop-text").addEventListener("change", () => syncInspector());
 
+  // Clearing a Mixed field leaves the spikes as they were.
   $("selection-radius").addEventListener("change", (event) => {
-    if (editor.selection?.kind !== "spike") return;
-    pushHistory();
-    editor.trail.spikes[editor.selection.index].radius = Math.max(
-      SPIKE_RADIUS.min,
-      Math.min(
-        SPIKE_RADIUS.max,
-        Number(event.target.value) || SPIKE_RADIUS.default,
-      ),
-    );
+    const spikes = selectedOf("spike").map((index) => editor.trail.spikes[index]);
+    if (spikes.length && event.target.value !== "") {
+      pushHistory();
+      const radius = Math.max(
+        SPIKE_RADIUS.min,
+        Math.min(SPIKE_RADIUS.max, Number(event.target.value) || SPIKE_RADIUS.default),
+      );
+      for (const spike of spikes) spike.radius = radius;
+    }
     syncInspector();
     render();
   });
 
   $("selection-spin").addEventListener("change", (event) => {
-    if (editor.selection?.kind !== "spike") return;
-    pushHistory();
-    const spin = Number(event.target.value);
-    editor.trail.spikes[editor.selection.index].spin = Number.isFinite(spin) ? spin : 0;
+    const spikes = selectedOf("spike").map((index) => editor.trail.spikes[index]);
+    if (spikes.length && event.target.value !== "") {
+      pushHistory();
+      const spin = Number(event.target.value);
+      for (const spike of spikes) spike.spin = Number.isFinite(spin) ? spin : 0;
+    }
     syncInspector();
     render();
   });

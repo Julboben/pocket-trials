@@ -504,6 +504,13 @@ export function validateTrail(trail) {
         "tutorial-lean",
         "tutorial-flip",
         "tutorial-light",
+        "prison-fence",
+        "watchtower",
+        "jail-cell",
+        "escape-tunnel",
+        "ball-and-chain",
+        "wanted-poster",
+        "tally-marks",
         ...WATER_PROPS,
       ].includes(prop.type)
     )

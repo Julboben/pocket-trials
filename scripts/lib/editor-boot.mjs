@@ -380,6 +380,70 @@ if (kind === 'rotate') {
   process.exit(0);
 }
 
+// Editing a group's props and spikes together from the inspector and keys.
+if (kind === 'group') {
+  const { editor } = await import('../../js/editor/state.js');
+  const { syncInspector } = await import('../../js/editor/inspector.js');
+  const field = id => document.getElementById(id);
+  const out = {};
+  const undo = field('undo');
+  const select = () => {
+    editor.selection = {
+      kind: 'items',
+      items: [0, 1, 2].map(index => ({ type: 'prop', index }))
+        .concat([0, 1].map(index => ({ type: 'spike', index }))),
+    };
+    syncInspector();
+  };
+  const set = (id, value) => {
+    field(id).value = value;
+    field(id).dispatch('change');
+  };
+  select();
+  out.rowsShown = ['prop-type', 'layer', 'flip', 'radius', 'spin']
+    .every(name => field(`selection-${name}-row`).hidden === false);
+  out.mixed = ['prop-type', 'layer', 'radius', 'spin'].map(name => field(`selection-${name}`).value);
+  // The sign can't flip, so only the tree and the rock count: one of each.
+  out.flipMixed = field('selection-flip').value;
+
+  set('selection-layer', 'front');
+  out.layers = current().props.map(prop => prop.layer);
+  out.layerShared = field('selection-layer').value;
+  undo.click();
+  out.layersUndone = current().props.map(prop => prop.layer);
+
+  set('selection-flip', 'true');
+  out.flips = current().props.map(prop => Boolean(prop.flip));
+  undo.click();
+
+  set('selection-prop-type', 'pine');
+  out.types = current().props.map(prop => prop.type);
+  undo.click();
+  select();
+
+  set('selection-radius', '40');
+  out.radii = current().spikes.map(spike => spike.radius);
+  undo.click();
+  select();
+  // Clearing a Mixed field changes nothing.
+  set('selection-radius', '');
+  out.radiiCleared = current().spikes.map(spike => spike.radius);
+  set('selection-spin', '-0.5');
+  out.spins = current().spikes.map(spike => spike.spin);
+  undo.click();
+  select();
+
+  // X flips the group, and again unflips it, once all of them are flipped.
+  key('x', { code: 'KeyX' });
+  out.keyFlip = current().props.map(prop => Boolean(prop.flip));
+  key('x', { code: 'KeyX' });
+  out.keyUnflip = current().props.map(prop => Boolean(prop.flip));
+  key(']');
+  out.cycled = new Set(current().props.map(prop => prop.type)).size;
+  process.stdout.write(JSON.stringify(out));
+  process.exit(0);
+}
+
 // A roof or cave ceiling placed or dragged over something standing on the
 // ground must not lift it onto the new top.
 // Locking a group or an item in the Objects tab, and what it then refuses.

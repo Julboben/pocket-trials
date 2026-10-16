@@ -210,6 +210,36 @@ import {
   splitText,
 } from "./event-props.js";
 import {
+  CELL_BUNK,
+  PRISONER_SKINS,
+  PRISON_FENCE_BOUNDS,
+  SEARCHLIGHT,
+  SEARCHLIGHT_LIGHT,
+  TALLY_BOUNDS,
+  TUNNEL_DEPTH,
+  WANTED,
+  WANTED_POST_TOP,
+  WATCHTOWER_BODY_BOTTOM,
+  WATCHTOWER_LEGS,
+  cellPrisoner,
+  drawBallAndChain,
+  drawCellBack,
+  drawCellBars,
+  drawPrisonFence,
+  drawPrisoner,
+  drawPrisonerBust,
+  drawPrisonerHands,
+  drawSearchlight,
+  drawTallyMarks,
+  drawTunnelLip,
+  drawTunnelMound,
+  drawWantedPoster,
+  drawWatchtower,
+  searchlightAim,
+  searchlightBeam,
+  tunnelPeek,
+} from "./prison-props.js";
+import {
   CORGI_BOUNDS,
   CORGI_RANGE,
   CORGI_STEP,
@@ -238,6 +268,9 @@ const GROUND_ALIGNED_PROP_SPANS = {
   "tyre-wall": [-44, 44],
   "hay-bales": [-34, 34],
   "petrol-can": [-10, 10],
+  "prison-fence": [-44, 44],
+  "ball-and-chain": [-18, 16],
+  "escape-tunnel": [-20, 20],
 };
 
 /**
@@ -1020,20 +1053,21 @@ export function sunShadowOffset({
 export const WALL_PROPS = new Set(["vines", "roots", "moss"]);
 // Graffiti is painted onto the rock itself rather than stood in front of it or
 // behind it, so it is drawn just after the terrain whatever its layer.
-export const PAINTED_PROPS = new Set(["graffiti", "tutorial-lean", "tutorial-flip", "tutorial-light"]);
+export const PAINTED_PROPS = new Set(["graffiti", "tutorial-lean", "tutorial-flip", "tutorial-light", "tally-marks"]);
 // The art of each painted prop: its local bounds and how to draw it.
 const PAINTED_ART = {
   graffiti: { bounds: GRAFFITI_BOUNDS, draw: drawGraffiti },
   "tutorial-lean": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLean },
   "tutorial-flip": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialFlip },
   "tutorial-light": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLight },
+  "tally-marks": { bounds: TALLY_BOUNDS, draw: drawTallyMarks },
 };
 /** A painted prop's local bounds, [left, top, right, bottom]. */
 export const paintedBounds = (type) => (PAINTED_ART[type] ?? PAINTED_ART.graffiti).bounds;
 // Props whose `text` the author sets: signs, banners and pit boards.
 export const TEXT_PROPS = new Set(["sign", "banner", "pit-board"]);
 // Props that print text or numbers, which would read backwards mirrored.
-const LETTERED_PROPS = new Set(["banner", "pit-board", "halfway-flag"]);
+const LETTERED_PROPS = new Set(["banner", "pit-board", "halfway-flag", "wanted-poster"]);
 // Props that hang from a cave ceiling. Each looks up from its anchor for the
 // nearest roof; see propWallFit.
 export const CEILING_PROPS = new Set([
@@ -1047,7 +1081,7 @@ export const CEILING_PROPS = new Set([
 // Cave props that fit themselves to the rock around them: support beams reach
 // up to the roof, and a mine cart's rails run along the floor to the walls.
 const CAVE_FITTED_PROPS = new Set([...CEILING_PROPS, "beams", "minecart"]);
-// Signs, banners, pit boards and the halfway flag would mirror their text,
+// Signs, banners, pit boards, the halfway flag and wanted posters would mirror their text,
 // as would graffiti; wall props already turn to face
 // the wall, and ceiling props and beams are symmetric or lit from the right.
 export const canFlip = (type) =>
@@ -3300,6 +3334,13 @@ const CANOPY_SPRITES = {
   "tutorial-lean": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLean },
   "tutorial-flip": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialFlip },
   "tutorial-light": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLight },
+  "tally-marks": { bounds: TALLY_BOUNDS, draw: drawTallyMarks },
+  "prison-fence": { bounds: PRISON_FENCE_BOUNDS, draw: drawPrisonFence },
+  watchtower: { bounds: [-36, -166, 36, WATCHTOWER_BODY_BOTTOM], draw: drawWatchtower },
+  "jail-cell": { bounds: [-42, -86, 42, 0], draw: drawCellBack },
+  "ball-and-chain": { bounds: [-22, -20, 22, 0], draw: drawBallAndChain },
+  "escape-tunnel": { bounds: [-28, -26, 28, 0], draw: drawTunnelMound },
+  "wanted-poster": { bounds: [WANTED.left, WANTED.top, WANTED.left + WANTED.width, WANTED.top + WANTED.height], draw: drawWantedPoster },
 };
 const canopySprites = new Map();
 
@@ -3430,6 +3471,15 @@ const PROP_EXTENTS = {
   "tutorial-lean": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
   "tutorial-flip": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
   "tutorial-light": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
+  "tally-marks": [TALLY_BOUNDS[0], TALLY_BOUNDS[1], TALLY_BOUNDS[2]],
+  "prison-fence": [-52, -72, 52],
+  // Room for the searchlight turning on the roof.
+  watchtower: [-38, SEARCHLIGHT.y - 14, 38],
+  "jail-cell": [-42, -86, 42],
+  "ball-and-chain": [-22, -20, 22],
+  // The prisoner's head pokes up out of the hole.
+  "escape-tunnel": [-28, -34, 28],
+  "wanted-poster": [WANTED.left - 2, WANTED.top - 2, WANTED.left + WANTED.width + 2],
 };
 // How far below its anchor each ceiling prop's art can reach.
 const CEILING_HANG = {
@@ -4277,6 +4327,14 @@ export function createGameArt(ctx) {
     const s = Math.sin(n * 127.1 + x * 311.7) * 43758.5453;
     return s - Math.floor(s);
   };
+
+  // Where a watchtower at (x, y) points its searchlight, in its own frame:
+  // locked on to the rider at (riderX, riderY) once close, sweeping otherwise.
+  function searchlightAimAt(time, x, y, riderX, riderY, mirrored) {
+    const dx = Number.isFinite(riderX) ? (riderX - x) * (mirrored ? -1 : 1) - SEARCHLIGHT.x : null;
+    const dy = Number.isFinite(riderY) ? riderY - (y + SEARCHLIGHT.y) : null;
+    return searchlightAim(time, propNoise(x, 22), dx, dy);
+  }
 
   // Hanging from a cliff's top corner. `wall.drop` is the free fall below.
   function drawVines(x, wall) {
@@ -5230,6 +5288,62 @@ export function createGameArt(ctx) {
         }
         ctx.globalAlpha = base;
       }
+    } else if (type === "prison-fence" || type === "ball-and-chain") {
+      drawCanopy(type);
+    } else if (type === "watchtower") {
+      drawCanopy(type);
+      for (const [index, lx] of WATCHTOWER_LEGS.entries()) {
+        rectDownTo(lx, WATCHTOWER_BODY_BOTTOM, 2, index ? FARM_WOOD.light : FARM_WOOD.dark, 2, groundOffset);
+        rectDownTo(lx + 2, WATCHTOWER_BODY_BOTTOM, 2, index ? FARM_WOOD.tip : FARM_WOOD.base, 2, groundOffset);
+        const foot = Math.round(groundOffset(lx + 2) / 2) * 2;
+        pixelRect(lx - 2, foot - 4, 8, 4, "#8b978c", 2);
+        pixelRect(lx - 2, foot - 4, 8, 2, "#aeb5a7", 2);
+      }
+      // The searchlight sweeps, and swings round to the rider once close.
+      const angle = searchlightAimAt(scene.time || 0, x, y, scene.riderX, scene.riderY, mirrored);
+      drawSearchlight({ pixelRect, pixelPath, drawPixelDisc }, angle, false);
+    } else if (type === "jail-cell") {
+      // The prisoner lounges on the bunk, and comes to rattle the bars when
+      // the rider rides by, watching them go.
+      drawCanopy(type);
+      const tools = { pixelRect };
+      const skin = PRISONER_SKINS[Math.floor(propNoise(x, 21) * PRISONER_SKINS.length)];
+      const { pose, rattle } = cellPrisoner(scene, x, y);
+      const look = riderSide(scene, x, mirrored);
+      ctx.save();
+      if (pose === "sit") ctx.translate(CELL_BUNK.x, CELL_BUNK.y);
+      else ctx.translate(rattle, -4);
+      drawPrisoner(tools, skin, pose, look);
+      ctx.restore();
+      drawCellBars(tools);
+      if (pose === "stand") {
+        ctx.save();
+        ctx.translate(rattle, -4);
+        drawPrisonerHands(tools, skin);
+        ctx.restore();
+      }
+    } else if (type === "escape-tunnel") {
+      // A prisoner peeks out of the tunnel, and sinks back out of sight as
+      // the rider comes close.
+      drawCanopy(type);
+      const peek = tunnelPeek(scene, x, y, propNoise(x, 20));
+      if (peek.rise > 0) {
+        const skin = PRISONER_SKINS[Math.floor(propNoise(x, 21) * PRISONER_SKINS.length)];
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(-40, -80, 80, 76);
+        ctx.clip();
+        ctx.translate(0, -2 + Math.round(((1 - peek.rise) * TUNNEL_DEPTH) / 2) * 2);
+        drawPrisonerBust({ pixelRect }, skin, mirrored ? -peek.look : peek.look);
+        ctx.restore();
+      }
+      drawTunnelLip({ pixelRect });
+    } else if (type === "wanted-poster") {
+      rectDownTo(-2, WANTED_POST_TOP, 2, FARM_WOOD.base, 2, groundOffset);
+      rectDownTo(0, WANTED_POST_TOP, 2, FARM_WOOD.tip, 2, groundOffset);
+      drawCanopy(type);
+      drawPixelText(WANTED.title.text, 0, WANTED.title.y, "#182321");
+      drawPixelText(WANTED.reward.text, 0, WANTED.reward.y, "#a8322a");
     } else if (type === "vulture" && scene.swoop) {
       // Swooping down to a crashed rider: drawn at its body, which x and y
       // already are (see vultureSwoop).
@@ -6141,7 +6255,7 @@ export function createGameArt(ctx) {
     groundOffset = () => 0,
     flip = false,
     time = 0,
-    { dark = true, trail = null, prop = null, fit = null, emissive = false, rotation = 0, lit = false } = {},
+    { dark = true, trail = null, prop = null, fit = null, emissive = false, rotation = 0, lit = false, rider = null } = {},
   ) {
     const dir = flip ? -1 : 1;
     const strength = dark ? 1 : 0.5;
@@ -6222,7 +6336,32 @@ export function createGameArt(ctx) {
         pixelRect(bx - 2, by - 2, 4, 2, HALFWAY_LIGHT.core, 2);
       }
     } else if (!dark) {
-      // Lamps, crane lights and hut windows stay off by day.
+      // Lamps, crane lights, hut windows and searchlights stay off by day.
+    } else if (type === "watchtower") {
+      // The searchlight's beam, and the spot it throws where it meets the
+      // ground. It moves, so it is drawn here rather than baked into the
+      // lighting.
+      ctx.scale(dir, 1);
+      const local = (lx) => groundOffset(lx * dir);
+      const angle = searchlightAimAt(time, x, y, rider?.x, rider?.y, flip);
+      const { cells, hit } = searchlightBeam(angle, local);
+      ctx.globalCompositeOperation = "screen";
+      for (const cell of cells) {
+        ctx.globalAlpha = cell.alpha;
+        pixelRect(cell.x, cell.y, 4, 4, SEARCHLIGHT_LIGHT.beam, 2);
+      }
+      if (hit) {
+        const half = Math.round(hit.width / 2) * 2;
+        for (let dx = -half; dx < half; dx += 2) {
+          const reach = Math.abs(dx + 1) / half;
+          ctx.globalAlpha = reach < 0.5 ? 0.4 : 0.22;
+          const gy = Math.round(local(hit.x + dx) / 2) * 2;
+          pixelRect(hit.x + dx, gy - 6, 2, 8, SEARCHLIGHT_LIGHT.beam, 2);
+        }
+      }
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+      drawSearchlight({ pixelRect, pixelPath, drawPixelDisc }, angle, true);
     } else if (type === "hut") {
       // Firelight in the window, flickering like a lantern, and the light it
       // throws on the snow below.

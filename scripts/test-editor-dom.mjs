@@ -162,6 +162,25 @@ const reported = (report, label) => {
 }
 
 // ---------------------------------------------------------------------------
+// A group's props and spikes share their inspector fields.
+// ---------------------------------------------------------------------------
+{
+  const report = await boot('group');
+  const json = JSON.stringify;
+  check('a group of props and spikes shows their shared fields', report.rowsShown === true);
+  check('fields that differ across the group show blank', json(report.mixed) === json(['', '', '', '']) && report.flipMixed === '', `(${json(report.mixed)}, ${json(report.flipMixed)})`);
+  check('Prop layer moves every selected prop', json(report.layers) === json(['front', 'front', 'front']) && report.layerShared === 'front', `(${json(report.layers)})`);
+  check('one undo puts the layers back', json(report.layersUndone) === json(['back', 'front', 'back']), `(${json(report.layersUndone)})`);
+  check('Flip skips props that cannot flip', json(report.flips) === json([true, true, false]), `(${json(report.flips)})`);
+  check('Prop type changes every selected prop', json(report.types) === json(['pine', 'pine', 'pine']), `(${json(report.types)})`);
+  check('Radius sets every selected spike', json(report.radii) === json([40, 40]), `(${json(report.radii)})`);
+  check('clearing a mixed Radius changes nothing', json(report.radiiCleared) === json([20, 30]), `(${json(report.radiiCleared)})`);
+  check('Spin sets every selected spike', json(report.spins) === json([-0.5, -0.5]), `(${json(report.spins)})`);
+  check('X flips the whole group, then unflips it', json(report.keyFlip) === json([true, true, false]) && json(report.keyUnflip) === json([false, false, false]), `(${json(report.keyFlip)}, ${json(report.keyUnflip)})`);
+  check('] gives the whole group one type', report.cycled === 1, `(${report.cycled})`);
+}
+
+// ---------------------------------------------------------------------------
 // The Water tool draws, places and edits water bodies like the other tools.
 // ---------------------------------------------------------------------------
 {

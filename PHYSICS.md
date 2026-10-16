@@ -99,6 +99,10 @@ Tune restitution, friction, suspension compliance/damping, and the grounded-norm
 
 The suspension damper is a velocity pass after the contact and traction solve, and it is coupled to the tires correctly: its force reaches the ground through the wheel on the next contact solve, as a real damper pushes on the wheel and the wheel on the ground. Measured over 40–300 px drops, the ground force the tires record (`groundLoad`, which tire grip uses) matches the force the ground really gave the bike, from its change in momentum, within 0.1% on every step, with or without the bottoming cone. Stronger damping therefore does not take grip away. When a tuning change seems to, look at timing first: a locked bike rocks on its springs for a moment as it stops, which is why the 35° hill brake check looks for a stop held over a window rather than at one step.
 
+## Concave corners
+
+Measured in 2026-10, with no change needed. Terrain contact returns only the nearest piece of each block, so a wheel in an inside corner is pushed out of one face at a time. Wheel collision runs once with the sweep and again in each of the 7 solver iterations, though, so a wedged wheel is pushed out of each face in turn and ends every step clear of both. In V notches small enough for one wheel to touch both faces (±30–60°, 6–10 px deep) it never ends a step overlapping the ground, settles at rest with at most 1.8 px/s of creep, and rises at most 57 px/s rolling through at 350 px/s (54–59 for the same notch rounded) and 25 px/s landing in from 80 px (15–20 rounded). Against a vertical wall it stops dead without bouncing back. A sharp kink into a ramp gives a bigger one-step jolt than a rounded one (82 against 14 px/s into a 50° ramp at 150 px/s), as the wheel turns at once instead of along the curve. That is the corner's shape, not the solver, and it never bounces the bike higher than the rounded kink. Look again only if a ride shows sudden bounces at a specific corner.
+
 ## Next steps
 
 1. Replace the bot-recorded fixtures with hand-ridden replays once handling tuning settles, since bot lines avoid some of the riskier features.
