@@ -2,12 +2,12 @@
   "name": "Boomerang",
   "label": "BOOMERANG / 19",
   "finish": {
-    "x": 720,
-    "y": -60
+    "x": 780,
+    "y": null
   },
-  "description": "Turning around in the air. The kicker curls past vertical, so it throws you straight up and slightly back. Hit it hard, press turn (Space) while you're in the air, and land facing back on the ledge above the run-up. The ledge leads to a second kicker facing the other way: do it again to reach the top ledge and the finish.",
+  "description": "Turning around in the air, four times, up a tower of ledges. Each kicker curls past vertical, so it throws you straight up and slightly back. Hold the gas all the way in, level the bike as it rises, press turn (Space) near the top and land facing back on the ledge above the run-up. The grass kicker lands you on the dirt ledge, the dirt kicker on the boardwalk, the boardwalk kicker on the stone ledge, and the stone kicker on the summit with the finish. Apples hang in three of the throws, so a full-speed run collects them on the way. A short throw drops you back onto the run-up below.",
   "start": {
-    "x": 120,
+    "x": -100,
     "y": null,
     "facing": 1
   },
@@ -22,231 +22,247 @@
             "id": "ground-0",
             "x": -1000,
             "y": 1200,
-            "mode": "corner",
             "in": null,
             "out": null,
+            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "ground-1",
             "x": -1000,
             "y": 100,
-            "mode": "corner",
             "in": null,
             "out": null,
+            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "ground-2",
-            "x": -420,
+            "x": -720,
             "y": 100,
-            "mode": "smooth",
-            "in": [
-              -613.3333,
-              100
-            ],
+            "in": null,
             "out": [
-              -380,
+              -680,
               100
             ],
+            "mode": "independent",
             "edge": "curve"
           },
           {
             "id": "ground-3",
-            "x": -300,
+            "x": -600,
             "y": 300,
-            "mode": "smooth",
             "in": [
-              -340,
+              -640,
               300
             ],
             "out": [
-              -273.3333,
+              -573.3,
               300
             ],
+            "mode": "smooth",
             "edge": "curve"
           },
           {
             "id": "ground-4",
-            "x": -220,
+            "x": -520,
             "y": 300,
-            "mode": "independent",
             "in": [
-              -248,
+              -548,
               300
             ],
             "out": [
-              -206,
+              -506,
               308.4
             ],
+            "mode": "independent",
             "edge": "curve"
           },
           {
             "id": "ground-5",
-            "x": -180,
+            "x": -480,
             "y": 324,
-            "mode": "independent",
             "in": [
-              -194,
+              -494,
               315.6
             ],
             "out": [
-              -138,
+              -438,
               324
             ],
+            "mode": "independent",
             "edge": "curve"
           },
           {
             "id": "ground-6",
-            "x": -60,
+            "x": -360,
             "y": 324,
-            "mode": "independent",
             "in": [
-              -102,
+              -402,
               324
             ],
             "out": [
-              -46,
+              -346,
               315.6
             ],
+            "mode": "independent",
             "edge": "curve"
           },
           {
             "id": "ground-7",
-            "x": -20,
+            "x": -320,
             "y": 300,
-            "mode": "independent",
             "in": [
-              -34,
+              -334,
               308.4
             ],
-            "out": [
-              214.5,
-              300
-            ],
-            "edge": "curve"
+            "out": null,
+            "mode": "independent",
+            "edge": "straight"
           },
           {
             "id": "ground-8",
-            "x": 650,
+            "x": 900,
             "y": 300,
-            "mode": "smooth",
-            "in": [
-              426.6667,
-              300
-            ],
+            "in": null,
             "out": [
-              684.6296,
+              930.7829,
               300
             ],
+            "mode": "independent",
             "edge": "curve"
           },
           {
-            "id": "nu8h",
-            "x": 796.4206,
-            "y": 274.1713,
-            "mode": "independent",
+            "id": "ground-9",
+            "x": 986.0365,
+            "y": 272.8728,
             "in": [
-              744.9434,
-              294.6154
+              960.8206,
+              290.5292
             ],
             "out": [
-              826.0449,
-              259.7819
+              1011.2524,
+              255.2164
             ],
+            "mode": "smooth",
             "edge": "curve"
           },
           {
             "id": "ground-10",
-            "x": 870.88,
-            "y": 217.9212,
-            "mode": "independent",
+            "x": 1040.9539,
+            "y": 201.303,
             "in": [
-              845.8044,
-              250.2733
+              1030.4255,
+              230.2295
             ],
             "out": [
-              884.1542,
-              202.0965
+              1051.4823,
+              172.3765
             ],
+            "mode": "smooth",
             "edge": "curve"
+          },
+          {
+            "id": "ground-11",
+            "x": 1044.8889,
+            "y": 111.1771,
+            "in": [
+              1052.8561,
+              140.9112
+            ],
+            "out": null,
+            "mode": "independent",
+            "edge": "straight"
           },
           {
             "id": "ground-12",
-            "x": 879.0869,
-            "y": 151.6284,
-            "mode": "independent",
-            "in": [
-              885.1444,
-              162.7204
-            ],
-            "out": [
-              879.3453,
-              150.603
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "naug",
-            "x": 879.1968,
-            "y": 146.1407,
-            "mode": "independent",
-            "in": [
-              877.7194,
-              148.7455
-            ],
-            "out": [
-              880.2794,
-              144.1068
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "n2qr",
-            "x": 894.1344,
-            "y": 141.1683,
-            "mode": "corner",
-            "in": [
-              885.7879,
-              140.0242
-            ],
+            "x": 1058.8889,
+            "y": 108.1771,
+            "in": null,
             "out": null,
+            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "ground-13",
-            "x": 980,
-            "y": 150,
-            "mode": "corner",
+            "x": 1139.8889,
+            "y": 108.1771,
             "in": null,
             "out": null,
+            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "ground-14",
-            "x": 980,
-            "y": -150,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "ground-15",
-            "x": 1300,
-            "y": -150,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "ground-16",
-            "x": 1300,
+            "x": 1139.8889,
             "y": 1200,
-            "mode": "corner",
             "in": null,
             "out": null,
+            "mode": "corner",
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    },
+    {
+      "id": "massif",
+      "material": "stone",
+      "outer": {
+        "id": "massif-outer",
+        "nodes": [
+          {
+            "id": "massif-0",
+            "x": 1139.8889,
+            "y": 1200,
+            "in": null,
+            "out": null,
+            "mode": "corner",
+            "edge": "straight"
+          },
+          {
+            "id": "massif-1",
+            "x": 1139.8889,
+            "y": 108.1771,
+            "in": null,
+            "out": null,
+            "mode": "corner",
+            "edge": "straight"
+          },
+          {
+            "id": "massif-2",
+            "x": 1139.8889,
+            "y": -38.6465,
+            "in": null,
+            "out": null,
+            "mode": "corner",
+            "edge": "straight"
+          },
+          {
+            "id": "massif-3",
+            "x": 1194.8889,
+            "y": -98.6465,
+            "in": null,
+            "out": null,
+            "mode": "corner",
+            "edge": "straight"
+          },
+          {
+            "id": "massif-4",
+            "x": 1600,
+            "y": -98.6465,
+            "in": null,
+            "out": null,
+            "mode": "corner",
+            "edge": "straight"
+          },
+          {
+            "id": "massif-5",
+            "x": 1600,
+            "y": 1200,
+            "in": null,
+            "out": null,
+            "mode": "corner",
             "edge": "straight"
           }
         ]
@@ -261,125 +277,98 @@
         "nodes": [
           {
             "id": "ledge-1-0",
-            "x": 320,
-            "y": 160,
-            "mode": "corner",
+            "x": 190.4296,
+            "y": 106,
             "in": null,
             "out": null,
+            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "ledge-1-1",
-            "x": 320,
-            "y": -30,
-            "mode": "corner",
+            "x": 190.4296,
+            "y": -96.6465,
             "in": null,
             "out": null,
+            "mode": "corner",
             "edge": "straight"
           },
           {
-            "id": "n1556",
-            "x": 388.0117,
-            "y": -40.0947,
-            "mode": "independent",
+            "id": "ledge-1-2",
+            "x": 204.4296,
+            "y": -93.6465,
             "in": null,
             "out": [
-              390.7771,
-              -38.2239
+              197.5247,
+              -67.877
             ],
-            "edge": "curve"
-          },
-          {
-            "id": "ledge-1-2",
-            "x": 392,
-            "y": -30,
             "mode": "independent",
-            "in": [
-              392.1066,
-              -34.859
-            ],
-            "out": [
-              390.0058,
-              -16.5673
-            ],
             "edge": "curve"
           },
           {
             "id": "ledge-1-3",
-            "x": 391.4418,
-            "y": 4.3169,
-            "mode": "independent",
+            "x": 207.84,
+            "y": -15.5374,
             "in": [
-              389.8198,
-              -5.1284
+              198.7154,
+              -40.607
             ],
             "out": [
-              393.8747,
-              13.4345
+              216.9646,
+              9.5323
             ],
+            "mode": "smooth",
             "edge": "curve"
           },
           {
             "id": "ledge-1-4",
-            "x": 403.2154,
-            "y": 39.5698,
-            "mode": "independent",
+            "x": 255.4351,
+            "y": 46.4898,
             "in": [
-              396.7925,
-              27.6492
+              233.5813,
+              31.1876
             ],
             "out": [
-              423.1077,
-              67.9655
+              277.2889,
+              61.792
             ],
+            "mode": "smooth",
             "edge": "curve"
           },
           {
             "id": "ledge-1-5",
-            "x": 472,
-            "y": 102,
-            "mode": "independent",
+            "x": 330,
+            "y": 70,
             "in": [
-              441.4922,
-              83.4957
+              303.3214,
+              70
             ],
             "out": [
-              524.5,
-              108.3
+              547,
+              70
             ],
+            "mode": "smooth",
             "edge": "curve"
           },
           {
             "id": "ledge-1-6",
-            "x": 622,
-            "y": 120,
-            "mode": "smooth",
+            "x": 950,
+            "y": 40,
             "in": [
-              572,
-              120
+              733,
+              40
             ],
-            "out": [
-              681.3333,
-              120
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "ledge-1-7",
-            "x": 800,
-            "y": 120,
-            "mode": "corner",
-            "in": null,
             "out": null,
+            "mode": "independent",
             "edge": "straight"
           },
           {
-            "id": "ledge-1-8",
-            "x": 800,
-            "y": 160,
-            "mode": "corner",
+            "id": "ledge-1-7",
+            "x": 950,
+            "y": 76,
             "in": null,
             "out": null,
+            "mode": "corner",
             "edge": "straight"
           }
         ]
@@ -388,44 +377,277 @@
     },
     {
       "id": "ledge-2",
-      "material": "dirt",
+      "material": "wood",
       "outer": {
         "id": "ledge-2-outer",
         "nodes": [
           {
             "id": "ledge-2-0",
-            "x": 480,
-            "y": -40,
-            "mode": "corner",
+            "x": 279.4296,
+            "y": -98.6465,
             "in": null,
             "out": null,
+            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "ledge-2-1",
-            "x": 820,
-            "y": -40,
-            "mode": "corner",
+            "x": 279.4296,
+            "y": -128.6465,
             "in": null,
-            "out": null,
-            "edge": "straight"
+            "out": [
+              573.6293,
+              -128.6465
+            ],
+            "mode": "independent",
+            "edge": "curve"
           },
           {
             "id": "ledge-2-2",
-            "x": 820,
-            "y": -10,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
+            "x": 1120,
+            "y": -128.6465,
+            "in": [
+              825.8004,
+              -128.6465
+            ],
+            "out": [
+              1150.7829,
+              -128.6465
+            ],
+            "mode": "smooth",
+            "edge": "curve"
           },
           {
             "id": "ledge-2-3",
-            "x": 480,
-            "y": -10,
-            "mode": "corner",
+            "x": 1206.0365,
+            "y": -155.7737,
+            "in": [
+              1180.8206,
+              -138.1173
+            ],
+            "out": [
+              1231.2524,
+              -173.43
+            ],
+            "mode": "smooth",
+            "edge": "curve"
+          },
+          {
+            "id": "ledge-2-4",
+            "x": 1260.9539,
+            "y": -227.3435,
+            "in": [
+              1250.4255,
+              -198.4169
+            ],
+            "out": [
+              1271.4823,
+              -256.27
+            ],
+            "mode": "smooth",
+            "edge": "curve"
+          },
+          {
+            "id": "ledge-2-5",
+            "x": 1264.8889,
+            "y": -317.4693,
+            "in": [
+              1272.8561,
+              -287.7353
+            ],
+            "out": null,
+            "mode": "independent",
+            "edge": "straight"
+          },
+          {
+            "id": "ledge-2-6",
+            "x": 1278.8889,
+            "y": -320.4693,
             "in": null,
             "out": null,
+            "mode": "corner",
+            "edge": "straight"
+          },
+          {
+            "id": "ledge-2-7",
+            "x": 1278.8889,
+            "y": -98.6465,
+            "in": null,
+            "out": null,
+            "mode": "corner",
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    },
+    {
+      "id": "ledge-3",
+      "material": "stone",
+      "outer": {
+        "id": "ledge-3-outer",
+        "nodes": [
+          {
+            "id": "ledge-3-0",
+            "x": 290.4296,
+            "y": -277.6465,
+            "in": null,
+            "out": null,
+            "mode": "corner",
+            "edge": "straight"
+          },
+          {
+            "id": "ledge-3-1",
+            "x": 290.4296,
+            "y": -480.293,
+            "in": null,
+            "out": null,
+            "mode": "corner",
+            "edge": "straight"
+          },
+          {
+            "id": "ledge-3-2",
+            "x": 304.4296,
+            "y": -477.293,
+            "in": null,
+            "out": [
+              297.5247,
+              -451.5234
+            ],
+            "mode": "independent",
+            "edge": "curve"
+          },
+          {
+            "id": "ledge-3-3",
+            "x": 307.84,
+            "y": -399.1839,
+            "in": [
+              298.7154,
+              -424.2535
+            ],
+            "out": [
+              316.9646,
+              -374.1142
+            ],
+            "mode": "smooth",
+            "edge": "curve"
+          },
+          {
+            "id": "ledge-3-4",
+            "x": 355.4351,
+            "y": -337.1567,
+            "in": [
+              333.5813,
+              -352.4589
+            ],
+            "out": [
+              377.2889,
+              -321.8545
+            ],
+            "mode": "smooth",
+            "edge": "curve"
+          },
+          {
+            "id": "ledge-3-5",
+            "x": 430,
+            "y": -313.6465,
+            "in": [
+              403.3214,
+              -313.6465
+            ],
+            "out": [
+              690.7111,
+              -313.6465
+            ],
+            "mode": "smooth",
+            "edge": "curve"
+          },
+          {
+            "id": "ledge-3-6",
+            "x": 1174.8889,
+            "y": -343.6465,
+            "in": [
+              914.1778,
+              -343.6465
+            ],
+            "out": null,
+            "mode": "independent",
+            "edge": "straight"
+          },
+          {
+            "id": "ledge-3-7",
+            "x": 1174.8889,
+            "y": -307.6465,
+            "in": null,
+            "out": null,
+            "mode": "corner",
+            "edge": "straight"
+          }
+        ]
+      },
+      "inner": []
+    },
+    {
+      "id": "summit",
+      "material": "grass",
+      "outer": {
+        "id": "summit-outer",
+        "nodes": [
+          {
+            "id": "summit-0",
+            "x": 379.4296,
+            "y": -467.293,
+            "in": null,
+            "out": null,
+            "mode": "corner",
+            "edge": "straight"
+          },
+          {
+            "id": "summit-1",
+            "x": 379.4296,
+            "y": -517.293,
+            "in": null,
+            "out": null,
+            "mode": "corner",
+            "edge": "straight"
+          },
+          {
+            "id": "summit-2",
+            "x": 860,
+            "y": -517.293,
+            "in": null,
+            "out": null,
+            "mode": "corner",
+            "edge": "curve"
+          },
+          {
+            "id": "summit-3",
+            "x": 900,
+            "y": -551.293,
+            "in": [
+              882,
+              -517.293
+            ],
+            "out": null,
+            "mode": "independent",
+            "edge": "straight"
+          },
+          {
+            "id": "summit-4",
+            "x": 916,
+            "y": -551.293,
+            "in": null,
+            "out": null,
+            "mode": "corner",
+            "edge": "straight"
+          },
+          {
+            "id": "summit-5",
+            "x": 916,
+            "y": -467.293,
+            "in": null,
+            "out": null,
+            "mode": "corner",
             "edge": "straight"
           }
         ]
@@ -435,115 +657,186 @@
   ],
   "apples": [
     {
-      "x": 400,
-      "y": 270
+      "x": 380,
+      "y": 262
     },
     {
-      "x": 835,
-      "y": 60
+      "x": 990,
+      "y": 5
     },
     {
-      "x": 440,
-      "y": -90
+      "x": 760,
+      "y": -165
+    },
+    {
+      "x": 1190,
+      "y": -440
+    },
+    {
+      "x": 390,
+      "y": -610
     }
   ],
   "props": [
     {
-      "x": -700,
+      "x": -880,
       "y": null,
       "type": "tree",
       "layer": "back"
     },
     {
-      "x": -520,
+      "x": -790,
       "y": null,
       "type": "bush",
       "layer": "back"
     },
     {
-      "x": -260,
+      "x": -560,
       "y": null,
       "type": "reeds",
       "layer": "front"
     },
     {
-      "x": -150,
+      "x": -470,
       "y": 302,
       "type": "lily",
       "layer": "back"
     },
     {
-      "x": -110,
+      "x": -420,
       "y": 302,
       "type": "lily",
       "layer": "back"
     },
     {
-      "x": -60,
+      "x": -360,
       "y": 302,
       "type": "lily",
       "layer": "back"
     },
     {
-      "x": 10,
-      "y": null,
-      "type": "reeds",
-      "layer": "front"
-    },
-    {
-      "x": 927.1642740344918,
-      "y": 140.01305240861734,
-      "type": "sign",
+      "x": -400,
+      "y": 302,
+      "type": "duck",
       "layer": "front",
-      "text": "TURN IN AIR"
+      "flip": true
     },
     {
-      "x": 560,
+      "x": -440,
+      "y": 316,
+      "type": "fish",
+      "layer": "front"
+    },
+    {
+      "x": -290,
+      "y": null,
+      "type": "reeds",
+      "layer": "front"
+    },
+    {
+      "x": 40,
+      "y": null,
+      "type": "flowers",
+      "layer": "front"
+    },
+    {
+      "x": 470,
       "y": 300,
       "type": "bush",
       "layer": "back"
     },
     {
-      "x": 1100,
-      "y": -150,
-      "type": "tree",
-      "layer": "back"
-    },
-    {
-      "x": 700,
-      "y": 120,
+      "x": 600,
+      "y": 300,
       "type": "flowers",
       "layer": "front"
     },
     {
-      "x": 354.49227762230896,
-      "y": -29.360251205795578,
-      "type": "bush",
-      "layer": "back"
+      "x": 760,
+      "y": 300,
+      "type": "sign",
+      "layer": "front",
+      "text": "TURN IN AIR"
     },
     {
-      "x": 800,
-      "y": -40,
-      "type": "tree",
+      "x": 880,
+      "y": 41.1,
+      "type": "arrow-sign",
+      "layer": "front",
+      "flip": true
+    },
+    {
+      "x": 640,
+      "y": 55,
+      "type": "bush",
       "layer": "back"
     },
     {
       "x": 620,
-      "y": -40,
+      "y": -128.6,
+      "type": "halfway-flag",
+      "layer": "back"
+    },
+    {
+      "x": 960,
+      "y": -128.6,
+      "type": "bird",
+      "layer": "front"
+    },
+    {
+      "x": 1080,
+      "y": -342.4,
+      "type": "arrow-sign",
+      "layer": "front",
+      "flip": true
+    },
+    {
+      "x": 760,
+      "y": -326,
+      "type": "cairn",
+      "layer": "back"
+    },
+    {
+      "x": 560,
+      "y": -517.3,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 660,
+      "y": -517.3,
       "type": "flowers",
       "layer": "front"
     },
     {
-      "x": 1220,
-      "y": -150,
+      "x": 830,
+      "y": -517.3,
       "type": "bush",
       "layer": "back"
+    },
+    {
+      "x": 1340,
+      "y": -98.6,
+      "type": "tree",
+      "layer": "back"
+    },
+    {
+      "x": 1480,
+      "y": -98.6,
+      "type": "bush",
+      "layer": "back"
+    },
+    {
+      "x": 1142,
+      "y": 40,
+      "type": "moss",
+      "layer": "front"
     }
   ],
   "spikes": [],
   "water": [
     {
-      "x": -241.9,
+      "x": -541.9,
       "y": 302.5,
       "width": 240,
       "depth": 32
@@ -558,8 +851,8 @@
   "timeOfDay": "morning",
   "backdrop": "mountains",
   "medals": {
-    "gold": 12,
-    "silver": 17,
-    "bronze": 25
+    "gold": 19.5,
+    "silver": 25,
+    "bronze": 33
   }
 }
