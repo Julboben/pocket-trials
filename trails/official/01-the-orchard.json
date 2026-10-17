@@ -754,13 +754,13 @@
     },
     {
       "x": 117.71,
-      "y": 280.3,
+      "y": 289.3,
       "type": "apple",
       "layer": "back"
     },
     {
       "x": 127.53,
-      "y": 282.19,
+      "y": 291.19,
       "type": "apple",
       "layer": "back"
     },
@@ -861,10 +861,10 @@
     "wind": 0.25,
     "windDirection": "left"
   },
+  "timeOfDay": 12,
   "medals": {
     "gold": 11,
     "silver": 14.5,
     "bronze": 19
-  },
-  "timeOfDay": 12
+  }
 }

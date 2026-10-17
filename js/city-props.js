@@ -70,31 +70,30 @@ export function drawCone({ pixelRect }) {
   pixelRect(-10, -2, 20, 2, RUBBER.dark, 2);
 }
 
-// 84 × 46, a steel crowd-control barrier on two flat feet.
+// 60 × 32, a steel crowd-control barrier (about 2.2 × 1.1 m) on two flat feet.
 export function drawBarrier(tools) {
   const { pixelRect } = tools;
   // Infill bars first, so the rails cover their ends.
-  for (let x = -30; x <= 28; x += 6) {
-    pixelRect(x, -40, 2, 30, STEEL.base, 2);
-    pixelRect(x, -40, 2, 2, STEEL.mid, 2);
+  for (let x = -20; x <= 20; x += 6) {
+    pixelRect(x, -28, 2, 18, STEEL.base, 2);
+    pixelRect(x, -28, 2, 2, STEEL.mid, 2);
   }
-  tube(tools, -36, -44, 72);
-  tube(tools, -36, -14, 72);
-  pixelRect(-36, -10, 72, 2, STEEL.base, 2);
+  tube(tools, -26, -30, 52);
+  tube(tools, -26, -12, 52);
   // End frames: shaded left tube, lit right tube.
-  pixelRect(-38, -44, 4, 40, STEEL.base, 2);
-  pixelRect(-38, -44, 2, 40, STEEL.dark, 2);
-  pixelRect(34, -44, 4, 40, STEEL.mid, 2);
-  pixelRect(36, -44, 2, 40, STEEL.light, 2);
+  pixelRect(-28, -30, 4, 28, STEEL.base, 2);
+  pixelRect(-28, -30, 2, 28, STEEL.dark, 2);
+  pixelRect(24, -30, 4, 28, STEEL.mid, 2);
+  pixelRect(26, -30, 2, 28, STEEL.light, 2);
   // Hook that links it to the next barrier.
-  pixelRect(38, -38, 4, 2, STEEL.light, 2);
-  pixelRect(40, -36, 2, 4, STEEL.mid, 2);
+  pixelRect(28, -26, 4, 2, STEEL.light, 2);
+  pixelRect(30, -24, 2, 2, STEEL.mid, 2);
   // Flat feet.
-  for (const x of [-44, 26]) {
-    pixelRect(x, -4, 18, 4, STEEL.base, 2);
-    pixelRect(x, -4, 18, 2, STEEL.mid, 2);
+  for (const x of [-32, 20]) {
+    pixelRect(x, -2, 12, 2, STEEL.base, 2);
+    pixelRect(x, -4, 12, 2, STEEL.mid, 2);
     pixelRect(x, -2, 2, 2, STEEL.dark, 2);
-    pixelRect(x + 16, -4, 2, 2, STEEL.light, 2);
+    pixelRect(x + 10, -4, 2, 2, STEEL.light, 2);
   }
 }
 
@@ -463,127 +462,122 @@ export function drawGraffiti(tools) {
 // ---------------------------------------------------------- Christiania bike
 
 /** Where the Christiania bike's wheels touch the ground. */
-export const CHRISTIANIA_WHEELS = [-30, 24];
+export const CHRISTIANIA_WHEELS = [-22, 16];
 
 /**
- * A Christiania bike parked facing right, about 92 long: a black frame with
- * a leather saddle, one big wheel behind and the plywood box up front over
- * its pair of small wheels, a blanket in the box and a Dannebrog pennant on
- * its corner.
+ * A Christiania bike parked facing right, about 62 long (about 2.3 m): a
+ * black frame with a leather saddle, one wheel behind and the plywood box up
+ * front over its pair of smaller wheels, a blanket in the box and a Dannebrog
+ * pennant on its corner.
  */
 export function drawChristianiaBike(tools) {
   const { pixelRect, pixelPath, drawPixelDisc } = tools;
   const [rear, front] = CHRISTIANIA_WHEELS;
   // Wheels: tyres, spokes and hubs.
-  for (const [cx, r] of [[rear, 12], [front, 10]]) {
+  for (const [cx, r] of [[rear, 9], [front, 7]]) {
     const cy = -r;
-    for (let a = 0; a < 4; a++) {
-      const angle = (a / 4) * Math.PI;
+    for (let a = 0; a < 3; a++) {
+      const angle = (a / 3) * Math.PI;
       pixelPath([[cx - Math.cos(angle) * (r - 2), cy - Math.sin(angle) * (r - 2)], [cx + Math.cos(angle) * (r - 2), cy + Math.sin(angle) * (r - 2)]], STEEL.base, 1, 2);
     }
+    // A solid tyre: two rings, lit on the upper right.
     ring(tools, cx, cy, r, RUBBER.light, INK);
-    ring(tools, cx, cy, r - 2, RUBBER.base, RUBBER.dark);
+    ring(tools, cx, cy, r - 1, RUBBER.base, INK);
     pixelRect(cx - 2, cy - 2, 4, 4, STEEL.light, 2);
   }
-  // Frame: stays to the saddle and the cranks, a down tube to the box.
-  pixelPath([[rear, -12], [-16, -42]], RUBBER.dark, 2, 2);
-  pixelPath([[rear, -12], [-10, -16]], RUBBER.dark, 2, 2);
-  pixelPath([[-16, -42], [-10, -16]], RUBBER.base, 2, 2);
-  pixelPath([[-14, -34], [6, -22]], RUBBER.base, 2, 2);
-  pixelPath([[-10, -16], [6, -18]], RUBBER.dark, 2, 2);
-  // Chainring, crank and pedal.
-  drawPixelDisc(-10, -16, 4, STEEL.base, 2);
-  pixelRect(-10, -16, 2, 2, STEEL.light, 2);
-  pixelRect(-6, -12, 2, 4, RUBBER.dark, 2);
-  pixelRect(-8, -8, 6, 2, RUBBER.base, 2);
+  // Frame: stays to the saddle and the cranks, a tube down to the box.
+  pixelPath([[rear, -9], [-14, -28]], RUBBER.dark, 1, 2);
+  pixelPath([[rear, -9], [-8, -10]], RUBBER.dark, 1, 2);
+  pixelPath([[-14, -28], [-8, -10]], RUBBER.base, 2, 2);
+  pixelPath([[-12, -22], [4, -16]], RUBBER.base, 1, 2);
+  pixelPath([[-8, -10], [4, -12]], RUBBER.dark, 1, 2);
+  // Chainring and pedal.
+  drawPixelDisc(-8, -10, 2, STEEL.base, 2);
+  pixelRect(-6, -6, 4, 2, RUBBER.base, 2);
   // Saddle, nose to the right.
-  pixelRect(-22, -46, 12, 4, WOOD.base, 2);
-  pixelRect(-22, -46, 12, 2, WOOD.light, 2);
-  pixelRect(-22, -44, 2, 2, WOOD.dark, 2);
+  pixelRect(-20, -32, 10, 2, WOOD.light, 2);
+  pixelRect(-20, -30, 10, 2, WOOD.base, 2);
   // The handlebar: up off the back of the box and back towards the saddle.
-  pixelPath([[8, -38], [6, -50]], RUBBER.base, 2, 2);
-  pixelPath([[6, -50], [-4, -52]], RUBBER.light, 2, 2);
-  pixelRect(-8, -54, 6, 4, RUBBER.dark, 2);
-  // Kickstand.
-  pixelPath([[-12, -14], [-16, -2]], STEEL.base, 1, 2);
+  pixelPath([[6, -24], [4, -32]], RUBBER.base, 1, 2);
+  pixelPath([[4, -32], [-2, -34]], RUBBER.light, 1, 2);
+  pixelRect(-6, -36, 4, 2, RUBBER.dark, 2);
   // The box: plywood sides with a darker rim, over its wheels.
-  const left = 6, right = 46, top = -38, bottom = -14;
+  const left = 4, right = 32, top = -24, bottom = -10;
   pixelRect(left, top, right - left, bottom - top, WOOD.cut, 2);
   pixelRect(left, top, 2, bottom - top, WOOD.tip, 2);
   pixelRect(right - 2, top, 2, bottom - top, "#e0b77e", 2);
   pixelRect(left, top, right - left, 2, WOOD.light, 2);
   pixelRect(left, bottom - 2, right - left, 2, WOOD.tip, 2);
-  for (const x of [18, 32]) pixelRect(x, top + 4, 2, bottom - top - 6, WOOD.tip, 2);
+  pixelRect(18, top + 4, 2, bottom - top - 6, WOOD.tip, 2);
   // A green blanket heaped up in it.
-  pixelRect(12, top - 4, 22, 4, PARK_GREEN.base, 2);
-  pixelRect(16, top - 6, 12, 2, PARK_GREEN.light, 2);
-  pixelRect(12, top - 4, 2, 4, PARK_GREEN.dark, 2);
+  pixelRect(8, top - 4, 16, 4, PARK_GREEN.base, 2);
+  pixelRect(12, top - 6, 8, 2, PARK_GREEN.light, 2);
+  pixelRect(8, top - 4, 2, 4, PARK_GREEN.dark, 2);
   // The pennant, on a stick at the front corner.
-  pixelRect(42, top - 20, 2, 20, PENNANT.pole, 2);
-  for (let column = 0; column < 6; column++)
-    for (let row = 0; row < 4; row++) {
+  pixelRect(28, top - 16, 2, 16, PENNANT.pole, 2);
+  for (let column = 0; column < 5; column++)
+    for (let row = 0; row < 3; row++) {
       const white = column === 1 || row === 1;
-      pixelRect(44 + column * 2, top - 20 + row * 2, 2, 2, white ? PENNANT.white : row === 3 ? PENNANT.redDark : PENNANT.red, 2);
+      pixelRect(30 + column * 2, top - 16 + row * 2, 2, 2, white ? PENNANT.white : row === 2 ? PENNANT.redDark : PENNANT.red, 2);
     }
 }
 
 // ------------------------------------------------------------ Copenhagen bench
 
 /** Where the bench's legs meet the ground, front left and front right. */
-export const BENCH_ENDS = [-34, 34];
+export const BENCH_ENDS = [-30, 30];
 // The bench's cast iron, near black, and its slats in Copenhagen green.
 const CAST = { dark: INK, base: RUBBER.dark, light: RUBBER.light };
 
 /**
- * A Copenhagen bench, about 80 long, seen from the front and a little above:
- * green slats, a seat you can see the top of and a back that leans back,
- * on black cast-iron ends with curled armrests and claw feet. Its far legs
- * show behind the near ones, under the seat.
+ * A Copenhagen bench, 68 long, seen from the front and a little above: green
+ * slats, a seat about 18 high that you can see the top of, and a back that
+ * leans back, on black cast-iron ends with curled armrests and claw feet.
+ * Its far legs show behind the near ones, under the seat.
  */
 export function drawBench({ pixelRect }) {
-  const half = 38;
+  const half = 34;
   // The far legs, in shadow under the seat.
-  for (const x of [-28, 26]) pixelRect(x, -18, 2, 16, CAST.dark, 2);
+  for (const x of [-26, 24]) pixelRect(x, -16, 2, 14, CAST.dark, 2);
   // The back's iron supports, showing between the slats.
-  for (const x of [-32, -2, 28]) {
-    pixelRect(x, -54, 4, 28, CAST.base, 2);
-    pixelRect(x + 2, -54, 2, 28, CAST.light, 2);
+  for (const x of [-28, -2, 24]) {
+    pixelRect(x, -42, 4, 20, CAST.base, 2);
+    pixelRect(x + 2, -42, 2, 20, CAST.light, 2);
   }
   // Back: three slats with gaps between, leaning back so each sits a little
   // further in than the one below it.
-  for (const [y, inset] of [[-52, 6], [-44, 4], [-36, 2]]) {
+  for (const [y, inset] of [[-40, 6], [-34, 4], [-28, 2]]) {
     const left = -half + inset, width = (half - inset) * 2;
     pixelRect(left, y, width, 4, PARK_GREEN.base, 2);
     pixelRect(left, y, width, 2, PARK_GREEN.light, 2);
     pixelRect(left, y, 2, 4, PARK_GREEN.dark, 2);
     pixelRect(left + width - 2, y, 2, 2, PARK_GREEN.bright, 2);
   }
-  // Seat: the tops of two slats seen from a little above, then the front
-  // slat's edge.
-  pixelRect(-half + 2, -28, half * 2 - 4, 2, PARK_GREEN.base, 2);
-  pixelRect(-half + 2, -26, half * 2 - 4, 2, PARK_GREEN.dark, 2);
-  pixelRect(-half, -24, half * 2, 2, PARK_GREEN.bright, 2);
-  pixelRect(-half, -22, half * 2, 2, PARK_GREEN.light, 2);
-  pixelRect(-half, -20, half * 2, 2, PARK_GREEN.base, 2);
-  pixelRect(-half + 2, -18, half * 2 - 4, 2, PARK_GREEN.dark, 2);
-  pixelRect(-half, -24, 2, 6, PARK_GREEN.dark, 2);
+  // Seat: the top of the back slat and the front one seen from a little
+  // above, then the front slat's edge.
+  pixelRect(-half + 2, -22, half * 2 - 4, 2, PARK_GREEN.base, 2);
+  pixelRect(-half + 2, -20, half * 2 - 4, 2, PARK_GREEN.dark, 2);
+  pixelRect(-half, -18, half * 2, 2, PARK_GREEN.bright, 2);
+  pixelRect(-half, -16, half * 2, 2, PARK_GREEN.light, 2);
+  pixelRect(-half + 2, -14, half * 2 - 4, 2, PARK_GREEN.dark, 2);
+  pixelRect(-half, -18, 2, 4, PARK_GREEN.dark, 2);
   // Near ends: a leg down to a claw foot, an armrest out over the seat with
   // a scroll curling down at its front.
   for (const x of BENCH_ENDS) {
     const lit = x > 0;
     const leg = x - 2;
-    pixelRect(leg, -24, 4, 22, CAST.base, 2);
-    pixelRect(lit ? leg + 2 : leg, -24, 2, 22, lit ? CAST.light : CAST.dark, 2);
+    pixelRect(leg, -20, 4, 18, CAST.base, 2);
+    pixelRect(lit ? leg + 2 : leg, -20, 2, 18, lit ? CAST.light : CAST.dark, 2);
     // Claw foot, splaying out.
     pixelRect(leg - 2, -4, 8, 2, CAST.base, 2);
     pixelRect(leg - 4, -2, 12, 2, CAST.dark, 2);
     pixelRect(lit ? leg + 4 : leg - 2, -4, 2, 2, CAST.light, 2);
     // Armrest and scroll.
-    pixelRect(leg - 2, -38, 8, 4, CAST.base, 2);
-    pixelRect(leg - 2, -38, 8, 2, CAST.light, 2);
-    pixelRect(leg, -34, 4, 10, CAST.base, 2);
-    pixelRect(lit ? leg + 2 : leg, -34, 2, 10, lit ? CAST.light : CAST.dark, 2);
-    pixelRect(lit ? leg + 6 : leg - 4, -36, 2, 6, CAST.base, 2);
-    pixelRect(lit ? leg + 4 : leg - 2, -30, 2, 2, CAST.base, 2);
+    pixelRect(leg - 2, -30, 8, 2, CAST.light, 2);
+    pixelRect(leg - 2, -28, 8, 2, CAST.base, 2);
+    pixelRect(leg, -26, 4, 6, CAST.base, 2);
+    pixelRect(lit ? leg + 2 : leg, -26, 2, 6, lit ? CAST.light : CAST.dark, 2);
+    pixelRect(lit ? leg + 6 : leg - 4, -28, 2, 6, CAST.base, 2);
+    pixelRect(lit ? leg + 4 : leg - 2, -22, 2, 2, CAST.base, 2);
   }
 }

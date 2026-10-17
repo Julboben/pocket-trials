@@ -94,7 +94,7 @@ const SCENERY_SHADOWS = {
   sapling: { width: 10, alpha: 0.15, thickness: 3, lift: 20 },
   "pine-small": { width: 9, alpha: 0.15, thickness: 3, lift: 22 },
   crates: { width: 26, alpha: 0.15, thickness: 3, lift: 24 },
-  wheelbarrow: { width: 18, alpha: 0.13, thickness: 3, lift: 14 },
+  wheelbarrow: { width: 18, alpha: 0.13, thickness: 3, lift: 10 },
   scarecrow: { width: 8, alpha: 0.15, thickness: 3, lift: 30 },
   beehive: { width: 14, alpha: 0.14, thickness: 3, lift: 20 },
   cone: { width: 7, alpha: 0.14, thickness: 3, lift: 8 },
@@ -117,13 +117,13 @@ const SCENERY_SHADOWS = {
   "prison-fence": { width: 40, alpha: 0.1, thickness: 3, lift: 20 },
   watchtower: { width: 28, alpha: 0.15, thickness: 3, lift: 60 },
   "jail-cell": { width: 36, alpha: 0.15, thickness: 3, lift: 26 },
-  "ball-and-chain": { width: 10, alpha: 0.14, thickness: 3, lift: 6 },
-  torch: { width: 8, alpha: 0.12, thickness: 3, lift: 40 },
+  "ball-and-chain": { width: 7, alpha: 0.14, thickness: 3, lift: 4 },
+  torch: { width: 8, alpha: 0.12, thickness: 3, lift: 26 },
   skeleton: { width: 18, alpha: 0.12, thickness: 3, lift: 10 },
   tent: { width: 36, alpha: 0.14, thickness: 3, lift: 22 },
   flagpole: { width: 6, alpha: 0.12, thickness: 3, lift: 50 },
-  "christiania-bike": { width: 40, alpha: 0.14, thickness: 3, lift: 14 },
-  bench: { width: 34, alpha: 0.14, thickness: 3, lift: 14 },
+  "christiania-bike": { width: 28, alpha: 0.14, thickness: 3, lift: 10 },
+  bench: { width: 30, alpha: 0.14, thickness: 3, lift: 12 },
 };
 /** Seconds the scene takes to slow to a stop behind the results. */
 const WIN_SETTLE = 0.7;

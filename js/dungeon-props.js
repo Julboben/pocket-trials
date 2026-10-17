@@ -8,17 +8,16 @@
 // propWallFit in drawing.js); the portcullis, chains and gibbet hang from the
 // roof like the cave props and are drawn live from the roof at y = 0
 // downwards, so none of those can be flipped or rotated. The torch's flame is
-// drawn on its own (drawTorchFlame), for the glow pass.
+// a fire from fire.js, drawn in the glow pass.
 
 import { STEEL } from "./city-props.js";
+import { fireTongues } from "./fire.js";
 
 // Wrought iron, from the rubber greys.
 const IRON = { dark: "#3a403d", base: "#4a524d", light: "#5b645e", glint: "#8b978c" };
 const RUST = { dark: "#71392f", base: "#8d493d", light: "#a65a49" };
 const BONE = { shade: "#b5bcae", base: "#e8e5d9", light: "#fffdf4" };
 const WOOD = { dark: "#4d3f2f", base: "#66543f", light: "#856d4f", tip: "#aa8a60" };
-/** The torch's fire, from its dark edge to its white-hot core. */
-export const FLAME = { dark: "#c9573a", base: "#ed774e", glow: "#f1b95d", light: "#ffe39a", core: "#fff3be" };
 const INK = "#182321";
 
 const snap = (value) => Math.round(value / 2) * 2;
@@ -198,100 +197,55 @@ export function drawPortcullis({ pixelRect }, drop) {
 // -------------------------------------------------------------------- torch
 
 /** Where the torch's flame sits on its stand, and where its light comes from. */
-export const TORCH_FLAME = { x: 0, y: -84 };
+export const TORCH_FLAME = { x: 0, y: -54 };
+/** The torch's flame: a single tongue about 8 across and 16 tall (see fire.js). */
+export const TORCH_TONGUES = fireTongues(8, 16);
 /** Where the stand's sprite ends and its pole carries on down to the ground. */
 export const TORCH_BODY_BOTTOM = -12;
 
 /**
- * A torch on a wrought-iron stand, about 90 tall: a pole with a twisted
- * collar, an iron basket holding the pitch-wrapped torch. The pole below
- * TORCH_BODY_BOTTOM, its feet and the flame are drawn live.
+ * A torch on a wrought-iron stand, about 1.7 m to its flame: a pole with a
+ * twisted collar, an iron basket holding the pitch-wrapped torch. The pole
+ * below TORCH_BODY_BOTTOM, its feet and the flame are drawn live.
  */
 export function drawTorchStand({ pixelRect }) {
   const tools = { pixelRect };
-  rod(tools, 0, -64, TORCH_BODY_BOTTOM);
+  rod(tools, 0, -36, TORCH_BODY_BOTTOM);
   // A twisted collar halfway up.
-  for (let i = 0; i < 4; i++) {
-    pixelRect(-4, -44 + i * 2, 8, 2, i % 2 ? IRON.base : IRON.light, 2);
-    pixelRect(-4, -44 + i * 2, 2, 2, IRON.dark, 2);
+  for (let i = 0; i < 3; i++) {
+    pixelRect(-4, -28 + i * 2, 8, 2, i % 2 ? IRON.base : IRON.light, 2);
+    pixelRect(-4, -28 + i * 2, 2, 2, IRON.dark, 2);
   }
   // The torch's handle, then its pitch-wrapped head.
-  pixelRect(-2, -76, 2, 14, WOOD.dark, 2);
-  pixelRect(0, -76, 2, 14, WOOD.light, 2);
-  pixelRect(-4, -82, 8, 6, INK, 2);
-  pixelRect(-4, -80, 8, 2, IRON.dark, 2);
-  pixelRect(2, -82, 2, 2, WOOD.base, 2);
-  // The basket: a ring and four prongs flaring out round the torch.
-  pixelRect(-6, -66, 12, 2, IRON.light, 2);
-  pixelRect(-6, -64, 12, 2, IRON.base, 2);
-  pixelRect(-6, -66, 2, 4, IRON.dark, 2);
+  pixelRect(-2, -46, 2, 10, WOOD.dark, 2);
+  pixelRect(0, -46, 2, 10, WOOD.light, 2);
+  pixelRect(-4, -52, 8, 6, INK, 2);
+  pixelRect(-4, -50, 8, 2, IRON.dark, 2);
+  pixelRect(2, -52, 2, 2, WOOD.base, 2);
+  // The basket: a ring and prongs flaring out round the torch.
+  pixelRect(-6, -38, 12, 2, IRON.light, 2);
+  pixelRect(-6, -36, 12, 2, IRON.base, 2);
+  pixelRect(-6, -38, 2, 4, IRON.dark, 2);
   for (const [x, lean] of [[-8, -2], [6, 2]]) {
-    pixelRect(x, -74, 2, 8, x < 0 ? IRON.dark : IRON.light, 2);
-    pixelRect(x + lean, -78, 2, 4, x < 0 ? IRON.base : IRON.glint, 2);
+    pixelRect(x, -44, 2, 6, x < 0 ? IRON.dark : IRON.light, 2);
+    pixelRect(x + lean, -48, 2, 4, x < 0 ? IRON.base : IRON.glint, 2);
   }
-  pixelRect(-4, -72, 2, 6, IRON.base, 2);
-  pixelRect(2, -72, 2, 6, IRON.light, 2);
 }
 
 /**
- * The pole running on down from the stand's sprite to the ground, and three
+ * The pole running on down from the stand's sprite to the ground, and two
  * splayed feet that sit on it. `groundOffset(localX)` is the ground's y.
  */
 export function drawTorchFeet({ pixelRect }, groundOffset) {
   const ground = snap(groundOffset(0));
   rod({ pixelRect }, 0, TORCH_BODY_BOTTOM, ground - 2);
-  for (const [x, w, color] of [[-10, 8, IRON.dark], [2, 8, IRON.light]]) {
+  for (const [x, w, color] of [[-8, 6, IRON.dark], [2, 6, IRON.light]]) {
     const y = snap(groundOffset(x + w / 2));
     pixelRect(x, y - 2, w, 2, color, 2);
-    pixelRect(x + (x < 0 ? 6 : 0), y - 4, 2, 2, IRON.base, 2);
+    pixelRect(x + (x < 0 ? 4 : 0), y - 4, 2, 2, IRON.base, 2);
   }
   pixelRect(-2, ground - 4, 4, 4, IRON.base, 2);
   pixelRect(0, ground - 4, 2, 2, IRON.glint, 2);
-}
-
-/**
- * The flame's shape at `time`: which of its four frames to draw (0 at time
- * 0), and how far its tip licks to the side (0, or ±2). `phase` is a fixed
- * 0…1 value per torch, so neighbouring torches flicker out of step.
- */
-export function torchFlicker(time, phase = 0) {
-  if (!time) return { frame: 0, lick: 0 };
-  const frame = Math.floor(time * 9 + phase * 4) % 4;
-  return { frame, lick: [0, 2, 0, -2][frame] };
-}
-
-// Flame rows from its base up: [left, width] at each 2-unit row.
-const FLAME_ROWS = [[-6, 12], [-6, 12], [-6, 10], [-4, 10], [-4, 8], [-4, 8], [-2, 6], [-2, 4], [0, 4], [0, 2], [0, 2]];
-
-/**
- * The flame, its base on the torch head at TORCH_FLAME, as `torchFlicker`
- * shapes it: a dark rim, a glowing body, a white-hot core, and the odd spark
- * rising off it while `time` runs.
- */
-export function drawTorchFlame({ pixelRect }, flicker, time = 0, phase = 0) {
-  const { x: fx, y: fy } = TORCH_FLAME;
-  const tall = flicker.frame % 2 ? 2 : 0;
-  const rows = FLAME_ROWS.length + tall / 2;
-  for (let row = 0; row < rows; row++) {
-    const [left, width] = FLAME_ROWS[Math.min(row, FLAME_ROWS.length - 1)];
-    const t = row / rows;
-    const lean = snap(flicker.lick * t * t);
-    const x = fx + left + lean, y = fy - 2 - row * 2;
-    pixelRect(x, y, width, 2, t > 0.75 ? FLAME.base : FLAME.glow, 2);
-    if (width > 2) {
-      pixelRect(x, y, 2, 2, t > 0.5 ? FLAME.dark : FLAME.base, 2);
-      pixelRect(x + width - 2, y, 2, 2, t > 0.75 ? FLAME.glow : FLAME.light, 2);
-    }
-    if (width >= 8) pixelRect(x + 2, y, width - 6, 2, row < 3 ? FLAME.core : FLAME.light, 2);
-  }
-  if (!time) return;
-  // Sparks, each rising and winking out in turn.
-  for (let i = 0; i < 2; i++) {
-    const life = (time * 0.9 + phase + i * 0.5) % 1;
-    const sx = fx + snap(Math.sin((time + i * 3) * 2.3) * 4 + (i ? 2 : -2));
-    const sy = fy - 24 - snap(life * 28);
-    if (life < 0.85) pixelRect(sx, sy, 2, 2, life < 0.4 ? FLAME.light : FLAME.glow, 2);
-  }
 }
 
 // ------------------------------------------------------------ swinging iron
@@ -464,17 +418,16 @@ export function drawGibbetChain({ pixelRect }, room, swing = 0) {
 export const CHATTER = { time: 0.9, x: 220, y: 140 };
 
 /**
- * A skeleton slumped on the floor, shackled by the wrist to a ring set in
- * the floor: legs out to the right, spine and ribs, an arm resting on its
+ * A skeleton slumped on the floor, about 38 tall, shackled by the wrist to
+ * a ring set in the floor: legs out to the right, spine and ribs, an arm resting on its
  * knee. Its skull is drawn live (drawSkeletonSkull), turning to the rider.
  */
 export function drawSkeletonBody({ pixelRect }) {
-  const tools = { pixelRect };
   // The ring in the floor, and the chain to the wrist.
   pixelRect(-20, -4, 6, 2, IRON.light, 2);
   pixelRect(-20, -2, 2, 2, IRON.dark, 2);
   pixelRect(-16, -2, 2, 2, IRON.base, 2);
-  for (let i = 0; i < 4; i++) pixelRect(-14 + i * 2, -6 - i * 2, 2, 2, i % 2 ? IRON.light : IRON.base, 2);
+  pixelRect(-14, -4, 2, 2, IRON.base, 2);
   // Pelvis on the floor.
   pixelRect(-6, -8, 12, 6, BONE.base, 2);
   pixelRect(-6, -8, 2, 6, BONE.shade, 2);
@@ -491,31 +444,30 @@ export function drawSkeletonBody({ pixelRect }) {
   pixelRect(4, -4, 22, 2, BONE.shade, 2);
   pixelRect(24, -6, 4, 2, BONE.base, 2);
   // Spine, leaning back.
-  for (let y = -10; y > -34; y -= 4) {
-    const x = y < -20 ? -4 : -2;
+  for (let y = -10; y > -26; y -= 4) {
+    const x = y < -16 ? -4 : -2;
     pixelRect(x, y, 2, 2, BONE.base, 2);
     pixelRect(x, y - 2, 2, 2, BONE.shade, 2);
   }
   // Ribs.
   for (let i = 0; i < 3; i++) {
-    const y = -28 + i * 4;
+    const y = -22 + i * 4;
     pixelRect(-8, y, 14 - i * 2, 2, BONE.base, 2);
     pixelRect(-8, y, 2, 2, BONE.shade, 2);
     pixelRect(4 - i * 2, y, 2, 2, BONE.light, 2);
   }
   // The near arm: shoulder down to the elbow, forearm on to the knee.
-  pixelRect(4, -30, 2, 12, BONE.base, 2);
-  pixelRect(6, -18, 6, 2, BONE.base, 2);
-  pixelRect(12, -16, 2, 4, BONE.light, 2);
+  pixelRect(4, -24, 2, 10, BONE.base, 2);
+  pixelRect(6, -14, 6, 2, BONE.base, 2);
   // The far arm hangs down to the shackle by the ring.
-  pixelRect(-10, -28, 2, 12, BONE.shade, 2);
-  pixelRect(-12, -16, 2, 6, BONE.shade, 2);
-  pixelRect(-14, -12, 4, 4, IRON.base, 2);
-  pixelRect(-12, -12, 2, 2, IRON.glint, 2);
+  pixelRect(-10, -22, 2, 10, BONE.shade, 2);
+  pixelRect(-12, -12, 2, 6, BONE.shade, 2);
+  pixelRect(-14, -8, 4, 4, IRON.base, 2);
+  pixelRect(-12, -8, 2, 2, IRON.glint, 2);
 }
 
 /** Where the skeleton's skull sits, its top left corner. */
-export const SKELETON_SKULL = { x: -6, y: -42 };
+export const SKELETON_SKULL = { x: -6, y: -34 };
 
 /**
  * How far the skeleton's jaw hangs open: 0, or chattering 0 and 2 for a

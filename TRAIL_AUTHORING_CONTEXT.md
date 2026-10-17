@@ -5480,6 +5480,12 @@ Example trail: advanced.
       "y": 215.1200742232628,
       "type": "hut",
       "layer": "back"
+    },
+    {
+      "x": 789.2954468998557,
+      "y": 315.27921242412003,
+      "type": "snow-pine",
+      "layer": "back"
     }
   ],
   "spikes": [],
@@ -5494,12 +5500,12 @@ Example trail: advanced.
     "wind": 1,
     "windDirection": "left"
   },
+  "timeOfDay": 12,
   "medals": {
     "gold": 20,
     "silver": 26,
     "bronze": 34
   },
-  "timeOfDay": 12,
   "backdrop": "mountains"
 }
 ```

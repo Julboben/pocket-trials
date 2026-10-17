@@ -7,8 +7,9 @@ import { normalizeTrail, validateTrail } from '../js/trail-schema.js';
 import { rectangle } from './lib/terrain-fixtures.mjs';
 import { CEILING_PROPS, canFlip, canRotate, propSpan, propWallFit } from '../js/drawing.js';
 import {
-  BAR_XS, BARS, CHATTER, JOLT, PORTCULLIS, barLayout, hangingSwing, portcullisDrop, skeletonJaw, torchFlicker,
+  BAR_XS, BARS, CHATTER, JOLT, PORTCULLIS, TORCH_TONGUES, barLayout, hangingSwing, portcullisDrop, skeletonJaw,
 } from '../js/dungeon-props.js';
+import { fireFrame } from '../js/fire.js';
 
 const DUNGEON_PROPS = ['dungeon-bars', 'portcullis', 'torch', 'hanging-chains', 'gibbet', 'skeleton'];
 const HANGING = ['portcullis', 'hanging-chains', 'gibbet'];
@@ -65,11 +66,11 @@ const trail = normalizeTrail({
   assert.ok(coming > PORTCULLIS.show && coming < alone && coming % 2 === 0, 'part way up as the rider comes');
 }
 
-// The torch holds still at time 0 and flickers through its frames otherwise.
+// The torch's flame holds still at time 0 and flickers otherwise.
 {
-  assert.deepEqual(torchFlicker(0, 0.4), { frame: 0, lick: 0 });
-  const frames = new Set(Array.from({ length: 40 }, (_, i) => torchFlicker(1 + i * 0.03, 0.4).frame));
-  assert.equal(frames.size, 4);
+  assert.deepEqual(fireFrame(TORCH_TONGUES, 0, 0.4), fireFrame(TORCH_TONGUES, 0, 0.9), 'still at time 0');
+  const heights = new Set(Array.from({ length: 40 }, (_, i) => fireFrame(TORCH_TONGUES, 1 + i * 0.03, 0.4)[0].height));
+  assert.ok(heights.size > 1, 'it flickers');
 }
 
 // Chains and the gibbet sway, and swing away from a hard landing nearby.

@@ -106,6 +106,7 @@ Write functions as `export function drawThing({ pixelRect, pixelPath }, …)` an
 | Hanging from the rock above | Add the prop to `CEILING_PROPS`; `propWallFit` gives the roof and the drop to the floor |
 | Pine boughs | `PINE_TIERS` and `drawPineTiers` |
 | A flickering warm light | `lanternFlicker` and the lantern light in lighting.js |
+| Fire, for anything that burns | `fireTongues`, `fireFrame` and `drawFire` in fire.js, sized to the prop: the torch and the fireplace both use them |
 | Wind on a prop | `propWind` in drawing.js |
 | Animals that flee from the rider | The `STARTLE` table in render.js |
 

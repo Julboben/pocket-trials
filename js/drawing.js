@@ -98,13 +98,12 @@ import {
   FIRE,
   TENT,
   TENT_DOOR_CENTRE,
-  drawFireFlames,
   drawFireplace,
   drawGrass,
   drawTent,
   drawTentDoorGlow,
   drawTentRopes,
-  fireFrame,
+  FIRE_TONGUES,
   grassLean,
   IVY,
   drawIvy,
@@ -278,7 +277,6 @@ import {
 } from "./spider-props.js";
 import {
   BAR_XS,
-  FLAME,
   BARS,
   CHAINS_HANG,
   GIBBET_HANG,
@@ -294,13 +292,13 @@ import {
   drawSkeletonBody,
   drawSkeletonSkull,
   drawTorchFeet,
-  drawTorchFlame,
   drawTorchStand,
   hangingSwing,
   portcullisDrop,
   skeletonJaw,
-  torchFlicker,
+  TORCH_TONGUES,
 } from "./dungeon-props.js";
+import { FLAME, drawFire, fireFrame } from "./fire.js";
 import { FLAGPOLE, drawFlagpole } from "./countryside-props.js";
 import { resolveWeather, windSign } from "./weather.js";
 import { dayBlend, normalizeHour } from "./time-of-day.js";
@@ -322,11 +320,11 @@ const GROUND_ALIGNED_PROP_SPANS = {
   rock: [-16, 18],
   boulder: [-22, 22],
   crates: [-40, 40],
-  wheelbarrow: [-12, 24],
+  wheelbarrow: [-8, 20],
   beehive: [-16, 16],
   tyre: [-26, 26],
   cone: [-8, 8],
-  barrier: [-34, 34],
+  barrier: [-26, 26],
   dumpster: [-22, 22],
   skull: [-14, 14],
   "car-wreck": [-48, 48],
@@ -334,13 +332,13 @@ const GROUND_ALIGNED_PROP_SPANS = {
   "hay-bales": [-34, 34],
   "petrol-can": [-10, 10],
   "prison-fence": [-44, 44],
-  "ball-and-chain": [-18, 16],
+  "ball-and-chain": [-18, 18],
   "escape-tunnel": [-20, 20],
   skeleton: [-14, 22],
   tent: [-30, 30],
   "christiania-bike": CHRISTIANIA_WHEELS,
   bench: [BENCH_ENDS[0], BENCH_ENDS[1] + 4],
-  fireplace: [-24, 24],
+  fireplace: [-18, 18],
 };
 
 /**
@@ -1676,7 +1674,7 @@ export function propSpan(type, fit) {
     const roofs = (fit?.roofs ?? []).filter((roof) => roof !== null);
     return [Math.max(BARS.height + 8, ...roofs.map((roof) => -roof)) + 4, 4];
   }
-  if (type === "minecart") return [54, 4];
+  if (type === "minecart") return [52, 4];
   if (!CEILING_PROPS.has(type)) return null;
   const ceiling = fit?.ceiling ?? 0;
   if (type === "lantern") {
@@ -3255,18 +3253,18 @@ function drawLadder(tools) {
 
 // 80 × 48: an empty painted barrow, wheel on the right.
 function drawWheelbarrow(tools) {
-  const ox = -40, oy = -48;
+  // 62 × 32, facing right, the wheel at the front.
+  const ox = -32, oy = -32;
   drawFarmRects(
     tools,
     [
       // Handle.
-      [0, 10, 8, 4, FARM_WOOD.dark],
-      [8, 12, 10, 4, FARM_WOOD.base],
+      [0, 8, 8, 2, FARM_WOOD.dark],
+      [8, 10, 10, 2, FARM_WOOD.base],
       // Frame and leg.
-      [18, 30, 42, 4, FARM_WOOD.base],
-      [18, 30, 42, 2, FARM_WOOD.plank],
-      [26, 34, 4, 12, FARM_WOOD.base],
-      [24, 46, 8, 2, FARM_WOOD.dark],
+      [14, 20, 36, 2, FARM_WOOD.plank],
+      [22, 22, 4, 8, FARM_WOOD.base],
+      [20, 30, 8, 2, FARM_WOOD.dark],
     ],
     ox,
     oy,
@@ -3275,27 +3273,25 @@ function drawWheelbarrow(tools) {
     tools,
     [
       // Painted tub.
-      [14, 14, 52, 4, FARM_LEAF.light],
-      [18, 18, 46, 4, FARM_LEAF.mid],
-      [22, 22, 40, 4, "#4e785c"],
-      [26, 26, 32, 4, FARM_LEAF.dark],
-      [18, 18, 4, 4, FARM_LEAF.dark],
-      [22, 22, 4, 4, FARM_LEAF.stem],
-      [26, 26, 4, 4, FARM_LEAF.stem],
-      [56, 20, 2, 2, FARM_LEAF.stem],
+      [12, 8, 42, 2, FARM_LEAF.light],
+      [14, 10, 38, 2, FARM_LEAF.mid],
+      [16, 12, 34, 2, "#4e785c"],
+      [18, 14, 30, 2, FARM_LEAF.dark],
+      [20, 16, 26, 2, FARM_LEAF.dark],
+      [22, 18, 22, 2, FARM_LEAF.dark],
+      [14, 10, 2, 2, FARM_LEAF.dark],
+      [16, 12, 4, 2, FARM_LEAF.stem],
+      [18, 14, 4, 2, FARM_LEAF.stem],
+      [48, 12, 2, 2, FARM_LEAF.stem],
       // Wheel: rubber tyre, rock-grey hub.
-      [60, 28, 8, 2, RUBBER.dark],
-      [58, 30, 12, 2, RUBBER.dark],
-      [56, 32, 16, 2, RUBBER.dark],
-      [54, 34, 20, 8, RUBBER.dark],
-      [56, 42, 16, 2, RUBBER.dark],
-      [58, 44, 12, 2, RUBBER.dark],
-      [60, 46, 8, 2, RUBBER.dark],
-      [70, 34, 4, 4, RUBBER.base],
-      [60, 32, 8, 2, "#697872"],
-      [58, 34, 12, 6, "#697872"],
-      [60, 40, 8, 2, "#697872"],
-      [62, 36, 4, 2, "#a2ab9e"],
+      [48, 14, 8, 2, RUBBER.dark],
+      [46, 16, 12, 2, RUBBER.dark],
+      [44, 18, 16, 10, RUBBER.dark],
+      [46, 28, 12, 2, RUBBER.dark],
+      [48, 30, 8, 2, RUBBER.dark],
+      [58, 20, 2, 4, RUBBER.base],
+      [48, 20, 8, 6, "#697872"],
+      [52, 22, 2, 2, "#a2ab9e"],
     ],
     ox,
     oy,
@@ -3502,7 +3498,7 @@ const CANOPY_SPRITES = {
   crates: { bounds: [-50, -72, 50, 0], draw: drawCrates },
   apple: { bounds: [-4, -10, 4, 0], draw: drawSmallApple },
   ladder: { bounds: [-28, -100, 26, 0], draw: drawLadder },
-  wheelbarrow: { bounds: [-40, -48, 40, 0], draw: drawWheelbarrow },
+  wheelbarrow: { bounds: [-34, -34, 30, 0], draw: drawWheelbarrow },
   scarecrow: {
     bounds: [SCARECROW_OX, SCARECROW_OY, -SCARECROW_OX, SCARECROW_BODY_BOTTOM],
     draw: drawScarecrow,
@@ -3510,13 +3506,13 @@ const CANOPY_SPRITES = {
   beehive: { bounds: [-28, -72, 28, 0], draw: drawBeehive },
   tyre: { bounds: [-34, TYRE.centre - TYRE.lug - 2, 34, TYRE_SINK], draw: drawTyre },
   cone: { bounds: [-10, -24, 10, 0], draw: drawCone },
-  barrier: { bounds: [-44, -46, 44, 0], draw: drawBarrier },
+  barrier: { bounds: [-34, -32, 34, 0], draw: drawBarrier },
   dumpster: { bounds: [-34, -52, 34, 0], draw: drawDumpster },
   lamp: { bounds: [-6, LAMP_HEAD.y - 14, 34, LAMP_BODY_BOTTOM], draw: drawLamp },
   crane: { bounds: [-72, CRANE_LIGHTS[0][1] - 4, 174, CRANE_BODY_BOTTOM], draw: drawCrane },
   scaffolding: { bounds: [-52, -142, 52, 0], draw: drawScaffoldDecks },
   graffiti: { bounds: GRAFFITI_BOUNDS, draw: drawGraffiti },
-  minecart: { bounds: [-24, -40, 24, 0], draw: drawMinecart },
+  minecart: { bounds: [-26, -38, 26, 0], draw: drawMinecart },
   skull: { bounds: [-22, -26, 22, 0], draw: drawCowSkull },
   "car-wreck": { bounds: [-70, -44, 70, WRECK_SINK], draw: drawCarWreck },
   "water-tower": { bounds: [-38, -178, 40, TOWER_BODY_BOTTOM], draw: drawWaterTower },
@@ -3543,14 +3539,14 @@ const CANOPY_SPRITES = {
   "prison-fence": { bounds: PRISON_FENCE_BOUNDS, draw: drawPrisonFence },
   watchtower: { bounds: [-36, SEARCHLIGHT.y + 4, 36, WATCHTOWER_BODY_BOTTOM], draw: drawWatchtower },
   "jail-cell": { bounds: [-42, -86, 42, 0], draw: drawCellBack },
-  "ball-and-chain": { bounds: [-22, -20, 22, 0], draw: drawBallAndChain },
+  "ball-and-chain": { bounds: [-22, -14, 20, 0], draw: drawBallAndChain },
   "escape-tunnel": { bounds: [-28, -26, 28, 0], draw: drawTunnelMound },
-  torch: { bounds: [-12, -84, 12, TORCH_BODY_BOTTOM], draw: drawTorchStand },
-  skeleton: { bounds: [-22, -34, 30, 0], draw: drawSkeletonBody },
+  torch: { bounds: [-12, TORCH_FLAME.y - 2, 12, TORCH_BODY_BOTTOM], draw: drawTorchStand },
+  skeleton: { bounds: [-22, -26, 30, 0], draw: drawSkeletonBody },
   tent: { bounds: [-TENT.half - 4, TENT.apex - 6, TENT.half + 4, 0], draw: drawTent },
-  "christiania-bike": { bounds: [-44, -62, 58, 0], draw: drawChristianiaBike },
-  bench: { bounds: [-42, -56, 44, 0], draw: drawBench },
-  fireplace: { bounds: [-28, -14, 30, 0], draw: drawFireplace },
+  "christiania-bike": { bounds: [-34, -44, 42, 0], draw: drawChristianiaBike },
+  bench: { bounds: [-38, -44, 38, 0], draw: drawBench },
+  fireplace: { bounds: [-22, -12, 22, 0], draw: drawFireplace },
   "wanted-poster": { bounds: [WANTED.left, WANTED.top, WANTED.left + WANTED.width, WANTED.top + WANTED.height], draw: drawWantedPoster },
 };
 const canopySprites = new Map();
@@ -3599,7 +3595,7 @@ const PROP_EXTENTS = {
   tree: [-64, -184, 64],
   pine: [-48, -186, 48],
   bush: [-32, -44, 32],
-  fence: [-42, -48, 42],
+  fence: [-42, -38, 42],
   rock: [-18, -20, 20],
   boulder: [-24, -42, 24],
   flowers: [-16, -22, 16],
@@ -3618,12 +3614,12 @@ const PROP_EXTENTS = {
   crates: [-50, -72, 50],
   apple: [-6, -12, 6],
   ladder: [-28, -100, 26],
-  wheelbarrow: [-40, -48, 40],
+  wheelbarrow: [-34, -36, 30],
   scarecrow: [-32, -112, 32],
   beehive: [-32, -80, 32],
   tyre: [-36, TYRE.centre - TYRE.lug - 4, 36],
   cone: [-12, -26, 12],
-  barrier: [-46, -48, 46],
+  barrier: [-36, -34, 36],
   dumpster: [-36, -54, 36],
   lamp: [-8, LAMP_HEAD.y - 16, 36],
   crane: [-74, CRANE_LIGHTS[0][1] - 6, 176],
@@ -3639,7 +3635,7 @@ const PROP_EXTENTS = {
   lantern: [-8, -CEILING_REACH - 4, 8],
   bats: [-16, -CEILING_REACH - 4, 18],
   mushrooms: [-20, -34, 20],
-  minecart: [-RAIL_REACH - 4, -54, RAIL_REACH + 4],
+  minecart: [-RAIL_REACH - 4, -52, RAIL_REACH + 4],
   beams: [-BEAM_HALF - 2, -BEAM_REACH - 12, BEAM_HALF + 2],
   lily: [-18, -SURFACE_REACH - 12, 22],
   duck: [-14, -SURFACE_REACH - 20, 16],
@@ -3695,7 +3691,7 @@ const PROP_EXTENTS = {
   // Room for the searchlight turning on the roof.
   watchtower: [-38, SEARCHLIGHT.y - 14, 38],
   "jail-cell": [-42, -86, 42],
-  "ball-and-chain": [-22, -20, 22],
+  "ball-and-chain": [-22, -14, 20],
   // The prisoner's head pokes up out of the hole.
   "escape-tunnel": [-28, -34, 28],
   "wanted-poster": [WANTED.left - 2, WANTED.top - 2, WANTED.left + WANTED.width + 2],
@@ -3705,15 +3701,15 @@ const PROP_EXTENTS = {
   gibbet: [-40, -CEILING_REACH - 4, 40],
   // Room for the sparks rising off the flame.
   torch: [-12, TORCH_FLAME.y - 36, 12],
-  skeleton: [-24, -46, 32],
+  skeleton: [-24, -38, 32],
   // Guy ropes out to the pegs either side.
   tent: [-TENT.peg - 4, TENT.apex - 6, TENT.peg + 4],
   // Room for the blades bent flat as the rider brushes through.
   grass: [-44, -30, 44],
   // The flag flies out downwind, either way.
   flagpole: [-44, FLAGPOLE.top - 8, 44],
-  "christiania-bike": [-44, -62, 58],
-  bench: [-42, -56, 44],
+  "christiania-bike": [-34, -44, 42],
+  bench: [-38, -44, 38],
   // Room for the smoke rising and blowing downwind, either way.
   fireplace: [-80, FIRE.smoke - 90, 80],
 };
@@ -5098,41 +5094,41 @@ export function createGameArt(ctx) {
       // drawProp() already applies the ground-alignment rotation.
       drawCanopy("bush");
     } else if (type === "fence") {
-      // Larger fence: 80 units wide and 46 units tall.
+      // A post-and-rail fence, 80 wide and 36 tall (about 1.3 m).
       // Rails sit behind the posts; existing slope rotation is preserved.
 
       // Upper rail.
-      pixelRect(-40, -34, 80, 6, "#856d4f", 2);
-      pixelRect(-40, -34, 80, 2, "#aa8a60", 2);
-      pixelRect(-40, -30, 80, 2, "#66543f", 2);
+      pixelRect(-40, -28, 80, 4, "#856d4f", 2);
+      pixelRect(-40, -28, 80, 2, "#aa8a60", 2);
+      pixelRect(-40, -24, 80, 2, "#66543f", 2);
 
       // Lower rail.
-      pixelRect(-40, -18, 80, 6, "#856d4f", 2);
-      pixelRect(-40, -18, 80, 2, "#aa8a60", 2);
-      pixelRect(-40, -14, 80, 2, "#66543f", 2);
+      pixelRect(-40, -14, 80, 4, "#856d4f", 2);
+      pixelRect(-40, -14, 80, 2, "#aa8a60", 2);
+      pixelRect(-40, -10, 80, 2, "#66543f", 2);
 
       // Balanced posts, centered at x = -33 and +33.
       for (const postX of [-36, 30]) {
-        pixelRect(postX, -42, 6, 42, "#856d4f", 2);
+        pixelRect(postX, -32, 6, 32, "#856d4f", 2);
 
         // Stepped post cap.
-        pixelRect(postX, -44, 6, 2, "#aa8a60", 2);
-        pixelRect(postX + 2, -46, 2, 2, "#aa8a60", 2);
+        pixelRect(postX, -34, 6, 2, "#aa8a60", 2);
+        pixelRect(postX + 2, -36, 2, 2, "#aa8a60", 2);
 
         // Lit edge and shaded side.
-        pixelRect(postX, -42, 2, 40, "#aa8a60", 2);
-        pixelRect(postX + 4, -42, 2, 42, "#66543f", 2);
+        pixelRect(postX, -32, 2, 30, "#aa8a60", 2);
+        pixelRect(postX + 4, -32, 2, 32, "#66543f", 2);
 
         // Small fasteners where the rails meet each post.
-        pixelRect(postX + 2, -32, 2, 2, "#66543f", 2);
-        pixelRect(postX + 2, -16, 2, 2, "#66543f", 2);
+        pixelRect(postX + 2, -26, 2, 2, "#66543f", 2);
+        pixelRect(postX + 2, -12, 2, 2, "#66543f", 2);
       }
 
       // Sparse wood grain.
-      pixelRect(-24, -32, 10, 2, "#66543f", 2);
-      pixelRect(10, -32, 6, 2, "#66543f", 2);
-      pixelRect(-14, -16, 8, 2, "#66543f", 2);
-      pixelRect(20, -16, 4, 2, "#66543f", 2);
+      pixelRect(-24, -26, 10, 2, "#66543f", 2);
+      pixelRect(10, -26, 6, 2, "#66543f", 2);
+      pixelRect(-14, -12, 8, 2, "#66543f", 2);
+      pixelRect(20, -12, 4, 2, "#66543f", 2);
     } else if (type === "rock") {
       // Uneven silhouette, keeping the original footprint.
       pixelRect(-16, -6, 34, 6, "#697872", 2);
@@ -6691,7 +6687,7 @@ export function createGameArt(ctx) {
       const angle = rotation && canRotate(type) ? rotation : 0;
       const rise = type === "torch" ? TORCH_FLAME.y - 6 : FIRE.y - 10;
       const flame = { x: x - Math.sin(angle) * rise, y: y + Math.cos(angle) * rise };
-      const big = type === "fireplace" ? 1.5 : 1;
+      const big = type === "fireplace" ? 1.3 : 1;
       ctx.save();
       ctx.imageSmoothingEnabled = false;
       if (!emissive) {
@@ -6711,11 +6707,16 @@ export function createGameArt(ctx) {
       ctx.translate(Math.round(x / 2) * 2, Math.round(y / 2) * 2);
       if (angle) ctx.rotate(angle);
       const phase = propNoise(x, 32);
-      if (type === "torch") drawTorchFlame({ pixelRect }, torchFlicker(time, phase), time, phase);
-      else {
+      if (type === "torch") {
+        ctx.translate(TORCH_FLAME.x, TORCH_FLAME.y);
+        drawFire({ pixelRect }, fireFrame(TORCH_TONGUES, time, phase), time, phase, { sparks: 2, rise: 22 });
+      } else {
         // Out in the open, the wind bends the flames and carries the sparks.
         const weather = resolveWeather(trail?.weather);
-        drawFireFlames({ pixelRect }, fireFrame(time, phase), time, phase, weather.wind, windSign(weather));
+        ctx.translate(0, FIRE.y);
+        drawFire({ pixelRect }, fireFrame(FIRE_TONGUES, time, phase), time, phase, {
+          sparks: 3, rise: 36, wind: weather.wind, downwind: windSign(weather),
+        });
       }
       ctx.restore();
       return;

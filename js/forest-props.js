@@ -10,7 +10,7 @@
 // here is decoration and never touches the simulation.
 
 import { STEEL } from "./city-props.js";
-import { FLAME } from "./dungeon-props.js";
+import { fireTongues } from "./fire.js";
 
 // Camping kit: a tent's fabric, its guy ropes, the boots by its door and the
 // fireplace's logs and ash.
@@ -334,25 +334,26 @@ export function drawGrass({ pixelRect }, groundOffset, leanOf) {
 // ----------------------------------------------------------------- fireplace
 
 /** Where the fire's flames rise from, and where its smoke starts. */
-export const FIRE = { y: -8, smoke: -34 };
+export const FIRE = { y: -6, smoke: -30 };
+/** The fireplace's flames: a fire about 20 across and 22 tall (see fire.js). */
+export const FIRE_TONGUES = fireTongues(20, 22);
 
 /**
- * A fireplace out in the open, about 52 across: a ring of rounded stones,
- * shaded on the left, round a bed of ash and two crossed logs. The flames,
- * embers and sparks are drawn live (drawFireFlames), and the smoke by
- * drawing.js.
+ * A fireplace out in the open, about 40 across (1.5 m): a ring of rounded
+ * stones, shaded on the left, round a bed of ash and two crossed logs. Its
+ * fire is drawn live from fire.js at FIRE.y, and the smoke by drawing.js.
  */
 export function drawFireplace({ pixelRect }) {
   // Ash and the logs, crossed.
-  pixelRect(-16, -4, 32, 2, RUBBER.light, 2);
-  pixelRect(-14, -6, 20, 4, WOOD.base, 2);
-  pixelRect(-14, -6, 20, 2, WOOD.light, 2);
-  pixelRect(-14, -6, 4, 4, WOOD.cut, 2);
-  pixelRect(-4, -10, 18, 4, WOOD.dark, 2);
-  pixelRect(-4, -10, 18, 2, WOOD.base, 2);
-  pixelRect(10, -10, 4, 4, WOOD.tip, 2);
+  pixelRect(-12, -4, 24, 2, RUBBER.light, 2);
+  pixelRect(-10, -6, 14, 4, WOOD.base, 2);
+  pixelRect(-10, -6, 14, 2, WOOD.light, 2);
+  pixelRect(-10, -6, 2, 4, WOOD.cut, 2);
+  pixelRect(-2, -8, 12, 4, WOOD.dark, 2);
+  pixelRect(-2, -8, 12, 2, WOOD.base, 2);
+  pixelRect(8, -8, 2, 4, WOOD.tip, 2);
   // The stones round it, the front row overlapping the logs' ends.
-  const stones = [[-26, 8, 6], [-18, 10, 8], [-8, 10, 6], [2, 10, 8], [12, 10, 6], [20, 8, 8]];
+  const stones = [[-20, 6, 6], [-14, 8, 8], [-6, 6, 6], [0, 8, 8], [8, 6, 6], [14, 6, 8]];
   for (const [x, w, h] of stones) {
     pixelRect(x, -h, w, h, STEEL.base, 2);
     pixelRect(x + 2, -h - 2, w - 4, 2, STEEL.base, 2);
@@ -360,55 +361,6 @@ export function drawFireplace({ pixelRect }) {
     pixelRect(x + w - 4, -h - 2, 2, 2, STEEL.light, 2);
     pixelRect(x + w - 2, -h, 2, h - 2, STEEL.mid, 2);
     pixelRect(x, -2, w, 2, STEEL.dark, 2);
-  }
-}
-
-// Flame tongues: where each rises from, how tall, and its half width.
-const TONGUES = [[-8, 16, 4], [0, 26, 6], [8, 18, 4]];
-
-/**
- * How the flames stand at `time`: each tongue's height and lick (0, ±2),
- * stepping through frames out of step with each other. Still at time 0.
- * `phase` is a fixed 0…1 value per fire.
- */
-export function fireFrame(time, phase = 0) {
-  return TONGUES.map(([x, height], index) => {
-    if (!time) return { x, height, lick: 0 };
-    const frame = Math.floor(time * 8 + phase * 4 + index * 1.7) % 4;
-    return { x, height: height + [0, 4, -2, 2][frame], lick: [0, 2, 0, -2][(frame + index) % 4] };
-  });
-}
-
-/**
- * The flames (see fireFrame) rising off the logs at FIRE.y, white-hot at
- * the root and darkening to their tips, glowing embers on the logs, and the
- * odd spark climbing while `time` runs. The `wind` (0…1) bends the flames'
- * tips and carries the sparks `downwind` (-1 left, 1 right).
- */
-export function drawFireFlames({ pixelRect }, frame, time = 0, phase = 0, wind = 0, downwind = -1) {
-  frame.forEach(({ x: fx, height, lick }, index) => {
-    const halfWidth = TONGUES[index][2];
-    for (let up = 0; up < height; up += 2) {
-      const t = up / height;
-      const w = Math.max(2, snap(halfWidth * 2 * (1 - t * t)));
-      const x = fx - w / 2 + snap(lick * t * 2 + downwind * wind * 10 * t * t);
-      const y = FIRE.y - up - 2;
-      pixelRect(x, y, w, 2, t > 0.65 ? FLAME.base : t > 0.25 ? FLAME.glow : FLAME.light, 2);
-      if (w > 2) {
-        pixelRect(x, y, 2, 2, t > 0.5 ? FLAME.dark : FLAME.base, 2);
-        pixelRect(x + w - 2, y, 2, 2, t > 0.65 ? FLAME.glow : FLAME.light, 2);
-      }
-      if (w >= 6 && t < 0.25) pixelRect(fx + snap(lick * t * 2 + downwind * wind * 10 * t * t) - 2, y, 4, 2, FLAME.core, 2);
-    }
-  });
-  // Embers on the logs.
-  for (const [ex, ey] of [[-10, -6], [6, -8], [12, -10]]) pixelRect(ex, ey, 2, 2, FLAME.glow, 2);
-  if (!time) return;
-  for (let i = 0; i < 3; i++) {
-    const life = (time * 0.7 + phase + i / 3) % 1;
-    const sx = snap(Math.sin((time + i * 2.1) * 1.9) * 8 + (i - 1) * 6 + downwind * wind * life * 50);
-    const sy = FIRE.y - 26 - snap(life * 40 * (1 - wind * 0.5));
-    if (life < 0.8) pixelRect(sx, sy, 2, 2, life < 0.4 ? FLAME.light : FLAME.glow, 2);
   }
 }
 

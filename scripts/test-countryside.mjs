@@ -7,7 +7,8 @@ import { normalizeTrail, validateTrail } from '../js/trail-schema.js';
 import { rectangle } from './lib/terrain-fixtures.mjs';
 import { PAINTED_PROPS, WALL_PROPS, canFlip, canRotate, paintedBounds, propWallFit } from '../js/drawing.js';
 import { FLAGPOLE, flagDroop, flagRipple } from '../js/countryside-props.js';
-import { GRASS_BRUSH, IVY, fireFrame, grassLean, ivyLayout, ivyRustle } from '../js/forest-props.js';
+import { FIRE_TONGUES, GRASS_BRUSH, IVY, grassLean, ivyLayout, ivyRustle } from '../js/forest-props.js';
+import { fireFrame, fireTongues } from '../js/fire.js';
 
 const COUNTRYSIDE_PROPS = ['tent', 'grass', 'flagpole', 'christiania-bike', 'bench', 'fireplace', 'tutorial-lean-forward'];
 
@@ -65,13 +66,21 @@ const COUNTRYSIDE_PROPS = ['tent', 'grass', 'flagpole', 'christiania-bike', 'ben
   assert.ok(Math.abs(grassLean(0, 0, -1, 0.3, 0)) < 0.1, 'it stands nearly straight in still air');
 }
 
-// The fireplace's flames hold still at time 0 and flicker out of step otherwise.
+// Fire (fire.js) is sized to its prop, holds still at time 0, and flickers
+// out of step otherwise.
 {
-  assert.deepEqual(fireFrame(0, 0.2), fireFrame(0, 0.9), 'still at time 0');
-  assert.ok(fireFrame(0, 0).every((tongue) => tongue.lick === 0));
-  const frames = Array.from({ length: 30 }, (_, i) => fireFrame(1 + i * 0.04, 0.2));
-  assert.ok(new Set(frames.map((frame) => frame[1].height)).size > 1, 'the flames rise and fall');
-  assert.ok(frames.some((frame) => frame[0].height !== frame[2].height - 2), 'each tongue in its own time');
+  for (const [width, height] of [[8, 16], [20, 22], [60, 50]]) {
+    const tongues = fireTongues(width, height);
+    assert.ok(tongues.length >= 1 && tongues.length <= Math.ceil(width / 8) + 1, `a fire ${width} across has a few tongues`);
+    assert.equal(Math.max(...tongues.map((tongue) => tongue.height)), height, 'the tallest is as tall as the fire');
+    assert.ok(tongues.every((tongue) => Math.abs(tongue.x) + tongue.half <= width / 2 + 4), 'they stay within its width');
+    assert.ok(tongues.flatMap((tongue) => [tongue.x, tongue.height, tongue.half]).every((v) => v % 2 === 0), 'on the art grid');
+  }
+  assert.deepEqual(fireFrame(FIRE_TONGUES, 0, 0.2), fireFrame(FIRE_TONGUES, 0, 0.9), 'still at time 0');
+  assert.ok(fireFrame(FIRE_TONGUES, 0, 0).every((tongue) => tongue.lick === 0));
+  const frames = Array.from({ length: 30 }, (_, i) => fireFrame(FIRE_TONGUES, 1 + i * 0.04, 0.2));
+  assert.ok(new Set(frames.map((frame) => frame[0].height)).size > 1, 'the flames rise and fall');
+  assert.ok(frames.some((frame) => frame[0].height - FIRE_TONGUES[0].height !== frame[1].height - FIRE_TONGUES[1].height), 'each tongue in its own time');
   assert.ok(frames.flat().every((tongue) => tongue.height % 2 === 0 && tongue.lick % 2 === 0), 'on the art grid');
 }
 

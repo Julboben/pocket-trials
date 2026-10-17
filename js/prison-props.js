@@ -424,30 +424,28 @@ export function drawPrisonerBust(tools, skin, look = 0) {
 
 // ------------------------------------------------------------ ball and chain
 
-/** 40 × 20, an iron ball on a chain ending in an open shackle. */
+/** 36 × 12, an iron ball about 35 cm across on a chain ending in an open shackle. */
 export function drawBallAndChain(tools) {
   const { pixelRect, drawPixelDisc } = tools;
   // Chain links, alternately face on and edge on.
   for (let i = 0; i < 5; i++) {
     const x = -12 + i * 4;
-    if (i % 2) pixelRect(x, -6, 4, 2, STEEL.mid, 2);
+    if (i % 2) pixelRect(x, -4, 4, 2, STEEL.mid, 2);
     else {
-      pixelRect(x, -8, 4, 6, STEEL.base, 2);
-      pixelRect(x + 2, -6, 2, 2, INK, 2);
-      pixelRect(x + 2, -8, 2, 2, STEEL.light, 2);
+      pixelRect(x, -6, 4, 4, STEEL.base, 2);
+      pixelRect(x + 2, -4, 2, 2, INK, 2);
+      pixelRect(x + 2, -6, 2, 2, STEEL.light, 2);
     }
   }
   // Shackle, lying open.
-  pixelRect(-22, -8, 8, 2, STEEL.light, 2);
-  pixelRect(-22, -6, 2, 4, STEEL.base, 2);
-  pixelRect(-22, -2, 8, 2, STEEL.dark, 2);
-  pixelRect(-16, -6, 2, 2, STEEL.base, 2);
+  pixelRect(-18, -6, 6, 2, STEEL.light, 2);
+  pixelRect(-18, -4, 2, 2, STEEL.base, 2);
+  pixelRect(-18, -2, 6, 2, STEEL.dark, 2);
   // The ball: shaded below and to the left, a glint up on the right.
-  drawPixelDisc(10, -10, 10, INK, 2);
-  drawPixelDisc(12, -12, 8, RUBBER.dark, 2);
-  drawPixelDisc(14, -14, 4, RUBBER.base, 2);
-  pixelRect(14, -16, 2, 2, RUBBER.light, 2);
-  pixelRect(4, -2, 2, 2, RUBBER.base, 2);
+  drawPixelDisc(12, -6, 6, INK, 2);
+  drawPixelDisc(14, -8, 4, RUBBER.dark, 2);
+  pixelRect(14, -10, 2, 2, RUBBER.base, 2);
+  pixelRect(16, -10, 2, 2, RUBBER.light, 2);
 }
 
 // ------------------------------------------------------------- wanted poster
