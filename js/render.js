@@ -98,7 +98,7 @@ const SCENERY_SHADOWS = {
   scarecrow: { width: 8, alpha: 0.15, thickness: 3, lift: 30 },
   beehive: { width: 14, alpha: 0.14, thickness: 3, lift: 20 },
   cone: { width: 7, alpha: 0.14, thickness: 3, lift: 8 },
-  dumpster: { width: 22, alpha: 0.15, thickness: 3, lift: 14 },
+  dumpster: { width: 28, alpha: 0.15, thickness: 3, lift: 16 },
   lamp: { width: 6, alpha: 0.15, thickness: 3, lift: 40 },
   skull: { width: 12, alpha: 0.13, thickness: 3, lift: 6 },
   "car-wreck": { width: 54, alpha: 0.15, thickness: 3, lift: 16 },

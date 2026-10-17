@@ -34,7 +34,7 @@ export const terrainMaterials = {
   },
   brick: {
     fill: '#8d493d', layers: ['#a65a49', '#71392f'], detail: '#492b29aa', pattern: 'brick',
-    edge: '#433534', surface: '#74a35a', vegetation: null,
+    edge: '#433534', surface: '#bd7961', vegetation: null,
     spray: ['#754239','#9a5748','#bd7961']
   },
   wood: {

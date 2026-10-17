@@ -1202,7 +1202,7 @@ export const terrainMaterials = {
   },
   brick: {
     fill: '#8d493d', layers: ['#a65a49', '#71392f'], detail: '#492b29aa', pattern: 'brick',
-    edge: '#433534', surface: '#74a35a', vegetation: null,
+    edge: '#433534', surface: '#bd7961', vegetation: null,
     spray: ['#754239','#9a5748','#bd7961']
   },
   wood: {
@@ -1879,8 +1879,8 @@ Example trail: easy.
       "layer": "front"
     },
     {
-      "x": 1450,
-      "y": null,
+      "x": 1447,
+      "y": 303.3154750876885,
       "type": "fence",
       "layer": "back"
     },
@@ -2018,13 +2018,13 @@ Example trail: easy.
     },
     {
       "x": 117.71,
-      "y": 280.3,
+      "y": 289.3,
       "type": "apple",
       "layer": "back"
     },
     {
       "x": 127.53,
-      "y": 282.19,
+      "y": 291.19,
       "type": "apple",
       "layer": "back"
     },
@@ -2125,12 +2125,12 @@ Example trail: easy.
     "wind": 0.25,
     "windDirection": "left"
   },
+  "timeOfDay": 12,
   "medals": {
     "gold": 11,
     "silver": 14.5,
     "bronze": 19
-  },
-  "timeOfDay": 12
+  }
 }
 ```
 

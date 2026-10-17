@@ -70,74 +70,82 @@ export function drawCone({ pixelRect }) {
   pixelRect(-10, -2, 20, 2, RUBBER.dark, 2);
 }
 
-// 60 × 32, a steel crowd-control barrier (about 2.2 × 1.1 m) on two flat feet.
+// 76 × 38, a steel crowd-control barrier on two flat feet.
 export function drawBarrier(tools) {
   const { pixelRect } = tools;
   // Infill bars first, so the rails cover their ends.
-  for (let x = -20; x <= 20; x += 6) {
-    pixelRect(x, -28, 2, 18, STEEL.base, 2);
-    pixelRect(x, -28, 2, 2, STEEL.mid, 2);
+  for (let x = -26; x <= 24; x += 6) {
+    pixelRect(x, -34, 2, 22, STEEL.base, 2);
+    pixelRect(x, -34, 2, 2, STEEL.mid, 2);
   }
-  tube(tools, -26, -30, 52);
-  tube(tools, -26, -12, 52);
+  tube(tools, -32, -36, 64);
+  tube(tools, -32, -14, 64);
   // End frames: shaded left tube, lit right tube.
-  pixelRect(-28, -30, 4, 28, STEEL.base, 2);
-  pixelRect(-28, -30, 2, 28, STEEL.dark, 2);
-  pixelRect(24, -30, 4, 28, STEEL.mid, 2);
-  pixelRect(26, -30, 2, 28, STEEL.light, 2);
+  pixelRect(-34, -36, 4, 34, STEEL.base, 2);
+  pixelRect(-34, -36, 2, 34, STEEL.dark, 2);
+  pixelRect(30, -36, 4, 34, STEEL.mid, 2);
+  pixelRect(32, -36, 2, 34, STEEL.light, 2);
   // Hook that links it to the next barrier.
-  pixelRect(28, -26, 4, 2, STEEL.light, 2);
-  pixelRect(30, -24, 2, 2, STEEL.mid, 2);
+  pixelRect(34, -32, 4, 2, STEEL.light, 2);
+  pixelRect(36, -30, 2, 2, STEEL.mid, 2);
   // Flat feet.
-  for (const x of [-32, 20]) {
-    pixelRect(x, -2, 12, 2, STEEL.base, 2);
-    pixelRect(x, -4, 12, 2, STEEL.mid, 2);
+  for (const x of [-38, 24]) {
+    pixelRect(x, -2, 14, 2, STEEL.base, 2);
+    pixelRect(x, -4, 14, 2, STEEL.mid, 2);
     pixelRect(x, -2, 2, 2, STEEL.dark, 2);
-    pixelRect(x + 10, -4, 2, 2, STEEL.light, 2);
+    pixelRect(x + 12, -4, 2, 2, STEEL.light, 2);
   }
 }
 
-// 62 × 48, a painted skip bin on casters (about 2.2 × 1.3 m), its lid
-// propped open by the rubbish.
+// 76 × 70, a painted skip bin on casters, its lid propped open by the
+// rubbish.
 export function drawDumpster(tools) {
   const { pixelRect, drawPixelDisc } = tools;
   // Rubbish poking out under the raised lid, drawn first.
-  pixelRect(-24, -42, 8, 8, WOOD.cut, 2);
-  pixelRect(-24, -42, 2, 8, WOOD.tip, 2);
-  pixelRect(-22, -42, 6, 2, "#d9b884", 2);
-  drawPixelDisc(-12, -36, 6, RUBBER.dark, 2);
-  pixelRect(-10, -40, 2, 2, RUBBER.light, 2);
+  pixelRect(-28, -50, 10, 10, WOOD.cut, 2);
+  pixelRect(-28, -50, 2, 10, WOOD.tip, 2);
+  pixelRect(-26, -50, 8, 2, "#d9b884", 2);
+  // A crumpled newspaper beside the box.
+  drawPixelDisc(-12, -46, 4, WHITE.shade, 2);
+  pixelRect(-12, -50, 4, 2, WHITE.base, 2);
+  pixelRect(-16, -46, 2, 2, CONCRETE.light, 2);
+  pixelRect(-10, -46, 4, 2, CONCRETE.dark, 2);
   // Body.
-  pixelRect(-28, -34, 56, 26, PAINT.base, 2);
-  pixelRect(-28, -34, 4, 26, PAINT.dark, 2);
-  pixelRect(26, -34, 2, 24, PAINT.light, 2);
-  pixelRect(-28, -10, 56, 2, PAINT.dark, 2);
+  pixelRect(-34, -40, 68, 32, PAINT.base, 2);
+  pixelRect(-34, -40, 4, 32, PAINT.dark, 2);
+  pixelRect(32, -40, 2, 30, PAINT.light, 2);
+  pixelRect(-34, -10, 68, 2, PAINT.dark, 2);
   // Stiffening ribs: lit top, shaded underside.
-  for (const y of [-28, -18]) {
-    pixelRect(-24, y, 50, 2, PAINT.light, 2);
-    pixelRect(-24, y + 2, 50, 2, PAINT.dark, 2);
+  for (const y of [-34, -22]) {
+    pixelRect(-30, y, 62, 2, PAINT.light, 2);
+    pixelRect(-30, y + 2, 62, 2, PAINT.dark, 2);
   }
   // Rim along the top edge.
-  pixelRect(-30, -36, 60, 2, PAINT.light, 2);
-  pixelRect(-30, -34, 2, 4, PAINT.dark, 2);
+  pixelRect(-36, -42, 72, 2, PAINT.light, 2);
+  pixelRect(-36, -40, 2, 4, PAINT.dark, 2);
   // Fork pockets and a hazard plate.
-  pixelRect(-20, -14, 8, 2, PAINT.dark, 2);
-  pixelRect(10, -14, 8, 2, PAINT.dark, 2);
-  pixelRect(0, -24, 10, 6, WHITE.shade, 2);
-  pixelRect(2, -22, 2, 2, CONE.base, 2);
-  pixelRect(6, -22, 2, 2, CONE.base, 2);
-  // Lid: closed over the right half, stepping up to the left.
-  pixelRect(0, -40, 32, 4, RUBBER.base, 2);
-  pixelRect(10, -40, 22, 2, RUBBER.light, 2);
-  [-40, -42, -44, -46].forEach((top, step) => {
-    const x = -6 - step * 6;
-    pixelRect(x, top - 2, 6, 4, RUBBER.base, 2);
-    pixelRect(x, top + 2, 6, 2, RUBBER.dark, 2);
-  });
-  pixelRect(-32, -50, 6, 4, RUBBER.base, 2);
-  pixelRect(-32, -46, 6, 2, RUBBER.dark, 2);
+  pixelRect(-24, -16, 10, 2, PAINT.dark, 2);
+  pixelRect(12, -16, 10, 2, PAINT.dark, 2);
+  pixelRect(0, -30, 12, 8, WHITE.shade, 2);
+  pixelRect(2, -28, 2, 4, CONE.base, 2);
+  pixelRect(6, -28, 2, 4, CONE.base, 2);
+  // Lid: two halves hinged along the back. The right one lies closed on the
+  // rim; the left one is propped open on the rubbish, one slab tilting up to
+  // the left, lit along its top edge and shaded underneath.
+  pixelRect(0, -46, 38, 4, RUBBER.base, 2);
+  pixelRect(0, -46, 38, 2, RUBBER.light, 2);
+  pixelRect(0, -46, 2, 4, RUBBER.dark, 2);
+  for (let x = -34; x < 0; x += 2) {
+    const y = -46 - snap(-x * 0.6);
+    pixelRect(x, y, 2, 4, RUBBER.base, 2);
+    pixelRect(x, y, 2, 2, RUBBER.light, 2);
+    pixelRect(x, y + 4, 2, 2, RUBBER.dark, 2);
+  }
+  // The hinge between the halves.
+  pixelRect(-2, -44, 4, 2, STEEL.base, 2);
+  pixelRect(0, -44, 2, 2, STEEL.light, 2);
   // Casters.
-  for (const x of [-20, 16]) {
+  for (const x of [-24, 20]) {
     pixelRect(x - 2, -8, 8, 2, STEEL.base, 2);
     drawPixelDisc(x + 2, -4, 4, RUBBER.dark, 2);
     pixelRect(x + 2, -6, 2, 2, STEEL.light, 2);
