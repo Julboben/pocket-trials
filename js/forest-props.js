@@ -408,3 +408,84 @@ export function drawFireFlames({ pixelRect }, frame, time = 0, phase = 0) {
     if (life < 0.8) pixelRect(sx, sy, 2, 2, life < 0.4 ? FLAME.light : FLAME.glow, 2);
   }
 }
+
+// ---------------------------------------------------------------------- ivy
+
+/** The tallest ivy grows up a face, and how tall it grows with no face to climb. */
+export const IVY = { max: 120, alone: 64 };
+// Ivy's deep, glossy greens, darker than the vines and moss, on woody stems.
+const IVY_LEAF = { dark: "#365345", base: "#3d6452", mid: "#477158", light: "#618b66" };
+const IVY_STEM = { dark: "#4d3f2f", base: "#66543f" };
+
+/**
+ * Where ivy's stems and leaves go as it climbs `rise` units up a face from its
+ * anchor at (0, 0), drawn with the rock at -x and the open air at +x. Two
+ * woody stems wander up the face, the second branching off low down; side
+ * shoots reach out from them every 8 units with a leaf on the end, and more
+ * leaves sit along the stems. `noise(n)` is a fixed 0…1 value per prop.
+ * Returns { stems: [[x, y], …] cells, leaves: [{ x, y, tone, tip }] }, every
+ * position on the art grid; `tip` marks the leaves the wind can stir.
+ * @param {number} rise
+ * @param {(n: number) => number} noise
+ */
+export function ivyLayout(rise, noise) {
+  const height = snap(clamp(rise, 16, IVY.max));
+  const stems = [], leaves = [];
+  const tones = ["base", "mid", "dark", "mid"];
+  const runs = [
+    { from: 0, to: height, x: 0, n: 0 },
+    { from: 10, to: snap(height * 0.8), x: 6, n: 1 },
+    { from: 4, to: snap(height * 0.45), x: 10, n: 2 },
+  ];
+  for (const stem of runs) {
+    const wobble = noise(stem.n) * 6;
+    const at = (up) => stem.x + snap(Math.sin(up * 0.09 + wobble) * 2) + 2;
+    for (let up = stem.from; up < stem.to; up += 2) {
+      const x = at(up), y = -up - 2;
+      stems.push([x, y]);
+      // Leaves crowd the stem, alternating either side of it.
+      if (up % 4 === 2) {
+        const step = (up - 2) / 4 + stem.n;
+        leaves.push({ x: x + (step % 2 ? 0 : -6), y: y - 4, tone: tones[step % 4], tip: false });
+      }
+      // Now and then a shoot out into the air, a leaf on its end.
+      if (up % 12 === 8) {
+        const reach = 4 + snap(noise(up + stem.n * 50) * 6);
+        for (let dx = 2; dx < reach; dx += 2) stems.push([x + dx, y]);
+        leaves.push({ x: x + reach - 2, y: y - 6, tone: up % 24 === 8 ? "light" : "mid", tip: true });
+      }
+    }
+    // The leading leaf at the top of each stem.
+    leaves.push({ x: at(stem.to) - 4, y: -stem.to - 6, tone: "light", tip: true });
+  }
+  return { stems, leaves };
+}
+
+/**
+ * How far the ivy's outer leaves are stirred by the wind at `time`: a small
+ * flutter, 0 or ±2, different for each leaf. Still at time 0.
+ */
+export function ivyRustle(time, wind, phase, index) {
+  if (!time) return 0;
+  return snap(Math.sin(time * 3.1 + index * 1.7 + phase * Math.PI * 2) * (0.4 + wind * 1.6));
+}
+
+/**
+ * Ivy as laid out by ivyLayout: woody stems, then lobed leaves over them,
+ * each shaded on its left and lit on its right, the outer ones nudged by
+ * `rustle(index)` (see ivyRustle).
+ */
+export function drawIvy({ pixelRect }, layout, rustle = () => 0) {
+  for (const [x, y] of layout.stems) pixelRect(x, y, 2, 2, x > 6 ? IVY_STEM.base : IVY_STEM.dark, 2);
+  layout.leaves.forEach((leaf, index) => {
+    const x = leaf.x + (leaf.tip ? rustle(index) : 0), y = leaf.y;
+    const color = IVY_LEAF[leaf.tone];
+    // A lobed leaf 8 across: two lobes on top, a broad middle, a stalk.
+    pixelRect(x + 2, y, 4, 2, color, 2);
+    pixelRect(x, y + 2, 8, 4, color, 2);
+    pixelRect(x, y + 2, 2, 4, IVY_LEAF.dark, 2);
+    pixelRect(x + 6, y + 2, 2, 2, leaf.tone === "dark" ? IVY_LEAF.base : IVY_LEAF.light, 2);
+    pixelRect(x + 4, y, 2, 2, leaf.tone === "light" ? "#86a56a" : IVY_LEAF.light, 2);
+    pixelRect(x + 4, y + 6, 2, 2, IVY_STEM.dark, 2);
+  });
+}

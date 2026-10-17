@@ -26,6 +26,7 @@ A plan for the props to add to each level theme, plus guidelines for making them
 - [x] **Tent**: glows from the lantern inside after dark.
 - [x] **Fireplace**: a ring of stones round burning logs, sparks and smoke, lighting up the ground.
 - [x] **Grass**: sways in the wind and bends flat as the bike brushes through.
+- [x] **Ivy**: a wall prop, climbing a rock face as high as it goes, its leaves stirring in the wind.
 
 ## 🍎 Orchard / farmland
 

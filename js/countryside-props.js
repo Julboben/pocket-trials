@@ -18,8 +18,11 @@ const snap = (value) => Math.round(value / 2) * 2;
 
 // ------------------------------------------------------------------ flagpole
 
-/** The flagpole's height, and the flag's size in 2-unit cells. */
-export const FLAGPOLE = { top: -124, columns: 20, rows: 14 };
+/**
+ * The flagpole's height, about 6.3 m, and the flag's size in 2-unit cells,
+ * about 1.5 × 1 m: the size of flag a 6 m garden pole flies.
+ */
+export const FLAGPOLE = { top: -170, columns: 20, rows: 14 };
 // Dannebrog's white cross: the columns and rows it runs along.
 const CROSS = { columns: [6, 7], rows: [6, 7] };
 

@@ -106,6 +106,10 @@ import {
   drawTentRopes,
   fireFrame,
   grassLean,
+  IVY,
+  drawIvy,
+  ivyLayout,
+  ivyRustle,
 } from "./forest-props.js";
 import {
   HAZE,
@@ -1113,7 +1117,7 @@ export function sunShadowOffset({
 }
 
 // Props that attach to a wall face or cliff edge rather than stand on the ground.
-export const WALL_PROPS = new Set(["vines", "roots", "moss"]);
+export const WALL_PROPS = new Set(["vines", "roots", "moss", "ivy"]);
 // Graffiti is painted onto the rock itself rather than stood in front of it or
 // behind it, so it is drawn just after the terrain whatever its layer.
 export const PAINTED_PROPS = new Set(["graffiti", "tutorial-lean", "tutorial-lean-forward", "tutorial-flip", "tutorial-light", "tally-marks"]);
@@ -1220,8 +1224,9 @@ export function propWallFit(trail, prop) {
 
   const y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
   const solidAt = (px, py) => terrainCollisionsAt(trail, px, py, 1).length > 0;
-  // Vines sit on a cliff's top corner, so look a little below it for the face.
-  const sampleY = y + (prop.type === "vines" ? 12 : 0);
+  // Vines sit on a cliff's top corner, so look a little below it for the
+  // face; ivy grows up from the foot of one, so look a little above.
+  const sampleY = y + (prop.type === "vines" ? 12 : prop.type === "ivy" ? -12 : 0);
   let side = 0;
   for (const reach of [4, 8, 14, 22]) {
     const left = solidAt(prop.x - reach, sampleY);
@@ -1253,7 +1258,17 @@ export function propWallFit(trail, prop) {
       }
     }
   }
-  const fit = { side, drop, face };
+  // How far ivy can climb: up the face, while there is rock behind it and
+  // open air in front.
+  let rise = 0;
+  if (prop.type === "ivy" && side) {
+    const rockX = prop.x + face + side * 4, airX = prop.x + face - side * 4;
+    for (let d = 4; d <= IVY.max; d += 4) {
+      if (!solidAt(rockX, y - d) || solidAt(airX, y - d)) break;
+      rise = d;
+    }
+  }
+  const fit = { side, drop, face, rise };
   wallFits.set(prop, { x: prop.x, y: prop.y, type: prop.type, geometry, fit });
   return fit;
 }
@@ -3519,6 +3534,7 @@ const PROP_EXTENTS = {
   squirrel: [-16, -32, 14],
   corgi: [CORGI_BOUNDS[0] - 2, CORGI_BOUNDS[1] - 4, CORGI_BOUNDS[2] + 2],
   graffiti: [GRAFFITI_BOUNDS[0], GRAFFITI_BOUNDS[1], GRAFFITI_BOUNDS[2]],
+  ivy: [-24, -IVY.max - 10, 24],
   "hanging-roots": [-16, -CEILING_REACH - 4, 16],
   stalactites: [-20, -CEILING_REACH - 4, 20],
   drip: [-10, -CEILING_REACH - 4, 10],
@@ -5684,7 +5700,13 @@ export function createGameArt(ctx) {
       // Grow away from the rock: rock on the right (side 1) means grow left.
       if (type === "vines") drawVines(x, wall);
       else if (type === "moss") drawMoss(wall);
-      else {
+      else if (type === "ivy") {
+        // Climbs the face, its leaves out in the air and stirring in the wind.
+        ctx.scale(wall?.side === 1 ? -1 : 1, 1);
+        const phase = propNoise(x, 36);
+        const layout = ivyLayout(wall?.rise || IVY.alone, (n) => propNoise(x, 37 + n));
+        drawIvy({ pixelRect }, layout, (index) => ivyRustle(scene.time || 0, scene.wind ?? 0.25, phase, index));
+      } else {
         ctx.scale(wall?.side === 1 ? -1 : 1, 1);
         drawRoots(x);
       }

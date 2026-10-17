@@ -5,9 +5,9 @@
 import assert from 'node:assert/strict';
 import { normalizeTrail, validateTrail } from '../js/trail-schema.js';
 import { rectangle } from './lib/terrain-fixtures.mjs';
-import { PAINTED_PROPS, canFlip, canRotate, paintedBounds } from '../js/drawing.js';
-import { flagRipple } from '../js/countryside-props.js';
-import { GRASS_BRUSH, fireFrame, grassLean } from '../js/forest-props.js';
+import { PAINTED_PROPS, WALL_PROPS, canFlip, canRotate, paintedBounds, propWallFit } from '../js/drawing.js';
+import { FLAGPOLE, flagRipple } from '../js/countryside-props.js';
+import { GRASS_BRUSH, IVY, fireFrame, grassLean, ivyLayout, ivyRustle } from '../js/forest-props.js';
 
 const COUNTRYSIDE_PROPS = ['tent', 'grass', 'flagpole', 'christiania-bike', 'bench', 'fireplace', 'tutorial-lean-forward'];
 
@@ -62,6 +62,41 @@ const COUNTRYSIDE_PROPS = ['tent', 'grass', 'flagpole', 'christiania-bike', 'ben
   assert.ok(new Set(frames.map((frame) => frame[1].height)).size > 1, 'the flames rise and fall');
   assert.ok(frames.some((frame) => frame[0].height !== frame[2].height - 2), 'each tongue in its own time');
   assert.ok(frames.flat().every((tongue) => tongue.height % 2 === 0 && tongue.lick % 2 === 0), 'on the art grid');
+}
+
+// The flagpole stands about 6 m tall at 27 units to the metre (PROPS_GUIDE.md).
+{
+  assert.ok(-FLAGPOLE.top >= 162 && -FLAGPOLE.top <= 216, 'a garden flagpole is 6 to 8 m');
+  assert.ok(FLAGPOLE.top % 2 === 0, 'on the art grid');
+}
+
+// Ivy climbs a wall face as high as it goes, and no higher than IVY.max.
+{
+  assert.ok(WALL_PROPS.has('ivy') && !canFlip('ivy'), 'ivy is a wall prop');
+  // A wall standing on the ground: its left face at x = 600, 80 tall.
+  const wall = normalizeTrail({
+    name: 'test', finish: { x: 2800, y: null }, apples: [], spikes: [],
+    terrainBlocks: [rectangle(0, 320, 3000, 620, 'stone', 'ground'), rectangle(600, 240, 700, 320, 'stone', 'ground'),
+      rectangle(1000, 0, 1100, 320, 'stone', 'ground')],
+    start: { x: 120, y: null, facing: 1 }, props: [],
+  });
+  const low = propWallFit(wall, { type: 'ivy', x: 598, y: 320 });
+  assert.equal(low.side, 1, 'the rock is on its right');
+  assert.ok(low.rise >= 72 && low.rise <= 80, `climbs to the top of a low wall (${low.rise})`);
+  const tall = propWallFit(wall, { type: 'ivy', x: 998, y: 320 });
+  assert.equal(tall.rise, IVY.max, 'no higher than IVY.max up a tall wall');
+  const open = propWallFit(wall, { type: 'ivy', x: 300, y: 320 });
+  assert.equal(open.rise, 0, 'nothing to climb out in the open');
+  const noise = (n) => (n * 0.618) % 1;
+  for (const rise of [16, 60, IVY.max]) {
+    const { stems, leaves } = ivyLayout(rise, noise);
+    const top = Math.min(...leaves.map((leaf) => leaf.y), ...stems.map(([, y]) => y));
+    assert.ok(top >= -rise - 8, `leaves stay near the top of a ${rise} climb`);
+    assert.ok([...stems.flat(), ...leaves.flatMap((leaf) => [leaf.x, leaf.y])].every((v) => v % 2 === 0), 'on the art grid');
+    assert.ok(leaves.every((leaf) => leaf.x >= -10 && leaf.x <= 24), 'hugging the face');
+  }
+  assert.ok(ivyRustle(0, 1, 0.3, 4) === 0, 'still at time 0');
+  assert.ok(new Set(Array.from({ length: 20 }, (_, i) => ivyRustle(1 + i * 0.1, 0.8, 0.3, 4))).size > 1, 'stirs in the wind');
 }
 
 console.log('Countryside props: all checks passed.');

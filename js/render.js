@@ -48,7 +48,7 @@ import { SEARCHLIGHT, SEARCHLIGHT_BEAM } from "./prison-props.js";
 import { TORCH_FLAME } from "./dungeon-props.js";
 import { FLAGPOLE } from "./countryside-props.js";
 import { WATER_PROPS, FISH_DART, FISH_RANGE } from "./water-props.js";
-import { FIRE, SQUIRREL_HIDE_MAX, SQUIRREL_RANGE, TENT_DOOR_CENTRE } from "./forest-props.js";
+import { FIRE, IVY, SQUIRREL_HIDE_MAX, SQUIRREL_RANGE, TENT_DOOR_CENTRE } from "./forest-props.js";
 import {
   HAZE_HALF,
   TUMBLEWEED_RUN,
@@ -162,10 +162,12 @@ const PROP_RISE = {
   torch: -TORCH_FLAME.y + 36,
   flagpole: -FLAGPOLE.top + 8,
   fireplace: -FIRE.smoke + 90,
+  ivy: IVY.max + 10,
 };
 // How far each prop's art hangs below its anchor, for culling.
 const PROP_HANG = {
   vines: 148,
+  ivy: 4,
   roots: 28,
   moss: 28,
   graffiti: 38,

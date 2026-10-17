@@ -444,6 +444,7 @@ export function validateTrail(trail) {
         "vines",
         "roots",
         "moss",
+        "ivy",
         "sapling",
         "pine-small",
         "cactus-small",

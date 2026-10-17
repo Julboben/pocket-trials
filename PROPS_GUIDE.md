@@ -14,7 +14,43 @@ A brief for whoever draws new props, human or AI. Send it together with:
 - No outlines. Every prop is lit from the right, so the left side and underside are shaded and the right edge gets a highlight.
 - Reuse colours from the existing palettes (`WOOD`, `STONE`, `STEEL`, `SNOW`, `SAND`, …). Use the terrain's own colours anywhere a prop meets the ground, so drifts and bases blend in.
 - Each prop has a local origin at `(0, 0)`, the point where it meets the ground. Up is negative y, and the art faces right.
-- Units are world units. The rider is about 60 tall and a big pine is about 190.
+- Units are world units. See Scale below for how big things should be.
+
+## Scale
+
+**About 27 world units make a metre.**
+
+| | Centimetres |
+|---|---|
+| 1 world unit | about 3.7 cm |
+| 1 art pixel (2 world units) | about 7.4 cm |
+| 10 art pixels (20 world units) | about 74 cm |
+
+This comes from the people in the game: a standing spectator, marshal or prisoner is 48 tall, about 1.75 m.
+
+Measure new props against these, which are taken from the code:
+
+| Reference | Size in world units |
+|---|---|
+| Standing person (`drawPerson`, `drawPrisoner`) | 48 tall |
+| Rider on the bike, ground to top of helmet | about 66 tall (`RIDER_HEAD` is 44 above the axles, the helmet reaches 10 higher, and the axles are 12 off the ground) |
+| Bike | about 74 long: `WHEELBASE` 50 plus a wheel of `RADIUS` 12 at each end, so each wheel is 24 across |
+| Hut | 118 tall |
+| Street lamp | 128 tall |
+| Deciduous tree, big pine | about 182 and 186 tall |
+
+To size a prop, take its real size in metres and multiply by 27, then round to a multiple of 2. For example:
+
+| Real thing | Real size | World units |
+|---|---|---|
+| Door | 2 m tall | 54 |
+| Park bench | 1.8 m long, seat 0.45 m, back 0.85 m | 48 long, seat 12, back 24 |
+| Kitchen table | 0.75 m tall | 20 |
+| Two-person tent | 1.1 m tall | 30 |
+| Garden flagpole | 6 to 8 m | 162 to 216 |
+
+- Small props may be drawn up to about a quarter bigger than true scale, so their pixel detail still reads. Don't go further than that, or they'll look too big next to the rider.
+- A prop's size is its sprite `bounds` or its `PROP_EXTENTS` entry: the top is how tall it stands, and right minus left is how wide it is. Check these numbers against the tables above before handing a prop over.
 
 ## Drawing tools
 
@@ -89,6 +125,7 @@ Anything that glows at night needs the glowing part drawn on its own, e.g. `draw
 
 - [ ] `// @ts-check` and a header comment saying what the module holds
 - [ ] All coordinates are multiples of 2, the art is lit from the right and faces right
+- [ ] It is sized against the Scale tables, about 27 units to the metre
 - [ ] The static sprite, its bounds, the live ground contact and the live moving parts are separate functions
 - [ ] Every animation holds still at `time` 0, and nothing uses `Math.random()`
 - [ ] Only the scene fields listed above are used

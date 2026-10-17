@@ -20,15 +20,12 @@
         "nodes": [
           {
             "id": "n0",
-            "x": -1100,
+            "x": -1350,
             "y": 345,
-            "mode": "independent",
+            "mode": "corner",
             "in": null,
-            "out": [
-              -673.33,
-              345
-            ],
-            "edge": "curve"
+            "out": null,
+            "edge": "straight"
           },
           {
             "id": "n1",
@@ -230,11 +227,11 @@
           },
           {
             "id": "n15",
-            "x": 3400,
+            "x": 3600,
             "y": 322,
             "mode": "corner",
             "in": [
-              3140,
+              3340,
               322
             ],
             "out": null,
@@ -242,16 +239,19 @@
           },
           {
             "id": "n16",
-            "x": 3400,
+            "x": 3600,
             "y": 1200,
             "mode": "corner",
-            "in": null,
+            "in": [
+              3666.6667,
+              907.3333
+            ],
             "out": null,
             "edge": "straight"
           },
           {
             "id": "n17",
-            "x": -1100,
+            "x": -1350,
             "y": 1200,
             "mode": "corner",
             "in": null,
@@ -634,25 +634,25 @@
       "x": -202,
       "y": 342,
       "type": "apple",
-      "layer": "front"
+      "layer": "back"
     },
     {
       "x": -189,
       "y": 342,
       "type": "apple",
-      "layer": "front"
+      "layer": "back"
     },
     {
       "x": -174,
       "y": 342,
       "type": "apple",
-      "layer": "front"
+      "layer": "back"
     },
     {
       "x": -161,
       "y": 342,
       "type": "apple",
-      "layer": "front"
+      "layer": "back"
     },
     {
       "x": -60,
@@ -748,25 +748,13 @@
       "x": 1603,
       "y": 293.79,
       "type": "apple",
-      "layer": "front"
+      "layer": "back"
     },
     {
       "x": 1616,
       "y": 298.47,
       "type": "apple",
-      "layer": "front"
-    },
-    {
-      "x": 1631,
-      "y": 303.29,
-      "type": "apple",
-      "layer": "front"
-    },
-    {
-      "x": 1644,
-      "y": 307.08,
-      "type": "apple",
-      "layer": "front"
+      "layer": "back"
     },
     {
       "x": 1760,
@@ -853,28 +841,22 @@
       "layer": "back"
     },
     {
-      "x": 2628,
-      "y": 319,
-      "type": "apple",
-      "layer": "front"
-    },
-    {
       "x": 2641,
       "y": 319,
       "type": "apple",
-      "layer": "front"
+      "layer": "back"
     },
     {
       "x": 2656,
       "y": 319,
       "type": "apple",
-      "layer": "front"
+      "layer": "back"
     },
     {
       "x": 2669,
       "y": 319,
       "type": "apple",
-      "layer": "front"
+      "layer": "back"
     },
     {
       "x": 3100,
@@ -917,6 +899,24 @@
       "y": 326.99765625,
       "type": "tutorial-flip",
       "layer": "front"
+    },
+    {
+      "x": -589.0005781481261,
+      "y": 343.6671787599393,
+      "type": "grass",
+      "layer": "back"
+    },
+    {
+      "x": 1274.7078077704214,
+      "y": 231.34440736089903,
+      "type": "grass",
+      "layer": "back"
+    },
+    {
+      "x": 2368.361228269288,
+      "y": 320.09965246629747,
+      "type": "grass",
+      "layer": "back"
     }
   ],
   "spikes": [],
