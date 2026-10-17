@@ -1268,7 +1268,7 @@ export const canFlip = (type) =>
 // angle: ceiling, cave-fitted and water props, and the animals and effects
 // that wander, fly or shimmer, and the ski lift, whose chair hangs plumb. Wall
 // props and graffiti turn about their anchor.
-const UNROTATABLE_PROPS = new Set(["squirrel", "corgi", "tumbleweed", "vulture", "bird", "heat-haze", "ski-lift"]);
+const UNROTATABLE_PROPS = new Set(["squirrel", "corgi", "tumbleweed", "vulture", "bird", "heat-haze", "ski-lift", "smoke"]);
 export const canRotate = (type) =>
   !CAVE_FITTED_PROPS.has(type) &&
   !WATER_PROPS.has(type) &&
@@ -3712,6 +3712,7 @@ const PROP_EXTENTS = {
   bench: [-38, -44, 38],
   // Room for the smoke rising and blowing downwind, either way.
   fireplace: [-80, FIRE.smoke - 90, 80],
+  smoke: [-80, -96, 80],
 };
 // How far below its anchor each ceiling prop's art can reach.
 const CEILING_HANG = {
@@ -4963,6 +4964,18 @@ export function createGameArt(ctx) {
     return true;
   }
 
+  // Puffs of smoke from chimneySmoke, each shaded at its lower left, faded
+  // by `alpha`: the hut's chimney, a fireplace and the smoke prop.
+  function drawSmokePuffs(puffs, alpha = 1) {
+    const base = ctx.globalAlpha;
+    for (const puff of puffs) {
+      ctx.globalAlpha = base * puff.alpha * alpha;
+      drawPixelDisc(puff.x - 2, puff.y + 2, puff.radius, SMOKE.shade, 2);
+      drawPixelDisc(puff.x, puff.y, Math.max(2, puff.radius - 2), SMOKE.light, 2);
+    }
+    ctx.globalAlpha = base;
+  }
+
   function drawProp(
     type,
     x,
@@ -5495,14 +5508,9 @@ export function createGameArt(ctx) {
     } else if (type === "hut") {
       drawCanopy(type);
       drawHutFoundation({ pixelRect }, groundOffset);
-      // Chimney smoke, each puff shaded at its lower left, blown downwind.
-      const base = ctx.globalAlpha;
+      // Chimney smoke, blown downwind.
       const { wind, downwind } = propWind(scene, mirrored);
-      for (const puff of chimneySmoke(scene.time || 0, propNoise(x, 10), wind, downwind)) {
-        ctx.globalAlpha = base * puff.alpha;
-        drawPixelDisc(puff.x - 2, puff.y + 2, puff.radius, SMOKE.shade, 2);
-        drawPixelDisc(puff.x, puff.y, Math.max(2, puff.radius - 2), SMOKE.light, 2);
-      }
+      drawSmokePuffs(chimneySmoke(scene.time || 0, propNoise(x, 10), wind, downwind));
       ctx.globalAlpha = base;
     } else if (type === "snowman") {
       drawCanopy(type);
@@ -5760,14 +5768,15 @@ export function createGameArt(ctx) {
       // The stones and logs; the flames are drawn with the glowing parts.
       // Smoke rises off the fire and blows downwind, like the hut's.
       drawCanopy(type);
-      const base = ctx.globalAlpha;
       const { wind, downwind } = propWind(scene, mirrored);
       ctx.translate(-HUT_CHIMNEY.x, FIRE.smoke - HUT_CHIMNEY.y);
-      for (const puff of chimneySmoke(scene.time || 0, propNoise(x, 35), wind, downwind)) {
-        ctx.globalAlpha = base * puff.alpha * 0.8;
-        drawPixelDisc(puff.x - 2, puff.y + 2, puff.radius, SMOKE.shade, 2);
-        drawPixelDisc(puff.x, puff.y, Math.max(2, puff.radius - 2), SMOKE.light, 2);
-      }
+      drawSmokePuffs(chimneySmoke(scene.time || 0, propNoise(x, 35), wind, downwind), 0.8);
+    } else if (type === "smoke") {
+      // A plume rising from its anchor, on top of a chimney built from terrain
+      // say, blown downwind like the hut's.
+      const { wind, downwind } = propWind(scene, mirrored);
+      ctx.translate(-HUT_CHIMNEY.x, -HUT_CHIMNEY.y);
+      drawSmokePuffs(chimneySmoke(scene.time || 0, propNoise(x, 38), wind, downwind));
     } else if (type === "grass") {
       // Swaying downwind, and pushed flat as the rider brushes through. The
       // rider's offset is taken in the tuft's own frame.

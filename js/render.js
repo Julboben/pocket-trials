@@ -165,6 +165,7 @@ const PROP_RISE = {
   flagpole: -FLAGPOLE.top + 8,
   fireplace: -FIRE.smoke + 90,
   ivy: IVY.max + 10,
+  smoke: 96,
 };
 // How far each prop's art hangs below its anchor, for culling.
 const PROP_HANG = {
@@ -195,6 +196,7 @@ const PROP_REACH = {
   banner: 96,
   "course-tape": 76,
   fireplace: 84,
+  smoke: 84,
 };
 // Perched birds and ducks take off, roosting bats scatter, fish dart off and
 // squirrels run for a tree when the rider comes within `x` and `y` of them;

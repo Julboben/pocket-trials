@@ -96,4 +96,18 @@ const prop = (type, x, extra = {}) => ({ type, x, y: null, layer: 'back', ...ext
   assert.ok(hang >= fit.ceiling + fit.drop, 'culling reaches the puddle');
 }
 
+// The smoke prop: the hut's plume on its own, for a chimney built from
+// terrain. It is a known type, and it rises straight up whatever the prop's
+// rotation, so it can't be turned.
+{
+  const trail = normalizeTrail({
+    name: 'test', finish: { x: 2800, y: null }, apples: [], spikes: [],
+    terrainBlocks: [rectangle(0, 320, 3000, 620, 'stone', 'ground')],
+    start: { x: 120, y: null, facing: 1 }, props: [{ type: 'smoke', x: 400, y: null, layer: 'back' }],
+  });
+  const warnings = validateTrail(trail).filter((m) => m.type === 'warning').map((m) => m.text);
+  assert.ok(!warnings.some((text) => /unknown type/.test(text)), warnings.join('\n'));
+  assert.ok(!canRotate('smoke') && canFlip('smoke'));
+}
+
 console.log('Mountain tests passed.');

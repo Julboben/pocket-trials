@@ -69,6 +69,7 @@ A plan for the props to add to each level theme. How to build them, and how to m
 - [x] **Construction crane**: in the background.
 - [x] **Scaffolding**: in the foreground.
 - [x] **Bench**: a Copenhagen bench.
+- [x] **Smoke**: a plume for chimneys built from terrain, blown downwind like the hut's.
 - [x] **Christiania bike**: parked, a blanket in its box and a little Dannebrog on its corner.
 
 ## ⛓️ Prison

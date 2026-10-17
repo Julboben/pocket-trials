@@ -537,6 +537,7 @@ export function validateTrail(trail) {
         "christiania-bike",
         "bench",
         "fireplace",
+        "smoke",
         ...WATER_PROPS,
       ].includes(prop.type)
     )
