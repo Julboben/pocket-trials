@@ -2675,10 +2675,12 @@ export function createDrawingTools(ctx) {
   };
 }
 
-// Start pennant: dark wooden pole with a yellow, red-bordered flag pointing
-// right. (x, y) is the ground point under the pole; `groundOffset(localX)`
-// gives the ground height relative to y, so the pole's base follows the slope.
-export function drawStartPennant(ctx, x, y, groundOffset = () => 0) {
+// Start pennant: dark wooden pole with a yellow, red-bordered flag flying out
+// `downwind` (-1 left, 1 right). (x, y) is the ground point under the pole;
+// `groundOffset(localX)` gives the ground height relative to y, so the pole's
+// base follows the slope. Like the other flags it droops in still air and
+// ripples faster and harder in a stronger `wind` (0…1) while `time` runs.
+export function drawStartPennant(ctx, x, y, groundOffset = () => 0, time = 0, wind = 0.25, downwind = -1) {
   const { pixelRect } = createDrawingTools(ctx);
   const ax = Math.round(x / ART_PIXEL) * ART_PIXEL;
   const ay = Math.round(y / ART_PIXEL) * ART_PIXEL;
@@ -2695,22 +2697,38 @@ export function drawStartPennant(ctx, x, y, groundOffset = () => 0) {
     if (bottom > -100) rect(px, -100, 2, bottom + 100, color);
   }
 
-  // Pennant with a red border, lit along the top and shaded along the bottom.
+  // Pennant with a red border, lit along the top and shaded along the bottom,
+  // drawn a column at a time out from the pole so each column can drop.
   const TOP = -94,
     MID = -78,
     HALF = 16,
     LENGTH = 40;
-  for (let py = TOP; py < MID + HALF; py += 2) {
-    const d = Math.abs(py + 1 - MID);
-    const outer = Math.round((LENGTH * (1 - d / HALF)) / 2) * 2;
-    if (outer <= 0) continue;
-    rect(4, py, outer, 2, py < MID ? "#d63b2c" : "#a8322a");
-    const inner = d < 10 ? Math.round((28 * (1 - d / 10)) / 2) * 2 : 0;
-    if (inner > 0) rect(8, py, inner, 2, py < MID - 4 ? "#ffe39a" : "#f6cf5a");
+  const snap = (value) => Math.round(value / ART_PIXEL) * ART_PIXEL;
+  const strength = Math.max(0, Math.min(1, wind));
+  const phase = (ax * 0.013) % 1;
+  for (let px = 4; px < 4 + LENGTH; px += 2) {
+    const cell = (px - 4) / 2;
+    const droop = snap(cell * 1.4 * (1 - strength) ** 2);
+    const ripple = time
+      ? snap(Math.sin(time * (2.5 + strength * 6) - cell * 0.5 + phase * Math.PI * 2) * Math.min(cell, 6) * (0.15 + strength * 0.5))
+      : 0;
+    // Mirrored about the pole's middle when it flies left.
+    const left = downwind < 0 ? -px : px;
+    for (let py = TOP; py < MID + HALF; py += 2) {
+      const d = Math.abs(py + 1 - MID);
+      const outer = Math.round((LENGTH * (1 - d / HALF)) / 2) * 2;
+      if (px - 4 >= outer) continue;
+      const inner = d < 10 ? Math.round((28 * (1 - d / 10)) / 2) * 2 : 0;
+      const yellow = px >= 8 && px - 8 < inner;
+      const color = yellow
+        ? py < MID - 4 ? "#ffe39a" : "#f6cf5a"
+        : py < MID ? "#d63b2c" : "#a8322a";
+      rect(left, py + droop + ripple, 2, 2, color);
+    }
   }
 
   // Shadow the pennant casts on the pole's lit edge.
-  rect(2, -62, 2, 4, "#66543f");
+  if (downwind > 0) rect(2, -62, 2, 4, "#66543f");
 }
 
 const APPLE_COLORS = {
@@ -3526,7 +3544,8 @@ const PROP_EXTENTS = {
   "pine-small": [-24, -90, 24],
   pebbles: [-14, -12, 14],
   crystal: [-16, -42, 16],
-  start: [-6, -102, 48],
+  // The pennant flies downwind, either way.
+  start: [-48, -102, 48],
   vines: [-16, -10, 16],
   roots: [-32, -16, 32],
   moss: [-18, -18, 18],
@@ -5716,8 +5735,10 @@ export function createGameArt(ctx) {
       drawCanopy(type);
       drawSkeletonSkull({ pixelRect }, riderSide(scene, x, mirrored), skeletonJaw(scene.time || 0, scene.landing, x, y));
     } else if (type === "start") {
-      // Same pennant as the start line, drawn by the shared function.
-      drawStartPennant(ctx, 0, 0, groundOffset);
+      // Same pennant as the start line, drawn by the shared function, flying
+      // downwind.
+      const { wind, downwind } = propWind(scene, mirrored);
+      drawStartPennant(ctx, 0, 0, groundOffset, scene.time || 0, wind, downwind);
     } else if (WALL_PROPS.has(type)) {
       if (type !== "vines") ctx.translate(wall?.face || 0, 0);
       // Grow away from the rock: rock on the right (side 1) means grow left.

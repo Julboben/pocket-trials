@@ -3,7 +3,7 @@
   "label": "WET FEET / 16",
   "finish": {
     "x": 2480,
-    "y": null
+    "y": 280
   },
   "description": "Shallow fords. The water drags on the wheels and slows the bike, so carry speed in and keep the throttle on all the way across. Each ford is wider than the last. If you stop in the middle, just ride on out: shallow water won't hurt you.",
   "start": {
@@ -97,8 +97,8 @@
               314.3
             ],
             "out": [
-              595,
-              322
+              593.1141525402513,
+              330.11003594552034
             ],
             "edge": "curve"
           },
@@ -108,8 +108,8 @@
             "y": 322,
             "mode": "independent",
             "in": [
-              625,
-              322
+              623.1141525402513,
+              330.11003594552034
             ],
             "out": [
               674,
@@ -157,8 +157,8 @@
               314.3
             ],
             "out": [
-              1203,
-              322
+              1199.8212,
+              344.5649
             ],
             "edge": "curve"
           },
@@ -168,8 +168,8 @@
             "y": 322,
             "mode": "independent",
             "in": [
-              1257,
-              322
+              1253.8212,
+              344.5649
             ],
             "out": [
               1334,
@@ -332,19 +332,15 @@
   "apples": [
     {
       "x": 610,
-      "y": 300
+      "y": 270
     },
     {
       "x": 1230,
-      "y": 300
+      "y": 270
     },
     {
-      "x": 1880,
-      "y": 300
-    },
-    {
-      "x": 2080,
-      "y": 300
+      "x": 1980,
+      "y": 270
     }
   ],
   "props": [
@@ -510,6 +506,24 @@
       "y": 299.2998936923042,
       "type": "ivy",
       "layer": "back"
+    },
+    {
+      "x": 1683.6918877000203,
+      "y": 299.93998602670626,
+      "type": "grass",
+      "layer": "front"
+    },
+    {
+      "x": 2526.2773462476252,
+      "y": 296.87818487954513,
+      "type": "grass",
+      "layer": "front"
+    },
+    {
+      "x": 333.0661388055803,
+      "y": 300.4850005166206,
+      "type": "grass",
+      "layer": "front"
     }
   ],
   "spikes": [],
@@ -518,13 +532,13 @@
       "x": 520,
       "y": 302,
       "width": 180,
-      "depth": 20
+      "depth": 30.293792772858865
     },
     {
       "x": 1100,
       "y": 302,
       "width": 260,
-      "depth": 20
+      "depth": 45.19591141747219
     },
     {
       "x": 1800,

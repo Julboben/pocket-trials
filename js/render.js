@@ -684,7 +684,7 @@ export function createRenderer(canvas) {
       layer.context.imageSmoothingEnabled = false;
     }
     for (const glow of glows) glowLayer.art.drawPropGlow(...glow);
-    terrainRenderer.draw(glowMask.context, ride.trail, cameraX, cameraY, W, H);
+    terrainRenderer.draw(glowMask.context, ride.trail, cameraX, cameraY, W, H, propScene.time);
     drawProps("front", full, glowMask.art);
     if (hair) hair.draw(glowMask.tools.pixelPath, currentHairRoot(ride, false, flipVisual, look));
     glowMask.art.drawBike(bikeDrawing(ride, look, flipVisual, state));
@@ -1633,7 +1633,7 @@ export function createRenderer(canvas) {
     wheelSquish = effects.tyreSquish;
     backWallRenderer.draw(ctx, trail, cameraX, cameraY, W, H);
     drawProps("back", full);
-    terrainRenderer.draw(ctx, ride.trail, cameraX, cameraY, W, H);
+    terrainRenderer.draw(ctx, ride.trail, cameraX, cameraY, W, H, propScene.time);
     drawGlassCracks(ride.trail);
     drawWallPaint();
     drawSkidMarks(effects.skidMarks);

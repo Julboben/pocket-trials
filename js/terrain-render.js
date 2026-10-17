@@ -6,6 +6,7 @@ import {
   compositeColor,
   drawStartPennant,
 } from "./drawing.js";
+import { resolveWeather, windSign } from "./weather.js";
 import {
   terrainBodySpans,
   mergeSpans,
@@ -58,14 +59,15 @@ function startSignAnchor(trail) {
   return surface.solid ? { x, y: surface.y } : null;
 }
 
-function drawStartSign(context, trail, anchor) {
+function drawStartSign(context, trail, anchor, time) {
   // Look for the ground just above the anchor, so the pole's base follows
-  // the slope it stands on.
+  // the slope it stands on. The pennant flies in the trail's wind.
   const reference = anchor.y - 16;
+  const weather = resolveWeather(trail.weather);
   drawStartPennant(context, anchor.x, anchor.y, (localX) => {
     const surface = terrainAt(trail, anchor.x + localX, reference);
     return surface?.solid ? surface.y - anchor.y : 0;
-  });
+  }, time, weather.wind, windSign(weather));
 }
 
 // ---------------------------------------------------------------------------
@@ -914,8 +916,9 @@ export function createTerrainRenderer({ backWalls = false } = {}) {
   // invalidated, so an edit is noticed here without the caller doing anything,
   // and only the chunks in the columns it changed are drawn again. A ride's
   // copy of a trail counts as the trail itself, so a pane breaking or a
-  // restart redraws only the glass.
-  function draw(ctx, trail, viewX, viewY, width, height) {
+  // restart redraws only the glass. `time` (seconds, 0 to hold still) waves
+  // the start pennant.
+  function draw(ctx, trail, viewX, viewY, width, height, time = 0) {
     if ((trail?.terrainSource || trail) !== currentTrail) invalidate(trail);
     else refresh(trail);
     if (!currentGeometry) return;
@@ -937,7 +940,7 @@ export function createTerrainRenderer({ backWalls = false } = {}) {
       }
     }
     const sign = startSign(trail);
-    if (sign) drawStartSign(ctx, trail, sign);
+    if (sign) drawStartSign(ctx, trail, sign, time);
   }
 
   function refresh(trail) {
