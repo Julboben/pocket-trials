@@ -35,9 +35,11 @@ Measure new props against these, which are taken from the code:
 | Standing person (`drawPerson`, `drawPrisoner`) | 48 tall |
 | Rider on the bike, ground to top of helmet | about 66 tall (`RIDER_HEAD` is 44 above the axles, the helmet reaches 10 higher, and the axles are 12 off the ground) |
 | Bike | about 74 long: `WHEELBASE` 50 plus a wheel of `RADIUS` 12 at each end, so each wheel is 24 across |
-| Hut | 118 tall |
-| Street lamp | 128 tall |
+| Hut | 136 tall, its door 52 |
+| Street lamp | 168 tall |
 | Deciduous tree, big pine | about 182 and 186 tall |
+| Ski-lift pylon, watchtower | about 230 and 236 tall |
+| Construction crane | about 360 tall |
 
 To size a prop, take its real size in metres and multiply by 27, then round to a multiple of 2. For example:
 
@@ -49,6 +51,7 @@ To size a prop, take its real size in metres and multiply by 27, then round to a
 | Two-person tent | 1.1 m tall | 30 |
 | Garden flagpole | 6 to 8 m | 162 to 216 |
 
+- Tall structures are not drawn at true scale, or they would not fit on screen: only about 340–450 units of height are in view, with the rider two-thirds of the way down. Draw them tall enough not to look like toys next to the rider, like the pylon, watchtower and crane above, and keep the parts people use (doors, cabins, windows, chairs) at true scale, so a taller structure gets longer legs, posts or masts rather than bigger details.
 - Small props may be drawn up to about a quarter bigger than true scale, so their pixel detail still reads. Don't go further than that, or they'll look too big next to the rider.
 - A prop's size is its sprite `bounds` or its `PROP_EXTENTS` entry: the top is how tall it stands, and right minus left is how wide it is. Check these numbers against the tables above before handing a prop over.
 

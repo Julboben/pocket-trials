@@ -324,10 +324,10 @@ const GROUND_ALIGNED_PROP_SPANS = {
   crates: [-40, 40],
   wheelbarrow: [-12, 24],
   beehive: [-16, 16],
-  tyre: [-40, 40],
+  tyre: [-26, 26],
   cone: [-8, 8],
   barrier: [-34, 34],
-  dumpster: [-36, 32],
+  dumpster: [-22, 22],
   skull: [-14, 14],
   "car-wreck": [-48, 48],
   "tyre-wall": [-44, 44],
@@ -3411,71 +3411,41 @@ const BEES = [
   [6, -32],
 ];
 
-// 96 × 56: the logo's tyre, worn and half-buried. It sits a little below its
-// anchor so the dirt at its base blends into the ground.
+// 64 × 40: the logo's tyre, a tractor tyre about 1.9 m across, worn and
+// sunk in the ground past its middle. It sits a little below its anchor so the
+// dirt at its base blends into the ground.
 const TYRE_SINK = 4;
-function drawTyre(tools) {
+const TYRE = { hole: 12, wall: 22, outer: 26, lug: 30, centre: -6 };
+function drawTyre({ pixelRect }) {
   const r = RUBBER;
-  const rects = [
-    // Tread lugs sticking out.
-    [40, 8, 4, 4, r.dark],
-    [28, 12, 4, 4, r.dark],
-    [16, 20, 4, 4, r.dark],
-    [6, 32, 4, 4, r.dark],
-    [2, 44, 4, 4, r.dark],
-    [52, 8, 4, 4, r.base],
-    [64, 12, 4, 4, r.base],
-    [76, 20, 4, 4, r.base],
-    [86, 32, 4, 4, r.base],
-    [90, 44, 4, 4, r.base],
-    // Upper half of the ring.
-    [34, 12, 28, 4, r.base],
-    [26, 16, 44, 4, r.base],
-    [20, 20, 56, 4, r.base],
-    [16, 24, 64, 4, r.base],
-    [12, 28, 72, 4, r.base],
-    [10, 32, 76, 4, r.base],
-    [8, 36, 80, 4, r.base],
-    [6, 40, 84, 8, r.base],
-    [4, 48, 88, 8, r.base],
-    // Shaded left side.
-    [16, 24, 6, 4, r.dark],
-    [12, 28, 6, 4, r.dark],
-    [10, 32, 6, 4, r.dark],
-    [8, 36, 6, 4, r.dark],
-    [6, 40, 6, 8, r.dark],
-    [4, 48, 6, 8, r.dark],
-    // Lit upper right.
-    [64, 16, 6, 4, r.light],
-    [70, 20, 6, 4, r.light],
-    [74, 24, 6, 4, r.light],
-    [78, 28, 6, 4, r.light],
-    // Tread grooves.
-    [42, 12, 2, 4, r.dark],
-    [52, 12, 2, 4, r.dark],
-    [24, 22, 4, 2, r.dark],
-    [68, 22, 4, 2, r.dark],
-    [12, 36, 4, 2, r.dark],
-    [80, 36, 4, 2, r.dark],
-    [8, 48, 4, 2, r.dark],
-    [84, 48, 4, 2, r.dark],
-    // The hole.
-    [36, 36, 24, 4, FARM_WOOD.dark],
-    [32, 40, 32, 4, FARM_WOOD.dark],
-    [28, 44, 40, 8, FARM_WOOD.dark],
-    [26, 52, 44, 4, FARM_WOOD.dark],
-    // A weed growing inside, dirt and grass at the base.
-    [46, 46, 2, 10, "#4e785c"],
-    [48, 48, 2, 2, FARM_LEAF.light],
-    [44, 50, 2, 2, FARM_LEAF.mid],
-    [0, 52, 12, 4, FARM_WOOD.plank],
-    [84, 52, 12, 4, FARM_WOOD.plank],
-    [6, 48, 2, 4, FARM_LEAF.mid],
-    [10, 50, 2, 2, FARM_LEAF.light],
-    [86, 48, 2, 4, FARM_LEAF.light],
-    [90, 50, 2, 2, FARM_LEAF.mid],
-  ];
-  drawFarmRects(tools, rects, -48, TYRE_SINK - 56);
+  const cy = TYRE.centre;
+  // The ring, cell by cell: the dirt-filled hole, a rim, the sidewall lit at
+  // the upper right, and the tread, its lugs standing proud of the edge.
+  const lug = (angle) => ((angle / 0.4) % 1 + 1) % 1 < 0.5;
+  for (let y = cy - TYRE.lug; y < TYRE_SINK; y += 2)
+    for (let x = -TYRE.lug; x < TYRE.lug; x += 2) {
+      const dx = x + 1, dy = cy - (y + 1);
+      const d = Math.hypot(dx, dy);
+      const angle = Math.atan2(dy, dx);
+      const lit = (dx * 0.6 + dy * 0.8) / Math.max(d, 1);
+      let color = null;
+      if (d < TYRE.hole) color = FARM_WOOD.dark;
+      else if (d < TYRE.hole + 2) color = r.dark;
+      else if (d < TYRE.wall) color = lit > 0.55 ? r.light : lit < -0.45 ? r.dark : r.base;
+      else if (d < TYRE.outer) color = lug(angle) ? (lit > 0.6 ? r.light : r.base) : r.dark;
+      else if (d < TYRE.lug && lug(angle)) color = lit > 0.6 ? r.base : r.dark;
+      if (color) pixelRect(x, y, 2, 2, color, 2);
+    }
+  // A weed growing in the hole, and dirt and grass heaped at the base.
+  pixelRect(0, -8, 2, 10, "#4e785c", 2);
+  pixelRect(2, -6, 2, 2, FARM_LEAF.light, 2);
+  pixelRect(-2, -4, 2, 2, FARM_LEAF.mid, 2);
+  for (const side of [-1, 1]) {
+    const x = side < 0 ? -TYRE.lug - 2 : TYRE.lug - 8;
+    pixelRect(x, 0, 10, 4, FARM_WOOD.plank, 2);
+    pixelRect(x + 2, -2, 2, 2, side < 0 ? FARM_LEAF.mid : FARM_LEAF.light, 2);
+    pixelRect(x + 6, -4, 2, 4, side < 0 ? FARM_LEAF.light : FARM_LEAF.mid, 2);
+  }
 }
 
 // What a prop can react to: the time in seconds for its animation, the
@@ -3538,12 +3508,12 @@ const CANOPY_SPRITES = {
     draw: drawScarecrow,
   },
   beehive: { bounds: [-28, -72, 28, 0], draw: drawBeehive },
-  tyre: { bounds: [-48, TYRE_SINK - 56, 48, TYRE_SINK], draw: drawTyre },
+  tyre: { bounds: [-34, TYRE.centre - TYRE.lug - 2, 34, TYRE_SINK], draw: drawTyre },
   cone: { bounds: [-10, -24, 10, 0], draw: drawCone },
   barrier: { bounds: [-44, -46, 44, 0], draw: drawBarrier },
-  dumpster: { bounds: [-48, -66, 46, 0], draw: drawDumpster },
-  lamp: { bounds: [-6, -128, 34, LAMP_BODY_BOTTOM], draw: drawLamp },
-  crane: { bounds: [-72, -280, 174, CRANE_BODY_BOTTOM], draw: drawCrane },
+  dumpster: { bounds: [-34, -52, 34, 0], draw: drawDumpster },
+  lamp: { bounds: [-6, LAMP_HEAD.y - 14, 34, LAMP_BODY_BOTTOM], draw: drawLamp },
+  crane: { bounds: [-72, CRANE_LIGHTS[0][1] - 4, 174, CRANE_BODY_BOTTOM], draw: drawCrane },
   scaffolding: { bounds: [-52, -142, 52, 0], draw: drawScaffoldDecks },
   graffiti: { bounds: GRAFFITI_BOUNDS, draw: drawGraffiti },
   minecart: { bounds: [-24, -40, 24, 0], draw: drawMinecart },
@@ -3571,7 +3541,7 @@ const CANOPY_SPRITES = {
   "tutorial-lean-forward": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLeanForward },
   "tally-marks": { bounds: TALLY_BOUNDS, draw: drawTallyMarks },
   "prison-fence": { bounds: PRISON_FENCE_BOUNDS, draw: drawPrisonFence },
-  watchtower: { bounds: [-36, -166, 36, WATCHTOWER_BODY_BOTTOM], draw: drawWatchtower },
+  watchtower: { bounds: [-36, SEARCHLIGHT.y + 4, 36, WATCHTOWER_BODY_BOTTOM], draw: drawWatchtower },
   "jail-cell": { bounds: [-42, -86, 42, 0], draw: drawCellBack },
   "ball-and-chain": { bounds: [-22, -20, 22, 0], draw: drawBallAndChain },
   "escape-tunnel": { bounds: [-28, -26, 28, 0], draw: drawTunnelMound },
@@ -3651,12 +3621,12 @@ const PROP_EXTENTS = {
   wheelbarrow: [-40, -48, 40],
   scarecrow: [-32, -112, 32],
   beehive: [-32, -80, 32],
-  tyre: [-48, -56, 48],
+  tyre: [-36, TYRE.centre - TYRE.lug - 4, 36],
   cone: [-12, -26, 12],
   barrier: [-46, -48, 46],
-  dumpster: [-50, -68, 48],
-  lamp: [-8, -130, 36],
-  crane: [-74, -282, 176],
+  dumpster: [-36, -54, 36],
+  lamp: [-8, LAMP_HEAD.y - 16, 36],
+  crane: [-74, CRANE_LIGHTS[0][1] - 6, 176],
   scaffolding: [-54, -144, 54],
   bird: [-12, -20, 12],
   squirrel: [-16, -32, 14],
@@ -3696,7 +3666,7 @@ const PROP_EXTENTS = {
   // Room for the snow a hard landing knocks off, and the cloud it raises.
   "snow-pine": [-70, -192, 70],
   // Room for the chimney smoke rising and blowing downwind, either way.
-  hut: [-100, -204, 100],
+  hut: [-100, HUT_CHIMNEY.y - 86, 100],
   snowman: [-28, -78, 28],
   "tyre-wall": [-48, -34, 48],
   "hay-bales": [-38, -42, 38],
@@ -3721,7 +3691,7 @@ const PROP_EXTENTS = {
   "tutorial-light": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
   "tutorial-lean-forward": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
   "tally-marks": [TALLY_BOUNDS[0], TALLY_BOUNDS[1], TALLY_BOUNDS[2]],
-  "prison-fence": [-52, -72, 52],
+  "prison-fence": [PRISON_FENCE_BOUNDS[0], PRISON_FENCE_BOUNDS[1], PRISON_FENCE_BOUNDS[2]],
   // Room for the searchlight turning on the roof.
   watchtower: [-38, SEARCHLIGHT.y - 14, 38],
   "jail-cell": [-42, -86, 42],

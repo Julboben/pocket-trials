@@ -300,7 +300,7 @@ export function createLighting() {
       } else if (type === "lamp") {
         const { x: hx, y: hy } = at(LAMP_HEAD.x, LAMP_HEAD.y);
         if (!darkAt(entry, hx, hy)) continue;
-        lights.push({ x: hx, y: hy, radius: 170, color: LAMP, angle: Math.PI / 2 + angle, spread: 0.42 });
+        lights.push({ x: hx, y: hy, radius: 210, color: LAMP, angle: Math.PI / 2 + angle, spread: 0.42 });
         lights.push({ x: hx, y: hy, radius: 40, color: LAMP, strength: 0.6, flare: LAMP_FLARE });
       } else if (type === "hut") {
         // Firelight in the window, after dark; it flickers like a lantern.

@@ -108,39 +108,43 @@ export function drawPrisonerHands({ pixelRect }, skin) {
 
 // ------------------------------------------------------------ prison fence
 
+/** How tall the fence's panel stands, about 3.7 m with its wire. */
+const FENCE_TOP = -82;
 /** Local bounds of the fence sprite. */
-export const PRISON_FENCE_BOUNDS = [-52, -72, 52, 0];
+export const PRISON_FENCE_BOUNDS = [-52, FENCE_TOP - 18, 52, 0];
 
 /**
- * 96 × 72, a chain-link fence panel between two steel posts, the posts'
+ * 96 × 100, a chain-link fence panel between two steel posts, the posts'
  * arms leaning out to carry a coil of razor wire.
  */
 export function drawPrisonFence(tools) {
   const { pixelRect, pixelPath } = tools;
+  const top = FENCE_TOP;
   // Chain-link mesh: two sets of diagonals, a diamond every 8 units.
-  for (let y = -52; y < -2; y += 2)
+  for (let y = top; y < -2; y += 2)
     for (let x = -44; x < 44; x += 2) {
       const a = (((x - y) % 8) + 8) % 8, b = (((x + y) % 8) + 8) % 8;
       if (a === 0) pixelRect(x, y, 2, 2, STEEL.mid, 2);
       else if (b === 0) pixelRect(x, y, 2, 2, STEEL.base, 2);
     }
-  // Top rail and bottom wire.
-  pixelRect(-46, -54, 92, 2, STEEL.light, 2);
-  pixelRect(-46, -52, 92, 2, STEEL.base, 2);
+  // Top rail, a middle rail, and the bottom wire.
+  pixelRect(-46, top - 2, 92, 2, STEEL.light, 2);
+  pixelRect(-46, top, 92, 2, STEEL.base, 2);
+  pixelRect(-46, snap(top / 2), 92, 2, STEEL.base, 2);
   pixelRect(-46, -4, 92, 2, STEEL.dark, 2);
   // Posts, with their arms leaning out over the top.
   for (const px of [-48, 44]) {
     const shaded = px < 0;
-    pixelRect(px, -56, 4, 56, shaded ? STEEL.base : STEEL.mid, 2);
-    pixelRect(px + (shaded ? 0 : 2), -56, 2, 56, shaded ? STEEL.dark : STEEL.light, 2);
-    pixelRect(px, -58, 4, 2, STEEL.light, 2);
-    pixelPath([[px + 2, -58], [px + 2 + (shaded ? -4 : 4), -66]], STEEL.base, 1, 2);
+    pixelRect(px, top - 4, 4, 4 - top, shaded ? STEEL.base : STEEL.mid, 2);
+    pixelRect(px + (shaded ? 0 : 2), top - 4, 2, 4 - top, shaded ? STEEL.dark : STEEL.light, 2);
+    pixelRect(px, top - 6, 4, 2, STEEL.light, 2);
+    pixelPath([[px + 2, top - 6], [px + 2 + (shaded ? -4 : 4), top - 14]], STEEL.base, 1, 2);
   }
   // Razor wire coils along the top, with barbs.
   for (let cx = -42; cx <= 42; cx += 12) {
-    ring(tools, cx, -62, 6, STEEL.light, STEEL.dark);
-    pixelRect(cx - 8, -64, 2, 2, STEEL.light, 2);
-    pixelRect(cx + 6, -58, 2, 2, STEEL.mid, 2);
+    ring(tools, cx, top - 10, 6, STEEL.light, STEEL.dark);
+    pixelRect(cx - 8, top - 12, 2, 2, STEEL.light, 2);
+    pixelRect(cx + 6, top - 6, 2, 2, STEEL.mid, 2);
   }
 }
 
@@ -149,8 +153,12 @@ export function drawPrisonFence(tools) {
 /** Where the watchtower's legs stand, and where the sprite hands them over to the live part. */
 export const WATCHTOWER_LEGS = [-22, 18];
 export const WATCHTOWER_BODY_BOTTOM = -16;
+// The tower stands about 8.5 m tall to its light: the deck, cabin and roof are
+// drawn WATCHTOWER_LIFT above the numbers they were first written with, so the
+// legs grow and the cabin keeps a guard's size.
+const WATCHTOWER_LIFT = 52;
 /** The searchlight's pivot on the roof. */
-export const SEARCHLIGHT = { x: 18, y: -170 };
+export const SEARCHLIGHT = { x: 18, y: -170 - WATCHTOWER_LIFT };
 /** How close the rider must be, below the light, for it to lock on. */
 export const SEARCHLIGHT_REACH = 360;
 /** The beam: how far it reaches, its half-angle, and the size of its cells. */
@@ -166,7 +174,7 @@ export const SEARCHLIGHT_LIGHT = { beam: "#fff3be", core: "#fffdf4" };
 export function drawWatchtower(tools) {
   const { pixelRect, pixelPath } = tools;
   const [left, right] = WATCHTOWER_LEGS;
-  const deck = -112;
+  const deck = -112 - WATCHTOWER_LIFT;
   const bottom = WATCHTOWER_BODY_BOTTOM;
   // Cross bracing between the legs.
   for (let y = deck + 6; y < bottom; y += 32) {
@@ -181,29 +189,29 @@ export function drawWatchtower(tools) {
     pixelRect(lx + (shaded ? 0 : 2), deck, 2, bottom - deck, shaded ? WOOD.dark : WOOD.tip, 2);
   }
   // Cabin walls, planked, with the window band.
-  pixelRect(-26, -150, 52, 38, WOOD.light, 2);
-  for (let y = -146; y < -112; y += 6) pixelRect(-26, y, 52, 2, WOOD.base, 2);
-  pixelRect(-26, -150, 4, 38, WOOD.dark, 2);
-  pixelRect(24, -150, 2, 38, WOOD.tip, 2);
-  pixelRect(-20, -144, 40, 16, INK, 2);
+  pixelRect(-26, -150 - WATCHTOWER_LIFT, 52, 38, WOOD.light, 2);
+  for (let y = -146 - WATCHTOWER_LIFT; y < -112 - WATCHTOWER_LIFT; y += 6) pixelRect(-26, y, 52, 2, WOOD.base, 2);
+  pixelRect(-26, -150 - WATCHTOWER_LIFT, 4, 38, WOOD.dark, 2);
+  pixelRect(24, -150 - WATCHTOWER_LIFT, 2, 38, WOOD.tip, 2);
+  pixelRect(-20, -144 - WATCHTOWER_LIFT, 40, 16, INK, 2);
   // The guard watching from the window, cap and shoulders.
-  pixelRect(-4, -138, 10, 10, RUBBER.base, 2);
-  pixelRect(-8, -132, 18, 4, RUBBER.base, 2);
-  pixelRect(-6, -140, 14, 2, RUBBER.light, 2);
-  pixelRect(2, -134, 2, 2, ORANGE.light, 2);
+  pixelRect(-4, -138 - WATCHTOWER_LIFT, 10, 10, RUBBER.base, 2);
+  pixelRect(-8, -132 - WATCHTOWER_LIFT, 18, 4, RUBBER.base, 2);
+  pixelRect(-6, -140 - WATCHTOWER_LIFT, 14, 2, RUBBER.light, 2);
+  pixelRect(2, -134 - WATCHTOWER_LIFT, 2, 2, ORANGE.light, 2);
   // Glass glint and the sill.
-  pixelRect(12, -142, 2, 4, CONCRETE.light, 2);
-  pixelRect(14, -144, 2, 2, CONCRETE.light, 2);
-  pixelRect(-22, -128, 44, 2, WOOD.tip, 2);
+  pixelRect(12, -142 - WATCHTOWER_LIFT, 2, 4, CONCRETE.light, 2);
+  pixelRect(14, -144 - WATCHTOWER_LIFT, 2, 2, CONCRETE.light, 2);
+  pixelRect(-22, -128 - WATCHTOWER_LIFT, 44, 2, WOOD.tip, 2);
   // Roof: eaves, then two steps up to the ridge.
-  pixelRect(-32, -156, 64, 6, ROOF.base, 2);
-  pixelRect(-32, -152, 64, 2, ROOF.dark, 2);
-  pixelRect(-22, -160, 44, 4, ROOF.base, 2);
-  pixelRect(-12, -164, 24, 4, ROOF.light, 2);
-  pixelRect(-32, -156, 4, 4, ROOF.dark, 2);
-  pixelRect(22, -160, 10, 4, ROOF.light, 2);
+  pixelRect(-32, -156 - WATCHTOWER_LIFT, 64, 6, ROOF.base, 2);
+  pixelRect(-32, -152 - WATCHTOWER_LIFT, 64, 2, ROOF.dark, 2);
+  pixelRect(-22, -160 - WATCHTOWER_LIFT, 44, 4, ROOF.base, 2);
+  pixelRect(-12, -164 - WATCHTOWER_LIFT, 24, 4, ROOF.light, 2);
+  pixelRect(-32, -156 - WATCHTOWER_LIFT, 4, 4, ROOF.dark, 2);
+  pixelRect(22, -160 - WATCHTOWER_LIFT, 10, 4, ROOF.light, 2);
   // The searchlight's pedestal.
-  pixelRect(SEARCHLIGHT.x - 2, SEARCHLIGHT.y + 2, 4, -158 - SEARCHLIGHT.y, STEEL.base, 2);
+  pixelRect(SEARCHLIGHT.x - 2, SEARCHLIGHT.y + 2, 4, -158 - WATCHTOWER_LIFT - SEARCHLIGHT.y, STEEL.base, 2);
   // Walkway and railing, in front of the cabin.
   pixelRect(-34, deck, 68, 6, WOOD.light, 2);
   pixelRect(-34, deck, 68, 2, WOOD.tip, 2);

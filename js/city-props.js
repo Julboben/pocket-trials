@@ -98,87 +98,88 @@ export function drawBarrier(tools) {
   }
 }
 
-// 92 × 64, a painted skip bin on casters, its lid propped open by the rubbish.
+// 62 × 48, a painted skip bin on casters (about 2.2 × 1.3 m), its lid
+// propped open by the rubbish.
 export function drawDumpster(tools) {
   const { pixelRect, drawPixelDisc } = tools;
   // Rubbish poking out under the raised lid, drawn first.
-  pixelRect(-36, -56, 10, 10, WOOD.cut, 2);
-  pixelRect(-36, -56, 2, 10, WOOD.tip, 2);
-  pixelRect(-34, -56, 8, 2, "#d9b884", 2);
-  drawPixelDisc(-18, -48, 8, RUBBER.dark, 2);
-  pixelRect(-14, -54, 2, 2, RUBBER.light, 2);
-  pixelRect(-12, -52, 2, 2, RUBBER.base, 2);
+  pixelRect(-24, -42, 8, 8, WOOD.cut, 2);
+  pixelRect(-24, -42, 2, 8, WOOD.tip, 2);
+  pixelRect(-22, -42, 6, 2, "#d9b884", 2);
+  drawPixelDisc(-12, -36, 6, RUBBER.dark, 2);
+  pixelRect(-10, -40, 2, 2, RUBBER.light, 2);
   // Body.
-  pixelRect(-42, -46, 84, 36, PAINT.base, 2);
-  pixelRect(-42, -46, 6, 36, PAINT.dark, 2);
-  pixelRect(38, -46, 2, 34, PAINT.light, 2);
-  pixelRect(-42, -12, 84, 4, PAINT.dark, 2);
+  pixelRect(-28, -34, 56, 26, PAINT.base, 2);
+  pixelRect(-28, -34, 4, 26, PAINT.dark, 2);
+  pixelRect(26, -34, 2, 24, PAINT.light, 2);
+  pixelRect(-28, -10, 56, 2, PAINT.dark, 2);
   // Stiffening ribs: lit top, shaded underside.
-  for (const y of [-38, -24]) {
-    pixelRect(-36, y, 76, 2, PAINT.light, 2);
-    pixelRect(-36, y + 2, 76, 2, PAINT.dark, 2);
+  for (const y of [-28, -18]) {
+    pixelRect(-24, y, 50, 2, PAINT.light, 2);
+    pixelRect(-24, y + 2, 50, 2, PAINT.dark, 2);
   }
   // Rim along the top edge.
-  pixelRect(-44, -48, 88, 2, PAINT.light, 2);
-  pixelRect(-44, -46, 2, 4, PAINT.dark, 2);
+  pixelRect(-30, -36, 60, 2, PAINT.light, 2);
+  pixelRect(-30, -34, 2, 4, PAINT.dark, 2);
   // Fork pockets and a hazard plate.
-  pixelRect(-30, -20, 12, 4, PAINT.dark, 2);
-  pixelRect(14, -20, 12, 4, PAINT.dark, 2);
-  pixelRect(0, -34, 14, 8, WHITE.shade, 2);
-  pixelRect(2, -32, 2, 4, CONE.base, 2);
-  pixelRect(6, -32, 2, 4, CONE.base, 2);
-  pixelRect(10, -32, 2, 4, CONE.base, 2);
+  pixelRect(-20, -14, 8, 2, PAINT.dark, 2);
+  pixelRect(10, -14, 8, 2, PAINT.dark, 2);
+  pixelRect(0, -24, 10, 6, WHITE.shade, 2);
+  pixelRect(2, -22, 2, 2, CONE.base, 2);
+  pixelRect(6, -22, 2, 2, CONE.base, 2);
   // Lid: closed over the right half, stepping up to the left.
-  pixelRect(0, -52, 46, 4, RUBBER.base, 2);
-  pixelRect(16, -52, 30, 2, RUBBER.light, 2);
-  [-52, -54, -56, -58, -60].forEach((top, step) => {
-    const x = -8 - step * 8;
-    pixelRect(x, top - 2, 8, 4, RUBBER.base, 2);
-    pixelRect(x, top + 2, 8, 2, RUBBER.dark, 2);
+  pixelRect(0, -40, 32, 4, RUBBER.base, 2);
+  pixelRect(10, -40, 22, 2, RUBBER.light, 2);
+  [-40, -42, -44, -46].forEach((top, step) => {
+    const x = -6 - step * 6;
+    pixelRect(x, top - 2, 6, 4, RUBBER.base, 2);
+    pixelRect(x, top + 2, 6, 2, RUBBER.dark, 2);
   });
-  pixelRect(-48, -64, 8, 4, RUBBER.base, 2);
-  pixelRect(-48, -60, 8, 2, RUBBER.dark, 2);
+  pixelRect(-32, -50, 6, 4, RUBBER.base, 2);
+  pixelRect(-32, -46, 6, 2, RUBBER.dark, 2);
   // Casters.
-  for (const x of [-32, 28]) {
-    pixelRect(x - 2, -10, 8, 2, STEEL.base, 2);
+  for (const x of [-20, 16]) {
+    pixelRect(x - 2, -8, 8, 2, STEEL.base, 2);
     drawPixelDisc(x + 2, -4, 4, RUBBER.dark, 2);
     pixelRect(x + 2, -6, 2, 2, STEEL.light, 2);
   }
 }
 
-// Street lamp: post at x = 0, lamp head over to the right.
-export const LAMP_HEAD = { x: 22, y: -114 };
+// Street lamp, about 6.2 m tall: post at x = 0, lamp head over to the right.
+export const LAMP_HEAD = { x: 22, y: -154 };
 export const LAMP_BODY_BOTTOM = -10;
 export function drawLamp({ pixelRect }) {
+  const top = LAMP_HEAD.y + 2;
   // Plinth, down to where the live base takes over.
   pixelRect(-4, -16, 8, 6, RUBBER.base, 2);
   pixelRect(-4, -16, 2, 6, RUBBER.dark, 2);
   pixelRect(2, -16, 2, 6, STEEL.base, 2);
-  // Post with a collar halfway up.
-  pixelRect(-2, -112, 4, 96, RUBBER.base, 2);
-  pixelRect(0, -112, 2, 96, STEEL.base, 2);
+  // Post with a collar a third of the way up.
+  pixelRect(-2, top, 4, -16 - top, RUBBER.base, 2);
+  pixelRect(0, top, 2, -16 - top, STEEL.base, 2);
   pixelRect(-4, -64, 8, 4, RUBBER.base, 2);
   pixelRect(-4, -64, 2, 4, RUBBER.dark, 2);
   pixelRect(2, -64, 2, 2, STEEL.mid, 2);
   // Swan-neck arm.
-  pixelRect(-2, -118, 4, 6, RUBBER.base, 2);
-  pixelRect(0, -122, 6, 4, RUBBER.base, 2);
-  pixelRect(4, -124, 14, 4, RUBBER.base, 2);
-  pixelRect(4, -124, 14, 2, STEEL.base, 2);
+  pixelRect(-2, top - 6, 4, 6, RUBBER.base, 2);
+  pixelRect(0, top - 10, 6, 4, RUBBER.base, 2);
+  pixelRect(4, top - 12, 14, 4, RUBBER.base, 2);
+  pixelRect(4, top - 12, 14, 2, STEEL.base, 2);
   // Head: hood over the glass, with a finial on top.
-  pixelRect(14, -122, 16, 4, RUBBER.base, 2);
-  pixelRect(14, -122, 4, 4, RUBBER.dark, 2);
-  pixelRect(22, -122, 8, 2, STEEL.base, 2);
-  pixelRect(20, -126, 4, 4, RUBBER.base, 2);
-  pixelRect(22, -126, 2, 2, STEEL.base, 2);
-  pixelRect(16, -118, 12, 4, STEEL.light, 2);
-  pixelRect(16, -118, 2, 4, STEEL.mid, 2);
-  pixelRect(16, -114, 12, 2, RUBBER.dark, 2);
+  pixelRect(14, top - 10, 16, 4, RUBBER.base, 2);
+  pixelRect(14, top - 10, 4, 4, RUBBER.dark, 2);
+  pixelRect(22, top - 10, 8, 2, STEEL.base, 2);
+  pixelRect(20, top - 14, 4, 4, RUBBER.base, 2);
+  pixelRect(22, top - 14, 2, 2, STEEL.base, 2);
+  pixelRect(16, top - 6, 12, 4, STEEL.light, 2);
+  pixelRect(16, top - 6, 2, 4, STEEL.mid, 2);
+  pixelRect(16, top - 2, 12, 2, RUBBER.dark, 2);
 }
 // Glass, lit, drawn over the sprite after dark.
 export function drawLampGlass({ pixelRect }) {
-  pixelRect(16, -118, 12, 4, LAMP_LIGHT.glass, 2);
-  pixelRect(20, -116, 4, 2, LAMP_LIGHT.core, 2);
+  const top = LAMP_HEAD.y + 2;
+  pixelRect(16, top - 6, 12, 4, LAMP_LIGHT.glass, 2);
+  pixelRect(20, top - 4, 4, 2, LAMP_LIGHT.core, 2);
 }
 
 // A sparrow, 20 units long. Its feet are at y = 0 and it faces right.
@@ -217,19 +218,23 @@ export function drawBirdFlying({ pixelRect }, wingsUp) {
   }
 }
 
-// Tower crane. The mast stands on x = 0, the jib reaches right.
+// Tower crane, about 13 m tall. The mast stands on x = 0, the jib reaches
+// right. Everything above the mast is drawn CRANE_LIFT higher than the
+// numbers it's written with, so the cab and jib keep their size while the
+// mast grows.
 export const CRANE_BODY_BOTTOM = -8;
+const CRANE_LIFT = 80;
 // Where its warning lights sit, for after dark: mast top, jib tip, counter-jib end.
 export const CRANE_LIGHTS = [
-  [0, -276],
-  [170, -248],
-  [-70, -248],
+  [0, -276 - CRANE_LIFT],
+  [170, -248 - CRANE_LIFT],
+  [-70, -248 - CRANE_LIFT],
 ];
 export function drawCrane(tools) {
-  const { pixelRect, pixelPath } = tools;
   const c = YELLOW;
   // Mast: two chords with a zigzag of bracing between them.
-  const mastTop = -232;
+  let { pixelRect, pixelPath } = tools;
+  const mastTop = -232 - CRANE_LIFT;
   const mastHeight = CRANE_BODY_BOTTOM - mastTop;
   for (let y = CRANE_BODY_BOTTOM; y > mastTop; y -= 16) {
     pixelRect(-4, y - 2, 8, 2, c.dark, 2);
@@ -248,6 +253,10 @@ export function drawCrane(tools) {
   pixelRect(-6, mastTop, 2, mastHeight, c.base, 2);
   pixelRect(4, mastTop, 2, mastHeight, c.base, 2);
   pixelRect(6, mastTop, 2, mastHeight, c.light, 2);
+
+  // The rest is written as if the mast top were at -232.
+  pixelRect = (x, y, ...rest) => tools.pixelRect(x, y - CRANE_LIFT, ...rest);
+  pixelPath = (points, ...rest) => tools.pixelPath(points.map(([x, y]) => [x, y - CRANE_LIFT]), ...rest);
 
   // Pendant ties from the apex out to the jib and counter-jib.
   pixelPath([[0, -270], [110, -246]], RUBBER.base, 1, 2);
@@ -287,10 +296,12 @@ export function drawCrane(tools) {
   pixelRect(16, -232, 2, 6, PAINT.base, 2);
   pixelRect(10, -222, 14, 2, c.dark, 2);
 
-  // Trolley, cable, hook block and a steel beam on slings.
+  // Trolley, cable, hook block and a steel beam on slings: the cable pays
+  // out CRANE_LIFT further, so the load hangs where it always did.
   pixelRect(118, -236, 10, 4, RUBBER.base, 2);
   pixelRect(124, -236, 4, 2, RUBBER.light, 2);
-  pixelRect(122, -232, 2, 80, RUBBER.dark, 2);
+  pixelRect(122, -232, 2, 80 + CRANE_LIFT, RUBBER.dark, 2);
+  ({ pixelRect, pixelPath } = tools);
   pixelRect(118, -152, 10, 8, c.base, 2);
   pixelRect(118, -152, 2, 8, c.dark, 2);
   pixelRect(124, -152, 4, 2, c.light, 2);

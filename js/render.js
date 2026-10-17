@@ -25,6 +25,7 @@ import {
   waterPropAt,
 } from "./drawing.js";
 import { fallLine, terrainAt, groundShadowSamples, terrainGeometry, terrainRaycastAt } from "./terrain.js";
+import { terrainSolidAt } from "./terrain-runtime.js";
 import { finishHeight } from "./trail-schema.js";
 import { waterBodies, waterColumns, surfaceWave } from "./water.js";
 import { createTerrainRenderer } from "./terrain-render.js";
@@ -63,7 +64,7 @@ import {
   vultureSwoop,
 } from "./desert-props.js";
 import { rainSlant, resolveWeather, snowDrift, windSign } from "./weather.js";
-import { CABLE_HALF, CABLE_TOP, HUT_WINDOW_CENTRE } from "./mountain-props.js";
+import { CABLE_HALF, CABLE_TOP, HUT_CHIMNEY, HUT_WINDOW_CENTRE } from "./mountain-props.js";
 import { nearestInteraction } from "./interactions.js";
 import {
   CORGI_HEART,
@@ -97,7 +98,7 @@ const SCENERY_SHADOWS = {
   scarecrow: { width: 8, alpha: 0.15, thickness: 3, lift: 30 },
   beehive: { width: 14, alpha: 0.14, thickness: 3, lift: 20 },
   cone: { width: 7, alpha: 0.14, thickness: 3, lift: 8 },
-  dumpster: { width: 30, alpha: 0.15, thickness: 3, lift: 20 },
+  dumpster: { width: 22, alpha: 0.15, thickness: 3, lift: 14 },
   lamp: { width: 6, alpha: 0.15, thickness: 3, lift: 40 },
   skull: { width: 12, alpha: 0.13, thickness: 3, lift: 6 },
   "car-wreck": { width: 54, alpha: 0.15, thickness: 3, lift: 16 },
@@ -143,8 +144,8 @@ const PROP_RISE = {
   "cactus-small": 60,
   ladder: 102,
   scarecrow: 114,
-  lamp: 130,
-  crane: 282,
+  lamp: -LAMP_HEAD.y + 16,
+  crane: -CRANE_LIGHTS[0][1] + 6,
   scaffolding: 146,
   skull: 28,
   "car-wreck": 48,
@@ -154,7 +155,7 @@ const PROP_RISE = {
   cairn: 46,
   "ski-lift": -CABLE_TOP + 4,
   "snow-pine": 192,
-  hut: 204,
+  hut: -HUT_CHIMNEY.y + 86,
   snowman: 80,
   "camera-tower": 154,
   "halfway-flag": 126,
@@ -1218,9 +1219,18 @@ export function createRenderer(canvas) {
   // The first terrain or water surface along each slanted falling path, for
   // rain and snow to land on. Weather drifts sideways by `drift` world units
   // per unit fallen, so every point on one path shares x - drift * y; paths
-  // are cached by that, and each is cast against the terrain only once.
+  // are cached by that, and each is cast against the terrain only once. Drops
+  // and flakes come in at the top of the view, so a path is only cast from
+  // just above it: traced further back, a path blown nearly flat in a gale
+  // would run into a hill far upwind and keep the whole view dry. A path that
+  // starts inside rock (the roof of a cave the view is in) is sheltered all
+  // the way down. The start steps with the camera, a band at a time, so the
+  // casts are reused.
   const weatherGround = new WeakMap();
   const WEATHER_COLUMN = ART_PIXEL * 2;
+  const WEATHER_BAND = 128;
+  // How far above the view a path starts: past where drops and flakes come in.
+  const WEATHER_ABOVE = 64;
 
   function weatherGroundAt(x, y, drift) {
     const geometry = terrainGeometry(trail);
@@ -1228,29 +1238,34 @@ export function createRenderer(canvas) {
     if (!cache || cache.geometry !== geometry)
       weatherGround.set(
         trail,
-        (cache = { geometry, water: waterBodies(trail), slants: new Map() }),
+        (cache = { geometry, water: waterBodies(trail), paths: new Map() }),
       );
     const slant = Math.round(drift * 100) / 100;
-    let columns = cache.slants.get(slant);
+    const top = Math.floor((cameraY - WEATHER_ABOVE) / WEATHER_BAND) * WEATHER_BAND;
+    const key = `${slant}|${top}`;
+    let columns = cache.paths.get(key);
     if (!columns) {
-      // Only a slider being dragged changes the slant; keep just the latest few.
-      if (cache.slants.size >= 4) cache.slants.clear();
-      cache.slants.set(slant, (columns = new Map()));
+      // A slider being dragged changes the slant, and the camera the band;
+      // keep just the latest few.
+      if (cache.paths.size >= 8) cache.paths.delete(cache.paths.keys().next().value);
+      cache.paths.set(key, (columns = new Map()));
     }
     const column = Math.round((x - slant * y) / WEATHER_COLUMN);
     let hit = columns.get(column);
     if (hit === undefined) {
       const along = (atY) => column * WEATHER_COLUMN + slant * atY;
       hit = { y: Infinity, water: false };
-      if (geometry) {
-        const top = geometry.bounds.top - 1,
-          bottom = geometry.bounds.bottom + 1;
-        const contact = terrainRaycastAt(trail, along(top), top, along(bottom), bottom);
-        if (contact) hit.y = contact.y;
+      if (geometry && top < geometry.bounds.bottom) {
+        const bottom = geometry.bounds.bottom + 1;
+        if (terrainSolidAt(geometry, along(top), top)) hit.y = top;
+        else {
+          const contact = terrainRaycastAt(trail, along(top), top, along(bottom), bottom);
+          if (contact) hit.y = contact.y;
+        }
       }
       for (const body of cache.water) {
         const at = along(body.y);
-        if (at >= body.x && at <= body.x + body.width && body.y < hit.y)
+        if (body.y >= top && at >= body.x && at <= body.x + body.width && body.y < hit.y)
           hit = { y: body.y, water: true };
       }
       columns.set(column, hit);
