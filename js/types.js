@@ -22,6 +22,7 @@
  * @property {{ x: number, y?: number | null, facing: 1 | -1 }} start
  * @property {{ x: number, y?: number | null }} finish where the finish flower stands, on either side of the start; a null y means on the surface below it
  * @property {{ x: number, y?: number | null }[]} apples
+ * @property {{ x: number, y?: number | null }} [nisse] the optional hidden nisse, where its feet stand
  * @property {Array<Partial<Spike>>} [spikes]
  * @property {Array<Partial<Water>>} [water]
  * @property {object[]} [props]
@@ -108,6 +109,7 @@
  *   | { type: 'splash', x: number, y: number, speed: number, rider: boolean }
  *   | { type: 'helmet', x: number, y: number, speed: number }
  *   | { type: 'apple', apple: object, collected: number, total: number, split: number }
+ *   | { type: 'nisse', x: number, y: number }
  *   | ({ type: 'shatter', blockId: string } & GlassBreak)
  *   | { type: 'crack', blockId: string, x: number, y: number, speed: number }
  *   | { type: 'goalLocked', missing: number }
@@ -122,6 +124,7 @@
  * @property {Vehicle} vehicle
  * @property {{ x: number, y: number }} flower centre of the finish flower the bike has to touch
  * @property {{ x: number, y: number, taken: boolean }[]} apples
+ * @property {{ x: number, y: number, taken: boolean } | null} nisse
  * @property {Spike[]} spikes
  * @property {Water[]} water
  * @property {'running' | 'crashed' | 'won'} status

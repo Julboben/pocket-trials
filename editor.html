@@ -115,6 +115,10 @@
                                 <button id="open-data" role="menuitem">
                                     <span data-icon="download" aria-hidden="true"></span><span>Import / export</span>
                                 </button>
+                                <button id="open-quick-pick" role="menuitem">
+                                    <span data-icon="search" aria-hidden="true"></span><span>Quick pick</span
+                                    ><kbd>⌘P</kbd>
+                                </button>
                                 <button id="show-shortcuts" role="menuitem">
                                     <span data-icon="keyboard" aria-hidden="true"></span><span>Keyboard shortcuts</span
                                     ><kbd>?</kbd>
@@ -876,6 +880,16 @@
                                 id="selection-water-hint"
                                 hidden
                             ></p>
+                            <p
+                                class="tool-hint"
+                                id="selection-nisse-hint"
+                                hidden
+                            >
+                                The trail's hidden nisse. Riders don't need it
+                                to finish and nothing points to it, so put it
+                                off the main line, where it takes some skill
+                                to reach.
+                            </p>
                             <button class="danger" id="delete-selection">
                                 DELETE SELECTION
                             </button>
@@ -1135,6 +1149,8 @@
                         <dd>Play test</dd>
                         <dt><kbd>⌘/Ctrl</kbd> <kbd>Shift</kbd> <kbd>Enter</kbd></dt>
                         <dd>Play test from the mouse; the start stays put</dd>
+                        <dt><kbd>⌘/Ctrl</kbd> <kbd>P</kbd></dt>
+                        <dd>Quick pick: search every tool, block and prop</dd>
                         <dt><kbd>?</kbd></dt>
                         <dd>This list</dd>
                     </dl>

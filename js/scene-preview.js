@@ -48,7 +48,7 @@ export function posedRide(trail, { x = trail.start.x, facing = trail.start.facin
     ride.started = false;
   }
   ride.leanVisual = lean;
-  return ride;
+  return hideNisse(ride);
 }
 
 /**
@@ -118,7 +118,13 @@ export function drawFigure(target, { ride, look = null, backdrop = null, width, 
  */
 export function parkedRide(trail) {
   const left = terrainGeometry(trail)?.bounds.left ?? 0;
-  return createRide(trail, { start: { x: Math.min(left, trail.start.x) - 100000, y: 0, facing: 1 } });
+  return hideNisse(createRide(trail, { start: { x: Math.min(left, trail.start.x) - 100000, y: 0, facing: 1 } }));
+}
+
+/** A preview never gives away where a trail's nisse hides. */
+function hideNisse(ride) {
+  ride.nisse = null;
+  return ride;
 }
 
 /**

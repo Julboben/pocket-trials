@@ -4,6 +4,7 @@ import { cachedOnlineBoard, refreshOnlineBoard } from './online-leaderboard.js';
 import { cleanRiderName } from './rider-name.js';
 import { isDefaultItem, keepIdentity, legacyRider, lookOf, normalizeLook, ownedLook } from './cosmetics.js';
 import { aheadOf, cleanAchievements, cleanStats, mergeAchievements, mergeStats } from './achievements.js';
+import { cleanNisseFinds, mergeNisseFinds } from './nisse.js';
 
 const SETTINGS_KEY = 'hjulben-settings-v1';
 const SAVE_SLOTS_KEY = 'hjulben-saves-v2';
@@ -49,7 +50,8 @@ function writeJson(key, value) {
 
 const emptySlots = () => Array(SLOT_COUNT).fill(null);
 const cloneSave = save => save && {
-  ...save, look: { ...save.look }, bestTimes: { ...save.bestTimes }, achievements: { ...save.achievements }, stats: { ...save.stats }
+  ...save, look: { ...save.look }, bestTimes: { ...save.bestTimes }, achievements: { ...save.achievements }, stats: { ...save.stats },
+  nisse: { ...save.nisse }
 };
 const TOKEN_RE = /^[\w-]+\.[\w-]+$/;
 
@@ -71,6 +73,8 @@ function normalizeSave(save, trailCount) {
     look, rider: legacyRider(look), createdAt: Number(save.createdAt) || Date.now(), trail, unlocked, bestTimes,
     // Earned achievements (id -> time) and lifetime stats; see achievements.js.
     achievements: cleanAchievements(save.achievements), stats: cleanStats(save.stats),
+    // Where the rider has found a trail's nisse: trail key -> time (see nisse.js).
+    nisse: cleanNisseFinds(save.nisse),
     name, playerId: save.playerId,
     // Online riders carry the server's session token; offline saves have none.
     token: typeof save.token === 'string' && TOKEN_RE.test(save.token) ? save.token : null,
@@ -225,6 +229,7 @@ export function restoreOnlineSave(trailCount, { token, player, save: cloud, runs
     unlocked, bestTimes,
     achievements: mergeAchievements(local?.achievements, cloud?.achievements),
     stats: mergeStats(local?.stats, cloud?.stats),
+    nisse: mergeNisseFinds(local?.nisse, cloud?.nisse),
     name: player.name, playerId: player.id, token
   }, trailCount);
   persistSlots(trailCount, next);
@@ -258,12 +263,15 @@ export function applyCloudSave(slotIndex, trailCount, { player, save: cloud }) {
     bestTimes,
     achievements: mergeAchievements(local.achievements, cloud?.achievements),
     stats: mergeStats(local.stats, cloud?.stats),
+    nisse: mergeNisseFinds(local.nisse, cloud?.nisse),
     name: player.name ?? local.name
   }, trailCount);
   if (!merged) return null;
   const ahead = cloudUnlocked < merged.unlocked
     || Object.entries(merged.bestTimes).some(([key, time]) => !(Number(cloudBest[key]) <= time))
-    || aheadOf(merged, cloud);
+    || aheadOf(merged, cloud)
+    // An official or bonus trail's nisse found here and not yet in the cloud.
+    || Object.keys(cleanNisseFinds(merged.nisse, true)).some(key => !cleanNisseFinds(cloud?.nisse, true)[key]);
   const changed = JSON.stringify(merged) !== JSON.stringify(normalizeSave(local, trailCount));
   if (changed) updateSave(slotIndex, trailCount, save => Object.assign(save, merged));
   return { save: cloneSave(slots(trailCount)[slotIndex]), changed, ahead };
@@ -308,6 +316,23 @@ export function recordAchievements(slotIndex, trailCount, earned, gains) {
   });
   const save = slots(trailCount)[slotIndex];
   return save ? { achievements: { ...save.achievements }, stats: { ...save.stats } } : null;
+}
+
+/**
+ * Remembers that the rider found a trail's nisse (keyed by nisseKey in
+ * state.js). Returns whether it is a new find.
+ */
+export function recordNisse(slotIndex, trailCount, key) {
+  const found = Boolean(slots(trailCount)[slotIndex]?.nisse?.[key]);
+  if (!found) updateSave(slotIndex, trailCount, save => {
+    save.nisse = cleanNisseFinds({ ...save.nisse, [key]: Date.now() });
+  });
+  return !found;
+}
+
+/** Whether the rider has found a trail's nisse. */
+export function hasNisse(slotIndex, key, trailCount) {
+  return Boolean(slots(trailCount)[slotIndex]?.nisse?.[key]);
 }
 
 export function readBest(slotIndex, trailKey, trailCount) {

@@ -19,7 +19,7 @@ import { blocksSelection } from "./selection.js";
 import { gridSpacing } from "./snap.js";
 import { editor } from "./state.js";
 import { refuseEdit, showStatus } from "./status.js";
-import { setTool, toolLayer, toolMaterial, toolSettings } from "./tools.js";
+import { placingNisse, setTool, toolLayer, toolMaterial, toolSettings } from "./tools.js";
 
 export { isBackWall };
 
@@ -155,7 +155,11 @@ export function insertBlockNode(boundaryIndex, nodeIndex, t, blockIndex) {
 export function addAt(point) {
   if (refuseEdit()) return;
   pushHistory();
-  if (editor.tool === "apple") {
+  if (editor.tool === "apple" && placingNisse()) {
+    // A trail has one nisse at most, so placing it again moves it.
+    editor.trail.nisse = { x: point.x, y: point.y };
+    editor.selection = { kind: "nisse", index: 0 };
+  } else if (editor.tool === "apple") {
     editor.trail.apples.push({ x: point.x, y: point.y });
     editor.selection = { kind: "apple", index: editor.trail.apples.length - 1 };
   } else if (editor.tool === "start") {

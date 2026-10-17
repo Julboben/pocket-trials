@@ -26,7 +26,8 @@ import { WHEELBASE } from './config.js';
 /**
  * @typedef {{
  *   trails: number, golds: number, officialTotal: number,
- *   bonusFinished: number, bonusTotal: number
+ *   bonusFinished: number, bonusTotal: number,
+ *   nisseFound?: number, nisseTotal?: number
  * }} CareerProgress
  * @typedef {{
  *   flips: number, time: number, medal: string | null, gold: number | null,
@@ -105,6 +106,11 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
   {
     id: 'treasure-hunter', group: 'career', name: 'Treasure Hunter', icon: 'chest',
     blurb: 'Finish every bonus trail.', career: p => everyTrail(p.bonusFinished, p.bonusTotal)
+  },
+  {
+    id: 'nisse-hunter', group: 'career', name: 'Nisse Hunter', icon: 'nisse',
+    blurb: 'Find the nisse on every official trail that hides one.',
+    career: p => everyTrail(p.nisseFound ?? 0, p.nisseTotal ?? 0)
   },
 
   {
@@ -235,6 +241,10 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
   {
     id: 'patience', group: 'riding', name: 'Patience', icon: 'hourglass', secret: true,
     blurb: 'Wait a whole minute at the start before setting off.', event: e => e.type === 'start' && e.wait >= 60
+  },
+  {
+    id: 'hej-nisse', group: 'riding', name: 'Hej, Nisse!', icon: 'nisse',
+    blurb: 'Find a nisse hidden off the trail.', event: e => e.type === 'nisse'
   },
   {
     id: 'deja-vu', group: 'riding', name: 'Déjà Vu', icon: 'ghost', secret: true,

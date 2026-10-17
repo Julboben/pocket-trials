@@ -254,6 +254,17 @@ A numeric `y` is the apple's center and allows it to be placed freely in the wor
 
 An apple is collected the moment the player's hitbox touches the apple as drawn: the wheels' tyres, the frame between the axles, or the rider's head and body. A tyre overlapping the apple by a single pixel is enough, but riding close by is not, so place an apple where the route actually touches it. A ground-anchored apple is collected by riding underneath it; anything higher needs a hop or a wheelie.
 
+
+## Nisse
+
+A trail can hide one nisse, a small Danish gnome, as an optional collectible:
+
+```js
+nisse: { x: 1840, y: null },
+```
+
+`x` and `y` are where its feet stand; `y: null` stands it on the topmost surface at `x`. A trail without a nisse leaves the field out. The rider takes it by touching it, like an apple, but it never counts towards the apples: the finish opens without it, nothing points to it, and it doesn't change the trail's hash, so adding, moving or removing it keeps best times, ghosts and leaderboards. Finding it is remembered per trail in the rider's save, shown on the trail's card, and earns achievements. Put it off the main line, where it takes a skill the player already has to reach (see `TRAILS_GUIDE.md`). In the editor, set the Apple tool's **Place** to **Nisse**; placing it again moves it.
+
 ## Props
 
 ```js
@@ -736,6 +747,11 @@ export function normalizeTrail(input, index = 0) {
         y: apple.y === null ? null : Number(apple.y),
       }))
     : [];
+  // The optional hidden nisse: at most one, where its feet stand. A trail
+  // without one has no `nisse` field at all.
+  if (trail.nisse && typeof trail.nisse === "object" && Number.isFinite(Number(trail.nisse.x)))
+    trail.nisse = { x: Number(trail.nisse.x), y: optionalY(trail.nisse.y) };
+  else delete trail.nisse;
   trail.props = Array.isArray(trail.props)
     ? trail.props.map((prop) => ({
         x: Number(prop.x) || 0,
@@ -1078,6 +1094,12 @@ export function validateTrail(trail) {
           target,
         );
     }
+    if (trail.nisse) {
+      // The nisse's middle, about 12 above where its feet stand.
+      const nisseY = (Number.isFinite(trail.nisse.y) ? trail.nisse.y : groundHeight(trail, trail.nisse.x)) - 12;
+      if (hypot(spike.x - trail.nisse.x, spike.y - nisseY) < spike.radius + 14)
+        warning(`Spike ${index + 1} overlaps the nisse.`, target);
+    }
   }
   for (const [index, body] of (trail.water || []).entries()) {
     const name = `Water ${index + 1}`;
@@ -1139,6 +1161,8 @@ export function validateTrail(trail) {
           { type: "apple", index },
         );
     }
+    if (trail.nisse?.y === null && noGround(trail.nisse.x))
+      error("The ground-anchored nisse has no terrain under it. Drag it onto a block.", { type: "nisse", index: 0 });
     if (
       !finishOffTerrain &&
       !Number.isFinite(trail.finish.y) &&

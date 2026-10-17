@@ -11,7 +11,7 @@ import { encodeInputs, decodeInputs } from './replay-codec.js';
 import { medalFor, normalizeTrail } from './trail-schema.js';
 import {
   readBest, saveBest, readLeaderboard, recordLeaderboardRun, readGhost, saveGhost,
-  saveProgress as persistProgress, savePreferences, clearSaveToken, recordAchievements
+  saveProgress as persistProgress, savePreferences, clearSaveToken, recordAchievements, recordNisse
 } from './storage.js';
 import { bikeBroken, createFeatTracker, editorProgress, eggAchievements, eventAchievements, finishAchievements, interactAchievements, newlyEarned, statGains } from './achievements.js';
 import { createLimWatcher, installConsoleCheats } from './easter-eggs.js';
@@ -25,7 +25,7 @@ import { riderPalette } from './drawing.js';
 import { gearCard, legacyRider, lookOf, lookParts, newlyUnlockedItems } from './cosmetics.js';
 import { createOverlay } from './ui/overlay.js';
 import { createMenu, loadStoredState } from './ui/menu.js';
-import { $, session, currentTrailEntry, trailKey, timeText, isRankedSource, bonusUnlock, riderLook, progressOf } from './state.js';
+import { $, session, currentTrailEntry, trailKey, nisseKey, timeText, isRankedSource, bonusUnlock, riderLook, progressOf } from './state.js';
 import { isNight } from './time-of-day.js';
 
 const LANDING_SOUND_IMPACT = 45;
@@ -299,6 +299,24 @@ export function startGame({ shared = null } = {}) {
     // Earned in the menu: its "earned" count is on screen.
     if ((earned.length || won.length) && menu.isOpen()) menu.updateDashboard();
     if (fresh.length || Object.keys(gains).length || earned.length) queueSaveSync(saveGame);
+  }
+
+  /**
+   * Remembers that the rider found this trail's nisse, then gives them any
+   * career achievement that completes (finding every official one). Like
+   * achievements it belongs to a rider, and play-tests and replays don't count.
+   */
+  function findNisse() {
+    const { saveGame } = session;
+    if (!saveGame || session.trailSource === 'playtest' || replay) return;
+    const entry = currentTrailEntry();
+    if (!entry) return;
+    const before = progressOf(saveGame);
+    const key = nisseKey(entry);
+    if (!recordNisse(session.activeSaveSlot, trails.length, key)) return;
+    saveGame.nisse = { ...saveGame.nisse, [key]: Date.now() };
+    earn([], {}, before);
+    queueSaveSync(saveGame);
   }
 
   /**
@@ -793,6 +811,15 @@ export function startGame({ shared = null } = {}) {
         if (event.collected === event.total) overlay.toast('All apples collected! Finish gate unlocked', undefined, 'flag');
         break;
       }
+      case 'nisse':
+        // Optional and hidden: a puff of red, a jingle, and a note in the save.
+        effects.burst(event.x, event.y - 12, '#d63b2c', 14);
+        sounds.nisse();
+        vibrate(30);
+        overlay.toast('You found the nisse!', 3200, 'nisse');
+        overlay.announce('You found the nisse.');
+        findNisse();
+        break;
       case 'goalLocked':
         // Only at the finish do the missing apples get pointed out, so
         // finding them along the way stays part of the trail.

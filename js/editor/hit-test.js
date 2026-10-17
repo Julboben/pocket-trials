@@ -13,6 +13,7 @@ import { normalizeWater, waterColumns } from "../water.js";
 import { DOT_REACH, EDGE_REACH, HIT_REACH, editor, waters } from "./state.js";
 import { isBlockLocked, isHitLocked, isLocked } from "./locks.js";
 import { waterHandle } from "./water.js";
+import { NISSE_GROUND_LIFT } from "../nisse.js";
 
 /**
  * Selection priority, highest first: the visible curve handles of the active
@@ -149,6 +150,8 @@ function collectHits(point, wholeBoundary) {
   editor.trail.props.forEach((prop, index) =>
     consider({ kind: "prop", index }, prop.x, objectY(prop), 1),
   );
+  if (editor.trail.nisse)
+    consider({ kind: "nisse", index: 0 }, editor.trail.nisse.x, objectY(editor.trail.nisse, NISSE_GROUND_LIFT), 1);
   editor.trail.spikes.forEach((spike, index) =>
     consider({ kind: "spike", index }, spike.x, spike.y, 1),
   );

@@ -53,6 +53,7 @@ function entries() {
   add("water", waters(), () => "Water");
   add("spike", editor.trail.spikes, () => "Spike");
   add("apple", editor.trail.apples, () => "Apple");
+  add("nisse", editor.trail.nisse ? [editor.trail.nisse] : [], () => "Nisse");
   // Number repeated names within each group: Tree 1, Tree 2.
   const totals = new Map();
   for (const entry of list) {

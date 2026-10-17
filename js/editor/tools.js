@@ -38,7 +38,7 @@ const LAYER_FIELD = {
   options: () => BLOCK_LAYERS,
 };
 
-const TOOL_INFO = {
+export const TOOL_INFO = {
   select: {
     title: "Select",
     hint: "Click a block, a point on its edge, or an object to select it, and drag to move it; a selected block drags from anywhere inside it, and Esc or Cmd/Ctrl+D deselects. Where points and objects overlap, click again to select the next one. Hold Shift to snap the point or corner you hold to 15° and the grid. A selected point shows its curve handles. Drag from empty space to box-select, and Shift-click to add or remove a block, point or object. Alt-click selects a whole ring or cave. Empty cave space selects nothing, so a cave never picks the block around it. The square handles around selected blocks scale them: corners keep the shape, sides stretch it, and Alt scales from the centre. The round handle above them rotates the selection, Shift snaps it to 15°, and R or Shift+R turns it 15° at a time. Press ? for every shortcut.",
@@ -67,7 +67,18 @@ const TOOL_INFO = {
   },
   apple: {
     title: "Apple",
-    hint: "Click to place an apple exactly where you click. Every apple must be collected to finish. The tool stays active; Esc returns to Select.",
+    hint: "Click to place an apple exactly where you click. Every apple must be collected to finish. Switch Place to Nisse to hide the trail's one optional nisse instead: riders don't need it to finish, and placing it again moves it. The tool stays active; Esc returns to Select.",
+    fields: [
+      {
+        key: "kind",
+        label: "Place",
+        type: "select",
+        options: () => [
+          ["apple", "Apple"],
+          ["nisse", "Nisse"],
+        ],
+      },
+    ],
   },
   spike: {
     title: "Spike",
@@ -173,6 +184,7 @@ const DEFAULT_TOOL_SETTINGS = {
   // The last material chosen is kept for the next block.
   block: { material: "grass", layer: "terrain" },
   cut: { layer: "terrain" },
+  apple: { kind: "apple" },
   spike: { radius: SPIKE_RADIUS.default, spin: 1 },
   water: { width: WATER_SIZE.width, depth: WATER_SIZE.depth },
   prop: { type: "tree", layer: "back", flip: false, rotation: 0 },
@@ -223,6 +235,11 @@ export function saveToolSettings() {
   try {
     store().setItem(TOOL_SETTINGS_KEY, JSON.stringify(toolSettings));
   } catch (_) {}
+}
+
+/** Whether the Apple tool is set to place the trail's nisse. */
+export function placingNisse() {
+  return toolSettings.apple?.kind === "nisse";
 }
 
 /** The layer a Block or Cut drag works on: "terrain" or "back". */

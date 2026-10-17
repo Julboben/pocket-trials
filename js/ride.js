@@ -26,6 +26,7 @@ import {
 import { normalizeSpike, finishFlower } from "./trail-schema.js";
 import { FRAME_REACH, bikeTouchesFlower } from "./finish.js";
 import { playerTouchesApple } from "./apple.js";
+import { NISSE_GROUND_LIFT, playerTouchesNisse } from "./nisse.js";
 import { playerTouch } from "./player-shape.js";
 import { spikeShape } from "./spike.js";
 import { createRagdoll, stepRagdoll } from "./ragdoll.js";
@@ -138,6 +139,15 @@ export function createRide(trail, { seed = 1, start = trail.start, helmet = true
       y: Number.isFinite(apple.y) ? apple.y : terrainAt(trail, apple.x).y - 60,
       taken: false,
     })),
+    // The optional nisse, where its feet stand: on the ground under it when
+    // it has no y of its own.
+    nisse: trail.nisse
+      ? {
+          x: trail.nisse.x,
+          y: Number.isFinite(trail.nisse.y) ? trail.nisse.y : terrainAt(trail, trail.nisse.x).y - NISSE_GROUND_LIFT,
+          taken: false,
+        }
+      : null,
     spikes: (trail.spikes || []).map((spike) =>
       normalizeSpike(spike, terrainAt(trail, Number(spike?.x) || 0)?.y ?? null),
     ),
@@ -546,6 +556,14 @@ function advanceRide(ride, input, hooks, events) {
         split: ride.elapsed,
       });
     }
+  }
+
+  // The nisse is taken the same way, but it is optional: it never counts
+  // towards the apples or the finish.
+  const nisse = ride.nisse;
+  if (nisse && !nisse.taken && playerTouchesNisse(nisse, player)) {
+    nisse.taken = true;
+    events.push({ type: "nisse", x: nisse.x, y: nisse.y });
   }
 
   // The finish is a flower: the bike has to touch it, from either side.

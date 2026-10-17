@@ -258,6 +258,11 @@ export function normalizeTrail(input, index = 0) {
         y: apple.y === null ? null : Number(apple.y),
       }))
     : [];
+  // The optional hidden nisse: at most one, where its feet stand. A trail
+  // without one has no `nisse` field at all.
+  if (trail.nisse && typeof trail.nisse === "object" && Number.isFinite(Number(trail.nisse.x)))
+    trail.nisse = { x: Number(trail.nisse.x), y: optionalY(trail.nisse.y) };
+  else delete trail.nisse;
   trail.props = Array.isArray(trail.props)
     ? trail.props.map((prop) => ({
         x: Number(prop.x) || 0,
@@ -600,6 +605,12 @@ export function validateTrail(trail) {
           target,
         );
     }
+    if (trail.nisse) {
+      // The nisse's middle, about 12 above where its feet stand.
+      const nisseY = (Number.isFinite(trail.nisse.y) ? trail.nisse.y : groundHeight(trail, trail.nisse.x)) - 12;
+      if (hypot(spike.x - trail.nisse.x, spike.y - nisseY) < spike.radius + 14)
+        warning(`Spike ${index + 1} overlaps the nisse.`, target);
+    }
   }
   for (const [index, body] of (trail.water || []).entries()) {
     const name = `Water ${index + 1}`;
@@ -661,6 +672,8 @@ export function validateTrail(trail) {
           { type: "apple", index },
         );
     }
+    if (trail.nisse?.y === null && noGround(trail.nisse.x))
+      error("The ground-anchored nisse has no terrain under it. Drag it onto a block.", { type: "nisse", index: 0 });
     if (
       !finishOffTerrain &&
       !Number.isFinite(trail.finish.y) &&

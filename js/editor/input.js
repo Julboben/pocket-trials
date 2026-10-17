@@ -37,6 +37,7 @@ import {
   updateSelectedPosition,
 } from "./inspector.js";
 import { closePlaytest, openPlaytest, playtestOpen } from "./playtest.js";
+import { openQuickPick } from "./quick-pick.js";
 import { render, renderView } from "./render.js";
 import {
   blockNodes,
@@ -719,6 +720,7 @@ export function bindInput() {
   });
 
   $("show-shortcuts").addEventListener("click", () => shortcuts.showModal());
+  $("open-quick-pick").addEventListener("click", openQuickPick);
 
   // Clicking the backdrop closes the list too.
   shortcuts.addEventListener("click", (event) => {
@@ -728,6 +730,15 @@ export function bindInput() {
   shortcuts.addEventListener("close", () => canvas.focus({ preventScroll: true }));
 
   window.addEventListener("keydown", (event) => {
+    // Cmd/Ctrl+P opens the quick pick in place of printing, which the editor has no use for.
+    if ((event.metaKey || event.ctrlKey) && event.code === "KeyP" && !event.shiftKey && !event.altKey) {
+      event.preventDefault();
+      if (!playtestOpen() && !document.querySelector("dialog[open]")) {
+        /** @type {HTMLElement} */ (document.activeElement)?.blur?.();
+        openQuickPick();
+      }
+      return;
+    }
     if (shortcuts.open) return;
     if (event.key === "?" && !typingInField() && !playtestOpen()) {
       event.preventDefault();

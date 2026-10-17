@@ -545,6 +545,13 @@ export function createAudio(getSnapshot) {
       playTone(620, .1, 'square', .07, 0, 880);
       playTone(880, .13, 'square', .055, .07, 1240);
     },
+    // A little sleigh-bell jingle for finding the nisse.
+    nisse() {
+      [988, 1319, 1175, 1568].forEach((note, index) => {
+        playTone(note, .09, 'triangle', .06, index * .07, note * 1.02);
+      });
+      playNoise(.12, .025, 6400);
+    },
     crash() {
       playNoise(.35, .18, 700);
       playTone(120, .32, 'sawtooth', .09, 0, 42);

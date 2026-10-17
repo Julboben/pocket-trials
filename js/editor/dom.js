@@ -12,7 +12,7 @@ export const ctx = canvas.getContext("2d");
 
 export const art = createGameArt(ctx);
 
-const tools = createDrawingTools(ctx);
+export const tools = createDrawingTools(ctx);
 
 export const terrainArt = createTerrainRenderer();
 

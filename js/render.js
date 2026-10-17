@@ -46,6 +46,7 @@ import { createLighting } from "./lighting.js";
 import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
 import { CAMERA_TALLY, HALFWAY_BEACON, HALFWAY_REACH } from "./event-props.js";
 import { SEARCHLIGHT, SEARCHLIGHT_BEAM } from "./prison-props.js";
+import { drawNisse, nisseWiggle } from "./nisse.js";
 import { TORCH_FLAME } from "./dungeon-props.js";
 import { FLAGPOLE } from "./countryside-props.js";
 import { WATER_PROPS, FISH_DART, FISH_RANGE } from "./water-props.js";
@@ -1527,6 +1528,14 @@ export function createRenderer(canvas) {
     }
   }
 
+  // The nisse's hat tip flops now and then, on the scene clock; held still
+  // with reduced motion.
+  function drawNisseInRide(ride) {
+    const nisse = ride.nisse;
+    if (!nisse || nisse.taken || !inView(nisse.x, 30, nisse.y - 12)) return;
+    drawNisse({ pixelRect }, nisse.x, nisse.y, reducedMotion ? 0 : nisseWiggle(nisse, sceneClock / 1000));
+  }
+
   function drawSpikes(ride) {
     for (const spike of ride.spikes) {
       if (!inView(spike.x, spike.radius + 10, spike.y)) continue;
@@ -1657,6 +1666,7 @@ export function createRenderer(canvas) {
     drawGoal(ride);
     drawSpikes(ride);
     drawApples(ride);
+    drawNisseInRide(ride);
     const fog = fogAmount(trail.weather);
     if (fog) drawFog(fog, focus, ride.facing);
     drawGhost(ghost, ghostLook ?? look, animationDt);

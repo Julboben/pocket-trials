@@ -89,7 +89,7 @@ The list above uses only features the game supports today, so we run out of new 
 - [ ] **Checkpoints:** restart from the halfway flag. Needed for long trails of 5000+ units.
 - [ ] **Moving platforms and see-saws:** terrain that moves along a fixed path. It must stay deterministic for replays.
 - [ ] **Gates and switches:** touch a switch to open a wall elsewhere.
-- [ ] **Optional collectibles:** a hidden nisse in each trail, for replay value without blocking the finish.
+- [x] **Optional collectibles:** a hidden nisse in each trail, for replay value without blocking the finish.
 
 ---
 

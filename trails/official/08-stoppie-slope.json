@@ -1,15 +1,15 @@
 {
   "name": "Stoppie Slope",
   "label": "STOPPIE SLOPE / 08",
-  "description": "Every drop-in is steeper than the last: 40\u00b0, 45\u00b0, 50\u00b0 and a long 55\u00b0 chute. Roll in slowly, lean back (hold the brake and lean away from the slope) so the rear wheel stays planted and you don't go over the bars, then ride it out at the bottom. Speed is the enemy here; the apples at the foot of each slope wait for a rider who arrives in one piece.",
+  "finish": {
+    "x": 2700,
+    "y": 465
+  },
+  "description": "Every drop-in is steeper than the last: 40°, 45°, 50° and a long 55° chute. Roll in slowly, lean back (hold the brake and lean away from the slope) so the rear wheel stays planted and you don't go over the bars, then ride it out at the bottom. Speed is the enemy here; the apples at the foot of each slope wait for a rider who arrives in one piece.",
   "start": {
-    "x": 0,
+    "x": 90,
     "y": null,
     "facing": 1
-  },
-  "finish": {
-    "x": 2720,
-    "y": null
   },
   "terrainBlocks": [
     {
@@ -25,7 +25,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-1",
@@ -37,7 +37,7 @@
               -100
             ],
             "out": [
-              -410.0,
+              -410,
               -100
             ],
             "edge": "curve"
@@ -48,7 +48,7 @@
             "y": 100,
             "mode": "smooth",
             "in": [
-              -370.0,
+              -370,
               100
             ],
             "out": [
@@ -93,11 +93,11 @@
             "y": 100,
             "mode": "independent",
             "in": [
-              352.0,
-              100.0
+              352,
+              100
             ],
             "out": [
-              408.0,
+              408,
               123.45
             ],
             "edge": "curve"
@@ -108,7 +108,7 @@
             "y": 167,
             "mode": "independent",
             "in": [
-              432.0,
+              432,
               143.55
             ],
             "out": [
@@ -142,7 +142,7 @@
               150
             ],
             "out": [
-              790.0,
+              790,
               150
             ],
             "edge": "curve"
@@ -153,11 +153,11 @@
             "y": 170,
             "mode": "smooth",
             "in": [
-              820.0,
+              820,
               170
             ],
             "out": [
-              860.0,
+              860,
               170
             ],
             "edge": "curve"
@@ -169,11 +169,11 @@
             "mode": "independent",
             "in": [
               869.5,
-              170.0
+              170
             ],
             "out": [
-              915.0,
-              205.0
+              915,
+              205
             ],
             "edge": "curve"
           },
@@ -183,12 +183,12 @@
             "y": 270,
             "mode": "independent",
             "in": [
-              945.0,
-              235.0
+              945,
+              235
             ],
             "out": [
-              1057.0,
-              270.0
+              1057,
+              270
             ],
             "edge": "curve"
           },
@@ -228,11 +228,11 @@
             "y": 220,
             "mode": "independent",
             "in": [
-              1502.0,
-              220.0
+              1502,
+              220
             ],
             "out": [
-              1565.0,
+              1565,
               261.65
             ],
             "edge": "curve"
@@ -243,7 +243,7 @@
             "y": 339,
             "mode": "independent",
             "in": [
-              1595.0,
+              1595,
               297.35
             ],
             "out": [
@@ -262,7 +262,7 @@
               340
             ],
             "out": [
-              1970.0,
+              1970,
               340
             ],
             "edge": "curve"
@@ -273,7 +273,7 @@
             "y": 290,
             "mode": "smooth",
             "in": [
-              2060.0,
+              2060,
               290
             ],
             "out": [
@@ -288,12 +288,12 @@
             "y": 290,
             "mode": "independent",
             "in": [
-              2202.0,
-              290.0
+              2202,
+              290
             ],
             "out": [
-              2279.0,
-              360.0
+              2279,
+              360
             ],
             "edge": "curve"
           },
@@ -303,8 +303,8 @@
             "y": 490,
             "mode": "independent",
             "in": [
-              2321.0,
-              420.0
+              2321,
+              420
             ],
             "out": [
               2422.5,
@@ -318,7 +318,7 @@
             "y": 495,
             "mode": "smooth",
             "in": [
-              2470.0,
+              2470,
               495
             ],
             "out": [
@@ -394,20 +394,16 @@
   ],
   "apples": [
     {
-      "x": 1060,
-      "y": null
+      "x": 491.5339592769619,
+      "y": 112.80499294012782
     },
     {
       "x": 1490,
       "y": null
     },
     {
-      "x": 1740,
-      "y": null
-    },
-    {
-      "x": 2520,
-      "y": null
+      "x": 2510,
+      "y": 435
     }
   ],
   "props": [
@@ -436,17 +432,10 @@
       "layer": "front"
     },
     {
-      "x": 150,
-      "y": null,
+      "x": 220,
+      "y": 100,
       "type": "pine",
       "layer": "back"
-    },
-    {
-      "x": 280,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "LEAN BACK"
     },
     {
       "x": 384,
@@ -471,13 +460,6 @@
       "y": null,
       "type": "pine",
       "layer": "back"
-    },
-    {
-      "x": 850,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "STEEP!"
     },
     {
       "x": 886,
@@ -510,13 +492,6 @@
       "layer": "back"
     },
     {
-      "x": 1500,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "SLOW"
-    },
-    {
       "x": 1536,
       "y": 224,
       "type": "vines",
@@ -545,13 +520,6 @@
       "y": null,
       "type": "pine-small",
       "layer": "back"
-    },
-    {
-      "x": 2190,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "! STEEP"
     },
     {
       "x": 2236,

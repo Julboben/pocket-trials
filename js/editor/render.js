@@ -7,6 +7,7 @@ import {
   propWallFit,
 } from "../drawing.js";
 import { FINISH_FLOWER_RADIUS } from "../finish.js";
+import { NISSE_GROUND_LIFT, drawNisse } from "../nisse.js";
 import { SPIKE_TIP } from "../spike.js";
 import { store } from "../local-store.js";
 import { fallLine, invalidateTerrain, terrainGeometry } from "../terrain.js";
@@ -23,13 +24,13 @@ import {
   traceBoundary,
   traceBlock,
 } from "./blocks.js";
-import { $, art, backWallArt, canvas, ctx, terrainArt } from "./dom.js";
+import { $, art, backWallArt, canvas, ctx, terrainArt, tools } from "./dom.js";
 import { scaleFrame, scaling } from "./scale.js";
 import { selectionBox } from "./selection.js";
 import { rotateHandle, rotationAngle } from "./rotate.js";
 import { gridSpacing } from "./snap.js";
 import { editor, waters } from "./state.js";
-import { PLACING_TOOLS, toolSettings } from "./tools.js";
+import { PLACING_TOOLS, placingNisse, toolSettings } from "./tools.js";
 import { waterHandle, waterSize } from "./water.js";
 import { viewportSize } from "./view.js";
 
@@ -111,6 +112,8 @@ function groundAnchoredObjects() {
     if (!Number.isFinite(prop.y)) add(prop.x, (y) => (prop.y = y));
   for (const apple of trail.apples || [])
     if (!Number.isFinite(apple.y)) add(apple.x, (y) => (apple.y = y - 60));
+  if (trail.nisse && !Number.isFinite(trail.nisse.y))
+    add(trail.nisse.x, (y) => (trail.nisse.y = y - NISSE_GROUND_LIFT));
   return found;
 }
 
@@ -411,6 +414,7 @@ function drawObjects() {
   drawSpikes();
   for (const apple of editor.trail.apples)
     art.drawApple(apple.x, objectY(apple, 60));
+  if (editor.trail.nisse) drawNisse(tools, editor.trail.nisse.x, objectY(editor.trail.nisse, NISSE_GROUND_LIFT));
   art.drawFlag(editor.trail.finish.x, finishY(), true, 0);
   if (editor.selection?.kind === "finish") {
     // The petals the bike has to touch.
@@ -542,6 +546,8 @@ function drawHandles() {
   editor.trail.props.forEach((prop, index) =>
     drawHandle(prop.x, objectY(prop), isSelected("prop", index), "#83d1ce"),
   );
+  if (editor.trail.nisse)
+    drawHandle(editor.trail.nisse.x, objectY(editor.trail.nisse, NISSE_GROUND_LIFT), isSelected("nisse", 0), "#d63b2c");
   editor.trail.spikes.forEach((spike, index) =>
     drawHandle(spike.x, spike.y, isSelected("spike", index), "#e65e56"),
   );
@@ -769,7 +775,8 @@ function drawPlacementPreview() {
   }
   ctx.save();
   ctx.globalAlpha = 0.5;
-  if (editor.tool === "apple") art.drawApple(x, y);
+  if (editor.tool === "apple" && placingNisse()) drawNisse(tools, x, y);
+  else if (editor.tool === "apple") art.drawApple(x, y);
   else art.drawSpike(x, y, toolSettings.spike.radius);
   ctx.restore();
 }

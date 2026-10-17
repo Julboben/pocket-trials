@@ -192,6 +192,21 @@ export default {
       ..rr.rr..
     `,
   },
+  // The nisse hidden on some trails: red hat, face, white beard, grey tunic.
+  nisse: {
+    palette: { r: '#d63b2c', h: '#e8755b', d: '#a8322a', s: '#f0bb93', b: '#f4e9d1', g: '#697872' },
+    grid: `
+      ....r....
+      ...rrh...
+      ...drrh..
+      ..drrrrh.
+      .ddrrrrrh
+      ..ssssss.
+      ..bbbbbb.
+      .gbbbbbgg
+      ..gg.gg..
+    `,
+  },
   headlight: `
     ...#.....
     ..##..###

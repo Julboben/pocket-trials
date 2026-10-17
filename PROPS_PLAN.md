@@ -9,7 +9,7 @@ A plan for the props to add to each level theme. How to build them, and how to m
 
 - [ ] **Half-timbered farmhouse**: dark beams, white or ochre-yellow walls and a thatched roof, used as a background landmark. The windows light up at night through the time-of-day system.
 - [x] **Dannebrog flagpole**: a white garden flagpole with the red-and-white flag flying in the wind. The flag could go up when a checkpoint is reached.
-- [ ] **Nisse**: a small Danish gnome with a red hat, hidden somewhere in each level as a secret collectible or easter egg.
+- [x] **Nisse**: a small Danish gnome with a red hat, hidden somewhere in each level as a secret collectible or easter egg.
 - [ ] **Sankt Hans bonfire**: the midsummer bonfire with a witch on top. It glows and gives off sparks on night levels.
 - [ ] **Mailbox on a post**: in Danish post-red, with a small flag that flips up when the bike passes.
 - [ ] **Rune stone**: for mountain or forest levels, inspired by the Jelling stones.

@@ -2249,6 +2249,7 @@ h2 {
     }
 }
 .trail-card {
+    position: relative;
     min-height: 70px;
     padding: 13px;
     display: grid;
@@ -2262,6 +2263,21 @@ h2 {
     &:disabled {
         cursor: not-allowed;
         opacity: 0.42;
+    }
+}
+.trail-nisse {
+    /* Over the preview's top right corner: full colour once found, a faded
+       silhouette until then. */
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    padding: 4px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    &[data-found="false"] {
+        filter: grayscale(1);
+        opacity: 0.55;
     }
 }
 .trail-preview {

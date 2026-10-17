@@ -561,6 +561,42 @@ if (kind === 'locks') {
   process.exit(0);
 }
 
+// The nisse: the Apple tool places it, placing it again moves it, and it can
+// be selected, deleted and brought back with undo.
+if (kind === 'nisse') {
+  toolButton('apple').click();
+  fire('pointerdown', { clientX: 0, clientY: 0 });
+  fire('pointerup');
+  const probe = current().apples.at(-1);
+  cameraX = probe.x;
+  cameraY = probe.y;
+  document.getElementById('undo').click();
+
+  const out = {};
+  const { toolSettings } = await import('../../js/editor/tools.js');
+  // The stub DOM keeps appended options as children, not in `options`.
+  const walk = node => [node, ...[...(node.children || [])].flatMap(walk)];
+  out.placeField = walk(document.getElementById('tool-settings-fields')).some(node => node.value === 'nisse');
+  // What the Place select's change handler does.
+  toolSettings.apple.kind = 'nisse';
+  fire('pointerdown', world(300, 200));
+  fire('pointerup');
+  out.placed = current().nisse;
+  out.apples = current().apples.length;
+  fire('pointerdown', world(600, 150));
+  fire('pointerup');
+  out.moved = current().nisse;
+  out.title = document.getElementById('selection-title').textContent;
+  out.hintShown = document.getElementById('selection-nisse-hint').hidden === false;
+  document.getElementById('delete-selection').click();
+  out.deleted = !('nisse' in current());
+  document.getElementById('undo').click();
+  out.restored = current().nisse;
+  toolSettings.apple.kind = 'apple';
+  process.stdout.write(JSON.stringify(out));
+  process.exit(0);
+}
+
 if (kind === 'covered') {
   toolButton('apple').click();
   fire('pointerdown', { clientX: 0, clientY: 0 });

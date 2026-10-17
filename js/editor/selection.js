@@ -37,6 +37,7 @@ import {
 } from "./tools.js";
 import { centerOn } from "./view.js";
 import { moveWaterTo, waterHandle } from "./water.js";
+import { NISSE_GROUND_LIFT } from "../nisse.js";
 
 let lastNudge = 0;
 
@@ -179,6 +180,9 @@ export const OBJECT_LISTS = () => ({
   prop: editor.trail.props,
   spike: editor.trail.spikes,
   water: waters(),
+  // The trail's one nisse, as a list of at most one so it selects, moves and
+  // locks like an apple. Deleting it clears the trail's field instead.
+  nisse: editor.trail.nisse ? [editor.trail.nisse] : [],
 });
 
 /** Indices of the selected objects of one type: a lone one, or each one in a group. */
@@ -344,7 +348,7 @@ export function itemPosition(item) {
   if (!object) return null;
   if (item.type === "spike") return [object.x, object.y];
   if (item.type === "water") return waterHandle(object);
-  return [object.x, objectY(object, item.type === "apple" ? 60 : 0)];
+  return [object.x, objectY(object, item.type === "apple" ? 60 : item.type === "nisse" ? NISSE_GROUND_LIFT : 0)];
 }
 
 export function itemsCentre(items) {
@@ -464,6 +468,10 @@ export function deleteItems(items) {
     const indices = items
       .filter((item) => item.type === type)
       .map((item) => item.index);
+    if (type === "nisse") {
+      if (indices.length) delete editor.trail.nisse;
+      continue;
+    }
     for (const index of indices.sort((a, b) => b - a)) list.splice(index, 1);
   }
   const byBlock = new Map();
@@ -566,6 +574,10 @@ export function deleteSelection() {
   } else if (kind === "apple") {
     pushHistory();
     editor.trail.apples.splice(editor.selection.index, 1);
+    editor.selection = null;
+  } else if (kind === "nisse") {
+    pushHistory();
+    delete editor.trail.nisse;
     editor.selection = null;
   } else if (kind === "prop") {
     pushHistory();

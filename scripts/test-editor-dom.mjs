@@ -42,6 +42,20 @@ const reported = (report, label) => {
 };
 
 // ---------------------------------------------------------------------------
+// The nisse: one per trail, placed with the Apple tool.
+// ---------------------------------------------------------------------------
+{
+  const report = await boot('nisse');
+  check('the Apple tool can be set to place the nisse', report.placeField);
+  check('it places the nisse, not an apple', report.placed && report.apples === 0);
+  check('placing it again moves the one nisse',
+    report.moved && Math.round(report.moved.x - report.placed.x) === 300);
+  check('a selected nisse is titled and explained', report.title === 'NISSE' && report.hintShown);
+  check('deleting it removes the field', report.deleted);
+  check('and undo brings it back', report.restored && report.restored.x === report.moved.x);
+}
+
+// ---------------------------------------------------------------------------
 // A block trail: drawing and the generic gestures.
 // ---------------------------------------------------------------------------
 {

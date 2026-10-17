@@ -27,54 +27,57 @@ const ROWS = APPLE_SPRITE.length;
 // The sprite's reach from the apple's centre.
 const REACH = 16;
 
-/** The apple's opaque pixels as offsets of their top-left corners. */
-const APPLE_PIXELS = APPLE_SPRITE.flatMap((line, row) =>
-  [...line].flatMap((cell, column) =>
-    cell === "." ? [] : [[SPRITE_LEFT + column * ART, SPRITE_TOP + row * ART]],
-  ),
-);
-const opaque = (column, row) =>
-  column >= 0 && column < COLUMNS && row >= 0 && row < ROWS && APPLE_SPRITE[row][column] !== ".";
-
-/** The world position the apple is drawn at, snapped to the art grid. */
-function appleDrawOrigin(apple) {
-  return {
-    x: Math.round(apple.x / ART) * ART,
-    y: Math.round(apple.y / ART) * ART,
+/**
+ * A pixel sprite that can be touched: given its rows (any character but "."
+ * is solid), where its top-left corner sits relative to its anchor, and how
+ * far it reaches from the anchor, returns a function giving the drawn sprite
+ * at an anchor (x, y), snapped to the art grid, as a shape the player can
+ * touch (see player-shape.js). Shared by the apple and the nisse.
+ * @param {string[]} sprite
+ */
+export function spriteShape(sprite, spriteLeft, spriteTop, reach) {
+  const columns = sprite[0].length, rows = sprite.length;
+  const offsets = sprite.flatMap((line, row) =>
+    [...line].flatMap((cell, column) =>
+      cell === "." ? [] : [[spriteLeft + column * ART, spriteTop + row * ART]],
+    ),
+  );
+  const opaque = (column, row) =>
+    column >= 0 && column < columns && row >= 0 && row < rows && sprite[row][column] !== ".";
+  return ({ x, y }) => {
+    const origin = { x: Math.round(x / ART) * ART, y: Math.round(y / ART) * ART };
+    const left = origin.x + spriteLeft, top = origin.y + spriteTop;
+    const pixels = () => offsets.map(([ox, oy]) => [origin.x + ox, origin.y + oy]);
+    return {
+      x: origin.x,
+      y: origin.y,
+      reach,
+      overlapsPixel(pl, pt) {
+        // Sprite column c spans [left + 2c, left + 2c + 2); it overlaps the pixel when within 2 of it.
+        const c0 = Math.floor((pl - left) / ART), r0 = Math.floor((pt - top) / ART);
+        for (let row = r0; row <= r0 + 1; row++) {
+          if (Math.abs(top + row * ART - pt) >= ART) continue;
+          for (let column = c0; column <= c0 + 1; column++)
+            if (Math.abs(left + column * ART - pl) < ART && opaque(column, row)) return true;
+        }
+        return false;
+      },
+      distanceTo(px, py) {
+        let best = Infinity;
+        for (const [pl, pt] of pixels()) best = Math.min(best, distanceToRect(px, py, pl, pt, pl + ART, pt + ART));
+        return best;
+      },
+      segmentDistance(ax, ay, bx, by) {
+        let best = Infinity;
+        for (const [pl, pt] of pixels()) best = Math.min(best, segmentToRect(ax, ay, bx, by, pl, pt, pl + ART, pt + ART));
+        return best;
+      },
+    };
   };
 }
 
 /** The drawn apple, as a shape the player can touch. */
-function appleShape(apple) {
-  const origin = appleDrawOrigin(apple);
-  const left = origin.x + SPRITE_LEFT, top = origin.y + SPRITE_TOP;
-  const pixels = () => APPLE_PIXELS.map(([ox, oy]) => [origin.x + ox, origin.y + oy]);
-  return {
-    x: origin.x,
-    y: origin.y,
-    reach: REACH,
-    overlapsPixel(pl, pt) {
-      // Apple column c spans [left + 2c, left + 2c + 2); it overlaps the pixel when within 2 of it.
-      const c0 = Math.floor((pl - left) / ART), r0 = Math.floor((pt - top) / ART);
-      for (let row = r0; row <= r0 + 1; row++) {
-        if (Math.abs(top + row * ART - pt) >= ART) continue;
-        for (let column = c0; column <= c0 + 1; column++)
-          if (Math.abs(left + column * ART - pl) < ART && opaque(column, row)) return true;
-      }
-      return false;
-    },
-    distanceTo(x, y) {
-      let best = Infinity;
-      for (const [pl, pt] of pixels()) best = Math.min(best, distanceToRect(x, y, pl, pt, pl + ART, pt + ART));
-      return best;
-    },
-    segmentDistance(ax, ay, bx, by) {
-      let best = Infinity;
-      for (const [pl, pt] of pixels()) best = Math.min(best, segmentToRect(ax, ay, bx, by, pl, pt, pl + ART, pt + ART));
-      return best;
-    },
-  };
-}
+const appleShape = spriteShape(APPLE_SPRITE, SPRITE_LEFT, SPRITE_TOP, REACH);
 
 /**
  * Whether the player touches the apple.

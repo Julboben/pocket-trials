@@ -6,7 +6,7 @@ import { drawScene, posedRide, parkedRide, findClimb, findJump, finishScene, fin
 import {
   loadSaveSlots, loadActiveSlot, saveActiveSlot, createSave, deleteSave, readBest,
   readLeaderboard, LEADERBOARD_SIZE, loadPreferences, savePreferences, cleanRiderName,
-  restoreOnlineSave, linkSave, readGhost, saveLook, loadSeenVersion, saveSeenVersion, applyCloudSave, clearSaveToken
+  restoreOnlineSave, linkSave, readGhost, saveLook, loadSeenVersion, saveSeenVersion, applyCloudSave, clearSaveToken, hasNisse
 } from '../storage.js';
 import { DEFAULT_LOOK, keepIdentity, lookKey, sameLook, starterLook } from '../cosmetics.js';
 import { createCustomizer, createIdentityPicker, drawLook } from './customizer.js';
@@ -23,7 +23,7 @@ import { RELEASES } from '../changelog.js';
 import { ACHIEVEMENTS, ACHIEVEMENT_GROUPS, statProgressText } from '../achievements.js';
 import {
   $, session, DEFAULT_BINDINGS, DEFAULT_PREFERENCES, sanitizePreferences,
-  leaderboardTrails, trailKey, trailMarker, runTimeText, bonusUnlock, lookOwner, riderLook, lookItemHint, progressOf
+  leaderboardTrails, trailKey, nisseKey, trailMarker, runTimeText, bonusUnlock, lookOwner, riderLook, lookItemHint, progressOf
 } from '../state.js';
 
 // Runs made without a savegame have no name.
@@ -747,7 +747,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     return heading;
   }
 
-  function trailCard({ trail, key, number, status, best = null, locked = false, kind = 'official', onSelect }) {
+  function trailCard({ trail, key, number, status, best = null, locked = false, kind = 'official', nisse = false, onSelect }) {
     const button = document.createElement('button');
     button.className = `trail-card${kind === 'official' ? '' : ` ${kind}-trail-card`}`;
     button.disabled = locked;
@@ -780,9 +780,26 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
       bestLabel.title = medal + ' medal';
     }
     button.append(preview, numberLabel, copy, bestLabel);
+    // A trail that hides a nisse says so, and whether this rider found it.
+    if (trail.nisse) {
+      const badge = document.createElement('span');
+      badge.className = 'trail-nisse';
+      badge.dataset.found = String(Boolean(nisse));
+      // The icon paints its own background, so it sits inside the badge's frame.
+      const icon = document.createElement('span');
+      icon.dataset.icon = 'nisse';
+      icon.setAttribute('aria-hidden', 'true');
+      badge.append(icon);
+      badge.title = nisse ? 'Nisse found' : 'A nisse hides on this trail';
+      badge.setAttribute('aria-label', badge.title);
+      button.append(badge);
+    }
     if (!locked) button.addEventListener('click', onSelect);
     return button;
   }
+
+  /** Whether the active rider has found a trail's nisse; never, without a rider. */
+  const nisseFound = entry => Boolean(session.saveGame) && hasNisse(session.activeSaveSlot, nisseKey(entry), trails.length);
 
   function buildTrailCards() {
     const cards = [trailSection('OFFICIAL TRAILS', 'Career progression and official best times')];
@@ -795,6 +812,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
         status: locked ? 'LOCKED' : (index === session.savedTrail ? 'CURRENT TRAIL' : 'UNLOCKED'),
         best: readBest(session.activeSaveSlot, trailKey(officialTrailEntries[index]), trails.length),
         locked,
+        nisse: nisseFound(officialTrailEntries[index]),
         onSelect: () => startTrail(index)
       }));
     });
@@ -811,6 +829,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
           best: session.saveGame ? readBest(session.activeSaveSlot, key, trails.length) : readLeaderboard(key)[0]?.time ?? null,
           locked: !open,
           kind: 'bonus',
+          nisse: nisseFound(entry),
           onSelect: () => startBonus(index)
         }));
       });
@@ -824,6 +843,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
         status: entry.storage === 'browser' ? 'CUSTOM · SAVED IN BROWSER' : 'CUSTOM TRAIL',
         best: readLeaderboard(trailKey(entry))[0]?.time ?? null,
         kind: 'custom',
+        nisse: nisseFound(entry),
         onSelect: () => startCustom(index)
       })));
     }

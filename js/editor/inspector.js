@@ -61,6 +61,7 @@ import {
 import { editor, waters } from "./state.js";
 import { saveToolSettings, toolSettings } from "./tools.js";
 import { moveWaterTo, waterDepthHint, waterHandle, waterSize } from "./water.js";
+import { NISSE_GROUND_LIFT } from "../nisse.js";
 
 export function selectedPosition() {
   if (!editor.selection) return null;
@@ -112,6 +113,8 @@ export function selectedPosition() {
     const prop = editor.trail.props[editor.selection.index];
     return [prop.x, objectY(prop)];
   }
+  if (editor.selection.kind === "nisse")
+    return editor.trail.nisse ? [editor.trail.nisse.x, objectY(editor.trail.nisse, NISSE_GROUND_LIFT)] : null;
   if (editor.selection.kind === "spike") {
     const spike = editor.trail.spikes[editor.selection.index];
     return [spike.x, spike.y];
@@ -227,6 +230,7 @@ export function syncInspector({ live = false } = {}) {
   $("selection-water-width-row").hidden = !selectedWater;
   $("selection-water-depth-row").hidden = !selectedWater;
   $("selection-water-hint").hidden = !selectedWater;
+  $("selection-nisse-hint").hidden = editor.selection?.kind !== "nisse";
   if (selectedWater) {
     $("selection-water-width").value = Math.round(selectedWater.width);
     $("selection-water-depth").value = Math.round(selectedWater.depth);
@@ -410,6 +414,8 @@ export function updateSelectedPosition(x, y) {
   } else if (kind === "apple") {
     editor.trail.apples[editor.selection.index].x = x;
     editor.trail.apples[editor.selection.index].y = y;
+  } else if (kind === "nisse") {
+    if (editor.trail.nisse) Object.assign(editor.trail.nisse, { x, y });
   } else if (kind === "prop") {
     editor.trail.props[editor.selection.index].x = x;
     editor.trail.props[editor.selection.index].y = y;

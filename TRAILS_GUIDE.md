@@ -28,6 +28,7 @@ Every trail is closed off at both ends, so the rider can't ride out of it, and e
    - **Marshals** (`marshal-start` at the start, `marshal-finish` waving the checkered flag at the finish).
    - **Course dressing** from the trials-event props: `tyre-wall`, `hay-bales`, `course-tape`, `banner`, `pit-board`, `petrol-can` and `camera-tower`, chosen to fit the world. The Woods might use hay bales and course tape, the City banners and tyre walls, and the Underground lanterns and tape.
    - The props are decoration only and never change the line, so they go on the `back` layer, clear of the route. Keep spectators for the finales where you can, so they mark a world's last test.
+7. **Hide the nisse off the line.** A trail can hide one optional nisse (see `TRAIL_FORMAT.md`). Put it where a player only goes on purpose, using a skill the career has already taught: behind the start, reached by turning around; on a ledge that takes a wheelie or a well-timed hop; above a low ceiling or under an overhang; at the end of a side branch; or past the finish, so you have to turn back for it. Never on the route itself, and never behind a skill the player hasn't met yet.
 
 ---
 

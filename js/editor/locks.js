@@ -84,6 +84,7 @@ export function moveLocks(from, to) {
 
 const LISTS = () => ({
   apple: editor.trail.apples,
+  nisse: editor.trail.nisse ? [editor.trail.nisse] : [],
   prop: editor.trail.props,
   spike: editor.trail.spikes,
   water: waters(),
@@ -93,7 +94,7 @@ const LISTS = () => ({
 export function groupOf(type, object) {
   if (type === "block") return isBackWall(object) ? "back" : "terrain";
   if (type === "prop") return object.layer === "front" ? "frontProps" : "backProps";
-  return { water: "water", spike: "spikes", apple: "apples" }[type] || null;
+  return { water: "water", spike: "spikes", apple: "apples", nisse: "apples" }[type] || null;
 }
 
 /** JSON with sorted keys, so the same content always reads the same. */
