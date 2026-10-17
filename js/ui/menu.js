@@ -22,7 +22,7 @@ import { VERSION } from '../version.js';
 import { RELEASES } from '../changelog.js';
 import { ACHIEVEMENTS, ACHIEVEMENT_GROUPS, statProgressText } from '../achievements.js';
 import {
-  $, session, DEFAULT_BINDINGS, DEFAULT_PREFERENCES, sanitizePreferences,
+  $, session, reducedMotion, DEFAULT_BINDINGS, DEFAULT_PREFERENCES, sanitizePreferences,
   leaderboardTrails, trailKey, nisseKey, trailMarker, runTimeText, bonusUnlock, lookOwner, riderLook, lookItemHint, progressOf
 } from '../state.js';
 
@@ -448,6 +448,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     if (garageUnsaved()) { setLookConfirm(true); return; }
     if (!$('menu-save-view').hidden && $('new-save-identity-step').hidden) { showSaveStep(1); return; }
     if (!$('menu-save-view').hidden && creatorFromRiders) { showView('riders'); return; }
+    if (!$('menu-credits-view').hidden && creditsFrom === 'settings') { syncSettings(); showView('settings'); return; }
     updateDashboard();
     showView('home');
   }
@@ -555,9 +556,10 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   function controls() {
     if (isLookConfirmOpen()) return [...$('look-confirm').querySelectorAll('button')];
     const visibleView = document.querySelector('.menu-view:not([hidden])');
-    // Skips controls in hidden parts of the view, such as another tab's panel.
+    // Skips controls in hidden parts of the view, such as another tab's panel,
+    // and ones the stylesheet hides, such as the trail editor on touch screens.
     return visibleView ? [...visibleView.querySelectorAll('button:not([disabled]), input:not([disabled])')]
-      .filter(control => !control.closest('[hidden]')) : [];
+      .filter(control => !control.closest('[hidden]') && control.getClientRects().length > 0) : [];
   }
 
   function selectControl(control) {
@@ -612,6 +614,8 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     $('menu-how-view').hidden = view !== 'how';
     $('menu-settings-view').hidden = view !== 'settings';
     $('menu-changelog-view').hidden = view !== 'changelog';
+    $('menu-credits-view').hidden = view !== 'credits';
+    if (view !== 'credits') stopCredits();
     $('menu-achievements-view').hidden = view !== 'achievements';
     // Opened by hand, How to play has no ride waiting; either way it has been seen.
     rideAfterHowTo = null;
@@ -721,6 +725,119 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     });
     $('changelog-list').replaceChildren(...releases);
   }
+
+  // --- Credits ---------------------------------------------------------------
+
+  /** Where the credits were opened from, so Back returns there: Settings, or home after the career. */
+  let creditsFrom = 'settings';
+  let creditsRoll = null;
+
+  /** Bonus trail makers, from the trails' own author credit, so a new maker is listed automatically. */
+  function bonusTrailMakers() {
+    const makers = new Map();
+    for (const entry of bonusTrailEntries) {
+      const author = entry.trail.author?.trim();
+      if (!author) continue;
+      if (!makers.has(author)) makers.set(author, []);
+      makers.get(author).push(entry.trail.name);
+    }
+    return [...makers];
+  }
+
+  /** Coda as the game draws him in the woods, for his line in the credits. */
+  function codaPortrait() {
+    const canvasElement = document.createElement('canvas');
+    canvasElement.className = 'credits-coda';
+    canvasElement.width = 72;
+    canvasElement.height = 44;
+    canvasElement.setAttribute('aria-hidden', 'true');
+    const context = canvasElement.getContext('2d');
+    context.imageSmoothingEnabled = false;
+    createGameArt(context).drawProp('corgi', 36, 40);
+    return canvasElement;
+  }
+
+  function buildCredits() {
+    const block = (role, ...lines) => {
+      const section = document.createElement('section');
+      section.className = 'credits-block';
+      if (role) {
+        const heading = document.createElement('h4');
+        heading.textContent = role;
+        section.append(heading);
+      }
+      for (const line of lines) section.append(line);
+      return section;
+    };
+    const text = (tag, content, className = '') => {
+      const node = document.createElement(tag);
+      node.textContent = content;
+      if (className) node.className = className;
+      return node;
+    };
+    const logo = document.createElement('span');
+    logo.className = 'credits-logo';
+    logo.dataset.icon = 'logo';
+    logo.setAttribute('aria-hidden', 'true');
+    const makers = bonusTrailMakers();
+    $('credits-roll').replaceChildren(
+      block('', logo, text('strong', 'Hjulben', 'credits-title')),
+      block('A GAME BY', text('strong', 'Julian Bo Bendtsen'),
+        text('p', 'Design, code, physics, pixel art, sound and trails')),
+      ...(makers.length ? [block('BONUS TRAILS', ...makers.flatMap(([author, names]) => [
+        text('strong', author), text('p', names.join(' · '))
+      ]))] : []),
+      block('CHIEF MORALE OFFICER', codaPortrait(), text('strong', 'Coda the corgi'),
+        text('p', 'For the company on every late night, and for riding along on the trails')),
+      block('WITH LOVE AND THANKS TO', text('strong', 'Emilie'),
+        text('p', 'For the patience with all the late nights and “just one more trail”')),
+      block('BUILT WITH THE HELP OF', text('strong', 'AI tools'),
+        text('p', 'Including Claude by Anthropic, as a coding partner')),
+      block('TYPE', text('strong', 'Jersey 10'),
+        text('p', 'By The Soft Type Project, under the SIL Open Font License')),
+      block('', text('strong', 'Thanks for riding', 'credits-end')),
+    );
+  }
+
+  /** Rolls the credits up through the frame, ending on "Thanks for riding". */
+  function rollCredits() {
+    stopCredits();
+    const frame = $('credits');
+    const roll = $('credits-roll');
+    // Still motion off: the list simply scrolls.
+    frame.classList.toggle('credits-still', reducedMotion);
+    $('credits-hint').textContent = reducedMotion ? 'Scroll to read · Back to leave' : 'Hold to pause · Back to leave';
+    if (reducedMotion || typeof roll.animate !== 'function') return;
+    const height = frame.clientHeight;
+    // From just below the frame to the last line resting in its middle.
+    const from = height;
+    const to = height / 2 - roll.scrollHeight + (roll.lastElementChild?.offsetHeight ?? 0) / 2;
+    const PIXELS_PER_SECOND = 40;
+    creditsRoll = roll.animate(
+      [{ transform: `translateY(${from}px)` }, { transform: `translateY(${to}px)` }],
+      { duration: ((from - to) / PIXELS_PER_SECOND) * 1000, easing: 'linear', fill: 'forwards' }
+    );
+  }
+
+  function stopCredits() {
+    creditsRoll?.cancel();
+    creditsRoll = null;
+  }
+
+  /** Opens the credits: from Settings, or after the last official trail, when Back goes home. */
+  function showCredits(from = 'settings') {
+    creditsFrom = from;
+    buildCredits();
+    showView('credits');
+    // After the view is laid out, so the frame has its height.
+    requestAnimationFrame(rollCredits);
+  }
+
+  // Holding the pointer (or a finger) on the credits pauses them.
+  const pauseCredits = () => creditsRoll?.pause();
+  const playCredits = () => { if (creditsRoll?.playState === 'paused') creditsRoll.play(); };
+  $('credits').addEventListener('pointerdown', pauseCredits);
+  for (const type of ['pointerup', 'pointercancel', 'pointerleave']) $('credits').addEventListener(type, playCredits);
 
   function showChangelog() {
     buildChangelog();
@@ -1315,6 +1432,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   // Wiring.
   $('menu-how-to').addEventListener('click', () => showView('how'));
   $('menu-whats-new').addEventListener('click', showChangelog);
+  $('show-credits').addEventListener('click', () => showCredits('settings'));
   $('menu-editor').addEventListener('click', () => { window.location.href = './editor.html'; });
   $('menu-settings').addEventListener('click', () => { syncSettings(); showView('settings'); });
   document.querySelectorAll('#menu-settings-view [role="tab"]').forEach(tab => {
@@ -1478,5 +1596,5 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     if ($('menu-home').hidden) { goBack(); return true; }
     return false;
   };
-  return { open, close, isOpen, showTrailsStatus, updateDashboard, drawBackground, syncSettings, handlePad, showView, canResume, back, refreshCloudSave };
+  return { open, close, isOpen, showTrailsStatus, updateDashboard, drawBackground, syncSettings, handlePad, showView, showCredits, canResume, back, refreshCloudSave };
 }

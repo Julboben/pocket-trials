@@ -429,15 +429,12 @@
                                     <span>RIDERS</span
                                     ><small>Switch or add a rider</small>
                                 </button>
-
                                 <button
-                                    class="menu-action menu-action-row menu-action-editor"
+                                    class="menu-action menu-action-row menu-editor"
                                     id="menu-editor"
                                 >
-                                    <span>TRAIL EDITOR</span
-                                    ><small
-                                        >Build and share your own trails</small
-                                    >
+                                    <span data-icon-before="pencil">TRAIL EDITOR</span
+                                    ><small>Build your own trails and share them</small>
                                 </button>
                                 <button
                                     class="menu-action menu-action-half menu-action-compact"
@@ -452,6 +449,31 @@
                                     <span>HOW TO PLAY</span>
                                 </button>
                             </div>
+                        </div>
+
+                        <div class="menu-view" id="menu-credits-view" hidden>
+                            <div class="menu-view-head">
+                                <div>
+                                    <span class="save-label" data-icon-before="star"
+                                        >THE PEOPLE BEHIND IT</span
+                                    >
+                                    <h3>Credits</h3>
+                                </div>
+                                <button
+                                    class="menu-back"
+                                    data-menu-back
+                                    data-icon-before="arrow-left"
+                                >
+                                    BACK
+                                </button>
+                            </div>
+                            <!-- The roll is filled in by menu.js, so the bonus trail makers come from the trails. -->
+                            <div class="credits" id="credits" tabindex="-1">
+                                <div class="credits-roll" id="credits-roll"></div>
+                            </div>
+                            <p class="load-game-help credits-hint" id="credits-hint">
+                                Hold to pause · Back to leave
+                            </p>
                         </div>
 
                         <div class="menu-view" id="menu-changelog-view" hidden>
@@ -1261,6 +1283,16 @@
                                     data-icon-before="undo"
                                 >
                                     RESET ALL SETTINGS
+                                </button>
+
+                                <h4 class="settings-section">ABOUT</h4>
+                                <button
+                                    type="button"
+                                    class="menu-back settings-reset"
+                                    id="show-credits"
+                                    data-icon-before="star"
+                                >
+                                    CREDITS
                                 </button>
                             </div>
                             <div

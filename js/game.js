@@ -150,6 +150,8 @@ export function startGame({ shared = null } = {}) {
   let replay = null;
   /** The last finished run, for Watch Replay on the results. */
   let lastRun = null;
+  // Set when this run ended the career, until its results' Roll Credits button is used.
+  let creditsAfterResults = false;
   let wakeLock = null;
   const playtestData = readPlaytestTrail();
   const playtestTrail = playtestData ? normalizeTrail(playtestData) : null;
@@ -714,6 +716,9 @@ export function startGame({ shared = null } = {}) {
     earn(finishedRunAchievements(ride, previousBest, worldBest), {}, before);
     const medals = session.trail.medals;
     const last = session.trailIndex === trails.length - 1;
+    // Beating the last official trail for the first time ends the career: the
+    // results' main button rolls the credits.
+    creditsAfterResults = official && last && Boolean(saveGame) && previousBest === null;
     // Only a run the player actually rode is sent to the world board.
     // Offline saves stay local-only. The server replays the inputs to time the run.
     const submission = ranked && session.state === 'running' && saveGame?.token
@@ -723,7 +728,7 @@ export function startGame({ shared = null } = {}) {
       official, bonus: session.trailSource === 'bonus', time, previousBest, rank, worldPending: !!submission,
       medals, medal: medalFor(medals, time),
       apples: ride.apples.length, author: session.trail.author,
-      primaryLabel: official && !last ? 'Next Trail' : 'Play Again',
+      primaryLabel: official && !last ? 'Next Trail' : creditsAfterResults ? 'Roll Credits' : 'Play Again',
       restartKey: restartKey()
     });
     if (submission) {
@@ -993,6 +998,13 @@ export function startGame({ shared = null } = {}) {
   });
 
   $('primary').addEventListener('click', () => {
+    if (session.state === 'won' && creditsAfterResults) {
+      creditsAfterResults = false;
+      sounds.menuConfirm();
+      showMainMenu();
+      menu.showCredits('home');
+      return;
+    }
     // On the last trail the button reads Play Again, so it falls through to a retry.
     if (session.state === 'won' && session.trailSource === 'official' && session.trailIndex < trails.length - 1) {
       openingTrail = true;

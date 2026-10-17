@@ -58,6 +58,7 @@ h2,
 .menu-view-head h3,
 .menu-action:not(.continue-save) > span,
 .continue-save-copy strong,
+.credits-block strong,
 .trail-number {
     font-family: var(--font-display);
     font-weight: var(--weight-regular);
@@ -1795,27 +1796,32 @@ h2 {
     display: grid;
     grid-template-columns: auto 1fr;
     align-items: center;
-    gap: 20px;
+    gap: 24px;
     margin: 0 auto 44px;
     & .modal-badge {
-        margin-bottom: 7px;
+        margin-bottom: 8px;
         color: var(--color-accent);
         display: block;
+        font-size: var(--text-md);
+        @media (max-width: 520px) {
+            font-size: var(--text-sm);
+        }
     }
-    /* Drawn on the same block size as the wheel logo beside it. */
+    /* Drawn on the same block size as the wheel logo beside it, in whole
+       steps of the pixel font so its blocks stay on the pixel grid. */
     & h2 {
-        font-size: calc(var(--font-display-step) * 3);
+        font-size: calc(var(--font-display-step) * 4);
         text-shadow: var(--shadow-pixel);
         text-transform: uppercase;
         @media (max-width: 520px) {
-            font-size: calc(var(--font-display-step) * 2);
+            font-size: calc(var(--font-display-step) * 3);
         }
         @media (max-height: 500px) {
             font-size: calc(var(--font-display-step) * 1.5);
         }
     }
     @media (max-width: 520px) {
-        grid-template-columns: 64px 1fr;
+        grid-template-columns: 96px 1fr;
         gap: 14px;
     }
     /* Short landscape phones: keep the menu buttons on screen. */
@@ -1830,10 +1836,13 @@ h2 {
     background: none;
     color: var(--color-text-soft);
     font: inherit;
-    font-size: var(--text-xs);
+    font-size: var(--text-sm);
     font-weight: var(--weight-heavy);
     letter-spacing: 2px;
     cursor: pointer;
+    @media (max-width: 520px) {
+        font-size: var(--text-xs);
+    }
     &:hover,
     &:focus-visible {
         color: var(--color-text);
@@ -1843,9 +1852,9 @@ h2 {
 }
 
 .menu-logo {
-    --px: 3px;
+    --px: 4px;
     @media (max-width: 520px) {
-        --px: 2px;
+        --px: 3px;
     }
     @media (max-height: 500px) {
         --px: 1.5px;
@@ -2133,16 +2142,6 @@ h2 {
         white-space: nowrap;
     }
 }
-.menu-action-editor {
-    border-color: #4f7a63;
-    background: #1f3a33;
-    & span {
-        color: var(--color-green);
-    }
-}
-.menu-action.menu-action-editor:hover {
-    background: #29493f;
-}
 .menu-action-compact {
     min-height: 58px;
     align-items: center;
@@ -2179,8 +2178,10 @@ h2 {
     background: var(--color-surface-hover);
 }
 
+/* The same ring as keyboard focus, whether the mouse, the arrow keys or a
+   gamepad moved the selection here. */
 .menu-selected {
-    outline: 2px solid var(--color-green);
+    outline: 2px solid var(--color-focus);
     outline-offset: 3px;
     /* The selection ring is for keyboard and gamepad; touch screens don't need it. */
     @media (hover: none) {
@@ -2199,6 +2200,22 @@ h2 {
 .menu-action.menu-action-primary:hover {
     border-color: var(--color-accent-hover);
     background: var(--color-accent-hover);
+}
+/* The trail editor: a green row that stands out from the dark ones, since we
+   want riders to build trails. It needs a mouse, so touch-only phones and
+   tablets don't show it. After the hover rule above, so it keeps its green. */
+.menu-action.menu-editor {
+    border-color: #4f7a63;
+    background: #1f3a33;
+    & span {
+        color: var(--color-green);
+    }
+    &:hover {
+        background: #29493f;
+    }
+    @media (hover: none) and (pointer: coarse) {
+        display: none;
+    }
 }
 .menu-view-head {
     display: flex;
@@ -2956,6 +2973,80 @@ h2 {
     font-weight: var(--weight-heavy);
     letter-spacing: 1px;
     vertical-align: 1px;
+}
+/* Credits: the text rolls up through a frame that fades out at both ends,
+   over the menu's trail. With reduced motion it is a plain list to scroll. */
+.credits {
+    position: relative;
+    height: min(520px, calc(100svh - 380px));
+    min-height: 260px;
+    overflow: hidden;
+    outline: none;
+    -webkit-mask-image: linear-gradient(transparent, #000 14%, #000 86%, transparent);
+    mask-image: linear-gradient(transparent, #000 14%, #000 86%, transparent);
+    cursor: default;
+    user-select: none;
+    &.credits-still {
+        overflow: auto;
+        -webkit-mask-image: none;
+        mask-image: none;
+        user-select: auto;
+    }
+}
+/* Below the frame until the roll starts, so it never flashes in place. */
+.credits:not(.credits-still) .credits-roll {
+    transform: translateY(100vh);
+}
+.credits-roll {
+    display: grid;
+    gap: 44px;
+    padding-block: 12px;
+    text-align: center;
+    text-shadow: var(--shadow-pixel);
+}
+.credits-block {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    & h4 {
+        margin: 0 0 4px;
+        color: var(--color-accent);
+        font-size: var(--text-sm);
+        font-weight: var(--weight-heavy);
+        letter-spacing: 2px;
+    }
+    & strong {
+        font-size: calc(var(--font-display-step) * 2);
+        line-height: 1;
+    }
+    & p {
+        max-width: 36ch;
+        margin: 0;
+        color: var(--color-text-soft);
+        font-size: var(--text-md);
+        line-height: 1.5;
+    }
+}
+.credits-logo {
+    --px: 3px;
+}
+.credits-title {
+    text-transform: uppercase;
+    .credits-block & {
+        font-size: calc(var(--font-display-step) * 3);
+    }
+}
+.credits-coda {
+    width: 144px;
+    height: 88px;
+    image-rendering: pixelated;
+}
+.credits-end {
+    color: var(--color-green);
+}
+.credits-hint {
+    margin-top: 10px;
+    text-align: center;
 }
 .changelog {
     display: grid;
