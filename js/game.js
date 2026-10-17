@@ -118,6 +118,13 @@ export function startGame({ shared = null } = {}) {
         return run;
       }
     };
+    // In the editor's play test, the same tools also answer from the editor
+    // page's console, so there is no frame to pick.
+    if (window.parent !== window) {
+      try {
+        Object.assign(window.parent, { hjulbenGame: window.hjulbenGame, hjulbenPhysicsDebug: globalThis.hjulbenPhysicsDebug });
+      } catch {}
+    }
   }
 
   let lastTime = 0, accumulator = 0, landingSoundCooldown = 0, splashSoundCooldown = 0, suspensionSoundCooldown = 0;

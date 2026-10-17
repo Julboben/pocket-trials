@@ -162,6 +162,10 @@ export const XPBD_THROTTLE_INPUT_RESPONSE = 10;
 export const XPBD_THROTTLE_RELEASE_RESPONSE = 12;
 export const XPBD_LEAN_INPUT_RESPONSE = 10;
 export const XPBD_UPHILL_FORWARD_LEAN_REDUCTION = 1.4;
+// Below this speed (px/s) the uphill cut fades out, to nothing at a standstill,
+// so a rider standing on a climb can lean forward and lift the rear wheel as
+// far as gravity allows. Moving, forward lean stays cut and holding it climbs.
+export const XPBD_UPHILL_FORWARD_LEAN_SPEED = 40;
 // Nose-up tilt from the slope (radians) at which the front wheel counts as
 // lifted: forward lean is back to full strength for pulling it down.
 export const XPBD_UPHILL_FORWARD_LEAN_FULL_TILT = 12 * Math.PI / 180;

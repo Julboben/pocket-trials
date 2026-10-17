@@ -648,6 +648,30 @@ function steepClimbForwardLeanScenario() {
   assert.ok(progress > 350, `forward lean must still let the bike climb: ${progress}`);
   return { maxRearLift, minRelativePitch, progress };
 }
+// Standing on a climb off the gas, forward lean is not cut: it lifts the rear
+// as far as gravity lets it, more easily the gentler the slope. A hill start
+// on the gas with forward lean held still climbs without lifting the rear.
+function standingForwardLeanScenario() {
+  const standing = degrees => {
+    const k = Math.tan(degrees * Math.PI / 180);
+    const trail = groundTrail([[0, 800], [1400, 800 - 1400 * k]]);
+    const make = () => { const simulation = createSimulation(trail, { x: 300 }); run(simulation, 240, { brake: true }); return simulation; };
+    const lift = simulation => (terrainAt(trail, simulation.vehicle.rear.x).y - RADIUS - simulation.vehicle.rear.y) * Math.cos(degrees * Math.PI / 180);
+    const leaning = make();
+    let standLift = 0;
+    for (let index = 0; index < 180; index++) { step(leaning, { brake: true, lean: 1 }); standLift = Math.max(standLift, lift(leaning)); }
+    const starting = make(), from = vehicleMetrics(starting.vehicle).center.x;
+    let startLift = 0;
+    for (let index = 0; index < 240; index++) { step(starting, { throttle: true, lean: 1 }); startLift = Math.max(startLift, lift(starting)); }
+    return { standLift, startLift, climbed: vehicleMetrics(starting.vehicle).center.x - from };
+  };
+  const gentle = standing(20), steep = standing(33);
+  assert.ok(gentle.standLift > 20 && steep.standLift > 20, `standing on a climb, forward lean must lift the rear: ${gentle.standLift} px on 20°, ${steep.standLift} px on 33°`);
+  assert.ok(gentle.startLift < 6 && steep.startLift < 6, `a hill start with forward lean must not lift the rear: ${gentle.startLift} px on 20°, ${steep.startLift} px on 33°`);
+  assert.ok(gentle.climbed > 150 && steep.climbed > 100, `a hill start with forward lean must climb: ${gentle.climbed} px on 20°, ${steep.climbed} px on 33°`);
+  return { standLift20: gentle.standLift, standLift33: steep.standLift, startLift33: steep.startLift, climbed33: steep.climbed };
+}
+
 // Nothing but the rider holds the nose down on a climb: held throttle on a
 // steep hill without leaning forward lifts the front until the bike loops.
 function steepClimbLoopScenario() {
@@ -927,6 +951,7 @@ const results = {
   singleWheelLanding: singleWheelLandingScenario(),
   hardLanding: hardLandingScenario(),
   steepClimbForwardLean: steepClimbForwardLeanScenario(),
+  standingForwardLean: standingForwardLeanScenario(),
   steepClimbLoop: steepClimbLoopScenario(),
   steepWall: steepWallScenario(),
   steepHill: steepHillScenario(),

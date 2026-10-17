@@ -43,6 +43,7 @@ import {
   XPBD_LEAN_INPUT_RESPONSE,
   XPBD_UPHILL_FORWARD_LEAN_REDUCTION,
   XPBD_UPHILL_FORWARD_LEAN_FULL_TILT,
+  XPBD_UPHILL_FORWARD_LEAN_SPEED,
   XPBD_BRAKE_TORQUE,
   XPBD_COAST_RESISTANCE_LOW_SPEED,
   XPBD_COAST_RESISTANCE_HIGH_SPEED,
@@ -1067,7 +1068,15 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
   const midpointX = (rear.x + front.x) / 2;
   const midpointY = Math.min(rear.y, front.y) - RADIUS;
   const slope = terrainAt(trail, midpointX, midpointY).slope;
-  const uphill = clamp(-slope * facing, 0, 1);
+  // The uphill cut on forward lean applies while the bike moves or is on the
+  // gas, and fades out standing still off the gas; see
+  // XPBD_UPHILL_FORWARD_LEAN_SPEED.
+  const speed =
+    hypot(rear.x - rear.ox + front.x - front.ox, rear.y - rear.oy + front.y - front.oy) /
+    (2 * STEP);
+  const uphill =
+    clamp(-slope * facing, 0, 1) *
+    Math.max(clamp(speed / XPBD_UPHILL_FORWARD_LEAN_SPEED, 0, 1), throttle);
   const drivenWheel = facing > 0 ? rear : front;
   const { clutchTorque, crankTorque } = runEngine(
     vehicle.engine,
