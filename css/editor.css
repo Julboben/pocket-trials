@@ -110,8 +110,11 @@ fieldset:disabled :is(input, select, textarea, button) { opacity: .55; cursor: n
 .wind-row .segmented button { padding: 4px 8px; white-space: nowrap; }
 .windsock { grid-area: sock; width: 64px; height: 40px; image-rendering: pixelated; }
 .toolbox-footer { padding-top: 12px; }
-.zoom-controls { display: grid; grid-template-columns: 34px 1fr 34px; align-items: center; gap: 5px; text-align: center; font-size: var(--text-sm); }
-.zoom-controls button { height: 32px; }
+.zoom-controls { display: grid; grid-template-columns: 40px 34px 1fr 34px; align-items: center; gap: 5px; text-align: center; font-size: var(--text-sm); }
+.zoom-controls button { width: 34px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; }
+.zoom-controls #game-art[aria-pressed="true"] { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-green-ink); }
+/* On, but zoomed out too far for the art to be drawn. */
+.zoom-controls #game-art[aria-pressed="true"].zoomed-out { opacity: .5; }
 .back-game { color: var(--color-green); text-decoration: none; }
 .canvas-wrap { position: relative; min-width: 0; min-height: 460px; overflow: hidden; background: var(--color-paper); }
 #editor-canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; }

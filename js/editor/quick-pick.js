@@ -1,10 +1,12 @@
 // Cmd/Ctrl+P opens a quick pick, like VS Code's: one search over every tool,
-// prop and block material, so a prop is a few keystrokes away instead of a
+// prop and block material, and the view toggles, so a prop is a few keystrokes away instead of a
 // tool click and a trip through the prop picker.
 import { terrainMaterials } from "../trails.js";
 import { $ } from "./dom.js";
+import { editor } from "./state.js";
 import { openPicker } from "./picker.js";
 import { render } from "./render.js";
+import { toggleGameArt } from "./view.js";
 import { propThumbnail } from "./thumbnails.js";
 import {
   TOOL_INFO,
@@ -64,6 +66,12 @@ function quickPickSelect() {
         ),
       ),
     ),
+    group("View", [
+      option("view:toggle-game-art", `${editor.gameArt ? "Hide" : "Show"} game art`, {
+        marker: "Y",
+        icon: "picture",
+      }),
+    ]),
   );
   // Nothing is chosen yet, so the search starts on the first result.
   select.value = "";
@@ -73,6 +81,10 @@ function quickPickSelect() {
 
 function choose(value) {
   const [kind, name] = value.split(":");
+  if (kind === "view") {
+    toggleGameArt();
+    return;
+  }
   if (kind === "prop") {
     toolSettings.prop.type = name;
     saveToolSettings();

@@ -12,7 +12,7 @@ import { detectDevServer, reportEditorFeat, terrainMaterials, trailEntries } fro
 import { DISCORD_LINK_LENGTH, trailShareUrl } from "../trail-link.js";
 import { bindAutosave } from "./autosave.js";
 import { bindClipboard } from "./clipboard.js";
-import { $, wrap } from "./dom.js";
+import { $, canvas, wrap } from "./dom.js";
 import { pushHistory, redo, undo, updateHistoryButtons } from "./history.js";
 import { bindInput } from "./input.js";
 import { bindInspector, rememberedAuthor, renameTrail, syncInspector } from "./inspector.js";
@@ -39,7 +39,14 @@ import {
   storedTrailIndex,
   updateTrailControls,
 } from "./trails.js";
-import { focusOnStart, resize, updateZoom, zoomAtCenter } from "./view.js";
+import {
+  focusOnStart,
+  resize,
+  toggleGameArt,
+  updateGameArtButton,
+  updateZoom,
+  zoomAtCenter,
+} from "./view.js";
 
 editor.trailIndex = storedTrailIndex();
 
@@ -165,14 +172,12 @@ bindMenu();
 
 bindVersions();
 
-$("game-art").checked = editor.gameArt;
+updateGameArtButton();
 
-$("game-art").addEventListener("change", (event) => {
-  editor.gameArt = event.target.checked;
-  try {
-    store().setItem(GAME_ART_KEY, editor.gameArt ? "1" : "0");
-  } catch (_) {}
-  render();
+$("game-art").addEventListener("click", () => {
+  toggleGameArt();
+  // Hand focus back so the canvas shortcuts, Y included, keep working.
+  canvas.focus({ preventScroll: true });
 });
 
 $("save-draft").addEventListener("click", saveDraft);

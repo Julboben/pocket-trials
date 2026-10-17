@@ -65,6 +65,7 @@ import { canSave, saveDraft, saveTrail } from "./trails.js";
 import {
   focusOnStart,
   pointerWorld,
+  toggleGameArt,
   updateZoom,
   zoomAtCenter,
 } from "./view.js";
@@ -856,6 +857,10 @@ export function bindInput() {
     }
     if (event.code === "KeyX") {
       toggleFlip();
+      return;
+    }
+    if (event.code === "KeyY") {
+      toggleGameArt();
       return;
     }
     if (event.code === "KeyR") {

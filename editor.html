@@ -214,10 +214,6 @@
                                     <span data-icon="scissors" aria-hidden="true"></span><span>Cut</span>
                                 </button>
                             </div>
-                            <label class="checkbox-row"
-                                >Show game art
-                                <input id="game-art" type="checkbox"
-                            /></label>
                         </section>
                         <section class="tool-group">
                             <h3>OBJECTS</h3>
@@ -481,7 +477,8 @@
 
                     <div class="toolbox-footer">
                         <div class="zoom-controls">
-                            <button id="zoom-out" aria-label="Zoom out"><span data-icon="minus" aria-hidden="true"></span></button
+                            <button id="game-art" aria-pressed="false" aria-label="Show game art"><span data-icon="picture" aria-hidden="true"></span></button
+                            ><button id="zoom-out" aria-label="Zoom out"><span data-icon="minus" aria-hidden="true"></span></button
                             ><span id="zoom-label">100%</span
                             ><button id="zoom-in" aria-label="Zoom in"><span data-icon="plus" aria-hidden="true"></span></button>
                         </div>
@@ -1134,6 +1131,8 @@
                         <dd>Zoom, also pinch</dd>
                         <dt><kbd>=</kbd> <kbd>−</kbd> <kbd>0</kbd></dt>
                         <dd>Zoom in, out, reset</dd>
+                        <dt><kbd>Y</kbd></dt>
+                        <dd>Show or hide the game art</dd>
                         <dt><kbd>Home</kbd></dt>
                         <dd>Back to the start</dd>
                     </dl>

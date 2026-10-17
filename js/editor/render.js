@@ -159,7 +159,7 @@ export function restingY(x, y) {
 
 // Below this zoom the game art is too small to read and slow to draw, so the
 // plain terrain is drawn instead.
-const GAME_ART_MIN_ZOOM = 0.35;
+export const GAME_ART_MIN_ZOOM = 0.35;
 
 // Back walls in the editor: shaded like the game draws them, with a dotted
 // outline and their own point colour, so they read as behind the terrain.
