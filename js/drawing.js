@@ -107,6 +107,8 @@ import {
   grassLean,
   IVY,
   drawIvy,
+  drawMoss,
+  mossCushions,
   ivyLayout,
   ivyRustle,
 } from "./forest-props.js";
@@ -3610,7 +3612,7 @@ const PROP_EXTENTS = {
   start: [-48, -102, 48],
   vines: [-16, -10, 16],
   roots: [-32, -16, 32],
-  moss: [-18, -18, 18],
+  moss: [-20, -32, 22],
   crates: [-50, -72, 50],
   apple: [-6, -12, 6],
   ladder: [-28, -100, 26],
@@ -4684,18 +4686,6 @@ export function createGameArt(ctx) {
       const [tx, ty] = points[3];
       pixelPath([[tx, ty], [tx + 2, ty + 6]], BARK.tip, 1, 2);
     }
-  }
-
-  // Moss pressed onto the rock side of the anchor.
-  function drawMoss(wall) {
-    const hug = (wall?.side || 0) * 4;
-    const clumps = [[-6, -8, 7], [4, -2, 8], [-2, 8, 6], [6, 12, 4]];
-    for (const [cx, cy, r] of clumps) drawPixelDisc(cx + hug, cy, r, LEAF.dark, 2);
-    for (const [cx, cy, r] of clumps) drawPixelDisc(cx + hug + 2, cy - 2, r - 3, LEAF.mid, 2);
-    pixelRect(4 + hug, -8, 4, 2, LEAF.light, 2);
-    pixelRect(-6 + hug, -14, 4, 2, LEAF.light, 2);
-    for (const [dx, length] of [[-8, 6], [0, 10], [8, 4]])
-      pixelRect(dx + hug, 14, 2, length, LEAF.stem, 2);
   }
 
   // A colony roosting on the roof, or scattering once startled
@@ -5817,7 +5807,11 @@ export function createGameArt(ctx) {
       if (type !== "vines") ctx.translate(wall?.face || 0, 0);
       // Grow away from the rock: rock on the right (side 1) means grow left.
       if (type === "vines") drawVines(x, wall);
-      else if (type === "moss") drawMoss(wall);
+      else if (type === "moss") {
+        // Cushions of moss against the rock, bulging out into the air.
+        ctx.scale(wall?.side === 1 ? -1 : 1, 1);
+        drawMoss({ pixelRect }, mossCushions((n) => propNoise(x, 40 + n)));
+      }
       else if (type === "ivy") {
         // Climbs the face, its leaves out in the air and stirring in the wind.
         ctx.scale(wall?.side === 1 ? -1 : 1, 1);
