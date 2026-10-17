@@ -302,6 +302,15 @@
                             </fieldset>
                             <fieldset>
                                 <legend>WEATHER</legend>
+                                <div
+                                    class="weather-presets"
+                                    id="weather-presets"
+                                    role="group"
+                                    aria-label="Weather presets"
+                                ></div>
+                            </fieldset>
+                            <fieldset>
+                                <legend>SKY</legend>
                                 <label
                                     ><span class="range-head"
                                         >Sun
@@ -347,6 +356,9 @@
                                         max="1"
                                         step="0.05"
                                 /></label>
+                            </fieldset>
+                            <fieldset>
+                                <legend>PRECIPITATION</legend>
                                 <label
                                     ><span class="range-head"
                                         >Rain
@@ -387,6 +399,39 @@
                                     >
                                     <input
                                         id="weather-lightning"
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                /></label>
+                            </fieldset>
+                            <fieldset>
+                                <legend>WIND</legend>
+                                <div class="field-row wind-row">
+                                    <span>Blowing</span>
+                                    <span class="segmented" role="group" aria-label="Wind direction">
+                                        <button type="button" id="wind-left" aria-label="Wind blowing left">← Left</button>
+                                        <button type="button" id="wind-right" aria-label="Wind blowing right">Right →</button>
+                                    </span>
+                                    <canvas
+                                        id="windsock"
+                                        class="windsock"
+                                        width="64"
+                                        height="40"
+                                        role="img"
+                                        aria-label="Windsock showing the wind"
+                                    ></canvas>
+                                </div>
+                                <label
+                                    ><span class="range-head"
+                                        >Strength
+                                        <output
+                                            id="weather-wind-value"
+                                            for="weather-wind"
+                                        ></output></span
+                                    >
+                                    <input
+                                        id="weather-wind"
                                         type="range"
                                         min="0"
                                         max="1"

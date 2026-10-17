@@ -1348,7 +1348,13 @@
   "water": [],
   "weather": {
     "sun": 0.75,
-    "clouds": 0.2
+    "clouds": 0.2,
+    "fog": 0,
+    "rain": 0,
+    "snow": 0,
+    "lightning": 0,
+    "wind": 0.25,
+    "windDirection": "left"
   },
   "timeOfDay": "noon",
   "medals": {

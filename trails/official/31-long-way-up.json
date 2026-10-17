@@ -1456,8 +1456,12 @@
   "weather": {
     "sun": 0.7,
     "clouds": 1,
+    "fog": 0.5,
+    "rain": 0,
     "snow": 1,
-    "fog": 0.5
+    "lightning": 0,
+    "wind": 1,
+    "windDirection": "left"
   },
   "medals": {
     "gold": 20,

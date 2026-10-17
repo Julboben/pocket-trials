@@ -14,6 +14,7 @@ import { WATER_SIZE, normalizeWater, waterAt, waterBodies, waterColumns } from "
 import { WATER_PROPS, SURFACE_PROPS, waterPropBody } from "./water-props.js";
 import { BANNER_MAX } from "./event-props.js";
 import { FINISH_FLOWER_LIFT, bikeTouchesFlower } from "./finish.js";
+import { WEATHER_DEFAULTS, WEATHER_LEVELS, WIND_DIRECTIONS, resolveWeather } from "./weather.js";
 import {
   normalizeBlocks as normalizeTerrainBlocks,
   validateBlocks as validateTerrainBlocks,
@@ -112,7 +113,7 @@ export function createBlankTrail(index = 0) {
     props: [],
     spikes: [],
     water: [],
-    weather: { sun: 1, clouds: 0.2 },
+    weather: { ...WEATHER_DEFAULTS },
   };
 }
 
@@ -285,7 +286,9 @@ export function normalizeTrail(input, index = 0) {
       )
     : [];
   trail.water = Array.isArray(trail.water) ? trail.water.map(normalizeWater) : [];
-  trail.weather = { ...fallback.weather, ...(trail.weather || {}) };
+  // Every setting is spelled out, defaults included, so the editor shows what
+  // the game draws; unknown settings are dropped.
+  trail.weather = resolveWeather(trail.weather);
   // Noon is the default look; an unrecognised value falls back to it too.
   if (!TIMES_OF_DAY.includes(trail.timeOfDay))
     trail.timeOfDay = DEFAULT_TIME_OF_DAY;
@@ -627,7 +630,7 @@ export function validateTrail(trail) {
     else if (!(times[0] <= times[1] && times[1] <= times[2]))
       error("Medal times must get slower from gold to silver to bronze.");
   }
-  for (const key of ["sun", "clouds", "fog", "rain", "snow", "lightning"]) {
+  for (const key of WEATHER_LEVELS) {
     const value = trail.weather?.[key];
     if (
       value !== undefined &&
@@ -635,6 +638,9 @@ export function validateTrail(trail) {
     )
       error(`Weather.${key} must be between 0 and 1.`);
   }
+  const direction = trail.weather?.windDirection;
+  if (direction !== undefined && !WIND_DIRECTIONS.includes(direction))
+    error(`Weather.windDirection must be ${WIND_DIRECTIONS.map((value) => `"${value}"`).join(" or ")}.`);
   // An object resting on "whatever is here" can be left over open air by an
   // edit. Checked last, so a broken finish or terrain, which
   // usually causes it, is the first thing reported.

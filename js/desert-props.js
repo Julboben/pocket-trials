@@ -459,16 +459,6 @@ export function drawWindmillRotor({ pixelRect }, angle) {
 }
 
 /**
- * How hard the wind blows on a trail, 0 … 1: a breeze in fair weather, more
- * under cloud, and a gale in rain, snow or a thunderstorm.
- */
-export function windStrength(weather = {}) {
-  const value = (key) => Math.max(0, Math.min(1, Number(weather?.[key]) || 0));
-  const storm = Math.max(value("rain"), value("snow"), value("lightning"));
-  return Math.min(1, 0.25 + value("clouds") * 0.2 + storm * 0.75);
-}
-
-/**
  * How far a windmill's rotor has turned at `time` in a `wind` of 0 … 1, with
  * gusts; `phase` keeps neighbouring windmills out of step. It always turns the
  * same way, faster in stronger wind, and stands still at time 0.

@@ -22,36 +22,37 @@
             "id": "ground-0",
             "x": -1000,
             "y": 1200,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "ground-1",
             "x": -1000,
             "y": 100,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "ground-2",
             "x": -720,
             "y": 100,
+            "mode": "independent",
             "in": null,
             "out": [
               -680,
               100
             ],
-            "mode": "independent",
             "edge": "curve"
           },
           {
             "id": "ground-3",
             "x": -600,
             "y": 300,
+            "mode": "smooth",
             "in": [
               -640,
               300
@@ -60,13 +61,13 @@
               -573.3,
               300
             ],
-            "mode": "smooth",
             "edge": "curve"
           },
           {
             "id": "ground-4",
             "x": -520,
             "y": 300,
+            "mode": "independent",
             "in": [
               -548,
               300
@@ -75,13 +76,13 @@
               -506,
               308.4
             ],
-            "mode": "independent",
             "edge": "curve"
           },
           {
             "id": "ground-5",
             "x": -480,
             "y": 324,
+            "mode": "independent",
             "in": [
               -494,
               315.6
@@ -90,13 +91,13 @@
               -438,
               324
             ],
-            "mode": "independent",
             "edge": "curve"
           },
           {
             "id": "ground-6",
             "x": -360,
             "y": 324,
+            "mode": "independent",
             "in": [
               -402,
               324
@@ -105,37 +106,37 @@
               -346,
               315.6
             ],
-            "mode": "independent",
             "edge": "curve"
           },
           {
             "id": "ground-7",
             "x": -320,
             "y": 300,
+            "mode": "corner",
             "in": [
               -334,
               308.4
             ],
             "out": null,
-            "mode": "independent",
             "edge": "straight"
           },
           {
             "id": "ground-8",
             "x": 900,
             "y": 300,
+            "mode": "independent",
             "in": null,
             "out": [
               930.7829,
               300
             ],
-            "mode": "independent",
             "edge": "curve"
           },
           {
             "id": "ground-9",
             "x": 986.0365,
             "y": 272.8728,
+            "mode": "smooth",
             "in": [
               960.8206,
               290.5292
@@ -144,13 +145,13 @@
               1011.2524,
               255.2164
             ],
-            "mode": "smooth",
             "edge": "curve"
           },
           {
             "id": "ground-10",
             "x": 1040.9539,
             "y": 201.303,
+            "mode": "smooth",
             "in": [
               1030.4255,
               230.2295
@@ -159,46 +160,45 @@
               1051.4823,
               172.3765
             ],
-            "mode": "smooth",
             "edge": "curve"
           },
           {
             "id": "ground-11",
             "x": 1044.8889,
             "y": 111.1771,
+            "mode": "corner",
             "in": [
               1052.8561,
               140.9112
             ],
             "out": null,
-            "mode": "independent",
             "edge": "straight"
           },
           {
             "id": "ground-12",
             "x": 1058.8889,
             "y": 108.1771,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "ground-13",
             "x": 1139.8889,
             "y": 108.1771,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "ground-14",
             "x": 1139.8889,
             "y": 1200,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           }
         ]
@@ -215,54 +215,54 @@
             "id": "massif-0",
             "x": 1139.8889,
             "y": 1200,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "massif-1",
             "x": 1139.8889,
             "y": 108.1771,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "massif-2",
             "x": 1139.8889,
             "y": -38.6465,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "massif-3",
             "x": 1194.8889,
             "y": -98.6465,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "massif-4",
             "x": 1600,
             "y": -98.6465,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "massif-5",
             "x": 1600,
             "y": 1200,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           }
         ]
@@ -279,36 +279,37 @@
             "id": "ledge-1-0",
             "x": 190.4296,
             "y": 106,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "ledge-1-1",
             "x": 190.4296,
             "y": -96.6465,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "ledge-1-2",
             "x": 204.4296,
             "y": -93.6465,
+            "mode": "independent",
             "in": null,
             "out": [
               197.5247,
               -67.877
             ],
-            "mode": "independent",
             "edge": "curve"
           },
           {
             "id": "ledge-1-3",
             "x": 207.84,
             "y": -15.5374,
+            "mode": "smooth",
             "in": [
               198.7154,
               -40.607
@@ -317,13 +318,13 @@
               216.9646,
               9.5323
             ],
-            "mode": "smooth",
             "edge": "curve"
           },
           {
             "id": "ledge-1-4",
             "x": 255.4351,
             "y": 46.4898,
+            "mode": "smooth",
             "in": [
               233.5813,
               31.1876
@@ -332,13 +333,13 @@
               277.2889,
               61.792
             ],
-            "mode": "smooth",
             "edge": "curve"
           },
           {
             "id": "ledge-1-5",
             "x": 330,
             "y": 70,
+            "mode": "smooth",
             "in": [
               303.3214,
               70
@@ -347,28 +348,27 @@
               547,
               70
             ],
-            "mode": "smooth",
             "edge": "curve"
           },
           {
             "id": "ledge-1-6",
             "x": 950,
             "y": 40,
+            "mode": "corner",
             "in": [
               733,
               40
             ],
             "out": null,
-            "mode": "independent",
             "edge": "straight"
           },
           {
             "id": "ledge-1-7",
             "x": 950,
             "y": 76,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           }
         ]
@@ -385,27 +385,28 @@
             "id": "ledge-2-0",
             "x": 279.4296,
             "y": -98.6465,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "ledge-2-1",
             "x": 279.4296,
             "y": -128.6465,
+            "mode": "independent",
             "in": null,
             "out": [
               573.6293,
               -128.6465
             ],
-            "mode": "independent",
             "edge": "curve"
           },
           {
             "id": "ledge-2-2",
             "x": 1120,
             "y": -128.6465,
+            "mode": "smooth",
             "in": [
               825.8004,
               -128.6465
@@ -414,13 +415,13 @@
               1150.7829,
               -128.6465
             ],
-            "mode": "smooth",
             "edge": "curve"
           },
           {
             "id": "ledge-2-3",
             "x": 1206.0365,
             "y": -155.7737,
+            "mode": "smooth",
             "in": [
               1180.8206,
               -138.1173
@@ -429,13 +430,13 @@
               1231.2524,
               -173.43
             ],
-            "mode": "smooth",
             "edge": "curve"
           },
           {
             "id": "ledge-2-4",
             "x": 1260.9539,
             "y": -227.3435,
+            "mode": "smooth",
             "in": [
               1250.4255,
               -198.4169
@@ -444,37 +445,36 @@
               1271.4823,
               -256.27
             ],
-            "mode": "smooth",
             "edge": "curve"
           },
           {
             "id": "ledge-2-5",
             "x": 1264.8889,
             "y": -317.4693,
+            "mode": "corner",
             "in": [
               1272.8561,
               -287.7353
             ],
             "out": null,
-            "mode": "independent",
             "edge": "straight"
           },
           {
             "id": "ledge-2-6",
             "x": 1278.8889,
             "y": -320.4693,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "ledge-2-7",
             "x": 1278.8889,
             "y": -98.6465,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           }
         ]
@@ -491,36 +491,37 @@
             "id": "ledge-3-0",
             "x": 290.4296,
             "y": -277.6465,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "ledge-3-1",
             "x": 290.4296,
             "y": -480.293,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "ledge-3-2",
             "x": 304.4296,
             "y": -477.293,
+            "mode": "independent",
             "in": null,
             "out": [
               297.5247,
               -451.5234
             ],
-            "mode": "independent",
             "edge": "curve"
           },
           {
             "id": "ledge-3-3",
             "x": 307.84,
             "y": -399.1839,
+            "mode": "smooth",
             "in": [
               298.7154,
               -424.2535
@@ -529,13 +530,13 @@
               316.9646,
               -374.1142
             ],
-            "mode": "smooth",
             "edge": "curve"
           },
           {
             "id": "ledge-3-4",
             "x": 355.4351,
             "y": -337.1567,
+            "mode": "smooth",
             "in": [
               333.5813,
               -352.4589
@@ -544,13 +545,13 @@
               377.2889,
               -321.8545
             ],
-            "mode": "smooth",
             "edge": "curve"
           },
           {
             "id": "ledge-3-5",
             "x": 430,
             "y": -313.6465,
+            "mode": "smooth",
             "in": [
               403.3214,
               -313.6465
@@ -559,28 +560,27 @@
               690.7111,
               -313.6465
             ],
-            "mode": "smooth",
             "edge": "curve"
           },
           {
             "id": "ledge-3-6",
             "x": 1174.8889,
             "y": -343.6465,
+            "mode": "corner",
             "in": [
               914.1778,
               -343.6465
             ],
             "out": null,
-            "mode": "independent",
             "edge": "straight"
           },
           {
             "id": "ledge-3-7",
             "x": 1174.8889,
             "y": -307.6465,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           }
         ]
@@ -597,57 +597,57 @@
             "id": "summit-0",
             "x": 379.4296,
             "y": -467.293,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "summit-1",
             "x": 379.4296,
             "y": -517.293,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "summit-2",
             "x": 860,
             "y": -517.293,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "summit-3",
             "x": 900,
             "y": -551.293,
+            "mode": "corner",
             "in": [
               882,
               -517.293
             ],
             "out": null,
-            "mode": "independent",
             "edge": "straight"
           },
           {
             "id": "summit-4",
             "x": 916,
             "y": -551.293,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           },
           {
             "id": "summit-5",
             "x": 916,
             "y": -467.293,
+            "mode": "corner",
             "in": null,
             "out": null,
-            "mode": "corner",
             "edge": "straight"
           }
         ]
@@ -831,6 +831,18 @@
       "y": 40,
       "type": "moss",
       "layer": "front"
+    },
+    {
+      "x": 188.11409218732433,
+      "y": 108.82294555719574,
+      "type": "ivy",
+      "layer": "front"
+    },
+    {
+      "x": 189.1107278784275,
+      "y": 4.60976267054815,
+      "type": "ivy",
+      "layer": "front"
     }
   ],
   "spikes": [],
@@ -845,8 +857,12 @@
   "weather": {
     "sun": 0.5,
     "clouds": 0.5,
+    "fog": 0,
     "rain": 0.15,
-    "fog": 0
+    "snow": 0,
+    "lightning": 0,
+    "wind": 0.3,
+    "windDirection": "left"
   },
   "timeOfDay": "morning",
   "backdrop": "mountains",

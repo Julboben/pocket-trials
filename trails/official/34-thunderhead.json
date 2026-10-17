@@ -480,9 +480,12 @@
   "weather": {
     "sun": 0,
     "clouds": 1,
+    "fog": 0,
     "rain": 0.9,
+    "snow": 0,
     "lightning": 0.7,
-    "thunder": 0.8
+    "wind": 0.85,
+    "windDirection": "left"
   },
   "timeOfDay": "night",
   "backdrop": "mountains",

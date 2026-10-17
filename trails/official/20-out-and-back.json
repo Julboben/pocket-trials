@@ -601,8 +601,12 @@
   "weather": {
     "sun": 0.2,
     "clouds": 0.85,
+    "fog": 0,
     "rain": 0.5,
-    "thunder": 0.4
+    "snow": 0,
+    "lightning": 0,
+    "wind": 0.55,
+    "windDirection": "left"
   },
   "timeOfDay": "morning",
   "backdrop": "mountains",

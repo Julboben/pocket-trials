@@ -15,6 +15,8 @@ import {
   validateTrail,
 } from "../trail-schema.js";
 import { store } from "../local-store.js";
+import { WEATHER_LEVELS, WEATHER_PRESETS, resolveWeather } from "../weather.js";
+import { startWindsock } from "./windsock.js";
 import {
   blocks,
   boundariesOf,
@@ -151,10 +153,7 @@ export function syncInspector({ live = false } = {}) {
     $("trail-description").value = editor.trail.description || "";
   $("time-of-day").value = editor.trail.timeOfDay || "noon";
   $("backdrop").value = editor.trail.backdrop || "hills";
-  for (const key of ["sun", "clouds", "fog", "rain", "snow", "lightning"]) {
-    $(`weather-${key}`).value = editor.trail.weather?.[key] ?? 0;
-    showWeatherValue(key);
-  }
+  syncWeather();
   const position = selectedPosition();
   $("selection-fields").hidden = !editor.selection;
   $("selection-title").textContent = !editor.selection
@@ -437,6 +436,38 @@ function showWeatherValue(key) {
   $(`weather-${key}-value`).textContent = `${Math.round(value * 100)}%`;
 }
 
+/**
+ * The weather controls: each slider, which way the wind blows, and the preset
+ * the weather matches, if any.
+ */
+function syncWeather() {
+  const weather = resolveWeather(editor.trail.weather);
+  for (const key of WEATHER_LEVELS) {
+    $(`weather-${key}`).value = String(weather[key]);
+    showWeatherValue(key);
+  }
+  for (const direction of ["left", "right"]) {
+    const button = $(`wind-${direction}`);
+    const active = weather.windDirection === direction;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  }
+  for (const button of $("weather-presets").querySelectorAll("button")) {
+    const preset = WEATHER_PRESETS.find(({ id }) => id === button.dataset.preset);
+    const active = Boolean(preset) && Object.entries(preset.weather).every(([key, value]) => weather[key] === value);
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  }
+}
+
+/** Changes the trail's weather as one undoable step. */
+function setWeather(changes) {
+  pushHistory();
+  editor.trail.weather = { ...resolveWeather(editor.trail.weather), ...changes };
+  syncInspector();
+  render();
+}
+
 const AUTHOR_KEY = "hjulben-editor-author";
 
 /** The author last typed in, so new trails are credited to them too. */
@@ -507,7 +538,7 @@ export function bindInspector() {
     else delete editor.trail.backdrop;
   });
 
-  for (const key of ["sun", "clouds", "fog", "rain", "snow", "lightning"]) {
+  for (const key of WEATHER_LEVELS) {
     $(`weather-${key}`).addEventListener("change", (event) => {
       pushHistory();
       editor.trail.weather[key] = Number(event.target.value);
@@ -520,6 +551,22 @@ export function bindInspector() {
       render();
     });
   }
+  for (const direction of ["left", "right"])
+    $(`wind-${direction}`).addEventListener("click", () => {
+      if (resolveWeather(editor.trail.weather).windDirection !== direction)
+        setWeather({ windDirection: direction });
+    });
+  // A preset sets everything but the wind's direction, for the author to
+  // fine-tune from.
+  for (const preset of WEATHER_PRESETS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = preset.name;
+    button.dataset.preset = preset.id;
+    button.addEventListener("click", () => setWeather(preset.weather));
+    $("weather-presets").append(button);
+  }
+  startWindsock($("windsock"), () => editor.trail.weather);
 
   $("selection-x").addEventListener("change", (event) => {
     const position = selectedPosition();

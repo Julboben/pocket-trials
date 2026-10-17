@@ -1,15 +1,15 @@
 {
   "name": "Wet Feet",
   "label": "WET FEET / 16",
+  "finish": {
+    "x": 2480,
+    "y": null
+  },
   "description": "Shallow fords. The water drags on the wheels and slows the bike, so carry speed in and keep the throttle on all the way across. Each ford is wider than the last. If you stop in the middle, just ride on out: shallow water won't hurt you.",
   "start": {
     "x": 90,
     "y": null,
     "facing": 1
-  },
-  "finish": {
-    "x": 2480,
-    "y": null
   },
   "terrainBlocks": [
     {
@@ -25,7 +25,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-1",
@@ -504,6 +504,12 @@
       "y": null,
       "type": "bush",
       "layer": "back"
+    },
+    {
+      "x": 371.4372475708907,
+      "y": 299.2998936923042,
+      "type": "ivy",
+      "layer": "back"
     }
   ],
   "spikes": [],
@@ -530,10 +536,14 @@
   "weather": {
     "sun": 0.45,
     "clouds": 0.55,
-    "rain": 0.2
+    "fog": 0,
+    "rain": 0.2,
+    "snow": 0,
+    "lightning": 0,
+    "wind": 0.3,
+    "windDirection": "left"
   },
   "timeOfDay": "morning",
-  "backdrop": "hills",
   "medals": {
     "gold": 15,
     "silver": 20,

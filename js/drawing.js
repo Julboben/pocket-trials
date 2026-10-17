@@ -301,6 +301,7 @@ import {
   torchFlicker,
 } from "./dungeon-props.js";
 import { FLAGPOLE, drawFlagpole } from "./countryside-props.js";
+import { resolveWeather, windSign } from "./weather.js";
 import {
   CORGI_BOUNDS,
   CORGI_RANGE,
@@ -3363,10 +3364,21 @@ function drawTyre(tools) {
 }
 
 // What a prop can react to: the time in seconds for its animation, the
-// rider's position, the wind (0…1, see windStrength) and the last hard
-// landing ({ x, y, time, strength }). Without them, props stand still and the
-// scarecrow and snowman look ahead.
-const NO_SCENE = { time: 0, riderX: null, riderY: null, wind: 0, landing: null };
+// rider's position, the trail's weather (resolved, see weather.js) for the
+// wind, and the last hard landing ({ x, y, time, strength }). Without them,
+// props stand still in the default breeze and the scarecrow and snowman look
+// ahead.
+const NO_SCENE = { time: 0, riderX: null, riderY: null, weather: resolveWeather(), landing: null };
+
+/**
+ * The wind on a prop: how hard it blows (`wind`, 0…1) and which way in the
+ * prop's own frame (`downwind`, -1 or 1), so a mirrored prop still blows the
+ * same way as the rest of the world.
+ */
+function propWind(scene, mirrored) {
+  const weather = scene.weather ?? NO_SCENE.weather;
+  return { wind: weather.wind, downwind: windSign(weather) * (mirrored ? -1 : 1) };
+}
 
 /**
  * Which way a prop at `x` turns to watch the rider: -1, 0 or 1 in its own
@@ -3566,8 +3578,7 @@ const PROP_EXTENTS = {
   cocoon: [-12, -CEILING_REACH - 4, 12],
   // Room for the snow a hard landing knocks off, and the cloud it raises.
   "snow-pine": [-70, -192, 70],
-  // Room for the chimney smoke rising and blowing downwind, which stays to
-  // the left in the world when the hut is flipped.
+  // Room for the chimney smoke rising and blowing downwind, either way.
   hut: [-100, -204, 100],
   snowman: [-28, -78, 28],
   "tyre-wall": [-48, -34, 48],
@@ -3611,12 +3622,12 @@ const PROP_EXTENTS = {
   tent: [-TENT.peg - 4, TENT.apex - 6, TENT.peg + 4],
   // Room for the blades bent flat as the rider brushes through.
   grass: [-44, -30, 44],
-  // The flag flies out downwind, to the left.
-  flagpole: [-44, FLAGPOLE.top - 8, 8],
+  // The flag flies out downwind, either way.
+  flagpole: [-44, FLAGPOLE.top - 8, 44],
   "christiania-bike": [-44, -62, 58],
   bench: [-42, -56, 44],
-  // Room for the smoke rising and blowing downwind, to the left.
-  fireplace: [-80, FIRE.smoke - 90, 30],
+  // Room for the smoke rising and blowing downwind, either way.
+  fireplace: [-80, FIRE.smoke - 90, 80],
 };
 // How far below its anchor each ceiling prop's art can reach.
 const CEILING_HANG = {
@@ -5348,7 +5359,7 @@ export function createGameArt(ctx) {
       ctx.translate(ROTOR.x, ROTOR.y);
       drawWindmillRotor(
         { pixelRect, pixelPath },
-        windmillAngle(scene.time || 0, scene.wind, propNoise(x, 3)),
+        windmillAngle(scene.time || 0, propWind(scene, mirrored).wind, propNoise(x, 3)),
       );
     } else if (type === "heat-haze") {
       drawHeatHaze(x, scene, groundOffset);
@@ -5391,11 +5402,10 @@ export function createGameArt(ctx) {
     } else if (type === "hut") {
       drawCanopy(type);
       drawHutFoundation({ pixelRect }, groundOffset);
-      // Chimney smoke, each puff shaded at its lower left, blown downwind:
-      // to the left, like the snow and rain, so the other way when flipped.
+      // Chimney smoke, each puff shaded at its lower left, blown downwind.
       const base = ctx.globalAlpha;
-      const downwind = mirrored ? 1 : -1;
-      for (const puff of chimneySmoke(scene.time || 0, propNoise(x, 10), scene.wind ?? 0.25, downwind)) {
+      const { wind, downwind } = propWind(scene, mirrored);
+      for (const puff of chimneySmoke(scene.time || 0, propNoise(x, 10), wind, downwind)) {
         ctx.globalAlpha = base * puff.alpha;
         drawPixelDisc(puff.x - 2, puff.y + 2, puff.radius, SMOKE.shade, 2);
         drawPixelDisc(puff.x, puff.y, Math.max(2, puff.radius - 2), SMOKE.light, 2);
@@ -5416,9 +5426,9 @@ export function createGameArt(ctx) {
     ) {
       drawCanopy(type);
     } else if (type === "course-tape") {
-      // The loose end blows downwind: left, like the snow and rain, so the
-      // other way when flipped.
-      drawCourseTape({ pixelRect }, groundOffset, scene.time || 0, scene.wind ?? 0.25, propNoise(x, 13), mirrored ? 1 : -1);
+      // The loose end blows downwind.
+      const { wind, downwind } = propWind(scene, mirrored);
+      drawCourseTape({ pixelRect }, groundOffset, scene.time || 0, wind, propNoise(x, 13), downwind);
     } else if (type === "banner") {
       const style = bannerStyle(text, propNoise(x, 14));
       drawBanner({ pixelRect, drawPixelDisc }, style, groundOffset);
@@ -5472,7 +5482,7 @@ export function createGameArt(ctx) {
       // Pale until the rider passes (scene.passed), then lit, with the split
       // on its timing board.
       const passed = scene.passed;
-      drawHalfwayFlag({ pixelRect }, Boolean(passed), groundOffset, scene.time || 0, scene.wind ?? 0.25, propNoise(x, 18));
+      drawHalfwayFlag({ pixelRect }, Boolean(passed), groundOffset, scene.time || 0, propWind(scene, mirrored).wind, propNoise(x, 18));
       const { left, top, width } = HALFWAY_BOARD;
       drawPixelText(splitText(passed?.split), left + width / 2, top + 3, halfwayTextColor(Boolean(passed)));
       const flash = passed && scene.time ? halfwayFlash(passed.age) : null;
@@ -5594,26 +5604,27 @@ export function createGameArt(ctx) {
           // out of the way.
           const { hub } = webSize(room);
           const state = webState(scene, x, y + roof + hub);
-          const sway = scene.time ? Math.sin(scene.time * 0.9 + noise(5) * 6) * (scene.wind ?? 0) : 0;
+          const sway = scene.time ? Math.sin(scene.time * 0.9 + noise(5) * 6) * propWind(scene, mirrored).wind : 0;
           const { spider } = drawSpiderweb({ pixelRect, pixelPath }, room, noise, state, sway);
           ctx.translate(spider[0], spider[1]);
           drawSpider({ pixelRect, drawPixelDisc }, state.dare < 1 && scene.time ? Math.floor(scene.time * 12) % 2 : 0);
-        } else if (type === "cobweb")
-          drawCobweb({ pixelRect, pixelPath }, room, noise, scene.time || 0, scene.wind ?? 0, -1);
-        else if (type === "spider") {
+        } else if (type === "cobweb") {
+          const { wind, downwind } = propWind(scene, mirrored);
+          drawCobweb({ pixelRect, pixelPath }, room, noise, scene.time || 0, wind, downwind);
+        } else if (type === "spider") {
           // Lets itself down on its thread, and climbs back up when the rider comes.
           const hang = danglingSpider(scene, x, y + roof, room, noise(6));
           const { spider } = drawDanglingSpider({ pixelPath }, hang);
           ctx.translate(spider[0], spider[1]);
           drawSpider({ pixelRect, drawPixelDisc }, hang.step);
         } else if (type === "cocoon")
-          drawCocoon({ pixelRect, pixelPath }, room, cocoonMotion(scene.time || 0, scene.wind ?? 0, noise(7)));
+          drawCocoon({ pixelRect, pixelPath }, room, cocoonMotion(scene.time || 0, propWind(scene, mirrored).wind, noise(7)));
         else if (type === "portcullis")
           // Grinds up into the roof as the rider comes, and down behind them.
           drawPortcullis(tools, portcullisDrop(scene, x, y + roof + Math.min(room, PORTCULLIS.height), room));
         else if (type === "hanging-chains" || type === "gibbet") {
           // Swaying in the draught, and swinging after a hard landing nearby.
-          const swing = hangingSwing(scene.time || 0, scene.wind ?? 0, scene.landing, x, y + roof, noise(8), type === "gibbet" ? 0.7 : 1);
+          const swing = hangingSwing(scene.time || 0, propWind(scene, mirrored).wind, scene.landing, x, y + roof, noise(8), type === "gibbet" ? 0.7 : 1);
           if (type === "hanging-chains") drawHangingChains(tools, room, swing);
           else {
             const [cx, cy] = drawGibbetChain(tools, room, swing);
@@ -5656,8 +5667,9 @@ export function createGameArt(ctx) {
       // Smoke rises off the fire and blows downwind, like the hut's.
       drawCanopy(type);
       const base = ctx.globalAlpha;
+      const { wind, downwind } = propWind(scene, mirrored);
       ctx.translate(-HUT_CHIMNEY.x, FIRE.smoke - HUT_CHIMNEY.y);
-      for (const puff of chimneySmoke(scene.time || 0, propNoise(x, 35), scene.wind ?? 0.25, mirrored ? 1 : -1)) {
+      for (const puff of chimneySmoke(scene.time || 0, propNoise(x, 35), wind, downwind)) {
         ctx.globalAlpha = base * puff.alpha * 0.8;
         drawPixelDisc(puff.x - 2, puff.y + 2, puff.radius, SMOKE.shade, 2);
         drawPixelDisc(puff.x, puff.y, Math.max(2, puff.radius - 2), SMOKE.light, 2);
@@ -5668,18 +5680,19 @@ export function createGameArt(ctx) {
       const side = mirrored ? -1 : 1;
       const known = Number.isFinite(scene.riderX) && Number.isFinite(scene.riderY);
       const phase = propNoise(x, 33);
+      const { wind, downwind } = propWind(scene, mirrored);
       drawGrass({ pixelRect }, groundOffset, (blade) => {
         const ground = groundOffset(blade.x + 1);
         return grassLean(
-          scene.time || 0, scene.wind ?? 0.25, -side, phase, blade.x,
+          scene.time || 0, wind, downwind, phase, blade.x,
           known ? (scene.riderX - x) * side - blade.x : null,
           known ? scene.riderY - (y + ground) : null,
         );
       });
     } else if (type === "flagpole") {
-      // Dannebrog flies downwind: left, like the snow and rain, so the other
-      // way when flipped.
-      drawFlagpole({ pixelRect }, groundOffset, scene.time || 0, scene.wind ?? 0.25, propNoise(x, 34), mirrored ? 1 : -1);
+      // Dannebrog flies downwind.
+      const { wind, downwind } = propWind(scene, mirrored);
+      drawFlagpole({ pixelRect }, groundOffset, scene.time || 0, wind, propNoise(x, 34), downwind);
     } else if (type === "dungeon-bars") {
       const bars = barLayout(wall?.roofs ?? BAR_XS.map(() => null), groundOffset, propNoise(x, 30) < 0.3);
       drawDungeonBars({ pixelRect }, bars, (n) => propNoise(x, 31 + n));
@@ -5705,7 +5718,8 @@ export function createGameArt(ctx) {
         ctx.scale(wall?.side === 1 ? -1 : 1, 1);
         const phase = propNoise(x, 36);
         const layout = ivyLayout(wall?.rise || IVY.alone, (n) => propNoise(x, 37 + n));
-        drawIvy({ pixelRect }, layout, (index) => ivyRustle(scene.time || 0, scene.wind ?? 0.25, phase, index));
+        const { wind } = propWind(scene, mirrored);
+        drawIvy({ pixelRect }, layout, (index) => ivyRustle(scene.time || 0, wind, phase, index));
       } else {
         ctx.scale(wall?.side === 1 ? -1 : 1, 1);
         drawRoots(x);

@@ -603,7 +603,12 @@
   "weather": {
     "sun": 0.45,
     "clouds": 0.6,
-    "rain": 0.2
+    "fog": 0,
+    "rain": 0.2,
+    "snow": 0,
+    "lightning": 0,
+    "wind": 0.3,
+    "windDirection": "left"
   },
   "timeOfDay": "morning",
   "backdrop": "hills",

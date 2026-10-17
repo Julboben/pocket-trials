@@ -1081,7 +1081,13 @@
   "water": [],
   "weather": {
     "sun": 0.6,
-    "clouds": 0.4
+    "clouds": 0.4,
+    "fog": 0,
+    "rain": 0,
+    "snow": 0,
+    "lightning": 0,
+    "wind": 0.3,
+    "windDirection": "left"
   },
   "timeOfDay": "noon",
   "backdrop": "mountains",

@@ -369,8 +369,6 @@ export function createAudio(getSnapshot) {
     // The narrow squeal band passes little of the noise, so it is boosted.
     squealGain.gain.setTargetAtTime(skidLevel * voice.squeal * 2.5, context.currentTime, .025);
     const rainIntensity = clamp(Number(weather?.rain) || 0, 0, 1);
-    const snow = clamp(Number(weather?.snow) || 0, 0, 1);
-    const lightning = clamp(Number(weather?.lightning) || 0, 0, 1);
     // At the finish the rain and wind fade out under the win jingle, which is
     // why the context is not suspended as it is for the pause screen.
     const inPlay = state !== 'menu' && state !== 'won';
@@ -381,23 +379,22 @@ export function createAudio(getSnapshot) {
       ? (.012 + rainIntensity * .04 + rainStorm * .02) * (.94 + Math.sin(context.currentTime * .63) * .06)
       : 0;
     rainGain.gain.setTargetAtTime(rainLevel, context.currentTime, fade || .35);
-    // Wind comes with storms: a rainstorm, a blizzard (with a light breeze
-    // in gentle snow), and some with lightning.
-    const snowWind = Math.max(snow * .25, storm(snow));
-    const windStrength = inPlay ? Math.min(1, Math.max(rainStorm, snowWind, lightning * .45)) : 0;
+    // The trail's wind: a light breeze is near silent, a gale roars, and it
+    // whistles higher as it strengthens.
+    const blow = clamp(Number(weather?.wind) || 0, 0, 1);
+    const windLevel = inPlay ? clamp((blow - .15) / .85, 0, 1) ** 1.3 : 0;
+    const whistle = clamp((blow - .55) / .4, 0, 1);
     const time = context.currentTime;
-    // Slow, uneven gusts from sines that never line up.
-    const gust = clamp(
+    // Slow, uneven swells from sines that never line up, so it never drones.
+    const swell = clamp(
       .55 + Math.sin(time * .23) * .25 + Math.sin(time * .61 + 1.3) * .15 + Math.sin(time * 1.7 + 2.1) * .07,
       0, 1,
     );
-    // Snow wind whistles higher than the rainstorm's roar.
-    const whistle = snowWind > rainStorm ? 1 : 0;
     windFilter.frequency.setTargetAtTime(
-      (260 + whistle * 280) + gust * (300 + whistle * 500) * (.5 + windStrength * .5), time, .3,
+      260 + whistle * 280 + swell * (300 + whistle * 500) * (.5 + blow * .5), time, .3,
     );
     windFilter.Q.setTargetAtTime(.7 + whistle * .9, time, .5);
-    windGain.gain.setTargetAtTime(windStrength * (.03 + gust * .08), time, fade || .4);
+    windGain.gain.setTargetAtTime(windLevel * (.05 + swell * .08), time, fade || .4);
   }
 
   return {

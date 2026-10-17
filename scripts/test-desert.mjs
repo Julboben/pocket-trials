@@ -6,7 +6,7 @@ import { rectangle } from './lib/terrain-fixtures.mjs';
 import { propSpan, propWallFit } from '../js/drawing.js';
 import {
   TUMBLEWEED_RUN, TUMBLEWEED_STEP, VULTURE_HEIGHT, hazeShift, hazeStreaks,
-  swoopDuration, tumbleweedRoll, vultureNotice, vultureOrbit, vulturePerch, vultureSwoop, windStrength, windmillAngle,
+  swoopDuration, tumbleweedRoll, vultureNotice, vultureOrbit, vulturePerch, vultureSwoop, windmillAngle,
 } from '../js/desert-props.js';
 
 // Ground at 320 from 0 to 3000, with a wall rising to 200 from x 1000 to 1100.
@@ -53,9 +53,6 @@ const prop = (type, x, extra = {}) => ({ type, x, y: null, layer: 'back', ...ext
     last = angle;
   }
   assert.ok(windmillAngle(20, 1) - windmillAngle(0, 1) > windmillAngle(20, 0.1) - windmillAngle(0, 0.1));
-  const calm = windStrength({});
-  const storm = windStrength({ clouds: 1, rain: 1, lightning: 1 });
-  assert.ok(calm > 0 && calm < storm && storm <= 1);
 }
 
 // The heat haze is still at time 0 and only shimmers by a pixel either way.

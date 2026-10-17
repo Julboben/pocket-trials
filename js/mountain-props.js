@@ -695,7 +695,7 @@ export function drawHutFoundation({ pixelRect }, groundOffset) {
  * Puffs of chimney smoke at `time` (seconds), as [{ x, y, radius, alpha }]
  * in the hut's local units: each rises, swells, thins out and is blown
  * `downwind` (-1 to the left, 1 to the right, in the hut's local units). In
- * a stronger `wind` (0…1, see windStrength) the plume bends over sooner and
+ * a stronger `wind` (0…1, from the trail's weather) the plume bends over sooner and
  * flatter. `phase` is a fixed 0…1 per prop. Standing still (time 0) they hold.
  */
 export function chimneySmoke(time, phase, wind = 0.25, downwind = -1) {

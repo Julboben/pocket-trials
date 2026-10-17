@@ -14,6 +14,7 @@ import { terrainColumnSpans } from "../terrain-runtime.js";
 import { finishFlower, finishHeight, surfaceBelow } from "../trail-schema.js";
 import { terrainMaterials } from "../trails.js";
 import { normalizeWater, waterColumns } from "../water.js";
+import { resolveWeather } from "../weather.js";
 import {
   blockSelected,
   blocks,
@@ -313,7 +314,16 @@ export function finishY() {
   return finishHeight(editor.trail);
 }
 
+/**
+ * What the props react to in the editor: nothing moves, but they lean and
+ * stream the way the trail's wind blows.
+ */
+function stillScene() {
+  return { time: 0, riderX: null, riderY: null, weather: resolveWeather(editor.trail.weather), landing: null };
+}
+
 function drawProps(layer) {
+  const scene = stillScene();
   for (const prop of editor.trail.props || []) {
     if (prop.layer !== layer || PAINTED_PROPS.has(prop.type)) continue;
     art.drawProp(
@@ -326,7 +336,7 @@ function drawProps(layer) {
       prop.text,
       propWallFit(editor.trail, prop),
       prop.flip,
-      undefined,
+      scene,
       propRotation(prop),
     );
   }
@@ -752,7 +762,7 @@ function drawPlacementPreview() {
       "",
       propWallFit(editor.trail, prop),
       toolSettings.prop.flip,
-      undefined,
+      stillScene(),
       propRotation(prop),
     );
     return;

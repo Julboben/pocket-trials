@@ -61,8 +61,8 @@ import {
   vultureOrbit,
   vulturePerch,
   vultureSwoop,
-  windStrength,
 } from "./desert-props.js";
+import { rainSlant, resolveWeather, snowDrift, windSign } from "./weather.js";
 import { CABLE_HALF, CABLE_TOP, HUT_WINDOW_CENTRE } from "./mountain-props.js";
 import { nearestInteraction } from "./interactions.js";
 import {
@@ -249,7 +249,7 @@ export function createRenderer(canvas) {
     glowMask = null,
     ghostHairLayer = null;
   // What props react to this frame; see drawProp.
-  let propScene = { time: 0, riderX: null, riderY: null, wind: 0, landing: null };
+  let propScene = { time: 0, riderX: null, riderY: null, weather: resolveWeather(), landing: null };
   // The last hard landing, { x, y, time, strength }, which shakes the snow off
   // nearby snowy pines.
   let landing = null;
@@ -1258,14 +1258,14 @@ export function createRenderer(canvas) {
     return hit;
   }
 
-  function drawRain(intensity, time) {
+  // `drift` is how far the drops are blown sideways per unit they fall
+  // (negative to the left), from the wind.
+  function drawRain(intensity, time, drift) {
     const scale = clamp((W * H) / (760 * 430), 0.6, 2.2);
     // Above about 0.6 the rain builds to a downpour: more, longer, faster
-    // drops, driven at a steeper slant, under a darker sky.
+    // drops under a darker sky.
     const storm = Math.max(0, (intensity - 0.6) / 0.4) ** 1.5;
     const count = Math.max(1, Math.round(scale * (160 * intensity ** 1.15 + 240 * storm)));
-    const slant = 0.12 + storm * 0.16;
-    const segments = storm > 0.4 ? 3 : 2;
     const motion = reducedMotion ? 0 : time * 720;
     const spanX = W + 80,
       spanY = H + 70;
@@ -1282,26 +1282,30 @@ export function createRenderer(canvas) {
         cameraY * depth;
       const cycle = Math.floor(fall / spanY);
       const y = fall - cycle * spanY - 35;
+      // Blown sideways over this fall only, so moving the wind slider swings
+      // the drops rather than throwing them across the screen.
       const rawX =
-        (rainHash(index, 4) + rainHash(index + cycle * 7919, 5)) * spanX -
-        fall * slant -
+        (rainHash(index, 4) + rainHash(index + cycle * 7919, 5)) * spanX +
+        (y + 35) * drift -
         cameraX * depth;
       const x = (((rawX % spanX) + spanX) % spanX) - 40;
       ctx.globalAlpha = 0.25 + depth * 0.3 + storm * 0.1;
-      // A slanted streak as offset one-pixel columns.
+      // The streak runs along the drop's slant, so the further the wind lays
+      // it over, the less it reaches down and the more it reaches across.
       const length = (8 + intensity * 6 + storm * 14) * depth + rainHash(index, 6) * 4;
-      const part = Math.max(1, Math.round(length / segments / ART_PIXEL)) * ART_PIXEL;
+      const down = Math.max(1, Math.round(length / Math.hypot(1, drift) / ART_PIXEL)) * ART_PIXEL;
+      const across = Math.abs(drift) * down;
       const left = Math.round(x / ART_PIXEL) * ART_PIXEL,
         top = Math.round(y / ART_PIXEL) * ART_PIXEL;
       // Rain stops at the first terrain or water it reaches, with a splash.
       const worldX = left - ART_PIXEL / 2 + cameraX,
         worldY = top + cameraY;
-      const hit = weatherGroundAt(worldX, worldY, -slant);
+      const hit = weatherGroundAt(worldX, worldY, drift);
       // Where along its slant this drop meets the ground.
-      const landX = worldX - slant * (hit.y - worldY);
+      const landX = worldX + drift * (hit.y - worldY);
       const surface = hit.water ? hit.y + surfaceWave(landX, propScene.time) : hit.y;
       const ground = Math.round((surface - cameraY) / ART_PIXEL) * ART_PIXEL;
-      const age = top + part * segments - ground;
+      const age = top + down - ground;
       if (age >= 0 && age < RAIN_SPLASH) {
         const left = Math.round((landX + ART_PIXEL / 2 - cameraX) / ART_PIXEL) * ART_PIXEL;
         const phase = Math.floor((age / RAIN_SPLASH) * 2);
@@ -1318,11 +1322,28 @@ export function createRenderer(canvas) {
         }
       }
       if (top >= ground) continue;
-      for (let segment = 0; segment < segments; segment++) {
-        const from = top + segment * part;
-        const size = Math.min(part, ground - from);
-        if (size <= 0) break;
-        ctx.fillRect(left - segment * ART_PIXEL, from, ART_PIXEL, size);
+      const side = Math.sign(drift);
+      if (across <= down) {
+        // Falling steeply: one-pixel columns, each lower one a step downwind.
+        const columns = Math.round(across / ART_PIXEL) + 1;
+        for (let column = 0; column < columns; column++) {
+          const from = top + Math.round((column * down) / columns / ART_PIXEL) * ART_PIXEL;
+          const to = top + Math.round(((column + 1) * down) / columns / ART_PIXEL) * ART_PIXEL;
+          const size = Math.min(to, ground) - from;
+          if (size <= 0) break;
+          ctx.fillRect(left + side * column * ART_PIXEL, from, ART_PIXEL, size);
+        }
+      } else {
+        // Driven nearly flat: one-pixel rows, each lower one further downwind.
+        const rows = down / ART_PIXEL;
+        for (let row = 0; row < rows; row++) {
+          const y = top + row * ART_PIXEL;
+          if (y >= ground) break;
+          const near = Math.round((row * across) / rows / ART_PIXEL) * ART_PIXEL;
+          const far = Math.round(((row + 1) * across) / rows / ART_PIXEL) * ART_PIXEL;
+          const width = Math.max(ART_PIXEL, far - near);
+          ctx.fillRect(side < 0 ? left - near - width + ART_PIXEL : left + near, y, width, ART_PIXEL);
+        }
       }
     }
     ctx.globalAlpha = 1;
@@ -1333,17 +1354,16 @@ export function createRenderer(canvas) {
 
   /**
    * Snowflakes. Like rain, the slider sets how many fall, and from about 0.6
-   * it builds to a blizzard: more, larger flakes driven sideways by the wind
-   * under a white haze. Each flake sways as it falls, with nearer flakes
-   * bigger, brighter, and faster. A flake rests briefly where it lands on
-   * terrain and melts straight into water.
+   * it builds to a blizzard: more, larger flakes under a white haze. The wind
+   * drives them sideways by `drift` per unit fallen. Each flake sways as it
+   * falls, with nearer flakes bigger, brighter, and faster. A flake rests
+   * briefly where it lands on terrain and melts straight into water.
    */
-  function drawSnow(intensity, time) {
+  function drawSnow(intensity, time, drift) {
     const scale = clamp((W * H) / (760 * 430), 0.6, 2.2);
     const storm = Math.max(0, (intensity - 0.6) / 0.4) ** 1.5;
     const count = Math.max(1, Math.round(scale * (150 * intensity ** 1.15 + 520 * storm)));
     const seconds = reducedMotion ? 0 : time;
-    const wind = 0.12 + storm * 0.9;
     const spanX = W + 120,
       spanY = H + 40;
     if (storm) {
@@ -1365,8 +1385,8 @@ export function createRenderer(canvas) {
         10 *
         depth;
       const rawX =
-        (rainHash(index, 16) + rainHash(index + cycle * 7919, 17)) * spanX -
-        fall * wind +
+        (rainHash(index, 16) + rainHash(index + cycle * 7919, 17)) * spanX +
+        (y + 20) * drift +
         sway -
         cameraX * depth;
       const x = (((rawX % spanX) + spanX) % spanX) - 60;
@@ -1375,13 +1395,13 @@ export function createRenderer(canvas) {
         top = Math.round(y / ART_PIXEL) * ART_PIXEL;
       const worldX = left + size / 2 + cameraX,
         worldY = top + size + cameraY;
-      const hit = weatherGroundAt(worldX, worldY, -wind);
+      const hit = weatherGroundAt(worldX, worldY, drift);
       const ground = Math.round((hit.y - cameraY) / ART_PIXEL) * ART_PIXEL;
       const alpha = 0.45 + depth * 0.4;
       if (top + size > ground) {
         if (hit.water || top + size - ground > SNOW_SETTLE) continue;
         // Resting where it landed until it melts away.
-        const rest = Math.round((left + wind * (top + size - ground)) / ART_PIXEL) * ART_PIXEL;
+        const rest = Math.round((left - drift * (top + size - ground)) / ART_PIXEL) * ART_PIXEL;
         ctx.globalAlpha = alpha * (1 - (top + size - ground) / SNOW_SETTLE);
         ctx.fillRect(rest, ground - ART_PIXEL, size, ART_PIXEL);
         continue;
@@ -1399,8 +1419,10 @@ export function createRenderer(canvas) {
     if (!rainIntensity && !snow && !fog && weather.flash <= 0) return;
     ctx.save();
     if (fog) fogHaze(fog);
-    if (rainIntensity) drawRain(rainIntensity, weather.time);
-    if (snow) drawSnow(snow, weather.time);
+    // Both are blown by the same wind.
+    const air = propScene.weather;
+    if (rainIntensity) drawRain(rainIntensity, weather.time, windSign(air) * rainSlant(air.wind));
+    if (snow) drawSnow(snow, weather.time, windSign(air) * snowDrift(air.wind));
     if (weather.flash > 0) {
       // The lighting pass lights the scene up; this adds the glare on top.
       ctx.fillStyle = `rgba(225, 239, 237, ${weather.flash * 0.14})`;
@@ -1565,7 +1587,7 @@ export function createRenderer(canvas) {
       time: reducedMotion ? 0 : now / 1000,
       riderX: focus.x,
       riderY: focus.y,
-      wind: windStrength(trail.weather),
+      weather: resolveWeather(trail.weather),
       landing,
       // Where the rider came off, and how long ago, for the spectators.
       crash: ride.ragdoll ? { x: focus.x, y: focus.y, age: (now - crashStart) / 1000 } : null,

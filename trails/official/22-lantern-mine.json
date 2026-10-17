@@ -1,15 +1,15 @@
 {
   "name": "Lantern Mine",
   "label": "LANTERN MINE / 22",
+  "finish": {
+    "x": 2380,
+    "y": 400
+  },
   "description": "The first dark cave. Past the mine mouth the back wall shuts out the daylight, and you ride by your headlight and the lanterns. Take the ramp down, roll off the ledge, ride past the minecarts and climb into the lit chamber at the end. Slow down where it's dark: you can't see what's coming.",
   "start": {
     "x": 200,
     "y": null,
     "facing": 1
-  },
-  "finish": {
-    "x": 2380,
-    "y": 400
   },
   "terrainBlocks": [
     {
@@ -34,7 +34,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-2",
@@ -42,11 +42,11 @@
             "y": 100,
             "mode": "smooth",
             "in": [
-              -580.0,
+              -580,
               100
             ],
             "out": [
-              -380.0,
+              -380,
               100
             ],
             "edge": "curve"
@@ -57,7 +57,7 @@
             "y": 300,
             "mode": "smooth",
             "in": [
-              -340.0,
+              -340,
               300
             ],
             "out": [
@@ -76,7 +76,7 @@
               300
             ],
             "out": [
-              610.0,
+              610,
               300
             ],
             "edge": "curve"
@@ -87,11 +87,11 @@
             "y": 420,
             "mode": "smooth",
             "in": [
-              720.0,
+              720,
               420
             ],
             "out": [
-              950.0,
+              950,
               420
             ],
             "edge": "curve"
@@ -112,7 +112,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-8",
@@ -124,7 +124,7 @@
               462
             ],
             "out": [
-              1340.0,
+              1340,
               462
             ],
             "edge": "curve"
@@ -135,7 +135,7 @@
             "y": 520,
             "mode": "smooth",
             "in": [
-              1420.0,
+              1420,
               520
             ],
             "out": [
@@ -154,7 +154,7 @@
               520
             ],
             "out": [
-              1970.0,
+              1970,
               520
             ],
             "edge": "curve"
@@ -165,11 +165,11 @@
             "y": 400,
             "mode": "smooth",
             "in": [
-              2040.0,
+              2040,
               400
             ],
             "out": [
-              2240.0,
+              2240,
               400
             ],
             "edge": "curve"
@@ -216,138 +216,42 @@
     },
     {
       "id": "roof",
-      "material": "stone",
+      "material": "dirt",
       "outer": {
         "id": "roof-outer",
         "nodes": [
           {
-            "id": "roof-0",
+            "id": "roof-12",
             "x": 420,
-            "y": 150,
+            "y": -150,
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
-            "id": "roof-1",
-            "x": 500,
-            "y": 150,
-            "mode": "smooth",
-            "in": [
-              473.3333,
-              150
-            ],
-            "out": [
-              610.0,
-              150
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "roof-2",
-            "x": 830,
-            "y": 270,
-            "mode": "smooth",
-            "in": [
-              720.0,
-              270
-            ],
-            "out": [
-              950.0,
-              270
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "roof-3",
-            "x": 1190,
-            "y": 270,
-            "mode": "smooth",
-            "in": [
-              1070.0,
-              270
-            ],
-            "out": [
-              1213.3333,
-              270
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "roof-4",
-            "x": 1260,
-            "y": 300,
-            "mode": "smooth",
-            "in": [
-              1236.6667,
-              300
-            ],
-            "out": [
-              1340.0,
-              300
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "roof-5",
+            "id": "roof-11",
             "x": 1500,
-            "y": 370,
+            "y": -260,
             "mode": "smooth",
             "in": [
-              1420.0,
-              370
+              1140,
+              -260
             ],
             "out": [
-              1633.3333,
-              370
+              1833.3333,
+              -260
             ],
             "edge": "curve"
           },
           {
-            "id": "roof-6",
-            "x": 1900,
-            "y": 370,
-            "mode": "smooth",
-            "in": [
-              1766.6667,
-              370
-            ],
-            "out": [
-              1933.3333,
-              370
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "roof-7",
-            "x": 2000,
-            "y": 320,
-            "mode": "independent",
-            "in": [
-              1965.0,
-              337.5
-            ],
-            "out": [
-              2052.5,
-              271.0
-            ],
-            "edge": "curve"
-          },
-          {
-            "id": "roof-8",
-            "x": 2150,
-            "y": 180,
-            "mode": "smooth",
-            "in": [
-              2100.0,
-              180
-            ],
-            "out": [
-              2266.6667,
-              180
-            ],
-            "edge": "curve"
+            "id": "roof-10",
+            "x": 2500,
+            "y": -300,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
           },
           {
             "id": "roof-9",
@@ -359,33 +263,129 @@
             "edge": "straight"
           },
           {
-            "id": "roof-10",
-            "x": 2500,
-            "y": -300,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "curve"
-          },
-          {
-            "id": "roof-11",
-            "x": 1500,
-            "y": -260,
+            "id": "roof-8",
+            "x": 2150,
+            "y": 180,
             "mode": "smooth",
             "in": [
-              1833.3333,
-              -260
+              2266.6667,
+              180
             ],
             "out": [
-              1140.0,
-              -260
+              2100,
+              180
             ],
             "edge": "curve"
           },
           {
-            "id": "roof-12",
+            "id": "roof-7",
+            "x": 2000,
+            "y": 320,
+            "mode": "independent",
+            "in": [
+              2052.5,
+              271
+            ],
+            "out": [
+              1965,
+              337.5
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "roof-6",
+            "x": 1900,
+            "y": 370,
+            "mode": "smooth",
+            "in": [
+              1933.3333,
+              370
+            ],
+            "out": [
+              1766.6667,
+              370
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "roof-5",
+            "x": 1500,
+            "y": 370,
+            "mode": "smooth",
+            "in": [
+              1633.3333,
+              370
+            ],
+            "out": [
+              1420,
+              370
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "roof-4",
+            "x": 1260,
+            "y": 300,
+            "mode": "smooth",
+            "in": [
+              1340,
+              300
+            ],
+            "out": [
+              1236.6667,
+              300
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "roof-3",
+            "x": 1190,
+            "y": 270,
+            "mode": "smooth",
+            "in": [
+              1213.3333,
+              270
+            ],
+            "out": [
+              1070,
+              270
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "roof-2",
+            "x": 830,
+            "y": 270,
+            "mode": "smooth",
+            "in": [
+              950,
+              270
+            ],
+            "out": [
+              720,
+              270
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "roof-1",
+            "x": 500,
+            "y": 150,
+            "mode": "smooth",
+            "in": [
+              610,
+              150
+            ],
+            "out": [
+              473.3333,
+              150
+            ],
+            "edge": "curve"
+          },
+          {
+            "id": "roof-0",
             "x": 420,
-            "y": -150,
+            "y": 150,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -397,7 +397,8 @@
     },
     {
       "id": "back-wall",
-      "material": "stone",
+      "material": "dirt",
+      "layer": "back",
       "outer": {
         "id": "back-wall-outer",
         "nodes": [
@@ -439,8 +440,7 @@
           }
         ]
       },
-      "inner": [],
-      "layer": "back"
+      "inner": []
     }
   ],
   "apples": [
@@ -494,14 +494,14 @@
       "text": "MINE"
     },
     {
-      "x": 420,
+      "x": 452,
       "y": 300,
       "type": "beams",
       "layer": "back"
     },
     {
-      "x": 460,
-      "y": 300,
+      "x": 451.93459512811035,
+      "y": 197.41596448856836,
       "type": "lantern",
       "layer": "back"
     },
@@ -649,7 +649,13 @@
   "water": [],
   "weather": {
     "sun": 0.5,
-    "clouds": 0.5
+    "clouds": 0.5,
+    "fog": 0,
+    "rain": 0,
+    "snow": 0,
+    "lightning": 0,
+    "wind": 0.3,
+    "windDirection": "left"
   },
   "timeOfDay": "evening",
   "backdrop": "mountains",

@@ -75,8 +75,12 @@ The world uses Canvas coordinates:
   weather: {
     sun: 0.25,
     clouds: 0.9,
+    fog: 0,
     rain: 0.5,
-    lightning: 0.35
+    snow: 0,
+    lightning: 0.35,
+    wind: 0.6,
+    windDirection: 'left'
   }
 }
 ```
@@ -283,7 +287,7 @@ Trails without water may leave the field out. Water is part of the trail hash on
 
 ## Weather
 
-Weather values are independent and range from `0` to `1`:
+Weather settings are independent. All but `windDirection` range from `0` to `1`:
 
 ```js
 weather: {
@@ -292,18 +296,24 @@ weather: {
   fog: 0.3,
   rain: 0.4,
   snow: 0,
-  lightning: 0.2
+  lightning: 0.2,
+  wind: 0.5,
+  windDirection: 'left'
 }
 ```
 
 - `sun`: sun size and visibility. A bright, mostly clear daytime sun glares, with a halo and slow rays across the view that stay out of caves: faintly from about `sun: 0.8` with `clouds: 0.25` at `noon`, fully at `sun: 1` with clear skies. Rain, snow and lightning put the glare out, and fog dims it.
 - `clouds`: sky cover, `0`–`1`. Separate flat-based clouds grow from a few small puffs into wide banks up to about `0.4`. From `0.3` a cloud deck with a lumpy underside fills in from the top of the sky, pushing the banks down ahead of it. It lowers steadily as the value rises until at `1` the sky is fully overcast, with the sun only a pale glow through it.
 - `fog`: mist. Each backdrop layer further back fades more into it and the sky pales. In play fog lies over the whole level and thickens as the value rises, thinning softly near the rider (a little more ahead than behind) so the ground close by can still be read; a lighter veil covers the rider too. Around `0.5` it is a light haze, and at `1` nothing more than about 5 m (roughly three bike lengths) from the bike can be seen. The editor shows only the backdrop fog.
-- `rain`: how much rain falls: the number of drops, the screen tint, and the ambient rain volume. Low values are just a few drops; from about `0.6` it builds to a wind-driven downpour at `1`, and from `0.5` gusting wind joins the rain sound. Drops land on the first terrain or water they reach, splashing on the ground and rippling on water, so caves and overhangs stay dry.
-- `snow`: how much snow falls. Low values are a few drifting flakes; from about `0.6` it builds to a wind-driven blizzard at `1`. Light snow brings a soft breeze, and heavier snow a higher, whistling wind. Flakes sway as they fall, are nearer or further away, and settle briefly on the first terrain they reach; on water they melt. Caves and overhangs stay clear. Pair it with `clouds` for a grey winter sky. Rain and snow can fall together for sleet.
-- `lightning`: strike frequency, flash strength, and thunder strength. Thunder follows the flash after a delay that grows with distance and comes from its side of the view: a close strike tears and bangs before rolling, a distant one is a long, muffled rumble. It also brings some wind.
+- `rain`: how much rain falls: the number of drops, the screen tint, and the ambient rain volume. Low values are just a few drops; from about `0.6` it builds to a downpour at `1`. The wind sets its slant: straight down in a calm, about 10° at `wind: 0.25`, 45° at `0.6`, and driven nearly flat (about 72°) at `1`. Drops land on the first terrain or water they reach, splashing on the ground and rippling on water, so caves and overhangs stay dry.
+- `snow`: how much snow falls. Low values are a few drifting flakes; from about `0.6` it builds to a blizzard at `1`. Flakes are light, so the wind drives them flatter than rain: a breeze tilts them a little, `wind: 0.5` about 50°, and a gale drives them nearly sideways (about 77°). Flakes sway as they fall, are nearer or further away, and settle briefly on the first terrain they reach; on water they melt. Caves and overhangs stay clear. Pair it with `clouds` for a grey winter sky, and with `wind` for a whiteout. Rain and snow can fall together for sleet, both blown by the same wind.
+- `lightning`: strike frequency, flash strength, and thunder strength. Thunder follows the flash after a delay that grows with distance and comes from its side of the view: a close strike tears and bangs before rolling, a distant one is a long, muffled rumble.
+- `wind`: how hard the wind blows, from still air at `0` to a gale at `1`. It sets the slant of rain and snow, how far flags, tape and smoke stream out, how far grass leans, how fast windmills turn, and the wind's sound. A light breeze (up to about `0.2`) is near silent; a strong wind roars, and whistles as it nears a gale.
+- `windDirection`: which way the wind blows, `'left'` or `'right'`. Everything blows the same way, flipped props included.
 
-Any property may be omitted. This supports clear skies, sunny skies with scattered clouds, overcast weather, rain without lightning, lightning without rain, and full storms.
+The defaults are a sunny day with a few clouds and a light breeze blowing left: `sun: 1`, `clouds: 0.2`, `wind: 0.25`, `windDirection: 'left'` and everything else `0`. Any setting may be omitted and takes its default, but trails should spell out all of them, as the editor does. Unknown settings are dropped. Weather is decoration only: it never changes the ride, and it is not part of the trail hash.
+
+The editor groups the settings into **Sky**, **Precipitation** and **Wind**, with a windsock beside the wind's direction that shows how hard it blows. The **Weather** presets (Clear, Breezy, Overcast, Drizzle, Storm, Sleet, Blizzard and Gale) set every setting except the wind's direction at once, as a starting point to adjust.
 
 ## Time of day and backdrop
 
@@ -347,9 +357,9 @@ They find the rock by sampling up to 22 units either side, so they can be clicke
 
 The farm props are decoration as well. The `ladder` leans to the right, so put it just left of a tree trunk, or flip it to lean the other way. The `scarecrow` turns its head to watch the rider go past, and the bees around the `beehive` buzz in place; both are visual only and stay still with reduced motion. The `tyre` is half-buried and sits a little below its anchor, so its dirt blends into the ground.
 
-The desert props are decoration as well. A `tumbleweed` rolls slowly to the right along the ground (flip it to roll left), bouncing a little and fading out after up to 360 units or where it reaches a wall or a drop, then rolls in again; where it has no room it just rocks in the breeze. The `windmill` pump's blades spin with the wind, which is stronger under cloud and in rain, snow and thunderstorms. `heat-haze` makes the scene shimmer for about 80 units each way and 44 units up from its anchor; on the `front` layer it shimmers the rider too. It is left out with reduced motion and with simple scenery. A `vulture` circles its anchor, or 170 units above the ground with `y: null`. When the rider crashes within about 640 units of it, with no terrain in between, it glides down a moment later and lands on the ground beside them, where it stands watching until the next attempt. The `car-wreck` is half-buried and sits a little below its anchor, so its sand drifts blend into the ground. With reduced motion, the tumbleweed, windmill and vulture stay still, and the vulture does not come down. All of them are visual only.
+The desert props are decoration as well. A `tumbleweed` rolls slowly to the right along the ground (flip it to roll left), bouncing a little and fading out after up to 360 units or where it reaches a wall or a drop, then rolls in again; where it has no room it just rocks in the breeze. The `windmill` pump's blades spin with the trail's steady `wind`. `heat-haze` makes the scene shimmer for about 80 units each way and 44 units up from its anchor; on the `front` layer it shimmers the rider too. It is left out with reduced motion and with simple scenery. A `vulture` circles its anchor, or 170 units above the ground with `y: null`. When the rider crashes within about 640 units of it, with no terrain in between, it glides down a moment later and lands on the ground beside them, where it stands watching until the next attempt. The `car-wreck` is half-buried and sits a little below its anchor, so its sand drifts blend into the ground. With reduced motion, the tumbleweed, windmill and vulture stay still, and the vulture does not come down. All of them are visual only.
 
-The mountain props are decoration too. `icicles` hang from the rock above them like the cave's ceiling props, up to 40 units long and shorter where the floor is close, and meltwater drips off the longest one. A `ski-lift` pylon carries a stretch of rope with a chair riding slowly along it. The rope runs 160 units each way and climbs to the right (to the left when flipped), so the pylon can stand at the foot of or on a hill. A `snow-pine` is a big pine under snow; a hard landing within 180 units of it shakes its crown and knocks puffs of snow off its boughs. The `hut`'s chimney smoke blows downwind, to the left like the snow and rain, and leans further in stronger wind; after dark its window glows with firelight. The `snowman` watches the rider go by, like the `scarecrow`, and glances up or down at them. With reduced motion, the chair, smoke and drips stay still and landings do not shake the pines. All of them are visual only.
+The mountain props are decoration too. `icicles` hang from the rock above them like the cave's ceiling props, up to 40 units long and shorter where the floor is close, and meltwater drips off the longest one. A `ski-lift` pylon carries a stretch of rope with a chair riding slowly along it. The rope runs 160 units each way and climbs to the right (to the left when flipped), so the pylon can stand at the foot of or on a hill. A `snow-pine` is a big pine under snow; a hard landing within 180 units of it shakes its crown and knocks puffs of snow off its boughs. The `hut`'s chimney smoke blows downwind, like the snow and rain, and leans further in stronger wind; after dark its window glows with firelight. The `snowman` watches the rider go by, like the `scarecrow`, and glances up or down at them. With reduced motion, the chair, smoke and drips stay still and landings do not shake the pines. All of them are visual only.
 
 The `squirrel` is woodland decoration. It sits on the ground nibbling a nut until the rider comes close, then runs along the ground to the nearest `tree`, `pine`, `sapling` or `pine-small` within 240 units, climbs the trunk and hides in the crown. It only runs to a tree standing on the ground it can run along, without walls or drops in the way; with no such tree it dashes off away from the rider and fades out. With reduced motion it simply disappears. Put it in the same `layer` as its tree, so it climbs up the front of the trunk.
 

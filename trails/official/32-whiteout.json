@@ -523,8 +523,12 @@
   "weather": {
     "sun": 0.2,
     "clouds": 0.8,
+    "fog": 0.5,
+    "rain": 0,
     "snow": 0.6,
-    "fog": 0.5
+    "lightning": 0,
+    "wind": 0.55,
+    "windDirection": "left"
   },
   "timeOfDay": "noon",
   "backdrop": "mountains",

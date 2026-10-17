@@ -86,13 +86,13 @@ Write functions as `export function drawThing({ pixelRect, pixelPath }, …)` an
 |---|---|
 | `time` | Seconds; 0 means hold still |
 | `riderX`, `riderY` | The rider (or ragdoll) position, or `null` |
-| `wind` | Wind strength from 0 to 1, from the weather (`windStrength`) |
+| `weather` | The trail's weather, resolved (see `js/weather.js`); read the wind on a prop with `propWind` |
 | `landing` | The last hard landing `{ x, y, time, strength }`, or `null` |
 | `flight` | A startled animal's `{ age, dir }` (birds, bats, fish, squirrels) |
 | `corgi` | Coda's state from `corgiStep`, kept per prop by render.js |
 | `swoop` | A vulture's pose while it comes down to a crash |
 
-**The wind blows left**, like the falling snow and rain. Anything wind-blown (smoke, flags, grass) leans or drifts left.
+**The wind blows either way**, set by the trail's `windDirection`. `propWind(scene, mirrored)` in drawing.js gives a prop's `wind` (0 to 1) and `downwind` (-1 or 1 in the prop's own frame, already flipped for a mirrored prop). Anything wind-blown (smoke, flags, grass) should lean or drift `downwind`.
 
 ## Reuse before writing new code
 
@@ -103,7 +103,7 @@ Write functions as `export function drawThing({ pixelRect, pixelPath }, …)` an
 | Hanging from the rock above | Add the prop to `CEILING_PROPS`; `propWallFit` gives the roof and the drop to the floor |
 | Pine boughs | `PINE_TIERS` and `drawPineTiers` |
 | A flickering warm light | `lanternFlicker` and the lantern light in lighting.js |
-| Wind strength | `windStrength` in desert-props.js |
+| Wind on a prop | `propWind` in drawing.js |
 | Animals that flee from the rider | The `STARTLE` table in render.js |
 
 ## Flipping and rotation
