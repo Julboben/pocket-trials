@@ -5,9 +5,9 @@
 import assert from 'node:assert/strict';
 import { normalizeTrail, validateTrail } from '../js/trail-schema.js';
 import { rectangle } from './lib/terrain-fixtures.mjs';
-import { PAINTED_PROPS, WALL_PROPS, canFlip, canRotate, paintedBounds, propWallFit } from '../js/drawing.js';
+import { PAINTED_PROPS, WALL_PROPS, canFlip, canRotate, mossSurface, paintedBounds, propWallFit } from '../js/drawing.js';
 import { FLAGPOLE, flagDroop, flagRipple } from '../js/countryside-props.js';
-import { FIRE_TONGUES, GRASS_BRUSH, IVY, grassLean, ivyLayout, ivyRustle } from '../js/forest-props.js';
+import { FIRE_TONGUES, GRASS_BRUSH, IVY, grassLean, ivyLayout, ivyRustle, mossCushions, mossPlacement } from '../js/forest-props.js';
 import { fireFrame, fireTongues } from '../js/fire.js';
 
 const COUNTRYSIDE_PROPS = ['tent', 'grass', 'flagpole', 'christiania-bike', 'bench', 'fireplace', 'tutorial-lean-forward'];
@@ -117,6 +117,35 @@ const COUNTRYSIDE_PROPS = ['tent', 'grass', 'flagpole', 'christiania-bike', 'ben
   }
   assert.ok(ivyRustle(0, 1, 0.3, 4) === 0, 'still at time 0');
   assert.ok(new Set(Array.from({ length: 20 }, (_, i) => ivyRustle(1 + i * 0.1, 0.8, 0.3, 4))).size > 1, 'stirs in the wind');
+}
+
+// Moss lies along the surface whichever way it faces: it finds the
+// surface's normal and stands its cushions along it, on the art grid.
+{
+  const close = ([ax, ay], [bx, by]) => Math.abs(ax - bx) < 0.2 && Math.abs(ay - by) < 0.2;
+  const s = Math.SQRT1_2;
+  const cases = [
+    ['a face looking right', (x) => x < 0, [1, 0]],
+    ['a face looking left', (x) => x > 0, [-1, 0]],
+    ['a hill rising to the right', (x, y) => y > -x, [-s, -s]],
+    ['a flat top', (x, y) => y > 0, [0, -1]],
+    ['an overhang', (x, y) => y < 0, [0, 1]],
+  ];
+  for (const [name, solid, expected] of cases) {
+    const { normal, at } = mossSurface(solid, 0, 0);
+    assert.ok(close(normal, expected), `${name}: faces ${normal.map((v) => v.toFixed(2))}`);
+    assert.ok(Math.hypot(...at) <= 2, `${name}: already on the surface`);
+  }
+  // Clicked a little into the air above a top, it steps back down onto it.
+  const above = mossSurface((x, y) => y > 0, 0, -9);
+  assert.ok(close(above.normal, [0, -1]) && Math.abs(above.at[1] - 9) <= 2, `steps onto the surface (${above.at})`);
+  assert.deepEqual(mossSurface(() => false, 0, 0), { normal: [0, -1], at: [0, 0] }, 'no rock near: it sits as on a top');
+  // Along a slope the cushions follow the slope, not a vertical line.
+  const placed = mossPlacement(mossCushions(() => 0.5), [-s, -s]);
+  const first = placed[0], last = placed.at(-1);
+  assert.ok(Math.sign(last.x - first.x) === -Math.sign(last.y - first.y) && Math.abs(last.x - first.x) > 10, 'it runs along the hill');
+  assert.ok(placed.every(({ x, y }) => x % 2 === 0 && y % 2 === 0), 'on the art grid');
+  assert.ok(!canRotate('moss'), 'it finds its own angle, so it is not turned by hand');
 }
 
 console.log('Countryside props: all checks passed.');

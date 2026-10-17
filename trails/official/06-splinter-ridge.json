@@ -1440,8 +1440,8 @@
       "layer": "back"
     },
     {
-      "x": 3143.441254084516,
-      "y": 138.03776929459104,
+      "x": 3152.857113229329,
+      "y": 157.6701031875407,
       "type": "moss",
       "layer": "front"
     },
@@ -1494,11 +1494,11 @@
     "wind": 0.3,
     "windDirection": "left"
   },
+  "timeOfDay": 12,
   "medals": {
     "gold": 16.5,
     "silver": 21,
     "bronze": 28
   },
-  "timeOfDay": 12,
   "backdrop": "forest"
 }

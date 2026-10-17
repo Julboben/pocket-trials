@@ -1268,9 +1268,10 @@ export const canFlip = (type) =>
   !CEILING_PROPS.has(type);
 // Props that fit themselves to the world or move through it keep their own
 // angle: ceiling, cave-fitted and water props, and the animals and effects
-// that wander, fly or shimmer, and the ski lift, whose chair hangs plumb. Wall
-// props and graffiti turn about their anchor.
-const UNROTATABLE_PROPS = new Set(["squirrel", "corgi", "tumbleweed", "vulture", "bird", "heat-haze", "ski-lift", "smoke"]);
+// that wander, fly or shimmer, and the ski lift, whose chair hangs plumb, and
+// moss, which lies along whatever surface it finds. Other wall props and
+// graffiti turn about their anchor.
+const UNROTATABLE_PROPS = new Set(["squirrel", "corgi", "tumbleweed", "vulture", "bird", "heat-haze", "ski-lift", "smoke", "moss"]);
 export const canRotate = (type) =>
   !CAVE_FITTED_PROPS.has(type) &&
   !WATER_PROPS.has(type) &&
@@ -1367,8 +1368,49 @@ export function propWallFit(trail, prop) {
     }
   }
   const fit = { side, drop, face, rise };
+  // Moss lies along the surface whichever way it faces: a wall, a slope, a
+  // top or the underside of an overhang.
+  if (prop.type === "moss") Object.assign(fit, mossSurface(solidAt, prop.x, y));
   wallFits.set(prop, { x: prop.x, y: prop.y, type: prop.type, geometry, fit });
   return fit;
+}
+
+/**
+ * Which way the surface near (x, y) faces and where it is, for moss:
+ * `normal`, a unit vector from the rock out into the air, found from which
+ * points of a ring around the anchor are open air, trying wider rings until
+ * one has both rock and air; and `at`, the point on the surface along that
+ * normal, as an offset from the anchor. Straight up from the anchor with no
+ * rock near it.
+ * @param {(x: number, y: number) => boolean} solidAt
+ */
+export function mossSurface(solidAt, x, y) {
+  for (const radius of [6, 10, 16, 24]) {
+    let sx = 0, sy = 0, air = 0;
+    const steps = 24;
+    for (let k = 0; k < steps; k++) {
+      const angle = (k / steps) * Math.PI * 2;
+      if (solidAt(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius)) continue;
+      air++;
+      sx += Math.cos(angle);
+      sy += Math.sin(angle);
+    }
+    const length = Math.hypot(sx, sy);
+    if (!air || air === steps || length < 0.01) continue;
+    const normal = [sx / length, sy / length];
+    // Step along the normal to the surface: out of the rock, or back to it.
+    const inside = solidAt(x, y);
+    let reach = 0;
+    for (let d = 2; d <= 32; d += 2) {
+      const solid = solidAt(x + (inside ? 1 : -1) * normal[0] * d, y + (inside ? 1 : -1) * normal[1] * d);
+      if (solid !== inside) {
+        reach = (inside ? 1 : -1) * (d - 1);
+        break;
+      }
+    }
+    return { normal, at: [normal[0] * reach, normal[1] * reach] };
+  }
+  return { normal: [0, -1], at: [0, 0] };
 }
 
 // How far above its anchor a ceiling prop looks for the roof.
@@ -3612,7 +3654,8 @@ const PROP_EXTENTS = {
   start: [-48, -102, 48],
   vines: [-16, -10, 16],
   roots: [-32, -16, 32],
-  moss: [-20, -32, 22],
+  // Moss lies along whatever surface it finds, so any way round.
+  moss: [-32, -32, 32],
   crates: [-50, -72, 50],
   apple: [-6, -12, 6],
   ladder: [-28, -100, 26],
@@ -5804,13 +5847,13 @@ export function createGameArt(ctx) {
       const { wind, downwind } = propWind(scene, mirrored);
       drawStartPennant(ctx, 0, 0, groundOffset, scene.time || 0, wind, downwind);
     } else if (WALL_PROPS.has(type)) {
-      if (type !== "vines") ctx.translate(wall?.face || 0, 0);
+      if (type === "moss") ctx.translate(Math.round((wall?.at?.[0] ?? 0) / 2) * 2, Math.round((wall?.at?.[1] ?? 0) / 2) * 2);
+      else if (type !== "vines") ctx.translate(wall?.face || 0, 0);
       // Grow away from the rock: rock on the right (side 1) means grow left.
       if (type === "vines") drawVines(x, wall);
       else if (type === "moss") {
-        // Cushions of moss against the rock, bulging out into the air.
-        ctx.scale(wall?.side === 1 ? -1 : 1, 1);
-        drawMoss({ pixelRect }, mossCushions((n) => propNoise(x, 40 + n)));
+        // Cushions of moss along the surface, whichever way it faces.
+        drawMoss({ pixelRect }, mossCushions((n) => propNoise(x, 40 + n)), wall?.normal ?? [0, -1]);
       }
       else if (type === "ivy") {
         // Climbs the face, its leaves out in the air and stirring in the wind.

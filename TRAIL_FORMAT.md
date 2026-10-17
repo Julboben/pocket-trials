@@ -374,7 +374,7 @@ Four props attach to a wall rather than standing on the ground, and grow toward 
 | --- | --- | --- |
 | `vines` | Just past the top corner of a cliff | Leafy strands hanging down the face, as far as the drop to the floor below allows |
 | `roots` | On a wall face | Twisted roots growing out of the rock and drooping down |
-| `moss` | On a wall face | Cushions of moss bulging out from the rock, lit where they face up and out, with spore capsules on top and a few drips below |
+| `moss` | On any surface: a wall face, a slope, a top or the underside of an overhang | Cushions of moss lying along the surface whichever way it faces, lit from the upper right, with spore capsules standing up off it and drips hanging under it where there's room. It finds its own angle, so it can't be rotated |
 | `ivy` | At the foot of a wall, or on its face | A mat of ivy climbing the face from its anchor, as high as the face goes (up to 120), its outer leaves stirring in the wind |
 
 They find the rock by sampling up to 22 units either side, so they can be clicked slightly into the rock or slightly into the air. They are decoration only — nothing collides with them.

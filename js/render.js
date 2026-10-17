@@ -172,7 +172,7 @@ const PROP_HANG = {
   vines: 148,
   ivy: 4,
   roots: 28,
-  moss: 28,
+  moss: 32,
   graffiti: 38,
   "tutorial-lean": 34,
   "tutorial-flip": 34,

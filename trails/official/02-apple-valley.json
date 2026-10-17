@@ -1218,6 +1218,12 @@
       "y": 286.42551685333865,
       "type": "flowers",
       "layer": "back"
+    },
+    {
+      "x": 1597.6089602860125,
+      "y": 439.2855155217069,
+      "type": "tutorial-lean-forward",
+      "layer": "front"
     }
   ],
   "spikes": [],

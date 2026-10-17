@@ -455,68 +455,98 @@ const MOSS_STALK = { stem: "#806244", capsule: "#aa8a60" };
 const MOSS_DRIP = { base: "#568f98", light: "#83d1ce" };
 
 /**
- * The cushions of moss on a face: { y, rx, ry }, each a mound bulging `rx`
- * out from the rock face at x = 0 into the open air at +x, `ry` above and
- * below its middle at `y`, around the anchor at (0, 0). The biggest sits in
- * the middle, smaller ones above and below it; `noise(n)` is a fixed 0…1 value
- * per prop, so each patch differs a little.
+ * The cushions of moss in a patch: { u, r }, each a round mound `r` across
+ * set `u` along the surface from the anchor. The biggest sits at the anchor,
+ * smaller ones either side of it; `noise(n)` is a fixed 0…1 value per prop, so
+ * each patch differs a little.
  * @param {(n: number) => number} noise
  */
 export function mossCushions(noise) {
   return [
-    { y: -13, rx: 12, ry: 7 },
-    { y: -1, rx: 16, ry: 7 },
-    { y: 10, rx: 12, ry: 6 },
-    { y: 17, rx: 6, ry: 3 },
+    { u: -12, r: 6 },
+    { u: -1, r: 8 },
+    { u: 10, r: 6 },
+    { u: 18, r: 4 },
   ].map((cushion, index) => ({
-    ...cushion,
-    rx: cushion.rx + snap((noise(index) - 0.5) * 4),
+    u: cushion.u + snap((noise(index) - 0.5) * 4),
+    r: cushion.r + (noise(index + 4) > 0.65 ? 2 : 0),
+  }));
+}
+
+// Moss is lit like every prop, from the upper right.
+const MOSS_LIGHT = [0.6, -0.8];
+
+/**
+ * Where each cushion's middle sits around the anchor on the surface: along
+ * the surface, and bulging out of it along its `normal` (a unit vector from
+ * the rock into the open air), far enough to clear the terrain's rim, which
+ * rises 4 above the surface and covers back-layer props. Snapped to the art
+ * grid.
+ * @param {{ u: number, r: number }[]} cushions
+ * @param {[number, number]} normal
+ */
+export function mossPlacement(cushions, normal) {
+  const [nx, ny] = normal;
+  // Along the surface: down a face that looks right, across a top, and so on.
+  const tx = -ny, ty = nx;
+  return cushions.map(({ u, r }) => ({
+    x: snap(tx * u + nx * (r * 0.4 + 3)),
+    y: snap(ty * u + ny * (r * 0.4 + 3)),
+    r,
   }));
 }
 
 /**
- * A patch of moss as mossCushions lays it out, pressed against the rock: each
- * cushion built row by row, deep green at the rock and underneath, brightening
- * to tufts where it faces up and out into the light, with little fronds along
- * its outer edge. A couple of spore stalks with brown capsules stand up off
- * the top, and drips of water hang under the lowest cushion.
+ * A patch of moss on the surface under the anchor at (0, 0), whatever way it
+ * faces: `normal` is a unit vector from the rock out into the air ([1, 0] on a
+ * face looking right, [0, -1] on a flat top). Its cushions (see mossCushions)
+ * lie along the surface, each a round, dappled mound with a scalloped edge,
+ * lit from the upper right and darkest against the rock. Spore stalks stand
+ * up off it unless it hangs under an overhang, and drips hang under it unless
+ * it lies on top of the ground.
+ * @param {{ u: number, r: number }[]} cushions
+ * @param {[number, number]} [normal]
  */
-export function drawMoss({ pixelRect }, cushions) {
+export function drawMoss({ pixelRect }, cushions, normal = [1, 0]) {
+  const [nx, ny] = normal;
+  const [lx, ly] = MOSS_LIGHT;
   const tones = [MOSS.deep, MOSS.dark, MOSS.base, MOSS.light, MOSS.tip];
-  for (const { y: cy, rx, ry } of cushions) {
-    for (let dy = -ry; dy < ry; dy += 2) {
-      const v = (dy + 1) / ry;
-      // Scalloped into tufts along its outer edge.
-      const reach = snap(rx * Math.sqrt(Math.max(0, 1 - v * v))) + (((dy + ry) / 2) % 3 === 1 ? 2 : 0);
-      if (reach <= 0) continue;
-      const y = cy + dy;
-      for (let x = -2; x < reach; x += 2) {
-        const u = (x + 1) / reach;
-        // Lit from the upper right: out from the rock and up the mound.
-        let light = u * 0.75 + (1 - (v + 1) / 2) * 0.75;
+  const placed = mossPlacement(cushions, normal);
+  for (const { x: cx, y: cy, r } of placed) {
+    for (let dy = -r; dy < r; dy += 2)
+      for (let dx = -r; dx < r; dx += 2) {
+        const ox = dx + 1, oy = dy + 1;
+        const d = Math.hypot(ox, oy);
+        // A scalloped edge of tufts rather than a smooth circle.
+        const angle = Math.atan2(oy, ox) + Math.PI;
+        if (d > r + (Math.floor(angle * 2.5) % 2 ? 0 : 1)) continue;
+        const out = d / r;
+        let light = 0.5 + 0.55 * ((ox * lx + oy * ly) / (d || 1)) * out;
+        // Darker where it presses against the rock.
+        if (-(ox * nx + oy * ny) / (d || 1) * out > 0.45) light -= 0.35;
         // A dappled texture of tufts and the gaps between them.
-        const dapple = ((x + y * 3) / 2) % 5;
-        if (dapple === 0) light += 0.3;
-        else if (dapple === 3) light -= 0.25;
-        const tone = tones[Math.max(0, Math.min(4, Math.floor(light * 3.2)))];
-        pixelRect(x, y, 2, 2, x < 0 ? MOSS.deep : tone, 2);
+        const dapple = (((cx + dx + (cy + dy) * 3) / 2) % 5 + 5) % 5;
+        if (dapple === 0) light += 0.2;
+        else if (dapple === 3) light -= 0.18;
+        pixelRect(cx + dx, cy + dy, 2, 2, tones[Math.max(0, Math.min(4, Math.floor(light * 4.2)))], 2);
       }
-      // Fronds along the outer edge, on every other row of the upper half.
-      if (v < 0.4 && ((dy + ry) / 2) % 2 === 0) pixelRect(reach, y, 2, 2, v < -0.4 ? MOSS.tip : MOSS.light, 2);
+  }
+  // Spore stalks off the highest cushion, unless it hangs under an overhang.
+  if (ny < 0.6) {
+    const top = placed.reduce((best, cushion) => (cushion.y - cushion.r < best.y - best.r ? cushion : best));
+    for (const [ox, height] of [[-2, 4], [2, 2]]) {
+      const x = top.x + ox, y = top.y - top.r;
+      pixelRect(x, y - height, 2, height, MOSS_STALK.stem, 2);
+      pixelRect(x, y - height - 2, 2, 2, MOSS_STALK.capsule, 2);
     }
   }
-  // Spore stalks off the top cushion, each with its capsule.
-  const top = cushions[0];
-  for (const [x, height] of [[2, 4], [top.rx - 4, 2]]) {
-    const y = top.y - top.ry;
-    pixelRect(x, y - height, 2, height, MOSS_STALK.stem, 2);
-    pixelRect(x, y - height - 2, 2, 2, MOSS_STALK.capsule, 2);
-  }
-  // Drips of water hanging off the lowest cushion.
-  const low = cushions.at(-1);
-  for (const [x, length] of [[0, 2], [4, 4]]) {
-    const y = low.y + low.ry;
-    pixelRect(x, y, 2, length, MOSS.dark, 2);
-    pixelRect(x, y + length, 2, 2, MOSS_DRIP.light, 2);
+  // Drips of water off the lowest cushion, unless it lies on top of the ground.
+  if (ny > -0.6) {
+    const low = placed.reduce((best, cushion) => (cushion.y + cushion.r > best.y + best.r ? cushion : best));
+    for (const [ox, length] of [[-2, 2], [2, 4]]) {
+      const x = low.x + ox, y = low.y + low.r;
+      pixelRect(x, y, 2, length, MOSS.dark, 2);
+      pixelRect(x, y + length, 2, 2, MOSS_DRIP.light, 2);
+    }
   }
 }
