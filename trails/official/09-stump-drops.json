@@ -1,15 +1,15 @@
 {
   "name": "Stump Drops",
   "label": "STUMP DROPS / 09",
+  "finish": {
+    "x": 2612.3830050609445,
+    "y": 379.34985078664056
+  },
   "description": "Drops and step-downs, from a 40 unit stump ledge to a 90 unit stone dike. Come to each lip slowly, lean back as the front wheel goes over so the bike lands rear wheel first, then let the front come down and ride away down the landing. The steps in the middle are a staircase: roll them one by one. Watch the squirrel at the start.",
   "start": {
-    "x": 90,
-    "y": null,
+    "x": -500,
+    "y": 108,
     "facing": 1
-  },
-  "finish": {
-    "x": 2820,
-    "y": null
   },
   "terrainBlocks": [
     {
@@ -20,57 +20,90 @@
         "nodes": [
           {
             "id": "ground-0",
-            "x": -1000,
+            "x": -1500,
             "y": -60,
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-1",
-            "x": -450,
+            "x": -950,
             "y": -60,
             "mode": "smooth",
             "in": [
-              -633.3333,
+              -1133.3333,
               -60
             ],
             "out": [
-              -410.0,
+              -910,
               -60
             ],
             "edge": "curve"
           },
           {
             "id": "ground-2",
-            "x": -330,
+            "x": -830,
             "y": 120,
             "mode": "smooth",
             "in": [
-              -370.0,
+              -870,
               120
             ],
             "out": [
-              -253.3333,
+              -753.3333,
               120
             ],
             "edge": "curve"
           },
           {
             "id": "ground-3",
-            "x": -100,
+            "x": -600,
             "y": 120,
-            "mode": "smooth",
+            "mode": "corner",
             "in": [
-              -176.6667,
+              -676.6667,
               120
             ],
-            "out": [
-              80.0,
-              120
-            ],
-            "edge": "curve"
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n9v7",
+            "x": -350,
+            "y": 120,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "nfpn",
+            "x": -103.7665,
+            "y": 103.1736,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n8s4",
+            "x": 19.7001,
+            "y": 81.4865,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n7ip",
+            "x": 65.6853,
+            "y": 120,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
           },
           {
             "id": "ground-4",
@@ -88,7 +121,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-6",
@@ -100,7 +133,7 @@
               190
             ],
             "out": [
-              710.0,
+              710,
               190
             ],
             "edge": "curve"
@@ -111,7 +144,7 @@
             "y": 190,
             "mode": "smooth",
             "in": [
-              780.0,
+              780,
               190
             ],
             "out": [
@@ -145,7 +178,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-11",
@@ -153,11 +186,11 @@
             "y": 250,
             "mode": "smooth",
             "in": [
-              1176.0,
+              1176,
               250
             ],
             "out": [
-              1280.0,
+              1280,
               250
             ],
             "edge": "curve"
@@ -214,7 +247,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-18",
@@ -222,7 +255,7 @@
             "y": 335,
             "mode": "smooth",
             "in": [
-              1554.0,
+              1554,
               335
             ],
             "out": [
@@ -247,7 +280,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-21",
@@ -255,7 +288,7 @@
             "y": 440,
             "mode": "smooth",
             "in": [
-              1868.0,
+              1868,
               440
             ],
             "out": [
@@ -274,7 +307,7 @@
               300
             ],
             "out": [
-              2380.0,
+              2380,
               300
             ],
             "edge": "curve"
@@ -295,7 +328,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-25",
@@ -377,100 +410,8 @@
           },
           {
             "id": "ground-31",
-            "x": -1000,
+            "x": -1500,
             "y": 1200,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          }
-        ]
-      },
-      "inner": []
-    },
-    {
-      "id": "dike-1",
-      "material": "stone",
-      "outer": {
-        "id": "dike-1-outer",
-        "nodes": [
-          {
-            "id": "dike-1-0",
-            "x": 958,
-            "y": 160,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "dike-1-1",
-            "x": 1013,
-            "y": 160,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "dike-1-2",
-            "x": 1013,
-            "y": 224,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "dike-1-3",
-            "x": 958,
-            "y": 224,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          }
-        ]
-      },
-      "inner": []
-    },
-    {
-      "id": "dike-2",
-      "material": "stone",
-      "outer": {
-        "id": "dike-2-outer",
-        "nodes": [
-          {
-            "id": "dike-2-0",
-            "x": 2392,
-            "y": 300,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "dike-2-1",
-            "x": 2448,
-            "y": 300,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "dike-2-2",
-            "x": 2448,
-            "y": 394,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "dike-2-3",
-            "x": 2392,
-            "y": 394,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -488,7 +429,7 @@
         "nodes": [
           {
             "id": "dike-deco-1-0",
-            "x": -280,
+            "x": -780,
             "y": 96,
             "mode": "corner",
             "in": null,
@@ -497,7 +438,7 @@
           },
           {
             "id": "dike-deco-1-1",
-            "x": -200,
+            "x": -700,
             "y": 96,
             "mode": "corner",
             "in": null,
@@ -506,7 +447,7 @@
           },
           {
             "id": "dike-deco-1-2",
-            "x": -200,
+            "x": -700,
             "y": 120,
             "mode": "corner",
             "in": null,
@@ -515,54 +456,8 @@
           },
           {
             "id": "dike-deco-1-3",
-            "x": -280,
+            "x": -780,
             "y": 120,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          }
-        ]
-      },
-      "inner": []
-    },
-    {
-      "id": "dike-deco-2",
-      "material": "stone",
-      "outer": {
-        "id": "dike-deco-2-outer",
-        "nodes": [
-          {
-            "id": "dike-deco-2-0",
-            "x": 3000,
-            "y": 401,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "dike-deco-2-1",
-            "x": 3062,
-            "y": 401,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "dike-deco-2-2",
-            "x": 3062,
-            "y": 425,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "dike-deco-2-3",
-            "x": 3000,
-            "y": 425,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -575,48 +470,44 @@
   ],
   "apples": [
     {
-      "x": 560,
-      "y": null
+      "x": 631,
+      "y": 128.75510204081633
     },
     {
-      "x": 1425,
-      "y": null
+      "x": 1435,
+      "y": 240
     },
     {
-      "x": 1820,
-      "y": null
+      "x": 2408.02858405968,
+      "y": 253.72385126543406
     },
     {
-      "x": 2250,
-      "y": null
-    },
-    {
-      "x": 2600,
-      "y": null
+      "x": 77.33178196358432,
+      "y": 37.96055237360525
     }
   ],
   "props": [
     {
-      "x": -700,
-      "y": null,
+      "x": -1200,
+      "y": -60,
       "type": "pine",
       "layer": "back"
     },
     {
-      "x": -560,
-      "y": null,
+      "x": -1060,
+      "y": -60,
       "type": "pine-small",
       "layer": "back"
     },
     {
-      "x": -240,
+      "x": -740,
       "y": 96,
       "type": "moss",
       "layer": "back"
     },
     {
-      "x": -120,
-      "y": null,
+      "x": -620,
+      "y": 120,
       "type": "stump",
       "layer": "front"
     },
@@ -627,23 +518,10 @@
       "layer": "back"
     },
     {
-      "x": 180,
-      "y": null,
-      "type": "squirrel",
-      "layer": "back"
-    },
-    {
       "x": 330,
       "y": null,
       "type": "pebbles",
       "layer": "front"
-    },
-    {
-      "x": 410,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "!"
     },
     {
       "x": 446,
@@ -670,21 +548,14 @@
       "layer": "front"
     },
     {
-      "x": 930,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "! DROP"
-    },
-    {
       "x": 1100,
       "y": null,
       "type": "pine",
       "layer": "back"
     },
     {
-      "x": 1060,
-      "y": null,
+      "x": 1551.4801188042834,
+      "y": 332.5538219435291,
       "type": "squirrel",
       "layer": "back"
     },
@@ -695,30 +566,10 @@
       "layer": "front"
     },
     {
-      "x": 1290,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "STEPS"
-    },
-    {
       "x": 1355,
       "y": null,
       "type": "pebbles",
       "layer": "front"
-    },
-    {
-      "x": 1520,
-      "y": null,
-      "type": "pine-small",
-      "layer": "back"
-    },
-    {
-      "x": 1660,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "!"
     },
     {
       "x": 1690,
@@ -757,21 +608,14 @@
       "layer": "back"
     },
     {
-      "x": 2360,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "! DROP"
-    },
-    {
       "x": 2520,
       "y": null,
       "type": "bush",
       "layer": "back"
     },
     {
-      "x": 2650,
-      "y": null,
+      "x": 2720,
+      "y": 418.1906614785992,
       "type": "pine",
       "layer": "back"
     },
@@ -803,6 +647,18 @@
       "x": 3400,
       "y": null,
       "type": "pine-small",
+      "layer": "back"
+    },
+    {
+      "x": -190.4650480045467,
+      "y": 104.39152028437434,
+      "type": "pine",
+      "layer": "back"
+    },
+    {
+      "x": 1629.1197840237003,
+      "y": 327.99828651884525,
+      "type": "pine",
       "layer": "back"
     }
   ],

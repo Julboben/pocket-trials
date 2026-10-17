@@ -11,7 +11,7 @@ import {
 import { isCurvedEdge } from "../terrain-geometry.js";
 import { typingInField } from "./clipboard.js";
 import { $, canvas } from "./dom.js";
-import { pushHistory, redo, snapshot, undo } from "./history.js";
+import { pushHistory, redo, restore, snapshot, undo } from "./history.js";
 import { hitStack, hitTest, sameHit } from "./hit-test.js";
 import {
   endScale,
@@ -87,6 +87,11 @@ let dragSnapshot = null;
 let dragOrigin = null;
 
 let lastDragPointer = null;
+
+// A plain drag of something that can be copied, so pressing Alt mid-drag can
+// turn it into a duplicate: the trail before the drag, what was grabbed and
+// where. Null once it has been duplicated, or for drags that can't be.
+let dragCopyable = null;
 
 let pendingKind = null;
 // Pressing a selected item that shares its spot with others: a click without
@@ -255,6 +260,25 @@ function dragSelectionTo(pointer, shift) {
   render();
 }
 
+/**
+ * Alt pressed during a plain drag: the original goes back to where it was and
+ * a copy follows the mouse instead, the same as an Alt-drag from the start.
+ * The drag's single undo step covers it all.
+ */
+function duplicateMidDrag(shift) {
+  const copyable = dragCopyable;
+  if (!copyable || !dragging || scaling() || rotating()) return;
+  dragCopyable = null;
+  restore(copyable.before);
+  const copy = duplicateTarget(copyable.hit);
+  // Nothing to copy after all: the original goes on following the mouse.
+  if (copy) editor.selection = copy;
+  dragOrigin = startDragOrigin(copyable.point);
+  // Not moved yet: the copy waits for the first move, which records the undo step.
+  if (lastDragPointer) dragSelectionTo(lastDragPointer, shift);
+  else render();
+}
+
 // Pressing or releasing Shift mid-drag turns snapping on or off straight away,
 // without waiting for the pointer to move.
 const onShiftChange = (event) => {
@@ -300,6 +324,7 @@ function resetPointerState() {
   dragSnapshot = null;
   dragOrigin = null;
   lastDragPointer = null;
+  dragCopyable = null;
   editor.snapGuide = null;
   editor.marquee = null;
   altPress = null;
@@ -567,6 +592,13 @@ export function bindInput() {
       dragSnapshot = snapshot();
       dragOrigin = startDragOrigin(point);
       dragging = true;
+      // What is really being dragged: the selection, which may be the next
+      // one down a stack, or the grabbed member of a group.
+      const dragged = editor.selection.kind === "items" ? hit : editor.selection;
+      const draggedItem = dragged?.kind === "blockEdge" ? { type: "block" } : itemFromHit(dragged);
+      // Start, finish and curve handles can't be duplicated, so Alt leaves their drag alone.
+      if (draggedItem && draggedItem.type !== "start" && draggedItem.type !== "finish")
+        dragCopyable = { before: dragSnapshot, hit: dragged, point };
       canvas.setPointerCapture(event.pointerId);
     }
     syncInspector();
@@ -673,7 +705,19 @@ export function bindInput() {
     }
     if (!dragging || !editor.selection || !pastSlop(event)) return;
     lastDragPointer = { clientX: event.clientX, clientY: event.clientY };
+    // Alt went down while the canvas didn't have the key events (or before
+    // the first move): duplicate now.
+    if (event.altKey && dragCopyable) {
+      duplicateMidDrag(event.shiftKey);
+      return;
+    }
     dragSelectionTo(lastDragPointer, event.shiftKey);
+  });
+
+  window.addEventListener("keydown", (event) => {
+    if (event.key !== "Alt" || event.repeat || !dragCopyable) return;
+    event.preventDefault();
+    duplicateMidDrag(event.shiftKey);
   });
 
   window.addEventListener("keydown", onShiftChange);

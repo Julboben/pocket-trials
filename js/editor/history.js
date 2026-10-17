@@ -17,7 +17,8 @@ export function pushHistory(state = snapshot()) {
   updateHistoryButtons();
 }
 
-function restore(state) {
+/** Put the trail and selection back as they were in `state`, without an undo step. */
+export function restore(state) {
   editor.trail = normalizeTrail(JSON.parse(state.trail), editor.trailIndex);
   editor.selection = state.selection;
   syncInspector();
