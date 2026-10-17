@@ -1356,7 +1356,7 @@
     "wind": 0.25,
     "windDirection": "left"
   },
-  "timeOfDay": "noon",
+  "timeOfDay": 12,
   "medals": {
     "gold": 18,
     "silver": 23.5,

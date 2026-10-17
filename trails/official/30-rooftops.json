@@ -548,7 +548,7 @@
     "x": 1600,
     "y": null
   },
-  "timeOfDay": "night",
+  "timeOfDay": 0,
   "backdrop": "city",
   "medals": {
     "gold": 19,

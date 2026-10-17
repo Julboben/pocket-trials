@@ -289,14 +289,14 @@ const drawCalls = (renderer, trail, x, y, w, h) => {
     getContext() { return this.context; }
   };
   const art = createGameArt(recorder());
-  for (const timeOfDay of ['noon', 'evening', 'night']) {
+  for (const [index, timeOfDay] of [12, 19, 0, 5, 20].entries()) {
     fills.length = 0;
-    art.drawBackground({ width: 800, height: 400, palette: { backdrop: 'city', timeOfDay }, cameraX: 9000 + timeOfDay.length * 777 });
+    art.drawBackground({ width: 800, height: 400, palette: { backdrop: 'city', timeOfDay }, cameraX: 9000 + index * 777 });
     // Tall fills are the sky and the building bodies; windows are 4 tall.
     const bodies = fills.filter(([, , , , height]) => height > 40);
     const colours = new Set(bodies.map(([colour]) => colour));
     const lit = bodies.filter(([colour]) => colour === '#ffeaa8').length;
-    check(`city buildings at ${timeOfDay} are filled with building colours only`, colours.size === 3 && lit === 0 && bodies.length > 0, `(${[...colours].join(', ')})`);
+    check(`city buildings at ${timeOfDay}:00 are filled with building colours only`, colours.size === 3 && lit === 0 && bodies.length > 0, `(${[...colours].join(', ')})`);
   }
   globalThis.OffscreenCanvas = Offscreen;
 }

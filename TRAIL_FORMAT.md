@@ -313,20 +313,31 @@ weather: {
 
 The defaults are a sunny day with a few clouds and a light breeze blowing left: `sun: 1`, `clouds: 0.2`, `wind: 0.25`, `windDirection: 'left'` and everything else `0`. Any setting may be omitted and takes its default, but trails should spell out all of them, as the editor does. Unknown settings are dropped. Weather is decoration only: it never changes the ride, and it is not part of the trail hash.
 
-The editor groups the settings into **Sky**, **Precipitation** and **Wind**, with a windsock beside the wind's direction that shows how hard it blows. The **Weather** presets (Clear, Breezy, Overcast, Drizzle, Storm, Sleet, Blizzard and Gale) set every setting except the wind's direction at once, as a starting point to adjust.
+The editor groups the settings into **Sky**, **Precipitation** and **Wind**, after **Time of day** (an hour slider with **Morning**, **Noon**, **Evening** and **Night** buttons for the classic times) and **Scenery** (the backdrop), with a windsock beside the wind's direction that shows how hard it blows. The **Weather** presets (Clear, Breezy, Overcast, Drizzle, Storm, Sleet, Blizzard and Gale) set every setting except the wind's direction at once, as a starting point to adjust.
 
 ## Time of day and backdrop
 
 ```js
-timeOfDay: 'evening',
+timeOfDay: 19,
 backdrop: 'desert'
 ```
 
 Both are optional, and each is independent of the other.
 
-`timeOfDay` picks the sky, sun, hill and light colours, and how the scene is lit. Valid values are `morning`, `noon`, `evening` and `night`; anything else, or no value, falls back to `noon`. Evening and night also light the finish and the city windows.
+`timeOfDay` is the hour of the day, a whole number from `0` (midnight) to `23`, and sets the sky, sun, hill and light colours, and how the scene is lit. No value means noon (`12`); other numbers are rounded and wrapped round the clock, and anything else is noon. The day is blended from a few looks on the clock, and every hour between two is a mix of them:
 
-Lighting comes from the terrain and its back walls (see below). Air open to the sky, above the terrain or with no back wall behind it, gets the time of day's light, which fades in through cave mouths and in from the edges of back walls, so a cave closed off by a back wall is dark at any time of day. Air in front of a back wall that sees enough of the sky, such as under a wide overhang, stays lit, with only a soft shade right beneath it. Rock takes the light at its surface and darkens with depth: hardly at all at `noon`, a little in the `morning`, more in the `evening`, and quickly at `night`. Thin slits under ledges, and small sealed hollows in front of a back wall, are lit like the rock around them. Lanterns, glowing mushrooms, lamps and crane lights and the bike's headlight and tail light cast light of their own, which only reaches the surface of the rock. Apples, spikes and the finish get no light of their own, so in the dark they are only seen where some light reaches them; it is up to the trail to light what the rider should see. Rain softens the light, and lightning lights up the whole scene.
+| Hour | Look |
+| --- | --- |
+| `0`–`4`, `22`–`23` | Night: a dark blue sky with the moon and stars |
+| `6` | Dawn: a pink horizon, the sun low, the last stars going out |
+| `7` | Morning: soft, warm light, the sun still low |
+| `10`–`16` | Noon: full daylight, the sun high |
+| `19` | Evening: a golden sky and a large, low, orange sun |
+| `20` | Dusk: the blue hour, the sun's last glow on the horizon and the first stars |
+
+So `5` is halfway from night to dawn, `8` and `9` warm into noon, `17` and `18` turn golden, and at `21` the moon rises. The classic times are `7` (morning), `12` (noon), `19` (evening) and `0` (night), the editor's help points. From about dusk until after dawn (`18` to `6`), the finish, the city windows, lamps and crane lights are lit. The *Night Rider* and *Night Owl* achievements count `21` to `4` as night.
+
+Lighting comes from the terrain and its back walls (see below). Air open to the sky, above the terrain or with no back wall behind it, gets the time of day's light, which fades in through cave mouths and in from the edges of back walls, so a cave closed off by a back wall is dark at any time of day. Air in front of a back wall that sees enough of the sky, such as under a wide overhang, stays lit, with only a soft shade right beneath it. Rock takes the light at its surface and darkens with depth: hardly at all at noon, a little in the morning, more in the evening, and quickly at night. Thin slits under ledges, and small sealed hollows in front of a back wall, are lit like the rock around them. Lanterns, glowing mushrooms, lamps and crane lights and the bike's headlight and tail light cast light of their own, which only reaches the surface of the rock. Apples, spikes and the finish get no light of their own, so in the dark they are only seen where some light reaches them; it is up to the trail to light what the rider should see. Rain softens the light, and lightning lights up the whole scene.
 
 `backdrop` picks the shapes of the two parallax layers behind the terrain. Valid values are `hills`, `mountains`, `forest`, `desert` and `city`; anything else, or no value, means `hills`, and `hills` is not stored.
 
@@ -365,7 +376,7 @@ The `squirrel` is woodland decoration. It sits on the ground nibbling a nut unti
 
 The `corgi` is Coda, a tri-colour Pembroke Welsh Corgi. He potters about within 80 units of his anchor, sitting, sniffing the ground, standing about and woofing now and then. When the rider comes within 160 units (and 90 above or below), he woofs, runs over and stops a little short of them, wagging and woofing, until they are 300 units away; then he trots home. He only goes along the ground either side of his anchor, up to 220 units, and stops at walls and drops. His woof can be heard when he is on screen. When the rider is close to him (within 64 units either side and 72 above or below), the interact key (`E` by default, shown over his head; d-pad down on a gamepad; a tap on touch screens) tells him to sit: he sits and pants with a wagging tail for 12 seconds, or until the rider leaves. The key only shows, and only works, while the rider is that close. `flip` sets which way he first faces. With reduced motion he sits still at his anchor.
 
-The street and building-site props are decoration too. A `lamp` comes on in the `evening`, at `night` and wherever else it is dark, such as in a cave, shining a beam down from its head, and a `crane` shows blinking warning lights at the same times. A `bird` takes off and flies away when the rider comes close; with reduced motion it simply disappears. The `crane` is tall and meant for the `back` layer, and `scaffolding` is meant for the `front` layer, where the rider shows through it as a silhouette.
+The street and building-site props are decoration too. A `lamp` comes on from dusk until after dawn (from `18` to `6`) and wherever else it is dark, such as in a cave, shining a beam down from its head, and a `crane` shows blinking warning lights at the same times. A `bird` takes off and flies away when the rider comes close; with reduced motion it simply disappears. The `crane` is tall and meant for the `back` layer, and `scaffolding` is meant for the `front` layer, where the rider shows through it as a silhouette.
 
 The cave props are decoration as well. `hanging-roots`, `stalactites`, `drip`, `lantern` and `bats` hang from a cave ceiling: each looks up to 160 units above its anchor for the nearest roof, so place it anywhere under the ceiling (with `y: null` it uses the roof of the first cave below the surface). A `drip` lets a drop swell, fall one pixel at a time and splash into a puddle on the floor below. A `lantern` hangs on a chain from the roof down to its anchor, or stands on the ground where there is no roof above it; it always glows and lights up the cave around it. `mushrooms` stand on the floor and glow too. `bats` scatter away from the rider when the rider comes close; with reduced motion they simply disappear. `beams` are a timber support set that reaches from the floor up to the roof, packed with boards where the roof is uneven, and a `minecart` sits on rails that run along the floor until they reach a wall or a drop, up to 120 units each way. The ceiling props and `beams` cannot be flipped.
 

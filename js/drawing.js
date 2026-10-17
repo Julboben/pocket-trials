@@ -303,6 +303,7 @@ import {
 } from "./dungeon-props.js";
 import { FLAGPOLE, drawFlagpole } from "./countryside-props.js";
 import { resolveWeather, windSign } from "./weather.js";
+import { dayBlend, normalizeHour } from "./time-of-day.js";
 import {
   CORGI_BOUNDS,
   CORGI_RANGE,
@@ -567,10 +568,7 @@ function cloudLayer({ width, height, scrollX, cloudShift, cloudiness, color, glo
   return { canvas, offsetX, offsetY };
 }
 
-export const TIMES_OF_DAY = ["noon", "morning", "evening", "night"];
-// The time of day a trail gets before one is chosen.
-export const DEFAULT_TIME_OF_DAY = "noon";
-// The colour set every preset starts from and overrides.
+// The colour set every look of the day starts from and overrides.
 const BASE_TIME = {
   sky: "#eae9d9",
   skyTop: "#eae9d9",
@@ -587,16 +585,42 @@ const BASE_TIME = {
   sunDrop: 0,
   sunScale: 1,
   light: 1,
-  moon: false,
-  stars: false,
+  // How much the moon has taken over from the sun, and how bright the stars
+  // are, 0…1.
+  moon: 0,
+  stars: 0,
   // How backdrop themes are shaded for this time of day.
   shade: null,
   shadeAmount: 0,
 };
 
-// The sun always stays on the right, where every prop is lit from. Only its
-// height, size and colour change, which also lengthens shadows low in the sky.
+// The day's looks, the keyframes of time-of-day.js. The sun always stays on
+// the right, where every prop is lit from. Only its height, size and colour
+// change, which also lengthens shadows low in the sky; at night the moon
+// takes its place.
 const TIME_PRESETS = {
+  // Just before sunrise: a pink horizon under a fading blue, the sun low and
+  // the last stars going out. Lights are still on.
+  dawn: {
+    ...BASE_TIME,
+    skyTop: "#8a95b6",
+    sky: "#efc3ae",
+    sun: "#f5b07e",
+    far: "#a6a3b3",
+    near: "#8a8d9b",
+    tree: "#7e8291",
+    trunk: "#777b8b",
+    cloud: "#f1c6b8",
+    stormCloud: "#b2b0ba",
+    tint: "#f0dde0",
+    glow: true,
+    sunDrop: 110,
+    sunScale: 1.2,
+    light: 0.62,
+    stars: 0.2,
+    shade: "#8c7690",
+    shadeAmount: 0.26,
+  },
   morning: {
     ...BASE_TIME,
     skyTop: "#cfdde0",
@@ -634,6 +658,28 @@ const TIME_PRESETS = {
     shade: "#806a7c",
     shadeAmount: 0.42,
   },
+  // After sunset: the blue hour, the sun's last glow on the horizon and the
+  // first stars out.
+  dusk: {
+    ...BASE_TIME,
+    skyTop: "#2f3a5e",
+    sky: "#9a7690",
+    sun: "#e2754c",
+    far: "#615d76",
+    near: "#4f4f66",
+    tree: "#46455d",
+    trunk: "#403f56",
+    cloud: "#86708a",
+    stormCloud: "#5d5b74",
+    tint: "#bcaccc",
+    glow: true,
+    sunDrop: 135,
+    sunScale: 1.3,
+    light: 0.45,
+    stars: 0.45,
+    shade: "#3d3654",
+    shadeAmount: 0.58,
+  },
   night: {
     ...BASE_TIME,
     skyTop: "#141d33",
@@ -649,8 +695,8 @@ const TIME_PRESETS = {
     tint: "#98a6d4",
     glow: true,
     light: 0.25,
-    moon: true,
-    stars: true,
+    moon: 1,
+    stars: 1,
     shade: "#1e2942",
     shadeAmount: 0.7,
   },
@@ -675,9 +721,60 @@ export function craneLightOn(index, time) {
   return !time || (time * 0.8 + index * 0.37) % 1 <= 0.55;
 }
 
-/** The sky, hill and light colours a trail is drawn with. */
+// A look between two others, `t` of the way from `a` to `b`: colours and
+// numbers blend, and the lights are on if they are on in the nearer one. A
+// colour only one of them has (the moon's craters, a shade) is kept, and no
+// tint blends as white, which leaves the scene as it is.
+function blendTimes(a, b, t) {
+  const color = (x, y) => (x && y ? mixHex(x, y, t) : x || y);
+  const tint = a.tint || b.tint ? mixHex(a.tint || "#ffffff", b.tint || "#ffffff", t) : null;
+  const number = (key) => a[key] + (b[key] - a[key]) * t;
+  return {
+    ...a,
+    sky: color(a.sky, b.sky),
+    skyTop: color(a.skyTop, b.skyTop),
+    sun: color(a.sun, b.sun),
+    crater: color(a.crater, b.crater),
+    far: color(a.far, b.far),
+    near: color(a.near, b.near),
+    tree: color(a.tree, b.tree),
+    trunk: color(a.trunk, b.trunk),
+    cloud: color(a.cloud, b.cloud),
+    stormCloud: color(a.stormCloud, b.stormCloud),
+    tint,
+    glow: t < 0.5 ? a.glow : b.glow,
+    sunDrop: number("sunDrop"),
+    sunScale: number("sunScale"),
+    light: number("light"),
+    moon: number("moon"),
+    stars: number("stars"),
+    shade: color(a.shade, b.shade),
+    shadeAmount: number("shadeAmount"),
+  };
+}
+
+// Each hour's look, blended once.
+const hourPalettes = new Map();
+
+/**
+ * The look of the sky, the hills and the light at an hour of the day (see
+ * time-of-day.js): exactly a keyframe's look on its hour, a blend of the two
+ * either side of it in between.
+ */
+export function hourPalette(hour) {
+  const h = normalizeHour(hour);
+  let palette = hourPalettes.get(h);
+  if (!palette) {
+    const { from, to, t } = dayBlend(h);
+    palette = t ? blendTimes(TIME_PRESETS[from], TIME_PRESETS[to], t) : TIME_PRESETS[from];
+    hourPalettes.set(h, palette);
+  }
+  return palette;
+}
+
+/** The sky, hill and light colours a trail is drawn with, for its hour. */
 export function timeOfDayPalette(trail = {}) {
-  return TIME_PRESETS[trail.timeOfDay] || TIME_PRESETS[DEFAULT_TIME_OF_DAY];
+  return hourPalette(trail.timeOfDay);
 }
 
 /** A trail's fog, 0…1. */
@@ -1091,8 +1188,7 @@ export function sunLight({
   weather = {},
   timeOfDay,
 } = {}) {
-  const time =
-    TIME_PRESETS[timeOfDay] || TIME_PRESETS[DEFAULT_TIME_OF_DAY];
+  const time = hourPalette(timeOfDay);
   const sunshine = Math.max(0, Math.min(1, weather.sun ?? 1));
   const cloudiness = Math.max(0, Math.min(1, weather.clouds ?? 0.35));
   return {
@@ -4403,10 +4499,11 @@ export function createGameArt(ctx) {
       }
     }
 
-    // Fixed stars; the hills drawn later cover the low ones.
-    if (time.stars) {
+    // Fixed stars, fading in after sunset; the hills drawn later cover the
+    // low ones.
+    if (time.stars > 0) {
       ctx.save();
-      ctx.globalAlpha = 1 - cloudiness * 0.7;
+      ctx.globalAlpha = (1 - cloudiness * 0.7) * time.stars;
       const span = width + 200;
       const rise = Math.max(cameraY, -SUN_CLIMB_LIMIT) * 0.04;
       for (let i = 0; i < 70; i++) {
@@ -4423,15 +4520,17 @@ export function createGameArt(ctx) {
 
     if (light.sunshine > 0) {
       ctx.save();
-      if (time.moon) {
-        ctx.globalAlpha = 0.95 * (1 - cloudiness * 0.4);
+      // Round midnight the moon is up; in the hours either side it fades in
+      // as the sun goes down, or out as it comes up.
+      if (time.moon >= 0.5) {
+        ctx.globalAlpha = 0.95 * (1 - cloudiness * 0.4) * time.moon;
         placed(light.x, light.y, 4, (x, y) => {
           drawPixelDisc(x, y, 22, time.sun, 4);
           drawPixelDisc(x - 8, y - 4, 6, time.crater, 4);
           drawPixelDisc(x + 6, y + 8, 4, time.crater, 4);
         });
       } else {
-        ctx.globalAlpha = light.strength;
+        ctx.globalAlpha = light.strength * (1 - time.moon);
         placed(light.x, light.y, 4, (x, y) =>
           drawPixelDisc(
             x,
@@ -4463,9 +4562,9 @@ export function createGameArt(ctx) {
         // Fades with the sun setting; the moon gives a smaller, fainter glow.
         glow:
           light.sunshine > 0
-            ? mixHex(cloudColor, time.sun, (time.moon ? 0.12 : 0.3) * light.sunshine)
+            ? mixHex(cloudColor, time.sun, (0.3 - time.moon * 0.18) * light.sunshine)
             : null,
-        glowSize: time.moon ? 0.7 : 1,
+        glowSize: 1 - time.moon * 0.3,
         sunX: light.x,
         sunY: light.y,
       });

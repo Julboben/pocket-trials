@@ -1905,6 +1905,6 @@
     "silver": 24.5,
     "bronze": 32
   },
-  "timeOfDay": "evening",
+  "timeOfDay": 19,
   "backdrop": "city"
 }

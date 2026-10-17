@@ -279,16 +279,7 @@
                                     placeholder="Design notes, not shown in the game"
                                 ></textarea></label>
                             <fieldset>
-                                <legend>TIME OF DAY</legend>
-                                <label
-                                    >Time of day
-                                    <select id="time-of-day">
-                                        <option value="morning">Morning</option>
-                                        <option value="noon">Noon</option>
-                                        <option value="evening">Evening</option>
-                                        <option value="night">Night</option>
-                                    </select></label
-                                >
+                                <legend>SCENERY</legend>
                                 <label
                                     >Backdrop
                                     <select id="backdrop">
@@ -301,9 +292,35 @@
                                 >
                             </fieldset>
                             <fieldset>
+                                <legend>TIME OF DAY</legend>
+                                <label
+                                    ><span class="range-head"
+                                        >Time
+                                        <output
+                                            id="time-of-day-value"
+                                            for="time-of-day"
+                                        ></output></span
+                                    >
+                                    <input
+                                        id="time-of-day"
+                                        type="range"
+                                        min="0"
+                                        max="23"
+                                        step="1"
+                                        list="time-of-day-marks"
+                                /></label>
+                                <datalist id="time-of-day-marks"></datalist>
+                                <div
+                                    class="presets"
+                                    id="time-marks"
+                                    role="group"
+                                    aria-label="Times of day"
+                                ></div>
+                            </fieldset>
+                            <fieldset>
                                 <legend>WEATHER</legend>
                                 <div
-                                    class="weather-presets"
+                                    class="presets"
                                     id="weather-presets"
                                     role="group"
                                     aria-label="Weather presets"

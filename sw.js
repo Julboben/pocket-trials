@@ -3,7 +3,7 @@
 // release installs a fresh copy of all of them and a page never mixes files
 // from two releases. It takes over on the next load. Trail files and anything
 // else are network-first, and kept so the game also starts offline.
-const CACHE = 'hjulben-08423440';
+const CACHE = 'hjulben-bf442d5b';
 const CORE = [
   './',
   './css/editor.css',
@@ -98,6 +98,7 @@ const CORE = [
   './js/terrain-render.js',
   './js/terrain-runtime.js',
   './js/terrain.js',
+  './js/time-of-day.js',
   './js/trail-hash.js',
   './js/trail-link.js',
   './js/trail-schema.js',

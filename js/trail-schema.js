@@ -5,8 +5,6 @@ import {
   TEXT_PROPS,
   SIGN_LINE_CHARACTERS,
   SIGN_MAX_LINES,
-  TIMES_OF_DAY,
-  DEFAULT_TIME_OF_DAY,
   BACKDROPS,
 } from "./drawing.js";
 import { RADIUS, WHEELBASE } from "./config.js";
@@ -15,6 +13,7 @@ import { WATER_PROPS, SURFACE_PROPS, waterPropBody } from "./water-props.js";
 import { BANNER_MAX } from "./event-props.js";
 import { FINISH_FLOWER_LIFT, bikeTouchesFlower } from "./finish.js";
 import { WEATHER_DEFAULTS, WEATHER_LEVELS, WIND_DIRECTIONS, resolveWeather } from "./weather.js";
+import { DEFAULT_HOUR, HOURS, normalizeHour } from "./time-of-day.js";
 import {
   normalizeBlocks as normalizeTerrainBlocks,
   validateBlocks as validateTerrainBlocks,
@@ -114,6 +113,7 @@ export function createBlankTrail(index = 0) {
     spikes: [],
     water: [],
     weather: { ...WEATHER_DEFAULTS },
+    timeOfDay: DEFAULT_HOUR,
   };
 }
 
@@ -289,9 +289,9 @@ export function normalizeTrail(input, index = 0) {
   // Every setting is spelled out, defaults included, so the editor shows what
   // the game draws; unknown settings are dropped.
   trail.weather = resolveWeather(trail.weather);
-  // Noon is the default look; an unrecognised value falls back to it too.
-  if (!TIMES_OF_DAY.includes(trail.timeOfDay))
-    trail.timeOfDay = DEFAULT_TIME_OF_DAY;
+  // The hour of the day, 0…23: rounded and wrapped round the clock, and noon
+  // when it is missing or unreadable.
+  trail.timeOfDay = normalizeHour(trail.timeOfDay);
   // Hills is the default, so it isn't stored.
   if (!BACKDROPS.includes(trail.backdrop) || trail.backdrop === "hills")
     delete trail.backdrop;
@@ -638,6 +638,9 @@ export function validateTrail(trail) {
     )
       error(`Weather.${key} must be between 0 and 1.`);
   }
+  const hour = trail.timeOfDay;
+  if (hour !== undefined && !(Number.isInteger(hour) && hour >= 0 && hour < HOURS))
+    error(`The time of day must be a whole hour from 0 to ${HOURS - 1}.`);
   const direction = trail.weather?.windDirection;
   if (direction !== undefined && !WIND_DIRECTIONS.includes(direction))
     error(`Weather.windDirection must be ${WIND_DIRECTIONS.map((value) => `"${value}"`).join(" or ")}.`);

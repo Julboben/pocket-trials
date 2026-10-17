@@ -1499,6 +1499,6 @@
     "silver": 21,
     "bronze": 28
   },
-  "timeOfDay": "noon",
+  "timeOfDay": 12,
   "backdrop": "forest"
 }

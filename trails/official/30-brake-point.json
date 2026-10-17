@@ -1126,6 +1126,6 @@
     "silver": 23.5,
     "bronze": 31
   },
-  "timeOfDay": "noon",
+  "timeOfDay": 12,
   "backdrop": "city"
 }

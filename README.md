@@ -28,6 +28,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Rider customization: gender and skin tone picked once when creating a rider, then hair, helmet (full face, motocross or none), outfit and bike, each with its own colour, changeable any time in the Garage, plus a custom rider name. Some items are won: the Pocket Classic bike for gold medals on 8 trails, and the motocross helmet for finishing The Bonny Tyler
 - Elasto Mania-style pixel dirt bike, with the original Pocket Classic bike kept for future biker customization
 - Layered foreground and background scenery
+- A full day cycle, set per trail by the hour, from night through dawn, morning, noon and evening to dusk, with the moon and stars at night
 - Pixel lighting at every time of day: ground stays bright by day and sinks into darkness at night, caves closed off by a back wall are dark at any hour while open hollows let the sky through, a headlight you can switch off that stays on the bike through flips and loops, lanterns, lamps, glowing mushrooms, and lightning light the way
 - Terrain-colored wheel spray, brake lights, and fading ground skid marks
 - Procedural engine, braking, wheel-landing, aerial trick, collectible, crash, flip, finish, dashboard, and rain sound effects
@@ -127,6 +128,7 @@ The inspector on the right edits the current selection. The editor supports:
 - Drawing water bodies with the **Water** tool (`W`): drag a rectangle, or click to drop one of the tool's size. Drag a body by the middle of its surface, resize it with the scale handles, and set its width and depth in the inspector, which says whether it is a rideable ford or deep enough to wipe the rider out
 - Choosing the start position and left/right facing direction
 - Selecting the base and per-block materials
+- Setting the time of day by the hour, with Morning, Noon, Evening and Night help points, and the backdrop
 - Editing sun, cloud, fog, rain, snow, lightning, wind strength and direction values, from weather presets or one by one, with a windsock showing the wind
 - Trackpad navigation: two-finger scrolling pans and pinch gestures zoom around the pointer
 - Mouse navigation: wheel panning, `Ctrl`/`Cmd` + wheel zooming, and middle-button or `Space`-drag panning

@@ -530,7 +530,7 @@
     "wind": 0.55,
     "windDirection": "left"
   },
-  "timeOfDay": "noon",
+  "timeOfDay": 12,
   "backdrop": "mountains",
   "medals": {
     "gold": 19,

@@ -26,9 +26,9 @@
  * @property {Array<Partial<Water>>} [water]
  * @property {object[]} [props]
  * @property {string} [terrain] material id
- * @property {{ sun?: number, clouds?: number, fog?: number, rain?: number, snow?: number, lightning?: number }} [weather]
+ * @property {{ sun?: number, clouds?: number, fog?: number, rain?: number, snow?: number, lightning?: number, wind?: number, windDirection?: 'left' | 'right' }} [weather]
  * @property {'hills' | 'mountains' | 'forest' | 'desert' | 'city'} [backdrop] parallax background theme; omitted means hills
- * @property {'morning' | 'noon' | 'evening' | 'night'} [timeOfDay] sky, light and grade preset; omitted keeps the trail's own colours
+ * @property {number} [timeOfDay] the hour of the day, 0 (midnight) to 23, for the sky, light and grade; omitted means noon (12)
  * @property {{ gold: number, silver: number, bronze: number }} [medals] target times in seconds
  * @property {Trail} [terrainSource] on a ride's copy of a trail with glass, the trail it copies
  * @property {Map<string, GlassBreak>} [brokenBlocks] on a ride's copy, the panes broken so far, in order

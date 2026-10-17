@@ -17,6 +17,7 @@ import {
 import { store } from "../local-store.js";
 import { WEATHER_LEVELS, WEATHER_PRESETS, resolveWeather } from "../weather.js";
 import { startWindsock } from "./windsock.js";
+import { TIME_MARKS, clockTime, hourName, normalizeHour } from "../time-of-day.js";
 import {
   blocks,
   boundariesOf,
@@ -151,7 +152,7 @@ export function syncInspector({ live = false } = {}) {
   // Don't overwrite notes the author is typing.
   if (document.activeElement !== $("trail-description"))
     $("trail-description").value = editor.trail.description || "";
-  $("time-of-day").value = editor.trail.timeOfDay || "noon";
+  syncTimeOfDay();
   $("backdrop").value = editor.trail.backdrop || "hills";
   syncWeather();
   const position = selectedPosition();
@@ -460,6 +461,22 @@ function syncWeather() {
   }
 }
 
+/** The time of day slider, its readout, and the help point it is on, if any. */
+function syncTimeOfDay() {
+  const hour = normalizeHour(editor.trail.timeOfDay);
+  $("time-of-day").value = String(hour);
+  showTimeOfDay(hour);
+  for (const button of $("time-marks").querySelectorAll("button")) {
+    const active = Number(button.dataset.hour) === hour;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  }
+}
+
+function showTimeOfDay(hour) {
+  $("time-of-day-value").textContent = `${clockTime(hour)} · ${hourName(hour)}`;
+}
+
 /** Changes the trail's weather as one undoable step. */
 function setWeather(changes) {
   pushHistory();
@@ -529,9 +546,38 @@ export function bindInspector() {
     editor.trail.description = value;
   });
 
-  bindTrailInput("time-of-day", (value) => {
-    editor.trail.timeOfDay = value;
+  // The hour, dragged through the day, with a help point for each of the
+  // classic times.
+  $("time-of-day").addEventListener("change", (event) => {
+    pushHistory();
+    editor.trail.timeOfDay = normalizeHour(Number(event.target.value));
+    syncInspector();
+    render();
   });
+  $("time-of-day").addEventListener("input", (event) => {
+    editor.trail.timeOfDay = normalizeHour(Number(event.target.value));
+    showTimeOfDay(editor.trail.timeOfDay);
+    render();
+  });
+  for (const mark of TIME_MARKS) {
+    const option = document.createElement("option");
+    option.value = String(mark.hour);
+    option.label = mark.name;
+    $("time-of-day-marks").append(option);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = mark.name;
+    button.dataset.hour = String(mark.hour);
+    button.title = clockTime(mark.hour);
+    button.addEventListener("click", () => {
+      if (normalizeHour(editor.trail.timeOfDay) === mark.hour) return;
+      pushHistory();
+      editor.trail.timeOfDay = mark.hour;
+      syncInspector();
+      render();
+    });
+    $("time-marks").append(button);
+  }
 
   bindTrailInput("backdrop", (value) => {
     if (value && value !== "hills") editor.trail.backdrop = value;

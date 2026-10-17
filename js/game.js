@@ -26,6 +26,7 @@ import { gearCard, legacyRider, lookOf, lookParts, newlyUnlockedItems } from './
 import { createOverlay } from './ui/overlay.js';
 import { createMenu, loadStoredState } from './ui/menu.js';
 import { $, session, currentTrailEntry, trailKey, timeText, isRankedSource, bonusUnlock, riderLook, progressOf } from './state.js';
+import { isNight } from './time-of-day.js';
 
 const LANDING_SOUND_IMPACT = 45;
 const HARD_LANDING_IMPACT = 170;
@@ -309,7 +310,7 @@ export function startGame({ shared = null } = {}) {
     return finishAchievements({
       flips, time: ride.elapsed, medal: medalFor(medals, ride.elapsed), gold: medals?.gold ?? null,
       helmet: lookParts(session.look).helmet, bike: session.look.bike,
-      night: timeOfDay === 'night', rain: (weather?.rain ?? 0) > 0, snow: (weather?.snow ?? 0) > 0,
+      night: isNight(timeOfDay), rain: (weather?.rain ?? 0) > 0, snow: (weather?.snow ?? 0) > 0,
       attempts, previousBest, worldBest, custom: session.trailSource === 'custom',
       shared: session.trailSource === 'custom' && currentTrailEntry()?.shared === true
     });

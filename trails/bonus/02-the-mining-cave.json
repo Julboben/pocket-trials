@@ -3317,7 +3317,7 @@
     "wind": 0.2,
     "windDirection": "left"
   },
-  "timeOfDay": "morning",
+  "timeOfDay": 7,
   "backdrop": "forest",
   "author": "Nikolaj Gunge"
 }

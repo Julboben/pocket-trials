@@ -1674,5 +1674,5 @@
     "wind": 0.65,
     "windDirection": "left"
   },
-  "timeOfDay": "night"
+  "timeOfDay": 0
 }

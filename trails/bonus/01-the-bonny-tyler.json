@@ -4814,6 +4814,6 @@
     "windDirection": "left"
   },
   "author": "Nikolaj Gunge",
-  "timeOfDay": "night",
+  "timeOfDay": 0,
   "backdrop": "mountains"
 }

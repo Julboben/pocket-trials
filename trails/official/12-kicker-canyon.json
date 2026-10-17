@@ -1874,6 +1874,6 @@
     "silver": 19,
     "bronze": 25
   },
-  "timeOfDay": "noon",
+  "timeOfDay": 12,
   "backdrop": "desert"
 }

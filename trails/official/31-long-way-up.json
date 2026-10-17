@@ -1468,6 +1468,6 @@
     "silver": 26,
     "bronze": 34
   },
-  "timeOfDay": "noon",
+  "timeOfDay": 12,
   "backdrop": "mountains"
 }

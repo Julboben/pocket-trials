@@ -492,7 +492,7 @@
     "wind": 0.2,
     "windDirection": "left"
   },
-  "timeOfDay": "noon",
+  "timeOfDay": 12,
   "backdrop": "desert",
   "medals": {
     "gold": 16,

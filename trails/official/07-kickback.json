@@ -594,7 +594,7 @@
     "wind": 0.25,
     "windDirection": "left"
   },
-  "timeOfDay": "evening",
+  "timeOfDay": 19,
   "backdrop": "forest",
   "medals": {
     "gold": 17,
