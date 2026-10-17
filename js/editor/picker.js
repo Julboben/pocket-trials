@@ -1,6 +1,6 @@
 // Long dropdowns, such as the prop types and the trail picker, open a dialog
 // with a search field and group filters instead of the native list. Like the
-// segmented buttons in tools.js, the real <select> stays in the page, hidden,
+// segmented buttons in segmented.js, the real <select> stays in the page, hidden,
 // so every existing listener and `.value = ...` keeps working; the trigger
 // button and the dialog just mirror it.
 // Only present in a real browser; without it, selects are left as they are.

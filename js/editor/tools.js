@@ -6,6 +6,7 @@ import { terrainMaterials } from "../trails.js";
 import { $, canvas } from "./dom.js";
 import { renderObjects } from "./objects.js";
 import { pickerSelect } from "./picker.js";
+import { segmentSelects } from "./segmented.js";
 import { editor } from "./state.js";
 import { refuseEdit } from "./status.js";
 import { propThumbnail } from "./thumbnails.js";
@@ -56,6 +57,8 @@ export const TOOL_INFO = {
         label: "Material",
         type: "select",
         options: materialOptions,
+        // A list of content that may grow, so never a row of buttons.
+        dropdown: true,
       },
       LAYER_FIELD,
     ],
@@ -261,66 +264,6 @@ function clampSetting(field, value) {
   );
 }
 
-// Dropdowns with fewer than three options are shown as a row of buttons. The
-// real <select> stays in the page, hidden, so every existing listener and
-// `.value = ...` keeps working; the buttons just mirror it.
-// Only present in a real browser; without it, selects are left as they are.
-const selectValue =
-  (typeof HTMLSelectElement !== "undefined" &&
-    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")) ||
-  null;
-
-function segmentSelect(select) {
-  if (!selectValue) return;
-  const count = select.options.length;
-  if (select.dataset.segmented || count === 0 || count >= 3) return;
-  select.dataset.segmented = "1";
-  const group = document.createElement("span");
-  group.className = "segmented";
-  group.setAttribute("role", "radiogroup");
-  const buttons = [...select.options].map((option) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = option.textContent;
-    button.dataset.value = option.value;
-    button.setAttribute("role", "radio");
-    button.addEventListener("click", () => {
-      if (select.value !== option.value) {
-        select.value = option.value;
-        select.dispatchEvent(new Event("change", { bubbles: true }));
-      }
-      // Hand focus back so the canvas shortcuts keep working.
-      canvas.focus({ preventScroll: true });
-    });
-    group.append(button);
-    return button;
-  });
-  const refresh = () => {
-    const current = selectValue.get.call(select);
-    for (const button of buttons) {
-      const active = button.dataset.value === current;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-checked", String(active));
-    }
-  };
-  // Setting the value from code (syncInspector, tool settings) updates the buttons.
-  Object.defineProperty(select, "value", {
-    configurable: true,
-    get: () => selectValue.get.call(select),
-    set: (value) => {
-      selectValue.set.call(select, value);
-      refresh();
-    },
-  });
-  select.style.display = "none";
-  select.after(group);
-  refresh();
-}
-
-export function segmentSelects(root) {
-  root.querySelectorAll("select").forEach(segmentSelect);
-}
-
 export function renderToolSettings() {
   const info = TOOL_INFO[editor.tool];
   const key = TOOL_KEY_LABELS[editor.tool];
@@ -335,6 +278,7 @@ export function renderToolSettings() {
       let input;
       if (field.type === "select" || field.type === "toggle") {
         input = document.createElement("select");
+        if (field.dropdown) input.dataset.dropdown = "";
         // Copies another select's options, groups included.
         if (field.optionsFrom)
           input.append(

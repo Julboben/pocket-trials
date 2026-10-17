@@ -23,7 +23,8 @@ import { GAME_ART_KEY, render } from "./render.js";
 import { editor } from "./state.js";
 import { refuse, refuseEdit, showStatus } from "./status.js";
 import { propThumbnail } from "./thumbnails.js";
-import { TOOL_KEY_LABELS, materialLabel, segmentSelects, setTab, setTool } from "./tools.js";
+import { segmentSelects } from "./segmented.js";
+import { TOOL_KEY_LABELS, materialLabel, setTab, setTool } from "./tools.js";
 import {
   announceVersion,
   bindVersions,
@@ -67,8 +68,8 @@ for (const name of Object.keys(terrainMaterials)) {
   $("selection-material").append(option);
 }
 
-// Two-option dropdowns are shown as button rows; this must run after the
-// material dropdowns above are filled, so those stay dropdowns.
+// Short dropdowns are shown as button rows; this must run after the
+// material dropdowns above are filled.
 segmentSelects(document);
 
 pickerSelect($("trail-picker"), { title: "Trail" });
