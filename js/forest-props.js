@@ -299,8 +299,10 @@ export const GRASS_BRUSH = { x: 40, y: 50 };
  * root in the prop's frame, or null.
  */
 export function grassLean(time, wind, downwind, phase, bladeX, riderDx = null, riderDy = null) {
-  let lean = downwind * (0.1 + wind * 0.3);
-  if (time) lean += Math.sin(time * 2.2 + bladeX * 0.25 + phase * Math.PI * 2) * (0.06 + wind * 0.14);
+  // Nearly upright in still air, bent well over in a gale, and swaying
+  // faster and further the harder it blows.
+  let lean = downwind * (0.05 + wind * 0.85);
+  if (time) lean += Math.sin(time * (1.6 + wind * 2.4) + bladeX * 0.25 + phase * Math.PI * 2) * (0.04 + wind * 0.22);
   if (Number.isFinite(riderDx) && Number.isFinite(riderDy)
     && Math.abs(riderDx) < GRASS_BRUSH.x && riderDy < 10 && riderDy > -GRASS_BRUSH.y) {
     const push = 1 - Math.abs(riderDx) / GRASS_BRUSH.x;
@@ -380,22 +382,23 @@ export function fireFrame(time, phase = 0) {
 /**
  * The flames (see fireFrame) rising off the logs at FIRE.y, white-hot at
  * the root and darkening to their tips, glowing embers on the logs, and the
- * odd spark climbing while `time` runs.
+ * odd spark climbing while `time` runs. The `wind` (0…1) bends the flames'
+ * tips and carries the sparks `downwind` (-1 left, 1 right).
  */
-export function drawFireFlames({ pixelRect }, frame, time = 0, phase = 0) {
+export function drawFireFlames({ pixelRect }, frame, time = 0, phase = 0, wind = 0, downwind = -1) {
   frame.forEach(({ x: fx, height, lick }, index) => {
     const halfWidth = TONGUES[index][2];
     for (let up = 0; up < height; up += 2) {
       const t = up / height;
       const w = Math.max(2, snap(halfWidth * 2 * (1 - t * t)));
-      const x = fx - w / 2 + snap(lick * t * 2);
+      const x = fx - w / 2 + snap(lick * t * 2 + downwind * wind * 10 * t * t);
       const y = FIRE.y - up - 2;
       pixelRect(x, y, w, 2, t > 0.65 ? FLAME.base : t > 0.25 ? FLAME.glow : FLAME.light, 2);
       if (w > 2) {
         pixelRect(x, y, 2, 2, t > 0.5 ? FLAME.dark : FLAME.base, 2);
         pixelRect(x + w - 2, y, 2, 2, t > 0.65 ? FLAME.glow : FLAME.light, 2);
       }
-      if (w >= 6 && t < 0.25) pixelRect(fx + snap(lick * t * 2) - 2, y, 4, 2, FLAME.core, 2);
+      if (w >= 6 && t < 0.25) pixelRect(fx + snap(lick * t * 2 + downwind * wind * 10 * t * t) - 2, y, 4, 2, FLAME.core, 2);
     }
   });
   // Embers on the logs.
@@ -403,8 +406,8 @@ export function drawFireFlames({ pixelRect }, frame, time = 0, phase = 0) {
   if (!time) return;
   for (let i = 0; i < 3; i++) {
     const life = (time * 0.7 + phase + i / 3) % 1;
-    const sx = snap(Math.sin((time + i * 2.1) * 1.9) * 8 + (i - 1) * 6);
-    const sy = FIRE.y - 26 - snap(life * 40);
+    const sx = snap(Math.sin((time + i * 2.1) * 1.9) * 8 + (i - 1) * 6 + downwind * wind * life * 50);
+    const sy = FIRE.y - 26 - snap(life * 40 * (1 - wind * 0.5));
     if (life < 0.8) pixelRect(sx, sy, 2, 2, life < 0.4 ? FLAME.light : FLAME.glow, 2);
   }
 }
@@ -462,12 +465,13 @@ export function ivyLayout(rise, noise) {
 }
 
 /**
- * How far the ivy's outer leaves are stirred by the wind at `time`: a small
- * flutter, 0 or ±2, different for each leaf. Still at time 0.
+ * How far the ivy's outer leaves are stirred by the wind at `time`: hardly
+ * at all in still air, a flutter of ±2 or ±4 in a gale, different for each
+ * leaf. Still at time 0.
  */
 export function ivyRustle(time, wind, phase, index) {
   if (!time) return 0;
-  return snap(Math.sin(time * 3.1 + index * 1.7 + phase * Math.PI * 2) * (0.4 + wind * 1.6));
+  return snap(Math.sin(time * (2 + wind * 3) + index * 1.7 + phase * Math.PI * 2) * (0.2 + wind * 3.2));
 }
 
 /**

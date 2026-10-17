@@ -135,7 +135,7 @@ const TAPE_STRIPE = 8;
 export function tapeDroop(t, time, wind, phase) {
   const belly = Math.sin(Math.PI * Math.min(1, Math.max(0, t)));
   if (!time) return belly * 6;
-  return belly * (6 + (1 + wind * 3) * Math.sin(time * 6 + t * 8 + phase * Math.PI * 2));
+  return belly * (6 + (0.5 + wind * 4) * Math.sin(time * (3 + wind * 6) + t * 8 + phase * Math.PI * 2));
 }
 
 /**
@@ -147,7 +147,7 @@ export function tapeTail(time, wind, phase, downwind) {
   const lift = 0.3 + 0.7 * Math.min(1, Math.max(0, wind));
   const points = [];
   for (let i = 1; i <= 5; i++) {
-    const flutter = time ? Math.sin(time * 9 + i * 1.3 + phase * Math.PI * 2) * i * 0.6 : 0;
+    const flutter = time ? Math.sin(time * (5 + wind * 8) + i * 1.3 + phase * Math.PI * 2) * i * (0.2 + wind * 0.8) : 0;
     points.push([downwind * i * (2 + lift * 2), i * 3 * (1 - lift) + flutter]);
   }
   return points;
@@ -834,9 +834,10 @@ export function halfwayFlash(age) {
  * The halfway flag: a steel pole with a beacon on top, a cloth that is half
  * checkered (half way to the checkered flag), and a timing board. It is pale
  * until `lit`, when the rider has passed it. The pole runs down to the ground
- * live; the cloth ripples with `time` and `wind`.
+ * live; the cloth flies out `downwind` (-1 left, 1 right), drooping in still
+ * air and rippling harder the stronger the `wind`.
  */
-export function drawHalfwayFlag(tools, lit, groundOffset, time = 0, wind = 0, phase = 0) {
+export function drawHalfwayFlag(tools, lit, groundOffset, time = 0, wind = 0, phase = 0, downwind = 1) {
   const { pixelRect } = tools;
   const ground = snap(groundOffset(0));
   const poleTop = HALFWAY_BEACON.y + 4;
@@ -854,9 +855,12 @@ export function drawHalfwayFlag(tools, lit, groundOffset, time = 0, wind = 0, ph
   const { x, y, columns, rows } = HALFWAY_CLOTH;
   const checks = lit ? [INK, WHITE.light] : [STEEL.base, WHITE.base];
   const half = lit ? YELLOW : { dark: WHITE.dark, base: WHITE.base, light: WHITE.light };
+  // It droops less than a loose flag: the board below stays clear of it.
+  const droop = (column) => snap(column * 0.8 * (1 - Math.min(1, Math.max(0, wind))) ** 2);
   const ripple = (column) =>
-    time ? snap(Math.sin(time * 5 - column * 0.7 + phase * Math.PI * 2) * Math.min(column, 6) * (0.3 + wind * 0.4)) : 0;
-  drawCloth(tools, x, y, 1, columns, rows, (column, row) => {
+    droop(column) +
+    (time ? snap(Math.sin(time * (2.5 + wind * 6) - column * 0.7 + phase * Math.PI * 2) * Math.min(column, 6) * (0.15 + wind * 0.55)) : 0);
+  drawCloth(tools, downwind < 0 ? -x : x, y, downwind < 0 ? -1 : 1, columns, rows, (column, row) => {
     if (column < columns / 2) return checks[((column >> 1) + (row >> 1)) % 2];
     return row === 0 ? half.light : row === rows - 1 ? half.dark : half.base;
   }, ripple);

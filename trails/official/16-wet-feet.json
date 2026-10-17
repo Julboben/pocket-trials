@@ -540,7 +540,7 @@
     "rain": 0.2,
     "snow": 0,
     "lightning": 0,
-    "wind": 0.3,
+    "wind": 0.2,
     "windDirection": "left"
   },
   "timeOfDay": "morning",

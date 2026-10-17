@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { normalizeTrail, validateTrail } from '../js/trail-schema.js';
 import { rectangle } from './lib/terrain-fixtures.mjs';
 import { PAINTED_PROPS, WALL_PROPS, canFlip, canRotate, paintedBounds, propWallFit } from '../js/drawing.js';
-import { FLAGPOLE, flagRipple } from '../js/countryside-props.js';
+import { FLAGPOLE, flagDroop, flagRipple } from '../js/countryside-props.js';
 import { GRASS_BRUSH, IVY, fireFrame, grassLean, ivyLayout, ivyRustle } from '../js/forest-props.js';
 
 const COUNTRYSIDE_PROPS = ['tent', 'grass', 'flagpole', 'christiania-bike', 'bench', 'fireplace', 'tutorial-lean-forward'];
@@ -52,6 +52,17 @@ const COUNTRYSIDE_PROPS = ['tent', 'grass', 'flagpole', 'christiania-bike', 'ben
   assert.ok(flagRipple(2.3, 1, 0.4, 0) === 0, 'held at the pole');
   const ripples = Array.from({ length: 20 }, (_, column) => flagRipple(2.3, 1, 0.4, column));
   assert.ok(ripples.some((value) => value !== 0) && ripples.every((value) => value % 2 === 0), 'ripples on the art grid');
+  const reach = (wind) => Math.max(...Array.from({ length: 20 }, (_, column) => Math.abs(flagRipple(2.3, wind, 0.4, column))));
+  assert.ok(reach(1) > reach(0.1), 'it ripples harder in a gale');
+}
+
+// In still air the flag droops, more towards its end; in a gale it flies straight out.
+{
+  assert.equal(flagDroop(0.3, 0), 0, 'held at the pole');
+  assert.ok(flagDroop(0, 19) > flagDroop(0, 5) && flagDroop(0, 19) > flagDroop(0.5, 19));
+  for (let column = 0; column < 20; column++) assert.equal(flagDroop(1, column), 0);
+  assert.ok(grassLean(0, 1, -1, 0.3, 0) < -0.8, 'a gale bends the grass well over');
+  assert.ok(Math.abs(grassLean(0, 0, -1, 0.3, 0)) < 0.1, 'it stands nearly straight in still air');
 }
 
 // The fireplace's flames hold still at time 0 and flicker out of step otherwise.

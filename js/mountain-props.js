@@ -237,10 +237,12 @@ export function drawCable({ pixelRect }) {
 /**
  * Where the chair is at `time` (seconds), from the tower: `x` along the
  * rope, `y` its grip, `alpha` as it fades in and out at the ends, and its
- * `swing` (-1, 0, 1 art pixel at the seat). `phase` is a fixed 0…1 per prop.
- * Standing still (time 0) it waits a little way up the line.
+ * `swing` (whole art pixels at the seat): it swings further and is pushed
+ * `downwind` (-1 left, 1 right) the stronger the `wind` (0…1). `phase` is a
+ * fixed 0…1 per prop. Standing still (time 0) it waits a little way up the
+ * line.
  */
-export function liftChair(time, phase) {
+export function liftChair(time, phase, wind = 0.25, downwind = -1) {
   // A gap off the ends, so the chair does not pop straight back in.
   const span = CABLE_HALF * 2 + 48;
   const x = time
@@ -248,7 +250,7 @@ export function liftChair(time, phase) {
     : snap(CABLE_HALF * 0.45);
   const alpha = clamp((CABLE_HALF - Math.abs(x)) / CABLE_FADE, 0, 1);
   // Swinging gently, and kicked back a little as it rides over the sheaves.
-  let swing = time ? Math.round(Math.sin(time * 1.3 + phase * 6) * 0.8) : 0;
+  let swing = time ? Math.round(Math.sin(time * (1 + wind * 1.2) + phase * 6) * (0.5 + wind * 1.2) + downwind * wind * 1.2) : 0;
   if (time && Math.abs(x) < SHEAVE_HALF + 4) swing = -1;
   // The grip lifts over the sheave wheels.
   const y = CABLE_Y + cableSag(x) + (Math.abs(x) < SHEAVE_HALF ? -2 : 0);
@@ -702,8 +704,9 @@ export function chimneySmoke(time, phase, wind = 0.25, downwind = -1) {
   const PUFFS = 6;
   const LIFE = 4.2;
   const w = clamp(Number(wind) || 0, 0, 1);
-  const lean = 10 + w * 50;
-  const climb = 72 - w * 24;
+  // In still air it rises nearly straight up; in a gale it is torn off flat.
+  const lean = 4 + w * 120;
+  const climb = 76 - w * 50;
   const out = [];
   for (let k = 0; k < PUFFS; k++) {
     const t = ((((time || 0.6) / LIFE + k / PUFFS + phase) % 1) + 1) % 1;

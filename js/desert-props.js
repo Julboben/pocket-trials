@@ -93,11 +93,14 @@ export function drawCowSkull(tools) {
 // ---------------------------------------------------------------------------
 
 export const TUMBLEWEED_RADIUS = 12;
-// How far a tumbleweed rolls before it is blown out of sight, how fast, and
-// how long it is gone before the next one rolls in, in units and seconds.
+// How far a tumbleweed rolls before it is blown out of sight, how fast in a
+// gale (slower in a lighter wind), and how long it is gone before the next one
+// rolls in, in units and seconds.
 export const TUMBLEWEED_RUN = 360;
-export const TUMBLEWEED_SPEED = 30;
+export const TUMBLEWEED_SPEED = 90;
 export const TUMBLEWEED_REST = 2.5;
+// Below this wind it is not blown along at all, and just rocks where it lies.
+const TUMBLEWEED_STILL = 0.1;
 // Its path is traced every STEP units, and ends at a step up or down bigger
 // than STEP_UP, or where the ground runs out.
 export const TUMBLEWEED_STEP = 4;
@@ -147,12 +150,14 @@ export function drawTumbleweed({ pixelPath, pixelRect }, angle) {
 }
 
 /**
- * Where a tumbleweed is `time` seconds into the trail. `path` is the ground
- * offset every TUMBLEWEED_STEP units along its run (see drawing.js); `phase`
- * staggers tumbleweeds. Returns how far along it is, its height offset, how
- * far it has turned, and how opaque it is. At time 0 it sits at its anchor.
+ * Where a tumbleweed is `time` seconds into the trail, blown along by a
+ * `wind` of 0…1: faster the harder it blows. `path` is the ground offset
+ * every TUMBLEWEED_STEP units downwind along its run (see drawing.js);
+ * `phase` staggers tumbleweeds. Returns how far along it is, its height
+ * offset, how far it has turned, and how opaque it is. At time 0 it sits at
+ * its anchor.
  */
-export function tumbleweedRoll(path, time, phase = 0) {
+export function tumbleweedRoll(path, time, phase = 0, wind = 0.25) {
   const ground = (distance) => {
     if (!path?.length) return 0;
     const at = Math.max(0, distance) / TUMBLEWEED_STEP;
@@ -161,15 +166,16 @@ export function tumbleweedRoll(path, time, phase = 0) {
     return path[i] + (next - path[i]) * (at - i);
   };
   const run = Math.min(TUMBLEWEED_RUN, Math.max(0, ((path?.length ?? 1) - 1) * TUMBLEWEED_STEP));
-  if (!(time > 0) || run < TUMBLEWEED_FADE * 2) {
-    // Nowhere to roll: it rocks in the breeze where it lies.
-    const rock = time > 0 ? Math.sin(time * 1.7 + phase * 6) * 0.25 : 0;
+  if (!(time > 0) || run < TUMBLEWEED_FADE * 2 || wind < TUMBLEWEED_STILL) {
+    // Nowhere to roll, or too little wind: it rocks where it lies.
+    const rock = time > 0 ? Math.sin(time * 1.7 + phase * 6) * (0.05 + wind * 0.5) : 0;
     return { distance: 0, dy: ground(0), angle: rock, lift: 0, alpha: 1 };
   }
-  const period = run / TUMBLEWEED_SPEED + TUMBLEWEED_REST;
+  const speed = TUMBLEWEED_SPEED * wind;
+  const period = run / speed + TUMBLEWEED_REST;
   const at = (time + phase * period) % period;
-  const distance = Math.min(run, at * TUMBLEWEED_SPEED);
-  if (at * TUMBLEWEED_SPEED > run) return { distance: run, dy: ground(run), angle: 0, lift: 0, alpha: 0 };
+  const distance = Math.min(run, at * speed);
+  if (at * speed > run) return { distance: run, dy: ground(run), angle: 0, lift: 0, alpha: 0 };
   // A little bounce every few turns as it catches on the ground.
   const lift = Math.abs(Math.sin((distance * Math.PI) / 44)) * 5;
   const fade = Math.min(1, distance / TUMBLEWEED_FADE, (run - distance) / TUMBLEWEED_FADE);
@@ -460,12 +466,13 @@ export function drawWindmillRotor({ pixelRect }, angle) {
 
 /**
  * How far a windmill's rotor has turned at `time` in a `wind` of 0 … 1, with
- * gusts; `phase` keeps neighbouring windmills out of step. It always turns the
+ * a slow surge; `phase` keeps neighbouring windmills out of step. It always turns the
  * same way, faster in stronger wind, and stands still at time 0.
  */
 export function windmillAngle(time, wind = 0.25, phase = 0) {
   if (!(time > 0)) return phase * Math.PI * 2;
-  const speed = 0.8 + wind * 4.2;
+  // Barely turning in still air, a blur in a gale.
+  const speed = 0.15 + wind * 7;
   // The gust term's rate of change never exceeds the base speed.
   const gust = (speed * 0.35) * Math.sin(time * 0.6 + phase * 9);
   return time * speed + gust + phase * Math.PI * 2;

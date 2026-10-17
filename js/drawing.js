@@ -191,6 +191,7 @@ import {
   CAMERA_TOWER_LEGS,
   HALFWAY_BEACON,
   HALFWAY_BOARD,
+  HALFWAY_CLOTH,
   HALFWAY_LIGHT,
   HAY_BALES_BOUNDS,
   PIT_BOARD,
@@ -1509,20 +1510,20 @@ const tumbleweedFits = new WeakMap();
 
 /**
  * The ground a tumbleweed rolls over, as offsets from its anchor every
- * TUMBLEWEED_STEP units in the way it rolls (right, or left when flipped), up
- * to a wall, a drop or TUMBLEWEED_RUN. Cached per prop until it or the
- * terrain changes.
+ * TUMBLEWEED_STEP units downwind (the way the trail's wind blows), up to a
+ * wall, a drop or TUMBLEWEED_RUN. Cached per prop until it, the wind's
+ * direction or the terrain changes.
  */
 function tumbleweedFit(trail, prop) {
   const geometry = terrainGeometry(trail);
-  const flip = Boolean(prop.flip);
+  const downwind = windSign(resolveWeather(trail.weather));
   const cached = tumbleweedFits.get(prop);
   if (cached && cached.x === prop.x && cached.y === prop.y
-    && cached.flip === flip && cached.geometry === geometry) return cached.fit;
+    && cached.downwind === downwind && cached.geometry === geometry) return cached.fit;
   const y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
-  const path = traceGround(trail, prop.x, y, flip ? -1 : 1, TUMBLEWEED_STEP, TUMBLEWEED_RUN, TUMBLEWEED_STEP_UP);
+  const path = traceGround(trail, prop.x, y, downwind, TUMBLEWEED_STEP, TUMBLEWEED_RUN, TUMBLEWEED_STEP_UP);
   const fit = { path };
-  tumbleweedFits.set(prop, { x: prop.x, y: prop.y, flip, geometry, fit });
+  tumbleweedFits.set(prop, { x: prop.x, y: prop.y, downwind, geometry, fit });
   return fit;
 }
 
@@ -3561,7 +3562,8 @@ const PROP_EXTENTS = {
   seaweed: [-16, -SEAWEED_MAX - 16, 16],
   reeds: [-24, -REED_MAX - 20, 28],
   skull: [-22, -26, 22],
-  tumbleweed: [-16, -TUMBLEWEED_RADIUS * 2 - 12, TUMBLEWEED_RUN + 16],
+  // It rolls downwind, either way.
+  tumbleweed: [-TUMBLEWEED_RUN - 16, -TUMBLEWEED_RADIUS * 2 - 12, TUMBLEWEED_RUN + 16],
   "car-wreck": [-70, -46, 70],
   "water-tower": [-38, -178, 42],
   windmill: [-62, ROTOR.y - ROTOR.radius - 4, ROTOR.radius + 4],
@@ -3597,7 +3599,8 @@ const PROP_EXTENTS = {
   "warning-bang": [-16, -58, 16],
   "warning-skull": [-16, -58, 16],
   "arrow-sign": [-24, -50, 24],
-  "halfway-flag": [-6, HALFWAY_BEACON.y - 8, HALFWAY_BOARD.left + HALFWAY_BOARD.width + 2],
+  // The cloth flies downwind, either side of the pole.
+  "halfway-flag": [-HALFWAY_CLOTH.x - HALFWAY_CLOTH.columns * 2 - 2, HALFWAY_BEACON.y - 8, HALFWAY_BOARD.left + HALFWAY_BOARD.width + 2],
   "tutorial-lean": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
   "tutorial-flip": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
   "tutorial-light": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
@@ -4700,7 +4703,10 @@ export function createGameArt(ctx) {
         }
       : groundOffset;
     const height = fit?.height ?? (type === "reeds" ? reedHeight(null) : seaweedHeight(null));
-    if (type === "reeds") drawReeds(tools, height, time, x, ground);
+    if (type === "reeds") {
+      const { wind, downwind } = propWind(scene, mirrored);
+      drawReeds(tools, height, time, x, ground, wind, downwind);
+    }
     else drawSeaweed(tools, height, time, x, ground);
   }
 
@@ -5305,12 +5311,14 @@ export function createGameArt(ctx) {
     } else if (type === "skull" || type === "car-wreck") {
       drawCanopy(type);
     } else if (type === "tumbleweed") {
-      const roll = tumbleweedRoll(wall?.path, scene.time || 0, propNoise(x, 6));
+      // Blown along downwind, turning the way it rolls.
+      const { wind, downwind } = propWind(scene, mirrored);
+      const roll = tumbleweedRoll(wall?.path, scene.time || 0, propNoise(x, 6), wind);
       if (roll.alpha > 0) {
         ctx.globalAlpha *= roll.alpha;
         const snap = (value) => Math.round(value / ART_PIXEL) * ART_PIXEL;
-        ctx.translate(snap(roll.distance), snap(roll.dy - roll.lift) - TUMBLEWEED_RADIUS);
-        drawTumbleweed({ pixelPath, pixelRect }, roll.angle);
+        ctx.translate(snap(roll.distance * downwind), snap(roll.dy - roll.lift) - TUMBLEWEED_RADIUS);
+        drawTumbleweed({ pixelPath, pixelRect }, roll.angle * downwind);
       }
     } else if (type === "corgi") {
       // Coda trots about in world directions, whichever way he was placed
@@ -5376,7 +5384,8 @@ export function createGameArt(ctx) {
       drawPylonFooting({ pixelRect }, groundOffset);
       drawCable({ pixelRect });
       // One chair rides the rope, fading in and out where the rope does.
-      const chair = liftChair(scene.time || 0, propNoise(x, 11));
+      const { wind, downwind } = propWind(scene, mirrored);
+      const chair = liftChair(scene.time || 0, propNoise(x, 11), wind, downwind);
       if (chair.alpha > 0) {
         ctx.save();
         ctx.globalAlpha *= chair.alpha;
@@ -5482,7 +5491,8 @@ export function createGameArt(ctx) {
       // Pale until the rider passes (scene.passed), then lit, with the split
       // on its timing board.
       const passed = scene.passed;
-      drawHalfwayFlag({ pixelRect }, Boolean(passed), groundOffset, scene.time || 0, propWind(scene, mirrored).wind, propNoise(x, 18));
+      const { wind, downwind } = propWind(scene, mirrored);
+      drawHalfwayFlag({ pixelRect }, Boolean(passed), groundOffset, scene.time || 0, wind, propNoise(x, 18), downwind);
       const { left, top, width } = HALFWAY_BOARD;
       drawPixelText(splitText(passed?.split), left + width / 2, top + 3, halfwayTextColor(Boolean(passed)));
       const flash = passed && scene.time ? halfwayFlash(passed.age) : null;
@@ -6612,7 +6622,11 @@ export function createGameArt(ctx) {
       if (angle) ctx.rotate(angle);
       const phase = propNoise(x, 32);
       if (type === "torch") drawTorchFlame({ pixelRect }, torchFlicker(time, phase), time, phase);
-      else drawFireFlames({ pixelRect }, fireFrame(time, phase), time, phase);
+      else {
+        // Out in the open, the wind bends the flames and carries the sparks.
+        const weather = resolveWeather(trail?.weather);
+        drawFireFlames({ pixelRect }, fireFrame(time, phase), time, phase, weather.wind, windSign(weather));
+      }
       ctx.restore();
       return;
     }

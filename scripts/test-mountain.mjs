@@ -37,6 +37,8 @@ const prop = (type, x, extra = {}) => ({ type, x, y: null, layer: 'back', ...ext
   assert.ok(drift(chimneySmoke(3, 0.2, 1, -1)) < drift(chimneySmoke(3, 0.2, 0, -1)), 'a gale bends it over');
   assert.deepEqual(chimneySmoke(0, 0.2, 0.5), chimneySmoke(0, 0.2, 0.5), 'still at time 0');
   for (const puff of chimneySmoke(7.3, 0.6, 1)) assert.ok(puff.y <= HUT_CHIMNEY.y && puff.alpha >= 0 && puff.alpha <= 1);
+  const top = (puffs) => Math.min(...puffs.map((puff) => puff.y));
+  assert.ok(top(chimneySmoke(3, 0.2, 1, -1)) > top(chimneySmoke(3, 0.2, 0, -1)), 'a gale keeps it low');
 }
 
 // A hard landing nearby shakes the pine for a moment; nothing shakes at time 0.
@@ -73,6 +75,13 @@ const prop = (type, x, extra = {}) => ({ type, x, y: null, layer: 'back', ...ext
     const chair = liftChair(time, 0.3);
     if (Math.abs(chair.x) > CABLE_HALF) assert.equal(chair.alpha, 0);
   }
+  // It swings further in a gale, pushed downwind.
+  const swings = (wind, downwind) => Array.from({ length: 60 }, (_, i) => liftChair(0.5 + i * 0.37, 0.3, wind, downwind))
+    .filter((chair) => chair.alpha > 0).map((chair) => chair.swing);
+  const range = (values) => Math.max(...values) - Math.min(...values);
+  assert.ok(range(swings(1, -1)) > range(swings(0, -1)), 'swings further in a gale');
+  const mean = (values) => values.reduce((sum, value) => sum + value, 0) / values.length;
+  assert.ok(mean(swings(1, -1)) < 0 && mean(swings(1, 1)) > 0, 'pushed downwind');
 }
 
 // Icicles fit under an overhang, and culling covers the meltwater's fall.

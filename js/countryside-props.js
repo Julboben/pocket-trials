@@ -28,11 +28,21 @@ const CROSS = { columns: [6, 7], rows: [6, 7] };
 
 /**
  * How far each column of the flag lifts or drops as it ripples (0 at the
- * pole), at `time` in a `wind` of 0…1. Still at time 0.
+ * pole), at `time` in a `wind` of 0…1: lazily in a breeze, snapping fast and
+ * hard in a gale. Still at time 0.
  */
 export function flagRipple(time, wind, phase, column) {
   if (!time) return 0;
-  return snap(Math.sin(time * 4 - column * 0.35 + phase * Math.PI * 2) * Math.min(column, 8) * (0.2 + wind * 0.25));
+  return snap(Math.sin(time * (2 + wind * 6) - column * 0.35 + phase * Math.PI * 2) * Math.min(column, 8) * (0.1 + wind * 0.45));
+}
+
+/**
+ * How far a flag's column hangs below the pole's top, `column` cells out
+ * from it: a flag droops in still air, more the further out, and stands
+ * straight out in a gale.
+ */
+export function flagDroop(wind, column) {
+  return snap(column * 1.6 * (1 - Math.min(1, Math.max(0, wind))) ** 2);
 }
 
 /**
@@ -62,7 +72,7 @@ export function drawFlagpole({ pixelRect }, groundOffset, time = 0, wind = 0.25,
   const hoist = downwind < 0 ? -2 : 2;
   for (let column = 0; column < columns; column++) {
     const cx = downwind < 0 ? hoist - (column + 1) * 2 : hoist + column * 2;
-    const cy = top + 2 + flagRipple(time, wind, phase, column);
+    const cy = top + 2 + flagDroop(wind, column) + flagRipple(time, wind, phase, column);
     const lift = flagRipple(time, wind, phase, column + 1) - flagRipple(time, wind, phase, column);
     for (let row = 0; row < rows; row++) {
       const white = CROSS.columns.includes(column) || CROSS.rows.includes(row);
