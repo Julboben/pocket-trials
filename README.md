@@ -103,7 +103,7 @@ Gamepads use the standard mapping: `RT` or `A` for gas, `LT` or `X` for brake, t
 9. **Long Way Up** — a sustained technical climb combining momentum and wheelie control.
 10. **Elastic Summit** — a long final exam combining climbs, braking, landings, gaps, and stacked ledges.
 
-The planned full career is laid out in [`TRAILS_PLAN.md`](./TRAILS_PLAN.md).
+How the career is designed, and the rules every trail follows, are in [`TRAILS_GUIDE.md`](./TRAILS_GUIDE.md). The trails still to build are in [`TRAILS_PLAN.md`](./TRAILS_PLAN.md).
 
 Each trail requires collecting every apple before the finish gate will open. Completing a trail unlocks the next one. Selecting a trail starts it immediately, and its number and name remain visible as a lower-left course marker.
 

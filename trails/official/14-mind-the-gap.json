@@ -1,15 +1,15 @@
 {
   "name": "Mind the Gap",
   "label": "MIND THE GAP / 14",
+  "finish": {
+    "x": 3000,
+    "y": 314.7898293616503
+  },
   "description": "The first open gaps: 80, 90 and 100 units wide, and falling in ends the run. The tyre walls and signs mark each lip. Ride at the kicker with steady speed, keep the bike level in the air and land on the downslope beyond. Each landing sits a little lower than the takeoff, so speed is enough; don't brake on the lip.",
   "start": {
     "x": 90,
     "y": null,
     "facing": 1
-  },
-  "finish": {
-    "x": 3000,
-    "y": null
   },
   "terrainBlocks": [
     {
@@ -34,7 +34,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "mesa-1-2",
@@ -46,7 +46,7 @@
               90
             ],
             "out": [
-              -380.0,
+              -380,
               90
             ],
             "edge": "curve"
@@ -57,11 +57,11 @@
             "y": 300,
             "mode": "smooth",
             "in": [
-              -340.0,
+              -340,
               300
             ],
             "out": [
-              -200.0,
+              -200,
               300
             ],
             "edge": "curve"
@@ -72,7 +72,7 @@
             "y": 300,
             "mode": "smooth",
             "in": [
-              -100.0,
+              -100,
               300
             ],
             "out": [
@@ -170,7 +170,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "mesa-2-2",
@@ -178,7 +178,7 @@
             "y": 308,
             "mode": "independent",
             "in": [
-              906.0,
+              906,
               305.9
             ],
             "out": [
@@ -190,30 +190,30 @@
           {
             "id": "mesa-2-3",
             "x": 1070,
-            "y": 324,
+            "y": 314,
             "mode": "smooth",
             "in": [
-              1020.0,
-              324
+              1020,
+              314
             ],
             "out": [
-              1090.0,
-              324
+              1090,
+              314
             ],
             "edge": "curve"
           },
           {
             "id": "mesa-2-4",
             "x": 1130,
-            "y": 316,
+            "y": 306,
             "mode": "smooth",
             "in": [
-              1110.0,
-              316
+              1110,
+              306
             ],
             "out": [
-              1220.0,
-              316
+              1220,
+              306
             ],
             "edge": "curve"
           },
@@ -223,7 +223,7 @@
             "y": 316,
             "mode": "smooth",
             "in": [
-              1310.0,
+              1310,
               316
             ],
             "out": [
@@ -235,22 +235,22 @@
           {
             "id": "mesa-2-6",
             "x": 1542,
-            "y": 302,
+            "y": 282,
             "mode": "independent",
             "in": [
               1492.3,
-              306.9
+              286.9
             ],
             "out": [
               1544.8,
-              301.3
+              281.3
             ],
             "edge": "curve"
           },
           {
             "id": "mesa-2-7",
             "x": 1550,
-            "y": 300,
+            "y": 280,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -277,7 +277,7 @@
         "nodes": [
           {
             "id": "mesa-3-0",
-            "x": 1640,
+            "x": 1680,
             "y": 900,
             "mode": "corner",
             "in": null,
@@ -286,25 +286,25 @@
           },
           {
             "id": "mesa-3-1",
-            "x": 1640,
-            "y": 318,
+            "x": 1680,
+            "y": 298,
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "mesa-3-2",
-            "x": 1680,
-            "y": 324,
+            "x": 1720,
+            "y": 304,
             "mode": "independent",
             "in": [
-              1666.0,
-              321.9
+              1706,
+              301.9
             ],
             "out": [
-              1732.5,
-              329.6
+              1772.5,
+              309.6
             ],
             "edge": "curve"
           },
@@ -314,7 +314,7 @@
             "y": 340,
             "mode": "smooth",
             "in": [
-              1780.0,
+              1780,
               340
             ],
             "out": [
@@ -333,7 +333,7 @@
               332
             ],
             "out": [
-              2020.0,
+              2020,
               332
             ],
             "edge": "curve"
@@ -344,7 +344,7 @@
             "y": 332,
             "mode": "smooth",
             "in": [
-              2110.0,
+              2110,
               332
             ],
             "out": [
@@ -412,7 +412,7 @@
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "mesa-4-2",
@@ -420,7 +420,7 @@
             "y": 340,
             "mode": "independent",
             "in": [
-              2476.0,
+              2476,
               337.9
             ],
             "out": [
@@ -435,7 +435,7 @@
             "y": 356,
             "mode": "smooth",
             "in": [
-              2590.0,
+              2590,
               356
             ],
             "out": [
@@ -446,16 +446,16 @@
           },
           {
             "id": "mesa-4-4",
-            "x": 2900,
-            "y": 354,
+            "x": 2653.4516977324333,
+            "y": 298.94414766164175,
             "mode": "smooth",
             "in": [
-              2813.3333,
-              354
+              2566.784997732433,
+              298.94414766164175
             ],
             "out": [
-              2966.6667,
-              354
+              2720.1183977324336,
+              298.94414766164175
             ],
             "edge": "curve"
           },
@@ -469,7 +469,7 @@
               354
             ],
             "out": [
-              3140.0,
+              3140,
               354
             ],
             "edge": "curve"
@@ -480,7 +480,7 @@
             "y": 140,
             "mode": "smooth",
             "in": [
-              3180.0,
+              3180,
               140
             ],
             "out": [
@@ -514,20 +514,16 @@
   ],
   "apples": [
     {
-      "x": 600,
-      "y": null
+      "x": 840,
+      "y": 230
     },
     {
-      "x": 1200,
-      "y": null
+      "x": 1600,
+      "y": 236
     },
     {
-      "x": 1990,
-      "y": null
-    },
-    {
-      "x": 2700,
-      "y": null
+      "x": 2400,
+      "y": 272
     }
   ],
   "props": [
@@ -550,46 +546,21 @@
       "layer": "front"
     },
     {
-      "x": 200,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "SPEED \u2192"
-    },
-    {
       "x": 340,
       "y": null,
       "type": "cactus",
       "layer": "back"
     },
     {
-      "x": 660,
-      "y": null,
-      "type": "sign",
+      "x": 661,
+      "y": 297.7542323888927,
+      "type": "warning-skull",
       "layer": "front",
       "text": "! GAP"
     },
     {
       "x": 740,
       "y": null,
-      "type": "tyre",
-      "layer": "back"
-    },
-    {
-      "x": 756,
-      "y": null,
-      "type": "tyre",
-      "layer": "back"
-    },
-    {
-      "x": 772,
-      "y": null,
-      "type": "tyre",
-      "layer": "back"
-    },
-    {
-      "x": 764,
-      "y": 288,
       "type": "tyre",
       "layer": "back"
     },
@@ -601,7 +572,7 @@
     },
     {
       "x": 1100,
-      "y": null,
+      "y": 310.0234375,
       "type": "pebbles",
       "layer": "front"
     },
@@ -612,39 +583,8 @@
       "layer": "back"
     },
     {
-      "x": 1410,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "! GAP"
-    },
-    {
-      "x": 1490,
-      "y": null,
-      "type": "tyre",
-      "layer": "back"
-    },
-    {
-      "x": 1506,
-      "y": null,
-      "type": "tyre",
-      "layer": "back"
-    },
-    {
-      "x": 1522,
-      "y": null,
-      "type": "tyre",
-      "layer": "back"
-    },
-    {
-      "x": 1514,
-      "y": 304,
-      "type": "tyre",
-      "layer": "back"
-    },
-    {
       "x": 1750,
-      "y": null,
+      "y": 308.5876167412111,
       "type": "skull",
       "layer": "back"
     },
@@ -661,39 +601,15 @@
       "layer": "back"
     },
     {
-      "x": 2210,
-      "y": null,
-      "type": "sign",
+      "x": 2270,
+      "y": 321.7542323888927,
+      "type": "warning-skull",
       "layer": "front",
       "text": "! GAP"
     },
     {
-      "x": 2290,
-      "y": null,
-      "type": "tyre",
-      "layer": "back"
-    },
-    {
-      "x": 2306,
-      "y": null,
-      "type": "tyre",
-      "layer": "back"
-    },
-    {
-      "x": 2322,
-      "y": null,
-      "type": "tyre",
-      "layer": "back"
-    },
-    {
-      "x": 2314,
-      "y": 320,
-      "type": "tyre",
-      "layer": "back"
-    },
-    {
       "x": 2560,
-      "y": null,
+      "y": 349.22959839258317,
       "type": "car-wreck",
       "layer": "back"
     },

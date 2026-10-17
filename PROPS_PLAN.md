@@ -1,6 +1,6 @@
 # Hjulben – Props Plan
 
-A plan for the props to add to each level theme, plus guidelines for making them feel alive. See [PROPS_GUIDE.md](PROPS_GUIDE.md) for how to build them.
+A plan for the props to add to each level theme. How to build them, and how to make them feel alive, is in [PROPS_GUIDE.md](PROPS_GUIDE.md). Once every prop here is built, this plan can go.
 
 ---
 
@@ -142,22 +142,3 @@ A plan for the props to add to each level theme, plus guidelines for making them
 - [x] **Arrow signs**: point the way on routes that double back or loop.
 - [x] **Halfway flag**: lights up when passed and matches the split times.
 - [x] **Graffiti-style tutorial drawings**: Showing the controls (lean back, lean forward, flip, light etc).
-
----
-
-## 💡 Tips for making props feel alive
-
-1. **Reactions keep the levels lively.**
-   Bending grass, a flipping mailbox flag, birds flying off and falling snow make the bike feel like part of the world.
-   > ⚠️ Keep these reactions out of the physics simulation so replays still play back exactly the same.
-
-2. **Tie props to existing systems.**
-   - **Time of day:** lamps, windows, lanterns
-   - **Weather:** puddles and dripping roofs in rain, bright flashes in lightning
-   - **Materials:** snowy and sandy versions of the same prop
-
-3. **Use variants instead of new props.**
-   One fence with 3 colour palettes and 2 levels of wear gives a lot of variety for little work.
-
-4. **Anchor props to the ground.**
-   With the new block terrain, wall props (icicles, graffiti, roots) can attach to the nearest edge and follow its angle. That way they stay in place when you edit the terrain.

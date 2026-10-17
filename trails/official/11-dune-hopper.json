@@ -1,15 +1,15 @@
 {
   "name": "Dune Hopper",
   "label": "DUNE HOPPER / 11",
+  "finish": {
+    "x": 3020,
+    "y": null
+  },
   "description": "First air. Each dune is taller than the last, and with speed its rounded crest lifts you off the ground. In the air, lean to level the bike: lean back if the nose drops, forward if it rises, and land with both wheels on the far slope. The apples float just past the crests, where the bike flies.",
   "start": {
     "x": 90,
     "y": null,
     "facing": 1
-  },
-  "finish": {
-    "x": 3020,
-    "y": null
   },
   "terrainBlocks": [
     {
@@ -20,12 +20,12 @@
         "nodes": [
           {
             "id": "ground-0",
-            "x": -1000,
+            "x": -1300,
             "y": 100,
             "mode": "corner",
             "in": null,
             "out": null,
-            "edge": "curve"
+            "edge": "straight"
           },
           {
             "id": "ground-1",
@@ -37,7 +37,7 @@
               100
             ],
             "out": [
-              -380.0,
+              -380,
               100
             ],
             "edge": "curve"
@@ -48,7 +48,7 @@
             "y": 300,
             "mode": "smooth",
             "in": [
-              -340.0,
+              -340,
               300
             ],
             "out": [
@@ -112,7 +112,7 @@
               304
             ],
             "out": [
-              740.0,
+              740,
               304
             ],
             "edge": "curve"
@@ -123,11 +123,11 @@
             "y": 256,
             "mode": "smooth",
             "in": [
-              800.0,
+              800,
               256
             ],
             "out": [
-              940.0,
+              940,
               256
             ],
             "edge": "curve"
@@ -138,7 +138,7 @@
             "y": 310,
             "mode": "smooth",
             "in": [
-              1020.0,
+              1020,
               310
             ],
             "out": [
@@ -172,7 +172,7 @@
               320
             ],
             "out": [
-              1620.0,
+              1620,
               320
             ],
             "edge": "curve"
@@ -183,11 +183,11 @@
             "y": 320,
             "mode": "smooth",
             "in": [
-              1660.0,
+              1660,
               320
             ],
             "out": [
-              1760.0,
+              1760,
               320
             ],
             "edge": "curve"
@@ -198,7 +198,7 @@
             "y": 232,
             "mode": "smooth",
             "in": [
-              1820.0,
+              1820,
               232
             ],
             "out": [
@@ -247,7 +247,7 @@
               220
             ],
             "out": [
-              2640.0,
+              2640,
               220
             ],
             "edge": "curve"
@@ -258,11 +258,11 @@
             "y": 340,
             "mode": "smooth",
             "in": [
-              2760.0,
+              2760,
               340
             ],
             "out": [
-              2970.0,
+              2970,
               340
             ],
             "edge": "curve"
@@ -273,7 +273,7 @@
             "y": 340,
             "mode": "smooth",
             "in": [
-              3060.0,
+              3060,
               340
             ],
             "out": [
@@ -299,7 +299,7 @@
           },
           {
             "id": "ground-19",
-            "x": 3600,
+            "x": 3900,
             "y": 120,
             "mode": "corner",
             "in": null,
@@ -308,7 +308,7 @@
           },
           {
             "id": "ground-20",
-            "x": 3600,
+            "x": 3900,
             "y": 1200,
             "mode": "corner",
             "in": null,
@@ -317,7 +317,7 @@
           },
           {
             "id": "ground-21",
-            "x": -1000,
+            "x": -1300,
             "y": 1200,
             "mode": "corner",
             "in": null,
@@ -375,13 +375,6 @@
       "y": null,
       "type": "cactus-small",
       "layer": "back"
-    },
-    {
-      "x": 140,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "LEAN \u2192"
     },
     {
       "x": 260,

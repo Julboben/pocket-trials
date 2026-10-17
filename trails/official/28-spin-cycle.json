@@ -55,15 +55,6 @@
             "edge": "straight"
           },
           {
-            "id": "street-4",
-            "x": 150,
-            "y": 400,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
             "id": "street-5",
             "x": 600,
             "y": 400,
@@ -332,15 +323,15 @@
       "layer": "back"
     },
     {
-      "x": 140,
-      "y": null,
+      "x": -43.24425380095644,
+      "y": 391.86804416407364,
       "type": "sign",
       "layer": "front",
       "text": "KEEP LOW"
     },
     {
-      "x": 300,
-      "y": null,
+      "x": 449.99999999999994,
+      "y": 401.6959635416667,
       "type": "cone",
       "layer": "front"
     },
@@ -427,6 +418,24 @@
       "x": 2100,
       "y": 240,
       "type": "bird",
+      "layer": "back"
+    },
+    {
+      "x": 233.77960719032376,
+      "y": 395.7865889308422,
+      "type": "spectators",
+      "layer": "back"
+    },
+    {
+      "x": 151.99496376573376,
+      "y": 394.49257818357563,
+      "type": "marshal-start",
+      "layer": "back"
+    },
+    {
+      "x": 350,
+      "y": 400,
+      "type": "dumpster",
       "layer": "back"
     }
   ],

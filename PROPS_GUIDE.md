@@ -125,6 +125,23 @@ A prop the rider can use (like telling Coda to sit) works through `js/interactio
 
 Anything that glows at night needs the glowing part drawn on its own, e.g. `drawHutWindowGlass(tools, flicker)`, plus a light point such as `HUT_WINDOW_CENTRE`. The renderer handles when it turns on.
 
+## Making props feel alive
+
+1. **Reactions keep the levels lively.**
+   Bending grass, a flipping mailbox flag, birds flying off and falling snow make the bike feel like part of the world.
+   > ⚠️ Keep these reactions out of the physics simulation so replays still play back exactly the same.
+
+2. **Tie props to existing systems.**
+   - **Time of day:** lamps, windows, lanterns
+   - **Weather:** puddles and dripping roofs in rain, bright flashes in lightning
+   - **Materials:** snowy and sandy versions of the same prop
+
+3. **Use variants instead of new props.**
+   One fence with 3 colour palettes and 2 levels of wear gives a lot of variety for little work.
+
+4. **Anchor props to the ground.**
+   With the new block terrain, wall props (icicles, graffiti, roots) can attach to the nearest edge and follow its angle. That way they stay in place when you edit the terrain.
+
 ## Module checklist
 
 - [ ] `// @ts-check` and a header comment saying what the module holds
