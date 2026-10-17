@@ -1,4 +1,4 @@
-// A small frame-rate readout for `?fps=1`: frames per second, the average
+// A small frame-rate readout for `?debug=1`: frames per second, the average
 // time each frame's work took, and the slowest gap between frames, refreshed
 // twice a second.
 const REFRESH_MS = 500;

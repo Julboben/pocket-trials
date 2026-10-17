@@ -1,6 +1,6 @@
 # Physics implementation status
 
-The staged physics roadmap is implemented in `js/vehicle-physics.js`: a physical chassis, XPBD suspension, swept collision, angular traction, motor/brake reaction torque, and rider-applied chassis torque. The original two-wheel distance-constraint solver has been removed. Physics traces remain available with `?physicsDebug=1`.
+The staged physics roadmap is implemented in `js/vehicle-physics.js`: a physical chassis, XPBD suspension, swept collision, angular traction, motor/brake reaction torque, and rider-applied chassis torque. The original two-wheel distance-constraint solver has been removed. Physics traces remain available in debug mode, `?debug=1`.
 
 ## Implemented foundation
 
@@ -38,7 +38,7 @@ The staged physics roadmap is implemented in `js/vehicle-physics.js`: a physical
 - In the air the wheels' spin and the bike's keep their total, as on a real bike: gas spins the rear wheel and the engine's flywheel up and lifts the nose, about 38° over a second from flying at 250 px/s, until they reach the rev limiter; braking a spinning wheel drops the nose. A wheel in the air keeps its spin but for the engine and the brakes, so it lands with whatever spin the rider left it: land on an open throttle and the bike lurches forward. Rider lean stays the main air control, about five times stronger
 - Contact-point slip converted into coupled linear/angular friction impulses
 - Block terrain for loops, caves, and overhangs, with one compiled geometry shared by rendering, collision, validation, and the editor
-- Opt-in physics traces with `?physicsDebug=1`
+- Debug mode with `?debug=1`, also in the editor's play test: physics traces and console tools, a frame-rate meter, an on-screen readout of the bike, engine, wheels and the rider's crash probes, and the probes drawn on the rider
 
 ## Terrain format
 

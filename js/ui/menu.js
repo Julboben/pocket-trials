@@ -6,7 +6,7 @@ import { drawScene, posedRide, parkedRide, findClimb, findJump, finishScene, fin
 import {
   loadSaveSlots, loadActiveSlot, saveActiveSlot, createSave, deleteSave, readBest,
   readLeaderboard, LEADERBOARD_SIZE, loadPreferences, savePreferences, cleanRiderName,
-  restoreOnlineSave, linkSave, readGhost, saveLook, loadSeenVersion, saveSeenVersion, applyCloudSave, clearSaveToken, hasNisse
+  restoreOnlineSave, linkSave, readGhost, saveLook, loadSeenVersion, saveSeenVersion, loadSeenHowTo, saveSeenHowTo, applyCloudSave, clearSaveToken, hasNisse
 } from '../storage.js';
 import { DEFAULT_LOOK, keepIdentity, lookKey, sameLook, starterLook } from '../cosmetics.js';
 import { createCustomizer, createIdentityPicker, drawLook } from './customizer.js';
@@ -55,11 +55,11 @@ export function loadStoredState() {
  *   onStartBonus: (index: number) => void,
  *   onStartCustom: (index: number) => void,
  *   onClose: () => void,
- *   onRetry: () => void,
+ *   riderOnScreen: () => { x: number, y: number },
  *   onPreferences: () => void
  * }} hooks
  */
-export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartCustom, onClose, onRetry, onPreferences, onWatchReplay, onRiderChange }) {
+export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartCustom, onClose, riderOnScreen, onPreferences, onWatchReplay, onRiderChange }) {
   let pendingSaveSlot = 0;
   $('app-version').textContent = 'v' + VERSION;
   let deleteArmedSlot = -1, deleteArmTimer = 0, leaderboardTrail = 0;
@@ -111,18 +111,41 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   }
 
   function startTrail(index) {
-    session.rideSaveId = session.saveGame?.createdAt ?? null;
-    onStartTrail(index);
+    beforeFirstRide(() => {
+      session.rideSaveId = session.saveGame?.createdAt ?? null;
+      onStartTrail(index);
+    });
   }
 
   function startBonus(index) {
-    session.rideSaveId = session.saveGame?.createdAt ?? null;
-    onStartBonus(index);
+    beforeFirstRide(() => {
+      session.rideSaveId = session.saveGame?.createdAt ?? null;
+      onStartBonus(index);
+    });
   }
 
   function startCustom(index) {
-    session.rideSaveId = session.saveGame?.createdAt ?? null;
-    onStartCustom(index);
+    beforeFirstRide(() => {
+      session.rideSaveId = session.saveGame?.createdAt ?? null;
+      onStartCustom(index);
+    });
+  }
+
+  /** The ride How to play starts when its Let's ride button is pressed. */
+  let rideAfterHowTo = null;
+
+  // Riders who had already ridden before How to play showed itself have
+  // played; it is only for someone's very first ride on this device.
+  const hasRidden = () => session.saveSlots.some(save => save && (
+    save.unlocked > 0 || Object.keys(save.bestTimes || {}).length > 0 || Object.keys(save.stats || {}).length > 0));
+
+  /** Shows How to play before the first ride on this device, then rides. */
+  function beforeFirstRide(ride) {
+    if (loadSeenHowTo() || hasRidden()) { ride(); return; }
+    showView('how');
+    rideAfterHowTo = ride;
+    $('how-ride').hidden = false;
+    requestAnimationFrame(() => selectControl($('how-ride')));
   }
 
   // Menu art is drawn by the game's renderer from the trails themselves, a
@@ -200,6 +223,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
 
   function drawActiveSaveIllustration() {
     const canvasElement = $('active-save-bike');
+    if (canResume()) { drawRideSnapshot(canvasElement); return; }
     if (!session.saveGame) {
       canvasElement.getContext('2d').clearRect(0, 0, canvasElement.width, canvasElement.height);
       return;
@@ -208,6 +232,26 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     paintPreview(canvasElement, previewKey('continue', trailKey(entry)), image => drawScene(image, {
       ...sceneOptions(), trail: entry.trail, width: 120, height: 84
     }), { now: true });
+  }
+
+  /**
+   * The ride as it was when the menu opened: the game canvas still holds its
+   * last frame, so one copy, cropped to the card around the rider, is all it costs.
+   */
+  function drawRideSnapshot(target) {
+    const source = /** @type {HTMLCanvasElement} */ ($('canvas'));
+    const context = target.getContext('2d');
+    context.clearRect(0, 0, target.width, target.height);
+    if (!source.width || !source.height) return;
+    // The card's shape, 45% of the view wide, centred on the rider but kept inside the frame.
+    const aspect = target.width / target.height;
+    const width = Math.min(source.width * 0.45, source.height * aspect);
+    const height = width / aspect;
+    const rider = riderOnScreen();
+    const x = clamp(rider.x * source.width - width / 2, 0, source.width - width);
+    const y = clamp(rider.y * source.height - height * 0.6, 0, source.height - height);
+    context.imageSmoothingEnabled = false;
+    context.drawImage(source, x, y, width, height, 0, 0, target.width, target.height);
   }
 
   // Creating a rider takes two steps: who they are (name, gender, skin), then
@@ -478,29 +522,30 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   function updateDashboard() {
     const hasSave = Boolean(session.saveGame);
     drawActiveSaveIllustration();
-    $('active-save-slot').textContent = 'SLOT ' + (session.activeSaveSlot + 1);
-    $('active-save-rider').textContent = hasSave ? session.saveGame.name : '';
-    $('active-save-progress').textContent = hasSave ? (session.unlockedTrail + 1) + ' / ' + trails.length + ' trails · ' + trails[session.savedTrail].name : '';
+    // One orange card: resume the ride going on, else continue the save, else
+    // Start riding takes its place. Retry is in the game's own controls.
+    const resumable = canResume();
+    const slot = hasSave ? 'SLOT ' + (session.activeSaveSlot + 1) : '';
+    $('active-save-label').textContent = resumable ? 'RESUME RIDE' : 'CONTINUE';
+    $('active-save-slot').textContent = slot;
+    $('active-save-slot').hidden = !slot;
+    if (resumable) {
+      $('active-save-rider').textContent = session.trail?.name ?? 'Your ride';
+      $('active-save-progress').textContent = [hasSave ? session.saveGame.name : '', session.stateBeforeMenu === 'paused' ? 'Paused' : 'Back to the trail']
+        .filter(Boolean).join(' · ');
+    } else {
+      $('active-save-rider').textContent = hasSave ? session.saveGame.name : '';
+      $('active-save-progress').textContent = hasSave ? (session.unlockedTrail + 1) + ' / ' + trails.length + ' trails · ' + trails[session.savedTrail].name : '';
+    }
     $('menu-trails').disabled = !hasSave && customTrailEntries.length === 0
       && !bonusTrailEntries.some(entry => bonusUnlock(entry).open);
-    // One orange call to action: resume a ride, else continue the save, else start one.
-    const resumable = canResume();
-    $('menu-resume').hidden = !resumable;
-    // Retry sits beside Resume whenever there is a ride to restart.
-    $('menu-retry').hidden = !resumable;
-    $('menu-resume').classList.toggle('menu-action-half', resumable);
-    $('menu-continue').hidden = !hasSave;
-    $('menu-continue').classList.toggle('menu-action-primary', !resumable);
+    $('menu-continue').hidden = !hasSave && !resumable;
     $('menu-first-ride').hidden = hasSave;
     $('menu-first-ride').classList.toggle('menu-action-primary', !resumable);
     $('menu-riders').hidden = !hasSave;
     $('menu-garage').hidden = !hasSave;
     $('menu-achievements').hidden = !hasSave;
     if (hasSave) $('menu-achievements-detail').textContent = earnedCount(progressOf(session.saveGame)) + ' / ' + ACHIEVEMENTS.length + ' earned';
-    if (resumable) {
-      $('menu-resume-detail').textContent = 'Back to ' + (session.trail?.name ?? 'the trail')
-        + (session.stateBeforeMenu === 'paused' ? ' · paused' : '');
-    }
     buildSaveSlots();
     drawBackground();
     drawHowToPlayIllustrations();
@@ -568,6 +613,10 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     $('menu-settings-view').hidden = view !== 'settings';
     $('menu-changelog-view').hidden = view !== 'changelog';
     $('menu-achievements-view').hidden = view !== 'achievements';
+    // Opened by hand, How to play has no ride waiting; either way it has been seen.
+    rideAfterHowTo = null;
+    $('how-ride').hidden = true;
+    if (view === 'how') saveSeenHowTo();
     $('menu-scroll').scrollTop = 0;
     requestAnimationFrame(() => {
       const list = controls();
@@ -583,7 +632,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     syncWhatsNew();
     updateDashboard();
     showView('home');
-    requestAnimationFrame(() => selectControl($(canResume() ? 'menu-resume' : session.saveGame ? 'menu-continue' : 'menu-first-ride')));
+    requestAnimationFrame(() => selectControl($(canResume() || session.saveGame ? 'menu-continue' : 'menu-first-ride')));
     refreshCloudSave();
   }
 
@@ -1304,12 +1353,18 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     const button = event.target.closest('button');
     if (!button) return;
     if (button.matches('[data-menu-back], #look-confirm-discard, #look-confirm-cancel')) sounds.menuBack();
-    else if (button.id === 'create-save' || button.id === 'save-look' || button.id === 'look-confirm-save' || button.id === 'new-save-next' || button.id === 'menu-continue' || button.id === 'menu-first-ride' || button.id === 'menu-resume' || button.id === 'menu-retry') sounds.menuConfirm();
+    else if (button.id === 'create-save' || button.id === 'save-look' || button.id === 'look-confirm-save' || button.id === 'new-save-next' || button.id === 'menu-continue' || button.id === 'menu-first-ride' || button.id === 'how-ride') sounds.menuConfirm();
     else sounds.menuSelect();
   });
-  $('menu-continue').addEventListener('click', () => startTrail(session.savedTrail));
-  $('menu-resume').addEventListener('click', () => onClose());
-  $('menu-retry').addEventListener('click', () => onRetry());
+  $('menu-continue').addEventListener('click', () => {
+    if (canResume()) onClose();
+    else startTrail(session.savedTrail);
+  });
+  $('how-ride').addEventListener('click', () => {
+    const ride = rideAfterHowTo;
+    rideAfterHowTo = null;
+    ride?.();
+  });
   $('menu-first-ride').addEventListener('click', () => {
     creatorFromRiders = false;
     showSaveCreator(Math.max(0, session.saveSlots.findIndex(save => !save)));

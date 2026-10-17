@@ -11,6 +11,7 @@ const SAVE_SLOTS_KEY = 'hjulben-saves-v2';
 const ACTIVE_SLOT_KEY = 'hjulben-active-slot-v1';
 const LEADERBOARD_KEY = 'hjulben-leaderboard-v1';
 const SEEN_VERSION_KEY = 'hjulben-seen-version-v1';
+const SEEN_HOW_TO_KEY = 'hjulben-seen-how-to-v1';
 const SLOT_COUNT = 3;
 export const LEADERBOARD_SIZE = 10;
 
@@ -112,6 +113,15 @@ export function loadSeenVersion() {
 
 export function saveSeenVersion(version) {
   writeJson(SEEN_VERSION_KEY, version);
+}
+
+/** Whether How to play has been shown on this device, before a first ride or from the menu. */
+export function loadSeenHowTo() {
+  return readJson(SEEN_HOW_TO_KEY, false) === true;
+}
+
+export function saveSeenHowTo() {
+  writeJson(SEEN_HOW_TO_KEY, true);
 }
 
 export function loadPreferences(defaults) {

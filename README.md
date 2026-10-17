@@ -264,7 +264,8 @@ One-time setup:
 │   ├── light-field.js  # DOM-free ambient light bake from the terrain
 │   ├── camera.js       # Camera follow and screen shake
 │   ├── effects.js      # Particles, skid marks, and weather
-│   ├── fps-meter.js    # Frame-rate readout for ?fps=1
+│   ├── fps-meter.js    # Frame-rate readout for ?debug=1
+│   ├── debug-hud.js    # On-screen ride readout for ?debug=1
 │   ├── input.js        # Keyboard, touch, and gamepad input with remapping
 │   ├── state.js        # Shared session state and preferences
 │   ├── ui/             # Dashboard menu and in-game overlay/results
@@ -414,9 +415,7 @@ The game is currently a **design and physics prototype**. Its most important ass
 
 To test as a brand-new player on `localhost`, open the game or editor with `?sandbox`. All data then lives in that tab's `sessionStorage`: your real saves are never read or changed, online submits are skipped, and a SANDBOX badge shows at the bottom. The sandbox survives reloads, the editor, and playtests. Use `?sandbox=reset` to start fresh again and `?sandbox=off` to go back to your real data.
 
-To check performance, open the game with `?fps=1`: a small readout shows frames per second, the average time each frame's work takes, and the slowest frame gap, refreshed twice a second.
-
-To investigate physics, open the game with `?physicsDebug=1`. The overlay shows particles, constraints, contact normals, and center of mass. The console automatically prints detected spikes as expanded JSON. Run `hjulbenPhysicsDebug.dumpSpike()` or `copySpike()` for the latest spike, and `dump()` or `copy()` for the latest 120 frames. Record deterministic input with `startRecording()` and `stopRecording()`, then replay the returned array with `replay(inputs)`; call `stopReplay()` to return to live controls. Traces include wheel velocities, angular/contact state, torque components, suspension lengths, chassis area, constraints, traction, and collision responses.
+To check performance or investigate physics, open the game with `?debug=1`. Open the editor with it and its play test gets it too. Debug mode shows a frame-rate meter (frames per second, the average time each frame's work takes, and the slowest frame gap, refreshed twice a second) and a readout of the ride: speed, pitch, the controls and how much of the lean reaches the bike, the engine's revs and clutch, each wheel's surface, compression, load and spin, and how far the rider's head, shoulder and hip probes are from the ground. The overlay shows particles, constraints, contact normals, center of mass, and the crash probes, red when the head touches. `hjulbenGame.dumpRun()` copies the whole attempt (trail, seed and inputs) so it can be replayed outside the browser. `hjulbenPhysicsDebug.dump()` or `copy()` gives the last 120 steps in detail; the traces include wheel velocities, angular/contact state, torque components, suspension lengths, chassis area, constraints, traction, and collision responses.
 
 `npm test` also runs the DOM-independent vehicle harness in `scripts/test-vehicle-physics.mjs`. It exercises flat acceleration, braking versus coasting, stationary wheel lift, air rotation, mirrored hills, valley settling, and one-wheel landing through the exact `js/vehicle-physics.js` code used by the game.
 

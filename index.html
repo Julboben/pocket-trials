@@ -347,27 +347,7 @@
                         <div class="menu-view" id="menu-home">
                             <div class="menu-actions">
                                 <button
-                                    class="menu-action menu-action-primary"
-                                    id="menu-resume"
-                                    hidden
-                                >
-                                    <span>RESUME RIDE</span
-                                    ><small id="menu-resume-detail"
-                                        >Back to the trail</small
-                                    >
-                                </button>
-                                <button
-                                    class="menu-action menu-action-half"
-                                    id="menu-retry"
-                                    hidden
-                                >
-                                    <span>RETRY</span
-                                    ><small
-                                        >Restart the trail from the start</small
-                                    >
-                                </button>
-                                <button
-                                    class="menu-action continue-save"
+                                    class="menu-action menu-action-primary continue-save"
                                     id="menu-continue"
                                     hidden
                                 >
@@ -382,8 +362,8 @@
                                     ></span>
                                     <span class="continue-save-copy"
                                         ><span class="save-label"
-                                            >CONTINUE ·
-                                            <b id="active-save-slot"></b></span
+                                            ><span id="active-save-label">CONTINUE</span
+                                            ><b id="active-save-slot"></b></span
                                         ><strong id="active-save-rider"></strong
                                         ><small
                                             id="active-save-progress"
@@ -951,6 +931,14 @@
                                     </div>
                                 </article>
                             </div>
+                            <button
+                                class="menu-action menu-action-primary how-ride"
+                                id="how-ride"
+                                hidden
+                            >
+                                <span>LET’S RIDE</span
+                                ><small>Start your first trail</small>
+                            </button>
                         </div>
 
                         <div class="menu-view" id="menu-settings-view" hidden>
@@ -1377,6 +1365,11 @@
                     <strong id="achievement-popover-name"></strong>
                     <span id="achievement-popover-blurb"></span>
                 </span>
+            </div>
+            <div class="turn-upright" aria-live="polite">
+                <span class="turn-upright-icon" data-icon="phone" aria-hidden="true"></span>
+                <strong>Turn your phone upright</strong>
+                <small>Hjulben is played in portrait, with the controls under the trail.</small>
             </div>
         </main>
         <script type="module" src="./js/main.js"></script>

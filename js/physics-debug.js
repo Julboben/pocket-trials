@@ -2,14 +2,8 @@ const round = value => Number.isFinite(value) ? Number(value.toFixed(3)) : value
 
 export function createPhysicsDebugger({ enabled, step, inspectPoint }) {
   const frames = [];
-  const spikes = [];
   let frame = null;
   let iteration = -1;
-  let lastAlert = -Infinity;
-  let recording = false;
-  let recordedInputs = [];
-  let replayInputs = [];
-  let replayIndex = 0;
 
   function snapshot(point) {
     return {
@@ -47,12 +41,6 @@ export function createPhysicsDebugger({ enabled, step, inspectPoint }) {
 
   function recordInput(input) {
     if (frame) frame.input = { ...input };
-    if (recording) recordedInputs.push({ ...input });
-  }
-
-  function nextReplayInput() {
-    if (replayIndex >= replayInputs.length) return null;
-    return replayInputs[replayIndex++];
   }
 
   function capture(name, rear, front) {
@@ -143,61 +131,25 @@ export function createPhysicsDebugger({ enabled, step, inspectPoint }) {
     };
     frames.push(frame);
     if (frames.length > 360) frames.shift();
-    const velocityChanges = [
-      frame.centerVelocityChange.x,
-      frame.centerVelocityChange.y,
-      frame.wheelVelocityChanges.rear.x,
-      frame.wheelVelocityChanges.rear.y,
-      frame.wheelVelocityChanges.front.x,
-      frame.wheelVelocityChanges.front.y
-    ];
-    const suddenAcceleration = velocityChanges.some(change => Math.abs(change) > 80);
-    if (suddenAcceleration && performance.now() - lastAlert > 1000) {
-      lastAlert = performance.now();
-      spikes.push(frame);
-      if (spikes.length > 20) spikes.shift();
-      console.warn('[Hjulben] Sudden physics acceleration detected.');
-      console.table(frame.contacts);
-      console.log('[Hjulben] Copyable spike JSON:\n' + JSON.stringify(frame, null, 2));
-    }
     frame = null;
   }
 
-  const publicApi = {
-    enabled,
-    frames,
-    spikes,
-    clear() { frames.length = 0; spikes.length = 0; },
-    startRecording() { recordedInputs = []; recording = true; },
-    stopRecording() { recording = false; return recordedInputs.map(input => ({ ...input })); },
-    replay(inputs) {
-      replayInputs = Array.isArray(inputs) ? inputs.map(input => ({ ...input })) : [];
-      replayIndex = 0;
-      return replayInputs.length;
-    },
-    stopReplay() { replayInputs = []; replayIndex = 0; },
-    dump() {
-      const trace = frames.slice(-120);
-      console.log('[Hjulben] Physics trace', trace);
-      return trace;
-    },
-    dumpSpike() {
-      const spike = spikes.at(-1) || null;
-      console.log('[Hjulben] Latest spike JSON:\n' + JSON.stringify(spike, null, 2));
-      return spike;
-    },
-    async copy() {
-      await navigator.clipboard.writeText(JSON.stringify(frames.slice(-120), null, 2));
-      console.log('[Hjulben] Copied the latest physics trace.');
-    },
-    async copySpike() {
-      await navigator.clipboard.writeText(JSON.stringify(spikes.at(-1) || null, null, 2));
-      console.log('[Hjulben] Copied the latest sudden-acceleration frame.');
-    }
-  };
+  if (enabled) {
+    globalThis.hjulbenPhysicsDebug = {
+      frames,
+      clear() { frames.length = 0; },
+      dump() {
+        const trace = frames.slice(-120);
+        console.log('[Hjulben] Physics trace', trace);
+        return trace;
+      },
+      async copy() {
+        await navigator.clipboard.writeText(JSON.stringify(frames.slice(-120), null, 2));
+        console.log('[Hjulben] Copied the latest physics trace.');
+      }
+    };
+    console.info('[Hjulben] Debug mode. hjulbenGame.dumpRun() copies the whole attempt; hjulbenPhysicsDebug.dump() or copy() the last 120 steps in detail.');
+  }
 
-  globalThis.hjulbenPhysicsDebug = publicApi;
-  if (enabled) console.info('[Hjulben] Physics tracing enabled. Reproduce a spike, then run hjulbenPhysicsDebug.dumpSpike() or copySpike().');
-
-  return { begin, recordInput, nextReplayInput, capture, setIteration, recordConstraint, recordContactsResolved, recordContact, recordDynamics, recordTraction, finish };
+  return { begin, recordInput, capture, setIteration, recordConstraint, recordContactsResolved, recordContact, recordDynamics, recordTraction, finish };
 }

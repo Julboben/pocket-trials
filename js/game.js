@@ -21,6 +21,7 @@ import { createInput, keyLabel } from './input.js';
 import { createCamera } from './camera.js';
 import { createEffects } from './effects.js';
 import { createRenderer } from './render.js';
+import { createDebugHud } from './debug-hud.js';
 import { riderPalette } from './drawing.js';
 import { gearCard, legacyRider, lookOf, lookParts, newlyUnlockedItems } from './cosmetics.js';
 import { createOverlay } from './ui/overlay.js';
@@ -64,7 +65,7 @@ export function startGame({ shared = null } = {}) {
     onStartBonus: index => startSelectedTrail(() => loadBonusTrail(index), false),
     onStartCustom: index => startSelectedTrail(() => loadCustomTrail(index), false),
     onClose: closeMainMenu,
-    onRetry: retryFromMenu,
+    riderOnScreen: () => renderer.riderOnScreen(),
     onWatchReplay: watchReplay,
     onPreferences: applyPreferences,
     // Editor achievements wait for a rider, so a new or newly picked one gets them.
@@ -72,10 +73,16 @@ export function startGame({ shared = null } = {}) {
   });
 
   const params = new URLSearchParams(window.location.search);
-  const physicsDebugEnabled = params.get('physicsDebug') === '1';
-  const fpsMeter = params.get('fps') === '1' ? createFpsMeter(/** @type {Element} */ (document.querySelector('.viewport'))) : null;
+  // ?debug=1 turns on every debugging aid: the frame-rate meter, the readout
+  // of the ride, the physics overlay and traces, and the console tools.
+  const debugEnabled = params.get('debug') === '1';
+  const viewport = /** @type {Element} */ (document.querySelector('.viewport'));
+  const fpsMeter = debugEnabled ? createFpsMeter(viewport) : null;
+  const debugHud = debugEnabled ? createDebugHud(viewport) : null;
+  /** The latest step's dynamics, for the debug readout. */
+  let lastDynamics = null;
   const physicsDebug = createPhysicsDebugger({
-    enabled: physicsDebugEnabled,
+    enabled: debugEnabled,
     step: STEP,
     inspectPoint(point, round) {
       const ground = terrainAt(session.trail, point.x, point.y);
@@ -85,8 +92,8 @@ export function startGame({ shared = null } = {}) {
       };
     }
   });
-  const debugHooks = physicsDebugEnabled ? {
-    dynamics: values => physicsDebug.recordDynamics(values),
+  const debugHooks = debugEnabled ? {
+    dynamics: values => { lastDynamics = values; physicsDebug.recordDynamics(values); },
     afterIntegration: () => physicsDebug.capture('afterIntegration', session.ride.rear, session.ride.front),
     iteration: value => physicsDebug.setIteration(value),
     constraint: correction => physicsDebug.recordConstraint(correction, session.ride.rear, session.ride.front),
@@ -95,7 +102,7 @@ export function startGame({ shared = null } = {}) {
     traction: (wheelName, result, point) => physicsDebug.recordTraction(wheelName, result, point)
   } : undefined;
 
-  if (physicsDebugEnabled) {
+  if (debugEnabled) {
     // Reaching in from the console is an easter egg (see achievements.js).
     window.hjulbenGame = {
       get ride() { egg('debug-console'); return session.ride; },
@@ -167,6 +174,11 @@ export function startGame({ shared = null } = {}) {
   const fullscreenElement = () => document.fullscreenElement || document.webkitFullscreenElement;
   const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
 
+  // A phone turned sideways shows the "turn your phone upright" screen over
+  // the game (see .turn-upright), so a ride pauses until it is turned back.
+  const sideways = window.matchMedia('(orientation: landscape) and (pointer: coarse) and (max-height: 500px)');
+  sideways.addEventListener('change', () => { if (sideways.matches) pauseGame(); });
+
   // True only while an in-game action (F, Settings) is turning fullscreen off.
   let fullscreenExitRequested = false;
 
@@ -211,10 +223,11 @@ export function startGame({ shared = null } = {}) {
         else { sounds.escape(); showMainMenu(); }
       }
     }
-    // Phones play better sideways; locking only works while fullscreen.
+    // Phones are played upright, so the touch controls fit under the trail;
+    // locking only works while fullscreen.
     if (coarsePointer && screen.orientation) {
       try {
-        if (on) screen.orientation.lock?.('landscape').catch(() => {});
+        if (on) screen.orientation.lock?.('portrait').catch(() => {});
         else screen.orientation.unlock?.();
       } catch (_) {}
     }
@@ -595,13 +608,6 @@ export function startGame({ shared = null } = {}) {
     } else setState(previous === 'paused' ? 'paused' : 'running');
   }
 
-  function retryFromMenu() {
-    if (!menu.canResume()) return;
-    menu.close();
-    setMenuOpen(false);
-    startFresh();
-  }
-
   function startSelectedTrail(load, requiresSave = true) {
     if (requiresSave && !session.saveGame) return;
     endReplay();
@@ -848,15 +854,9 @@ export function startGame({ shared = null } = {}) {
 
     // Holding restart keeps the bike on the start line with the clock stopped.
     const holding = input.held('restart');
-    const replayInput = physicsDebug.nextReplayInput();
     const stepInput = replay ? {
       facing: ride.facing, leanInput: 0, accelerating: false, braking: false,
       ...replay.inputs[replay.step++]
-    } : replayInput ? {
-      facing: Number(replayInput.facing) ? (replayInput.facing < 0 ? -1 : 1) : ride.facing,
-      leanInput: replayInput.leanInput ?? 0,
-      accelerating: Boolean(replayInput.accelerating),
-      braking: Boolean(replayInput.braking)
     } : {
       facing: ride.facing,
       // Rounded like the replay codec, so the recorded run is exactly the run
@@ -931,7 +931,7 @@ export function startGame({ shared = null } = {}) {
         const restoreGhost = ghostRide ? interpolateRide(ghostRide, ghostRide.status === 'won' ? 1 : alpha) : null;
         renderer.draw({
           ride, ghost: ghostRide, camera, effects, look: replay?.look ?? session.look, ghostLook: ghost?.look, state: session.state,
-          full: session.preferences.scenery === 'full', dt, debug: physicsDebugEnabled
+          full: session.preferences.scenery === 'full', dt, debug: debugEnabled
         });
         restoreGhost?.();
         restore();
@@ -939,6 +939,7 @@ export function startGame({ shared = null } = {}) {
       }
     }
     fpsMeter?.drawn(now);
+    debugHud?.update({ ride: session.ride, state: session.state, trailName: session.trail?.name, dynamics: lastDynamics }, now);
     sounds.update();
     requestAnimationFrame(frame);
   }

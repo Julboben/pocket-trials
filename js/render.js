@@ -29,6 +29,8 @@ import { terrainSolidAt } from "./terrain-runtime.js";
 import { finishHeight } from "./trail-schema.js";
 import { waterBodies, waterColumns, surfaceWave } from "./water.js";
 import { createTerrainRenderer } from "./terrain-render.js";
+import { riderCollisionPoints } from "./ride.js";
+import { probeClearance } from "./debug-hud.js";
 import { vehicleMetrics } from "./vehicle-physics.js";
 import { ragdollCenter } from "./ragdoll.js";
 import { appleShine } from "./apple.js";
@@ -246,7 +248,9 @@ export function createRenderer(canvas) {
     flipVisual = 1,
     trail = null,
     cameraX = 0,
-    cameraY = 0;
+    cameraY = 0,
+    // The rider's place in the last frame, for the menu's resume snapshot.
+    riderOnScreen = { x: 0.5, y: 0.5 };
   let xrayMask = null,
     xrayRider = null,
     glowLayer = null,
@@ -1464,7 +1468,7 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  function drawPhysicsOverlay(vehicle) {
+  function drawPhysicsOverlay(vehicle, ride) {
     const { chassis } = vehicle;
     ctx.save();
     ctx.globalAlpha = 0.85;
@@ -1498,6 +1502,17 @@ export function createRenderer(canvas) {
       );
       ctx.stroke();
     }
+    // The rider's crash probes: only the head ends a run on terrain, so it is
+    // drawn red when it touches; the shoulder and hip go orange inside it.
+    if (ride && !ride.ragdoll)
+      for (const [name, probe] of Object.entries(riderCollisionPoints(ride))) {
+        const clearance = probeClearance(ride.trail, probe);
+        const touching = clearance !== null && clearance <= 0;
+        ctx.strokeStyle = touching ? (name === "head" ? "#ff3b30" : "#ff9f2e") : "#7fd8ff";
+        ctx.beginPath();
+        ctx.arc(probe.x, probe.y, probe.radius, 0, TAU);
+        ctx.stroke();
+      }
     const center = vehicleMetrics(vehicle).center;
     ctx.strokeStyle = "#ff8952";
     ctx.beginPath();
@@ -1640,6 +1655,7 @@ export function createRenderer(canvas) {
     // Whole device pixels, so art on the world's pixel grid never straddles a pixel.
     cameraX = Math.round(view.x * worldToDevice) / worldToDevice;
     cameraY = Math.round(view.y * worldToDevice) / worldToDevice;
+    riderOnScreen = { x: (focus.x - cameraX) / W, y: (focus.y - cameraY) / H };
 
     ctx.setTransform(worldToDevice, 0, 0, worldToDevice, 0, 0);
     ctx.imageSmoothingEnabled = false;
@@ -1675,7 +1691,7 @@ export function createRenderer(canvas) {
     hair = updateHair(hair, ride, look, ride.status === "won" ? 0 : animationDt);
     if (hair) hair.draw(pixelPath, currentHairRoot(ride, false, flipVisual, look));
     drawBike(ride, look, flipVisual, ride.ragdoll ? "ragdoll" : state);
-    if (debug) drawPhysicsOverlay(ride.vehicle);
+    if (debug) drawPhysicsOverlay(ride.vehicle, ride);
     if (ride.ragdoll) gameArt.drawRagdoll(ride.ragdoll, look);
     // Water props in front are drawn before the water, so what is under the
     // surface looks wet.
@@ -1762,6 +1778,8 @@ export function createRenderer(canvas) {
       headlights = Boolean(on);
       lighting.setHeadlights(on);
     },
+    /** Where the rider was in the last frame, as fractions of the view's width and height. */
+    riderOnScreen: () => riderOnScreen,
     get width() {
       return W;
     },

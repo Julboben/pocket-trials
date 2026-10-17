@@ -1107,12 +1107,13 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
   const chassisInertia = momentOfInertia(chassisPoints);
   const bikeInertia = momentOfInertia(bikePoints);
   const bikeSpin = angularVelocity(bikePoints, bikeInertia);
+  const groundLeverage = riderGroundLeverage(vehicle);
   const groundLean =
     leanControl *
     XPBD_RIDER_GROUND_ANGULAR_ACCELERATION *
     riderAssist *
     riderTerrainScale *
-    riderGroundLeverage(vehicle) *
+    groundLeverage *
     forwardLeanWeightShift(vehicle, facing, leanControl);
   const airLeanLimit =
     Math.abs(leanControl) * XPBD_RIDER_AIR_ANGULAR_ACCELERATION * riderAssist;
@@ -1161,6 +1162,10 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
     angularDrive,
     riderAssist,
     riderTerrainScale,
+    // For the debug readout: the share of ground lean that reaches the bike,
+    // and whether it counts as hanging from one wheel, which keeps it whole.
+    groundLeverage,
+    hanging: hangsBelowWheel(vehicle) ? 1 : 0,
     riderAngularAcceleration,
     motorReactionAcceleration,
     brakeReactionAcceleration,
