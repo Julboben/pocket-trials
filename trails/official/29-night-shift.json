@@ -358,6 +358,12 @@
       "y": null,
       "type": "barrier",
       "layer": "front"
+    },
+    {
+      "x": 263.7037358557039,
+      "y": 400.0428887169875,
+      "type": "bench",
+      "layer": "back"
     }
   ],
   "spikes": [],

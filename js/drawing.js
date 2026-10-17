@@ -81,6 +81,10 @@ import {
   drawScaffoldDecks,
   drawScaffoldCouplers,
   drawGraffiti,
+  CHRISTIANIA_WHEELS,
+  BENCH_ENDS,
+  drawBench,
+  drawChristianiaBike,
 } from "./city-props.js";
 import {
   SQUIRREL_RANGE,
@@ -91,6 +95,17 @@ import {
   squirrelDash,
   drawSquirrelSitting,
   drawSquirrelRunning,
+  FIRE,
+  TENT,
+  TENT_DOOR_CENTRE,
+  drawFireFlames,
+  drawFireplace,
+  drawGrass,
+  drawTent,
+  drawTentDoorGlow,
+  drawTentRopes,
+  fireFrame,
+  grassLean,
 } from "./forest-props.js";
 import {
   HAZE,
@@ -130,6 +145,7 @@ import {
   CABLE_HALF,
   CABLE_TOP,
   HUT_BOUNDS,
+  HUT_CHIMNEY,
   HUT_LIGHT,
   HUT_WINDOW,
   ICE,
@@ -196,6 +212,7 @@ import {
   drawSignPost,
   drawTutorialFlip,
   drawTutorialLean,
+  drawTutorialLeanForward,
   drawTutorialLight,
   drawTyreWall,
   drawWarningBang,
@@ -255,6 +272,32 @@ import {
   webState,
 } from "./spider-props.js";
 import {
+  BAR_XS,
+  FLAME,
+  BARS,
+  CHAINS_HANG,
+  GIBBET_HANG,
+  PORTCULLIS,
+  TORCH_BODY_BOTTOM,
+  TORCH_FLAME,
+  barLayout,
+  drawDungeonBars,
+  drawGibbetCage,
+  drawGibbetChain,
+  drawHangingChains,
+  drawPortcullis,
+  drawSkeletonBody,
+  drawSkeletonSkull,
+  drawTorchFeet,
+  drawTorchFlame,
+  drawTorchStand,
+  hangingSwing,
+  portcullisDrop,
+  skeletonJaw,
+  torchFlicker,
+} from "./dungeon-props.js";
+import { FLAGPOLE, drawFlagpole } from "./countryside-props.js";
+import {
   CORGI_BOUNDS,
   CORGI_RANGE,
   CORGI_STEP,
@@ -286,6 +329,11 @@ const GROUND_ALIGNED_PROP_SPANS = {
   "prison-fence": [-44, 44],
   "ball-and-chain": [-18, 16],
   "escape-tunnel": [-20, 20],
+  skeleton: [-14, 22],
+  tent: [-30, 30],
+  "christiania-bike": CHRISTIANIA_WHEELS,
+  bench: [BENCH_ENDS[0], BENCH_ENDS[1] + 4],
+  fireplace: [-24, 24],
 };
 
 /**
@@ -1068,13 +1116,14 @@ export function sunShadowOffset({
 export const WALL_PROPS = new Set(["vines", "roots", "moss"]);
 // Graffiti is painted onto the rock itself rather than stood in front of it or
 // behind it, so it is drawn just after the terrain whatever its layer.
-export const PAINTED_PROPS = new Set(["graffiti", "tutorial-lean", "tutorial-flip", "tutorial-light", "tally-marks"]);
+export const PAINTED_PROPS = new Set(["graffiti", "tutorial-lean", "tutorial-lean-forward", "tutorial-flip", "tutorial-light", "tally-marks"]);
 // The art of each painted prop: its local bounds and how to draw it.
 const PAINTED_ART = {
   graffiti: { bounds: GRAFFITI_BOUNDS, draw: drawGraffiti },
   "tutorial-lean": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLean },
   "tutorial-flip": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialFlip },
   "tutorial-light": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLight },
+  "tutorial-lean-forward": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLeanForward },
   "tally-marks": { bounds: TALLY_BOUNDS, draw: drawTallyMarks },
 };
 /** A painted prop's local bounds, [left, top, right, bottom]. */
@@ -1096,10 +1145,14 @@ export const CEILING_PROPS = new Set([
   "cobweb",
   "spider",
   "cocoon",
+  "portcullis",
+  "hanging-chains",
+  "gibbet",
 ]);
-// Cave props that fit themselves to the rock around them: support beams reach
-// up to the roof, and a mine cart's rails run along the floor to the walls.
-const CAVE_FITTED_PROPS = new Set([...CEILING_PROPS, "beams", "minecart"]);
+// Cave props that fit themselves to the rock around them: support beams and
+// dungeon bars reach up to the roof, and a mine cart's rails run along the
+// floor to the walls.
+const CAVE_FITTED_PROPS = new Set([...CEILING_PROPS, "beams", "dungeon-bars", "minecart"]);
 // Signs, banners, pit boards, the halfway flag and wanted posters would mirror their text,
 // as would graffiti; wall props already turn to face
 // the wall, and ceiling props and beams are symmetric or lit from the right.
@@ -1107,6 +1160,7 @@ export const canFlip = (type) =>
   type !== "sign" &&
   !LETTERED_PROPS.has(type) &&
   type !== "beams" &&
+  type !== "dungeon-bars" &&
   !WALL_PROPS.has(type) &&
   !PAINTED_PROPS.has(type) &&
   !CEILING_PROPS.has(type);
@@ -1269,6 +1323,14 @@ function caveFit(trail, prop) {
       const roof = roofAbove(trail, prop.x + local + 1, y - 8, true, BEAM_REACH);
       roofs.push(roof ? roof.ceiling - 8 : null);
     }
+    return { roofs };
+  }
+  if (prop.type === "dungeon-bars") {
+    // The roof over each bar, from just above the floor.
+    const roofs = BAR_XS.map((local) => {
+      const roof = roofAbove(trail, prop.x + local + 1, y - 8, true, BARS.reach);
+      return roof ? roof.ceiling - 8 : null;
+    });
     return { roofs };
   }
   // Mine cart: follow the floor out each way until a wall, a drop or the
@@ -1497,6 +1559,10 @@ export function propSpan(type, fit) {
     return [Math.max(0, -centre) + VULTURE_ORBIT.y + 16, Math.max(0, centre + VULTURE_ORBIT.y + 12)];
   }
   if (type === "beams") return [BEAM_REACH + 12, 4];
+  if (type === "dungeon-bars") {
+    const roofs = (fit?.roofs ?? []).filter((roof) => roof !== null);
+    return [Math.max(BARS.height + 8, ...roofs.map((roof) => -roof)) + 4, 4];
+  }
   if (type === "minecart") return [54, 4];
   if (!CEILING_PROPS.has(type)) return null;
   const ceiling = fit?.ceiling ?? 0;
@@ -1515,6 +1581,9 @@ export function propSpan(type, fit) {
     cobweb: COBWEB_HANG + 4,
     spider: SPIDER_DROP + 16,
     cocoon: COCOON_HANG + 4,
+    portcullis: PORTCULLIS.max + 8,
+    "hanging-chains": CHAINS_HANG + 4,
+    gibbet: GIBBET_HANG + 12,
   }[type];
   return [Math.max(0, -ceiling) + (type === "bats" ? 120 : 4), Math.max(0, ceiling + below)];
 }
@@ -3357,12 +3426,19 @@ const CANOPY_SPRITES = {
   "tutorial-lean": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLean },
   "tutorial-flip": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialFlip },
   "tutorial-light": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLight },
+  "tutorial-lean-forward": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLeanForward },
   "tally-marks": { bounds: TALLY_BOUNDS, draw: drawTallyMarks },
   "prison-fence": { bounds: PRISON_FENCE_BOUNDS, draw: drawPrisonFence },
   watchtower: { bounds: [-36, -166, 36, WATCHTOWER_BODY_BOTTOM], draw: drawWatchtower },
   "jail-cell": { bounds: [-42, -86, 42, 0], draw: drawCellBack },
   "ball-and-chain": { bounds: [-22, -20, 22, 0], draw: drawBallAndChain },
   "escape-tunnel": { bounds: [-28, -26, 28, 0], draw: drawTunnelMound },
+  torch: { bounds: [-12, -84, 12, TORCH_BODY_BOTTOM], draw: drawTorchStand },
+  skeleton: { bounds: [-22, -34, 30, 0], draw: drawSkeletonBody },
+  tent: { bounds: [-TENT.half - 4, TENT.apex - 6, TENT.half + 4, 0], draw: drawTent },
+  "christiania-bike": { bounds: [-44, -62, 58, 0], draw: drawChristianiaBike },
+  bench: { bounds: [-42, -56, 44, 0], draw: drawBench },
+  fireplace: { bounds: [-28, -14, 30, 0], draw: drawFireplace },
   "wanted-poster": { bounds: [WANTED.left, WANTED.top, WANTED.left + WANTED.width, WANTED.top + WANTED.height], draw: drawWantedPoster },
 };
 const canopySprites = new Map();
@@ -3498,6 +3574,7 @@ const PROP_EXTENTS = {
   "tutorial-lean": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
   "tutorial-flip": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
   "tutorial-light": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
+  "tutorial-lean-forward": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
   "tally-marks": [TALLY_BOUNDS[0], TALLY_BOUNDS[1], TALLY_BOUNDS[2]],
   "prison-fence": [-52, -72, 52],
   // Room for the searchlight turning on the roof.
@@ -3507,6 +3584,23 @@ const PROP_EXTENTS = {
   // The prisoner's head pokes up out of the hole.
   "escape-tunnel": [-28, -34, 28],
   "wanted-poster": [WANTED.left - 2, WANTED.top - 2, WANTED.left + WANTED.width + 2],
+  "dungeon-bars": [-BARS.half - 2, -BARS.reach - 12, BARS.half + 2],
+  portcullis: [-PORTCULLIS.half - 2, -CEILING_REACH - 4, PORTCULLIS.half + 2],
+  "hanging-chains": [-26, -CEILING_REACH - 4, 26],
+  gibbet: [-40, -CEILING_REACH - 4, 40],
+  // Room for the sparks rising off the flame.
+  torch: [-12, TORCH_FLAME.y - 36, 12],
+  skeleton: [-24, -46, 32],
+  // Guy ropes out to the pegs either side.
+  tent: [-TENT.peg - 4, TENT.apex - 6, TENT.peg + 4],
+  // Room for the blades bent flat as the rider brushes through.
+  grass: [-44, -30, 44],
+  // The flag flies out downwind, to the left.
+  flagpole: [-44, FLAGPOLE.top - 8, 8],
+  "christiania-bike": [-44, -62, 58],
+  bench: [-42, -56, 44],
+  // Room for the smoke rising and blowing downwind, to the left.
+  fireplace: [-80, FIRE.smoke - 90, 30],
 };
 // How far below its anchor each ceiling prop's art can reach.
 const CEILING_HANG = {
@@ -3520,6 +3614,9 @@ const CEILING_HANG = {
   cobweb: COBWEB_HANG,
   spider: SPIDER_DROP + 12,
   cocoon: COCOON_HANG,
+  portcullis: PORTCULLIS.max,
+  "hanging-chains": CHAINS_HANG,
+  gibbet: GIBBET_HANG,
 };
 // How far below its anchor each water prop's art can reach, once moved onto
 // the surface, to its depth or down to the bed.
@@ -5063,7 +5160,9 @@ export function createGameArt(ctx) {
       type === "apple" ||
       type === "ladder" ||
       type === "wheelbarrow" ||
-      type === "tyre"
+      type === "tyre" ||
+      type === "christiania-bike" ||
+      type === "bench"
     ) {
       drawCanopy(type);
     } else if (type === "scarecrow") {
@@ -5493,6 +5592,19 @@ export function createGameArt(ctx) {
           drawSpider({ pixelRect, drawPixelDisc }, hang.step);
         } else if (type === "cocoon")
           drawCocoon({ pixelRect, pixelPath }, room, cocoonMotion(scene.time || 0, scene.wind ?? 0, noise(7)));
+        else if (type === "portcullis")
+          // Grinds up into the roof as the rider comes, and down behind them.
+          drawPortcullis(tools, portcullisDrop(scene, x, y + roof + Math.min(room, PORTCULLIS.height), room));
+        else if (type === "hanging-chains" || type === "gibbet") {
+          // Swaying in the draught, and swinging after a hard landing nearby.
+          const swing = hangingSwing(scene.time || 0, scene.wind ?? 0, scene.landing, x, y + roof, noise(8), type === "gibbet" ? 0.7 : 1);
+          if (type === "hanging-chains") drawHangingChains(tools, room, swing);
+          else {
+            const [cx, cy] = drawGibbetChain(tools, room, swing);
+            ctx.translate(cx, cy);
+            drawGibbetCage(tools);
+          }
+        }
         else drawBats(x, scene);
       }
     } else if (WATER_PROPS.has(type)) {
@@ -5520,6 +5632,50 @@ export function createGameArt(ctx) {
       let headerTop = found.length ? Math.max(...found) : -BEAM_HEIGHT;
       headerTop = Math.min(-32, Math.round(headerTop / 2) * 2);
       drawBeams({ pixelRect }, groundOffset, headerTop, roofAt, BEAM_PACKING);
+    } else if (type === "tent") {
+      drawCanopy(type);
+      drawTentRopes({ pixelRect, pixelPath }, groundOffset);
+    } else if (type === "fireplace") {
+      // The stones and logs; the flames are drawn with the glowing parts.
+      // Smoke rises off the fire and blows downwind, like the hut's.
+      drawCanopy(type);
+      const base = ctx.globalAlpha;
+      ctx.translate(-HUT_CHIMNEY.x, FIRE.smoke - HUT_CHIMNEY.y);
+      for (const puff of chimneySmoke(scene.time || 0, propNoise(x, 35), scene.wind ?? 0.25, mirrored ? 1 : -1)) {
+        ctx.globalAlpha = base * puff.alpha * 0.8;
+        drawPixelDisc(puff.x - 2, puff.y + 2, puff.radius, SMOKE.shade, 2);
+        drawPixelDisc(puff.x, puff.y, Math.max(2, puff.radius - 2), SMOKE.light, 2);
+      }
+    } else if (type === "grass") {
+      // Swaying downwind, and pushed flat as the rider brushes through. The
+      // rider's offset is taken in the tuft's own frame.
+      const side = mirrored ? -1 : 1;
+      const known = Number.isFinite(scene.riderX) && Number.isFinite(scene.riderY);
+      const phase = propNoise(x, 33);
+      drawGrass({ pixelRect }, groundOffset, (blade) => {
+        const ground = groundOffset(blade.x + 1);
+        return grassLean(
+          scene.time || 0, scene.wind ?? 0.25, -side, phase, blade.x,
+          known ? (scene.riderX - x) * side - blade.x : null,
+          known ? scene.riderY - (y + ground) : null,
+        );
+      });
+    } else if (type === "flagpole") {
+      // Dannebrog flies downwind: left, like the snow and rain, so the other
+      // way when flipped.
+      drawFlagpole({ pixelRect }, groundOffset, scene.time || 0, scene.wind ?? 0.25, propNoise(x, 34), mirrored ? 1 : -1);
+    } else if (type === "dungeon-bars") {
+      const bars = barLayout(wall?.roofs ?? BAR_XS.map(() => null), groundOffset, propNoise(x, 30) < 0.3);
+      drawDungeonBars({ pixelRect }, bars, (n) => propNoise(x, 31 + n));
+    } else if (type === "torch") {
+      // The stand; its flame is drawn with the glowing parts.
+      drawCanopy(type);
+      drawTorchFeet({ pixelRect }, groundOffset);
+    } else if (type === "skeleton") {
+      // The skull turns to watch the rider, and its jaw chatters after a
+      // hard landing nearby.
+      drawCanopy(type);
+      drawSkeletonSkull({ pixelRect }, riderSide(scene, x, mirrored), skeletonJaw(scene.time || 0, scene.landing, x, y));
     } else if (type === "start") {
       // Same pennant as the start line, drawn by the shared function.
       drawStartPennant(ctx, 0, 0, groundOffset);
@@ -6392,6 +6548,38 @@ export function createGameArt(ctx) {
       ctx.restore();
       return;
     }
+    if (type === "torch" || type === "fireplace") {
+      // Firelight on the rock round it, flickering like a lantern's, and the
+      // flames themselves, always burning.
+      const flicker = lanternFlicker(x, time);
+      const angle = rotation && canRotate(type) ? rotation : 0;
+      const rise = type === "torch" ? TORCH_FLAME.y - 6 : FIRE.y - 10;
+      const flame = { x: x - Math.sin(angle) * rise, y: y + Math.cos(angle) * rise };
+      const big = type === "fireplace" ? 1.5 : 1;
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      if (!emissive) {
+        ctx.globalCompositeOperation = "screen";
+        if (trail && prop) {
+          const light = lanternLightSprite(trail, prop, flame.x, flame.y);
+          ctx.globalAlpha = strength * flicker;
+          ctx.drawImage(light.canvas, light.left, light.top, light.size, light.size);
+        }
+        ctx.globalAlpha = 0.22 * strength * flicker;
+        drawPixelDisc(flame.x, flame.y, 18 * big, FLAME.glow, 2);
+        ctx.globalAlpha = 0.28 * strength * flicker;
+        drawPixelDisc(flame.x, flame.y, 10 * big, FLAME.light, 2);
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = 1;
+      }
+      ctx.translate(Math.round(x / 2) * 2, Math.round(y / 2) * 2);
+      if (angle) ctx.rotate(angle);
+      const phase = propNoise(x, 32);
+      if (type === "torch") drawTorchFlame({ pixelRect }, torchFlicker(time, phase), time, phase);
+      else drawFireFlames({ pixelRect }, fireFrame(time, phase), time, phase);
+      ctx.restore();
+      return;
+    }
     ctx.save();
     ctx.translate(Math.round(x / 2) * 2, Math.round(y / 2) * 2);
     if (rotation && canRotate(type)) ctx.rotate(rotation);
@@ -6470,6 +6658,22 @@ export function createGameArt(ctx) {
       ctx.globalCompositeOperation = "source-over";
       ctx.globalAlpha = 1;
       drawSearchlight({ pixelRect, pixelPath, drawPixelDisc }, angle, true);
+    } else if (type === "tent") {
+      // The lantern inside lights up the doorway, and spills out onto the
+      // ground in front of it.
+      const flicker = lanternFlicker(x, time);
+      const [cx, cy] = TENT_DOOR_CENTRE;
+      ctx.scale(dir, 1);
+      if (!emissive) {
+        ctx.globalCompositeOperation = "screen";
+        ctx.globalAlpha = 0.2 * flicker;
+        drawPixelDisc(cx, cy, 24, HUT_LIGHT.flame, 2);
+        ctx.globalAlpha = 0.3 * flicker;
+        drawPixelDisc(cx, cy, 12, HUT_LIGHT.glass, 2);
+        ctx.globalCompositeOperation = "source-over";
+      }
+      ctx.globalAlpha = 1;
+      drawTentDoorGlow({ pixelRect }, flicker);
     } else if (type === "hut") {
       // Firelight in the window, flickering like a lantern, and the light it
       // throws on the snow below.

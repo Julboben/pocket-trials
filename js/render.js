@@ -45,8 +45,10 @@ import { createLighting } from "./lighting.js";
 import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
 import { CAMERA_TALLY, HALFWAY_BEACON, HALFWAY_REACH } from "./event-props.js";
 import { SEARCHLIGHT, SEARCHLIGHT_BEAM } from "./prison-props.js";
+import { TORCH_FLAME } from "./dungeon-props.js";
+import { FLAGPOLE } from "./countryside-props.js";
 import { WATER_PROPS, FISH_DART, FISH_RANGE } from "./water-props.js";
-import { SQUIRREL_HIDE_MAX, SQUIRREL_RANGE } from "./forest-props.js";
+import { FIRE, SQUIRREL_HIDE_MAX, SQUIRREL_RANGE, TENT_DOOR_CENTRE } from "./forest-props.js";
 import {
   HAZE_HALF,
   TUMBLEWEED_RUN,
@@ -115,6 +117,12 @@ const SCENERY_SHADOWS = {
   watchtower: { width: 28, alpha: 0.15, thickness: 3, lift: 60 },
   "jail-cell": { width: 36, alpha: 0.15, thickness: 3, lift: 26 },
   "ball-and-chain": { width: 10, alpha: 0.14, thickness: 3, lift: 6 },
+  torch: { width: 8, alpha: 0.12, thickness: 3, lift: 40 },
+  skeleton: { width: 18, alpha: 0.12, thickness: 3, lift: 10 },
+  tent: { width: 36, alpha: 0.14, thickness: 3, lift: 22 },
+  flagpole: { width: 6, alpha: 0.12, thickness: 3, lift: 50 },
+  "christiania-bike": { width: 40, alpha: 0.14, thickness: 3, lift: 14 },
+  bench: { width: 34, alpha: 0.14, thickness: 3, lift: 14 },
 };
 /** Seconds the scene takes to slow to a stop behind the results. */
 const WIN_SETTLE = 0.7;
@@ -151,6 +159,9 @@ const PROP_RISE = {
   "camera-tower": 154,
   "halfway-flag": 126,
   watchtower: -SEARCHLIGHT.y + 14,
+  torch: -TORCH_FLAME.y + 36,
+  flagpole: -FLAGPOLE.top + 8,
+  fireplace: -FIRE.smoke + 90,
 };
 // How far each prop's art hangs below its anchor, for culling.
 const PROP_HANG = {
@@ -161,6 +172,7 @@ const PROP_HANG = {
   "tutorial-lean": 34,
   "tutorial-flip": 34,
   "tutorial-light": 34,
+  "tutorial-lean-forward": 34,
   "tally-marks": 18,
 };
 // How far each prop's art reaches either side of its anchor, for culling.
@@ -178,6 +190,7 @@ const PROP_REACH = {
   hut: 104,
   banner: 96,
   "course-tape": 76,
+  fireplace: 84,
 };
 // Perched birds and ducks take off, roosting bats scatter, fish dart off and
 // squirrels run for a tree when the rider comes within `x` and `y` of them;
@@ -193,7 +206,7 @@ const STARTLE = {
 // and it is left out with reduced motion and in the lighter graphics mode.
 const HAZE_PROPS = new Set(["heat-haze"]);
 // Props that glow, and how far their light reaches either side, for culling.
-const GLOW_REACH = { lamp: 70, crane: 180, lantern: 100, mushrooms: 40, hut: 60, "camera-tower": 30, "halfway-flag": 30, watchtower: SEARCHLIGHT_BEAM.length + 20 };
+const GLOW_REACH = { lamp: 70, crane: 180, lantern: 100, torch: 100, fireplace: 100, tent: 60, mushrooms: 40, hut: 60, "camera-tower": 30, "halfway-flag": 30, watchtower: SEARCHLIGHT_BEAM.length + 20 };
 // How far a hair strand may sink into a floor and still be lifted back onto it.
 const HAIR_GROUND_ALLOWANCE = 8;
 // Markers for missing apples out of view keep this far (world units) inside
@@ -230,6 +243,8 @@ export function createRenderer(canvas) {
     cameraY = 0;
   let xrayMask = null,
     xrayRider = null,
+    glowLayer = null,
+    glowMask = null,
     ghostHairLayer = null;
   // What props react to this frame; see drawProp.
   let propScene = { time: 0, riderX: null, riderY: null, wind: 0, landing: null };
@@ -597,8 +612,11 @@ export function createRenderer(canvas) {
 
   // The glowing parts of props, drawn over the lit scene: the lighting pass
   // casts their light. Street lamps, crane lights and hut windows only once it
-  // is dark around them; lanterns and mushrooms always.
-  function drawPropGlows() {
+  // is dark around them; lanterns and mushrooms always. Back-layer props sit
+  // behind the rider, the terrain and front props, so their glows are drawn
+  // into a layer with those cut out of it first (see drawGlowsBehind).
+  function drawPropGlows(ride, look, state, full) {
+    const behind = [];
     for (const prop of trail.props || []) {
       const rotation = propRotation(prop);
       const reach = GLOW_REACH[prop.type] && GLOW_REACH[prop.type] + (rotation ? PROP_RISE[prop.type] ?? 90 : 0);
@@ -619,17 +637,23 @@ export function createRenderer(canvas) {
                   ? [HALFWAY_BEACON.x, HALFWAY_BEACON.y]
                   : prop.type === "watchtower"
                     ? [SEARCHLIGHT.x, SEARCHLIGHT.y]
-                    : [0, -10];
+                    : prop.type === "torch"
+                      ? [TORCH_FLAME.x, TORCH_FLAME.y]
+                      : prop.type === "tent"
+                        ? TENT_DOOR_CENTRE
+                        : prop.type === "fireplace"
+                          ? [0, FIRE.y - 10]
+                          : [0, -10];
       const head = propPoint(prop, y, hx, hy);
       const dark = lighting.isDark(trail, head.x, head.y);
-      if (!dark && (prop.type === "lamp" || prop.type === "crane" || prop.type === "hut" || prop.type === "watchtower")) continue;
+      if (!dark && (prop.type === "lamp" || prop.type === "crane" || prop.type === "hut" || prop.type === "tent" || prop.type === "watchtower")) continue;
       const lit = passes.has(prop);
       if (prop.type === "halfway-flag" && !lit) continue;
       const fit = propWallFit(trail, prop);
       let [rise, hang] = propSpan(prop.type, fit) || [PROP_RISE[prop.type] ?? 90, 0];
       if (rotation) rise = hang = Math.max(rise, hang);
       if (!inView(prop.x, reach, y + hang + reach, rise + hang + reach * 2)) continue;
-      gameArt.drawPropGlow(
+      const glow = [
         prop.type,
         prop.x,
         y,
@@ -637,8 +661,41 @@ export function createRenderer(canvas) {
         prop.flip,
         propScene.time,
         { dark, trail, prop, fit, emissive: true, rotation, lit, rider: { x: propScene.riderX, y: propScene.riderY } },
-      );
+      ];
+      if (prop.layer === "front") gameArt.drawPropGlow(...glow);
+      else behind.push(glow);
     }
+    if (behind.length) drawGlowsBehind(behind, ride, look, state, full);
+  }
+
+  // Draws back-layer glows into a scratch layer, cuts out everything in
+  // front of them (the terrain, front props, the bike and rider), and lays
+  // what is left over the scene.
+  function drawGlowsBehind(glows, ride, look, state, full) {
+    const { width, height } = canvas;
+    const transform = ctx.getTransform();
+    glowLayer ??= xrayCanvas(width, height);
+    glowMask ??= xrayCanvas(width, height);
+    for (const layer of [glowLayer, glowMask]) {
+      fitLayer(layer, width, height);
+      layer.context.setTransform(transform);
+      layer.context.imageSmoothingEnabled = false;
+    }
+    for (const glow of glows) glowLayer.art.drawPropGlow(...glow);
+    terrainRenderer.draw(glowMask.context, ride.trail, cameraX, cameraY, W, H);
+    drawProps("front", full, glowMask.art);
+    if (hair) hair.draw(glowMask.tools.pixelPath, currentHairRoot(ride, false, flipVisual, look));
+    glowMask.art.drawBike(bikeDrawing(ride, look, flipVisual, state));
+    if (ride.ragdoll) glowMask.art.drawRagdoll(ride.ragdoll, look);
+    const context = glowLayer.context;
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.globalCompositeOperation = "destination-out";
+    context.drawImage(glowMask.canvas, 0, 0, width, height, 0, 0, width, height);
+    context.globalCompositeOperation = "source-over";
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(glowLayer.canvas, 0, 0, width, height, 0, 0, width, height);
+    ctx.restore();
   }
 
   // `area` limits drawing to props that can reach a world-space box
@@ -1589,7 +1646,7 @@ export function createRenderer(canvas) {
       time: propScene.time,
       flip: flipVisual,
     });
-    drawPropGlows();
+    drawPropGlows(ride, look, ride.ragdoll ? "ragdoll" : state, full);
     drawInteractHint();
     drawPopups(animationDt);
     drawAppleHints(ride);

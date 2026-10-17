@@ -4,8 +4,27 @@
 // A squirrel sits on the ground until the rider comes close, then runs along
 // the ground to the nearest tree it can reach, up the trunk and into the crown,
 // where it hides (see drawing.js for how it finds its tree and path). With no
-// tree in reach it dashes off and is gone. Everything here is decoration and
-// never touches the simulation.
+// tree in reach it dashes off and is gone. A tent glows from the lantern inside
+// it after dark, a fireplace burns in its ring of stones, and a tuft of grass
+// sways downwind and bends flat as the rider brushes through it. Everything
+// here is decoration and never touches the simulation.
+
+import { STEEL } from "./city-props.js";
+import { FLAME } from "./dungeon-props.js";
+
+// Camping kit: a tent's fabric, its guy ropes, the boots by its door and the
+// fireplace's logs and ash.
+const WOOD = { dark: "#4d3f2f", base: "#66543f", light: "#856d4f", tip: "#aa8a60", cut: "#c39664" };
+const RUBBER = { dark: "#3a403d", light: "#5b645e" };
+const ROPE = { dark: "#b5bcae", base: "#f4e9d1", light: "#fffdf4" };
+const FABRIC = { dark: "#c9573a", base: "#ed774e", light: "#ffc295" };
+const BLADES = { dark: "#477158", base: "#58784d", light: "#618b66", tip: "#86a56a" };
+const INK = "#182321";
+
+const snap = (value) => Math.round(value / 2) * 2;
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+
 
 // The big pine's bough tiers, lowest first; the snowy pine shares them.
 export const PINE_TIERS = [
@@ -176,4 +195,216 @@ export function drawSquirrelRunning({ pixelRect }, stretch) {
   pixelRect(2, -16, 2, 2, c.dark, 2);
   pixelRect(6, -12, 2, 2, c.eye, 2);
   pixelRect(12, -12, 2, 2, c.dark, 2);
+}
+
+// ---------------------------------------------------------------------- tent
+
+/** The tent's apex, and how far either side its guy ropes are pegged. */
+export const TENT = { apex: -44, half: 34, peg: 48 };
+/** The middle of the tent's doorway, where its lantern's light comes from. */
+export const TENT_DOOR_CENTRE = [0, -12];
+/** The warm light of the lantern inside the tent. */
+export const TENT_LIGHT = { glow: "#ffe39a", core: "#fff3be", flame: "#f1b95d" };
+
+// The door's half width at a row `y` (0 at the ground).
+const doorHalf = (y) => snap(Math.max(0, (y + 30) * 0.45));
+
+/**
+ * A ridge tent seen end on, about 68 wide and 44 tall: orange fabric shaded
+ * on the left, a seam down from the ridge pole, the door flaps tied back
+ * round a dark doorway, and a pair of boots left outside. The guy ropes and
+ * their pegs are drawn live (drawTentRopes); the doorway glows after dark
+ * (drawTentDoorGlow).
+ */
+export function drawTent({ pixelRect }) {
+  const { apex, half } = TENT;
+  for (let y = apex; y < 0; y += 2) {
+    const w = snap(((y - apex) / -apex) * half);
+    pixelRect(-w - 2, y, w + 2, 2, FABRIC.base, 2);
+    pixelRect(0, y, w + 2, 2, FABRIC.light, 2);
+    pixelRect(-w - 2, y, 2, 2, FABRIC.dark, 2);
+    pixelRect(-2, y, 2, 2, FABRIC.dark, 2);
+    // The doorway, with a rolled-up flap either side.
+    const door = doorHalf(y);
+    if (door) {
+      pixelRect(-door, y, door * 2, 2, INK, 2);
+      pixelRect(-door - 2, y, 2, 2, FABRIC.dark, 2);
+      pixelRect(door, y, 2, 2, ROPE.base, 2);
+    }
+  }
+  // The ridge pole's tip and the groundsheet's hem.
+  pixelRect(-2, apex - 4, 4, 4, STEEL.base, 2);
+  pixelRect(0, apex - 4, 2, 2, STEEL.light, 2);
+  pixelRect(-half - 2, -2, half * 2 + 4, 2, FABRIC.dark, 2);
+  // Tie-backs holding the flaps.
+  pixelRect(-12, -14, 4, 2, ROPE.dark, 2);
+  pixelRect(8, -14, 4, 2, ROPE.light, 2);
+  // Boots by the door.
+  for (const bx of [16, 24]) {
+    pixelRect(bx, -8, 4, 6, WOOD.base, 2);
+    pixelRect(bx, -4, 8, 2, WOOD.base, 2);
+    pixelRect(bx + 2, -8, 2, 4, WOOD.light, 2);
+    pixelRect(bx, -2, 8, 2, RUBBER.dark, 2);
+  }
+}
+
+/**
+ * The guy ropes from high on the tent out to pegs either side, each peg in
+ * the ground under it (`groundOffset(localX)`).
+ */
+export function drawTentRopes({ pixelRect, pixelPath }, groundOffset) {
+  const { peg } = TENT;
+  for (const side of [-1, 1]) {
+    const px = side * peg;
+    const ground = snap(groundOffset(px));
+    pixelPath([[side * 6, TENT.apex + 8], [px, ground - 4]], side < 0 ? ROPE.dark : ROPE.base, 1, 2);
+    pixelRect(px - 2, ground - 6, 4, 2, STEEL.light, 2);
+    pixelRect(px, ground - 4, 2, 4, STEEL.base, 2);
+  }
+}
+
+/**
+ * The doorway lit by the lantern inside, `flicker` 0.88…1 (lanternFlicker):
+ * warm light filling it, brightest low down round the lantern.
+ */
+export function drawTentDoorGlow({ pixelRect }, flicker = 1) {
+  for (let y = -30; y < 0; y += 2) {
+    const door = doorHalf(y);
+    if (!door) continue;
+    pixelRect(-door, y, door * 2, 2, y > -14 ? TENT_LIGHT.core : TENT_LIGHT.glow, 2);
+  }
+  // A sleeping bag's shadow and the lantern on the floor.
+  pixelRect(-10, -4, 12, 4, FABRIC.dark, 2);
+  pixelRect(4, -10, 4, 6, TENT_LIGHT.flame, 2);
+  pixelRect(4, flicker < 0.95 ? -10 : -12, 2, 2, TENT_LIGHT.core, 2);
+}
+
+// --------------------------------------------------------------------- grass
+
+/** The tuft's blades: where each grows, how tall, and which green. */
+export const GRASS_BLADES = [
+  { x: -16, height: 10, color: "dark" }, { x: -12, height: 18, color: "base" }, { x: -10, height: 12, color: "light" },
+  { x: -6, height: 22, color: "base" }, { x: -2, height: 14, color: "dark" }, { x: 0, height: 26, color: "light" },
+  { x: 4, height: 16, color: "base" }, { x: 6, height: 20, color: "dark" }, { x: 10, height: 12, color: "light" },
+  { x: 12, height: 18, color: "base" }, { x: 16, height: 8, color: "dark" },
+];
+/** How close the rider must pass, across and up or down, to brush a blade aside. */
+export const GRASS_BRUSH = { x: 40, y: 50 };
+
+/**
+ * How far a blade leans, as sideways units per unit of height (negative is
+ * left in the prop's frame): it leans `downwind` in the wind, sways while
+ * `time` runs (still at 0), and is pushed flat away from a rider passing
+ * through it. `riderDx`, `riderDy` are the rider's offset from the blade's
+ * root in the prop's frame, or null.
+ */
+export function grassLean(time, wind, downwind, phase, bladeX, riderDx = null, riderDy = null) {
+  let lean = downwind * (0.1 + wind * 0.3);
+  if (time) lean += Math.sin(time * 2.2 + bladeX * 0.25 + phase * Math.PI * 2) * (0.06 + wind * 0.14);
+  if (Number.isFinite(riderDx) && Number.isFinite(riderDy)
+    && Math.abs(riderDx) < GRASS_BRUSH.x && riderDy < 10 && riderDy > -GRASS_BRUSH.y) {
+    const push = 1 - Math.abs(riderDx) / GRASS_BRUSH.x;
+    lean = lean * (1 - push) + (riderDx > 0 ? -1 : 1) * push * 1.2;
+  }
+  return clamp(lean, -1.4, 1.4);
+}
+
+/**
+ * A tuft of grass, each blade rising from the ground under it
+ * (`groundOffset(localX)`) and bent over by `leanOf(blade)` (see grassLean),
+ * more towards its tip. A blade bent far over gets shorter, so it lies down
+ * rather than stretching.
+ */
+export function drawGrass({ pixelRect }, groundOffset, leanOf) {
+  for (const blade of GRASS_BLADES) {
+    const ground = snap(groundOffset(blade.x + 1));
+    const lean = leanOf(blade);
+    const height = snap(blade.height / Math.sqrt(1 + lean * lean * 0.6));
+    for (let up = 0; up < height; up += 2) {
+      const t = up / blade.height;
+      const x = blade.x + snap(lean * up * t);
+      const color = up >= height - 2 ? BLADES.tip : BLADES[blade.color];
+      pixelRect(x, ground - up - 2, 2, 2, color, 2);
+    }
+  }
+}
+
+// ----------------------------------------------------------------- fireplace
+
+/** Where the fire's flames rise from, and where its smoke starts. */
+export const FIRE = { y: -8, smoke: -34 };
+
+/**
+ * A fireplace out in the open, about 52 across: a ring of rounded stones,
+ * shaded on the left, round a bed of ash and two crossed logs. The flames,
+ * embers and sparks are drawn live (drawFireFlames), and the smoke by
+ * drawing.js.
+ */
+export function drawFireplace({ pixelRect }) {
+  // Ash and the logs, crossed.
+  pixelRect(-16, -4, 32, 2, RUBBER.light, 2);
+  pixelRect(-14, -6, 20, 4, WOOD.base, 2);
+  pixelRect(-14, -6, 20, 2, WOOD.light, 2);
+  pixelRect(-14, -6, 4, 4, WOOD.cut, 2);
+  pixelRect(-4, -10, 18, 4, WOOD.dark, 2);
+  pixelRect(-4, -10, 18, 2, WOOD.base, 2);
+  pixelRect(10, -10, 4, 4, WOOD.tip, 2);
+  // The stones round it, the front row overlapping the logs' ends.
+  const stones = [[-26, 8, 6], [-18, 10, 8], [-8, 10, 6], [2, 10, 8], [12, 10, 6], [20, 8, 8]];
+  for (const [x, w, h] of stones) {
+    pixelRect(x, -h, w, h, STEEL.base, 2);
+    pixelRect(x + 2, -h - 2, w - 4, 2, STEEL.base, 2);
+    pixelRect(x, -h, 2, h, STEEL.dark, 2);
+    pixelRect(x + w - 4, -h - 2, 2, 2, STEEL.light, 2);
+    pixelRect(x + w - 2, -h, 2, h - 2, STEEL.mid, 2);
+    pixelRect(x, -2, w, 2, STEEL.dark, 2);
+  }
+}
+
+// Flame tongues: where each rises from, how tall, and its half width.
+const TONGUES = [[-8, 16, 4], [0, 26, 6], [8, 18, 4]];
+
+/**
+ * How the flames stand at `time`: each tongue's height and lick (0, ±2),
+ * stepping through frames out of step with each other. Still at time 0.
+ * `phase` is a fixed 0…1 value per fire.
+ */
+export function fireFrame(time, phase = 0) {
+  return TONGUES.map(([x, height], index) => {
+    if (!time) return { x, height, lick: 0 };
+    const frame = Math.floor(time * 8 + phase * 4 + index * 1.7) % 4;
+    return { x, height: height + [0, 4, -2, 2][frame], lick: [0, 2, 0, -2][(frame + index) % 4] };
+  });
+}
+
+/**
+ * The flames (see fireFrame) rising off the logs at FIRE.y, white-hot at
+ * the root and darkening to their tips, glowing embers on the logs, and the
+ * odd spark climbing while `time` runs.
+ */
+export function drawFireFlames({ pixelRect }, frame, time = 0, phase = 0) {
+  frame.forEach(({ x: fx, height, lick }, index) => {
+    const halfWidth = TONGUES[index][2];
+    for (let up = 0; up < height; up += 2) {
+      const t = up / height;
+      const w = Math.max(2, snap(halfWidth * 2 * (1 - t * t)));
+      const x = fx - w / 2 + snap(lick * t * 2);
+      const y = FIRE.y - up - 2;
+      pixelRect(x, y, w, 2, t > 0.65 ? FLAME.base : t > 0.25 ? FLAME.glow : FLAME.light, 2);
+      if (w > 2) {
+        pixelRect(x, y, 2, 2, t > 0.5 ? FLAME.dark : FLAME.base, 2);
+        pixelRect(x + w - 2, y, 2, 2, t > 0.65 ? FLAME.glow : FLAME.light, 2);
+      }
+      if (w >= 6 && t < 0.25) pixelRect(fx + snap(lick * t * 2) - 2, y, 4, 2, FLAME.core, 2);
+    }
+  });
+  // Embers on the logs.
+  for (const [ex, ey] of [[-10, -6], [6, -8], [12, -10]]) pixelRect(ex, ey, 2, 2, FLAME.glow, 2);
+  if (!time) return;
+  for (let i = 0; i < 3; i++) {
+    const life = (time * 0.7 + phase + i / 3) % 1;
+    const sx = snap(Math.sin((time + i * 2.1) * 1.9) * 8 + (i - 1) * 6);
+    const sy = FIRE.y - 26 - snap(life * 40);
+    if (life < 0.8) pixelRect(sx, sy, 2, 2, life < 0.4 ? FLAME.light : FLAME.glow, 2);
+  }
 }

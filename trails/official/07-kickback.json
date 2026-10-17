@@ -2,8 +2,8 @@
   "name": "Kickback",
   "label": "KICKBACK / 07",
   "finish": {
-    "x": 2840,
-    "y": 236
+    "x": 2810,
+    "y": 226
   },
   "description": "Steep faces kick the front wheel up. Lean forward to keep it down, or ease off and let it rise into a wheelie and ride it up. The faces get steeper as the evening draws in: 47°, then 52°, a two-step at 50° and 58°, and the last at 60°. If you stall, roll back, take a longer run-up and try again.",
   "start": {
@@ -20,7 +20,7 @@
         "nodes": [
           {
             "id": "ground-0",
-            "x": -1000,
+            "x": -1200,
             "y": 120,
             "mode": "corner",
             "in": null,
@@ -344,7 +344,7 @@
           },
           {
             "id": "ground-26",
-            "x": 3500,
+            "x": 4000,
             "y": 70,
             "mode": "corner",
             "in": null,
@@ -353,7 +353,7 @@
           },
           {
             "id": "ground-27",
-            "x": 3500,
+            "x": 4000,
             "y": 1200,
             "mode": "corner",
             "in": null,
@@ -362,7 +362,7 @@
           },
           {
             "id": "ground-28",
-            "x": -1000,
+            "x": -1200,
             "y": 1200,
             "mode": "corner",
             "in": null,
@@ -376,20 +376,16 @@
   ],
   "apples": [
     {
-      "x": 820,
-      "y": null
+      "x": 790,
+      "y": 238
     },
     {
-      "x": 1300,
-      "y": null
+      "x": 1330,
+      "y": 212
     },
     {
-      "x": 1782,
-      "y": null
-    },
-    {
-      "x": 2000,
-      "y": null
+      "x": 2030,
+      "y": 186
     }
   ],
   "props": [
@@ -544,14 +540,8 @@
       "layer": "back"
     },
     {
-      "x": 2900,
-      "y": null,
-      "type": "lantern",
-      "layer": "back"
-    },
-    {
-      "x": 2980,
-      "y": null,
+      "x": 3000,
+      "y": 266,
       "type": "pine-small",
       "layer": "back"
     },
@@ -571,6 +561,24 @@
       "x": 3380,
       "y": null,
       "type": "pine",
+      "layer": "back"
+    },
+    {
+      "x": 2911.3960771135094,
+      "y": 265.9090715990277,
+      "type": "tent",
+      "layer": "back"
+    },
+    {
+      "x": 2729.1218563533366,
+      "y": 263.94114889775153,
+      "type": "grass",
+      "layer": "back"
+    },
+    {
+      "x": 209.7987363711752,
+      "y": 316.0256691423605,
+      "type": "grass",
       "layer": "back"
     }
   ],

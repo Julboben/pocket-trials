@@ -8,7 +8,7 @@ A plan for the props to add to each level theme, plus guidelines for making them
 *Fits the name Hjulben.*
 
 - [ ] **Half-timbered farmhouse**: dark beams, white or ochre-yellow walls and a thatched roof, used as a background landmark. The windows light up at night through the time-of-day system.
-- [ ] **Dannebrog flagpole**: a white garden flagpole with the red-and-white flag flying in the wind. The flag could go up when a checkpoint is reached.
+- [x] **Dannebrog flagpole**: a white garden flagpole with the red-and-white flag flying in the wind. The flag could go up when a checkpoint is reached.
 - [ ] **Nisse**: a small Danish gnome with a red hat, hidden somewhere in each level as a secret collectible or easter egg.
 - [ ] **Sankt Hans bonfire**: the midsummer bonfire with a witch on top. It glows and gives off sparks on night levels.
 - [ ] **Mailbox on a post**: in Danish post-red, with a small flag that flips up when the bike passes.
@@ -23,6 +23,9 @@ A plan for the props to add to each level theme, plus guidelines for making them
 
 - [x] **Squirrel**: nibbles a nut, and runs up the nearest tree to hide in the crown when the bike comes close.
 - [x] **Coda (corgi)**: a tri-colour Pembroke who potters about, sits and sniffs, and runs over to greet the rider with a woof; `E` makes him sit and pant.
+- [x] **Tent**: glows from the lantern inside after dark.
+- [x] **Fireplace**: a ring of stones round burning logs, sparks and smoke, lighting up the ground.
+- [x] **Grass**: sways in the wind and bends flat as the bike brushes through.
 
 ## 🍎 Orchard / farmland
 
@@ -64,7 +67,8 @@ A plan for the props to add to each level theme, plus guidelines for making them
 - [x] **Pigeons**: fly off when the bike comes close.
 - [x] **Construction crane**: in the background.
 - [x] **Scaffolding**: in the foreground.
-- [ ] **Bench**
+- [x] **Bench**: a Copenhagen bench.
+- [x] **Christiania bike**: parked, a blanket in its box and a little Dannebrog on its corner.
 
 ## ⛓️ Prison
 
@@ -82,6 +86,15 @@ A plan for the props to add to each level theme, plus guidelines for making them
 - [x] **Cobweb**: a dusty sheet sagging from the roof, tatters stirring in the wind.
 - [x] **Dangling spider**: lets itself down on a thread, and climbs back up when you come close.
 - [x] **Cocoon**: wrapped in silk, swaying, and twitching now and then.
+
+## 🏰 Dungeon
+
+- [x] **Dungeon bars**: iron bars from the roof to the floor, a pair of them bent apart.
+- [x] **Portcullis**: grinds up into the roof as you ride in, and drops behind you.
+- [x] **Torch**: burns on an iron stand and lights the rock around it.
+- [x] **Hanging chains**: with a manacle and a hook, swinging after a hard landing.
+- [x] **Gibbet cage**: with its long-dead prisoner, swaying on its chain.
+- [x] **Skeleton**: shackled to the floor; its skull watches you go by and its jaw chatters when you land hard.
 
 ## 🕳️ Caves and underground
 *For the new terrain.*
@@ -127,8 +140,7 @@ A plan for the props to add to each level theme, plus guidelines for making them
 - [x] **Warning signs**: before steep drops or spikes, using a skull, a ⚠ or a "!" board.
 - [x] **Arrow signs**: point the way on routes that double back or loop.
 - [x] **Halfway flag**: lights up when passed and matches the split times.
-- [x] **Graffiti-style tutorial drawings**: Showing the controls (lean back, flip, light etc).
-- [ ] **"Missed apple" hint**: a basket of apples near a hidden route.
+- [x] **Graffiti-style tutorial drawings**: Showing the controls (lean back, lean forward, flip, light etc).
 
 ---
 

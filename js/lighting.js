@@ -23,6 +23,8 @@ import { LANTERN_CENTRE } from "./cave-props.js";
 import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
 import { HUT_WINDOW_CENTRE } from "./mountain-props.js";
 import { SEARCHLIGHT } from "./prison-props.js";
+import { TORCH_FLAME } from "./dungeon-props.js";
+import { FIRE, TENT_DOOR_CENTRE } from "./forest-props.js";
 
 // Per time of day: the light open sky gives, the light deep in a cave, how far
 // sky light soaks down through rock and fades in sideways through air, and how
@@ -247,7 +249,7 @@ export function createLighting() {
     const lights = [];
     for (const prop of trail.props || []) {
       const { type } = prop;
-      if (!["lantern", "lamp", "mushrooms", "crane", "hut", "watchtower"].includes(type)) continue;
+      if (!["lantern", "torch", "fireplace", "lamp", "mushrooms", "crane", "hut", "tent", "watchtower"].includes(type)) continue;
       const ground = terrainAt(trail, prop.x);
       if (!ground.solid && !Number.isFinite(prop.y)) continue;
       const y = Number.isFinite(prop.y) ? prop.y : ground.y;
@@ -258,6 +260,10 @@ export function createLighting() {
         const fit = propWallFit(trail, prop);
         const cy = y + (fit?.body || 0) + LANTERN_CENTRE;
         lights.push({ kind: type, phase: prop.x, x: prop.x, y: cy, radius: 150, color: LANTERN, flare: LANTERN_FLARE });
+      } else if (type === "torch") {
+        // Firelight, always; it flickers like a lantern.
+        const flame = at(TORCH_FLAME.x, TORCH_FLAME.y - 6);
+        lights.push({ kind: "lantern", phase: prop.x, x: flame.x, y: flame.y, radius: 160, color: LANTERN, flare: LANTERN_FLARE });
       } else if (type === "mushrooms") {
         const glow = at(0, -6);
         lights.push({ kind: type, phase: prop.x, x: glow.x, y: glow.y, radius: 64, color: GLOW, strength: 0.8 });
@@ -271,6 +277,16 @@ export function createLighting() {
         const window = at(...HUT_WINDOW_CENTRE);
         if (!darkAt(entry, window.x, window.y)) continue;
         lights.push({ kind: "lantern", phase: prop.x, x: window.x, y: window.y, radius: 110, color: LANTERN, strength: 0.8, flare: LANTERN_FLARE });
+      } else if (type === "fireplace") {
+        // Firelight, always; it flickers like a lantern, and reaches further
+        // than a torch's.
+        const fire = at(0, FIRE.y - 10);
+        lights.push({ kind: "lantern", phase: prop.x, x: fire.x, y: fire.y, radius: 190, color: LANTERN, flare: LANTERN_FLARE });
+      } else if (type === "tent") {
+        // The lantern inside, after dark, glowing through the doorway.
+        const door = at(...TENT_DOOR_CENTRE);
+        if (!darkAt(entry, door.x, door.y)) continue;
+        lights.push({ kind: "lantern", phase: prop.x, x: door.x, y: door.y, radius: 90, color: LANTERN, strength: 0.7, flare: LANTERN_FLARE });
       } else if (type === "watchtower") {
         // A glow round the searchlight itself, after dark; its beam moves, so
         // drawing.js draws that.

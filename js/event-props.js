@@ -936,6 +936,7 @@ function keyCap(tools, x, y, symbol) {
   drawCells(tools, symbol, x + 3, y + 3, { "#": INK });
 }
 const KEY_LEFT = ["..#..", ".#...", "#####", ".#...", "..#.."];
+const KEY_RIGHT = ["..#..", "...#.", "#####", "...#.", "..#.."];
 const KEY_L = ["#....", "#....", "#....", "#....", "#####"];
 
 // The sprayed cloud behind a drawing, with a few drips running off it.
@@ -977,6 +978,14 @@ export function drawTutorialLean(tools) {
   sprayBike(tools, -40, 24, -0.4, 0.8);
   curvedArrow(tools, -40, 24, 52, -0.2, -0.95);
   keyCap(tools, 36, -8, KEY_LEFT);
+}
+
+/** Lean forward: a bike nosing down a drop, an arrow tipping it forward, and →. */
+export function drawTutorialLeanForward(tools) {
+  sprayCloud(tools);
+  sprayBike(tools, -44, 4, 0.45, -0.8);
+  curvedArrow(tools, -10, 22, 56, -2.25, -0.75);
+  keyCap(tools, 40, 6, KEY_RIGHT);
 }
 
 /** Flip: a bike nose up in mid-air, a looping arrow round it, and ←. */

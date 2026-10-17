@@ -1,15 +1,15 @@
 {
   "name": "Windfall",
   "label": "WINDFALL / 03",
+  "finish": {
+    "x": 396.15010819050997,
+    "y": 185.43663423391195
+  },
   "description": "Turn around (Space) to go the other way. The first apple floats too high to reach from the slope below it: ride down into the bowl and up the long ramp, turn, and come back down fast enough for the kicker to throw you up to it. The last apple waits at the hay bales, and the flower hangs over the dip behind the kicker you passed, so turn once more and hop to it.",
   "start": {
     "x": -300,
     "y": 333,
     "facing": 1
-  },
-  "finish": {
-    "x": 396.15010819050997,
-    "y": 185.43663423391195
   },
   "terrainBlocks": [
     {
@@ -911,6 +911,12 @@
       "y": 340.32154156322554,
       "type": "bush",
       "layer": "back"
+    },
+    {
+      "x": 516.46484375,
+      "y": 326.99765625,
+      "type": "tutorial-flip",
+      "layer": "front"
     }
   ],
   "spikes": [],
