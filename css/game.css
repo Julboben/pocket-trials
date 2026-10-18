@@ -9,10 +9,12 @@
 
 
 /* No rubber-band bounce or pull-to-refresh; the page still scrolls normally
-   when its content is genuinely taller than the screen. */
+   when its content is genuinely taller than the screen. Manipulation also turns
+   off double-tap zoom, which a quick double tap during a run would set off. */
 html,
 body {
     overscroll-behavior: none;
+    touch-action: manipulation;
     @media (max-width: 760px) {
         width: 100%;
         max-width: 100vw;
@@ -65,9 +67,12 @@ h2,
     font-synthesis: none;
     letter-spacing: 0;
 }
+/* Safari zooms on a quick second tap unless the tapped element itself says
+   manipulation, so stepping through looks or menus never zooms the page. */
 button {
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 }
 button:focus-visible,
 select:focus-visible {

@@ -3,7 +3,7 @@
 // release installs a fresh copy of all of them and a page never mixes files
 // from two releases. It takes over on the next load. Trail files and anything
 // else are network-first, and kept so the game also starts offline.
-const CACHE = 'hjulben-68ac6c2d';
+const CACHE = 'hjulben-eaf3d6f6';
 const CORE = [
   './',
   './css/editor.css',
