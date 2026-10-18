@@ -24,6 +24,7 @@ import { editor } from "./state.js";
 import { refuse, refuseEdit, showStatus } from "./status.js";
 import { propThumbnail } from "./thumbnails.js";
 import { segmentSelects } from "./segmented.js";
+import { editingPreview, resetPreview, startEditingPreview, stopEditingPreview } from "./preview.js";
 import { TOOL_KEY_LABELS, materialLabel, setTab, setTool } from "./tools.js";
 import {
   announceVersion,
@@ -173,6 +174,18 @@ bindMenu();
 bindVersions();
 
 updateGameArtButton();
+
+$("edit-preview").addEventListener("click", () => {
+  if (editingPreview()) stopEditingPreview();
+  else startEditingPreview();
+  // Hand focus back so Esc and the canvas shortcuts keep working.
+  canvas.focus({ preventScroll: true });
+});
+
+$("reset-preview").addEventListener("click", () => {
+  resetPreview();
+  canvas.focus({ preventScroll: true });
+});
 
 $("game-art").addEventListener("click", () => {
   toggleGameArt();

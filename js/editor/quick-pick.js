@@ -1,10 +1,11 @@
 // Cmd/Ctrl+P opens a quick pick, like VS Code's: one search over every tool,
-// prop and block material, and the view toggles, so a prop is a few keystrokes away instead of a
-// tool click and a trip through the prop picker.
+// prop and block material, the view toggles and trail actions, so a prop is a
+// few keystrokes away instead of a tool click and a trip through the prop picker.
 import { terrainMaterials } from "../trails.js";
 import { $ } from "./dom.js";
 import { editor } from "./state.js";
 import { openPicker } from "./picker.js";
+import { editingPreview, startEditingPreview, stopEditingPreview } from "./preview.js";
 import { render } from "./render.js";
 import { toggleGameArt } from "./view.js";
 import { propThumbnail } from "./thumbnails.js";
@@ -13,6 +14,7 @@ import {
   TOOL_KEY_LABELS,
   materialLabel,
   saveToolSettings,
+  setTab,
   setTool,
   toolSettings,
 } from "./tools.js";
@@ -72,6 +74,12 @@ function quickPickSelect() {
         icon: "picture",
       }),
     ]),
+    // "thumbnail" in the value lets a search for it find the preview too.
+    group("Trail", [
+      option("trail:edit-preview-thumbnail", `${editingPreview() ? "Finish editing" : "Edit"} trail preview`, {
+        icon: "camera",
+      }),
+    ]),
   );
   // Nothing is chosen yet, so the search starts on the first result.
   select.value = "";
@@ -83,6 +91,15 @@ function choose(value) {
   const [kind, name] = value.split(":");
   if (kind === "view") {
     toggleGameArt();
+    return;
+  }
+  if (kind === "trail") {
+    // Like the Trail tab's button: the frame belongs to that tab, so it opens.
+    if (editingPreview()) stopEditingPreview();
+    else {
+      setTab("trail");
+      startEditingPreview();
+    }
     return;
   }
   if (kind === "prop") {

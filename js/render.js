@@ -36,11 +36,15 @@ import { ragdollCenter } from "./ragdoll.js";
 import { appleShine } from "./apple.js";
 import { spikeAngle } from "./spike.js";
 import {
-  createRiderHair,
+  createRiderTrails,
   hairRoot,
   hairRestDirection,
   freeHairRestDirection,
   hairBackSupport,
+  accessoryRoot,
+  accessoryRestDirection,
+  freeAccessoryRoot,
+  freeAccessoryRestDirection,
 } from "./rider-hair.js";
 import { lookParts } from "./cosmetics.js";
 import { reducedMotion } from "./state.js";
@@ -131,8 +135,8 @@ const SCENERY_SHADOWS = {
 /** Seconds the scene takes to slow to a stop behind the results. */
 const WIN_SETTLE = 0.7;
 const GHOST_ALPHA = 0.38;
-// World units around the hair root that the ghost's hair can reach.
-const GHOST_HAIR_REACH = 40;
+// World units around the hair root that the ghost's hair and cape can reach.
+const GHOST_HAIR_REACH = 56;
 // Where a front prop hides the rider, the hidden part shows as a silhouette.
 const XRAY_COLOR = "#fff3be";
 const XRAY_ALPHA = 0.25;
@@ -937,7 +941,17 @@ export function createRenderer(canvas) {
 
   function hairState(ride, flip, look) {
     const pose = riderPose(ride, flip);
+    const shape = lookParts(look).accessory?.shape;
     return {
+      // The outfit's accessory, which trails from the body rather than the head.
+      accessory: shape
+        ? ride.ragdoll
+          ? {
+              root: freeAccessoryRoot(ride.ragdoll.points.shoulder, ride.facing, shape),
+              rest: freeAccessoryRestDirection(ride.facing, shape),
+            }
+          : { root: accessoryRoot(pose, shape, true), rest: accessoryRestDirection(pose, shape) }
+        : null,
       root: currentHairRoot(ride, true, flip, look),
       rest: ride.ragdoll
         ? freeHairRestDirection(ride.facing)
@@ -950,10 +964,13 @@ export function createRenderer(canvas) {
     };
   }
 
-  /** Steps a hair simulation for `ride`; returns it, or null for cuts without a ponytail. */
+  /**
+   * Steps what trails behind the rider of `ride` (a ponytail, a cape); returns
+   * it, or null for a look with neither.
+   */
   function updateHair(current, ride, look, dt, flip = flipVisual) {
     const parts = lookParts(look);
-    if (!parts.hair.ponytail) return null;
+    if (!parts.hair.ponytail && !parts.accessory) return null;
     const state = hairState(ride, flip, look);
     let next = current;
     if (
@@ -961,7 +978,7 @@ export function createRenderer(canvas) {
       next.lookKey !== parts.key ||
       Math.hypot(state.root.x - next.root.x, state.root.y - next.root.y) > 60
     )
-      next = Object.assign(createRiderHair(state.root, state.rest, parts.hair), { lookKey: parts.key });
+      next = Object.assign(createRiderTrails(state, parts), { lookKey: parts.key });
     next.update(dt, state);
     return next;
   }

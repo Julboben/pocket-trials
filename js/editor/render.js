@@ -25,6 +25,7 @@ import {
   traceBlock,
 } from "./blocks.js";
 import { $, art, backWallArt, canvas, ctx, terrainArt, tools } from "./dom.js";
+import { drawPreviewFrame } from "./preview.js";
 import { scaleFrame, scaling } from "./scale.js";
 import { selectionBox } from "./selection.js";
 import { rotateHandle, rotationAngle } from "./rotate.js";
@@ -616,6 +617,7 @@ export function render() {
   drawSnapGuide();
   drawMarquee();
   drawSizeTag();
+  drawPreviewFrame();
   ctx.restore();
 }
 

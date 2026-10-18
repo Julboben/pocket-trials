@@ -164,16 +164,10 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
   const top = element('div', 'look-top');
   top.append(tabs, stage);
 
-  // The part's styles, with the selected one described.
-  const styles = element('section', 'look-section');
-  const styleHead = sectionHead();
-  const detail = element('div', 'look-detail');
-  const detailName = element('b');
-  const detailBlurb = element('small');
-  detail.append(detailName, detailBlurb);
-  const options = element('div', 'look-options');
-  options.setAttribute('role', 'radiogroup');
-  styles.append(styleHead.head, detail, options);
+  // The part's styles, with the selected one described, and its extra
+  // slot's (the hair tab's beards) in a panel of their own.
+  const styles = styleSection();
+  const extras = styleSection();
 
   // The part's colours, in their own panel.
   const colors = element('section', 'look-section look-colors');
@@ -191,7 +185,20 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
   revert.addEventListener('click', () => set(original));
   actions.append(revert);
 
-  root.replaceChildren(top, styles, colors, actions);
+  root.replaceChildren(top, styles.section, extras.section, colors, actions);
+
+  function styleSection() {
+    const section = element('section', 'look-section');
+    const head = sectionHead();
+    const detail = element('div', 'look-detail');
+    const name = element('b');
+    const blurb = element('small');
+    detail.append(name, blurb);
+    const options = element('div', 'look-options');
+    options.setAttribute('role', 'radiogroup');
+    section.append(head.head, detail, options);
+    return { section, head, name, blurb, options };
+  }
 
   function stepButton(iconName, step) {
     const button = element('button', `look-step ${step < 0 ? 'look-step-previous' : 'look-step-next'}`);
@@ -233,12 +240,13 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
     lightSwitch.title = label;
   }
 
-  function renderStyles() {
-    const slot = part.style;
+  /** Fills `panel` (from styleSection) with `slot`'s styles. */
+  function renderStyles(panel, slot) {
+    const { head, name: detailName, blurb: detailBlurb, options } = panel;
     const items = shownItemsForSlot(slot, owns);
     const selected = lookItem(slot, look[slot]);
-    styleHead.title.textContent = SLOT_LABELS[slot].toUpperCase();
-    styleHead.note.textContent = `${items.findIndex(item => item.id === look[slot]) + 1} / ${items.length}`;
+    head.title.textContent = SLOT_LABELS[slot].toUpperCase();
+    head.note.textContent = `${items.findIndex(item => item.id === look[slot]) + 1} / ${items.length}`;
     detailName.textContent = selected?.name.toUpperCase() ?? '';
     detailBlurb.textContent = selected?.blurb ?? '';
     options.setAttribute('aria-label', SLOT_LABELS[slot]);
@@ -294,7 +302,11 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
       tab.setAttribute('aria-selected', String(entry === part));
       tab.querySelector('small').textContent = partName(look, entry);
     }
-    renderStyles();
+    renderStyles(styles, part.style);
+    // Beards only for riders who can grow one.
+    const extra = part.extra === 'beard' && !lookItem('gender', look.gender)?.face.beard ? null : part.extra;
+    extras.section.hidden = !extra;
+    if (extra) renderStyles(extras, extra);
     renderColors();
     revert.disabled = sameLook(look, original);
   }

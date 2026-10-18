@@ -263,6 +263,14 @@ export function normalizeTrail(input, index = 0) {
   if (trail.nisse && typeof trail.nisse === "object" && Number.isFinite(Number(trail.nisse.x)))
     trail.nisse = { x: Number(trail.nisse.x), y: optionalY(trail.nisse.y) };
   else delete trail.nisse;
+  // Where the trail list's thumbnail is centred, framed in the editor. Without
+  // it the game picks the trail's most eventful stretch.
+  // Null and "" would pass as 0, so they count as missing.
+  const coordinate = (value) => value !== null && value !== "" && Number.isFinite(Number(value));
+  const preview = trail.preview;
+  if (preview && typeof preview === "object" && coordinate(preview.x) && coordinate(preview.y))
+    trail.preview = { x: Math.round(Number(preview.x)), y: Math.round(Number(preview.y)) };
+  else delete trail.preview;
   trail.props = Array.isArray(trail.props)
     ? trail.props.map((prop) => ({
         x: Number(prop.x) || 0,

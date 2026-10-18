@@ -62,6 +62,7 @@ import { editor, waters } from "./state.js";
 import { saveToolSettings, toolSettings } from "./tools.js";
 import { moveWaterTo, waterDepthHint, waterHandle, waterSize } from "./water.js";
 import { NISSE_GROUND_LIFT } from "../nisse.js";
+import { syncPreviewControls } from "./preview.js";
 
 export function selectedPosition() {
   if (!editor.selection) return null;
@@ -152,6 +153,7 @@ export function syncInspector({ live = false } = {}) {
   syncTerrain();
   $("trail-name").value = editor.trail.name;
   $("trail-author").value = editor.trail.author || "";
+  syncPreviewControls();
   // Don't overwrite notes the author is typing.
   if (document.activeElement !== $("trail-description"))
     $("trail-description").value = editor.trail.description || "";

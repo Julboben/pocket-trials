@@ -96,6 +96,10 @@ button:hover, .back-game:hover { background: var(--color-surface-hover); }
 fieldset:disabled :is(input, select, textarea, button) { opacity: .55; cursor: not-allowed; }
 .tool:disabled { cursor: not-allowed; }
 .side-panel fieldset:not(.tool-settings) legend { padding: 0 5px; color: var(--color-text-muted); font-size: var(--text-xs); font-weight: var(--weight-heavy); letter-spacing: 1.5px; }
+.trail-preview { display: block; width: 100%; aspect-ratio: 3 / 1; margin-bottom: 8px; border: 1px solid var(--color-border); background: var(--color-paper); image-rendering: pixelated; }
+.preview-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.preview-actions button { min-height: 28px; padding: 4px 6px; border-width: 1px; font-size: var(--text-xs); }
+#edit-preview.active { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-green-ink); }
 .segmented { display: inline-flex; gap: 2px; }
 .segmented button { flex: 1; min-height: 26px; padding: 4px 10px; border-width: 1px; font-size: var(--text-xs); }
 .segmented button.active { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-green-ink); }
@@ -109,7 +113,8 @@ fieldset:disabled :is(input, select, textarea, button) { opacity: .55; cursor: n
 .wind-row .segmented { grid-area: toggle; }
 .wind-row .segmented button { padding: 4px 8px; white-space: nowrap; }
 .windsock { grid-area: sock; width: 64px; height: 40px; image-rendering: pixelated; }
-.toolbox-footer { padding-top: 12px; }
+/* The zoom bar stays in view at the foot of the sidebar while the panel above it scrolls; it spans the sidebar's padding so nothing shows past its edges. */
+.toolbox-footer { position: sticky; z-index: 2; bottom: -14px; margin: 12px -14px -14px; padding: 10px 14px 14px; border-top: 1px solid var(--color-border); background: var(--color-shell); }
 .zoom-controls { display: grid; grid-template-columns: 40px 34px 1fr 34px; align-items: center; gap: 5px; text-align: center; font-size: var(--text-sm); }
 .zoom-controls button { width: 34px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; }
 .zoom-controls #game-art[aria-pressed="true"] { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-green-ink); }

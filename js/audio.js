@@ -51,6 +51,21 @@ function shaperCurve(shape, points = 1024) {
   return curve;
 }
 
+/** How fast the bike is going, from both wheels' last step. */
+function rideSpeed(rear, front) {
+  return rear && front ? Math.abs(((rear.x - rear.ox) + (front.x - front.ox)) / (2 * STEP)) : 0;
+}
+
+/**
+ * How hard a tyre is skidding, 0 to 1: braking with a wheel down, scaled by
+ * speed. The skid sound and the gamepad's skid buzz both follow it.
+ */
+export function skidAmount({ state, rear, front, brakePressure }) {
+  const speed = rideSpeed(rear, front);
+  const grounded = rear && front && (rear.grounded || front.grounded);
+  return state === 'running' && grounded && speed > 24 ? (brakePressure || 0) * clamp(speed / 220, 0, 1) : 0;
+}
+
 export function createAudio(getSnapshot) {
   let audio = null;
   let enabled = true, volume = 1;
@@ -353,11 +368,9 @@ export function createAudio(getSnapshot) {
       (paused ? context.suspend() : context.resume()).catch(() => {});
     }
     if (paused) return;
-    const speed = rear && front ? Math.abs(((rear.x - rear.ox) + (front.x - front.ox)) / (2 * STEP)) : 0;
-    const running = state === 'running';
-    const grounded = rear && front && (rear.grounded || front.grounded);
+    const speed = rideSpeed(rear, front);
     updateEngine(state, engine, Boolean(gas), !started);
-    const skidLevel = running && grounded && speed > 24 ? brakePressure * clamp(speed / 220, 0, 1) * .16 : 0;
+    const skidLevel = skidAmount({ state, rear, front, brakePressure }) * .16;
     // The skid sounds like the ground under the tyre doing it: the rear when
     // it is down, else the front.
     const skidding = rear?.grounded ? rear : front;

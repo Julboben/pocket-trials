@@ -9,7 +9,7 @@ import {
 } from '../js/cosmetics.js';
 import { lookUnlock } from '../js/unlocks.js';
 import { readFileSync } from 'node:fs';
-import { BIKE_MODELS, isHeadwear } from '../js/drawing.js';
+import { BIKE_MODELS, hasBeardArt, hasOutfitStyle, isHeadwear } from '../js/drawing.js';
 import { BIKE_LAMPS } from '../js/bike-lamps.js';
 import { createRagdoll } from '../js/ragdoll.js';
 
@@ -31,16 +31,17 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
     assert.equal(lookItem(item.slot, item.id), item);
   }
   for (const slot of LOOK_SLOTS) {
-    // Outfits have a single style for now; only their colour changes.
-    assert.ok(itemsForSlot(slot).length >= (slot === 'outfit' ? 1 : 2), `${slot} has a choice`);
+    assert.ok(itemsForSlot(slot).length >= 2, `${slot} has a choice`);
     assert.ok(SLOT_LABELS[slot], `${slot} has a label`);
     for (const look of Object.values(STARTER_LOOKS)) assert.ok(isDefaultItem(slot, look[slot]), `the starter ${slot} is everyone's`);
   }
-  // Every tab is a style plus its colour, and together with identity they cover every slot.
+  // Every tab is a style plus its colour (and maybe an extra style, like the
+  // beard), and together with identity they cover every slot.
   const covered = new Set(IDENTITY_SLOTS);
   for (const part of LOOK_PARTS) {
     assert.ok(LOOK_SLOTS.includes(part.style) && LOOK_SLOTS.includes(part.color), `${part.id} is made of slots`);
     covered.add(part.style).add(part.color);
+    if (part.extra) assert.ok(LOOK_SLOTS.includes(part.extra), `${part.id}'s extra is a slot`), covered.add(part.extra);
   }
   assert.deepEqual([...covered].sort(), [...LOOK_SLOTS].sort());
   for (const slot of [...LOOK_PARTS.map(part => part.color), 'skin']) {
@@ -50,6 +51,29 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
   assert.ok(lookItem('hair', 'bald')?.colorless);
   assert.equal(lookItem('gender', 'female').face.lips, true);
   for (const item of itemsForSlot('bike')) assert.ok(BIKE_MODELS.includes(item.model), `bike ${item.id} has a model`);
+  // Every outfit has art, and every new one is won rather than given.
+  for (const item of itemsForSlot('outfit')) {
+    assert.ok(hasOutfitStyle(item.shape), `outfit ${item.id} has art`);
+    if (item.id !== 'street') assert.ok(lookUnlock('outfit', item.id), `outfit ${item.id} is won`);
+  }
+  // Beards: everyone's, drawn, only grown where the gender allows, and in the hair colour.
+  for (const item of itemsForSlot('beard')) {
+    assert.ok(isDefaultItem('beard', item.id), `beard ${item.id} is everyone's`);
+    assert.ok(item.id === 'none' || hasBeardArt(item.shape), `beard ${item.id} has art`);
+  }
+  assert.equal(lookParts({ ...STARTER_LOOKS.male, beard: 'full' }).hair.beard, 'full');
+  assert.equal(lookParts({ ...STARTER_LOOKS.female, beard: 'full' }).hair.beard, null, 'no beard without face.beard');
+  assert.equal(lookParts(STARTER_LOOKS.male).hair.beard, null);
+  const bald = LOOK_PARTS.find(part => part.id === 'hair');
+  assert.ok(isColorless({ ...STARTER_LOOKS.male, hair: 'bald' }, bald));
+  assert.ok(!isColorless({ ...STARTER_LOOKS.male, hair: 'bald', beard: 'goatee' }, bald), 'a beard keeps the hair colour');
+  assert.equal(partName({ ...STARTER_LOOKS.male, beard: 'goatee' }, bald), 'Brown short, goatee');
+  // Outfits that match one colour to another, and accessories in the panel colour.
+  const suit = lookParts({ ...STARTER_LOOKS.male, outfit: 'superhero', outfitColor: 'blue' });
+  assert.equal(suit.palette.trousers, suit.palette.jacket);
+  assert.equal(suit.accessory.shape, 'cape');
+  assert.equal(suit.accessory.fill, suit.palette.panel);
+  assert.equal(lookParts(STARTER_LOOKS.male).accessory, null);
   // Every helmet has art: a shell, or headwear drawn over the bare head, which shows under it.
   for (const item of LOOK_ITEMS.filter(item => item.slot === 'helmet' && !item.bare)) {
     assert.ok(['classic', 'mx'].includes(item.shape) || isHeadwear(item.shape), `helmet ${item.id} has art`);
@@ -146,6 +170,7 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
     assert.equal(look.gender, 'female');
     assert.equal(look.skin, 'tan');
     if (look.hair in counts) counts[look.hair]++;
+    assert.equal(look.beard, 'none', 'random riders only grow beards where the gender allows');
   }
   assert.ok(counts.ponytail > counts.short && counts.short > 0, `random hair leans female: ${JSON.stringify(counts)}`);
   const owns = (slot, id) => !(slot === 'outfitColor' && id === 'yellow');
@@ -180,7 +205,7 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
 
   // What a step of progress won, for the game's New Gear card.
   const won = newlyUnlockedItems(progress(0), progress(0, ['official:15-mirage'], ['career-rider']));
-  assert.deepEqual(won.map(item => `${item.slot}:${item.id}`).sort(), ['bike:classic', 'helmet:bike', 'helmet:cowboy']);
+  assert.deepEqual(won.map(item => `${item.slot}:${item.id}`).sort(), ['bike:classic', 'helmet:bike', 'helmet:cowboy', 'outfit:western']);
   assert.deepEqual(newlyUnlockedItems(progress(0), progress(0)), [], 'nothing new, nothing announced');
   assert.deepEqual(gearCard(lookItem('helmet', 'cowboy')), { name: 'Cowboy hat', blurb: 'Rides out of the desert at sundown.', icon: 'helmet' });
   assert.deepEqual(gearCard(lookItem('outfitColor', 'yellow')), { name: 'Hi-vis', blurb: 'New outfit colour in the Garage.', icon: 'jacket' });
@@ -208,7 +233,7 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
 
 {
   const look = {
-    gender: 'female', skin: 'deep', hair: 'bob', hairColor: 'blonde', helmet: 'none', helmetColor: 'teal',
+    gender: 'female', skin: 'deep', hair: 'bob', hairColor: 'blonde', beard: 'none', helmet: 'none', helmetColor: 'teal',
     outfit: 'street', outfitColor: 'yellow', bike: 'classic', bikeColor: 'blue'
   };
   assert.deepEqual(normalizeLook(look), look);
@@ -233,7 +258,7 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
   assert.deepEqual(lookOf({ rider: 'female', look }), look, 'a look wins over the old rider');
   assert.deepEqual(lookOf({}), legacyLook('male'));
 
-  assert.equal(lookKey(look), 'female.deep.bob.blonde.none.teal.street.yellow.classic.blue');
+  assert.equal(lookKey(look), 'female.deep.bob.blonde.none.none.teal.street.yellow.classic.blue');
   assert.ok(sameLook(look, { ...look }));
   assert.ok(!sameLook(look, DEFAULT_LOOK));
   assert.equal(lookParts(look), lookParts({ ...look }), 'equal looks share their parts');

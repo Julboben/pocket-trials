@@ -33,6 +33,25 @@ export const UNLOCKS = Object.freeze({
   'look:helmet:viking': { achievement: 'gold-rush' },
   'look:bikeColor:black': { achievement: 'night-owl' },
 
+  // Outfits. Each chapter's last trail wins one to go with its headwear; the
+  // rest are achievements, picked to suit the outfit.
+  'look:outfit:flannel': { trail: 'official:10-switchback' }, // Forest
+  'look:outfit:western': { trail: 'official:15-mirage' }, // Desert, with the cowboy hat
+  'look:outfit:wetsuit': { trail: 'official:20-out-and-back' }, // Hills and coast
+  'look:outfit:coveralls': { trail: 'official:25-the-ring' }, // Mine, with the hi-vis
+  'look:outfit:leathers': { trail: 'official:30-rooftops' }, // City
+  'look:outfit:puffer': { trail: 'official:31-long-way-up' }, // The first snow, with the beanie
+  'look:outfit:hoodie': { achievement: 'first-steps' },
+  'look:outfit:mx': { achievement: 'head-over-heels' },
+  'look:outfit:tracksuit': { achievement: 'leaps-and-bounds' },
+  'look:outfit:dungarees': { achievement: 'an-apple-a-day' },
+  'look:outfit:superhero': { achievement: 'hang-time' },
+  'look:outfit:tuxedo': { achievement: 'golden-touch' },
+  'look:outfit:dummy': { achievement: 'crash-test-dummy' },
+  'look:outfit:nisse': { achievement: 'nisse-hunter' },
+  'look:outfit:viking': { achievement: 'gold-rush' }, // With the Viking helmet
+  'look:outfit:prisoner': { achievement: 'never-give-up' }, // Secret: doing time
+
   'look:hair:big-curls': { trail: 'bonus:01-the-bonny-tyler' },
   'look:helmet:dunce': { achievement: 'i-saw-that' },
 });

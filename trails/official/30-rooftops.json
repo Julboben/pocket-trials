@@ -501,8 +501,8 @@
       "layer": "back"
     },
     {
-      "x": 650,
-      "y": null,
+      "x": 1151.2537904190426,
+      "y": 405.76549357844505,
       "type": "bird",
       "layer": "back"
     },
@@ -510,6 +510,48 @@
       "x": 2200,
       "y": null,
       "type": "bird",
+      "layer": "back"
+    },
+    {
+      "x": 157.9048454615841,
+      "y": 391.4342474495273,
+      "type": "marshal-start",
+      "layer": "back"
+    },
+    {
+      "x": 595.0394922208336,
+      "y": 397.2546901297357,
+      "type": "spectators",
+      "layer": "back"
+    },
+    {
+      "x": 283.285381775102,
+      "y": 381.81981624126155,
+      "type": "banner",
+      "layer": "back"
+    },
+    {
+      "x": 25.048773193548016,
+      "y": 382.3492914588814,
+      "type": "pit-board",
+      "layer": "front"
+    },
+    {
+      "x": -109.13139379800818,
+      "y": 399.18899198919684,
+      "type": "petrol-can",
+      "layer": "front"
+    },
+    {
+      "x": 414.62310286154116,
+      "y": 400.49078444154037,
+      "type": "tyre-wall",
+      "layer": "back"
+    },
+    {
+      "x": 509.78134441618175,
+      "y": 400.01306244068036,
+      "type": "hay-bales",
       "layer": "back"
     }
   ],
@@ -544,11 +586,11 @@
     "wind": 0.25,
     "windDirection": "left"
   },
+  "timeOfDay": 0,
   "checkpoint": {
     "x": 1600,
     "y": null
   },
-  "timeOfDay": 0,
   "backdrop": "city",
   "medals": {
     "gold": 19,

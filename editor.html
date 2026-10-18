@@ -279,6 +279,20 @@
                                     placeholder="Design notes, not shown in the game"
                                 ></textarea></label>
                             <fieldset>
+                                <legend>PREVIEW</legend>
+                                <canvas
+                                    id="trail-preview"
+                                    class="trail-preview"
+                                    role="img"
+                                    aria-label="The trail's thumbnail in the game's trail list"
+                                ></canvas>
+                                <p class="tool-hint" id="preview-note"></p>
+                                <div class="preview-actions">
+                                    <button type="button" id="edit-preview">EDIT PREVIEW</button>
+                                    <button type="button" id="reset-preview">RESET TO AUTOMATIC</button>
+                                </div>
+                            </fieldset>
+                            <fieldset>
                                 <legend>SCENERY</legend>
                                 <label
                                     >Backdrop

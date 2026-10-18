@@ -2,13 +2,13 @@
 import { clamp } from '../config.js';
 import { trails, officialTrailEntries, bonusTrailEntries, customTrailEntries, saveBrowserTrail } from '../trails.js';
 import { createGameArt } from '../drawing.js';
-import { drawScene, posedRide, parkedRide, findClimb, findJump, finishScene, findHighlight } from '../scene-preview.js';
+import { drawScene, drawTrailPreview, posedRide, findClimb, findJump, finishScene } from '../scene-preview.js';
 import {
   loadSaveSlots, loadActiveSlot, saveActiveSlot, createSave, deleteSave, readBest,
   readLeaderboard, LEADERBOARD_SIZE, loadPreferences, savePreferences, cleanRiderName,
   restoreOnlineSave, linkSave, readGhost, saveLook, loadSeenVersion, saveSeenVersion, loadSeenHowTo, saveSeenHowTo, applyCloudSave, clearSaveToken, hasNisse
 } from '../storage.js';
-import { DEFAULT_LOOK, keepIdentity, lookKey, sameLook, starterLook } from '../cosmetics.js';
+import { DEFAULT_LOOK, itemsForSlot, keepIdentity, lookKey, randomLook, sameLook, starterLook } from '../cosmetics.js';
 import { createCustomizer, createIdentityPicker, drawLook } from './customizer.js';
 import { ONLINE_LEADERBOARD_EVENT, isOnlineBoardLoading, isOnlineTrail, fetchWorldGhost, settledWorldGhost, refreshOnlineBoard, submitOnlineRun } from '../online-leaderboard.js';
 import { registerRider, loginRider, accountErrorText, passkeysSupported, queueSaveSync, fetchCloudSave } from '../account.js';
@@ -18,6 +18,7 @@ import { RIDE_VERSION } from '../ride.js';
 import { normalizeAuthor, normalizeTrail, validateTrail, medalFor } from '../trail-schema.js';
 import { ACTION_LABELS, keyLabel } from '../input.js';
 import { createGamepadDiagram } from './gamepad-diagram.js';
+import { canRumble } from '../haptics.js';
 import { VERSION } from '../version.js';
 import { RELEASES } from '../changelog.js';
 import { ACHIEVEMENTS, ACHIEVEMENT_GROUPS, statProgressText } from '../achievements.js';
@@ -257,17 +258,31 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   // Creating a rider takes two steps: who they are (name, gender, skin), then
   // their style. The Garage changes the active rider's style later.
   const customizerHooks = { paint: paintPreview, previewKey: sceneKey, hint: lookItemHint };
-  // Until the style step is changed by hand, it follows the gender picked.
+  // A new rider starts in their gender's starter gear with a random hair
+  // cut, colour and beard, leaning to the gender picked. Until the style is
+  // changed by hand, picking another gender rolls new hair; a new skin tone
+  // keeps it.
+  let creatorStart = DEFAULT_LOOK;
   let creatorTouched = false;
+  const rollCreatorLook = (identity, options) => {
+    const { hair, hairColor, beard } = randomLook(identity);
+    creatorStart = { ...starterLook(identity.gender, identity.skin), hair, hairColor, beard };
+    creator.setLook(creatorStart, options);
+  };
   const identityPicker = createIdentityPicker($('new-save-identity'), {
     ...customizerHooks,
-    onChange: identity => creator.setLook(creatorTouched
-      ? keepIdentity(creator.look(), identity)
-      : starterLook(identity.gender, identity.skin))
+    onChange: identity => {
+      if (!creatorTouched && identity.gender !== creatorStart.gender) rollCreatorLook(identity);
+      else {
+        const look = keepIdentity(creator.look(), identity);
+        if (!creatorTouched) creatorStart = look;
+        creator.setLook(look);
+      }
+    }
   });
   const creator = createCustomizer($('new-save-look'), {
     ...customizerHooks,
-    onChange: look => { creatorTouched = !sameLook(look, starterLook(look.gender, look.skin)); }
+    onChange: look => { creatorTouched = !sameLook(look, creatorStart); }
   });
   // The Garage offers what the active rider has unlocked, checked when it opens.
   let garageOwns = lookOwner(null);
@@ -301,7 +316,17 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
 
   function openGarage() {
     if (!session.saveGame) return;
-    $('garage-rider').textContent = session.saveGame.name;
+    // The rider's name, then their gender, in the rider list's symbols.
+    const gender = session.look.gender === 'female' ? 'female' : 'male';
+    const genderMark = document.createElement('span');
+    genderMark.className = 'save-gender';
+    genderMark.dataset.gender = gender;
+    genderMark.dataset.icon = gender;
+    genderMark.setAttribute('aria-hidden', 'true');
+    const genderText = document.createElement('span');
+    genderText.className = 'sr-only';
+    genderText.textContent = ', ' + gender;
+    $('garage-rider').replaceChildren(session.saveGame.name, genderText, genderMark);
     garageOwns = lookOwner(session.saveGame);
     // Opens on the tab the rider was last on.
     garage.setLook(session.look);
@@ -920,11 +945,10 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     const preview = document.createElement('canvas');
     preview.className = 'trail-preview';
     preview.setAttribute('aria-hidden', 'true');
-    // The trail's most eventful stretch, zoomed out, without a rider.
-    paintPreview(preview, previewKey('trail', key), image => drawScene(image, {
-      ...sceneOptions(), trail, ride: parkedRide(trail), focus: findHighlight(trail, 576),
-      width: 576, height: 192, scale: 2, anchor: [.5, .55]
-    }));
+    // Where the author framed it, else its most eventful stretch; zoomed
+    // out, without a rider. The framing is in the key: it doesn't change the hash.
+    const framing = trail.preview ? `${trail.preview.x},${trail.preview.y}` : 'auto';
+    paintPreview(preview, previewKey('trail', key, framing), image => drawTrailPreview(image, trail, sceneOptions()));
     const numberLabel = document.createElement('span');
     numberLabel.className = 'trail-number';
     numberLabel.textContent = number;
@@ -1215,10 +1239,12 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     setStatus('save-status', '');
     setStatus('save-login-status', '');
     setSaveMode(saveMode);
-    const identity = { gender: DEFAULT_LOOK.gender, skin: DEFAULT_LOOK.skin };
+    // The skin tone starts random too; the player can pick another.
+    const skins = itemsForSlot('skin');
+    const identity = { gender: DEFAULT_LOOK.gender, skin: skins[Math.floor(Math.random() * skins.length)].id };
     identityPicker.setIdentity(identity);
     creatorTouched = false;
-    creator.setLook(starterLook(identity.gender, identity.skin), { tab: 'hair' });
+    rollCreatorLook(identity, { tab: 'hair' });
     showSaveStep(1);
     showView('save');
   }
@@ -1397,7 +1423,16 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   // Gamepad buttons aren't remappable, so the diagram is drawn once.
   $('gamepad-diagram').append(...createGamepadDiagram());
 
+  /** Rumble is offered while a gamepad that can rumble is connected. */
+  function syncRumbleSetting() {
+    const pads = typeof navigator.getGamepads === 'function' ? [...navigator.getGamepads()] : [];
+    $('setting-rumble-group').hidden = !pads.some(canRumble);
+  }
+  window.addEventListener('gamepadconnected', syncRumbleSetting);
+  window.addEventListener('gamepaddisconnected', syncRumbleSetting);
+
   function syncSettings() {
+    syncRumbleSetting();
     document.querySelectorAll('[data-setting]').forEach(button => {
       button.setAttribute('aria-pressed', String(session.preferences[button.dataset.setting] === button.dataset.value));
     });
@@ -1572,7 +1607,8 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     onPreferences();
   });
   $('setting-volume').addEventListener('change', () => { savePreferences(session.preferences); sounds.menuMove(); });
-  $('setting-haptics-group').hidden = !('vibrate' in navigator);
+  // Phone vibration: desktop browsers have navigator.vibrate too, but no motor to run.
+  $('setting-haptics-group').hidden = !('vibrate' in navigator) || !window.matchMedia('(pointer: coarse)').matches;
 
   let resetArmed = false, resetTimer = 0;
   $('reset-settings').addEventListener('click', event => {

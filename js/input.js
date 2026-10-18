@@ -42,7 +42,12 @@ const STICK_DEADZONE = .25;
 export function createInput({ element, buttons, indicators = [], isActive, onPress }) {
   const keys = new Set();
   const pointers = new Map();
-  const pad = { held: new Set(), lean: 0, previous: /** @type {boolean[]} */ ([]), connected: false, stickX: 0, stickY: 0 };
+  const pad = {
+    held: new Set(), lean: 0, previous: /** @type {boolean[]} */ ([]), connected: false, stickX: 0, stickY: 0,
+    // Which pad was read, and whether it is what the player is using: a key or
+    // a touch hands over to that, so a pad lying idle never rumbles.
+    index: -1, inUse: false,
+  };
   /** @type {Record<string, string[]>} */
   let bindings = DEFAULT_BINDINGS;
   /** @type {Map<string, string>} */
@@ -94,6 +99,7 @@ export function createInput({ element, buttons, indicators = [], isActive, onPre
     }
     const action = codeActions.get(event.code);
     if (!action) return false;
+    pad.inUse = false;
     event.preventDefault();
     if (PRESS_ACTIONS.includes(action)) {
       if (!event.repeat) onPress(action, 'key');
@@ -115,6 +121,7 @@ export function createInput({ element, buttons, indicators = [], isActive, onPre
     button.addEventListener('pointerdown', event => {
       if (!isActive()) return;
       event.preventDefault();
+      pad.inUse = false;
       element.focus({ preventScroll: true });
       const action = button.dataset.action || '';
       if (PRESS_ACTIONS.includes(action)) { onPress(action, 'pointer'); return; }
@@ -136,8 +143,10 @@ export function createInput({ element, buttons, indicators = [], isActive, onPre
     pad.held.clear();
     pad.lean = 0;
     pad.connected = Boolean(gamepad);
-    if (!gamepad) { pad.previous = []; return; }
+    if (!gamepad) { pad.previous = []; pad.index = -1; pad.inUse = false; return; }
+    pad.index = gamepad.index;
     const pressed = gamepad.buttons.map(button => button.pressed || button.value > .5);
+    if (pressed.some(Boolean) || gamepad.axes.some(axis => Math.abs(axis) > STICK_DEADZONE)) pad.inUse = true;
     // Compared with the last frame's buttons, kept before they're replaced.
     const previous = pad.previous;
     const edge = index => pressed[index] && !previous[index];
@@ -180,6 +189,11 @@ export function createInput({ element, buttons, indicators = [], isActive, onPre
   return {
     held, leanInput, clear, paint, keyDown, keyUp, pollGamepad, setBindings, captureNextKey,
     get gamepadConnected() { return pad.connected; },
+    /** The gamepad being played with, fresh from the browser, or null when keys or touch took over. */
+    activeGamepad() {
+      if (!pad.inUse || pad.index < 0 || typeof navigator.getGamepads !== 'function') return null;
+      return navigator.getGamepads()[pad.index] ?? null;
+    },
     get capturing() { return capture !== null; }
   };
 }

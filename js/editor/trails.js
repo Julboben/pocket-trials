@@ -40,6 +40,7 @@ import { editor } from "./state.js";
 import { flash, refuse, refuseReadOnly, showStatus } from "./status.js";
 import { NAVIGATION_TOOLS, setTool } from "./tools.js";
 import { focusOnStart } from "./view.js";
+import { stopEditingPreview } from "./preview.js";
 
 const CURRENT_TRAIL_KEY = "hjulben-editor-current-v1";
 
@@ -375,6 +376,7 @@ function saveStatusText(entry) {
 export function selectEntry(index) {
   // Keep unsaved edits to the trail being left; they come back when it is reopened.
   autosaveNow();
+  stopEditingPreview();
   editor.trailIndex = index;
   editor.history = [];
   editor.future = [];

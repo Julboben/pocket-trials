@@ -2269,14 +2269,27 @@ const HAIR_CAPS = {
   bald: ["", "  ll"],
 };
 
+// Beards, as rows over BARE_HEAD: H the hair colour, h its shine, b its
+// shade, and m keeps the mouth showing. The longer ones hang below the jaw.
+const BEARDS = {
+  stubble: ["", "", "", "", "   b   ", "  b b  "],
+  moustache: ["", "", "", "", "", "    HH "],
+  goatee: ["", "", "", "", "", "    H  ", "    HHO", "    OO "],
+  full: ["", "", "", "", "  Hh   ", "  HHHmH", " OHHbHH", "  OOOOO"],
+  lumberjack: ["", "", "", "", "  Hh   ", "  HHHmH", " OHhHHH", "  OHHbHO", "   OHHO", "    OO "],
+};
+
+/** Whether a beard shape has art (see BEARDS). */
+export const hasBeardArt = (shape) => Object.hasOwn(BEARDS, shape);
+
 /**
  * The rider's bare head, without a helmet or once it has come off, centred
  * where the helmet's centre is and facing right, in the same units as
- * drawHelmetShell. `hair` is the cut from lookParts: its cap (HAIR_CAPS)
- * and any extra hair over it (HAIR_EXTRAS).
+ * drawHelmetShell. `hair` is the cut from lookParts: its cap (HAIR_CAPS),
+ * any extra hair over it (HAIR_EXTRAS) and its beard (BEARDS).
  */
 export function drawBareHead(rect, colors, hair) {
-  const { cap = "short", extra = null } = hair ?? {};
+  const { cap = "short", extra = null, beard = null } = hair ?? {};
   const palette = {
     O: RIDER_OUTLINE,
     s: colors.skin,
@@ -2289,6 +2302,7 @@ export function drawBareHead(rect, colors, hair) {
   };
   drawPixelRows(rect, -6, -8, BARE_HEAD, palette);
   if (HAIR_CAPS[cap]) drawPixelRows(rect, -6, -8, HAIR_CAPS[cap], palette);
+  if (BEARDS[beard]) drawPixelRows(rect, -6, -8, BEARDS[beard], { ...palette, b: colors.hairShade });
 
   const more = HAIR_EXTRAS[extra];
   if (more)
@@ -2317,6 +2331,340 @@ const RIDER_TORSO = [
   "OPPPPPPO   ",
   " OPPPPO    ",
 ];
+
+// How each outfit (its `shape` in js/cosmetics.js) is drawn, on the bike
+// and thrown off it. Every key is optional and falls back to the street
+// jacket's (OUTFIT_STYLES.jacket):
+//   torso, torsoY  the torso's pixel rows (as RIDER_TORSO) and their top
+//   keys           more pixel keys for the rows, each a palette key
+//   sleeve         'rolled' (bare forearm, cuff at the elbow), 'long' (cuff
+//                  at the wrist) or 'short' (cuff halfway down the upper arm)
+//   sleeveColor    the sleeve's palette key; armLight its lit edge's
+//   cuff           the cuff's palette key, or null for none
+//   armBands       { color, at }: bands across the arm, at fractions of the
+//                  way from the shoulder (0) through the elbow (.5) to the hand (1)
+//   legs           'trousers', or 'shorts' (bare knee, `socks` below it)
+//   legLight       the trousers' lit edge
+//   legBands       { color, at }: bands across the leg, hip (0), knee (.5), ankle (1)
+//   knee           'pad', 'big', 'slider' or 'none'
+//   boots          'boot', 'tall', 'welly', 'trainer', 'heel' or 'snow'
+//   bootRim        the palette key of a snow boot's rim
+//   hem            the ragdoll's hem colour; bands { color, at } across its torso
+const OUTFIT_STYLES = {
+  jacket: {
+    torso: RIDER_TORSO,
+    torsoY: -38,
+    keys: {},
+    sleeve: "rolled",
+    sleeveColor: "jacket",
+    armLight: "jacketLight",
+    cuff: "panel",
+    armBands: null,
+    legs: "trousers",
+    legLight: "trousersLight",
+    legBands: null,
+    knee: "pad",
+    boots: "boot",
+    bootRim: null,
+    hem: "panel",
+    bands: null,
+  },
+  // A hood bunched up behind the neck, a front pocket and a ribbed hem.
+  hoodie: {
+    torso: [
+      "  OOOO     ",
+      " OjjjdO    ",
+      " OdjddOPPO ",
+      " OdddOjjjJO",
+      "  OdjjjJJJO",
+      "  OddJJJJJO",
+      " OddJddJO  ",
+      "OddddddO   ",
+      " OddddO    ",
+    ],
+    torsoY: -42,
+    sleeve: "long",
+    cuff: "jacketShade",
+    knee: "none",
+    boots: "trainer",
+    hem: "jacketShade",
+  },
+  // A race jersey with a side panel, worn loose over pants panelled to match.
+  mx: {
+    torso: [
+      "    OPPPPO ",
+      "   OjjjjjJO",
+      "   OddjJJJO",
+      "  OPPPPPPJO",
+      " OddJJJJO  ",
+      "OJJJJJJO   ",
+      " OddddO    ",
+    ],
+    sleeve: "long",
+    legLight: "panel",
+    knee: "big",
+    boots: "tall",
+    hem: "jacket",
+  },
+  // Zipped to the chin, with a stripe down the sleeves and legs.
+  tracksuit: {
+    torso: [
+      "    OJJJJO ",
+      "   OjjjjjPO",
+      "   OdjjJJPO",
+      "  OddJJJJPO",
+      " OddJJJPO  ",
+      "OddddddO   ",
+      " OddddO    ",
+    ],
+    sleeve: "long",
+    armLight: "panel",
+    cuff: "jacketShade",
+    legLight: "panel",
+    knee: "none",
+    boots: "trainer",
+    hem: "jacketShade",
+  },
+  // A denim bib and strap over the shirt, its sleeves rolled up.
+  dungarees: {
+    torso: [
+      "    OjjjjO ",
+      "   OjjjjjJO",
+      "   OkjBbBJO",
+      "  OdkBBBBBO",
+      " OdkBBBBO  ",
+      "OkkkkkkO   ",
+      " OkkkkO    ",
+    ],
+    keys: { B: "denim", b: "denimLight", k: "denimShade" },
+    cuff: "jacketLight",
+    knee: "none",
+    boots: "welly",
+    hem: "denimShade",
+    bands: { color: "denim", at: [0.3, 0.6] },
+  },
+  // A checked shirt, its sleeves rolled up, over cargo shorts and long socks.
+  flannel: {
+    torso: [
+      "    OddddO ",
+      "   OjdjjdJO",
+      "   OddddddO",
+      "  OJdJJdJJO",
+      " OJdJJdJO  ",
+      "OddddddO   ",
+      " OJdJJO    ",
+    ],
+    cuff: "jacketShade",
+    legs: "shorts",
+    knee: "none",
+    hem: "jacketShade",
+    bands: { color: "jacketShade", at: [0.4, 0.7] },
+  },
+  // A yoke across the chest, fringe down the back and under the hem.
+  western: {
+    torso: [
+      "    OPPPPO ",
+      "   OPPjPPPO",
+      "  POdjjPJJO",
+      " P OddJJJJO",
+      "P OddJJJO  ",
+      " OPJPJPO   ",
+      " P P P     ",
+    ],
+    sleeve: "long",
+    knee: "none",
+    boots: "heel",
+  },
+  // Black neoprene with a side panel in the outfit colour.
+  wetsuit: {
+    torso: [
+      "    OKKKKO ",
+      "   OkkkkkKO",
+      "   OJkkKKKO",
+      "  OJJKKKKKO",
+      " OJJKKKKO  ",
+      "OKKKKKKO   ",
+      " OKKKKO    ",
+    ],
+    keys: { K: "rubber", k: "rubberLight" },
+    sleeve: "long",
+    sleeveColor: "rubber",
+    armLight: "jacket",
+    cuff: "rubber",
+    legLight: "jacket",
+    knee: "none",
+    boots: "trainer",
+    hem: "rubber",
+  },
+  // A one-piece with reflective bands round the chest, arms and legs.
+  coveralls: {
+    torso: [
+      "    OddddO ",
+      "   OjjjjjJO",
+      "   OdjjJJJO",
+      "  ORRRRRRRO",
+      " OddJJJJO  ",
+      "OddddddO   ",
+      " OJJJJO    ",
+    ],
+    keys: { R: "reflect" },
+    sleeve: "long",
+    armBands: { color: "reflect", at: [0.75] },
+    legBands: { color: "reflect", at: [0.75] },
+    hem: "jacketShade",
+    bands: { color: "reflect", at: [0.65] },
+  },
+  // A one-piece suit with a hump on the back and a stripe down the side.
+  leathers: {
+    torso: [
+      "  OOOOPPPO ",
+      " OjjjjjjjJO",
+      " OdjjjjJJJO",
+      " OddPPJJJJO",
+      " OdPPJJJO  ",
+      "OPJJJJJO   ",
+      " OJJJJO    ",
+    ],
+    sleeve: "long",
+    legLight: "panel",
+    knee: "slider",
+    boots: "tall",
+    hem: "jacket",
+  },
+  // A quilted jacket, puffed out, with the scarf wrapped round the neck.
+  puffer: {
+    torso: [
+      "   OPPPPPO ",
+      "  OjjjjjjJO",
+      " OjjjjjJJJO",
+      " OddddddddO",
+      "OddJJJJJO  ",
+      "OdddddddO  ",
+      " OJJJJJO   ",
+    ],
+    sleeve: "long",
+    cuff: "jacketShade",
+    armBands: { color: "jacketShade", at: [0.25, 0.75] },
+    knee: "none",
+    boots: "snow",
+    bootRim: "fur",
+    hem: "jacketShade",
+    bands: { color: "jacketShade", at: [0.4, 0.7] },
+  },
+  // A suit in the outfit colour with an emblem on the chest and a belt.
+  superhero: {
+    torso: [
+      "    OJJJJO ",
+      "   OjjjjjJO",
+      "   OdjjJPJO",
+      "  OddJPPPJO",
+      " OddJJPJO  ",
+      "OPPPPPPO   ",
+      " OJJJJO    ",
+    ],
+    sleeve: "long",
+    cuff: null,
+    knee: "none",
+    boots: "tall",
+  },
+  // Yellow with the black and yellow target on the back, and black bands.
+  dummy: {
+    torso: [
+      "    OPPPPO ",
+      "   OPPjjjJO",
+      "   OPPJJJJO",
+      "  OdJJPPJJO",
+      " OdJJPPO   ",
+      "OJJJJJJO   ",
+      " OPPPPO    ",
+    ],
+    sleeve: "long",
+    cuff: null,
+    armBands: { color: "panel", at: [0.5] },
+    legBands: { color: "panel", at: [0.5] },
+    knee: "none",
+    hem: "jacket",
+    bands: { color: "panel", at: [0.5] },
+  },
+  // A black jacket open over a white shirt front, and a bow tie.
+  tuxedo: {
+    torso: [
+      "    ObbbbO ",
+      "   OjjjPPJO",
+      "   OdjjjPJO",
+      "  OddJJJPJO",
+      " OddJJJPO  ",
+      "OJJJJJJO   ",
+      " OJJJJO    ",
+    ],
+    keys: { b: "bow" },
+    sleeve: "long",
+    legLight: "jacketLight",
+    knee: "none",
+    boots: "trainer",
+    hem: "jacket",
+  },
+  // Black and white stripes, head to toe.
+  prisoner: {
+    torso: [
+      "    OPPPPO ",
+      "   OjjjjjJO",
+      "   OPPPPPPO",
+      "  OddJJJJJO",
+      " OPPPPPPO  ",
+      "OJJJJJJO   ",
+      " OPPPPO    ",
+    ],
+    sleeve: "long",
+    cuff: null,
+    armBands: { color: "panel", at: [0.25, 0.5, 0.75] },
+    legBands: { color: "panel", at: [0.2, 0.45, 0.7] },
+    knee: "none",
+    bands: { color: "panel", at: [0.35, 0.6, 0.85] },
+  },
+  // Red wool with white trim, and a black belt with a gold buckle.
+  nisse: {
+    torso: [
+      "    OPPPPO ",
+      "   OjjjjjJO",
+      "   OdjjJJJO",
+      "  OddJJPJJO",
+      " OBBBBYBO  ",
+      "OPPPPPPO   ",
+      " OJJJJO    ",
+    ],
+    keys: { B: "belt", Y: "buckle" },
+    sleeve: "long",
+    knee: "none",
+    boots: "tall",
+    bands: { color: "belt", at: [0.3] },
+  },
+  // A tunic with a big fur collar and a belt, bare forearms and wrapped legs.
+  viking: {
+    torso: [
+      "   OPPPPPPO",
+      "  OPpPPpPPO",
+      "   OPdjJJJO",
+      "  OddJJJJJO",
+      " OBBBBYBO  ",
+      "OJJJJJJO   ",
+      " OJdJJO    ",
+    ],
+    keys: { p: "furShade", B: "belt", Y: "buckle" },
+    legBands: { color: "wrap", at: [0.6, 0.72, 0.84] },
+    knee: "none",
+    boots: "snow",
+    bootRim: "panel",
+    hem: "jacketShade",
+    bands: { color: "belt", at: [0.3] },
+  },
+};
+
+/** Whether an outfit shape has its own drawing style (see OUTFIT_STYLES). */
+export const hasOutfitStyle = (shape) => Object.hasOwn(OUTFIT_STYLES, shape);
+
+/** The drawing style of an outfit shape, every key filled in from the street jacket's. */
+const outfitStyle = (shape) => ({ ...OUTFIT_STYLES.jacket, ...OUTFIT_STYLES[shape] });
 
 // Selectable bike models drawn by createGameArt().drawBike. Every model keeps
 // the same seat, peg, and handlebar positions so any rider fits any bike.
@@ -5544,7 +5892,6 @@ export function createGameArt(ctx) {
       // Chimney smoke, blown downwind.
       const { wind, downwind } = propWind(scene, mirrored);
       drawSmokePuffs(chimneySmoke(scene.time || 0, propNoise(x, 10), wind, downwind));
-      ctx.globalAlpha = base;
     } else if (type === "snowman") {
       drawCanopy(type);
       drawSnowmanDrift({ pixelRect }, groundOffset);
@@ -6341,27 +6688,82 @@ export function createGameArt(ctx) {
       const elbow = [8 + shift * 0.45, -32];
       const hand = RIDER_HAND;
 
+      const style = outfitStyle(parts.shapes.outfit);
+      // A point `t` of the way along a limb's joints (0 at the first, 1 at
+      // the last, each section an equal share), and the limb's direction there.
+      const along = (joints, t) => {
+        const sections = joints.length - 1;
+        const index = Math.min(sections - 1, Math.floor(t * sections));
+        const [a, b] = [joints[index], joints[index + 1]];
+        const local = t * sections - index;
+        return { at: [a[0] + (b[0] - a[0]) * local, a[1] + (b[1] - a[1]) * local], dx: b[0] - a[0], dy: b[1] - a[1] };
+      };
+      // Bands straight across a limb `width` wide, as on the stripes and cuffs.
+      const limbBands = (joints, bands, width) => {
+        if (!bands) return;
+        for (const t of bands.at) {
+          const { at, dx, dy } = along(joints, t);
+          const length = Math.hypot(dx, dy) || 1;
+          const nx = (-dy / length) * width, ny = (dx / length) * width;
+          bodyPath([[at[0] - nx, at[1] - ny], [at[0] + nx, at[1] + ny]], colors[bands.color], 2);
+        }
+      };
+      const leg = [hip, knee, ankle];
+      const arm = [shoulder, elbow, hand];
+
       // Trousers: outlined silhouette with a narrow lit edge.
-      bodyPath([hip, knee, ankle], outline, 4);
-      bodyPath([hip, knee, ankle], colors.trousers, 3);
+      bodyPath(leg, outline, 4);
+      bodyPath(leg, colors.trousers, 3);
+      if (style.legs === "shorts") {
+        // Bare from the hem above the knee, long socks from mid-shin.
+        const hem = along(leg, 0.42).at, sock = along(leg, 0.7).at;
+        bodyPath([hem, knee, sock], colors.skin, 3);
+        bodyPath([sock, ankle], colors.socks, 3);
+        bodyPath([hem, knee], colors.skinLight, 1);
+      }
       bodyPath(
         [
           [-10 + shift, -27],
           [knee[0] - 2, knee[1] - 2],
         ],
-        colors.trousersLight,
+        colors[style.legLight],
         1,
       );
+      limbBands(leg, style.legBands, 2);
 
-      // Compact reinforced knee.
-      bodyRect(knee[0] - 2, knee[1] - 2, 6, 4, colors.trousersLight);
-      bodyRect(knee[0], knee[1], 4, 2, colors.panel);
+      // The knee: a compact reinforced pad, a big guard or a race slider.
+      if (style.knee === "pad") {
+        bodyRect(knee[0] - 2, knee[1] - 2, 6, 4, colors.trousersLight);
+        bodyRect(knee[0], knee[1], 4, 2, colors.panel);
+      } else if (style.knee === "big") {
+        bodyRect(knee[0] - 2, knee[1] - 4, 6, 6, colors.panel);
+        bodyRect(knee[0], knee[1] - 2, 4, 2, colors.trousersLight);
+      } else if (style.knee === "slider") {
+        bodyRect(knee[0] + 2, knee[1] - 2, 4, 4, colors.panel);
+      }
 
-      // Boot stays anchored at the existing foot / peg position.
-      bodyRect(-5, -7, 6, 6, colors.boots);
-      bodyRect(-5, -5, 10, 4, colors.boots);
-      bodyRect(-5, -3, 10, 2, colors.sole);
-      bodyRect(-3, -7, 4, 2, colors.trousersLight);
+      // Boots stay anchored at the existing foot / peg position.
+      if (style.boots === "tall" || style.boots === "welly") {
+        const top = along(leg, 0.72).at;
+        bodyPath([top, ankle], outline, 4);
+        bodyPath([top, ankle], colors.boots, 3);
+        if (style.boots === "tall") limbBands(leg, { color: "sole", at: [0.86] }, 1.5);
+      }
+      if (style.boots === "trainer") {
+        bodyRect(-3, -7, 4, 2, colors.trousers);
+        bodyRect(-5, -5, 10, 4, colors.boots);
+        bodyRect(-5, -3, 10, 2, colors.sole);
+      } else {
+        bodyRect(-5, -7, 6, 6, colors.boots);
+        bodyRect(-5, -5, 10, 4, colors.boots);
+        bodyRect(-5, -3, 10, 2, colors.sole);
+        if (style.boots === "boot") bodyRect(-3, -7, 4, 2, colors.trousersLight);
+        if (style.boots === "heel") {
+          bodyRect(-5, -1, 4, 2, colors.sole);
+          bodyRect(5, -3, 2, 2, colors.boots);
+        }
+        if (style.boots === "snow") bodyRect(-7, -9, 10, 2, colors[style.bootRim]);
+      }
 
       // Neck, slanting forward with the back from inside the collar, which
       // covers its foot, up under the back of the skull rather than the chin.
@@ -6375,37 +6777,45 @@ export function createGameArt(ctx) {
       bodyPath(neck, colors.skin, 2);
 
       // Jersey leaning over the tank, clear of the arm and tank in front.
-      bodyRows(-16 + shift, -38, RIDER_TORSO, {
-        O: outline,
-        J: colors.jacket,
-        j: colors.jacketLight,
-        d: colors.jacketShade,
-        P: colors.panel,
-      });
+      const torsoKeys = { O: outline, J: colors.jacket, j: colors.jacketLight, d: colors.jacketShade, P: colors.panel };
+      for (const [key, color] of Object.entries(style.keys)) torsoKeys[key] = colors[color];
+      bodyRows(-16 + shift, style.torsoY, style.torso, torsoKeys);
 
       // Arm sloping down to the raised handlebar, bent at a dropped elbow.
-      bodyPath([shoulder, elbow, hand], outline, 3);
-      bodyPath([shoulder, elbow], colors.jacket, 2);
+      const sleeve = colors[style.sleeveColor];
+      bodyPath(arm, outline, 3);
+      bodyPath([shoulder, elbow], sleeve, 2);
       bodyPath(
         [
           [-4 + shift, -38],
           [6 + shift * 0.45, -34],
         ],
-        colors.jacketLight,
+        colors[style.armLight],
         1,
       );
 
-      // Forearm, cuff and glove.
-      bodyPath([elbow, hand], colors.skin, 2);
-      bodyRect(elbow[0] - 2, elbow[1] - 2, 4, 4, colors.panel);
-      bodyPath(
-        [
-          [10 + shift * 0.3, -33],
-          [13, -29],
-        ],
-        colors.skinLight,
-        1,
-      );
+      // Forearm, bare or sleeved, then the cuff and glove.
+      if (style.sleeve === "long") bodyPath([elbow, hand], sleeve, 2);
+      else {
+        if (style.sleeve === "short") bodyPath([along(arm, 0.3).at, elbow], colors.skin, 2);
+        bodyPath([elbow, hand], colors.skin, 2);
+        bodyPath(
+          [
+            [10 + shift * 0.3, -33],
+            [13, -29],
+          ],
+          colors.skinLight,
+          1,
+        );
+      }
+      limbBands(arm, style.armBands, 1.5);
+      if (style.cuff) {
+        if (style.sleeve === "long") limbBands(arm, { color: style.cuff, at: [0.9] }, 1.5);
+        else {
+          const cuff = style.sleeve === "short" ? along(arm, 0.3).at : elbow;
+          bodyRect(cuff[0] - 2, cuff[1] - 2, 4, 4, colors[style.cuff]);
+        }
+      }
       bodyRect(hand[0] - 2, hand[1] - 2, 6, 4, colors.gloves);
       bodyRect(hand[0], hand[1] - 2, 4, 2, colors.jacketLight);
 
@@ -6502,6 +6912,24 @@ export function createGameArt(ctx) {
 
     const facingVector = [fc * facing, fs * facing];
 
+    const style = outfitStyle(parts.shapes.outfit);
+    // Bands straight across the limb from `a` to `b`, at fractions along it.
+    const limbBands = (a, b, at, color, width) => {
+      const length = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      const nx = (-(b.y - a.y) / length) * width, ny = ((b.x - a.x) / length) * width;
+      for (const t of at) {
+        const [x, y] = between(a, b, t);
+        pixelPath([[x - nx, y - ny], [x + nx, y + ny]], color, 2, 2);
+      }
+    };
+    // Bands on a two-part limb, `at` running 0 to .5 on the first part and .5 to 1 on the second.
+    const jointBands = (first, joint, last, bands, width) => {
+      if (!bands) return;
+      const color = colors[bands.color];
+      limbBands(first, joint, bands.at.filter((t) => t < 0.5).map((t) => t * 2), color, width);
+      limbBands(joint, last, bands.at.filter((t) => t >= 0.5).map((t) => t * 2 - 1), color, width);
+    };
+
     // TROUSERS
     pixelPath([point(p.hip), point(p.knee), point(p.foot)], outline, 4, 2);
     pixelPath(
@@ -6510,6 +6938,10 @@ export function createGameArt(ctx) {
       3,
       2,
     );
+    if (style.legs === "shorts") {
+      pixelPath([between(p.hip, p.knee, 0.8), point(p.knee), between(p.knee, p.foot, 0.4)], colors.skin, 3, 2);
+      pixelPath([between(p.knee, p.foot, 0.4), point(p.foot)], colors.socks, 3, 2);
+    }
 
     const thighStart = between(p.hip, p.knee, 0.15);
     const thighEnd = between(p.hip, p.knee, 0.85);
@@ -6522,17 +6954,19 @@ export function createGameArt(ctx) {
         ],
         [thighEnd[0] + facingVector[0] * 2, thighEnd[1] + facingVector[1] * 2],
       ],
-      colors.trousersLight,
+      colors[style.legLight],
       1,
       2,
     );
+    jointBands(p.hip, p.knee, p.foot, style.legBands, 2);
 
-    pixelPath(
-      [between(p.hip, p.knee, 0.88), between(p.knee, p.foot, 0.12)],
-      colors.panel,
-      2,
-      2,
-    );
+    if (style.knee !== "none")
+      pixelPath(
+        [between(p.hip, p.knee, 0.88), between(p.knee, p.foot, 0.12)],
+        colors.panel,
+        style.knee === "big" ? 3 : 2,
+        2,
+      );
 
     // BOOT
     // Its toe follows the lower leg instead of remaining screen-aligned.
@@ -6548,12 +6982,15 @@ export function createGameArt(ctx) {
     const heel = [p.foot.x - toeX * 2, p.foot.y - toeY * 2];
     const toe = [p.foot.x + toeX * 6, p.foot.y + toeY * 6];
 
+    const shaft = { tall: 0.45, welly: 0.45, trainer: 0.92 }[style.boots] ?? 0.76;
     pixelPath(
-      [between(p.knee, p.foot, 0.76), point(p.foot)],
+      [between(p.knee, p.foot, shaft), point(p.foot)],
       colors.boots,
       3,
       2,
     );
+    if (style.bootRim)
+      pixelPath([between(p.knee, p.foot, 0.7), between(p.knee, p.foot, 0.78)], colors[style.bootRim], 4, 2);
     pixelPath([heel, toe], colors.boots, 2, 2);
     pixelPath(
       [
@@ -6587,11 +7024,12 @@ export function createGameArt(ctx) {
       2,
       2,
     );
+    if (style.bands) limbBands(p.hip, p.shoulder, style.bands.at, colors[style.bands.color], 2.5);
 
     // Contrasting hem.
     pixelPath(
       [point(p.hip), between(p.hip, p.shoulder, 0.18)],
-      colors.panel,
+      colors[style.hem],
       3,
       2,
     );
@@ -6617,29 +7055,35 @@ export function createGameArt(ctx) {
       2,
     );
 
-    pixelPath([point(p.shoulder), point(p.elbow)], colors.jacket, 2, 2);
+    const sleeve = colors[style.sleeveColor];
+    pixelPath([point(p.shoulder), point(p.elbow)], sleeve, 2, 2);
     pixelPath(
       [between(p.shoulder, p.elbow, 0.12), between(p.shoulder, p.elbow, 0.72)],
-      colors.jacketLight,
+      colors[style.armLight],
       1,
       2,
     );
 
-    pixelPath([point(p.elbow), point(p.hand)], colors.skin, 2, 2);
-    pixelPath(
-      [between(p.elbow, p.hand, 0.2), between(p.elbow, p.hand, 0.65)],
-      colors.skinLight,
-      1,
-      2,
-    );
+    if (style.sleeve === "long") pixelPath([point(p.elbow), point(p.hand)], sleeve, 2, 2);
+    else {
+      if (style.sleeve === "short") pixelPath([between(p.shoulder, p.elbow, 0.6), point(p.elbow)], colors.skin, 2, 2);
+      pixelPath([point(p.elbow), point(p.hand)], colors.skin, 2, 2);
+      pixelPath(
+        [between(p.elbow, p.hand, 0.2), between(p.elbow, p.hand, 0.65)],
+        colors.skinLight,
+        1,
+        2,
+      );
+    }
+    jointBands(p.shoulder, p.elbow, p.hand, style.armBands, 1.5);
 
     // Cuff.
-    pixelPath(
-      [between(p.shoulder, p.elbow, 0.85), point(p.elbow)],
-      colors.panel,
-      2,
-      2,
-    );
+    if (style.cuff) {
+      const cuff = style.sleeve === "long" ? [between(p.elbow, p.hand, 0.7), between(p.elbow, p.hand, 0.8)]
+        : style.sleeve === "short" ? [between(p.shoulder, p.elbow, 0.5), between(p.shoulder, p.elbow, 0.6)]
+          : [between(p.shoulder, p.elbow, 0.85), point(p.elbow)];
+      pixelPath(cuff, colors[style.cuff], 2, 2);
+    }
 
     // Glove and small highlight.
     pixelPath(

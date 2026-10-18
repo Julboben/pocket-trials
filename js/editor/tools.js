@@ -6,6 +6,7 @@ import { terrainMaterials } from "../trails.js";
 import { $, canvas } from "./dom.js";
 import { renderObjects } from "./objects.js";
 import { pickerSelect } from "./picker.js";
+import { schedulePreviewThumbnail, stopEditingPreview } from "./preview.js";
 import { segmentSelects } from "./segmented.js";
 import { editor } from "./state.js";
 import { refuseEdit } from "./status.js";
@@ -353,5 +354,8 @@ export function setTab(name) {
   $("panel-tools").hidden = name !== "tools";
   $("panel-trail").hidden = name !== "trail";
   $("panel-objects").hidden = name !== "objects";
+  // The preview frame belongs to the Trail tab; its thumbnail is drawn when shown.
+  if (name !== "trail") stopEditingPreview();
+  else schedulePreviewThumbnail();
   renderObjects();
 }

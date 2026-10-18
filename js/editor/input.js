@@ -61,6 +61,14 @@ import { refuseEdit, refuseReadOnly, showStatus } from "./status.js";
 import { PREVIEW_TOOLS, TOOL_KEYS, setTool, toolSettings } from "./tools.js";
 import { groupLabel, isGroupLocked, toolGroup } from "./locks.js";
 import { commitWater } from "./water.js";
+import {
+  beginPreviewDrag,
+  draggingPreview,
+  editingPreview,
+  endPreviewDrag,
+  movePreviewDrag,
+  stopEditingPreview,
+} from "./preview.js";
 import { canSave, saveDraft, saveTrail } from "./trails.js";
 import {
   focusOnStart,
@@ -338,6 +346,10 @@ function resetPointerState() {
 }
 
 export const endPointer = () => {
+  if (endPreviewDrag()) {
+    resetPointerState();
+    return;
+  }
   if (editor.pendingShape) {
     const shape = editor.pendingShape;
     const kind = pendingKind;
@@ -471,6 +483,12 @@ export function bindInput() {
         cameraX: editor.cameraX,
         cameraY: editor.cameraY,
       };
+      canvas.setPointerCapture(event.pointerId);
+      return;
+    }
+    // Editing the preview: the canvas only moves its frame (panning still works).
+    if (editingPreview()) {
+      beginPreviewDrag(point);
       canvas.setPointerCapture(event.pointerId);
       return;
     }
@@ -609,7 +627,7 @@ export function bindInput() {
     editor.pointerClient = { clientX: event.clientX, clientY: event.clientY };
     // No button held: the release was missed, so end the drag here.
     if (
-      (dragging || panning || editor.marquee || altPress || readOnlyPress) &&
+      (dragging || panning || editor.marquee || altPress || readOnlyPress || draggingPreview()) &&
       event.buttons === 0
     ) {
       endPointer();
@@ -623,6 +641,12 @@ export function bindInput() {
       renderView();
       return;
     }
+    if (draggingPreview()) {
+      movePreviewDrag(pointerWorld(event));
+      return;
+    }
+    // The frame is all a press does while editing the preview.
+    if (editingPreview()) return;
     if (PREVIEW_TOOLS.has(editor.tool) && !dragging) {
       editor.hoverPoint = pointerWorld(event);
       renderView();
@@ -795,6 +819,11 @@ export function bindInput() {
         event.preventDefault();
         closePlaytest();
       }
+      return;
+    }
+    if (event.key === "Escape" && editingPreview() && !typingInField()) {
+      event.preventDefault();
+      stopEditingPreview();
       return;
     }
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {

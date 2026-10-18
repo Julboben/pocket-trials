@@ -926,5 +926,9 @@
     "gold": 34,
     "silver": 44,
     "bronze": 58
+  },
+  "preview": {
+    "x": 842,
+    "y": 59
   }
 }

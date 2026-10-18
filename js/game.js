@@ -2,7 +2,7 @@
 // rate, turns ride events into sound, effects and UI, and saves results.
 import { STEP, MAX_STEPS_PER_FRAME, clamp } from './config.js';
 import { trails, officialTrailEntries, bonusTrailEntries, customTrailEntries, readPlaytestTrail, reportEditorFeat, takeEditorFeats, EDITOR_FEATS_KEY, PLAYTEST_EXIT_MESSAGE } from './trails.js';
-import { createAudio } from './audio.js';
+import { createAudio, skidAmount } from './audio.js';
 import { createPhysicsDebugger } from './physics-debug.js';
 import { createFpsMeter } from './fps-meter.js';
 import { terrainAt } from './terrain.js';
@@ -18,6 +18,7 @@ import { createLimWatcher, installConsoleCheats } from './easter-eggs.js';
 import { submitOnlineRun, fetchWorldGhost, refreshOnlineBoard, cachedOnlineBoard } from './online-leaderboard.js';
 import { queueSaveSync } from './account.js';
 import { createInput, keyLabel } from './input.js';
+import { createHaptics } from './haptics.js';
 import { createCamera } from './camera.js';
 import { createEffects } from './effects.js';
 import { createRenderer } from './render.js';
@@ -162,9 +163,12 @@ export function startGame({ shared = null } = {}) {
 
   const restartKey = () => keyLabel(session.preferences.bindings.restart[0] || 'KeyR');
 
-  function vibrate(pattern) {
-    if (session.preferences.haptics === 'on' && typeof navigator.vibrate === 'function') navigator.vibrate(pattern);
-  }
+  // Phone vibration and gamepad rumble. Watching a replay is not riding, so it stays still.
+  const haptics = createHaptics({
+    phoneEnabled: () => !replay && session.preferences.haptics === 'on',
+    padEnabled: () => !replay && session.preferences.rumble === 'on',
+    gamepad: () => input.activeGamepad(),
+  });
 
   async function holdWakeLock(wanted) {
     if (!('wakeLock' in navigator)) return;
@@ -572,7 +576,7 @@ export function startGame({ shared = null } = {}) {
     setState('running'); focusGame();
   }
 
-  function pauseGame() { if (session.state === 'running') setState('paused'); }
+  function pauseGame() { if (session.state === 'running') { setState('paused'); haptics.stop(); } }
   function resumeGame() {
     if (session.state !== 'paused') return;
     setState('running'); focusGame();
@@ -592,6 +596,7 @@ export function startGame({ shared = null } = {}) {
     if (session.state !== 'menu') session.stateBeforeMenu = session.state;
     session.state = 'menu';
     input.clear();
+    haptics.stop();
     overlay.hide();
     $('crash-retry').hidden = true;
     holdWakeLock(false);
@@ -748,7 +753,7 @@ export function startGame({ shared = null } = {}) {
       });
     }
     setState('won');
-    vibrate([20, 40, 20, 40, 60]);
+    haptics.play('cheer');
   }
 
   function handleEvent(ride, event) {
@@ -767,7 +772,7 @@ export function startGame({ shared = null } = {}) {
         const mx = (ride.rear.x + ride.front.x) / 2, my = (ride.rear.y + ride.front.y) / 2;
         renderer.popup('+' + event.count + (event.count === 1 ? ' FLIP' : ' FLIPS'), mx, my - 70);
         overlay.announce(event.count + (event.count === 1 ? ' flip.' : ' flips.'));
-        vibrate(25);
+        haptics.play('tick', { phonePattern: 25 });
         break;
       }
       case 'land':
@@ -776,13 +781,20 @@ export function startGame({ shared = null } = {}) {
         landingSoundCooldown = .12;
         for (const wheel of [ride.rear, ride.front]) if (wheel.grounded && wheel.impactSpeed > LANDING_SOUND_IMPACT) effects.dustPuff(wheel, wheel.impactSpeed);
         if (event.impact > HARD_LANDING_IMPACT) {
-          vibrate(Math.round(clamp(event.impact / 12, 10, 40)));
+          haptics.play('thump', {
+            strength: clamp((event.impact - HARD_LANDING_IMPACT) / 400, 0, 1),
+            phonePattern: Math.round(clamp(event.impact / 12, 10, 40)),
+          });
           // Shakes the snow off nearby snowy pines.
           renderer.land((ride.rear.x + ride.front.x) / 2, (ride.rear.y + ride.front.y) / 2, clamp(.4 + (event.impact - HARD_LANDING_IMPACT) / 380, .4, 1));
         }
         break;
       case 'suspension':
-        if (ride.status !== 'running' || suspensionSoundCooldown > 0) break;
+        if (ride.status !== 'running') break;
+        // Bottoming out thumps the gamepad, as hard as the clunk sounds; a
+        // landing that bottoms out thumps once.
+        if (event.end === 'bottom') haptics.play('thump', { strength: clamp((event.speed - 100) / 300, 0, 1), phone: false });
+        if (suspensionSoundCooldown > 0) break;
         sounds.suspension(event.end, event.speed);
         suspensionSoundCooldown = .06;
         break;
@@ -797,18 +809,18 @@ export function startGame({ shared = null } = {}) {
         effects.shatter(event);
         sounds.shatter(event.speed);
         if (session.preferences.shake === 'on') camera.kick(3);
-        vibrate(30);
+        haptics.play('jolt');
         break;
       case 'crack':
         effects.crack(event);
         sounds.crack(event.speed);
-        vibrate(12);
+        haptics.play('tick');
         break;
       case 'crash':
         effects.burst(event.x, event.y, CRASH_COLORS[event.cause], event.cause === 'spike' ? 18 : 15);
         sounds.crash();
         if (session.preferences.shake === 'on') camera.kick(6);
-        vibrate([40, 30, 80]);
+        haptics.play('crash');
         setState('ragdoll');
         overlay.announce('Rider down. Press ' + restartKey() + ' or select Retry to try again.');
         overlay.toast('Rider down · Press ' + restartKey() + ' to retry', Infinity);
@@ -816,7 +828,7 @@ export function startGame({ shared = null } = {}) {
       case 'helmet':
         effects.burst(event.x, event.y, riderPalette(replay?.look ?? session.look).helmet, 8);
         sounds.helmet(event.speed);
-        vibrate(25);
+        haptics.play('jolt', { phonePattern: 25 });
         overlay.announce('The helmet came off.');
         break;
       case 'apple': {
@@ -833,7 +845,7 @@ export function startGame({ shared = null } = {}) {
         // Optional and hidden: a puff of red, a jingle, and a note in the save.
         effects.burst(event.x, event.y - 12, '#d63b2c', 14);
         sounds.nisse();
-        vibrate(30);
+        haptics.play('cheer', { phonePattern: 30 });
         overlay.toast('You found the nisse!', 3200, 'nisse');
         overlay.announce('You found the nisse.');
         findNisse();
@@ -953,6 +965,9 @@ export function startGame({ shared = null } = {}) {
     fpsMeter?.drawn(now);
     debugHud?.update({ ride: session.ride, state: session.state, trailName: session.trail?.name, dynamics: lastDynamics }, now);
     sounds.update();
+    // A light buzz while the tyre skids under braking, like the skid sound.
+    const current = session.ride;
+    if (current) haptics.skid(skidAmount({ state: session.state, rear: current.rear, front: current.front, brakePressure: current.brakePressure ?? 0 }));
     requestAnimationFrame(frame);
   }
 
