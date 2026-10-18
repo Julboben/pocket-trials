@@ -204,6 +204,10 @@ canvas {
     display: block;
     width: 100%;
     height: 100%;
+}
+/* Only the game itself takes over touches. The menu's canvases (trail
+   previews, How to Play art, rider portraits) let a swipe scroll the list. */
+#canvas {
     touch-action: none;
 }
 .hud {
