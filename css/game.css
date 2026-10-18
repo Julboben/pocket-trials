@@ -806,6 +806,10 @@ h2 {
     grid-template-columns: 1fr 1fr;
     gap: 10px;
 }
+/* Dev-server only: saves the run for the replay bot. */
+#save-reference {
+    grid-column: 1 / -1;
+}
 #primary {
     position: relative;
 }

@@ -1,7 +1,7 @@
 // The game loop and state machine: loads trails, steps the ride at a fixed
 // rate, turns ride events into sound, effects and UI, and saves results.
 import { STEP, MAX_STEPS_PER_FRAME, clamp } from './config.js';
-import { trails, officialTrailEntries, bonusTrailEntries, customTrailEntries, readPlaytestTrail, reportEditorFeat, takeEditorFeats, EDITOR_FEATS_KEY, PLAYTEST_EXIT_MESSAGE } from './trails.js';
+import { trails, officialTrailEntries, bonusTrailEntries, customTrailEntries, readPlaytestTrail, reportEditorFeat, takeEditorFeats, EDITOR_FEATS_KEY, PLAYTEST_EXIT_MESSAGE, detectDevServer } from './trails.js';
 import { createAudio, skidAmount } from './audio.js';
 import { createPhysicsDebugger } from './physics-debug.js';
 import { createFpsMeter } from './fps-meter.js';
@@ -151,6 +151,9 @@ export function startGame({ shared = null } = {}) {
   let replay = null;
   /** The last finished run, for Watch Replay on the results. */
   let lastRun = null;
+  // Run from the local dev server, finished runs can be saved for the replay bot.
+  let devServer = false;
+  detectDevServer().then(available => { devServer = available; });
   // Set when this run ended the career, until its results' Roll Credits button is used.
   let creditsAfterResults = false;
   let wakeLock = null;
@@ -667,6 +670,32 @@ export function startGame({ shared = null } = {}) {
 
   // --- Simulation ------------------------------------------------------------
 
+  // The replay bot's reference runs live in the repo (tests/replays/human), so
+  // only the dev server can save them. It works out which official trail the
+  // run finishes, which also covers play tests.
+  function showSaveReference() {
+    const button = $('save-reference');
+    button.hidden = !devServer || !lastRun || !['official', 'playtest'].includes(session.trailSource);
+    button.disabled = false;
+  }
+
+  async function saveReferenceRun() {
+    const button = $('save-reference');
+    if (session.state !== 'won' || !lastRun || button.disabled) return;
+    button.disabled = true;
+    try {
+      const response = await fetch(new URL('../api/reference-runs', import.meta.url), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(lastRun)
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `The dev server answered ${response.status}.`);
+      overlay.toast(`Bot reference saved for ${result.name}${result.replaced ? ' · replaced the old one' : ''}`, 4000);
+    } catch (error) {
+      button.disabled = false;
+      overlay.toast(error instanceof Error ? error.message : String(error), 5000);
+    }
+  }
+
   function finishPlaytestRun(ride) {
     const time = ride.elapsed;
     const previousBest = playtestBest?.time ?? null;
@@ -683,6 +712,7 @@ export function startGame({ shared = null } = {}) {
     });
     // Test Pilot: given to the rider back in the game, as play-tests don't count as riding.
     if (!replay) reportEditorFeat('playtest');
+    showSaveReference();
     $('overlay-badge').textContent = 'PLAY TEST COMPLETED';
     $('overlay-description').textContent = 'Play-test runs are not saved. Press Escape to return to the editor.';
     $('overlay-description').hidden = false;
@@ -746,6 +776,7 @@ export function startGame({ shared = null } = {}) {
       primaryLabel: official && !last ? 'Next Trail' : creditsAfterResults ? 'Roll Credits' : 'Play Again',
       restartKey: restartKey()
     });
+    showSaveReference();
     if (submission) {
       const slot = session.activeSaveSlot;
       const shown = overlay.currentResults();
@@ -1038,6 +1069,7 @@ export function startGame({ shared = null } = {}) {
     } else startFresh();
   });
   $('secondary').addEventListener('click', startFresh);
+  $('save-reference').addEventListener('click', saveReferenceRun);
   $('watch-replay').addEventListener('click', () => {
     if (session.state === 'won' && lastRun) watchReplay({ data: lastRun, name: session.saveGame?.name || 'Your run' });
   });

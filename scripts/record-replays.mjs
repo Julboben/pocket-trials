@@ -3,9 +3,15 @@
 //
 //   node scripts/record-replays.mjs            record trails whose replay is stale
 //   node scripts/record-replays.mjs 03         only trails whose id contains "03"
-//   node scripts/record-replays.mjs --force    re-record even replays that still work
+//   node scripts/record-replays.mjs --force    re-record even replays that still work (human runs are still used)
 //   node scripts/record-replays.mjs --explore  skip the greedy bot and go straight to the explorer
 //   REPLAY_MAX_MINUTES=5 node scripts/...      search budget per trail (default 20)
+//   REPLAY_JOBS=4 node scripts/...             trails recorded at once (default: one per CPU core but one)
+//
+// Trails that need recording are recorded at the same time, each in its own
+// process (started with --trail=<id>). The search budget is wall-clock time,
+// so running more jobs than there are free cores gives each one less to work
+// with; keep the machine awake while it runs (e.g. `caffeinate -i` on macOS).
 //
 // A trail the bot can't figure out can be taught with a human run: save the
 // ghost (localStorage `hjulben-ghost-v1:<trail id>@<hash>`) or the output of
@@ -24,8 +30,11 @@
 // every option ahead crashes it backs up a little and searches again. If it
 // can't finish a trail, the explorer (see exploreTrail) takes over: it finds
 // routes that turn around, roll back for a run-up or launch off kickers.
+import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { availableParallelism } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { simulateRun } from '../js/ride.js';
 import { decodeInputs, encodeInputs } from '../js/replay-codec.js';
 import { MAX_MINUTES, exploreTrail, recordTrail, repairRun } from './lib/replay-bot.mjs';
@@ -38,6 +47,9 @@ const args = process.argv.slice(2);
 const force = args.includes('--force');
 const exploreOnly = args.includes('--explore');
 const filter = args.find(arg => !arg.startsWith('--')) || '';
+// Set on the processes that record one trail each.
+const onlyTrail = args.find(arg => arg.startsWith('--trail='))?.slice('--trail='.length);
+const jobs = Number(process.env.REPLAY_JOBS) || Math.max(1, availableParallelism() - 1);
 const trailHash = trail => createHash('sha256').update(JSON.stringify(trail)).digest('hex').slice(0, 16);
 
 function outcomeOf(trail, inputs, seed = 1) {
@@ -71,19 +83,12 @@ function reusable(entry, path, hash, references) {
   return unchanged ? { inputs, reason: 'never finished, trail unchanged (--force to retry)' } : null;
 }
 
-mkdirSync(OUT_DIR, { recursive: true });
-const officialTrails = loadCatalogTrails('official');
-// Drop replays left behind when an official trail is renamed or removed.
-const expected = new Set(officialTrails.map(entry => entry.file.split('/').pop()));
-for (const file of readdirSync(OUT_DIR)) {
-  if (!file.endsWith('.json') || expected.has(file)) continue;
-  unlinkSync(OUT_DIR + file);
-  console.log(`${file}: removed, no official trail uses it`);
-}
-// Runs that once finished the trail: a human run, and the replay if it did.
+// Runs that once finished the trail: a human run, and the replay if it did
+// (unless --force asks for a fresh recording).
 function referencesFor(file, path) {
   const references = [];
-  for (const [source, run] of [['human run', HUMAN_DIR + file], ['previous replay', path]]) {
+  const runs = [['human run', HUMAN_DIR + file], ...force ? [] : [['previous replay', path]]];
+  for (const [source, run] of runs) {
     if (!existsSync(run)) continue;
     let data;
     try { data = JSON.parse(readFileSync(run, 'utf8')); } catch { console.log(`  ${run}: unreadable, skipped`); continue; }
@@ -104,15 +109,18 @@ function furthest(entry, references) {
   return best;
 }
 
-let kept = 0, recorded = 0;
-for (const entry of officialTrails) {
-  if (!entry.id.includes(filter)) continue;
-  const started = Date.now();
+// Whether a trail's replay can be kept, and what it has to go on if not.
+function plan(entry) {
   const file = entry.file.split('/').pop();
   const path = OUT_DIR + file;
   const hash = trailHash(entry.trail);
   const references = referencesFor(file, path);
-  const reuse = reusable(entry, path, hash, references);
+  return { path, hash, references, reuse: reusable(entry, path, hash, references) };
+}
+
+/** Writes a trail's replay, kept or newly recorded. */
+function record(entry, { path, hash, references, reuse }) {
+  const started = Date.now();
   let result = reuse;
   for (const { source, inputs } of reuse ? [] : references) {
     const { ride } = outcomeOf(entry.trail, inputs);
@@ -146,16 +154,55 @@ for (const entry of officialTrails) {
   if (!existsSync(path) || readFileSync(path, 'utf8') !== text) writeFileSync(path, text);
   const summary = `${ride.status} in ${ride.elapsed.toFixed(2)}s, ${ride.collected}/${ride.apples.length} apples`;
   if (reuse) {
-    kept++;
     console.log(`${entry.id}: kept, ${reuse.reason} (${summary})`);
-    continue;
+    return;
   }
-  recorded++;
-  if (result.source) {
-    console.log(`${entry.id}: recorded from the ${result.source}, ${summary}`);
-    continue;
+  if (result.source) console.log(`${entry.id}: recorded from the ${result.source}, ${summary}`);
+  else {
+    console.log(`${entry.id}: recorded, ${summary}, ${replay.inputs.length} input runs, `
+      + `${backtracks} backtracks, ${((Date.now() - started) / 1000).toFixed(1)}s`);
   }
-  console.log(`${entry.id}: recorded, ${summary}, ${replay.inputs.length} input runs, `
-    + `${backtracks} backtracks, ${((Date.now() - started) / 1000).toFixed(1)}s`);
 }
-console.log(`${recorded} recorded, ${kept} kept.`);
+
+/** Records a trail in a process of its own; resolves once it's done. */
+function recordElsewhere(entry) {
+  const passed = args.filter(arg => arg === '--force' || arg === '--explore');
+  const child = spawn(process.execPath, [fileURLToPath(import.meta.url), `--trail=${entry.id}`, ...passed], { stdio: 'inherit' });
+  return new Promise(resolve => child.on('close', code => {
+    if (code) console.log(`${entry.id}: recording failed (exit code ${code})`);
+    resolve();
+  }));
+}
+
+mkdirSync(OUT_DIR, { recursive: true });
+const officialTrails = loadCatalogTrails('official');
+if (onlyTrail) {
+  const entry = officialTrails.find(candidate => candidate.id === onlyTrail);
+  if (!entry) throw new Error(`no official trail ${onlyTrail}`);
+  record(entry, plan(entry));
+} else {
+  // Drop replays left behind when an official trail is renamed or removed.
+  const expected = new Set(officialTrails.map(entry => entry.file.split('/').pop()));
+  for (const file of readdirSync(OUT_DIR)) {
+    if (!file.endsWith('.json') || expected.has(file)) continue;
+    unlinkSync(OUT_DIR + file);
+    console.log(`${file}: removed, no official trail uses it`);
+  }
+  let kept = 0;
+  const queue = [];
+  for (const entry of officialTrails) {
+    if (!entry.id.includes(filter)) continue;
+    const planned = plan(entry);
+    if (planned.reuse) { record(entry, planned); kept++; } else queue.push({ entry, planned });
+  }
+  const recorded = queue.length;
+  if (recorded > 1 && jobs > 1) {
+    console.log(`Recording ${recorded} trails, ${Math.min(jobs, recorded)} at a time.`);
+    await Promise.all(Array.from({ length: Math.min(jobs, recorded) }, async () => {
+      for (let next = queue.shift(); next; next = queue.shift()) await recordElsewhere(next.entry);
+    }));
+  } else {
+    for (const { entry, planned } of queue) record(entry, planned);
+  }
+  console.log(`${recorded} recorded, ${kept} kept.`);
+}
