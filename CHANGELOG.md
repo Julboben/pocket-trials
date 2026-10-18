@@ -2,6 +2,23 @@
 
 Player-facing release notes. The game shows them under **What's new**, and each GitHub Release uses its section.
 
+## 0.4.0 — 2026-10-18
+
+### Heads up
+- The bike physics have been reworked, so existing trail leaderboards start fresh and earlier ghosts and runs won't carry over. Shared trail links will update to the newer version.
+
+### New
+- Bike handling now feels more authentic. Suspension uses rising-rate springs, braking pushes back on the frame so the nose dives in proportion to how hard the brakes work, and gas and brake in the air now spin the bike like a real one. Wheel spin also runs down in the air and after a crash, and leaning is snappier.
+- New official trails have been added, from Hay Lane to Long Way Up, along with a wood terrain material and trails with real day cycles.
+- There's a new weather system, plus wind that sways flags, props and trees, with leaves falling in heavy wind. Rain and snow also move correctly as the camera goes up and down.
+- New riding gear to unlock, including the Scrambler bike, new helmets, beards for male riders, new headwear and Bonnie Tyler hair. Plenty of other helmets and the classic bike have been improved, and there's something to find hidden in the trails.
+- Editor: Lots of new props, an Objects tab to lock groups or single items, block merging, a quick pick with Cmd/Ctrl+P, trail preview thumbnails, validation warnings that jump to the problem, and shareable custom trail links. Read-only trails can now only be viewed.
+
+### Improved
+- The engine sound now follows the real engine, and the old made-up 5-speed gearbox is gone. There are also new skid sounds that vary by surface, suspension clunks and tyre squish.
+- The main menu has been redesigned with credits, a new title font, gamepad settings tabs, new mobile control buttons, a new achievement toast and a nicer trail completed card. The results card also stays steady while your world rank loads.
+- Apples no longer bob. They hold still with a shine sweep, so the hitbox is exactly the drawn apple.
+
 ## 0.3.5 — 2026-10-13
 
 ### New

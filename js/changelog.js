@@ -2,6 +2,48 @@
 /** @type {{ version: string, date: string, changes: { type: 'new' | 'improved' | 'fixed', text: string }[] }[]} */
 export const RELEASES = [
   {
+    "version": "0.4.0",
+    "date": "2026-10-18",
+    "changes": [
+      {
+        "type": "heads-up",
+        "text": "The bike physics have been reworked, so existing trail leaderboards start fresh and earlier ghosts and runs won't carry over. Shared trail links will update to the newer version."
+      },
+      {
+        "type": "new",
+        "text": "Bike handling now feels more authentic. Suspension uses rising-rate springs, braking pushes back on the frame so the nose dives in proportion to how hard the brakes work, and gas and brake in the air now spin the bike like a real one. Wheel spin also runs down in the air and after a crash, and leaning is snappier."
+      },
+      {
+        "type": "new",
+        "text": "New official trails have been added, from Hay Lane to Long Way Up, along with a wood terrain material and trails with real day cycles."
+      },
+      {
+        "type": "new",
+        "text": "There's a new weather system, plus wind that sways flags, props and trees, with leaves falling in heavy wind. Rain and snow also move correctly as the camera goes up and down."
+      },
+      {
+        "type": "new",
+        "text": "New riding gear to unlock, including the Scrambler bike, new helmets, beards for male riders, new headwear and Bonnie Tyler hair. Plenty of other helmets and the classic bike have been improved, and there's something to find hidden in the trails."
+      },
+      {
+        "type": "new",
+        "text": "Editor: Lots of new props, an Objects tab to lock groups or single items, block merging, a quick pick with Cmd/Ctrl+P, trail preview thumbnails, validation warnings that jump to the problem, and shareable custom trail links. Read-only trails can now only be viewed."
+      },
+      {
+        "type": "improved",
+        "text": "The engine sound now follows the real engine, and the old made-up 5-speed gearbox is gone. There are also new skid sounds that vary by surface, suspension clunks and tyre squish."
+      },
+      {
+        "type": "improved",
+        "text": "The main menu has been redesigned with credits, a new title font, gamepad settings tabs, new mobile control buttons, a new achievement toast and a nicer trail completed card. The results card also stays steady while your world rank loads."
+      },
+      {
+        "type": "improved",
+        "text": "Apples no longer bob. They hold still with a shine sweep, so the hitbox is exactly the drawn apple."
+      }
+    ]
+  },
+  {
     "version": "0.3.5",
     "date": "2026-10-13",
     "changes": [
