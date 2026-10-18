@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { normalizeTrail, validateTrail } from '../js/trail-schema.js';
 import { rectangle } from './lib/terrain-fixtures.mjs';
 import { PAINTED_PROPS, WALL_PROPS, canFlip, canRotate, mossSurface, paintedBounds, propWallFit } from '../js/drawing.js';
-import { FLAGPOLE, flagDroop, flagRipple } from '../js/countryside-props.js';
+import { FLAGPOLE, MILL, flagDroop, flagRipple, millAngle } from '../js/countryside-props.js';
 import { FIRE_TONGUES, GRASS_BRUSH, IVY, LEAF_REST, LEAVES_AIRBORNE, TREE_SWAY_MAX, fallingLeaves, grassLean, ivyLayout, ivyRustle, mossCushions, mossPlacement, treeSway } from '../js/forest-props.js';
 import { fireFrame, fireTongues } from '../js/fire.js';
 
@@ -206,6 +206,18 @@ const COUNTRYSIDE_PROPS = ['tent', 'grass', 'flagpole', 'christiania-bike', 'ben
     previous = look;
   }
   assert.ok(seen > 0 && changes / 60 < 4, `it turns over gently (${(changes / 60).toFixed(1)} changes a second)`);
+}
+
+// The windmill's sails: still at time 0 at an angle of their own, turning
+// anticlockwise, slowly, faster in a stronger wind, never faster than about
+// a turn every four seconds.
+{
+  assert.equal(millAngle(0, 1, 0.25), Math.PI / 2, 'still at time 0, at its own angle');
+  const turn = (wind) => (millAngle(60, wind, 0) - millAngle(0.001, wind, 0)) / 60;
+  assert.ok(turn(0.25) < 0 && turn(1) < 0, 'it turns anticlockwise');
+  assert.ok(-turn(1) > -turn(0.25) * 2, 'faster in a gale');
+  assert.ok(-turn(1) < (Math.PI * 2) / 3.5, 'but always slowly');
+  assert.ok(MILL.hub.y - MILL.sail > -260, 'tall, but not taller than the view can show');
 }
 
 console.log('Countryside props: all checks passed.');

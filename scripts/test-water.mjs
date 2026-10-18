@@ -6,7 +6,7 @@ import { trailHash } from '../js/trail-hash.js';
 import { WATER_SIZE, WATER_WIPEOUT_DEPTH, deepWater, normalizeWater, waterAt, wheelImmersion } from '../js/water.js';
 import { rectangle } from './lib/terrain-fixtures.mjs';
 import { propSpan, propWallFit, waterPropAt } from '../js/drawing.js';
-import { FISH_HALF, FISH_RANGE, fishDart, fishSwim } from '../js/water-props.js';
+import { DRAGONFLY_RANGE, FISH_HALF, FISH_RANGE, FROG_LEAP, SURFACE_PROPS, WATER_PROPS, dragonflyAt, fishDart, fishSwim, frogLeap, risingBubbles } from '../js/water-props.js';
 
 const flatTrail = (overrides = {}) => ({
   name: 'test', terrainBlocks: [rectangle(0, 320, 3000, 620)],
@@ -141,6 +141,36 @@ const errors = trail => validateTrail(trail).filter(message => message.type === 
   const props = warnings(stray).filter(text => /^Prop/.test(text));
   assert.equal(props.length, 2, props.join('\n'));
   assert.ok(props[0].includes('Prop 1 (fish)') && props[1].includes('Prop 2 (lily)'));
+}
+
+// The frog, the rowing boat, the bubbles and the dragonflies.
+{
+  for (const type of ['frog', 'boat', 'bubbles', 'dragonfly']) assert.ok(WATER_PROPS.has(type), `${type} is a water prop`);
+  for (const type of ['frog', 'boat', 'dragonfly']) assert.ok(SURFACE_PROPS.has(type), `${type} finds the surface`);
+  // A pond 400 wide from x 400, its surface at y 300 and 60 deep.
+  const pond = normalizeTrail(flatTrail({
+    terrainBlocks: [rectangle(0, 360, 3000, 620)],
+    water: [{ x: 400, y: 300, width: 400, depth: 60 }],
+  }));
+  const frog = propWallFit(pond, { type: 'frog', x: 500, y: null });
+  assert.equal(frog.surface, -60, 'the frog floats on the surface above the bed');
+  const bubbles = propWallFit(pond, { type: 'bubbles', x: 600, y: null });
+  assert.equal(bubbles.rise, 60, 'bubbles know how far they rise to the surface');
+  // The frog leaps up and away from the rider, then splashes in.
+  const mid = frogLeap(FROG_LEAP / 2, 1), done = frogLeap(FROG_LEAP + 0.3, -1);
+  assert.ok(mid.flying && mid.dx > 0 && mid.dy < -20, 'it arcs up and away');
+  assert.ok(!done.flying && done.dx < 0 && done.rings > 0, 'then splashes in, the rings spreading');
+  // Bubbles rise now and then, never past the surface, and pop there.
+  assert.deepEqual(risingBubbles(0, 60, 0.3), [], 'none at time 0');
+  const seen = Array.from({ length: 400 }, (_, i) => risingBubbles(i * 0.05, 60, 0.3)).flat();
+  assert.ok(seen.length && seen.every((b) => b.y <= 0 && b.y >= -60), 'from the bed to the surface');
+  assert.ok(seen.some((b) => b.popped) && seen.some((b) => !b.popped), 'rising, then popping');
+  assert.ok(Array.from({ length: 400 }, (_, i) => risingBubbles(i * 0.05, 60, 0.3).length).filter((n) => n === 0).length > 100, 'only now and then');
+  // Dragonflies hover over the water within their range, darting between spots.
+  const flights = Array.from({ length: 300 }, (_, i) => dragonflyAt(i * 0.05, 0.4, 0));
+  assert.ok(flights.every((f) => Math.abs(f.x) <= DRAGONFLY_RANGE.x && f.y <= -DRAGONFLY_RANGE.low + 2 && f.y >= -DRAGONFLY_RANGE.high - 2), 'over the water, within range');
+  assert.ok(new Set(flights.map((f) => f.x)).size > 3, 'and darting about');
+  assert.deepEqual(dragonflyAt(0, 0.4, 0), dragonflyAt(0, 0.4, 0), 'still at time 0');
 }
 
 console.log('Water tests passed.');

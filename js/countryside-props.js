@@ -85,3 +85,123 @@ export function drawFlagpole({ pixelRect }, groundOffset, time = 0, wind = 0.25,
     }
   }
 }
+
+// ------------------------------------------------------------------ windmill
+
+/**
+ * A Danish windmill (a "hollandsk mølle"): where its sails turn, how long
+ * they are, and where the sprite hands over to the base that follows the
+ * ground. About 9 m to the hub and 240 to the tip of a sail at the top, a
+ * tall structure drawn tall enough not to look like a toy (PROPS_GUIDE.md).
+ */
+export const MILL = { hub: { x: 0, y: -158 }, sail: 82, bodyBottom: -10 };
+const MILL_WALL = { shade: "#b5bcae", base: "#f4e9d1", light: "#fffdf4", line: "#e8e5d9" };
+const MILL_WOOD = { dark: "#4d3f2f", base: "#66543f", light: "#856d4f", tip: "#aa8a60" };
+const MILL_CAP = { dark: "#3a403d", base: "#4a524d", light: "#5b645e" };
+const MILL_SAIL = { stock: "#4d3f2f", frame: "#f4e9d1", bar: "#b5bcae" };
+const MILL_INK = "#182321";
+
+/**
+ * The mill's tower, without its sails: a whitewashed brick base with a door,
+ * a wooden gallery with a railing round it, a dark shingled octagonal tower
+ * narrowing upward with a window, and a boat-shaped tarred cap. Lit from the
+ * right: the tower's left face is in shade, its right face lit. Down to
+ * MILL.bodyBottom; the base below it follows the ground (drawMillBase).
+ */
+export function drawMillTower({ pixelRect }) {
+  // Whitewashed base, slightly narrowing upward, with faint courses.
+  for (let y = -40; y < MILL.bodyBottom; y += 2) {
+    const half = 32 + Math.round((y + 40) / 15) * 2;
+    pixelRect(-half, y, half * 2, 2, (y + 40) % 8 === 6 ? MILL_WALL.line : MILL_WALL.base, 2);
+    pixelRect(-half, y, 4, 2, MILL_WALL.shade, 2);
+    pixelRect(half - 2, y, 2, 2, MILL_WALL.light, 2);
+  }
+  // An arched door and a small window.
+  pixelRect(-8, -32, 14, 22, MILL_WOOD.dark, 2);
+  pixelRect(-6, -34, 10, 2, MILL_WOOD.dark, 2);
+  for (const x of [-6, -2, 2]) pixelRect(x, -30, 2, 20, MILL_WOOD.base, 2);
+  pixelRect(16, -32, 6, 6, MILL_INK, 2);
+  pixelRect(16, -32, 6, 2, MILL_WALL.shade, 2);
+  // The shingled tower: three faces of the octagon, narrowing upward, with a
+  // darker course every few shingles.
+  const towerBottom = -42, towerTop = -146;
+  for (let y = towerTop; y < towerBottom; y += 2) {
+    const t = (y - towerTop) / (towerBottom - towerTop);
+    const half = Math.round((16 + 12 * t) / 2) * 2;
+    const inner = Math.round((half * 0.45) / 2) * 2;
+    const course = (y - towerTop) % 8 === 6;
+    pixelRect(-half, y, half - inner, 2, course ? MILL_INK : MILL_WOOD.dark, 2);
+    pixelRect(-inner, y, inner * 2, 2, course ? MILL_WOOD.dark : MILL_WOOD.base, 2);
+    pixelRect(inner, y, half - inner, 2, course ? MILL_WOOD.base : MILL_WOOD.light, 2);
+  }
+  // A window high on the tower, framed in white.
+  pixelRect(-6, -116, 10, 12, MILL_WALL.base, 2);
+  pixelRect(-4, -114, 6, 8, MILL_INK, 2);
+  pixelRect(-4, -110, 6, 2, MILL_WALL.shade, 2);
+  // The gallery: a deck round the tower, and its railing.
+  pixelRect(-46, -44, 92, 4, MILL_WOOD.light, 2);
+  pixelRect(-46, -44, 92, 2, MILL_WOOD.tip, 2);
+  pixelRect(-46, -40, 92, 2, MILL_WOOD.dark, 2);
+  for (let x = -46; x <= 44; x += 10) pixelRect(x, -54, 2, 10, x < 0 ? MILL_WOOD.base : MILL_WOOD.light, 2);
+  pixelRect(-46, -56, 92, 2, MILL_WOOD.tip, 2);
+  // The cap: boat-shaped and tarred, with a finial on top.
+  for (let y = -168; y < towerTop; y += 2) {
+    const t = (y + 168) / (towerTop + 168);
+    const half = Math.max(2, Math.round((22 * Math.sqrt(t)) / 2) * 2);
+    pixelRect(-half, y, half * 2, 2, MILL_CAP.base, 2);
+    pixelRect(-half, y, Math.max(2, half / 2), 2, MILL_CAP.dark, 2);
+    pixelRect(half - 4, y, 2, 2, MILL_CAP.light, 2);
+  }
+  pixelRect(-24, towerTop, 48, 2, MILL_CAP.dark, 2);
+  pixelRect(-2, -172, 4, 4, MILL_CAP.light, 2);
+}
+
+/** The base below the sprite, down to the ground under each column. */
+export function drawMillBase({ pixelRect }, groundOffset) {
+  for (let x = -32; x < 32; x += 2) {
+    const ground = Math.round(groundOffset(x + 1) / 2) * 2;
+    if (ground <= MILL.bodyBottom) continue;
+    const color = x < -28 ? MILL_WALL.shade : x >= 30 ? MILL_WALL.light : MILL_WALL.base;
+    pixelRect(x, MILL.bodyBottom, 2, ground - MILL.bodyBottom, color, 2);
+  }
+}
+
+/**
+ * How far the sails have turned at `time`, in radians, anticlockwise as
+ * Danish mills turn: slowly, a few turns a minute in a breeze and about a
+ * turn every four seconds in a gale (`wind` 0…1), easing with the gusts.
+ * Still at time 0, at its own angle (`phase` 0…1) so mills differ.
+ */
+export function millAngle(time, wind = 0.25, phase = 0) {
+  const start = phase * Math.PI * 2;
+  if (!(time > 0)) return start;
+  const w = Math.max(0, Math.min(1, Number(wind) || 0));
+  const speed = 0.08 + w * 1.5;
+  // The gust term's rate of change never exceeds the base speed.
+  const gust = speed * 0.3 * Math.sin(time * 0.5 + phase * 9);
+  return start - (time * speed + gust);
+}
+
+/**
+ * The four sails turned to `angle`, round the hub at MILL.hub: each a stock
+ * with a white lattice frame on its trailing side, and the hub over them.
+ */
+export function drawMillSails({ pixelRect, pixelPath, drawPixelDisc }, angle) {
+  const { x: hx, y: hy } = MILL.hub;
+  for (let i = 0; i < 4; i++) {
+    const a = angle + (i * Math.PI) / 2;
+    const ux = Math.cos(a), uy = Math.sin(a);
+    // The frame trails behind the stock as the sails turn anticlockwise.
+    const vx = uy, vy = -ux;
+    const at = (r, side = 0) => [hx + ux * r + vx * side, hy + uy * r + vy * side];
+    const inner = 18, outer = MILL.sail - 2, width = 12;
+    // Cross bars, the outer rail and the ends of the frame.
+    for (let r = inner; r <= outer; r += 8) pixelPath([at(r), at(r, width)], MILL_SAIL.bar, 1, 2);
+    pixelPath([at(inner, width), at(outer, width)], MILL_SAIL.frame, 1, 2);
+    pixelPath([at(outer), at(outer, width)], MILL_SAIL.frame, 1, 2);
+    // The stock, from the hub to the tip.
+    pixelPath([at(4), at(MILL.sail)], MILL_SAIL.stock, 2, 2);
+  }
+  drawPixelDisc(hx, hy, 5, MILL_CAP.dark, 2);
+  drawPixelDisc(hx + 1, hy - 1, 2, MILL_CAP.light, 2);
+}

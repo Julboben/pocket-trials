@@ -551,6 +551,7 @@ export function validateTrail(trail) {
         "bench",
         "fireplace",
         "smoke",
+        "mill",
         ...WATER_PROPS,
       ].includes(prop.type)
     )
@@ -559,7 +560,9 @@ export function validateTrail(trail) {
       const y = Number.isFinite(prop.y) ? prop.y : groundHeight(trail, prop.x);
       if (!waterPropBody(waterBodies(trail), prop.type, prop.x, y))
         warning(
-          SURFACE_PROPS.has(prop.type)
+          prop.type === "dragonfly"
+            ? `Prop ${index + 1} (dragonfly) hovers over water, but there is no water surface at or just above it.`
+            : SURFACE_PROPS.has(prop.type)
             ? `Prop ${index + 1} (${prop.type}) floats on water, but there is no water surface at or just above it.`
             : `Prop ${index + 1} (${prop.type}) lives in water, but it is not in any water.`,
           target,

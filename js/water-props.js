@@ -9,9 +9,9 @@
 /** @typedef {import('./types.js').Water} Water */
 
 /** Props that live in water. */
-export const WATER_PROPS = new Set(["lily", "duck", "fish", "seaweed", "reeds"]);
-// Props that float on the surface.
-export const SURFACE_PROPS = new Set(["lily", "duck"]);
+export const WATER_PROPS = new Set(["lily", "duck", "fish", "seaweed", "reeds", "frog", "boat", "bubbles", "dragonfly"]);
+// Props that float on the surface, or hover over it (dragonflies).
+export const SURFACE_PROPS = new Set(["lily", "duck", "frog", "boat", "dragonfly"]);
 // How far above its anchor a floating prop looks for the surface, and how far
 // below it, so a click just above the water still lands on it.
 export const SURFACE_REACH = 160;
@@ -318,3 +318,210 @@ export function drawDuckFlying({ pixelRect }, wingsUp) {
     pixelRect(-2, 0, 4, 2, c.wing, 2);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Frog on a lily pad
+// ---------------------------------------------------------------------------
+
+const FROG = { dark: "#3d6452", base: "#618b66", light: "#86a56a", belly: "#d9dccb", eye: "#f1b95d", pupil: "#182321" };
+/** How long the frog's leap takes, in seconds, before it splashes in. */
+export const FROG_LEAP = 0.55;
+
+/**
+ * Where a startled frog is `age` seconds after it leaps, from its pad: an arc
+ * up and away from the rider (`dir` -1 left, 1 right), down into the water.
+ * Returns its offset, whether it is still in the air, and how far the rings
+ * from its splash have spread (0 until it lands).
+ */
+export function frogLeap(age, dir) {
+  const t = Math.min(age, FROG_LEAP) / FROG_LEAP;
+  return {
+    dx: snap(dir * 46 * t),
+    dy: snap(-34 * Math.sin(Math.PI * t) + 6 * t),
+    flying: age < FROG_LEAP,
+    rings: age < FROG_LEAP ? 0 : age - FROG_LEAP,
+  };
+}
+
+/** The frog's own small pad, floating at y = 0, riding `lift`. */
+export function drawFrogPad({ pixelRect }, lift = 0) {
+  pixelRect(-10, lift - 2, 18, 2, PAD.base, 2);
+  pixelRect(-2, lift - 2, 2, 2, PAD.dark, 2);
+  pixelRect(4, lift - 2, 2, 2, PAD.light, 2);
+  pixelRect(-12, lift, 22, 2, PAD.dark, 2);
+  pixelRect(8, lift, 2, 2, PAD.base, 2);
+}
+
+/**
+ * A frog sitting on its haunches with its feet at y = 0, facing right, about
+ * 12 long: green, lit along its back, a pale throat and a gold eye. `blink`
+ * shuts the eye; `leaping` stretches it out with its legs trailing.
+ */
+export function drawFrog({ pixelRect }, blink = false, leaping = false) {
+  const c = FROG;
+  if (leaping) {
+    pixelRect(-12, -4, 6, 2, c.dark, 2);
+    pixelRect(-8, -6, 14, 4, c.base, 2);
+    pixelRect(-6, -6, 10, 2, c.light, 2);
+    pixelRect(-6, -2, 10, 2, c.belly, 2);
+    pixelRect(6, -8, 4, 4, c.base, 2);
+    pixelRect(8, -8, 2, 2, c.eye, 2);
+    pixelRect(10, -4, 2, 2, c.dark, 2);
+    return;
+  }
+  // Haunches and a folded back leg.
+  pixelRect(-8, -6, 6, 6, c.dark, 2);
+  pixelRect(-8, -2, 8, 2, c.base, 2);
+  // Body, lit along the back, its throat pale.
+  pixelRect(-4, -8, 10, 6, c.base, 2);
+  pixelRect(-4, -8, 8, 2, c.light, 2);
+  pixelRect(2, -4, 6, 2, c.belly, 2);
+  // Front leg and head.
+  pixelRect(4, -2, 4, 2, c.dark, 2);
+  pixelRect(4, -10, 6, 4, c.base, 2);
+  pixelRect(4, -12, 4, 2, c.light, 2);
+  pixelRect(6, -12, 2, 2, blink ? c.base : c.eye, 2);
+  if (!blink) pixelRect(6, -10, 2, 2, c.pupil, 2);
+}
+
+// ---------------------------------------------------------------------------
+// Rowing boat
+// ---------------------------------------------------------------------------
+
+const HULL = { shade: "#b5bcae", base: "#f4e9d1", light: "#fffdf4", stripe: "#a8322a", keel: "#4d3f2f" };
+const OAR = { shaft: "#aa8a60", blade: "#856d4f" };
+/** The boat's length either side of its anchor, and how high it rides. */
+export const BOAT = { half: 32, gunwale: -14 };
+
+/**
+ * A wooden rowing boat with its waterline at y = 0, bow to the right, about
+ * 64 long (2.4 m): a white-painted hull with a red stripe under the varnished
+ * gunwale, a pointed bow and a square stern, its oars left lying in it, and
+ * a mooring rope from the bow sagging down into the water.
+ */
+export function drawBoat({ pixelRect, pixelPath }) {
+  const { half, gunwale } = BOAT;
+  // The oars left in the boat: one lying along it, its flat blade out past
+  // the stern; just the handle of the other showing.
+  pixelPath([[-22, gunwale - 2], [20, gunwale - 4]], OAR.shaft, 1, 2);
+  pixelRect(-32, gunwale - 2, 10, 2, OAR.blade, 2);
+  pixelRect(-32, gunwale, 10, 2, OAR.shaft, 2);
+  pixelRect(8, gunwale - 6, 2, 6, OAR.shaft, 2);
+  // The hull, row by row: a square stern, the bow drawing in to a point.
+  for (let y = gunwale; y < 2; y += 2) {
+    const down = (y - gunwale) / 2;
+    const left = -half + 2 + Math.floor(down / 3) * 2;
+    const right = half - down * 2;
+    if (right <= left) continue;
+    const color = y === gunwale ? OAR.shaft : y === gunwale + 2 ? HULL.stripe : y >= -2 ? HULL.shade : HULL.base;
+    pixelRect(left, y, right - left, 2, color, 2);
+    if (y > gunwale + 2 && y < -2) {
+      pixelRect(left, y, 2, 2, HULL.shade, 2);
+      pixelRect(right - 2, y, 2, 2, HULL.light, 2);
+    }
+  }
+  // A plank seam along the hull.
+  pixelRect(-half + 6, gunwale + 8, half * 2 - 18, 2, HULL.shade, 2);
+  // The bow ring and the mooring rope, sagging down into the water.
+  pixelRect(half - 4, gunwale + 2, 2, 2, HULL.keel, 2);
+  pixelPath([[half - 2, gunwale + 4], [half + 6, gunwale + 12], [half + 12, 2]], HULL.keel, 1, 2);
+}
+
+// ---------------------------------------------------------------------------
+// Bubbles
+// ---------------------------------------------------------------------------
+
+/**
+ * The bubbles rising from the bed at `time`, `rise` below the surface (or
+ * null with no water above): now and then a short string of two or three,
+ * wobbling as they rise, each popping in a fleck at the surface. Each is
+ * { x, y, size, popped } from the bed at y = 0. None at time 0.
+ */
+export function risingBubbles(time, rise, phase = 0) {
+  if (!time || !(rise > 6)) return [];
+  const bubbles = [];
+  const speed = 26;
+  const climb = rise / speed;
+  // A string of bubbles every few seconds, each string its own size.
+  const period = 3.5 + phase * 2.5;
+  const cycle = Math.floor((time + phase * period) / period);
+  for (const k of [cycle - 1, cycle]) {
+    const start = k * period - phase * period;
+    const count = 2 + Math.floor(waterPropNoise(k, 7 + phase) * 2);
+    for (let i = 0; i < count; i++) {
+      const age = time - start - i * 0.35;
+      if (age < 0 || age > climb + 0.25) continue;
+      const up = Math.min(rise, age * speed * (1 + i * 0.08));
+      const wobble = snap(Math.sin(age * 6 + i * 2 + phase * 9) * 2);
+      bubbles.push({
+        x: wobble + (i % 2 ? 2 : 0),
+        y: -snap(up),
+        size: i === 0 && waterPropNoise(k, 11) > 0.5 ? 4 : 2,
+        popped: age > climb,
+      });
+    }
+  }
+  return bubbles;
+}
+
+const BUBBLE = { rim: "#d9ffff", core: "#83d1ce" };
+
+/** Bubbles as risingBubbles gives them: little rings, and flecks where they pop. */
+export function drawBubbles({ pixelRect }, bubbles) {
+  for (const { x, y, size, popped } of bubbles) {
+    if (popped) {
+      pixelRect(x - 2, y - 2, 2, 2, BUBBLE.rim, 2);
+      pixelRect(x + 2, y - 2, 2, 2, BUBBLE.rim, 2);
+    } else if (size > 2) {
+      pixelRect(x, y - 4, 4, 4, BUBBLE.core, 2);
+      pixelRect(x + 2, y - 4, 2, 2, BUBBLE.rim, 2);
+    } else pixelRect(x, y - 2, 2, 2, BUBBLE.rim, 2);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Dragonflies
+// ---------------------------------------------------------------------------
+
+const DRAGONFLY = { body: "#3f6f78", tail: "#568f98", head: "#2f5a52", wing: "#d9ffff", glint: "#fffdf4" };
+/** How far a dragonfly roams either side of its anchor, and above the water. */
+export const DRAGONFLY_RANGE = { x: 56, low: 10, high: 46 };
+
+/**
+ * Where the `index`th dragonfly of a pair is at `time`, over the water at
+ * y = 0: hovering at a spot for a second or two, then darting to the next,
+ * the way they do. Returns its offset and which way it faces. At time 0 it
+ * hovers at its first spot.
+ */
+export function dragonflyAt(time, phase, index) {
+  const spot = (n) => ({
+    x: snap((waterPropNoise(n * 3 + index, 21 + phase) * 2 - 1) * DRAGONFLY_RANGE.x),
+    y: -snap(DRAGONFLY_RANGE.low + waterPropNoise(n * 5 + index, 22 + phase) * (DRAGONFLY_RANGE.high - DRAGONFLY_RANGE.low)),
+  });
+  const hover = 1.4 + index * 0.3, dart = 0.25, step = hover + dart;
+  const clock = time + phase * step * 3 + index * 0.9;
+  const n = Math.floor(clock / step);
+  const into = clock - n * step;
+  const from = spot(n), to = spot(n + 1);
+  // A tiny bob while it hovers.
+  const bob = time ? snap(Math.sin(time * 9 + index) * 1) : 0;
+  if (into < hover || !time) return { x: from.x, y: from.y + bob, dir: to.x >= from.x ? 1 : -1 };
+  const t = (into - hover) / dart;
+  return { x: snap(from.x + (to.x - from.x) * t), y: snap(from.y + (to.y - from.y) * t), dir: to.x >= from.x ? 1 : -1 };
+}
+
+/**
+ * A dragonfly about 14 long facing right, its body at (0, 0): a slender
+ * blue-green body, and two pairs of glassy wings, up or down by `wingsUp`.
+ */
+export function drawDragonfly({ pixelRect }, wingsUp = false) {
+  const c = DRAGONFLY;
+  pixelRect(-8, 0, 8, 2, c.tail, 2);
+  pixelRect(0, 0, 4, 2, c.body, 2);
+  pixelRect(4, -2, 2, 4, c.head, 2);
+  const wy = wingsUp ? -4 : -2;
+  pixelRect(-4, wy, 4, 2, c.wing, 2);
+  pixelRect(2, wy, 4, 2, c.wing, 2);
+  pixelRect(4, wy, 2, 2, c.glint, 2);
+}
+

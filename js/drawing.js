@@ -35,6 +35,15 @@ import {
   drawDuckFloating,
   drawDuckFlying,
   FISH_DART,
+  DRAGONFLY_RANGE,
+  drawBoat,
+  drawBubbles,
+  drawDragonfly,
+  drawFrog,
+  drawFrogPad,
+  dragonflyAt,
+  frogLeap,
+  risingBubbles,
 } from "./water-props.js";
 import {
   BAT_ROOSTS,
@@ -309,7 +318,7 @@ import {
   TORCH_TONGUES,
 } from "./dungeon-props.js";
 import { FLAME, drawFire, fireFrame } from "./fire.js";
-import { FLAGPOLE, drawFlagpole } from "./countryside-props.js";
+import { FLAGPOLE, MILL, drawFlagpole, drawMillBase, drawMillSails, drawMillTower, millAngle } from "./countryside-props.js";
 import { resolveWeather, windSign } from "./weather.js";
 import { dayBlend, normalizeHour } from "./time-of-day.js";
 import {
@@ -1568,7 +1577,7 @@ function fitInWater(trail, prop, bodies) {
     return { swim: swimY - y, left: run(-1), right: run(1), down: Math.max(0, bottom - FISH_CLEARANCE - swimY) };
   }
   const tall = prop.type === "reeds" ? reedHeight : seaweedHeight;
-  if (!body) return { bed: 0, height: tall(null), floor: null };
+  if (!body) return { bed: 0, height: tall(null), floor: null, rise: null };
   // Placed anywhere in the water, it grows from the bed below.
   const bottom = body.y + body.depth;
   let bedY = y;
@@ -1581,7 +1590,8 @@ function fitInWater(trail, prop, bodies) {
     const ground = terrainAt(trail, prop.x + local, bedY - BED_HALF);
     floor.push(ground.solid && Math.abs(ground.y - bedY) <= BED_HALF ? ground.y - bedY : 0);
   }
-  return { bed: bedY - y, height: tall(bedY - body.y), floor };
+  // `rise` is how far the surface is above the bed, for bubbles.
+  return { bed: bedY - y, height: tall(bedY - body.y), floor, rise: bedY - body.y };
 }
 
 /**
@@ -1699,7 +1709,13 @@ export function waterPropAt(trail, prop, time) {
 export function propSpan(type, fit) {
   if (SURFACE_PROPS.has(type)) {
     const surface = fit?.surface ?? 0;
-    return [Math.max(0, -surface) + (type === "duck" ? 120 : 12), Math.max(0, surface) + 6];
+    // A duck flies off, a frog leaps and dragonflies hover over the water.
+    const above = { duck: 120, frog: 44, boat: 30, dragonfly: DRAGONFLY_RANGE.high + 12 }[type] ?? 12;
+    return [Math.max(0, -surface) + above, Math.max(0, surface) + 6];
+  }
+  if (type === "bubbles") {
+    const bed = fit?.bed ?? 0;
+    return [Math.max(0, (fit?.rise ?? 40) + 8 - bed), Math.max(0, bed) + 4];
   }
   if (type === "fish") {
     const swim = fit?.swim ?? 0;
@@ -4026,6 +4042,7 @@ const CANOPY_SPRITES = {
   "christiania-bike": { bounds: [-34, -44, 42, 0], draw: drawChristianiaBike },
   bench: { bounds: [-38, -44, 38, 0], draw: drawBench },
   fireplace: { bounds: [-22, -12, 22, 0], draw: drawFireplace },
+  mill: { bounds: [-48, -174, 48, MILL.bodyBottom], draw: drawMillTower },
   "wanted-poster": { bounds: [WANTED.left, WANTED.top, WANTED.left + WANTED.width, WANTED.top + WANTED.height], draw: drawWantedPoster },
 };
 const canopySprites = new Map();
@@ -4123,6 +4140,11 @@ const PROP_EXTENTS = {
   beams: [-BEAM_HALF - 2, -BEAM_REACH - 12, BEAM_HALF + 2],
   lily: [-18, -SURFACE_REACH - 12, 22],
   duck: [-14, -SURFACE_REACH - 20, 16],
+  // A frog leaps out either way, and its splash spreads.
+  frog: [-60, -SURFACE_REACH - 44, 60],
+  boat: [-36, -SURFACE_REACH - 30, 50],
+  dragonfly: [-DRAGONFLY_RANGE.x - 12, -SURFACE_REACH - DRAGONFLY_RANGE.high - 12, DRAGONFLY_RANGE.x + 12],
+  bubbles: [-8, -SURFACE_REACH - 40, 10],
   fish: [-FISH_RANGE - 14, -SURFACE_REACH, FISH_RANGE + 14],
   seaweed: [-16, -SEAWEED_MAX - 16, 16],
   reeds: [-24, -REED_MAX - 20, 28],
@@ -4202,6 +4224,8 @@ const PROP_EXTENTS = {
   // Room for the smoke rising and blowing downwind, either way.
   fireplace: [-80, FIRE.smoke - 90, 80],
   smoke: [-80, -96, 80],
+  // The sails sweep round the hub, above and either side of the tower.
+  mill: [-MILL.sail - 4, MILL.hub.y - MILL.sail - 4, MILL.sail + 4],
 };
 // How far below its anchor each ceiling prop's art can reach.
 const CEILING_HANG = {
@@ -4221,7 +4245,9 @@ const CEILING_HANG = {
 };
 // How far below its anchor each water prop's art can reach, once moved onto
 // the surface, to its depth or down to the bed.
-const WATER_HANG = { lily: 32, duck: 32, fish: SURFACE_REACH, seaweed: 200, reeds: 200 };
+// The rings a frog's splash leaves on the water.
+const WATER_RING = "#d9ffff";
+const WATER_HANG = { lily: 32, duck: 32, fish: SURFACE_REACH, seaweed: 200, reeds: 200, frog: 32, boat: 32, dragonfly: 32, bubbles: 200 };
 
 function propBounds(type, angle, groundOffset, text, flip = false) {
   let [left, top, right] = PROP_EXTENTS[type] || [-64, -190, 64];
@@ -5221,6 +5247,58 @@ export function createGameArt(ctx) {
         drawLily(tools, wave);
         return;
       }
+      if (type === "frog") {
+        // On its own pad, riding the ripples; startled, it leaps away from
+        // the rider into the water, leaving rings and its empty pad.
+        const lift = snap(wave(0));
+        ctx.translate(0, -2);
+        drawFrogPad(tools, lift);
+        const flight = scene.flight;
+        if (flight) {
+          const dir = flight.dir * (mirrored ? -1 : 1);
+          const leap = frogLeap(flight.age, dir);
+          if (leap.flying) {
+            ctx.translate(leap.dx, lift - 2 + leap.dy);
+            ctx.scale(dir, 1);
+            drawFrog(tools, false, true);
+          } else if (leap.rings < 1.2) {
+            const base = ctx.globalAlpha;
+            ctx.globalAlpha = base * (1 - leap.rings / 1.2);
+            for (const spread of [4 + leap.rings * 22, 2 + leap.rings * 12]) {
+              const r = snap(spread);
+              pixelRect(leap.dx - r, 2, 4, 2, WATER_RING, 2);
+              pixelRect(leap.dx + r - 2, 2, 4, 2, WATER_RING, 2);
+            }
+            ctx.globalAlpha = base;
+          }
+          return;
+        }
+        ctx.translate(0, lift - 2);
+        // Now and then it blinks.
+        drawFrog(tools, time > 0 && (time + waterPropNoise(x, 6) * 5) % 4 < 0.15);
+        return;
+      }
+      if (type === "boat") {
+        // Moored, bobbing with the ripples, low in the water.
+        ctx.translate(0, snap(wave(0)) + 2);
+        drawBoat({ pixelRect, pixelPath });
+        return;
+      }
+      if (type === "dragonfly") {
+        // A pair hovering and darting over the water, on warm days only:
+        // never in rain, snow or a gale.
+        const weather = scene.weather;
+        if (weather?.rain > 0.1 || weather?.snow > 0.1 || weather?.wind > 0.7) return;
+        for (const index of [0, 1]) {
+          const fly = dragonflyAt(time, waterPropNoise(x, 8), index);
+          ctx.save();
+          ctx.translate(fly.x, fly.y - 4);
+          ctx.scale(fly.dir, 1);
+          drawDragonfly(tools, time > 0 && Math.floor(time * 24 + index) % 2 === 0);
+          ctx.restore();
+        }
+        return;
+      }
       const flight = scene.flight;
       if (flight) {
         // A run across the water, then up and away from the rider.
@@ -5257,6 +5335,11 @@ export function createGameArt(ctx) {
       return;
     }
     ctx.translate(0, snap(fit?.bed ?? 0));
+    if (type === "bubbles") {
+      // Now and then a string of bubbles rises from the bed and pops.
+      drawBubbles(tools, risingBubbles(time, fit?.rise ?? null, waterPropNoise(x, 9)));
+      return;
+    }
     const floor = fit?.floor;
     const ground = floor
       ? (local) => {
@@ -6285,6 +6368,13 @@ export function createGameArt(ctx) {
       const { wind, downwind } = propWind(scene, mirrored);
       ctx.translate(-HUT_CHIMNEY.x, FIRE.smoke - HUT_CHIMNEY.y);
       drawSmokePuffs(chimneySmoke(scene.time || 0, propNoise(x, 35), wind, downwind), 0.8);
+    } else if (type === "mill") {
+      // A Danish windmill: the tower, its base down to the ground, and the
+      // sails turning slowly with the wind.
+      drawCanopy(type);
+      drawMillBase({ pixelRect }, groundOffset);
+      const { wind } = propWind(scene, mirrored);
+      drawMillSails({ pixelRect, pixelPath, drawPixelDisc }, millAngle(scene.time || 0, wind, propNoise(x, 52)));
     } else if (type === "smoke") {
       // A plume rising from its anchor, on top of a chimney built from terrain
       // say, blown downwind like the hut's.

@@ -54,7 +54,7 @@ import { CAMERA_TALLY, HALFWAY_BEACON, HALFWAY_REACH } from "./event-props.js";
 import { SEARCHLIGHT, SEARCHLIGHT_BEAM } from "./prison-props.js";
 import { drawNisse, nisseWiggle } from "./nisse.js";
 import { TORCH_FLAME } from "./dungeon-props.js";
-import { FLAGPOLE } from "./countryside-props.js";
+import { FLAGPOLE, MILL } from "./countryside-props.js";
 import { WATER_PROPS, FISH_DART, FISH_RANGE } from "./water-props.js";
 import { FIRE, IVY, SQUIRREL_HIDE_MAX, SQUIRREL_RANGE, TENT_DOOR_CENTRE } from "./forest-props.js";
 import {
@@ -131,6 +131,7 @@ const SCENERY_SHADOWS = {
   flagpole: { width: 6, alpha: 0.12, thickness: 3, lift: 50 },
   "christiania-bike": { width: 28, alpha: 0.14, thickness: 3, lift: 10 },
   bench: { width: 30, alpha: 0.14, thickness: 3, lift: 12 },
+  mill: { width: 36, alpha: 0.15, thickness: 3, lift: 40 },
 };
 /** Seconds the scene takes to slow to a stop behind the results. */
 const WIN_SETTLE = 0.7;
@@ -172,6 +173,7 @@ const PROP_RISE = {
   fireplace: -FIRE.smoke + 90,
   ivy: IVY.max + 10,
   smoke: 96,
+  mill: -(MILL.hub.y - MILL.sail) + 4,
 };
 // How far each prop's art hangs below its anchor, for culling.
 const PROP_HANG = {
@@ -197,6 +199,8 @@ const PROP_REACH = {
   minecart: 150,
   bats: 220,
   fish: FISH_RANGE + 120,
+  frog: 70,
+  dragonfly: 80,
   squirrel: SQUIRREL_RANGE + 40,
   corgi: CORGI_RANGE + 40,
   tumbleweed: TUMBLEWEED_RUN + 30,
@@ -210,6 +214,7 @@ const PROP_REACH = {
   smoke: 84,
   // Its leaves drift a long way downwind as they fall.
   tree: 300,
+  mill: MILL.sail + 8,
 };
 // Perched birds and ducks take off, roosting bats scatter, fish dart off and
 // squirrels run for a tree when the rider comes within `x` and `y` of them;
@@ -218,6 +223,8 @@ const STARTLE = {
   bird: { x: 110, y: 140, flight: 2.5 },
   bats: { x: 160, y: 200, flight: 2.2 },
   duck: { x: 130, y: 140, flight: 2.5 },
+  // A frog's pad stays after it leaps, so its flight never ends.
+  frog: { x: 110, y: 120, flight: Infinity },
   fish: { x: 90, y: 70, flight: FISH_DART },
   squirrel: { x: 140, y: 120, flight: SQUIRREL_HIDE_MAX },
 };
@@ -771,9 +778,11 @@ export function createRenderer(canvas) {
       const flight = flights.get(prop);
       if (flight) {
         const age = (frameNow - flight.start) / 1000;
-        // With reduced motion a startled animal is simply gone.
-        if (reducedMotion || age > STARTLE[prop.type].flight) continue;
-        scene = { ...propScene, flight: { age, dir: flight.dir, from: flight.from } };
+        // With reduced motion a startled animal is simply gone (a frog
+        // leaves its empty pad behind).
+        if (reducedMotion && prop.type === "frog") scene = { ...propScene, flight: { age: Infinity, dir: flight.dir } };
+        else if (reducedMotion || age > STARTLE[prop.type].flight) continue;
+        else scene = { ...propScene, flight: { age, dir: flight.dir, from: flight.from } };
       }
       art.drawProp(
         prop.type,

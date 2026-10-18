@@ -8,6 +8,7 @@ A plan for the props to add to each level theme. How to build them, and how to m
 *Fits the name Hjulben.*
 
 - [ ] **Half-timbered farmhouse**: dark beams, white or ochre-yellow walls and a thatched roof, used as a background landmark. The windows light up at night through the time-of-day system.
+- [x] **Windmill** (`mill`): a Danish "hollandsk mølle", its sails turning slowly with the wind.
 - [x] **Dannebrog flagpole**: a white garden flagpole with the red-and-white flag flying in the wind. The flag could go up when a checkpoint is reached.
 - [x] **Nisse**: a small Danish gnome with a red hat, hidden somewhere in each level as a secret collectible or easter egg.
 - [ ] **Sankt Hans bonfire**: the midsummer bonfire with a witch on top. It glows and gives off sparks on night levels.
@@ -118,10 +119,10 @@ A plan for the props to add to each level theme. How to build them, and how to m
 - [x] **Seaweed**: grows from the bed to just under the surface, swaying in the current.
 - [x] **Fish**: swims to and fro, and darts off when the bike comes close.
 - [x] **Duck**: floats and dabbles, and takes off when the bike comes close.
-- [ ] **Frog on a lily pad**: jumps into the water as you pass.
-- [ ] **Rowing boat**: moored, bobbing with the ripples.
-- [ ] **Bubbles**: rise now and then from the bed.
-- [ ] **Dragonflies**: hover over the surface on warm days.
+- [x] **Frog on a lily pad**: jumps into the water as you pass.
+- [x] **Rowing boat**: moored, bobbing with the ripples.
+- [x] **Bubbles**: rise now and then from the bed.
+- [x] **Dragonflies**: hover over the surface on warm days.
 
 ## 🏁 Motocross track and event props
 *These suit every level and make it feel like a trials event.*
