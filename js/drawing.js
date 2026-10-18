@@ -219,10 +219,15 @@ import {
   drawPetrolCan,
   drawPitBoard,
   drawSignPost,
+  drawTutorialBrake,
   drawTutorialFlip,
+  drawTutorialGas,
   drawTutorialLean,
   drawTutorialLeanForward,
+  drawTutorialLedge,
   drawTutorialLight,
+  drawTutorialRestart,
+  drawTutorialRotate,
   drawTyreWall,
   drawWarningBang,
   drawWarningSkull,
@@ -1221,12 +1226,17 @@ export function sunShadowOffset({
 export const WALL_PROPS = new Set(["vines", "roots", "moss", "ivy"]);
 // Graffiti is painted onto the rock itself rather than stood in front of it or
 // behind it, so it is drawn just after the terrain whatever its layer.
-export const PAINTED_PROPS = new Set(["graffiti", "tutorial-lean", "tutorial-lean-forward", "tutorial-flip", "tutorial-light", "tally-marks"]);
+export const PAINTED_PROPS = new Set(["graffiti", "tutorial-lean", "tutorial-lean-forward", "tutorial-flip", "tutorial-rotate", "tutorial-light", "tutorial-restart", "tutorial-ledge", "tutorial-gas", "tutorial-brake", "tally-marks"]);
 // The art of each painted prop: its local bounds and how to draw it.
 const PAINTED_ART = {
   graffiti: { bounds: GRAFFITI_BOUNDS, draw: drawGraffiti },
   "tutorial-lean": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLean },
   "tutorial-flip": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialFlip },
+  "tutorial-rotate": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialRotate },
+  "tutorial-restart": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialRestart },
+  "tutorial-ledge": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLedge },
+  "tutorial-gas": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialGas },
+  "tutorial-brake": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialBrake },
   "tutorial-light": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLight },
   "tutorial-lean-forward": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLeanForward },
   "tally-marks": { bounds: TALLY_BOUNDS, draw: drawTallyMarks },
@@ -3997,6 +4007,11 @@ const CANOPY_SPRITES = {
   "arrow-sign": { bounds: [-24, -48, 24, -24], draw: drawArrowSign },
   "tutorial-lean": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLean },
   "tutorial-flip": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialFlip },
+  "tutorial-rotate": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialRotate },
+  "tutorial-restart": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialRestart },
+  "tutorial-ledge": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLedge },
+  "tutorial-gas": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialGas },
+  "tutorial-brake": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialBrake },
   "tutorial-light": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLight },
   "tutorial-lean-forward": { bounds: TUTORIAL_BOUNDS, draw: drawTutorialLeanForward },
   "tally-marks": { bounds: TALLY_BOUNDS, draw: drawTallyMarks },
@@ -4153,6 +4168,11 @@ const PROP_EXTENTS = {
   "halfway-flag": [-HALFWAY_CLOTH.x - HALFWAY_CLOTH.columns * 2 - 2, HALFWAY_BEACON.y - 8, HALFWAY_BOARD.left + HALFWAY_BOARD.width + 2],
   "tutorial-lean": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
   "tutorial-flip": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
+  "tutorial-rotate": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
+  "tutorial-restart": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
+  "tutorial-ledge": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
+  "tutorial-gas": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
+  "tutorial-brake": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
   "tutorial-light": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
   "tutorial-lean-forward": [TUTORIAL_BOUNDS[0], TUTORIAL_BOUNDS[1], TUTORIAL_BOUNDS[2]],
   "tally-marks": [TALLY_BOUNDS[0], TALLY_BOUNDS[1], TALLY_BOUNDS[2]],

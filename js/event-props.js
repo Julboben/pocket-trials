@@ -882,134 +882,324 @@ export const HALFWAY_LIGHT = { glow: YELLOW.light, core: WHITE.light };
 
 /** Local bounds of each tutorial drawing, centred on its anchor in the rock. */
 export const TUTORIAL_BOUNDS = [-62, -38, 62, 38];
-const SPRAY = { cloud: BLUE.dark, line: WHITE.light, shade: WHITE.dark, accent: YELLOW.base, accentShade: YELLOW.dark, key: WHITE.base };
+const SPRAY = {
+  cloud: BLUE.dark, outline: INK,
+  white: { fill: WHITE.base, light: WHITE.light, shade: WHITE.dark },
+  yellow: { fill: YELLOW.base, light: YELLOW.light, shade: YELLOW.dark },
+  red: { fill: RED.base, light: RED.light, shade: RED.dark },
+  tyre: { fill: RUBBER.light, light: WHITE.dark, shade: RUBBER.base },
+  ledge: { fill: BLUE.base, light: BLUE.light, shade: BLUE.dark },
+};
 
-// A ring of radius r around (cx, cy), one 2-unit cell at a time.
-function ring({ pixelRect }, cx, cy, r, color) {
-  const steps = Math.ceil(Math.PI * r * 1.5);
-  for (let i = 0; i < steps; i++) {
-    const angle = (i / steps) * Math.PI * 2;
-    pixelRect(snap(cx + Math.cos(angle) * r) - 1, snap(cy + Math.sin(angle) * r) - 1, 2, 2, color, 2);
+// Shapes are tests of whether a point (in drawing units) lies inside them.
+const disc = (cx, cy, r) => (x, y) => (x - cx) ** 2 + (y - cy) ** 2 <= r * r;
+const annulus = (cx, cy, inner, outer) => (x, y) => {
+  const d = (x - cx) ** 2 + (y - cy) ** 2;
+  return d >= inner * inner && d <= outer * outer;
+};
+// A stroke of width w from (ax, ay) to (bx, by), with round ends.
+const stroke = (ax, ay, bx, by, w) => (x, y) => {
+  const dx = bx - ax, dy = by - ay;
+  const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+  return (x - ax - dx * t) ** 2 + (y - ay - dy * t) ** 2 <= (w * w) / 4;
+};
+const polygon = (points) => (x, y) => {
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const [xi, yi] = points[i], [xj, yj] = points[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+};
+const any = (...shapes) => (x, y) => shapes.some((shape) => shape(x, y));
+const without = (shape, hole) => (x, y) => shape(x, y) && !hole(x, y);
+
+// The 2-unit cells of the drawing that a shape covers, as a set of "column,row".
+function cells(shape) {
+  const [left, top, right, bottom] = TUTORIAL_BOUNDS;
+  const set = new Set();
+  for (let y = top; y < bottom; y += 2) for (let x = left; x < right; x += 2) if (shape(x + 1, y + 1)) set.add(`${x},${y}`);
+  return set;
+}
+const has = (set, x, y) => set.has(`${x},${y}`);
+
+// A sprayed piece: layers of shapes, each filled in its colour (lit along the
+// top, shaded along the bottom) inside an ink outline. The whole piece first
+// drops a block of ink down and to the left, like the graffiti's letters.
+function sprayPiece({ pixelRect }, layers) {
+  const masks = layers.map((layer) => ({ ...layer, cells: cells(layer.shape) }));
+  const all = new Set(masks.flatMap((mask) => [...mask.cells]));
+  for (const key of all) {
+    const [x, y] = key.split(",").map(Number);
+    pixelRect(x - 4, y + 2, 6, 4, SPRAY.outline, 2);
+  }
+  for (const { cells: set, paint } of masks) {
+    for (const key of set) {
+      const [x, y] = key.split(",").map(Number);
+      pixelRect(x - 2, y - 2, 6, 6, SPRAY.outline, 2);
+    }
+    for (const key of set) {
+      const [x, y] = key.split(",").map(Number);
+      const color = !has(set, x, y - 2) || !has(set, x - 2, y) ? paint.light : !has(set, x, y + 2) || !has(set, x + 2, y) ? paint.shade : paint.fill;
+      pixelRect(x, y, 2, 2, color, 2);
+    }
   }
 }
 
-// A stencilled bike and rider facing right, its rear axle at (x, y) and
-// turned by `angle` (radians, clockwise); `lean` (0…1) tips the rider back.
-// Drawn twice, the second time in white over a shadow sprayed down and to the
-// left, like the graffiti's block letters.
-const SPRAY_SCALE = 1.3;
-function sprayBike(tools, x, y, angle, lean = 0) {
-  const { pixelPath, drawPixelDisc } = tools;
-  const c = Math.cos(angle) * SPRAY_SCALE, s = Math.sin(angle) * SPRAY_SCALE;
-  const point = (px, py) => [x + px * c - py * s, y + px * s + py * c];
-  const shoulders = [14 - lean * 10, -28 + lean * 2];
-  const head = [shoulders[0] + 2 - lean * 4, shoulders[1] - 6];
-  const parts = (dx, dy, color) => {
-    const at = (px, py) => {
-      const [wx, wy] = point(px, py);
-      return [wx + dx, wy + dy];
-    };
-    for (const axle of [at(0, 0), at(30, 0)]) {
-      ring(tools, axle[0], axle[1], 10, color);
-      ring(tools, axle[0], axle[1], 8, color);
+// A rough hash of a cell, 0…1, for the overspray.
+const speckle = (x, y) => (((x * 73856093) ^ (y * 19349663)) >>> 0) % 997 / 997;
+
+// The sprayed cloud behind a drawing: a lighter rim, overspray round it and a
+// few drips running off the bottom, each ending in a bead.
+function sprayCloud(tools) {
+  const { pixelRect } = tools;
+  const cloud = any(...[[-38, -4, 25], [-10, -12, 26], [20, -6, 25], [42, 4, 17], [-26, 12, 21], [12, 14, 19], [-50, 8, 12]].map(([x, y, r]) => disc(x, y, r)));
+  const inner = cells(cloud);
+  const [left, top, right, bottom] = TUTORIAL_BOUNDS;
+  for (let y = top; y < bottom; y += 2)
+    for (let x = left; x < right; x += 2) {
+      if (has(inner, x, y)) {
+        pixelRect(x, y, 2, 2, SPRAY.cloud, 2);
+      } else if (cloud(x + 1, y + 1 - 4) || cloud(x + 1 - 4, y + 1) || cloud(x + 1 + 4, y + 1) || cloud(x + 1, y + 1 + 4)) {
+        if (speckle(x, y) < 0.25) pixelRect(x, y, 2, 2, SPRAY.cloud, 2);
+      } else if (cloud(x + 1, y + 1 - 8) || cloud(x + 1 + 8, y + 1)) {
+        if (speckle(x, y) < 0.06) pixelRect(x, y, 2, 2, SPRAY.cloud, 2);
+      }
     }
-    // Swingarm, fork, seat and tank, then the rider: leg down to the peg,
-    // back, arm out to the bars, helmet.
-    for (const line of [
-      [at(0, 0), at(14, -4), at(30, 0)],
-      [at(30, 0), at(24, -16)],
-      [at(4, -10), at(20, -12), at(24, -16)],
-      [at(10, -14), at(18, -8), at(14, -4)],
-      [at(10, -14), at(...shoulders), at(24, -16)],
-    ])
-      pixelPath(line, color, 1, 2);
-    const [hx, hy] = at(...head);
-    drawPixelDisc(hx, hy, 5, color, 2);
-  };
-  parts(-2, 2, SPRAY.shade);
-  parts(0, 0, SPRAY.line);
-  return { bars: point(24, -16) };
+  for (const [x, length] of [[-42, 2], [-18, 8], [10, 0], [34, 4]]) {
+    const start = [...inner].map((key) => key.split(",").map(Number)).filter(([cx]) => cx === x).reduce((low, [, cy]) => Math.max(low, cy), -Infinity);
+    pixelRect(x, start, 2, 4 + length, SPRAY.cloud, 2);
+    pixelRect(x - 2, start + 4 + length, 4, 2, SPRAY.cloud, 2);
+  }
 }
 
-// A white key cap with a symbol, about 16 square, top left at (x, y).
-function keyCap(tools, x, y, symbol) {
+// Where a bike's parts are, facing right with the rear axle at the origin and
+// y down, before it is placed: `lean` (−1…1) moves the rider back or forward.
+function bikeParts(lean) {
+  const hip = [9 - lean * 2, -17];
+  const shoulder = [15 - lean * 9, -29 + Math.abs(lean) * 2];
+  const head = [shoulder[0] + 3 - lean * 3, shoulder[1] - 7];
+  const bars = [23, -20];
+  const elbow = [(shoulder[0] + bars[0]) / 2 + 1, (shoulder[1] + bars[1]) / 2 + 4];
+  return {
+    wheels: [
+      [annulus(0, 0, 6, 9.5), disc(0, 0, 2)],
+      [annulus(30, 0, 6, 9.5), disc(30, 0, 2)],
+    ],
+    frame: [
+      stroke(0, 0, 12, -6, 4),
+      polygon([[-10, -15], [6, -17], [8, -12], [-2, -11]]),
+      stroke(2, -15, 14, -16, 4.5),
+      polygon([[11, -18], [23, -20], [26, -13], [14, -9]]),
+      polygon([[9, -11], [20, -12], [20, -2], [11, -2]]),
+      stroke(30, 0, 23, -19, 4),
+      stroke(25, -13, 36, -12, 3),
+      stroke(21, -21, 26, -20, 2.5),
+    ],
+    rider: [
+      stroke(...hip, 19, -14, 5),
+      stroke(19, -14, 15, -5, 4),
+      stroke(13, -5, 18, -5, 3),
+      stroke(...hip, ...shoulder, 7),
+      stroke(...shoulder, ...elbow, 3.5),
+      stroke(...elbow, ...bars, 3),
+    ],
+    head,
+    bars,
+  };
+}
+
+// A stencilled bike and rider, its rear axle at (x, y), turned by `angle`
+// (radians, clockwise), `scale` times its own size and facing right, or left
+// when `facing` is −1: a red bike with a white rider in a red helmet. Returns
+// the layers to spray and where its lamp is.
+function bikeLayers(x, y, angle, { lean = 0, facing = 1, scale = 1.1 } = {}) {
+  const c = Math.cos(angle), s = Math.sin(angle);
+  // A shape in the bike's own units, tested at a point of the drawing.
+  const place = (shape) => (px, py) => {
+    const dx = px - x, dy = py - y;
+    return shape(((dx * c + dy * s) / scale) * facing, (-dx * s + dy * c) / scale);
+  };
+  const toDrawing = ([bx, by]) => [x + (bx * facing * c - by * s) * scale, y + (bx * facing * s + by * c) * scale];
+  const parts = bikeParts(lean);
+  const [hx, hy] = parts.head;
+  const visor = polygon([[hx + 1, hy - 1], [hx + 6, hy - 1], [hx + 6, hy + 2], [hx + 1, hy + 2]]);
+  return {
+    layers: [
+      { shape: place(any(...parts.frame)), paint: SPRAY.red },
+      { shape: place(any(...parts.wheels.flat())), paint: SPRAY.tyre },
+      { shape: place(any(...parts.rider)), paint: SPRAY.white },
+      { shape: place(without(disc(hx, hy, 5.5), visor)), paint: SPRAY.red },
+    ],
+    lamp: toDrawing([parts.bars[0] + 4, parts.bars[1] + 4]),
+  };
+}
+
+// A band of width w round (cx, cy) at radius r, from angle `from` to `to`
+// (radians, clockwise).
+function arcBand(cx, cy, r, from, to, width) {
+  const span = to - from, dir = Math.sign(span) || 1;
+  return (x, y) => {
+    if (Math.abs(Math.hypot(x - cx, y - cy) - r) > width / 2) return false;
+    const turn = ((((Math.atan2(y - cy, x - cx) - from) * dir) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    return turn <= Math.abs(span);
+  };
+}
+// An arrowhead for a shaft of width w ending at (x, y) and heading (dx, dy).
+function arrowHead(x, y, dx, dy, width) {
+  const w = width * 1.3;
+  return polygon([[x - dx * 2 - dy * w, y - dy * 2 + dx * w], [x + dx * width * 1.6, y + dy * width * 1.6], [x - dx * 2 + dy * w, y - dy * 2 - dx * w]]);
+}
+// A thick curved arrow round (cx, cy), with its head at `to`.
+function arrowShape(cx, cy, r, from, to, width = 5) {
+  const dir = Math.sign(to - from) || 1;
+  return any(
+    arcBand(cx, cy, r, from, to, width),
+    arrowHead(cx + Math.cos(to) * r, cy + Math.sin(to) * r, -Math.sin(to) * dir, Math.cos(to) * dir, width),
+  );
+}
+
+// A key cap with a symbol on it, `width` wide and 16 high, top left at (x, y).
+function keyCap(tools, x, y, symbol, width = 16) {
   const { pixelRect } = tools;
-  pixelRect(x, y + 2, 16, 16, SPRAY.shade, 2);
-  pixelRect(x, y, 16, 16, SPRAY.key, 2);
-  pixelRect(x + 14, y, 2, 16, SPRAY.line, 2);
-  drawCells(tools, symbol, x + 3, y + 3, { "#": INK });
+  pixelRect(x - 2, y - 2, width + 4, 22, SPRAY.outline, 2);
+  pixelRect(x - 4, y + 2, 2, 18, SPRAY.outline, 2);
+  pixelRect(x, y + 14, width, 4, WHITE.dark, 2);
+  pixelRect(x, y, width, 14, WHITE.base, 2);
+  pixelRect(x, y, width, 2, WHITE.light, 2);
+  pixelRect(x, y, 2, 14, WHITE.light, 2);
+  drawCells(tools, symbol, x + Math.round((width - symbol[0].length * 2) / 4) * 2, y + 2, { "#": INK });
 }
 const KEY_LEFT = ["..#..", ".#...", "#####", ".#...", "..#.."];
 const KEY_RIGHT = ["..#..", "...#.", "#####", "...#.", "..#.."];
+const KEY_UP = ["..#..", ".###.", "#.#.#", "..#..", "..#.."];
 const KEY_L = ["#....", "#....", "#....", "#....", "#####"];
-
-// The sprayed cloud behind a drawing, with a few drips running off it.
-function sprayCloud(tools) {
-  const { pixelRect, drawPixelDisc } = tools;
-  for (const [x, y, r] of [[-38, -4, 24], [-8, -10, 26], [22, -4, 24], [42, 2, 16], [-24, 12, 20], [14, 14, 18]])
-    drawPixelDisc(x, y, r, SPRAY.cloud, 2);
-  for (const [x, length] of [[-40, 2], [-16, 6], [12, 0], [32, 4]]) {
-    pixelRect(x, 26, 2, 6 + length, SPRAY.cloud, 2);
-    pixelRect(x, 30 + length, 2, 2, BLUE.base, 2);
-  }
-}
-
-// A curved arrow around (cx, cy) of radius r, from angle `from` to `to`
-// (radians, clockwise), with its head at `to`.
-function curvedArrow(tools, cx, cy, r, from, to) {
-  const { pixelRect } = tools;
-  const steps = Math.max(6, Math.round(Math.abs(to - from) * r * 0.8));
-  for (let i = 0; i <= steps; i++) {
-    const angle = from + ((to - from) * i) / steps;
-    const px = snap(cx + Math.cos(angle) * r), py = snap(cy + Math.sin(angle) * r);
-    pixelRect(px - 2, py - 2, 4, 4, SPRAY.accentShade, 2);
-    pixelRect(px - 2, py - 2, 2, 2, SPRAY.accent, 2);
-  }
-  // Arrowhead: a short bar across the curve at its end, pointing along it.
-  const dir = Math.sign(to - from) || 1;
-  const hx = cx + Math.cos(to) * r, hy = cy + Math.sin(to) * r;
-  const tx = -Math.sin(to) * dir, ty = Math.cos(to) * dir;
-  const nx = Math.cos(to), ny = Math.sin(to);
-  for (let k = -3; k <= 3; k++) {
-    const back = 3 - Math.abs(k);
-    pixelRect(snap(hx + nx * k * 2 - tx * (6 - back * 2)) - 2, snap(hy + ny * k * 2 - ty * (6 - back * 2)) - 2, 4, 4, SPRAY.accent, 2);
-  }
-}
+const KEY_R = ["####.", "#...#", "####.", "#..#.", "#...#"];
+const KEY_SPACE = ["#.........#", "#.........#", "###########"];
+// A plus between two keys.
+const KEY_PLUS = ["..#..", "..#..", "#####", "..#..", "..#.."];
 
 /** Lean back: a bike up on its back wheel, an arrow tipping it back, and ←. */
 export function drawTutorialLean(tools) {
   sprayCloud(tools);
-  sprayBike(tools, -40, 24, -0.4, 0.8);
-  curvedArrow(tools, -40, 24, 52, -0.2, -0.95);
-  keyCap(tools, 36, -8, KEY_LEFT);
+  const bike = bikeLayers(-36, 24, -0.5, { lean: 1 });
+  sprayPiece(tools, [{ shape: arrowShape(-36, 24, 54, -0.2, -1.0), paint: SPRAY.yellow }, ...bike.layers]);
+  keyCap(tools, 34, -6, KEY_LEFT);
 }
 
-/** Lean forward: a bike nosing down a drop, an arrow tipping it forward, and →. */
+/** Lean forward: a bike nosing down off a ledge, an arrow tipping it forward, and →. */
 export function drawTutorialLeanForward(tools) {
   sprayCloud(tools);
-  sprayBike(tools, -44, 4, 0.45, -0.8);
-  curvedArrow(tools, -10, 22, 56, -2.25, -0.75);
-  keyCap(tools, 40, 6, KEY_RIGHT);
+  const ledge = polygon([[-62, 10], [-34, 10], [-34, 32], [-62, 32]]);
+  const bike = bikeLayers(-46, 8, 0.55, { lean: -1 });
+  sprayPiece(tools, [
+    { shape: ledge, paint: SPRAY.ledge },
+    { shape: arrowShape(-16, 10, 44, -1.95, -0.55), paint: SPRAY.yellow },
+    ...bike.layers,
+  ]);
+  keyCap(tools, 36, 6, KEY_RIGHT);
 }
 
-/** Flip: a bike nose up in mid-air, a looping arrow round it, and ←. */
+/** Rotate: a bike spinning in mid-air, a looping arrow round it, and ←. */
+export function drawTutorialRotate(tools) {
+  sprayCloud(tools);
+  const bike = bikeLayers(-18, 16, -0.8, { lean: 0.6, scale: 0.8 });
+  sprayPiece(tools, [{ shape: arrowShape(-18, 0, 33, 0.9, 0.9 - Math.PI * 1.6), paint: SPRAY.yellow }, ...bike.layers]);
+  keyCap(tools, 34, 4, KEY_LEFT);
+}
+
+/** Turn around: a bike facing back the way it came, a U-turn beside it, and Space. */
 export function drawTutorialFlip(tools) {
   sprayCloud(tools);
-  sprayBike(tools, -34, 14, -0.7, 0.4);
-  curvedArrow(tools, -16, -4, 32, 0.3, -Math.PI * 1.55);
-  keyCap(tools, 36, 10, KEY_LEFT);
+  const bike = bikeLayers(-12, 24, 0, { facing: -1, scale: 1 });
+  const uTurn = any(
+    stroke(4, -28, 30, -28, 5),
+    arcBand(30, -18, 10, -Math.PI / 2, Math.PI / 2, 5),
+    stroke(30, -8, 12, -8, 5),
+    arrowHead(12, -8, -1, 0, 5),
+  );
+  sprayPiece(tools, [{ shape: uTurn, paint: SPRAY.yellow }, ...bike.layers]);
+  keyCap(tools, 12, 6, KEY_SPACE, 30);
 }
 
 /** Headlight: a bike throwing a beam ahead of it, and L. */
 export function drawTutorialLight(tools) {
   const { pixelRect } = tools;
   sprayCloud(tools);
-  const { bars } = sprayBike(tools, -52, 22, 0, 0);
-  // The beam: rays fanning out ahead of the lamp.
-  const [lx, ly] = [snap(bars[0] + 4), snap(bars[1] + 2)];
-  pixelRect(lx - 2, ly - 2, 4, 4, SPRAY.accent, 2);
-  for (const slope of [-0.35, -0.12, 0.12, 0.35])
-    for (let d = 8; d <= 40; d += 4)
-      pixelRect(snap(lx + d), snap(ly + d * slope), 4, 2, d > 30 ? SPRAY.accentShade : SPRAY.accent, 2);
-  keyCap(tools, 38, -30, KEY_L);
+  const bike = bikeLayers(-50, 22, 0);
+  const [lx, ly] = bike.lamp;
+  const beam = (reach, spread) => polygon([[lx, ly - 2], [lx + reach, ly - spread], [lx + reach, ly + spread * 0.9], [lx, ly + 2]]);
+  sprayPiece(tools, bike.layers);
+  // The beam, brightest at the lamp and sprayed thinner further out.
+  const [left, top, right, bottom] = TUTORIAL_BOUNDS;
+  const near = beam(20, 9), mid = beam(38, 16), far = beam(58, 24);
+  for (let y = top; y < bottom; y += 2)
+    for (let x = left; x < right; x += 2) {
+      if (near(x + 1, y + 1)) pixelRect(x, y, 2, 2, YELLOW.light, 2);
+      else if (mid(x + 1, y + 1)) pixelRect(x, y, 2, 2, YELLOW.base, 2);
+      else if (far(x + 1, y + 1) && (x + y) % 4 === 0) pixelRect(x, y, 2, 2, YELLOW.dark, 2);
+    }
+  pixelRect(snap(lx) - 2, snap(ly) - 2, 4, 4, WHITE.light, 2);
+  keyCap(tools, 38, -32, KEY_L);
+}
+
+/** Restart: a bike upside down with its rider's helmet in the dirt, a circling arrow, and R. */
+export function drawTutorialRestart(tools) {
+  sprayCloud(tools);
+  const bike = bikeLayers(-36, -16, 1.9, { lean: -1, scale: 1.1 });
+  const star = (cx, cy, r) => any(stroke(cx - r, cy, cx + r, cy, 2.5), stroke(cx, cy - r, cx, cy + r, 2.5));
+  sprayPiece(tools, [
+    { shape: stroke(-60, 32, 8, 32, 3), paint: SPRAY.white },
+    { shape: any(star(2, 18, 5), star(-30, 24, 3), star(-4, 4, 3)), paint: SPRAY.yellow },
+    ...bike.layers,
+  ]);
+  sprayPiece(tools, [{ shape: arrowShape(36, -14, 12, -0.6, -0.6 + Math.PI * 1.6), paint: SPRAY.yellow }]);
+  keyCap(tools, 28, 10, KEY_R);
+}
+
+/** Hanging from a ledge: the front wheel hooked over its lip, an arrow up over it, and ↑ + →. */
+export function drawTutorialLedge(tools) {
+  sprayCloud(tools);
+  const ledge = polygon([[-8, -6], [62, -6], [62, 34], [-8, 34]]);
+  const bike = bikeLayers(-18, 11, -1.1, { lean: -0.6, scale: 1 });
+  sprayPiece(tools, [
+    { shape: ledge, paint: SPRAY.ledge },
+    { shape: arrowShape(2, -6, 20, Math.PI * 1.1, Math.PI * 1.85), paint: SPRAY.yellow },
+    ...bike.layers,
+  ]);
+  keyCap(tools, 4, 8, KEY_UP);
+  drawCells(tools, KEY_PLUS, 26, 14, { "#": WHITE.light });
+  keyCap(tools, 40, 8, KEY_RIGHT);
+}
+
+const KEY_DOWN = ["..#..", "..#..", "#.#.#", ".###.", "..#.."];
+
+/** Gas: a bike pulling away with speed lines streaming behind it, and ↑. */
+export function drawTutorialGas(tools) {
+  sprayCloud(tools);
+  const bike = bikeLayers(-16, 22, -0.12, { lean: -0.4 });
+  const lines = any(stroke(-58, -8, -36, -8, 4), stroke(-54, 4, -30, 4, 4), stroke(-60, 16, -40, 16, 4));
+  sprayPiece(tools, [{ shape: lines, paint: SPRAY.yellow }, ...bike.layers]);
+  keyCap(tools, 38, -30, KEY_UP);
+}
+
+/**
+ * Brake: a bike pitched onto its front wheel, its rear lifting, with the rider
+ * leaning back against it, an arrow tipping it back and ↓ + ←.
+ */
+export function drawTutorialBrake(tools) {
+  sprayCloud(tools);
+  const bike = bikeLayers(-28, 12, 0.3, { lean: 1 });
+  const skid = stroke(-22, 31, -2, 31, 3);
+  const dust = any(disc(17, 28, 5), disc(24, 22, 3.5), disc(14, 19, 2.5));
+  sprayPiece(tools, [
+    { shape: stroke(-60, 34, 30, 34, 3), paint: SPRAY.white },
+    { shape: skid, paint: SPRAY.tyre },
+    { shape: dust, paint: SPRAY.white },
+    { shape: arrowShape(3, 22, 56, -2.2, -3.0), paint: SPRAY.yellow },
+    ...bike.layers,
+  ]);
+  keyCap(tools, 10, -32, KEY_DOWN);
+  drawCells(tools, KEY_PLUS, 30, -26, { "#": WHITE.light });
+  keyCap(tools, 42, -32, KEY_LEFT);
 }

@@ -587,6 +587,12 @@
       "type": "ivy",
       "layer": "back",
       "rotation": -22.5
+    },
+    {
+      "x": 421.34375,
+      "y": 380.7671875,
+      "type": "tutorial-light",
+      "layer": "front"
     }
   ],
   "spikes": [],

@@ -14,7 +14,8 @@ import {
 const EVENT_PROPS = [
   'tyre-wall', 'hay-bales', 'course-tape', 'banner', 'spectators', 'pit-board', 'petrol-can',
   'marshal-start', 'marshal-finish', 'camera-tower', 'warning-triangle', 'warning-bang', 'warning-skull',
-  'arrow-sign', 'halfway-flag', 'tutorial-lean', 'tutorial-flip', 'tutorial-light',
+  'arrow-sign', 'halfway-flag', 'tutorial-lean', 'tutorial-flip', 'tutorial-rotate', 'tutorial-light',
+  'tutorial-restart', 'tutorial-ledge', 'tutorial-gas', 'tutorial-brake',
 ];
 
 const trail = (props) => normalizeTrail({
@@ -31,7 +32,7 @@ const warningsFor = (props) => validateTrail(trail(props)).filter((m) => m.type 
   assert.ok(!warnings.some((text) => /unknown type/.test(text)), warnings.join('\n'));
   for (const type of ['banner', 'pit-board', 'halfway-flag']) assert.ok(!canFlip(type), `${type} would mirror its text`);
   for (const type of ['arrow-sign', 'marshal-start', 'camera-tower', 'spectators']) assert.ok(canFlip(type), `${type} can flip`);
-  for (const type of ['tutorial-lean', 'tutorial-flip', 'tutorial-light']) {
+  for (const type of ['tutorial-lean', 'tutorial-flip', 'tutorial-rotate', 'tutorial-light', 'tutorial-restart', 'tutorial-ledge', 'tutorial-gas', 'tutorial-brake']) {
     assert.ok(PAINTED_PROPS.has(type) && canRotate(type), `${type} is painted on the rock`);
     assert.ok(paintedBounds(type)[3] > 0, 'and reaches below its anchor');
   }

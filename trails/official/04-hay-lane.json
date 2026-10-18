@@ -1175,13 +1175,6 @@
       "layer": "back"
     },
     {
-      "x": 1275,
-      "y": null,
-      "type": "sign",
-      "layer": "front",
-      "text": "SLOW"
-    },
-    {
       "x": 1500,
       "y": null,
       "type": "fence",
@@ -1230,20 +1223,20 @@
       "layer": "back"
     },
     {
-      "x": 2500,
-      "y": null,
+      "x": 2520,
+      "y": 171.47591145833334,
       "type": "crates",
       "layer": "back"
     },
     {
-      "x": 2492,
-      "y": 112,
+      "x": 2524,
+      "y": 117,
       "type": "apple",
       "layer": "back"
     },
     {
-      "x": 2505,
-      "y": 113,
+      "x": 2544,
+      "y": 145,
       "type": "apple",
       "layer": "back"
     },
@@ -1342,6 +1335,12 @@
       "y": 299.4349017208609,
       "type": "grass",
       "layer": "back"
+    },
+    {
+      "x": 1331.7280898736622,
+      "y": 268.1226625611583,
+      "type": "tutorial-brake",
+      "layer": "front"
     }
   ],
   "spikes": [],
