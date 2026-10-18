@@ -34,8 +34,13 @@ export const terrainMaterials = {
   },
   brick: {
     fill: '#8d493d', layers: ['#a65a49', '#71392f'], detail: '#492b29aa', pattern: 'brick',
-    edge: '#433534', surface: '#74a35a', vegetation: null,
+    edge: '#433534', surface: '#bd7961', vegetation: null,
     spray: ['#754239','#9a5748','#bd7961']
+  },
+  wood: {
+    fill: '#9a6a40', layers: ['#b4824f', '#78502f'], detail: '#3e261699', pattern: 'wood',
+    edge: '#4a2f1d', surface: '#c39360', vegetation: null,
+    spray: ['#7c5434','#a87a4b','#d2ad7c']
   },
   glass: {
     fill: '#9fcfd3', layers: ['#c4e6e6', '#82b6bd'], detail: '#ffffff99', pattern: 'glass',

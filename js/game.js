@@ -1,8 +1,8 @@
 // The game loop and state machine: loads trails, steps the ride at a fixed
 // rate, turns ride events into sound, effects and UI, and saves results.
 import { STEP, MAX_STEPS_PER_FRAME, clamp } from './config.js';
-import { trails, officialTrailEntries, bonusTrailEntries, customTrailEntries, readPlaytestTrail, PLAYTEST_EXIT_MESSAGE } from './trails.js';
-import { createAudio } from './audio.js';
+import { trails, officialTrailEntries, bonusTrailEntries, customTrailEntries, readPlaytestTrail, reportEditorFeat, takeEditorFeats, EDITOR_FEATS_KEY, PLAYTEST_EXIT_MESSAGE, detectDevServer } from './trails.js';
+import { createAudio, skidAmount } from './audio.js';
 import { createPhysicsDebugger } from './physics-debug.js';
 import { createFpsMeter } from './fps-meter.js';
 import { terrainAt } from './terrain.js';
@@ -11,27 +11,34 @@ import { encodeInputs, decodeInputs } from './replay-codec.js';
 import { medalFor, normalizeTrail } from './trail-schema.js';
 import {
   readBest, saveBest, readLeaderboard, recordLeaderboardRun, readGhost, saveGhost,
-  saveProgress as persistProgress, savePreferences, clearSaveToken, recordAchievements
+  saveProgress as persistProgress, savePreferences, clearSaveToken, recordAchievements, recordNisse
 } from './storage.js';
-import { bikeBroken, createFeatTracker, eggAchievements, eventAchievements, finishAchievements, interactAchievements, newlyEarned, statGains } from './achievements.js';
+import { bikeBroken, createFeatTracker, editorProgress, eggAchievements, eventAchievements, finishAchievements, interactAchievements, newlyEarned, statGains } from './achievements.js';
 import { createLimWatcher, installConsoleCheats } from './easter-eggs.js';
 import { submitOnlineRun, fetchWorldGhost, refreshOnlineBoard, cachedOnlineBoard } from './online-leaderboard.js';
 import { queueSaveSync } from './account.js';
 import { createInput, keyLabel } from './input.js';
+import { createHaptics } from './haptics.js';
 import { createCamera } from './camera.js';
 import { createEffects } from './effects.js';
 import { createRenderer } from './render.js';
+import { createDebugHud } from './debug-hud.js';
 import { riderPalette } from './drawing.js';
-import { legacyRider, lookOf, lookParts } from './cosmetics.js';
+import { gearCard, legacyRider, lookOf, lookParts, newlyUnlockedItems } from './cosmetics.js';
 import { createOverlay } from './ui/overlay.js';
 import { createMenu, loadStoredState } from './ui/menu.js';
-import { $, session, currentTrailEntry, trailKey, timeText, isRankedSource, bonusUnlock, riderLook, progressOf } from './state.js';
+import { $, session, currentTrailEntry, trailKey, nisseKey, timeText, isRankedSource, bonusUnlock, riderLook, progressOf } from './state.js';
+import { isNight } from './time-of-day.js';
 
 const LANDING_SOUND_IMPACT = 45;
 const HARD_LANDING_IMPACT = 170;
 const CRASH_COLORS = { spike: '#d95832', head: '#ed8b54', fall: '#ed8b54', water: '#8fd6e8' };
 
-export function startGame() {
+/**
+ * @param {{ shared?: { entry?: any, error?: Error } | null }} [options]
+ *   `shared`: the trail a share link opened (see trail-link.js), or why it couldn't.
+ */
+export function startGame({ shared = null } = {}) {
   const game = $('game');
   const renderer = createRenderer(/** @type {HTMLCanvasElement} */ ($('canvas')));
   const camera = createCamera();
@@ -42,13 +49,14 @@ export function startGame() {
   const sounds = createAudio(() => {
     const ride = session.ride;
     return {
-      state: session.state, rear: ride?.rear, front: ride?.front, facing: ride?.facing ?? 1, gas: gasHeld && session.state === 'running', started: ride?.started ?? false,
+      state: session.state, rear: ride?.rear, front: ride?.front, engine: ride?.vehicle.engine, gas: gasHeld && session.state === 'running', started: ride?.started ?? false,
       brakePressure: ride?.brakePressure ?? 0, weather: session.trail?.weather,
     };
   });
   const input = createInput({
     element: game,
     buttons: [...document.querySelectorAll('[data-action]')],
+    indicators: [...document.querySelectorAll('[data-shows]')],
     isActive: () => session.state === 'running' && !menu.isOpen(),
     onPress: handlePress
   });
@@ -58,16 +66,24 @@ export function startGame() {
     onStartBonus: index => startSelectedTrail(() => loadBonusTrail(index), false),
     onStartCustom: index => startSelectedTrail(() => loadCustomTrail(index), false),
     onClose: closeMainMenu,
-    onRetry: retryFromMenu,
+    riderOnScreen: () => renderer.riderOnScreen(),
     onWatchReplay: watchReplay,
-    onPreferences: applyPreferences
+    onPreferences: applyPreferences,
+    // Editor achievements wait for a rider, so a new or newly picked one gets them.
+    onRiderChange: () => claimEditorFeats()
   });
 
   const params = new URLSearchParams(window.location.search);
-  const physicsDebugEnabled = params.get('physicsDebug') === '1';
-  const fpsMeter = params.get('fps') === '1' ? createFpsMeter(/** @type {Element} */ (document.querySelector('.viewport'))) : null;
+  // ?debug=1 turns on every debugging aid: the frame-rate meter, the readout
+  // of the ride, the physics overlay and traces, and the console tools.
+  const debugEnabled = params.get('debug') === '1';
+  const viewport = /** @type {Element} */ (document.querySelector('.viewport'));
+  const fpsMeter = debugEnabled ? createFpsMeter(viewport) : null;
+  const debugHud = debugEnabled ? createDebugHud(viewport) : null;
+  /** The latest step's dynamics, for the debug readout. */
+  let lastDynamics = null;
   const physicsDebug = createPhysicsDebugger({
-    enabled: physicsDebugEnabled,
+    enabled: debugEnabled,
     step: STEP,
     inspectPoint(point, round) {
       const ground = terrainAt(session.trail, point.x, point.y);
@@ -77,8 +93,8 @@ export function startGame() {
       };
     }
   });
-  const debugHooks = physicsDebugEnabled ? {
-    dynamics: values => physicsDebug.recordDynamics(values),
+  const debugHooks = debugEnabled ? {
+    dynamics: values => { lastDynamics = values; physicsDebug.recordDynamics(values); },
     afterIntegration: () => physicsDebug.capture('afterIntegration', session.ride.rear, session.ride.front),
     iteration: value => physicsDebug.setIteration(value),
     constraint: correction => physicsDebug.recordConstraint(correction, session.ride.rear, session.ride.front),
@@ -87,7 +103,7 @@ export function startGame() {
     traction: (wheelName, result, point) => physicsDebug.recordTraction(wheelName, result, point)
   } : undefined;
 
-  if (physicsDebugEnabled) {
+  if (debugEnabled) {
     // Reaching in from the console is an easter egg (see achievements.js).
     window.hjulbenGame = {
       get ride() { egg('debug-console'); return session.ride; },
@@ -103,10 +119,18 @@ export function startGame() {
         return run;
       }
     };
+    // In the editor's play test, the same tools also answer from the editor
+    // page's console, so there is no frame to pick.
+    if (window.parent !== window) {
+      try {
+        Object.assign(window.parent, { hjulbenGame: window.hjulbenGame, hjulbenPhysicsDebug: globalThis.hjulbenPhysicsDebug });
+      } catch {}
+    }
   }
 
-  let lastTime = 0, accumulator = 0, landingSoundCooldown = 0, splashSoundCooldown = 0;
-  // A paused scene is still, so it is only redrawn when something changes it.
+  let lastTime = 0, accumulator = 0, landingSoundCooldown = 0, splashSoundCooldown = 0, suspensionSoundCooldown = 0;
+  // A paused scene is still, as is the scene behind the results once it has
+  // settled, so it is only redrawn when something changes it.
   let redraw = true;
   /** Inputs of the current attempt, one per step, for saving a ghost. */
   let recorded = [], startStep = 0, flips = 0;
@@ -127,6 +151,11 @@ export function startGame() {
   let replay = null;
   /** The last finished run, for Watch Replay on the results. */
   let lastRun = null;
+  // Run from the local dev server, finished runs can be saved for the replay bot.
+  let devServer = false;
+  detectDevServer().then(available => { devServer = available; });
+  // Set when this run ended the career, until its results' Roll Credits button is used.
+  let creditsAfterResults = false;
   let wakeLock = null;
   const playtestData = readPlaytestTrail();
   const playtestTrail = playtestData ? normalizeTrail(playtestData) : null;
@@ -137,9 +166,12 @@ export function startGame() {
 
   const restartKey = () => keyLabel(session.preferences.bindings.restart[0] || 'KeyR');
 
-  function vibrate(pattern) {
-    if (session.preferences.haptics === 'on' && typeof navigator.vibrate === 'function') navigator.vibrate(pattern);
-  }
+  // Phone vibration and gamepad rumble. Watching a replay is not riding, so it stays still.
+  const haptics = createHaptics({
+    phoneEnabled: () => !replay && session.preferences.haptics === 'on',
+    padEnabled: () => !replay && session.preferences.rumble === 'on',
+    gamepad: () => input.activeGamepad(),
+  });
 
   async function holdWakeLock(wanted) {
     if (!('wakeLock' in navigator)) return;
@@ -157,6 +189,11 @@ export function startGame() {
 
   const fullscreenElement = () => document.fullscreenElement || document.webkitFullscreenElement;
   const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+
+  // A phone turned sideways shows the "turn your phone upright" screen over
+  // the game (see .turn-upright), so a ride pauses until it is turned back.
+  const sideways = window.matchMedia('(orientation: landscape) and (pointer: coarse) and (max-height: 500px)');
+  sideways.addEventListener('change', () => { if (sideways.matches) pauseGame(); });
 
   // True only while an in-game action (F, Settings) is turning fullscreen off.
   let fullscreenExitRequested = false;
@@ -202,10 +239,11 @@ export function startGame() {
         else { sounds.escape(); showMainMenu(); }
       }
     }
-    // Phones play better sideways; locking only works while fullscreen.
+    // Phones are played upright, so the touch controls fit under the trail;
+    // locking only works while fullscreen.
     if (coarsePointer && screen.orientation) {
       try {
-        if (on) screen.orientation.lock?.('landscape').catch(() => {});
+        if (on) screen.orientation.lock?.('portrait').catch(() => {});
         else screen.orientation.unlock?.();
       } catch (_) {}
     }
@@ -218,8 +256,8 @@ export function startGame() {
     const { preferences } = session;
     session.look = riderLook();
     $('control-area').hidden = preferences.controls === 'hide';
-    sounds.setEnabled(preferences.sound === 'on');
     sounds.setVolume(preferences.volume / 100);
+    syncSound();
     input.setBindings(preferences.bindings);
     renderer.setInteractKey(preferences.bindings.interact?.[0] ? keyLabel(preferences.bindings.interact[0]) : '');
     if (preferences.ghost === 'off') ghost = null;
@@ -247,6 +285,16 @@ export function startGame() {
     earn(eggAchievements(name));
   }
 
+  /**
+   * Gives the active rider the Trail Maker achievements for what the editor
+   * did since. They wait for a rider, and play-tests leave them for the game.
+   */
+  function claimEditorFeats() {
+    if (!session.saveGame || playtestTrail) return;
+    const { ids, gains } = editorProgress(takeEditorFeats());
+    earn(ids, gains);
+  }
+
   /** Lifetime stats and achievements from a ride event or feat. */
   function trackAchievements(event) {
     const gains = statGains(event), ids = eventAchievements(event);
@@ -256,7 +304,8 @@ export function startGame() {
   /**
    * Gives the active save the achievements in `ids` and adds `gains` to its
    * lifetime stats, then announces every achievement that is new since
-   * `before`, including career and stat ones the change completed. Without a
+   * `before`, including career and stat ones the change completed, and the
+   * gear the run or those achievements won. Without a
    * save nothing is kept: achievements belong to a rider. Editor play-tests
    * never count, like their times.
    * @param {string[]} ids
@@ -270,9 +319,40 @@ export function startGame() {
       const updated = recordAchievements(session.activeSaveSlot, trails.length, fresh, gains);
       if (updated) Object.assign(saveGame, updated);
     }
-    const earned = newlyEarned(before, progressOf(saveGame));
-    for (const { name } of earned) overlay.achievement(name);
+    const after = progressOf(saveGame);
+    const earned = newlyEarned(before, after);
+    for (const achievement of earned) overlay.achievement(achievement);
+    // The gear the run or those achievements won (see unlocks.js), for the Garage.
+    const won = newlyUnlockedItems(before, after);
+    for (const item of won) overlay.gear(gearCard(item));
+    // Earned in the menu: its "earned" count is on screen.
+    if ((earned.length || won.length) && menu.isOpen()) menu.updateDashboard();
     if (fresh.length || Object.keys(gains).length || earned.length) queueSaveSync(saveGame);
+  }
+
+  /**
+   * Remembers that the rider found this trail's nisse, then gives them any
+   * career achievement that completes (finding every official one). Like
+   * achievements it belongs to a rider, and play-tests and replays don't count.
+   */
+  /** Whether the active rider has already found this trail's nisse. A playtest always shows it. */
+  function nisseFound() {
+    if (session.trailSource === 'playtest') return false;
+    const entry = currentTrailEntry();
+    return Boolean(entry && session.saveGame?.nisse?.[nisseKey(entry)]);
+  }
+
+  function findNisse() {
+    const { saveGame } = session;
+    if (!saveGame || session.trailSource === 'playtest' || replay) return;
+    const entry = currentTrailEntry();
+    if (!entry) return;
+    const before = progressOf(saveGame);
+    const key = nisseKey(entry);
+    if (!recordNisse(session.activeSaveSlot, trails.length, key)) return;
+    saveGame.nisse = { ...saveGame.nisse, [key]: Date.now() };
+    earn([], {}, before);
+    queueSaveSync(saveGame);
   }
 
   /**
@@ -284,9 +364,22 @@ export function startGame() {
     return finishAchievements({
       flips, time: ride.elapsed, medal: medalFor(medals, ride.elapsed), gold: medals?.gold ?? null,
       helmet: lookParts(session.look).helmet, bike: session.look.bike,
-      night: timeOfDay === 'night', rain: (weather?.rain ?? 0) > 0, snow: (weather?.snow ?? 0) > 0,
-      attempts, previousBest, worldBest, custom: session.trailSource === 'custom'
+      night: isNight(timeOfDay), rain: (weather?.rain ?? 0) > 0, snow: (weather?.snow ?? 0) > 0,
+      attempts, previousBest, worldBest, custom: session.trailSource === 'custom',
+      shared: session.trailSource === 'custom' && currentTrailEntry()?.shared === true
     });
+  }
+
+  function syncSound() {
+    const on = session.preferences.sound === 'on';
+    sounds.setEnabled(on);
+    $('sound-control').setAttribute('aria-pressed', String(on));
+  }
+
+  function toggleSound() {
+    session.preferences.sound = session.preferences.sound === 'on' ? 'off' : 'on';
+    savePreferences(session.preferences);
+    syncSound();
   }
 
   function toggleHeadlight() {
@@ -346,9 +439,12 @@ export function startGame() {
     session.trail = trail;
     const seed = replay ? replay.data.seed : (Math.random() * 2 ** 31) >>> 0;
     const ride = createRide(trail, { seed, helmet: lookParts(replay?.look ?? session.look).helmet });
+    // Once found, the nisse is gone from the trail for this rider, on every
+    // ride after. Replays still show the run as it was ridden.
+    if (!replay && nisseFound()) ride.nisse = null;
     session.ride = ride;
     recorded = []; startStep = 0; flips = 0; broken = false;
-    accumulator = 0; landingSoundCooldown = 0; splashSoundCooldown = 0;
+    accumulator = 0; landingSoundCooldown = 0; splashSoundCooldown = 0; suspensionSoundCooldown = 0;
     effects.reset(trail);
     renderer.reset(trail, ride.facing);
     camera.reset();
@@ -404,7 +500,7 @@ export function startGame() {
     const look = data.look || data.rider ? lookOf(data) : session.look;
     replay = { source, index, data, inputs: decodeInputs(data.inputs), step: 0, look, name: name || 'Replay' };
     menu.close();
-    game.classList.remove('menu-open');
+    setMenuOpen(false);
     session.rideSaveId = session.saveGame?.createdAt ?? null;
     session.gameLoopStarted = true;
     restartReplay();
@@ -493,7 +589,7 @@ export function startGame() {
     setState('running'); focusGame();
   }
 
-  function pauseGame() { if (session.state === 'running') setState('paused'); }
+  function pauseGame() { if (session.state === 'running') { setState('paused'); haptics.stop(); } }
   function resumeGame() {
     if (session.state !== 'paused') return;
     setState('running'); focusGame();
@@ -513,17 +609,22 @@ export function startGame() {
     if (session.state !== 'menu') session.stateBeforeMenu = session.state;
     session.state = 'menu';
     input.clear();
+    haptics.stop();
     overlay.hide();
     $('crash-retry').hidden = true;
     holdWakeLock(false);
-    game.classList.add('menu-open');
+    setMenuOpen(true);
     menu.open();
+  }
+
+  function setMenuOpen(open) {
+    game.classList.toggle('menu-open', open);
   }
 
   function closeMainMenu() {
     if (!menu.canResume()) return;
     menu.close();
-    game.classList.remove('menu-open');
+    setMenuOpen(false);
     focusGame();
     const previous = session.stateBeforeMenu;
     if (previous === 'ragdoll') setState('ragdoll');
@@ -534,18 +635,11 @@ export function startGame() {
     } else setState(previous === 'paused' ? 'paused' : 'running');
   }
 
-  function retryFromMenu() {
-    if (!menu.canResume()) return;
-    menu.close();
-    game.classList.remove('menu-open');
-    startFresh();
-  }
-
   function startSelectedTrail(load, requiresSave = true) {
     if (requiresSave && !session.saveGame) return;
     endReplay();
     menu.close();
-    game.classList.remove('menu-open');
+    setMenuOpen(false);
     openingTrail = true;
     load();
     setState('running');
@@ -576,6 +670,32 @@ export function startGame() {
 
   // --- Simulation ------------------------------------------------------------
 
+  // The replay bot's reference runs live in the repo (tests/replays/human), so
+  // only the dev server can save them. It works out which official trail the
+  // run finishes, which also covers play tests.
+  function showSaveReference() {
+    const button = $('save-reference');
+    button.hidden = !devServer || !lastRun || !['official', 'playtest'].includes(session.trailSource);
+    button.disabled = false;
+  }
+
+  async function saveReferenceRun() {
+    const button = $('save-reference');
+    if (session.state !== 'won' || !lastRun || button.disabled) return;
+    button.disabled = true;
+    try {
+      const response = await fetch(new URL('../api/reference-runs', import.meta.url), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(lastRun)
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `The dev server answered ${response.status}.`);
+      overlay.toast(`Bot reference saved for ${result.name}${result.replaced ? ' · replaced the old one' : ''}`, 4000);
+    } catch (error) {
+      button.disabled = false;
+      overlay.toast(error instanceof Error ? error.message : String(error), 5000);
+    }
+  }
+
   function finishPlaytestRun(ride) {
     const time = ride.elapsed;
     const previousBest = playtestBest?.time ?? null;
@@ -585,11 +705,14 @@ export function startGame() {
     }
     const medals = session.trail.medals;
     overlay.showResults({
-      official: false, time, previousBest, rank: null, medals, medal: medalFor(medals, time), flips,
+      official: false, time, previousBest, rank: null, medals, medal: medalFor(medals, time),
       apples: ride.apples.length, author: session.trail.author,
       primaryLabel: 'Play Again',
       restartKey: restartKey()
     });
+    // Test Pilot: given to the rider back in the game, as play-tests don't count as riding.
+    if (!replay) reportEditorFeat('playtest');
+    showSaveReference();
     $('overlay-badge').textContent = 'PLAY TEST COMPLETED';
     $('overlay-description').textContent = 'Play-test runs are not saved. Press Escape to return to the editor.';
     $('overlay-description').hidden = false;
@@ -638,6 +761,9 @@ export function startGame() {
     earn(finishedRunAchievements(ride, previousBest, worldBest), {}, before);
     const medals = session.trail.medals;
     const last = session.trailIndex === trails.length - 1;
+    // Beating the last official trail for the first time ends the career: the
+    // results' main button rolls the credits.
+    creditsAfterResults = official && last && Boolean(saveGame) && previousBest === null;
     // Only a run the player actually rode is sent to the world board.
     // Offline saves stay local-only. The server replays the inputs to time the run.
     const submission = ranked && session.state === 'running' && saveGame?.token
@@ -645,11 +771,12 @@ export function startGame() {
       : null;
     overlay.showResults({
       official, bonus: session.trailSource === 'bonus', time, previousBest, rank, worldPending: !!submission,
-      medals, medal: medalFor(medals, time), flips,
+      medals, medal: medalFor(medals, time),
       apples: ride.apples.length, author: session.trail.author,
-      primaryLabel: official && !last ? 'Next Trail' : 'Play Again',
+      primaryLabel: official && !last ? 'Next Trail' : creditsAfterResults ? 'Roll Credits' : 'Play Again',
       restartKey: restartKey()
     });
+    showSaveReference();
     if (submission) {
       const slot = session.activeSaveSlot;
       const shown = overlay.currentResults();
@@ -667,7 +794,7 @@ export function startGame() {
       });
     }
     setState('won');
-    vibrate([20, 40, 20, 40, 60]);
+    haptics.play('cheer');
   }
 
   function handleEvent(ride, event) {
@@ -686,7 +813,7 @@ export function startGame() {
         const mx = (ride.rear.x + ride.front.x) / 2, my = (ride.rear.y + ride.front.y) / 2;
         renderer.popup('+' + event.count + (event.count === 1 ? ' FLIP' : ' FLIPS'), mx, my - 70);
         overlay.announce(event.count + (event.count === 1 ? ' flip.' : ' flips.'));
-        vibrate(25);
+        haptics.play('tick', { phonePattern: 25 });
         break;
       }
       case 'land':
@@ -695,10 +822,22 @@ export function startGame() {
         landingSoundCooldown = .12;
         for (const wheel of [ride.rear, ride.front]) if (wheel.grounded && wheel.impactSpeed > LANDING_SOUND_IMPACT) effects.dustPuff(wheel, wheel.impactSpeed);
         if (event.impact > HARD_LANDING_IMPACT) {
-          vibrate(Math.round(clamp(event.impact / 12, 10, 40)));
+          haptics.play('thump', {
+            strength: clamp((event.impact - HARD_LANDING_IMPACT) / 400, 0, 1),
+            phonePattern: Math.round(clamp(event.impact / 12, 10, 40)),
+          });
           // Shakes the snow off nearby snowy pines.
           renderer.land((ride.rear.x + ride.front.x) / 2, (ride.rear.y + ride.front.y) / 2, clamp(.4 + (event.impact - HARD_LANDING_IMPACT) / 380, .4, 1));
         }
+        break;
+      case 'suspension':
+        if (ride.status !== 'running') break;
+        // Bottoming out thumps the gamepad, as hard as the clunk sounds; a
+        // landing that bottoms out thumps once.
+        if (event.end === 'bottom') haptics.play('thump', { strength: clamp((event.speed - 100) / 300, 0, 1), phone: false });
+        if (suspensionSoundCooldown > 0) break;
+        sounds.suspension(event.end, event.speed);
+        suspensionSoundCooldown = .06;
         break;
       case 'splash':
         effects.splash(event.x, event.y, event.speed);
@@ -711,18 +850,18 @@ export function startGame() {
         effects.shatter(event);
         sounds.shatter(event.speed);
         if (session.preferences.shake === 'on') camera.kick(3);
-        vibrate(30);
+        haptics.play('jolt');
         break;
       case 'crack':
         effects.crack(event);
         sounds.crack(event.speed);
-        vibrate(12);
+        haptics.play('tick');
         break;
       case 'crash':
         effects.burst(event.x, event.y, CRASH_COLORS[event.cause], event.cause === 'spike' ? 18 : 15);
         sounds.crash();
         if (session.preferences.shake === 'on') camera.kick(6);
-        vibrate([40, 30, 80]);
+        haptics.play('crash');
         setState('ragdoll');
         overlay.announce('Rider down. Press ' + restartKey() + ' or select Retry to try again.');
         overlay.toast('Rider down · Press ' + restartKey() + ' to retry', Infinity);
@@ -730,7 +869,7 @@ export function startGame() {
       case 'helmet':
         effects.burst(event.x, event.y, riderPalette(replay?.look ?? session.look).helmet, 8);
         sounds.helmet(event.speed);
-        vibrate(25);
+        haptics.play('jolt', { phonePattern: 25 });
         overlay.announce('The helmet came off.');
         break;
       case 'apple': {
@@ -743,6 +882,15 @@ export function startGame() {
         if (event.collected === event.total) overlay.toast('All apples collected! Finish gate unlocked', undefined, 'flag');
         break;
       }
+      case 'nisse':
+        // Optional and hidden: a puff of red, a jingle, and a note in the save.
+        effects.burst(event.x, event.y - 12, '#d63b2c', 14);
+        sounds.nisse();
+        haptics.play('cheer', { phonePattern: 30 });
+        overlay.toast('You found the nisse!', 3200, 'nisse');
+        overlay.announce('You found the nisse.');
+        findNisse();
+        break;
       case 'goalLocked':
         // Only at the finish do the missing apples get pointed out, so
         // finding them along the way stays part of the trail.
@@ -766,19 +914,14 @@ export function startGame() {
     if (thunder) sounds.thunder(thunder.intensity, thunder.distance, thunder.x);
     landingSoundCooldown = Math.max(0, landingSoundCooldown - STEP);
     splashSoundCooldown = Math.max(0, splashSoundCooldown - STEP);
+    suspensionSoundCooldown = Math.max(0, suspensionSoundCooldown - STEP);
     physicsDebug.begin({ state: session.state, time: ride.elapsed, trail: session.trail.name, source: session.trailSource, facing: ride.facing, throttle: ride.throttle }, ride.rear, ride.front);
 
     // Holding restart keeps the bike on the start line with the clock stopped.
     const holding = input.held('restart');
-    const replayInput = physicsDebug.nextReplayInput();
     const stepInput = replay ? {
       facing: ride.facing, leanInput: 0, accelerating: false, braking: false,
       ...replay.inputs[replay.step++]
-    } : replayInput ? {
-      facing: Number(replayInput.facing) ? (replayInput.facing < 0 ? -1 : 1) : ride.facing,
-      leanInput: replayInput.leanInput ?? 0,
-      accelerating: Boolean(replayInput.accelerating),
-      braking: Boolean(replayInput.braking)
     } : {
       facing: ride.facing,
       // Rounded like the replay codec, so the recorded run is exactly the run
@@ -806,6 +949,7 @@ export function startGame() {
     effects.waterWake(ride, speed);
     effects.brakeMarks(ride, speed, stepInput.braking);
     effects.wheelGrime(ride, stepInput.braking);
+    effects.squishTyres(ride);
     // A crash throws away the feat in progress; reaching the finish completes it.
     if (replay) feats.reset();
     else if (ride.status === 'running') feats.step(ride.rear.grounded, ride.front.grounded).forEach(trackAchievements);
@@ -825,6 +969,8 @@ export function startGame() {
     const dt = lastTime ? Math.min((now - lastTime) / 1000, .05) : 1 / 60;
     lastTime = now;
     input.pollGamepad();
+    // Toasts time out in the menu too, where achievements can still be earned.
+    overlay.tick(now);
     const ride = session.ride;
     if (ride && !menu.isOpen()) {
       const { state } = session;
@@ -841,8 +987,8 @@ export function startGame() {
       const stepping = session.state === 'running' || session.state === 'ragdoll';
       const alpha = stepping ? accumulator / STEP : 1;
       overlay.setTimer(ride.elapsed);
-      overlay.tick(now);
-      if (session.state !== 'paused' || redraw) {
+      const still = session.state === 'paused' || (session.state === 'won' && renderer.settled());
+      if (!still || redraw) {
         redraw = false;
         const restore = interpolateRide(ride, alpha);
         const ghostRide = ghost?.ride;
@@ -850,7 +996,7 @@ export function startGame() {
         const restoreGhost = ghostRide ? interpolateRide(ghostRide, ghostRide.status === 'won' ? 1 : alpha) : null;
         renderer.draw({
           ride, ghost: ghostRide, camera, effects, look: replay?.look ?? session.look, ghostLook: ghost?.look, state: session.state,
-          full: session.preferences.scenery === 'full', dt, debug: physicsDebugEnabled
+          full: session.preferences.scenery === 'full', dt, debug: debugEnabled
         });
         restoreGhost?.();
         restore();
@@ -858,7 +1004,11 @@ export function startGame() {
       }
     }
     fpsMeter?.drawn(now);
+    debugHud?.update({ ride: session.ride, state: session.state, trailName: session.trail?.name, dynamics: lastDynamics }, now);
     sounds.update();
+    // A light buzz while the tyre skids under braking, like the skid sound.
+    const current = session.ride;
+    if (current) haptics.skid(skidAmount({ state: session.state, rear: current.rear, front: current.front, brakePressure: current.brakePressure ?? 0 }));
     requestAnimationFrame(frame);
   }
 
@@ -904,6 +1054,13 @@ export function startGame() {
   });
 
   $('primary').addEventListener('click', () => {
+    if (session.state === 'won' && creditsAfterResults) {
+      creditsAfterResults = false;
+      sounds.menuConfirm();
+      showMainMenu();
+      menu.showCredits('home');
+      return;
+    }
     // On the last trail the button reads Play Again, so it falls through to a retry.
     if (session.state === 'won' && session.trailSource === 'official' && session.trailIndex < trails.length - 1) {
       openingTrail = true;
@@ -912,12 +1069,17 @@ export function startGame() {
     } else startFresh();
   });
   $('secondary').addEventListener('click', startFresh);
+  $('save-reference').addEventListener('click', saveReferenceRun);
   $('watch-replay').addEventListener('click', () => {
     if (session.state === 'won' && lastRun) watchReplay({ data: lastRun, name: session.saveGame?.name || 'Your run' });
   });
   // Focus the game first: hiding the focused button would blur it and auto-pause.
   $('crash-retry').addEventListener('click', () => { focusGame(); if (replay) rideAfterReplay(); else startFresh(); });
   $('headlight').addEventListener('click', () => { toggleHeadlight(); focusGame(); });
+  $('sound-control').addEventListener('click', () => { toggleSound(); focusGame(); });
+  // A click rather than a data-action: the touch buttons only work mid-ride,
+  // and restart is wanted most after a crash.
+  $('restart-control').addEventListener('click', () => handlePress('restart'));
   $('menu').addEventListener('click', () => { sounds.menuBack(); showMainMenu(); });
   document.querySelectorAll('[data-fullscreen]').forEach(button => button.addEventListener('click', () => {
     const wantOn = button.dataset.fullscreen === 'on';
@@ -948,6 +1110,18 @@ export function startGame() {
   window.addEventListener('keyup', event => lim.up(event.code), { capture: true });
   window.addEventListener('blur', () => lim.clear());
   installConsoleCheats(() => egg('cheat'));
+  // In the menu, the card is a shortcut to the achievements or the Garage. It
+  // ignores clicks on the ride (see the CSS), so it can't interrupt a run.
+  $('achievement-popover').addEventListener('click', () => {
+    if (!menu.isOpen() || !session.saveGame) return;
+    const popover = $('achievement-popover');
+    popover.hidePopover();
+    $(popover.dataset.opens === 'garage' ? 'menu-garage' : 'menu-achievements').click();
+  });
+  // Back from the editor: a reload, a page restored from the back-forward
+  // cache, or the editor open in another tab.
+  window.addEventListener('pageshow', event => { if (event.persisted) claimEditorFeats(); });
+  window.addEventListener('storage', event => { if (event.key === EDITOR_FEATS_KEY) claimEditorFeats(); });
 
   loadStoredState();
   applyPreferences();
@@ -956,7 +1130,14 @@ export function startGame() {
   if (playtestTrail) {
     $('menu').setAttribute('aria-label', 'Back to the editor');
     startSelectedTrail(loadPlaytestTrail, false);
-  } else showMainMenu();
+  } else if (shared?.entry) {
+    startSelectedTrail(() => loadCustomTrail(customTrailEntries.indexOf(shared.entry)), false);
+    overlay.toast(`Shared trail “${shared.entry.name}” · Saved under Custom Trails`, 5000);
+  } else {
+    showMainMenu();
+    claimEditorFeats();
+    if (shared?.error) menu.showTrailsStatus(`Could not open the shared trail: ${shared.error.message}`, true);
+  }
   requestAnimationFrame(frame);
   // Queued after the first frame, so the reveal shows a fully drawn screen.
   requestAnimationFrame(() => game.removeAttribute('data-booting'));

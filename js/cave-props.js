@@ -286,40 +286,40 @@ export function drawRails({ pixelRect }, left, right, groundOffset, openLeft, op
   if (openRight) stop(right - 4);
 }
 
-/** 48 × 40 mine cart heaped with ore, wheels resting on y = 0. */
+/** 48 × 36 mine cart heaped with ore, wheels resting on y = 0. */
 export function drawMinecart({ pixelRect }) {
   // Ore heap behind the rim.
-  pixelRect(-20, -36, 40, 2, ORE.base, 2);
-  pixelRect(-16, -38, 26, 2, ORE.base, 2);
-  pixelRect(-10, -40, 14, 2, ORE.base, 2);
-  pixelRect(-20, -36, 4, 2, ORE.dark, 2);
-  pixelRect(-16, -38, 4, 2, ORE.dark, 2);
-  pixelRect(12, -36, 6, 2, ORE.light, 2);
-  pixelRect(4, -38, 6, 2, ORE.light, 2);
-  pixelRect(0, -40, 4, 2, ORE.light, 2);
-  pixelRect(-12, -36, 2, 2, ORE.gold, 2);
-  pixelRect(-6, -38, 2, 2, ORE.gold, 2);
-  pixelRect(8, -36, 2, 2, ORE.gem, 2);
+  pixelRect(-20, -32, 40, 2, ORE.base, 2);
+  pixelRect(-14, -34, 26, 2, ORE.base, 2);
+  pixelRect(-8, -36, 14, 2, ORE.base, 2);
+  pixelRect(-20, -32, 4, 2, ORE.dark, 2);
+  pixelRect(-14, -34, 4, 2, ORE.dark, 2);
+  pixelRect(10, -32, 6, 2, ORE.light, 2);
+  pixelRect(2, -34, 6, 2, ORE.light, 2);
+  pixelRect(-2, -36, 4, 2, ORE.light, 2);
+  pixelRect(-10, -32, 2, 2, ORE.gold, 2);
+  pixelRect(-4, -34, 2, 2, ORE.gold, 2);
+  pixelRect(6, -32, 2, 2, ORE.gem, 2);
   // Tub, narrowing to the bottom.
-  for (let row = 0; row < 11; row++) {
-    const y = -32 + row * 2;
+  for (let row = 0; row < 9; row++) {
+    const y = -28 + row * 2;
     const half = 22 - Math.min(2, Math.floor(row / 4)) * 2;
     pixelRect(-half, y, half * 2, 2, STEEL.base, 2);
     pixelRect(-half, y, 4, 2, IRON.base, 2);
     pixelRect(half - 2, y, 2, 2, STEEL.mid, 2);
   }
   // Rolled rim.
-  pixelRect(-24, -34, 48, 2, STEEL.light, 2);
-  pixelRect(-24, -34, 4, 2, STEEL.mid, 2);
-  pixelRect(-24, -32, 2, 2, IRON.dark, 2);
+  pixelRect(-24, -30, 48, 2, STEEL.light, 2);
+  pixelRect(-24, -30, 4, 2, STEEL.mid, 2);
+  pixelRect(-24, -28, 2, 2, IRON.dark, 2);
   // Straps, a band and rivets.
-  for (const sx of [-10, 8]) pixelRect(sx, -30, 2, 18, IRON.base, 2);
-  pixelRect(-20, -22, 40, 2, IRON.base, 2);
-  for (const [rx, ry] of [[-10, -30], [8, -30], [-16, -22], [-10, -22], [8, -22], [14, -22]])
+  for (const sx of [-10, 8]) pixelRect(sx, -26, 2, 14, IRON.base, 2);
+  pixelRect(-20, -20, 40, 2, IRON.base, 2);
+  for (const [rx, ry] of [[-10, -26], [8, -26], [-16, -20], [-10, -20], [8, -20], [14, -20]])
     pixelRect(rx, ry, 2, 2, STEEL.light, 2);
   // Rust on the shaded side.
-  pixelRect(-16, -16, 4, 2, WOOD.plank, 2);
-  pixelRect(-14, -14, 2, 2, WOOD.light, 2);
+  pixelRect(-16, -14, 4, 2, WOOD.plank, 2);
+  pixelRect(-14, -12, 2, 2, WOOD.light, 2);
   // Chassis and wheels.
   pixelRect(-18, -10, 36, 2, IRON.dark, 2);
   for (const c of CART_WHEELS) {

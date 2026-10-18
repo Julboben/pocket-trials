@@ -36,7 +36,8 @@ async function fetchShippedTrail(id, origin) {
   return trailCache.get(id);
 }
 
-function validRows(rows) {
+/** Whether `rows` are well-formed encoded inputs no longer than MAX_STEPS, checked before decoding them. */
+export function validRows(rows) {
   if (!Array.isArray(rows) || rows.length === 0 || rows.length > MAX_ROWS) return false;
   let steps = 0;
   for (const row of rows) {

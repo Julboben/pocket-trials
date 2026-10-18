@@ -4788,7 +4788,7 @@
     },
     {
       "x": -3139.951389872645,
-      "y": -226.58264655550303,
+      "y": -221.58264655550303,
       "type": "sign",
       "layer": "back",
       "text": "WELCOME!"
@@ -4809,9 +4809,11 @@
     "fog": 0,
     "rain": 0.2,
     "snow": 1,
-    "lightning": 1
+    "lightning": 1,
+    "wind": 0.9,
+    "windDirection": "left"
   },
   "author": "Nikolaj Gunge",
-  "timeOfDay": "night",
+  "timeOfDay": 0,
   "backdrop": "mountains"
 }

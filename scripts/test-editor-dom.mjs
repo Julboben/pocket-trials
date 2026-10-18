@@ -42,6 +42,20 @@ const reported = (report, label) => {
 };
 
 // ---------------------------------------------------------------------------
+// The nisse: one per trail, placed with the Apple tool.
+// ---------------------------------------------------------------------------
+{
+  const report = await boot('nisse');
+  check('the Apple tool can be set to place the nisse', report.placeField);
+  check('it places the nisse, not an apple', report.placed && report.apples === 0);
+  check('placing it again moves the one nisse',
+    report.moved && Math.round(report.moved.x - report.placed.x) === 300);
+  check('a selected nisse is titled and explained', report.title === 'NISSE' && report.hintShown);
+  check('deleting it removes the field', report.deleted);
+  check('and undo brings it back', report.restored && report.restored.x === report.moved.x);
+}
+
+// ---------------------------------------------------------------------------
 // A block trail: drawing and the generic gestures.
 // ---------------------------------------------------------------------------
 {
@@ -102,6 +116,26 @@ const reported = (report, label) => {
 }
 
 // ---------------------------------------------------------------------------
+// Locks in the Objects tab.
+// ---------------------------------------------------------------------------
+{
+  const report = await boot('locks');
+  reported(report, 'locks');
+  check('unlocked, a press on a back wall takes it', report.unlockedTakesWall === 'BACK WALL', `("${report.unlockedTakesWall}")`);
+  check('the Objects tab opens and lists every group', report.panelShown && report.groupCount === 7);
+  check('a group lock is kept for this trail only', JSON.stringify(report.groupLockKeys) === '["hjulben-editor-locked-groups-t1"]', `(${JSON.stringify(report.groupLockKeys)})`);
+  check('the tab shows a lock while anything is locked', report.badge === 'lock' && report.badgeGone === null);
+  check('with back walls locked, a press on one draws a box that takes the apple', report.boxOverWall === 'apple', `(${report.boxOverWall})`);
+  check('select all leaves a locked back wall out', JSON.stringify(report.selectAllBlocks) === '[0]', `(${report.selectAllBlocks})`);
+  check('the Block tool will not draw onto a locked group', report.blockRefused);
+  check('an item is listed by name', report.appleName === 'Apple', `("${report.appleName}")`);
+  check('a locked item is left out of a selection box', report.lockedAppleBoxed === null, `(${report.lockedAppleBoxed})`);
+  check('locks are not saved in the trail', report.notInFile);
+  check('a cut leaves a locked group alone', report.cutRefused);
+  check('locking what is selected lets go of it', report.slabSelected === 'block' && report.releasedOnLock === null, `(${report.slabSelected}, ${JSON.stringify(report.releasedOnLock)})`);
+}
+
+// ---------------------------------------------------------------------------
 // A roof over something on the ground leaves it where it stood.
 // ---------------------------------------------------------------------------
 {
@@ -143,6 +177,32 @@ const reported = (report, label) => {
 }
 
 // ---------------------------------------------------------------------------
+// A group's props and spikes share their inspector fields.
+// ---------------------------------------------------------------------------
+{
+  const report = await boot('group');
+  const json = JSON.stringify;
+  check('a group of props and spikes shows their shared fields', report.rowsShown === true);
+  check('fields that differ across the group show blank', json(report.mixed) === json(['', '', '', '']) && report.flipMixed === '', `(${json(report.mixed)}, ${json(report.flipMixed)})`);
+  check('Prop layer moves every selected prop', json(report.layers) === json(['front', 'front', 'front']) && report.layerShared === 'front', `(${json(report.layers)})`);
+  check('one undo puts the layers back', json(report.layersUndone) === json(['back', 'front', 'back']), `(${json(report.layersUndone)})`);
+  check('Flip skips props that cannot flip', json(report.flips) === json([true, true, false]), `(${json(report.flips)})`);
+  check('Prop type changes every selected prop', json(report.types) === json(['pine', 'pine', 'pine']), `(${json(report.types)})`);
+  check('Radius sets every selected spike', json(report.radii) === json([40, 40]), `(${json(report.radii)})`);
+  check('clearing a mixed Radius changes nothing', json(report.radiiCleared) === json([20, 30]), `(${json(report.radiiCleared)})`);
+  check('Spin sets every selected spike', json(report.spins) === json([-0.5, -0.5]), `(${json(report.spins)})`);
+  check('X flips the whole group, then unflips it', json(report.keyFlip) === json([true, true, false]) && json(report.keyUnflip) === json([false, false, false]), `(${json(report.keyFlip)}, ${json(report.keyUnflip)})`);
+  check('] gives the whole group one type', report.cycled === 1, `(${report.cycled})`);
+  check('a plain click in the Objects tab selects one thing', json(report.listPlain) === json(['spike0']), `(${json(report.listPlain)})`);
+  check('Cmd-click in the Objects tab adds to the selection', json(report.listAdded) === json(['spike0', 'spike1']), `(${json(report.listAdded)})`);
+  check('Ctrl-click in the Objects tab takes a thing out again', json(report.listRemoved) === json(['spike1']), `(${json(report.listRemoved)})`);
+  check('Shift-click in the Objects tab adds the rows between', json(report.listRange) === json(['prop0', 'prop2']), `(${json(report.listRange)})`);
+  check('a lone spike shows no size', report.loneSizeHidden === true);
+  check('two spikes show how far apart they are', report.spikeSize === '200 × 0', `("${report.spikeSize}")`);
+  check('a block shows its width and height', report.blockSize === '800 × 300', `("${report.blockSize}")`);
+}
+
+// ---------------------------------------------------------------------------
 // The Water tool draws, places and edits water bodies like the other tools.
 // ---------------------------------------------------------------------------
 {
@@ -158,6 +218,34 @@ const reported = (report, label) => {
   check('the hint says deep water wipes the rider out', /wipes the rider out/.test(report.deepHint || ''), `("${report.deepHint}")`);
   check('Delete removes the body and undo brings it back', report.afterDelete === 1 && report.afterUndo === 2, `(${report.afterDelete}, ${report.afterUndo})`);
   check('water editing raises no errors', report.errors.length === 0);
+}
+
+// ---------------------------------------------------------------------------
+// A trail that can't be saved here can't be renamed or keep drafts.
+// ---------------------------------------------------------------------------
+{
+  const report = await boot('readonly');
+  check('a read-only trail hides Rename', report.renameHidden === true);
+  check('and Save draft', report.draftHidden === true);
+  check('and Delete', report.deleteHidden === true);
+  check('and disables the selection and trail fields', report.fieldsLocked === true);
+  check('and every tool but Select and Pan', report.toolsLocked === true);
+  check('a tool shortcut leaves the Select tool on', report.toolRefused === true);
+  check('things can still be selected', report.selectsAll === true);
+  check('no drag, nudge, flip, rotate, delete or tool key changes it', report.unchanged === true);
+  check('Cmd+S saves no draft of it', report.drafts === 0, `(${report.drafts})`);
+}
+
+// ---------------------------------------------------------------------------
+// A validation message about one item selects it and brings it into view.
+// ---------------------------------------------------------------------------
+{
+  const report = await boot('warned');
+  check('a prop warning is clickable', report.clickable === true);
+  check('clicking it selects the prop', report.selection?.kind === 'prop' && report.selection?.index === 0, `(${JSON.stringify(report.selection)})`);
+  check('and centres the view on it', report.centredX === 600, `(${report.centredX})`);
+  check('the inspector lists the selected prop\'s warning', report.issuesShown === true && report.issues.length === 1 && /unknown type/.test(report.issues[0]), `(${JSON.stringify(report.issues)})`);
+  check('and hides the list with nothing selected', report.issuesHiddenAfter === true);
 }
 
 console.log(failures ? `\n${failures} failing` : '\nEditor DOM tests passed.');

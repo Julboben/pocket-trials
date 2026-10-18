@@ -11,7 +11,9 @@ import {
 import { terrainGeometry } from "../terrain.js";
 import { normalizeWater, waterColumns } from "../water.js";
 import { DOT_REACH, EDGE_REACH, HIT_REACH, editor, waters } from "./state.js";
+import { isBlockLocked, isHitLocked, isLocked } from "./locks.js";
 import { waterHandle } from "./water.js";
+import { NISSE_GROUND_LIFT } from "../nisse.js";
 
 /**
  * Selection priority, highest first: the visible curve handles of the active
@@ -20,6 +22,9 @@ import { waterHandle } from "./water.js";
  * selects the island rather than the block around it, because the topmost
  * solid under the cursor wins. With `wholeBoundary`, a point or edge selects
  * the whole ring it belongs to instead.
+ *
+ * Anything locked is skipped, as if it weren't there, so a press on a locked
+ * back wall starts a selection box instead of grabbing it.
  *
  * Back walls sit behind the terrain, so terrain wins over them: their points
  * and edges lose a tie to the terrain's, and their bodies are only hit where
@@ -51,6 +56,7 @@ export function hitTest(point, { wholeBoundary = false, preferEdges = false } = 
   // Bodies: a spike's own disc, then the topmost solid block under the cursor.
   for (let index = editor.trail.spikes.length - 1; index >= 0; index--) {
     const spike = editor.trail.spikes[index];
+    if (isLocked("spike", index)) continue;
     if (Math.hypot(point.x - spike.x, point.y - spike.y) <= spike.radius)
       return { kind: "spike", index };
   }
@@ -91,11 +97,13 @@ function collectHits(point, wholeBoundary) {
   const edgeReach = EDGE_REACH / editor.zoom;
   const hits = [];
   const consider = (value, x, y, rank) => {
+    if (isHitLocked(value)) return;
     const distance = Math.hypot(point.x - x, point.y - y);
     if (distance <= threshold) hits.push({ selection: value, distance, rank });
   };
 
   for (const [blockIndex, block] of blocks().entries()) {
+    if (isBlockLocked(blockIndex)) continue;
     const behind = isBackWall(block) && !blockSelected(blockIndex) ? 0.5 : 0;
     boundaryEntries(block).forEach(
       ({ boundary }, boundaryIndex) => {
@@ -142,6 +150,8 @@ function collectHits(point, wholeBoundary) {
   editor.trail.props.forEach((prop, index) =>
     consider({ kind: "prop", index }, prop.x, objectY(prop), 1),
   );
+  if (editor.trail.nisse)
+    consider({ kind: "nisse", index: 0 }, editor.trail.nisse.x, objectY(editor.trail.nisse, NISSE_GROUND_LIFT), 1);
   editor.trail.spikes.forEach((spike, index) =>
     consider({ kind: "spike", index }, spike.x, spike.y, 1),
   );
@@ -163,6 +173,7 @@ function collectHits(point, wholeBoundary) {
 function openWaterAt(point) {
   const compiled = terrainGeometry(editor.trail);
   for (let index = waters().length - 1; index >= 0; index--) {
+    if (isLocked("water", index)) continue;
     const body = normalizeWater(waters()[index]);
     if (point.x < body.x || point.x > body.x + body.width) continue;
     if (point.y < body.y || point.y > body.y + body.depth) continue;
@@ -194,10 +205,10 @@ function selectedBodyAt(point) {
 
 /**
  * Block indices from the frontmost down: a selected back wall, then the
- * terrain topmost first, then the other back walls.
+ * terrain topmost first, then the other back walls. Locked blocks are left out.
  */
 function frontToBack() {
-  const order = [...blocks().keys()].reverse();
+  const order = [...blocks().keys()].reverse().filter((index) => !isBlockLocked(index));
   const rank = (index) =>
     isBackWall(blocks()[index]) ? (blockSelected(index) ? 0 : 2) : 1;
   return order.sort((a, b) => rank(a) - rank(b));

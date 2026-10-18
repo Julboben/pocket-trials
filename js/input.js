@@ -25,21 +25,29 @@ export function keyLabel(code) {
 }
 
 // Standard gamepad layout (https://w3c.github.io/gamepad/#remapping).
-const PAD = { a: 0, b: 1, x: 2, y: 3, lt: 6, rt: 7, select: 8, start: 9, up: 12, down: 13, left: 14, right: 15 };
+const PAD = { a: 0, b: 1, x: 2, y: 3, lb: 4, rb: 5, lt: 6, rt: 7, select: 8, start: 9, up: 12, down: 13, left: 14, right: 15 };
 const STICK_DEADZONE = .25;
 
 /**
+ * `buttons` press their `data-action`. `indicators` handle their own clicks
+ * but still look pressed while their `data-shows` action is held.
  * @param {{
  *   element: HTMLElement,
  *   buttons: HTMLElement[],
+ *   indicators?: HTMLElement[],
  *   isActive: () => boolean,
  *   onPress: (action: string, source: 'key' | 'pointer' | 'pad') => void,
  * }} options
  */
-export function createInput({ element, buttons, isActive, onPress }) {
+export function createInput({ element, buttons, indicators = [], isActive, onPress }) {
   const keys = new Set();
   const pointers = new Map();
-  const pad = { held: new Set(), lean: 0, previous: /** @type {boolean[]} */ ([]), connected: false, stickX: 0, stickY: 0 };
+  const pad = {
+    held: new Set(), lean: 0, previous: /** @type {boolean[]} */ ([]), connected: false, stickX: 0, stickY: 0,
+    // Which pad was read, and whether it is what the player is using: a key or
+    // a touch hands over to that, so a pad lying idle never rumbles.
+    index: -1, inUse: false,
+  };
   /** @type {Record<string, string[]>} */
   let bindings = DEFAULT_BINDINGS;
   /** @type {Map<string, string>} */
@@ -74,6 +82,7 @@ export function createInput({ element, buttons, isActive, onPress }) {
 
   function paint() {
     for (const button of buttons) button.classList.toggle('held', held(button.dataset.action || ''));
+    for (const button of indicators) button.classList.toggle('held', held(button.dataset.shows || ''));
   }
 
   /** Routes the next key press to `callback` (used by key remapping). */
@@ -90,10 +99,12 @@ export function createInput({ element, buttons, isActive, onPress }) {
     }
     const action = codeActions.get(event.code);
     if (!action) return false;
+    pad.inUse = false;
     event.preventDefault();
     if (PRESS_ACTIONS.includes(action)) {
       if (!event.repeat) onPress(action, 'key');
       keys.add(event.code);
+      paint();
       return true;
     }
     if (!isActive()) return true;
@@ -110,6 +121,7 @@ export function createInput({ element, buttons, isActive, onPress }) {
     button.addEventListener('pointerdown', event => {
       if (!isActive()) return;
       event.preventDefault();
+      pad.inUse = false;
       element.focus({ preventScroll: true });
       const action = button.dataset.action || '';
       if (PRESS_ACTIONS.includes(action)) { onPress(action, 'pointer'); return; }
@@ -131,9 +143,13 @@ export function createInput({ element, buttons, isActive, onPress }) {
     pad.held.clear();
     pad.lean = 0;
     pad.connected = Boolean(gamepad);
-    if (!gamepad) { pad.previous = []; return; }
+    if (!gamepad) { pad.previous = []; pad.index = -1; pad.inUse = false; return; }
+    pad.index = gamepad.index;
     const pressed = gamepad.buttons.map(button => button.pressed || button.value > .5);
-    const edge = index => pressed[index] && !pad.previous[index];
+    if (pressed.some(Boolean) || gamepad.axes.some(axis => Math.abs(axis) > STICK_DEADZONE)) pad.inUse = true;
+    // Compared with the last frame's buttons, kept before they're replaced.
+    const previous = pad.previous;
+    const edge = index => pressed[index] && !previous[index];
     pad.previous = pressed;
     const active = isActive();
     if (active) {
@@ -153,6 +169,9 @@ export function createInput({ element, buttons, isActive, onPress }) {
     if (edge(PAD.select)) onPress('menu', 'pad');
     if (!active) {
       if (edge(PAD.a)) onPress('confirm', 'pad');
+      // The bumpers do nothing on the bike; in menus they switch tabs.
+      if (edge(PAD.lb)) onPress('tab-prev', 'pad');
+      if (edge(PAD.rb)) onPress('tab-next', 'pad');
       const direction = value => Math.abs(value) > .6 ? Math.sign(value) : 0;
       const stickX = direction(gamepad.axes[0] || 0), stickY = direction(gamepad.axes[1] || 0);
       const movedX = stickX !== pad.stickX ? stickX : 0, movedY = stickY !== pad.stickY ? stickY : 0;
@@ -170,6 +189,11 @@ export function createInput({ element, buttons, isActive, onPress }) {
   return {
     held, leanInput, clear, paint, keyDown, keyUp, pollGamepad, setBindings, captureNextKey,
     get gamepadConnected() { return pad.connected; },
+    /** The gamepad being played with, fresh from the browser, or null when keys or touch took over. */
+    activeGamepad() {
+      if (!pad.inUse || pad.index < 0 || typeof navigator.getGamepads !== 'function') return null;
+      return navigator.getGamepads()[pad.index] ?? null;
+    },
     get capturing() { return capture !== null; }
   };
 }

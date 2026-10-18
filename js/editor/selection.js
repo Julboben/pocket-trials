@@ -1,6 +1,11 @@
 // Selecting, moving, nudging, duplicating and deleting things.
 import { canFlip } from "../drawing.js";
-import { moveBlock, nextId, removeBoundaryNodes } from "../terrain-geometry.js";
+import {
+  flattenBoundary,
+  moveBlock,
+  nextId,
+  removeBoundaryNodes,
+} from "../terrain-geometry.js";
 import {
   blocks,
   boundariesOf,
@@ -14,6 +19,7 @@ import {
   withBoundary,
 } from "./blocks.js";
 import { pushHistory } from "./history.js";
+import { isBlockLocked, isHitLocked, isSelectionItemLocked } from "./locks.js";
 import {
   selectedPosition,
   syncInspector,
@@ -21,7 +27,7 @@ import {
 } from "./inspector.js";
 import { finishY, groundY, objectY, render } from "./render.js";
 import { editor, waters } from "./state.js";
-import { showStatus } from "./status.js";
+import { refuseEdit, showStatus } from "./status.js";
 import {
   propTypeOptions,
   renderToolSettings,
@@ -29,14 +35,16 @@ import {
   setTool,
   toolSettings,
 } from "./tools.js";
+import { centerOn } from "./view.js";
 import { moveWaterTo, waterHandle } from "./water.js";
+import { NISSE_GROUND_LIFT } from "../nisse.js";
 
 let lastNudge = 0;
 
 /** Move the selection with the arrow keys. Held or rapid presses are one undo step. */
 export function nudgeSelection(key, big) {
   const position = selectedPosition();
-  if (!position) return;
+  if (!position || refuseEdit()) return;
   const step = big ? 10 : 1;
   const dx = key === "ArrowLeft" ? -step : key === "ArrowRight" ? step : 0;
   const dy = key === "ArrowUp" ? -step : key === "ArrowDown" ? step : 0;
@@ -116,8 +124,12 @@ export function duplicateTarget(hit) {
   return null;
 }
 
-/** Step through prop types: the Prop tool's type, or else the selected prop's. */
+/**
+ * Step through prop types: the Prop tool's type, or else the selected props'.
+ * A group of mixed props all become the type after the first one's.
+ */
 export function cyclePropType(direction) {
+  if (refuseEdit()) return;
   const types = propTypeOptions().map(([value]) => value);
   const next = (current) =>
     types[(types.indexOf(current) + direction + types.length) % types.length];
@@ -125,30 +137,37 @@ export function cyclePropType(direction) {
     toolSettings.prop.type = next(toolSettings.prop.type);
     saveToolSettings();
     renderToolSettings();
-  } else if (editor.selection?.kind === "prop") {
-    const prop = editor.trail.props[editor.selection.index];
+  } else if (selectedOf("prop").length) {
+    const props = selectedOf("prop").map((index) => editor.trail.props[index]);
+    const type = next(props[0].type);
     pushHistory();
-    prop.type = next(prop.type);
-    if (prop.type === "sign" && typeof prop.text !== "string") prop.text = "";
+    for (const prop of props) {
+      prop.type = type;
+      if (prop.type === "sign" && typeof prop.text !== "string") prop.text = "";
+    }
     syncInspector();
   } else return;
   render();
 }
 
-/** Flip the Prop tool's next prop, or else the selected prop. */
+/**
+ * Flip the Prop tool's next prop, or else the selected props. A group flips
+ * together: back to normal if every one is flipped, otherwise all flipped.
+ */
 export function toggleFlip() {
+  if (refuseEdit()) return;
   if (editor.tool === "prop") {
     toolSettings.prop.flip = !toolSettings.prop.flip;
     saveToolSettings();
     renderToolSettings();
-  } else if (
-    editor.selection?.kind === "prop" &&
-    canFlip(editor.trail.props[editor.selection.index].type)
-  ) {
+  } else if (flippableProps().length) {
+    const props = flippableProps();
+    const flip = !props.every((prop) => prop.flip);
     pushHistory();
-    const prop = editor.trail.props[editor.selection.index];
-    if (prop.flip) delete prop.flip;
-    else prop.flip = true;
+    for (const prop of props) {
+      if (flip) prop.flip = true;
+      else delete prop.flip;
+    }
     syncInspector();
   } else return;
   render();
@@ -161,7 +180,29 @@ export const OBJECT_LISTS = () => ({
   prop: editor.trail.props,
   spike: editor.trail.spikes,
   water: waters(),
+  // The trail's one nisse, as a list of at most one so it selects, moves and
+  // locks like an apple. Deleting it clears the trail's field instead.
+  nisse: editor.trail.nisse ? [editor.trail.nisse] : [],
 });
+
+/** Indices of the selected objects of one type: a lone one, or each one in a group. */
+export function selectedOf(type) {
+  const list = OBJECT_LISTS()[type];
+  if (editor.selection?.kind === "items")
+    return editor.selection.items
+      .filter((item) => item.type === type && list?.[item.index])
+      .map((item) => item.index);
+  return editor.selection?.kind === type && list?.[editor.selection.index]
+    ? [editor.selection.index]
+    : [];
+}
+
+/** The selected props that can be flipped. */
+export function flippableProps() {
+  return selectedOf("prop")
+    .map((index) => editor.trail.props[index])
+    .filter((prop) => canFlip(prop.type));
+}
 
 export function sameItem(a, b) {
   if (a.type !== b.type || a.index !== b.index) return false;
@@ -225,6 +266,21 @@ export function makeSelection(list) {
   return { kind: item.type, index: item.index };
 }
 
+/**
+ * Let go of anything locked: after locking it, or when undo, a paste or a
+ * layer change brings a locked thing back into the selection.
+ */
+export function releaseLocked() {
+  const selection = editor.selection;
+  if (!selection) return;
+  if (selection.kind !== "items") {
+    if (isHitLocked(selection)) editor.selection = null;
+    return;
+  }
+  const items = selection.items.filter((item) => !isSelectionItemLocked(item));
+  if (items.length !== selection.items.length) editor.selection = makeSelection(items);
+}
+
 export function blocksSelection(indices) {
   return makeSelection(indices.map((index) => ({ type: "block", index })));
 }
@@ -240,6 +296,34 @@ export function groupTitle(items) {
 /** Every point of a block, outer rings first. */
 export function blockNodes(block) {
   return boundariesOf(block).flatMap((boundary) => boundary.nodes);
+}
+
+/**
+ * The box around the selection in world units, or null: blocks by their
+ * outline, curves included, water by its rectangle, and anything else by
+ * where it stands.
+ */
+export function selectionBox() {
+  let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+  const add = ([x, y]) => {
+    left = Math.min(left, x);
+    right = Math.max(right, x);
+    top = Math.min(top, y);
+    bottom = Math.max(bottom, y);
+  };
+  for (const item of selectionItems()) {
+    const block = item.type === "block" ? blocks()[item.index] : null;
+    const body = item.type === "water" ? waters()[item.index] : null;
+    if (block) flattenBoundary(block.outer).points.forEach(add);
+    else if (body) {
+      add([body.x, body.y]);
+      add([body.x + body.width, body.y + body.depth]);
+    } else {
+      const position = itemPosition(item);
+      if (position) add(position);
+    }
+  }
+  return Number.isFinite(left) ? { left, top, right, bottom } : null;
 }
 
 export function itemPosition(item) {
@@ -264,7 +348,7 @@ export function itemPosition(item) {
   if (!object) return null;
   if (item.type === "spike") return [object.x, object.y];
   if (item.type === "water") return waterHandle(object);
-  return [object.x, objectY(object, item.type === "apple" ? 60 : 0)];
+  return [object.x, objectY(object, item.type === "apple" ? 60 : item.type === "nisse" ? NISSE_GROUND_LIFT : 0)];
 }
 
 export function itemsCentre(items) {
@@ -327,7 +411,7 @@ export function moveItems(x, y) {
 /**
  * Everything inside the box between two world points: blocks that are wholly
  * inside, points of the others, and apples, props, spikes and water (by the
- * middle of its surface).
+ * middle of its surface). Locked things are left out.
  */
 function itemsInBox(from, to) {
   const left = Math.min(from.x, to.x),
@@ -338,6 +422,7 @@ function itemsInBox(from, to) {
     x >= left && x <= right && y >= top && y <= bottom;
   const found = [];
   for (const [blockIndex, block] of blocks().entries()) {
+    if (isBlockLocked(blockIndex)) continue;
     const nodes = blockNodes(block);
     if (nodes.length && nodes.every((node) => inside([node.x, node.y]))) {
       found.push({ type: "block", index: blockIndex });
@@ -354,7 +439,7 @@ function itemsInBox(from, to) {
     list.forEach((_, index) => {
       const item = { type, index };
       const position = itemPosition(item);
-      if (position && inside(position)) found.push(item);
+      if (position && inside(position) && !isSelectionItemLocked(item)) found.push(item);
     });
   }
   for (const item of [{ type: "start" }, { type: "finish" }])
@@ -383,6 +468,10 @@ export function deleteItems(items) {
     const indices = items
       .filter((item) => item.type === type)
       .map((item) => item.index);
+    if (type === "nisse") {
+      if (indices.length) delete editor.trail.nisse;
+      continue;
+    }
     for (const index of indices.sort((a, b) => b - a)) list.splice(index, 1);
   }
   const byBlock = new Map();
@@ -421,6 +510,7 @@ export function deleteItems(items) {
 
 export function deleteSelection() {
   if (!editor.selection || ["finish", "start"].includes(editor.selection.kind)) return;
+  if (refuseEdit()) return;
   const kind = editor.selection.kind;
   if (kind === "items") {
     pushHistory();
@@ -485,6 +575,10 @@ export function deleteSelection() {
     pushHistory();
     editor.trail.apples.splice(editor.selection.index, 1);
     editor.selection = null;
+  } else if (kind === "nisse") {
+    pushHistory();
+    delete editor.trail.nisse;
+    editor.selection = null;
   } else if (kind === "prop") {
     pushHistory();
     editor.trail.props.splice(editor.selection.index, 1);
@@ -502,13 +596,27 @@ export function deleteSelection() {
   render();
 }
 
-/** Every block, apple, prop, spike and water body, and the start and finish. */
+/** Select one item and bring it into the middle of the view. */
+export function revealItem(item) {
+  const position = itemPosition(item);
+  if (!position) return;
+  editor.selection = makeSelection([item]);
+  setTool("select");
+  syncInspector();
+  if (position.every(Number.isFinite)) centerOn(...position);
+  render();
+}
+
+/**
+ * Every block, apple, prop, spike and water body that isn't locked, and the
+ * start and finish.
+ */
 export function selectAll() {
   const items = blocks().map((_, index) => ({ type: "block", index }));
   for (const [type, list] of Object.entries(OBJECT_LISTS()))
     list.forEach((_, index) => items.push({ type, index }));
   items.push({ type: "start" }, { type: "finish" });
-  editor.selection = makeSelection(items);
+  editor.selection = makeSelection(items.filter((item) => !isSelectionItemLocked(item)));
   setTool("select");
   syncInspector();
   render();

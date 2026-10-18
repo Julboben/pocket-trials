@@ -9,7 +9,9 @@ import {
   WHEELBASE,
   TAU,
   SUSPENSION_REST_LENGTH,
+  SUSPENSION_TOP_OUT_LENGTH,
   XPBD_THROTTLE_INPUT_RESPONSE,
+  XPBD_THROTTLE_RELEASE_RESPONSE,
   XPBD_LEAN_INPUT_RESPONSE,
   clamp,
   lerp,
@@ -24,6 +26,7 @@ import {
 import { normalizeSpike, finishFlower } from "./trail-schema.js";
 import { FRAME_REACH, bikeTouchesFlower } from "./finish.js";
 import { playerTouchesApple } from "./apple.js";
+import { NISSE_GROUND_LIFT, playerTouchesNisse } from "./nisse.js";
 import { playerTouch } from "./player-shape.js";
 import { spikeShape } from "./spike.js";
 import { createRagdoll, stepRagdoll } from "./ragdoll.js";
@@ -50,7 +53,7 @@ import {
  * Bump whenever a change makes old inputs replay differently, so stored
  * ghosts and replay fixtures from older physics are not trusted.
  */
-export const RIDE_VERSION = 5;
+export const RIDE_VERSION = 6;
 
 /** @type {Array<[string, number, number, number]>} name, local x, local y, radius */
 const RIDER_PROBES = [
@@ -94,6 +97,24 @@ function makeWheel(trail, x, startY) {
   };
 }
 
+// A leg clunks when it is driven fast into the end of its stroke: deep into
+// the bottoming zone on a big landing (about 100 px drops and up), or out into
+// the top-out spring as a wheel unloads, in a stoppie or off a ledge. Ordinary
+// landings and hops stay well short of both.
+const BOTTOM_CLUNK_COMPRESSION = 13;
+const BOTTOM_CLUNK_SPEED = 100;
+const TOP_CLUNK_COMPRESSION = SUSPENSION_REST_LENGTH - SUSPENSION_TOP_OUT_LENGTH + 1;
+const TOP_CLUNK_SPEED = 50;
+
+/** @param {RideEvent[]} events */
+function suspensionClunk(events, wheel, before, after) {
+  const speed = (after - before) / STEP;
+  if (before < BOTTOM_CLUNK_COMPRESSION && after >= BOTTOM_CLUNK_COMPRESSION && speed >= BOTTOM_CLUNK_SPEED)
+    events.push({ type: "suspension", end: "bottom", wheel, speed });
+  else if (before > TOP_CLUNK_COMPRESSION && after <= TOP_CLUNK_COMPRESSION && -speed >= TOP_CLUNK_SPEED)
+    events.push({ type: "suspension", end: "top", wheel, speed: -speed });
+}
+
 /**
  * @param {Trail} trail
  * @param {{ seed?: number, start?: { x: number, y?: number | null, facing: number }, helmet?: boolean }} [options]
@@ -118,6 +139,15 @@ export function createRide(trail, { seed = 1, start = trail.start, helmet = true
       y: Number.isFinite(apple.y) ? apple.y : terrainAt(trail, apple.x).y - 60,
       taken: false,
     })),
+    // The optional nisse, where its feet stand: on the ground under it when
+    // it has no y of its own.
+    nisse: trail.nisse
+      ? {
+          x: trail.nisse.x,
+          y: Number.isFinite(trail.nisse.y) ? trail.nisse.y : terrainAt(trail, trail.nisse.x).y - NISSE_GROUND_LIFT,
+          taken: false,
+        }
+      : null,
     spikes: (trail.spikes || []).map((spike) =>
       normalizeSpike(spike, terrainAt(trail, Number(spike?.x) || 0)?.y ?? null),
     ),
@@ -416,7 +446,9 @@ function advanceRide(ride, input, hooks, events) {
   const coasting = !accelerating && !braking;
   const throttleTarget = accelerating && !braking ? 1 : 0;
   const throttleRate =
-    throttleTarget > ride.throttle ? XPBD_THROTTLE_INPUT_RESPONSE : 4;
+    throttleTarget > ride.throttle
+      ? XPBD_THROTTLE_INPUT_RESPONSE
+      : XPBD_THROTTLE_RELEASE_RESPONSE;
   ride.throttle = lerp(
     ride.throttle,
     throttleTarget,
@@ -430,6 +462,8 @@ function advanceRide(ride, input, hooks, events) {
 
   const wasRearGrounded = rear.grounded,
     wasFrontGrounded = front.grounded;
+  const rearCompressionBefore = rear.compression,
+    frontCompressionBefore = front.compression;
   rear.impactSpeed = 0;
   front.impactSpeed = 0;
   if (ride.water.length)
@@ -462,6 +496,10 @@ function advanceRide(ride, input, hooks, events) {
     !wasFrontGrounded && front.grounded ? front.impactSpeed : 0,
   );
   if (landingImpact > 0) events.push({ type: "land", impact: landingImpact });
+  if (running) {
+    suspensionClunk(events, "rear", rearCompressionBefore, rear.compression);
+    suspensionClunk(events, "front", frontCompressionBefore, front.compression);
+  }
   if (ride.water.length) splash(ride, [rear, front], false, events);
 
   if (!running) {
@@ -506,7 +544,7 @@ function advanceRide(ride, input, hooks, events) {
   // Like Elasto Mania, any touch of the player's hitbox takes an apple, even
   // just the edge of a wheel.
   for (const apple of ride.apples) {
-    if (!apple.taken && playerTouchesApple(apple, ride.time, player)) {
+    if (!apple.taken && playerTouchesApple(apple, player)) {
       apple.taken = true;
       ride.collected++;
       ride.splits.push(ride.elapsed);
@@ -518,6 +556,14 @@ function advanceRide(ride, input, hooks, events) {
         split: ride.elapsed,
       });
     }
+  }
+
+  // The nisse is taken the same way, but it is optional: it never counts
+  // towards the apples or the finish.
+  const nisse = ride.nisse;
+  if (nisse && !nisse.taken && playerTouchesNisse(nisse, player)) {
+    nisse.taken = true;
+    events.push({ type: "nisse", x: nisse.x, y: nisse.y });
   }
 
   // The finish is a flower: the bike has to touch it, from either side.

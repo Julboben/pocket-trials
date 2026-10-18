@@ -7,6 +7,7 @@ import {
   propWallFit,
 } from "../drawing.js";
 import { FINISH_FLOWER_RADIUS } from "../finish.js";
+import { NISSE_GROUND_LIFT, drawNisse } from "../nisse.js";
 import { SPIKE_TIP } from "../spike.js";
 import { store } from "../local-store.js";
 import { fallLine, invalidateTerrain, terrainGeometry } from "../terrain.js";
@@ -14,6 +15,7 @@ import { terrainColumnSpans } from "../terrain-runtime.js";
 import { finishFlower, finishHeight, surfaceBelow } from "../trail-schema.js";
 import { terrainMaterials } from "../trails.js";
 import { normalizeWater, waterColumns } from "../water.js";
+import { resolveWeather } from "../weather.js";
 import {
   blockSelected,
   blocks,
@@ -22,12 +24,14 @@ import {
   traceBoundary,
   traceBlock,
 } from "./blocks.js";
-import { $, art, backWallArt, canvas, ctx, terrainArt } from "./dom.js";
-import { scaleFrame } from "./scale.js";
+import { $, art, backWallArt, canvas, ctx, terrainArt, tools } from "./dom.js";
+import { drawPreviewFrame } from "./preview.js";
+import { scaleFrame, scaling } from "./scale.js";
+import { selectionBox } from "./selection.js";
 import { rotateHandle, rotationAngle } from "./rotate.js";
 import { gridSpacing } from "./snap.js";
 import { editor, waters } from "./state.js";
-import { PLACING_TOOLS, toolSettings } from "./tools.js";
+import { PLACING_TOOLS, placingNisse, toolSettings } from "./tools.js";
 import { waterHandle, waterSize } from "./water.js";
 import { viewportSize } from "./view.js";
 
@@ -109,6 +113,8 @@ function groundAnchoredObjects() {
     if (!Number.isFinite(prop.y)) add(prop.x, (y) => (prop.y = y));
   for (const apple of trail.apples || [])
     if (!Number.isFinite(apple.y)) add(apple.x, (y) => (apple.y = y - 60));
+  if (trail.nisse && !Number.isFinite(trail.nisse.y))
+    add(trail.nisse.x, (y) => (trail.nisse.y = y - NISSE_GROUND_LIFT));
   return found;
 }
 
@@ -154,7 +160,7 @@ export function restingY(x, y) {
 
 // Below this zoom the game art is too small to read and slow to draw, so the
 // plain terrain is drawn instead.
-const GAME_ART_MIN_ZOOM = 0.35;
+export const GAME_ART_MIN_ZOOM = 0.35;
 
 // Back walls in the editor: shaded like the game draws them, with a dotted
 // outline and their own point colour, so they read as behind the terrain.
@@ -312,7 +318,16 @@ export function finishY() {
   return finishHeight(editor.trail);
 }
 
+/**
+ * What the props react to in the editor: nothing moves, but they lean and
+ * stream the way the trail's wind blows.
+ */
+function stillScene() {
+  return { time: 0, riderX: null, riderY: null, weather: resolveWeather(editor.trail.weather), landing: null };
+}
+
 function drawProps(layer) {
+  const scene = stillScene();
   for (const prop of editor.trail.props || []) {
     if (prop.layer !== layer || PAINTED_PROPS.has(prop.type)) continue;
     art.drawProp(
@@ -325,15 +340,18 @@ function drawProps(layer) {
       prop.text,
       propWallFit(editor.trail, prop),
       prop.flip,
-      undefined,
+      scene,
       propRotation(prop),
     );
   }
 }
 
-const GLOWING_PROPS = new Set(["lamp", "crane", "lantern", "mushrooms", "hut"]);
+const GLOWING_PROPS = new Set(["lamp", "crane", "lantern", "torch", "fireplace", "mushrooms", "hut", "tent", "camera-tower", "watchtower"]);
 
-/** Street lamps, crane lights and hut windows after dark; lanterns and mushrooms always. */
+/**
+ * Street lamps, crane lights, hut windows, tents and searchlights after dark;
+ * lanterns, torches, mushrooms and a camera tower's tally light always.
+ */
 function drawPropGlows(dark) {
   for (const prop of editor.trail.props || []) {
     if (!GLOWING_PROPS.has(prop.type)) continue;
@@ -397,6 +415,7 @@ function drawObjects() {
   drawSpikes();
   for (const apple of editor.trail.apples)
     art.drawApple(apple.x, objectY(apple, 60));
+  if (editor.trail.nisse) drawNisse(tools, editor.trail.nisse.x, objectY(editor.trail.nisse, NISSE_GROUND_LIFT));
   art.drawFlag(editor.trail.finish.x, finishY(), true, 0);
   if (editor.selection?.kind === "finish") {
     // The petals the bike has to touch.
@@ -528,6 +547,8 @@ function drawHandles() {
   editor.trail.props.forEach((prop, index) =>
     drawHandle(prop.x, objectY(prop), isSelected("prop", index), "#83d1ce"),
   );
+  if (editor.trail.nisse)
+    drawHandle(editor.trail.nisse.x, objectY(editor.trail.nisse, NISSE_GROUND_LIFT), isSelected("nisse", 0), "#d63b2c");
   editor.trail.spikes.forEach((spike, index) =>
     drawHandle(spike.x, spike.y, isSelected("spike", index), "#e65e56"),
   );
@@ -595,6 +616,8 @@ export function render() {
   drawRotateHandle();
   drawSnapGuide();
   drawMarquee();
+  drawSizeTag();
+  drawPreviewFrame();
   ctx.restore();
 }
 
@@ -641,17 +664,12 @@ function drawRotateHandle() {
   ctx.fill();
   ctx.stroke();
   const angle = rotationAngle();
-  if (angle !== null) {
-    ctx.font = `${12 / editor.zoom}px system-ui, sans-serif`;
-    const label = `${angle > 0 ? "+" : ""}${Math.round(angle * 10) / 10}\u00b0`;
-    const lx = x + 12 / editor.zoom,
-      ly = y - 12 / editor.zoom;
-    ctx.lineWidth = 3 / editor.zoom;
-    ctx.strokeStyle = "#17262b";
-    ctx.strokeText(label, lx, ly);
-    ctx.fillStyle = "#fff3be";
-    ctx.fillText(label, lx, ly);
-  }
+  if (angle !== null)
+    drawTag(
+      `${angle > 0 ? "+" : ""}${Math.round(angle * 10) / 10}\u00b0`,
+      x + 12 / editor.zoom,
+      y - 12 / editor.zoom,
+    );
   ctx.restore();
 }
 
@@ -672,16 +690,46 @@ function drawSnapGuide() {
   ctx.arc(to.x, to.y, 8 / editor.zoom, 0, Math.PI * 2);
   ctx.strokeStyle = "#fff3be";
   ctx.stroke();
+  ctx.restore();
+  drawTag(
+    `${Math.round(angle * 10) / 10}\u00b0 \u00b7 ${Math.round(length)}`,
+    to.x + 12 / editor.zoom,
+    to.y - 12 / editor.zoom,
+  );
+}
+
+/** A short label beside a world point, readable over any background. */
+function drawTag(label, x, y) {
+  ctx.save();
   ctx.font = `${12 / editor.zoom}px system-ui, sans-serif`;
-  const label = `${Math.round(angle * 10) / 10}\u00b0 \u00b7 ${Math.round(length)}`;
-  const x = to.x + 12 / editor.zoom,
-    y = to.y - 12 / editor.zoom;
   ctx.lineWidth = 3 / editor.zoom;
   ctx.strokeStyle = "#17262b";
   ctx.strokeText(label, x, y);
   ctx.fillStyle = "#fff3be";
   ctx.fillText(label, x, y);
   ctx.restore();
+}
+
+/** Width × height beside a shape being drawn, or a selection being scaled. */
+function drawSizeTag() {
+  const shape = editor.pendingShape;
+  let box = null,
+    at = null;
+  if (shape?.points.length >= 2) {
+    const xs = shape.points.map(([x]) => x),
+      ys = shape.points.map(([, y]) => y);
+    box = { left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
+    at = shape.end;
+  } else if (scaling()) {
+    const frame = scaleFrame()?.frame;
+    box = selectionBox();
+    at = frame && [frame.right, frame.bottom];
+  }
+  if (!box || !at) return;
+  const width = Math.round(box.right - box.left),
+    height = Math.round(box.bottom - box.top);
+  // Below and right of the pointer, clear of the cursor.
+  drawTag(`${width} × ${height}`, at[0] + 12 / editor.zoom, at[1] + 24 / editor.zoom);
 }
 
 /** A faded copy of what the current tool will place, under the cursor. */
@@ -722,14 +770,15 @@ function drawPlacementPreview() {
       "",
       propWallFit(editor.trail, prop),
       toolSettings.prop.flip,
-      undefined,
+      stillScene(),
       propRotation(prop),
     );
     return;
   }
   ctx.save();
   ctx.globalAlpha = 0.5;
-  if (editor.tool === "apple") art.drawApple(x, y);
+  if (editor.tool === "apple" && placingNisse()) drawNisse(tools, x, y);
+  else if (editor.tool === "apple") art.drawApple(x, y);
   else art.drawSpike(x, y, toolSettings.spike.radius);
   ctx.restore();
 }

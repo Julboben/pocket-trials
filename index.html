@@ -22,8 +22,16 @@
         <link rel="manifest" href="./manifest.webmanifest" />
         <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+        <link rel="stylesheet" href="./css/tokens.css" />
         <link rel="stylesheet" href="./css/icons.css" />
         <link rel="stylesheet" href="./css/game.css" />
+        <link
+            rel="preload"
+            href="./fonts/Jersey10-Regular.woff2"
+            as="font"
+            type="font/woff2"
+            crossorigin
+        />
     </head>
     <body>
         <main
@@ -43,15 +51,17 @@
                     This game requires HTML Canvas support.
                 </canvas>
                 <div class="hud">
+                    <div class="hud-pill apple-pill">
+                        <span data-icon="apple" aria-hidden="true"></span>
+                        <span id="apple-count">0 / 5</span>
+                    </div>
                     <div class="hud-pill timer-card">
-                        <div class="timer-row">
-                            <span
-                                class="timer-icon"
-                                data-icon="clock"
-                                aria-hidden="true"
-                            ></span
-                            ><span id="timer">0:00.0</span>
-                        </div>
+                        <span
+                            class="timer-icon"
+                            data-icon="clock"
+                            aria-hidden="true"
+                        ></span
+                        ><span id="timer">0:00.0</span>
                         <div class="timer-detail" id="timer-detail" hidden>
                             <span
                                 class="medal-target"
@@ -60,10 +70,6 @@
                             ></span>
                             <span class="split" id="split" hidden></span>
                         </div>
-                    </div>
-                    <div class="hud-pill apple-pill">
-                        <span data-icon="apple" aria-hidden="true"></span>
-                        <span id="apple-count">0 / 5</span>
                     </div>
                 </div>
                 <div
@@ -74,11 +80,6 @@
                 ></div>
                 <div class="toast-stack">
                     <div class="toast" id="toast" role="status"></div>
-                    <div
-                        class="toast achievement-toast"
-                        id="achievement-toast"
-                        data-icon-before="trophy"
-                    ></div>
                     <button
                         class="primary crash-retry"
                         id="crash-retry"
@@ -128,59 +129,66 @@
                                     id="results-delta"
                                 ></span>
                             </div>
-                            <div
-                                class="results-medal"
-                                id="results-medal"
-                                data-medal=""
-                            ></div>
-                            <dl class="results-stats">
-                                <div>
-                                    <dt id="results-rank-label">RANK</dt>
-                                    <dd id="results-rank">—</dd>
-                                </div>
-                                <div>
-                                    <dt>BEST</dt>
-                                    <dd id="results-best">—</dd>
-                                </div>
-                                <div>
-                                    <dt>FLIPS</dt>
-                                    <dd id="results-flips">0</dd>
-                                </div>
-                            </dl>
+                            <ol
+                                class="results-medals"
+                                id="results-medals"
+                                aria-label="Medal target times"
+                            ></ol>
+                            <p class="results-rank">
+                                <span id="results-best" hidden>YOUR BEST</span>
+                                <strong id="results-best-time" hidden></strong>
+                                <span id="results-rank-sep" aria-hidden="true" hidden>·</span>
+                                <span id="results-rank-label">RANK</span>
+                                <strong id="results-rank">—</strong>
+                            </p>
                             <p
                                 class="results-rival"
                                 id="results-rival"
                                 hidden
                             ></p>
-                            <ol
-                                class="results-targets"
-                                id="results-targets"
-                                aria-label="Medal target times"
-                            ></ol>
                         </div>
-                        <p id="overlay-description">
-                            Your helmet hit the ground. Reset and give the trail
-                            another run.
-                        </p>
+                        <p id="overlay-description" hidden></p>
                         <button
                             class="primary"
                             id="primary"
                             data-icon-after="arrow-right"
                             autofocus
                         >
-                            Play Again
+                            <span id="primary-label">Play Again</span
+                            ><kbd class="results-key" aria-hidden="true"
+                                >Enter</kbd
+                            >
                         </button>
-                        <button class="secondary" id="secondary" hidden="">
-                            Back to Menu
-                        </button>
-                        <button
-                            class="results-link"
-                            id="watch-replay"
-                            data-icon-before="play"
-                        >
-                            Watch Replay
-                        </button>
-                        <p class="results-hint" id="results-hint" hidden></p>
+                        <div class="results-actions">
+                            <button
+                                class="secondary"
+                                id="secondary"
+                                data-icon-before="retry"
+                            >
+                                Retry<kbd
+                                    class="results-key"
+                                    id="retry-key"
+                                    aria-hidden="true"
+                                    >R</kbd
+                                >
+                            </button>
+                            <button
+                                class="secondary"
+                                id="watch-replay"
+                                data-icon-before="play"
+                            >
+                                Replay
+                            </button>
+                            <button
+                                class="secondary"
+                                id="save-reference"
+                                data-icon-before="upload"
+                                title="Save this run for the replay bot (dev server only)"
+                                hidden
+                            >
+                                Bot Reference
+                            </button>
+                        </div>
                     </div>
                 </dialog>
                 <div class="pause-overlay" id="pause-overlay" hidden>
@@ -237,6 +245,7 @@
                         <button
                             class="control lights"
                             id="headlight"
+                            data-shows="lights"
                             aria-label="Headlight"
                             aria-pressed="true"
                         >
@@ -246,6 +255,32 @@
                                 aria-hidden="true"
                             ></span>
                             <span class="caption">LIGHTS</span>
+                        </button>
+                        <button
+                            class="control sound"
+                            id="sound-control"
+                            aria-label="Sound"
+                            aria-pressed="true"
+                        >
+                            <span
+                                class="symbol"
+                                data-icon="sound"
+                                aria-hidden="true"
+                            ></span>
+                            <span class="caption">SOUND</span>
+                        </button>
+                        <button
+                            class="control"
+                            id="restart-control"
+                            data-shows="restart"
+                            aria-label="Restart"
+                        >
+                            <span
+                                class="symbol"
+                                data-icon="retry"
+                                aria-hidden="true"
+                            ></span>
+                            <span class="caption">RESTART</span>
                         </button>
                         <button
                             class="control"
@@ -321,27 +356,7 @@
                         <div class="menu-view" id="menu-home">
                             <div class="menu-actions">
                                 <button
-                                    class="menu-action menu-action-primary"
-                                    id="menu-resume"
-                                    hidden
-                                >
-                                    <span>RESUME RIDE</span
-                                    ><small id="menu-resume-detail"
-                                        >Back to the trail</small
-                                    >
-                                </button>
-                                <button
-                                    class="menu-action menu-action-half"
-                                    id="menu-retry"
-                                    hidden
-                                >
-                                    <span>RETRY</span
-                                    ><small
-                                        >Restart the trail from the start</small
-                                    >
-                                </button>
-                                <button
-                                    class="menu-action continue-save"
+                                    class="menu-action menu-action-primary continue-save"
                                     id="menu-continue"
                                     hidden
                                 >
@@ -356,8 +371,8 @@
                                     ></span>
                                     <span class="continue-save-copy"
                                         ><span class="save-label"
-                                            >CONTINUE ·
-                                            <b id="active-save-slot"></b></span
+                                            ><span id="active-save-label">CONTINUE</span
+                                            ><b id="active-save-slot"></b></span
                                         ><strong id="active-save-rider"></strong
                                         ><small
                                             id="active-save-progress"
@@ -423,15 +438,12 @@
                                     <span>RIDERS</span
                                     ><small>Switch or add a rider</small>
                                 </button>
-
                                 <button
-                                    class="menu-action menu-action-row menu-action-editor"
+                                    class="menu-action menu-action-row menu-editor"
                                     id="menu-editor"
                                 >
-                                    <span>TRAIL EDITOR</span
-                                    ><small
-                                        >Build and share your own trails</small
-                                    >
+                                    <span data-icon-before="pencil">TRAIL EDITOR</span
+                                    ><small>Build your own trails and share them</small>
                                 </button>
                                 <button
                                     class="menu-action menu-action-half menu-action-compact"
@@ -446,6 +458,31 @@
                                     <span>HOW TO PLAY</span>
                                 </button>
                             </div>
+                        </div>
+
+                        <div class="menu-view" id="menu-credits-view" hidden>
+                            <div class="menu-view-head">
+                                <div>
+                                    <span class="save-label" data-icon-before="star"
+                                        >THE PEOPLE BEHIND IT</span
+                                    >
+                                    <h3>Credits</h3>
+                                </div>
+                                <button
+                                    class="menu-back"
+                                    data-menu-back
+                                    data-icon-before="arrow-left"
+                                >
+                                    BACK
+                                </button>
+                            </div>
+                            <!-- The roll is filled in by menu.js, so the bonus trail makers come from the trails. -->
+                            <div class="credits" id="credits" tabindex="-1">
+                                <div class="credits-roll" id="credits-roll"></div>
+                            </div>
+                            <p class="load-game-help credits-hint" id="credits-hint">
+                                Hold to pause · Back to leave
+                            </p>
                         </div>
 
                         <div class="menu-view" id="menu-changelog-view" hidden>
@@ -925,6 +962,14 @@
                                     </div>
                                 </article>
                             </div>
+                            <button
+                                class="menu-action menu-action-primary how-ride"
+                                id="how-ride"
+                                hidden
+                            >
+                                <span>LET’S RIDE</span
+                                ><small>Start your first trail</small>
+                            </button>
                         </div>
 
                         <div class="menu-view" id="menu-settings-view" hidden>
@@ -943,7 +988,40 @@
                                     BACK
                                 </button>
                             </div>
-                            <div class="dashboard-settings">
+                            <div
+                                class="menu-tabs"
+                                role="tablist"
+                                aria-label="Settings"
+                            >
+                                <button
+                                    type="button"
+                                    class="menu-tab"
+                                    role="tab"
+                                    id="settings-tab-general"
+                                    aria-controls="settings-general"
+                                    aria-selected="true"
+                                    data-icon-before="gear"
+                                >
+                                    GENERAL
+                                </button>
+                                <button
+                                    type="button"
+                                    class="menu-tab"
+                                    role="tab"
+                                    id="settings-tab-controls"
+                                    aria-controls="settings-controls"
+                                    aria-selected="false"
+                                    data-icon-before="keyboard"
+                                >
+                                    CONTROLS
+                                </button>
+                            </div>
+                            <div
+                                class="dashboard-settings"
+                                id="settings-general"
+                                role="tabpanel"
+                                aria-labelledby="settings-tab-general"
+                            >
                                 <h4 class="settings-section">DISPLAY</h4>
                                 <div
                                     class="setting-group"
@@ -1170,6 +1248,40 @@
                                 <div
                                     class="setting-group"
                                     role="group"
+                                    aria-labelledby="setting-label-rumble"
+                                    id="setting-rumble-group"
+                                    hidden
+                                >
+                                    <span
+                                        class="setting-label"
+                                        id="setting-label-rumble"
+                                        >CONTROLLER RUMBLE</span
+                                    >
+                                    <div
+                                        class="setting-options"
+                                        style="--options: 2"
+                                    >
+                                        <button
+                                            type="button"
+                                            class="setting-option"
+                                            data-setting="rumble"
+                                            data-value="on"
+                                        >
+                                            On
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="setting-option"
+                                            data-setting="rumble"
+                                            data-value="off"
+                                        >
+                                            Off
+                                        </button>
+                                    </div>
+                                </div>
+                                <div
+                                    class="setting-group"
+                                    role="group"
                                     aria-labelledby="setting-label-8"
                                 >
                                     <span
@@ -1207,7 +1319,32 @@
                                         </button>
                                     </div>
                                 </div>
-                                <h4 class="settings-section">CONTROLS</h4>
+                                <button
+                                    type="button"
+                                    class="menu-back settings-reset"
+                                    id="reset-settings"
+                                    data-icon-before="undo"
+                                >
+                                    RESET ALL SETTINGS
+                                </button>
+
+                                <h4 class="settings-section">ABOUT</h4>
+                                <button
+                                    type="button"
+                                    class="menu-back settings-reset"
+                                    id="show-credits"
+                                    data-icon-before="star"
+                                >
+                                    CREDITS
+                                </button>
+                            </div>
+                            <div
+                                class="dashboard-settings"
+                                id="settings-controls"
+                                role="tabpanel"
+                                aria-labelledby="settings-tab-controls"
+                                hidden
+                            >
                                 <div
                                     class="setting-group setting-keys"
                                     role="group"
@@ -1216,26 +1353,33 @@
                                     <span
                                         class="setting-label"
                                         id="setting-label-9"
-                                        >KEYS</span
+                                        >KEYBOARD</span
                                     >
                                     <div
                                         class="key-bindings"
                                         id="key-bindings"
                                     ></div>
-                                    <p class="setting-note" id="gamepad-note">
-                                        Gamepad: RT/A gas · LT/X brake · stick
-                                        or d-pad lean · B turn · Y restart ·
-                                        Start pause
+                                </div>
+                                <div
+                                    class="setting-group setting-gamepad"
+                                    role="group"
+                                    aria-labelledby="setting-label-10"
+                                >
+                                    <span
+                                        class="setting-label"
+                                        id="setting-label-10"
+                                        >GAMEPAD</span
+                                    >
+                                    <div
+                                        class="gamepad-figure"
+                                        id="gamepad-diagram"
+                                    ></div>
+                                    <p class="setting-note">
+                                        In menus: stick or d-pad moves · A
+                                        selects · B goes back · LB / RB switch
+                                        tabs
                                     </p>
                                 </div>
-
-                                <button
-                                    type="button"
-                                    class="menu-back settings-reset"
-                                    id="reset-settings"
-                                >
-                                    RESET ALL SETTINGS
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -1276,6 +1420,32 @@
                     </div>
                 </dialog>
             </section>
+            <!-- A popover, so it shows on the top layer: over the ride, the
+                 results dialog and the menu alike. -->
+            <div
+                class="achievement-popover"
+                id="achievement-popover"
+                popover="manual"
+                aria-hidden="true"
+            >
+                <span
+                    class="achievement-popover-icon"
+                    id="achievement-popover-icon"
+                    data-icon="trophy"
+                ></span>
+                <span class="achievement-popover-text">
+                    <small id="achievement-popover-label"
+                        >ACHIEVEMENT UNLOCKED</small
+                    >
+                    <strong id="achievement-popover-name"></strong>
+                    <span id="achievement-popover-blurb"></span>
+                </span>
+            </div>
+            <div class="turn-upright" aria-live="polite">
+                <span class="turn-upright-icon" data-icon="phone" aria-hidden="true"></span>
+                <strong>Turn your phone upright</strong>
+                <small>Hjulben is played in portrait, with the controls under the trail.</small>
+            </div>
         </main>
         <script type="module" src="./js/main.js"></script>
         <noscript>Hjulben needs JavaScript.</noscript>

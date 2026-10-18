@@ -18,6 +18,7 @@ import {
   selectionItems,
 } from "./selection.js";
 import { HIT_REACH, editor } from "./state.js";
+import { refuseEdit } from "./status.js";
 import { renderToolSettings, saveToolSettings, toolSettings } from "./tools.js";
 import { moveWaterTo } from "./water.js";
 
@@ -163,6 +164,7 @@ function apply({ items, pivot, originals }, degrees) {
  * tool, turn the next prop instead. Returns whether anything turned.
  */
 export function rotateSelection(degrees) {
+  if (refuseEdit()) return;
   if (editor.tool === "prop") {
     toolSettings.prop.rotation =
       normalizeRotation((Number(toolSettings.prop.rotation) || 0) + degrees) ?? 0;
@@ -192,7 +194,7 @@ export function rotateSelected(degrees) {
  * it while it is dragged.
  */
 export function rotateHandle() {
-  if (editor.tool !== "select" || editor.pendingShape) return null;
+  if (editor.tool !== "select" || editor.pendingShape || editor.readOnly) return null;
   if (active) {
     const [px, py] = active.pivot;
     const turn = ({ x, y }) => {

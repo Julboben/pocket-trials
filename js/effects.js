@@ -1,7 +1,7 @@
 // @ts-check
 // Cosmetic effects: particles, skid marks, terrain spray and weather timing.
 // None of this feeds back into the simulation, so it may use Math.random.
-import { STEP, RADIUS, TAU, clamp, lerp } from './config.js';
+import { STEP, RADIUS, TAU, GRAVITY, clamp, lerp } from './config.js';
 import { terrainMaterials } from './materials.js';
 import { terrainAt } from './terrain.js';
 import { inGlass } from './glass.js';
@@ -15,6 +15,10 @@ const MAX_CLUMPS = 6;
 const DIRT_PICKUP = { dirt: 1, grass: .7, sand: .6, snow: .8 };
 /** Spin (rad/s) above which clumps start to fly off the tyre. */
 const FLING_SPIN = 40;
+
+// Tyre load, against the load at rest, from which a tyre is drawn flat or
+// bulging, and how long (s) each level is held; see squishTyres.
+const TYRE_FLAT_LOAD = 3, TYRE_BULGE_LOAD = 18, TYRE_SQUISH_HOLD = .1;
 
 // Compacts live entries to the front in place, keeping draw order, and drops
 // the oldest entries beyond `limit`.
@@ -35,6 +39,8 @@ export function createEffects() {
   /** Clumps stuck to each tyre, at angles fixed to the tyre so they turn with it. */
   const wheelDirt = { rear: /** @type {any[]} */ ([]), front: /** @type {any[]} */ ([]) };
   const dirtAccumulator = { rear: 0, front: 0 };
+  /** How flat each tyre is drawn, 0 … 2, and which way the ground is from its centre. */
+  const tyreSquish = { rear: { level: 0, hold: 0, dx: 0, dy: 1 }, front: { level: 0, hold: 0, dx: 0, dy: 1 } };
 
   function reset(nextTrail) {
     trail = nextTrail;
@@ -42,6 +48,7 @@ export function createEffects() {
     sprayAccumulator = 0; skidAccumulator = 0; wakeAccumulator = 0;
     wheelDirt.rear.length = 0; wheelDirt.front.length = 0;
     dirtAccumulator.rear = 0; dirtAccumulator.front = 0;
+    for (const squish of [tyreSquish.rear, tyreSquish.front]) { squish.level = 0; squish.hold = 0; }
     weather.time = 0; weather.flash = 0; weather.x = .5; weather.distance = .5;
     weather.nextLightning = trail.weather?.lightning ? 2.5 + Math.random() * 4 : Infinity;
   }
@@ -260,6 +267,30 @@ export function createEffects() {
     });
   }
 
+  /**
+   * A tyre flattens where it meets the ground under load, and on a hard hit
+   * its sidewalls bulge. The ground's push on each tyre comes from the
+   * physics, against the share of the bike's weight it carries at rest: from
+   * 3 times that (hard braking, any real landing) it is drawn flat, and from
+   * 18 times (about a 60 px drop) bulging. The peaks last a step or two, so
+   * each level is held a moment before the tyre springs back.
+   */
+  function squishTyres(ride) {
+    let mass = 0;
+    for (const point of ride.vehicle.bikePoints) mass += 1 / point.inverseMass;
+    const restLoad = mass * GRAVITY * STEP / 2;
+    for (const name of /** @type {const} */ (['rear', 'front'])) {
+      const wheel = ride[name], squish = tyreSquish[name];
+      const load = wheel.grounded && wheel.contact ? (wheel.groundLoad || 0) / restLoad : 0;
+      const level = load >= TYRE_BULGE_LOAD ? 2 : load >= TYRE_FLAT_LOAD ? 1 : 0;
+      if (!wheel.grounded || !wheel.contact) { squish.level = 0; squish.hold = 0; continue; }
+      squish.dx = -wheel.contact.nx; squish.dy = -wheel.contact.ny;
+      if (level >= squish.level) { squish.level = level; squish.hold = TYRE_SQUISH_HOLD; continue; }
+      squish.hold -= STEP;
+      if (squish.hold <= 0) { squish.level--; squish.hold = TYRE_SQUISH_HOLD; }
+    }
+  }
+
   /** Advances weather by one step; returns a thunder strike when one happens. */
   function stepWeather() {
     weather.time += STEP;
@@ -299,5 +330,5 @@ export function createEffects() {
     removeExpired(skidMarks, MAX_SKID_MARKS);
   }
 
-  return { particles, skidMarks, wheelDirt, weather, reset, burst, dustPuff, brakeMarks, terrainSpray, splash, shatter, crack, waterWake, wheelGrime, stepWeather, update, prune };
+  return { particles, skidMarks, wheelDirt, tyreSquish, weather, reset, burst, dustPuff, brakeMarks, terrainSpray, splash, shatter, crack, waterWake, wheelGrime, squishTyres, stepWeather, update, prune };
 }

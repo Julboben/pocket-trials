@@ -10,6 +10,7 @@ import {
   deleteBrowserTrail,
   deleteTrailFile,
   moveTrailFile,
+  reportEditorFeat,
   saveBrowserTrail,
   saveTrailFile,
   trailEntries,
@@ -32,11 +33,14 @@ import {
   updateVersionChip,
 } from "./drafts.js";
 import { pushHistory } from "./history.js";
+import { moveLocks } from "./locks.js";
 import { syncInspector } from "./inspector.js";
 import { render } from "./render.js";
 import { editor } from "./state.js";
-import { flash, refuse, showStatus } from "./status.js";
+import { flash, refuse, refuseReadOnly, showStatus } from "./status.js";
+import { NAVIGATION_TOOLS, setTool } from "./tools.js";
 import { focusOnStart } from "./view.js";
+import { stopEditingPreview } from "./preview.js";
 
 const CURRENT_TRAIL_KEY = "hjulben-editor-current-v1";
 
@@ -128,7 +132,10 @@ export function announceVersion() {
     );
     return;
   }
-  if (editor.version?.kind !== "draft") return;
+  if (editor.version?.kind !== "draft") {
+    if (editor.readOnly) refuseReadOnly();
+    return;
+  }
   showStatus(
     "info",
     `Opened your draft (${formatDraftTime(editor.version.at)}). Switch versions from the label at the top.`,
@@ -136,6 +143,10 @@ export function announceVersion() {
 }
 
 export function saveDraft() {
+  if (editor.readOnly || !canSave()) {
+    refuseReadOnly();
+    return;
+  }
   if (!editor.version?.edited) {
     showStatus("info", "No changes since this version, so there is nothing new to save.");
     return;
@@ -267,11 +278,18 @@ export function download(filename, content, type) {
 
 // The trail picker groups its options natively: official trails first, then
 // bonus trails, then custom ones split by where they are stored. The group heading says which is
-// which, so each option needs only its name. Option values stay the entry's
-// index in trailEntries, which is what selectEntry() expects.
+// which, so each option needs only its name and its number, the same one the
+// game shows: 01, B01 or C01, counted within its source. Option values stay
+// the entry's index in trailEntries, which is what selectEntry() expects.
 export function buildPicker() {
   const picker = $("trail-picker");
-  const entries = trailEntries.map((entry, index) => ({ entry, index }));
+  const prefix = { official: "", bonus: "B", custom: "C" };
+  const counts = {};
+  const entries = trailEntries.map((entry, index) => {
+    counts[entry.source] = (counts[entry.source] ?? 0) + 1;
+    const marker = `${prefix[entry.source] ?? ""}${String(counts[entry.source]).padStart(2, "0")}`;
+    return { entry, index, marker };
+  });
   const groups = [
     ["OFFICIAL", (entry) => entry.source === "official"],
     ["BONUS", (entry) => entry.source === "bonus"],
@@ -288,9 +306,10 @@ export function buildPicker() {
       .map(([label, items]) => {
         const group = document.createElement("optgroup");
         group.label = label;
-        for (const { entry, index } of items) {
+        for (const { entry, index, marker } of items) {
           const option = document.createElement("option");
           option.value = index;
+          option.dataset.marker = marker;
           option.textContent = entry.trail.name;
           group.append(option);
         }
@@ -310,6 +329,11 @@ export function canSave(entry = currentEntry()) {
 
 const isShipped = (entry) => entry?.source === "official" || entry?.source === "bonus";
 
+/** Only a custom trail this editor can write to can be deleted. */
+function canDelete(entry = currentEntry()) {
+  return entry?.source === "custom" && canSave(entry);
+}
+
 export function updateTrailControls() {
   const entry = currentEntry();
   $("save-trail").hidden = !canSave(entry);
@@ -322,8 +346,21 @@ export function updateTrailControls() {
     entry?.storage === "browser"
       ? "Save to this browser's trail library, where the game plays it (Cmd/Ctrl+Shift+S)"
       : `Write trails/${entry?.file} (Cmd/Ctrl+Shift+S)`;
-  $("delete-trail").hidden =
-    entry?.source !== "custom" || (entry.storage !== "browser" && !editor.devServer);
+  $("delete-trail").hidden = !canDelete(entry);
+  // A trail that can't be saved can't be edited either: it can be looked at,
+  // played, duplicated and exported. The fields stay visible but disabled, so
+  // its settings can still be read.
+  const readOnly = !canSave(entry);
+  editor.readOnly = readOnly;
+  for (const id of ["rename-trail", "save-draft", "versions-save-draft"]) $(id).hidden = readOnly;
+  for (const tool of document.querySelectorAll("[data-tool]"))
+    tool.disabled = readOnly && !NAVIGATION_TOOLS.has(tool.dataset.tool);
+  // A disabled fieldset disables every control inside it, including the
+  // segmented and picker buttons built from its selects.
+  for (const id of ["selection-fieldset", "trail-fields"]) $(id).disabled = readOnly;
+  $("trail-json").readOnly = readOnly;
+  $("import-json").disabled = readOnly;
+  if (readOnly && !NAVIGATION_TOOLS.has(editor.tool)) setTool("select");
   $("save-status").textContent = saveStatusText(entry);
   updateVersionChip();
 }
@@ -333,12 +370,13 @@ function saveStatusText(entry) {
     ? "Saved in this browser"
     : editor.devServer
       ? `Dev server · trails/${entry?.file}`
-      : "Read-only here · duplicate or export to keep changes";
+      : "Read-only here · duplicate to edit";
 }
 
 export function selectEntry(index) {
   // Keep unsaved edits to the trail being left; they come back when it is reopened.
   autosaveNow();
+  stopEditingPreview();
   editor.trailIndex = index;
   editor.history = [];
   editor.future = [];
@@ -377,8 +415,30 @@ async function persist(entry, data) {
   const oldFile = entry.file;
   await moveTrailFile(entry, file, data);
   moveDrafts(oldId, entry.id);
+  moveLocks(oldId, entry.id);
   rememberTrail();
   return { ...entry, movedFrom: oldFile };
+}
+
+// Custom trails published before, by id, so Trail Network counts each trail once.
+const PUBLISHED_KEY = "hjulben-published-trails-v1";
+
+/**
+ * Remembers a published trail by its ids (a renamed trail file gets a new
+ * one) and returns whether it is the first time any of them was published.
+ */
+function notePublished(ids) {
+  let known = [];
+  try {
+    known = JSON.parse(store().getItem(PUBLISHED_KEY) || "[]");
+  } catch (_) {}
+  const published = new Set(Array.isArray(known) ? known : []);
+  const first = !ids.some((id) => published.has(id));
+  for (const id of ids) published.add(id);
+  try {
+    store().setItem(PUBLISHED_KEY, JSON.stringify([...published]));
+  } catch (_) {}
+  return first;
 }
 
 export async function saveTrail() {
@@ -394,8 +454,13 @@ export async function saveTrail() {
   if (errors.length && !refuse("publishing", errors)) return;
   if (isShipped(entry) && !(await confirmOverwrite(entry))) return;
   try {
+    const firstId = entry.id;
     const saved = await persist(entry, editor.trail);
     markSaved(entry.id);
+    if (entry.source === "custom") {
+      reportEditorFeat("publish");
+      if (notePublished([firstId, entry.id])) reportEditorFeat("new-trail");
+    }
     setVersion("saved", null, editor.trail);
     autosaveNow();
     buildPicker();
@@ -428,7 +493,7 @@ export async function createCustomTrail(data) {
 export async function deleteTrail() {
   const entry = currentEntry();
   if (
-    entry?.source !== "custom" ||
+    !canDelete(entry) ||
     !window.confirm(`Delete “${entry.trail.name}”? This cannot be undone.`)
   )
     return;

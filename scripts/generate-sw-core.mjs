@@ -55,7 +55,7 @@ generate('js/changelog.js', 'CHANGELOG.md', [
 
 // Everything the two pages can request, besides the trail files (cached from
 // the catalog) and the service worker itself.
-const included = /\.(js|css|html|webmanifest)$|^icons\/.*\.(svg|png)$/;
+const included = /\.(js|css|html|webmanifest)$|^icons\/.*\.(svg|png)$|^fonts\/.*\.woff2$/;
 // Top-level folders and files that are never served to players.
 const skipTop = new Set(['sw.js', 'scripts', 'trails', 'tests', 'node_modules', 'dist', 'coverage', 'netlify']);
 
@@ -78,8 +78,11 @@ const files = ['./', ...walk(root).sort(byPath)];
 // A new cache name whenever the list or any file's content changes, so clients
 // drop the old precache. Line endings are normalised so every OS gets the same hash.
 const hash = createHash('sha256').update(files.join('\n'));
+const binary = /\.(png|woff2)$/;
 for (const file of files.slice(1)) {
-  hash.update('\n' + readFileSync(join(root, file.slice(2)), 'utf8').replaceAll('\r\n', '\n'));
+  const data = readFileSync(join(root, file.slice(2)));
+  hash.update('\n');
+  hash.update(binary.test(file) ? data : data.toString('utf8').replaceAll('\r\n', '\n'));
 }
 const digest = hash.digest('hex');
 const cache = `hjulben-${digest.slice(0, 8)}`;

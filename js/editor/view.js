@@ -1,6 +1,14 @@
-// Camera, zoom and screen-to-world conversion.
+// Camera, zoom, the game art toggle and screen-to-world conversion.
+import { store } from "../local-store.js";
 import { $, canvas, ctx } from "./dom.js";
-import { groundY, render, renderView, syncTerrain } from "./render.js";
+import {
+  GAME_ART_KEY,
+  GAME_ART_MIN_ZOOM,
+  groundY,
+  render,
+  renderView,
+  syncTerrain,
+} from "./render.js";
 import { clampZoom, editor } from "./state.js";
 
 export function focusOnStart() {
@@ -39,6 +47,15 @@ export function pointerWorld(event) {
   };
 }
 
+/** Move the view so a world position is in its middle, keeping the zoom. */
+export function centerOn(x, y) {
+  const { width, height } = viewportSize();
+  editor.cameraX = x - width / 2 / editor.zoom;
+  editor.cameraY = y - height / 2 / editor.zoom;
+  editor.focusPending = false;
+  renderView();
+}
+
 /** Zoom by a factor, keeping the middle of the view where it is. */
 export function zoomAtCenter(factor) {
   const { width, height } = viewportSize();
@@ -52,5 +69,32 @@ export function zoomAtCenter(factor) {
 
 export function updateZoom() {
   $("zoom-label").textContent = Math.round(editor.zoom * 100) + "%";
+  updateGameArtButton();
   renderView();
+}
+
+/** Draw the terrain with the game's own art, or as plain shapes, and remember it. */
+export function setGameArt(on) {
+  editor.gameArt = on;
+  try {
+    store().setItem(GAME_ART_KEY, on ? "1" : "0");
+  } catch (_) {}
+  updateGameArtButton();
+  render();
+}
+
+export const toggleGameArt = () => setGameArt(!editor.gameArt);
+
+// Below GAME_ART_MIN_ZOOM the art is not drawn even when it is on, so the
+// button dims and says why rather than looking broken.
+export function updateGameArtButton() {
+  const button = $("game-art");
+  const zoomedOut = editor.zoom < GAME_ART_MIN_ZOOM;
+  button.setAttribute("aria-pressed", String(Boolean(editor.gameArt)));
+  button.classList.toggle("zoomed-out", zoomedOut);
+  button.title = !editor.gameArt
+    ? "Show game art (Y)"
+    : zoomedOut
+      ? `Game art shows from ${Math.round(GAME_ART_MIN_ZOOM * 100)}% zoom (Y to hide)`
+      : "Hide game art (Y)";
 }

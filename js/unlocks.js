@@ -16,8 +16,44 @@ import { achievement } from './achievements.js';
 export const UNLOCKS = Object.freeze({
   'trail:bonus:01-the-bonny-tyler': { golds: 2 },
   'trail:bonus:02-the-mining-cave': { golds: 4 },
-  'look:helmet:mx': { trail: 'bonus:01-the-bonny-tyler' },
-  'look:bike:classic': { golds: 8 },
+
+  // A piece of gear for each chapter of the career, won by finishing its last
+  // trail: the career opens them in order, so that is the whole chapter.
+  'look:helmet:cap-back': { trail: 'official:05-windmill-hill' }, // Orchard
+  'look:helmet:bandana': { trail: 'official:10-switchback' }, // Forest
+  'look:helmet:cowboy': { trail: 'official:15-mirage' }, // Desert
+  'look:helmet:open-face': { trail: 'official:20-out-and-back' }, // Hills and coast
+  'look:outfitColor:yellow': { trail: 'official:25-the-ring' }, // Mine: hi-vis
+  'look:bike:scrambler': { trail: 'official:30-rooftops' }, // City
+  'look:helmet:beanie': { trail: 'official:31-long-way-up' }, // The first snow
+
+  // The big goals. Achievements rather than counts, so new trails don't move them.
+  'look:bike:classic': { achievement: 'career-rider' },
+  'look:helmet:bike': { achievement: 'career-rider' }, // Made for the Pocket Classic
+  'look:helmet:viking': { achievement: 'gold-rush' },
+  'look:bikeColor:black': { achievement: 'night-owl' },
+
+  // Outfits. Each chapter's last trail wins one to go with its headwear; the
+  // rest are achievements, picked to suit the outfit.
+  'look:outfit:flannel': { trail: 'official:10-switchback' }, // Forest
+  'look:outfit:western': { trail: 'official:15-mirage' }, // Desert, with the cowboy hat
+  'look:outfit:wetsuit': { trail: 'official:20-out-and-back' }, // Hills and coast
+  'look:outfit:coveralls': { trail: 'official:25-the-ring' }, // Mine, with the hi-vis
+  'look:outfit:leathers': { trail: 'official:30-rooftops' }, // City
+  'look:outfit:puffer': { trail: 'official:31-long-way-up' }, // The first snow, with the beanie
+  'look:outfit:hoodie': { achievement: 'first-steps' },
+  'look:outfit:mx': { achievement: 'head-over-heels' },
+  'look:outfit:tracksuit': { achievement: 'leaps-and-bounds' },
+  'look:outfit:dungarees': { achievement: 'an-apple-a-day' },
+  'look:outfit:superhero': { achievement: 'hang-time' },
+  'look:outfit:tuxedo': { achievement: 'golden-touch' },
+  'look:outfit:dummy': { achievement: 'crash-test-dummy' },
+  'look:outfit:nisse': { achievement: 'nisse-hunter' },
+  'look:outfit:viking': { achievement: 'gold-rush' }, // With the Viking helmet
+  'look:outfit:prisoner': { achievement: 'never-give-up' }, // Secret: doing time
+
+  'look:hair:big-curls': { trail: 'bonus:01-the-bonny-tyler' },
+  'look:helmet:dunce': { achievement: 'i-saw-that' },
 });
 
 /**

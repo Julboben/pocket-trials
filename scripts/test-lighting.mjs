@@ -86,10 +86,12 @@ check('light fades in from the edge of a back wall', at(halfWall, 600, 50) > 0.9
 check('back walls never block lights', lightReach(closedRing, 700, 50, 1, 0, 150, 12) === 150);
 
 const sky = (timeOfDay, weather) => glareStrength({ timeOfDay, weather });
-check('a bright clear noon sun glares', sky('noon', { sun: 1, clouds: 0.15 }) > 0.9);
-check('a cloudy or weak sun does not glare', sky('noon', { sun: 0.7, clouds: 0.35 }) === 0 && sky('noon', { sun: 1, clouds: 1 }) === 0);
-check('rain puts the glare out', sky('noon', { sun: 1, clouds: 0.15, rain: 1 }) === 0);
-check('the moon never glares', sky('night', { sun: 1, clouds: 0 }) === 0);
+check('a bright clear noon sun glares', sky(12, { sun: 1, clouds: 0.15 }) > 0.9);
+check('a cloudy or weak sun does not glare', sky(12, { sun: 0.7, clouds: 0.35 }) === 0 && sky(12, { sun: 1, clouds: 1 }) === 0);
+check('rain puts the glare out', sky(12, { sun: 1, clouds: 0.15, rain: 1 }) === 0);
+check('the moon never glares', [21, 22, 0, 3, 4].every((hour) => sky(hour, { sun: 1, clouds: 0 }) === 0));
+const clear = (hour) => sky(hour, { sun: 1, clouds: 0 });
+check('the glare fades in after dawn and out by dusk', clear(5) === 0 && clear(6) < clear(7) && clear(7) <= clear(12) && clear(19) < clear(12) && clear(20) === 0);
 
 // Lights stop at the terrain: a ray into the ground goes only skin deep,
 // one through open air goes its full length, and a light set slightly into

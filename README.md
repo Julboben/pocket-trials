@@ -28,6 +28,7 @@ The current version is a dependency-free browser prototype built with native Jav
 - Rider customization: gender and skin tone picked once when creating a rider, then hair, helmet (full face, motocross or none), outfit and bike, each with its own colour, changeable any time in the Garage, plus a custom rider name. Some items are won: the Pocket Classic bike for gold medals on 8 trails, and the motocross helmet for finishing The Bonny Tyler
 - Elasto Mania-style pixel dirt bike, with the original Pocket Classic bike kept for future biker customization
 - Layered foreground and background scenery
+- A full day cycle, set per trail by the hour, from night through dawn, morning, noon and evening to dusk, with the moon and stars at night
 - Pixel lighting at every time of day: ground stays bright by day and sinks into darkness at night, caves closed off by a back wall are dark at any hour while open hollows let the sky through, a headlight you can switch off that stays on the bike through flips and loops, lanterns, lamps, glowing mushrooms, and lightning light the way
 - Terrain-colored wheel spray, brake lights, and fading ground skid marks
 - Procedural engine, braking, wheel-landing, aerial trick, collectible, crash, flip, finish, dashboard, and rain sound effects
@@ -35,12 +36,26 @@ The current version is a dependency-free browser prototype built with native Jav
 - Persisted settings and trail progression
 - Seven progressively longer trails with gaps, caves, and floating blocks to ride across
 - Bonus trails outside the career, often made by other riders, with their own best times and world boards, some unlocked by finishing trails or winning gold medals
-- Grass, dirt, sand, concrete, stone, snow, brick, and glass terrain materials
-- Per-trail rain, snow, and lightning configuration with procedural rain and storm-wind ambience and distance-aware thunder
+- Grass, dirt, sand, concrete, stone, snow, brick, wood, and glass terrain materials
+- Per-trail weather: sun, clouds, fog, rain, snow (together for sleet), lightning, and a wind with its own strength and direction that blows the rain, snow and props the same way, with procedural rain and wind ambience and distance-aware thunder
 - Water you can ride through: shallow fords drag the bike and slow it down, deeper water wipes the rider out, and the ragdoll floats on the surface with splashes, wakes and sound; water lilies, reeds, seaweed, fish that dart off and ducks that take off when you come close
 - Squirrels that run to the nearest tree, climb it and hide in the crown when you come close
 - Coda the corgi, who trots over to greet you with a woof, and sits and pants when you press `E`
 - 57 achievements for each rider, from career milestones and stunts on any trail (custom ones too), such as wheelies, big air and beating the world-best ghost, to lifetime totals like 100 crashes, announced as you earn them and listed in the menu. Secret ones stay hidden until earned, and a few easter eggs reward riders who open their dev tools (`js/easter-eggs.js`). Every unlock rule for bonus trails and rider items lives in `js/unlocks.js`, and a rule can ask for an achievement
+
+## Requirements
+
+Playing needs a current browser:
+
+| Browser                    | Minimum version |
+| -------------------------- | --------------- |
+| Safari (macOS, iOS/iPadOS) | 16.5            |
+| Chrome, Edge               | 112             |
+| Firefox                    | 117             |
+
+The floor is set by native CSS nesting in `css/game.css` (see [Stylesheets](#stylesheets)). The game also relies on JavaScript modules, `structuredClone` and `dvh` units, which these versions all support. There is no fallback: an older browser silently drops the nested rules, which breaks the phone layout and button states. The trail editor also uses `:has()`, so it needs Firefox 121 or newer.
+
+Development needs Node.js 24 (the version CI uses) and npm. The game itself has no build step; npm packages are only used by the scripts and the Netlify functions.
 
 ## Play
 
@@ -88,7 +103,7 @@ Gamepads use the standard mapping: `RT` or `A` for gas, `LT` or `X` for brake, t
 9. **Long Way Up** — a sustained technical climb combining momentum and wheelie control.
 10. **Elastic Summit** — a long final exam combining climbs, braking, landings, gaps, and stacked ledges.
 
-The planned full career is laid out in [`TRAILS_PLAN.md`](./TRAILS_PLAN.md).
+How the career is designed, and the rules every trail follows, are in [`TRAILS_GUIDE.md`](./TRAILS_GUIDE.md). The trails still to build are in [`TRAILS_PLAN.md`](./TRAILS_PLAN.md).
 
 Each trail requires collecting every apple before the finish gate will open. Completing a trail unlocks the next one. Selecting a trail starts it immediately, and its number and name remain visible as a lower-left course marker.
 
@@ -113,7 +128,8 @@ The inspector on the right edits the current selection. The editor supports:
 - Drawing water bodies with the **Water** tool (`W`): drag a rectangle, or click to drop one of the tool's size. Drag a body by the middle of its surface, resize it with the scale handles, and set its width and depth in the inspector, which says whether it is a rideable ford or deep enough to wipe the rider out
 - Choosing the start position and left/right facing direction
 - Selecting the base and per-block materials
-- Editing sun, cloud, fog, rain, snow, and lightning values
+- Setting the time of day by the hour, with Morning, Noon, Evening and Night help points, and the backdrop
+- Editing sun, cloud, fog, rain, snow, lightning, wind strength and direction values, from weather presets or one by one, with a windsock showing the wind
 - Trackpad navigation: two-finger scrolling pans and pinch gestures zoom around the pointer
 - Mouse navigation: wheel panning, `Ctrl`/`Cmd` + wheel zooming, and middle-button or `Space`-drag panning
 - Zooming from 10% up to 600%, with a finer snap grid when zoomed in
@@ -127,6 +143,7 @@ The inspector on the right edits the current selection. The editor supports:
 - Browser-local draft history (**Save draft** in the header, `Cmd`/`Ctrl` + `S`): up to 12 timestamped drafts per trail. The editor opens the newest draft unless the trail was saved after it. The label next to the trail picker shows which version is open (original, published, or a draft) and whether it has edits since; click it to open **Versions**, where you can open any draft, delete drafts, or revert to the published trail (undoable). **Save draft** is greyed out until the trail changes from the open version, and **Publish** until it differs from the published trail. The inspector panel is hidden until something is selected.
 - Autosave: unsaved edits are kept in the browser a second after each change, and when the tab is closed, hidden or switched to another trail. Reopening the trail restores them on top of the version they were made to, with one undo step back to that version. The autosave is a single slot per trail, separate from the drafts, and is cleared when you save a draft or publish.
 - JSON import, plus JSON and JavaScript module export (**Import / export** in the **⋯** menu, which warns when validation errors would block an export)
+- **Copy share link** in the **⋯** menu: copies a link that opens the trail in the game. The whole trail is packed into the link's hash (`index.html#trail=1.<data>`: the trail JSON, deflated and base64url-encoded, see `js/trail-link.js`), so it needs no server and works on any deployment. Opening the link rides the trail straight away and saves it under **Custom Trails** (opening it again reuses that copy). Small trails make links of a few hundred characters, but bigger ones run to several thousand, and the editor warns when a link is too long for a Discord message (2,000 characters). Because the hash never reaches the server, chat apps can't show the trail's name or a picture in their link preview.
 - **New** (+) and **Duplicate** next to the trail picker, plus **Publish** (`Cmd`/`Ctrl` + `Shift` + `S`) and **Delete** in the **⋯** menu
 
 Where **Publish** writes depends on how the editor is served:
@@ -220,6 +237,7 @@ One-time setup:
 .
 ├── index.html          # Game markup and module entry point
 ├── css/
+│   ├── tokens.css      # Shared design tokens and the pixel font
 │   ├── game.css        # Game and dashboard presentation
 │   ├── editor.css      # Visual trail editor presentation
 │   └── icons.css       # Generated pixel icons (from icons/pixel-icons.mjs)
@@ -235,6 +253,7 @@ One-time setup:
 ├── netlify/            # Serverless API: passkey accounts, cloud saves, verified leaderboard
 ├── scripts/            # Catalog generator, dev server, tests, and replay recorder
 ├── tests/replays/      # One recorded replay per official trail (regression fixtures)
+│   └── human/          # Human runs for trails the bot can't finish by itself
 ├── js/
 │   ├── main.js         # Entry point and service worker registration
 │   ├── game.js         # State machine, fixed-step loop, and event handling
@@ -246,7 +265,8 @@ One-time setup:
 │   ├── light-field.js  # DOM-free ambient light bake from the terrain
 │   ├── camera.js       # Camera follow and screen shake
 │   ├── effects.js      # Particles, skid marks, and weather
-│   ├── fps-meter.js    # Frame-rate readout for ?fps=1
+│   ├── fps-meter.js    # Frame-rate readout for ?debug=1
+│   ├── debug-hud.js    # On-screen ride readout for ?debug=1
 │   ├── input.js        # Keyboard, touch, and gamepad input with remapping
 │   ├── state.js        # Shared session state and preferences
 │   ├── ui/             # Dashboard menu and in-game overlay/results
@@ -273,9 +293,78 @@ One-time setup:
 
 The game itself intentionally has no runtime dependencies. Only the Netlify functions use npm packages.
 
+## Stylesheets
+
+The CSS is plain CSS served as written, with no preprocessor or build step. Each page loads three stylesheets in this order:
+
+| Page          | Stylesheets                                           |
+| ------------- | ----------------------------------------------------- |
+| `index.html`  | `css/tokens.css`, `css/icons.css`, `css/game.css`     |
+| `editor.html` | `css/tokens.css`, `css/icons.css`, `css/editor.css`   |
+
+`tokens.css` holds the design tokens (see [Design tokens](#design-tokens)), `icons.css` is generated from the pixel icons, and the page stylesheet holds everything else. The service worker caches the stylesheets, so run `npm run sw` after changing one (`npm test` fails until you do).
+
+### How `game.css` is organised
+
+The file runs top to bottom in roughly the order the screen is built:
+
+1. Base: box sizing, the global `[hidden]` rule, `html`/`body`, buttons, focus rings
+2. Game shell: `.game` (including its loading, fullscreen and menu-open states), the viewport, HUD, scene labels, toasts
+3. Dialogs and results: `.overlay`/`.menu-confirm`, pause screen, `.modal`, `.primary`/`.secondary` buttons, the results card
+4. Settings controls: ranges, key bindings, setting groups and options
+5. The handheld controls: `.control-area`, `.controls`, then each pad button and switch
+6. Menu: screen and hero, saves and riders, menu actions, trails, leaderboard, Garage, How to Play, changelog, achievements
+7. Cross-cutting rules: `.pixel-ui`, reduced motion, account login, and the dev sandbox badge
+
+### Nesting conventions
+
+`game.css` uses native CSS nesting, so each component keeps its states, pseudo-elements, children and responsive overrides in one block:
+
+```css
+.toast {
+    opacity: 0;
+    transition: opacity 0.2s;
+    &.visible {
+        opacity: 1;
+    }
+    @media (max-width: 760px) {
+        overflow-wrap: anywhere;
+        line-height: 1.35;
+    }
+}
+```
+
+Keep these rules when editing it:
+
+- **Start every nested selector with `&`** (`& strong`, `&:hover`, `& > div`). Safari before 17.2 ignores nested selectors that start with a letter.
+- **Put declarations before nested rules** in a block. Browsers released before late 2024 move declarations that follow a nested rule up above it, which changes their order.
+- **Only nest selectors that extend the parent** (`.results-time strong`, `.toast.visible`). Don't nest a separate component like `.results-time` inside `.results`: that turns it into `.results .results-time` and raises its specificity.
+- **Only nest under a selector list whose selectors have the same specificity**, such as `.overlay, .menu-confirm` or the pad button ids. A nested rule takes the highest specificity in its parent list.
+- **Watch the order when moving a rule.** A later rule beats an earlier one of equal specificity, so a few responsive overrides stay outside their component, after the rules they must beat, with a comment saying so. Examples are the phone heights for `.menu-action` and its modifiers, and the phone grid for `.look-options`, which also has to override `.look-skins`.
+
+Don't add `.foo[hidden] { display: none; }` rules. The global `[hidden] { display: none !important; }` near the top already hides any element with the `hidden` attribute, even when its component sets `display: flex` or `grid`.
+
+`editor.css` is a separate, flat stylesheet and doesn't use nesting.
+
+### Breakpoints
+
+| Media query                                   | Used for                                                          |
+| --------------------------------------------- | ----------------------------------------------------------------- |
+| `(max-width: 760px)`                          | Tablets and phones: stacked handheld controls, full-width shell   |
+| `(max-width: 520px)`                          | Phones: edge-to-edge game, single-column menus, controls fill the space below the game |
+| `(max-width: 370px)`                          | Narrow phones: the round pad buttons go back to the small shape   |
+| `(max-width: 350px)`                          | Smallest phones: tighter modal padding and headings               |
+| `(max-width: 520px) and (min-height: 600px)`  | Portrait phones: home buttons pinned to the bottom of the menu    |
+| `(max-height: 500px)`                         | Short landscape phones: shorter menu rows                         |
+| `(hover: none)`, `(hover: none) and (pointer: coarse)` | Touch screens: no selection ring or keyboard hints        |
+
+### Handheld controls
+
+The pad buttons are cut to pixel shapes with `clip-path` polygons on the 3px grid of their icons. `.controls` defines the small shapes as `--shape-round-small` and `--shape-flip-small`; its nested `@media (max-width: 760px)` swaps in the larger phone shapes, and `@media (max-width: 370px)` points back to the small ones. Each button's `::before` is its shadow and `::after` its face, both clipped to that shape.
+
 ## Design tokens
 
-Shared interface colors, spacing, corner radii, typography, and pixel-shadow values are defined as CSS custom properties in `css/game.css`. Trail-specific canvas colors live under `trails/official/` and `trails/custom/`, shared terrain materials and catalog loading live in `js/trails.js`, and simulation constants live in `js/config.js`.
+Shared interface colors, spacing, corner radii, typography, and pixel-shadow values are defined as CSS custom properties in `css/tokens.css`, shared by the game and the editor. Page stylesheets use `var()` references instead of new literals: `npm run tokens:check` (part of `npm test`) fails when a colour, font size or weight is written out although a token has that value, when a `var()` has no definition, or when a token is unused. One-off values with no token are fine; give them a token once they repeat. Trail-specific canvas colors live under `trails/official/` and `trails/custom/`, shared terrain materials and catalog loading live in `js/trails.js`, and simulation constants live in `js/config.js`.
 
 UI icons are drawn as ASCII grids in `icons/pixel-icons.mjs` (`#` takes the text colour; other letters map to the icon's own palette). Run `npm run icons` to regenerate `css/icons.css`, then use one with `<span data-icon="clock"></span>`, or add one to a label with `data-icon-before`/`data-icon-after`. Set `--px` to scale it (keep it a whole number). The `logo` icon also generates the favicon and app icons (`icons/icon.svg`, `icons/icon-maskable.svg`, `icons/apple-touch-icon.png`).
 
@@ -327,13 +416,17 @@ The game is currently a **design and physics prototype**. Its most important ass
 
 To test as a brand-new player on `localhost`, open the game or editor with `?sandbox`. All data then lives in that tab's `sessionStorage`: your real saves are never read or changed, online submits are skipped, and a SANDBOX badge shows at the bottom. The sandbox survives reloads, the editor, and playtests. Use `?sandbox=reset` to start fresh again and `?sandbox=off` to go back to your real data.
 
-To check performance, open the game with `?fps=1`: a small readout shows frames per second, the average time each frame's work takes, and the slowest frame gap, refreshed twice a second.
-
-To investigate physics, open the game with `?physicsDebug=1`. The overlay shows particles, constraints, contact normals, and center of mass. The console automatically prints detected spikes as expanded JSON. Run `hjulbenPhysicsDebug.dumpSpike()` or `copySpike()` for the latest spike, and `dump()` or `copy()` for the latest 120 frames. Record deterministic input with `startRecording()` and `stopRecording()`, then replay the returned array with `replay(inputs)`; call `stopReplay()` to return to live controls. Traces include wheel velocities, angular/contact state, torque components, suspension lengths, chassis area, constraints, traction, and collision responses.
+To check performance or investigate physics, open the game with `?debug=1`. Open the editor with it and its play test gets it too. Debug mode shows a frame-rate meter (frames per second, the average time each frame's work takes, and the slowest frame gap, refreshed twice a second) and a readout of the ride: speed, pitch, the controls and how much of the lean reaches the bike, the engine's revs and clutch, each wheel's surface, compression, load and spin, and how far the rider's head, shoulder and hip probes are from the ground. The overlay shows particles, constraints, contact normals, center of mass, and the crash probes, red when the head touches. `hjulbenGame.dumpRun()` copies the whole attempt (trail, seed and inputs) so it can be replayed outside the browser. `hjulbenPhysicsDebug.dump()` or `copy()` gives the last 120 steps in detail; the traces include wheel velocities, angular/contact state, torque components, suspension lengths, chassis area, constraints, traction, and collision responses.
 
 `npm test` also runs the DOM-independent vehicle harness in `scripts/test-vehicle-physics.mjs`. It exercises flat acceleration, braking versus coasting, stationary wheel lift, air rotation, mirrored hills, valley settling, and one-wheel landing through the exact `js/vehicle-physics.js` code used by the game.
 
-`scripts/test-replays.mjs` replays one recorded run per official trail through `js/ride.js` and checks that the finish time, apples, and crash outcome are unchanged, with no NaN values and no terrain tunnelling. After an intentional handling change, re-record the fixtures with `npm run replays`. A search bot drives each trail and writes `tests/replays/*.json`. When it can't finish a trail, for example one that needs a turn-around or a run-up from behind, an explorer takes over and searches routes away from the next apple too (`npm run replays -- --explore` skips straight to it). The simulation only uses `js/det-math.js` for transcendental functions, so a replay recorded in Node plays back bit-for-bit in the browser. Don't use `Math.sin`, `Math.atan2`, `Math.exp`, and similar functions in simulation code, because their last-digit results differ between JavaScript engines.
+`scripts/test-replays.mjs` replays one recorded run per official trail through `js/ride.js` and checks that the finish time, apples, and crash outcome are unchanged, with no NaN values and no terrain tunnelling. After an intentional handling change, re-record the fixtures with `npm run replays`. It keeps every replay that still finishes and records the rest, several trails at once (`REPLAY_JOBS` sets how many, `REPLAY_MAX_MINUTES` the search time per trail, default 20). The search time is wall-clock time, so keep the machine awake while it runs (`caffeinate -i npm run replays` on macOS). The bot lives in `scripts/lib/replay-bot.mjs`:
+
+- A greedy search drives easy trails.
+- When that doesn't finish, an explorer takes over (`npm run replays -- --explore` skips straight to it). It strings together moves that human runs are made of: short held inputs, gas held for seconds while pumping the lean, coasting to a stop and turning around, and turning around in mid-air with a brake tap to flip. It favours places closest to the next apple through open space.
+- A replay that used to finish but broke after a physics or trail change is repaired where it breaks rather than re-recorded from scratch. The recorder plays it until it crashes, searches a few seconds before that for a patch that takes the next apple, and carries on with the rest of the run. `--force` skips this and records from scratch.
+
+For a trail the bot can't finish, add a human run. With the game running from `npm run dev`, finish the trail, or a play test of it in the editor, and press **Bot Reference** on the results screen. The dev server replays the run against every saved official trail and stores it as `tests/replays/human/<trail file>.json` for the one it finishes, replacing any earlier run. A play test of unsaved edits finishes none, so save the trail first. Without the dev server, copy your ghost from the browser console (`copy(localStorage.getItem(Object.keys(localStorage).find(k => k.startsWith('hjulben-ghost-v1:official:24-the-shaft'))))` for The Shaft) and save it there yourself. A human run that finishes becomes the replay as it is. One that stopped finishing is repaired like an old replay. To see which part of a trail the bot struggles with, `node scripts/probe-replay-bot.mjs 24` plays the human run up to each apple and gives the bot a few minutes to reach the next one from there. The simulation only uses `js/det-math.js` for transcendental functions, so a replay recorded in Node plays back bit-for-bit in the browser. Don't use `Math.sin`, `Math.atan2`, `Math.exp`, and similar functions in simulation code, because their last-digit results differ between JavaScript engines.
 
 Run `npm run check` (syntax), `npm run typecheck` (JSDoc types in `// @ts-check` files), and `npm test` before pushing. After `npm ci`, `npm run test:online` tests the online API against an in-memory Postgres (PGlite) using a software passkey. It covers sign-up, unique names, login, cloud saves, and rejection of tampered runs. CI runs all of these.
 
@@ -359,8 +452,10 @@ When changing physics values, validate at least these cases:
 - [ ] Improved rider animation
 - [ ] Additional bikes and cosmetic customization
 - [ ] Grip. Right now every material has the same grip, because WHEEL_FRICTION is a single value. If you want sand to feel softer or more slippery, per-material grip can be added. It would change how runs replay, though, so you'd need to raise RIDE_VERSION and re-record the replays. Let me know if you want that.
+- [ ] Short share links and online leaderboards for shared trails. Share links are static for now (see **Copy share link** under [Trail editor](#trail-editor)). A Netlify function could store each shared trail in Neon under its content hash (`trailHash` plus a few characters, so sharing a trail twice gives the same link) and hand out `/t/<id>` links. Those stay short at any trail size, and the `/t/<id>` page can carry `og:` tags with the trail's name, author and a thumbnail, so Discord and Reddit show a proper preview. That id would also give each shared trail a stable key for the world board: today `verify-run.mjs` only accepts official and bonus trails, so it would need to load the stored trail by id and replay runs against it. Watch the database load first: cap trail size, rate-limit uploads, and maybe only keep trails that someone has ridden. Shared ghosts (`encodeInputs` runs in the same link) would fit here too.
 - [ ] Map called Meteor Crater - you drive down a crater and then up again.
 - [ ] Make the ragdoll controllable
+- [ ] Nice to have: a circular day dial for the time of day in the trail editor, in place of the straight slider. A custom `role="slider"` control (the native range input can't be round), dragged round a ring of the 24 hours, each segment in that hour's sky colour, with a sun or moon at the chosen hour, notches at the help points (0, 7, 12, 19) and the time in the middle. The arrow keys step an hour and wrap past midnight. The Morning/Noon/Evening/Night buttons stay. Editor only: the trail format doesn't change.
 - [x] Sound Effects
 - [x] Different terrain types (grass, dirt, concrete, stone, snow, and brick)
 - [x] Splatter behind the bike when you drive on different terrain

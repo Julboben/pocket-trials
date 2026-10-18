@@ -410,22 +410,23 @@ function segmentIntersection(a, b) {
   if (Math.abs(denominator) < 1e-12) {
     // Collinear: the edges may still overlap, and a cut has to be able to start
     // and end exactly on a flat edge. Record a split at each endpoint that
-    // falls inside the other segment.
-    if (Math.abs((cx - ax) * r1 - (cy - ay) * r0) > 1e-9) return null;
+    // falls inside the other segment. Two blocks that share part of an edge
+    // need both ends of the overlap, on both segments, so every hit is returned.
+    if (Math.abs((cx - ax) * r1 - (cy - ay) * r0) > 1e-9) return [];
     const pointOn = (px, py) => {
       const lengthSquared = r0 * r0 + r1 * r1;
       const amount = lengthSquared > 1e-18 ? ((px - ax) * r0 + (py - ay) * r1) / lengthSquared : 0;
       if (amount < -1e-9 || amount > 1 + 1e-9) return null;
-      const t = ((px - ax) * r2 + (py - ay) * r3) / (r2 * r2 + r3 * r3 || 1);
+      const t = ((px - cx) * r2 + (py - cy) * r3) / (r2 * r2 + r3 * r3 || 1);
       if (t < -1e-9 || t > 1 + 1e-9) return null;
       return { s: Math.max(0, Math.min(1, amount)), t: Math.max(0, Math.min(1, t)), x: px, y: py };
     };
-    return pointOn(cx, cy) || pointOn(dx, dy);
+    return [pointOn(cx, cy), pointOn(dx, dy), pointOn(ax, ay), pointOn(bx, by)].filter(Boolean);
   }
   const s = ((cx - ax) * r3 - (cy - ay) * r2) / denominator;
   const t = ((cx - ax) * r1 - (cy - ay) * r0) / denominator;
-  if (s < 0 || s > 1 || t < 0 || t > 1) return null;
-  return { s, t, x: ax + r0 * s, y: ay + r1 * s };
+  if (s < 0 || s > 1 || t < 0 || t > 1) return [];
+  return [{ s, t, x: ax + r0 * s, y: ay + r1 * s }];
 }
 
 function makeSegment(ax, ay, bx, by, source) {
@@ -496,10 +497,10 @@ function splitSegments(segments) {
   }
   for (let i = 0; i < segments.length; i++) {
     for (let j = i + 1; j < segments.length; j++) {
-      const hit = segmentIntersection(segments[i], segments[j]);
-      if (!hit) continue;
-      addSplit(segments[i], hit.s, hit.x, hit.y);
-      addSplit(segments[j], hit.t, hit.x, hit.y);
+      for (const hit of segmentIntersection(segments[i], segments[j])) {
+        addSplit(segments[i], hit.s, hit.x, hit.y);
+        addSplit(segments[j], hit.t, hit.x, hit.y);
+      }
     }
   }
 }
@@ -570,39 +571,94 @@ export function subtractRegion(region, cutter) {
   }
 
   const segments = [...regionSegments(region), ...cutterSegments(cutterPoints)];
+  const result = booleanRegions(segments, (x, y) => probeSolid(regionRingsFlat, cutterRings, x, y));
+  if (!result.kept) return { changed: false, regions: [region], reason: 'The cut did not change the block.' };
+  if (!result.regions) return { changed: false, regions: [region], reason: 'The cut left unresolved geometry. Nothing was changed.' };
+  if (!result.regions.length) return { changed: false, regions: [region], reason: 'The cut removed the block entirely.' };
+  return { changed: true, regions: result.regions };
+}
+
+/**
+ * Union of two regions, keeping the curves of both.
+ *
+ * Returns `{ changed, regions }` with a single region when they overlap or share
+ * an edge. Regions that are apart, or that only touch at a point, come back
+ * unchanged with `apart` set, since joining them would not make one solid.
+ */
+export function unionRegions(a, b) {
+  const ringsA = regionRings(a), ringsB = regionRings(b);
+  const boundsA = regionBounds(a), boundsB = regionBounds(b);
+  const apart = { changed: false, apart: true, regions: [a, b], reason: 'The blocks do not overlap or touch.' };
+  if (boundsA.right < boundsB.left || boundsA.left > boundsB.right
+    || boundsA.bottom < boundsB.top || boundsA.top > boundsB.bottom) return apart;
+
+  const segments = [...regionSegments(a), ...regionSegments(b)];
+  const result = booleanRegions(
+    segments,
+    (x, y) => pointInRings(ringsA, x, y) || pointInRings(ringsB, x, y),
+    { mergeCollinear: true },
+  );
+  // An edge with solid on both sides is where the two overlap or meet. With
+  // none, they are apart or meet at a single point.
+  if (!result.buried) return apart;
+  if (!result.regions || !result.regions.length) {
+    return { changed: false, regions: [a, b], reason: 'The merge left unresolved geometry. Nothing was changed.' };
+  }
+  if (result.regions.length > 1) return apart;
+  return { changed: true, regions: result.regions };
+}
+
+/**
+ * The shared half of every boolean: split the segments where they cross, keep
+ * the pieces with solid on exactly one side, and rebuild those as regions.
+ *
+ * Returns `kept` (the number of boundary pieces), `buried` (pieces with solid
+ * on both sides) and `regions`, which is null when the pieces would not chain
+ * into closed rings.
+ */
+function booleanRegions(segments, isSolid, options = {}) {
   splitSegments(segments);
   const pieces = segments.flatMap(explode).filter(piece => {
     const dx = piece.to.x - piece.from.x, dy = piece.to.y - piece.from.y;
     return dx * dx + dy * dy > COINCIDENT_EPSILON * COINCIDENT_EPSILON;
   });
-  if (!pieces.length) return { changed: false, regions: [region], reason: 'The cut did not change the block.' };
 
   // Keep only the pieces where solid and empty swap sides, which is exactly the
   // boundary of the result. Every kept piece is stored with solid on its left.
   const kept = [];
+  // Two outlines running along the same edge, like two blocks sharing their top
+  // line, each give a copy of the piece that is kept. Only one may stay.
+  const seen = new Set();
+  let buried = 0;
   for (const piece of pieces) {
     const dx = piece.to.x - piece.from.x, dy = piece.to.y - piece.from.y;
     const length = Math.hypot(dx, dy) || 1;
     const mx = (piece.from.x + piece.to.x) / 2, my = (piece.from.y + piece.to.y) / 2;
     const nx = -dy / length * SIDE_PROBE, ny = dx / length * SIDE_PROBE;
-    const left = probeSolid(regionRingsFlat, cutterRings, mx + nx, my + ny);
-    const right = probeSolid(regionRingsFlat, cutterRings, mx - nx, my - ny);
-    if (left === right) continue;
-    kept.push(left ? piece : {
+    const left = isSolid(mx + nx, my + ny);
+    const right = isSolid(mx - nx, my - ny);
+    if (left === right) {
+      if (left) buried++;
+      continue;
+    }
+    const oriented = left ? piece : {
       from: piece.to, to: piece.from, source: piece.source, reversed: !piece.reversed,
       u0: piece.u1, u1: piece.u0,
-    });
+    };
+    const id = `${pointId(oriented.from)} ${pointId(oriented.to)}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    kept.push(oriented);
   }
-  if (!kept.length) return { changed: false, regions: [region], reason: 'The cut did not change the block.' };
+  if (!kept.length) return { kept: 0, buried, regions: [] };
 
   const rings = chainRings(kept);
-  if (!rings) return { changed: false, regions: [region], reason: 'The cut left unresolved geometry. Nothing was changed.' };
-  const regions = ringsToRegions(rings)
+  if (!rings) return { kept: kept.length, buried, regions: null };
+  const regions = ringsToRegions(rings, options)
     // A sliver thinner than the boolean's own probe is a numerical artefact, not
     // authored geometry, so it is dropped rather than saved as a degenerate ring.
     .filter(region => Math.abs(regionArea(region)) > MIN_AREA);
-  if (!regions.length) return { changed: false, regions: [region], reason: 'The cut removed the block entirely.' };
-  return { changed: true, regions };
+  return { kept: kept.length, buried, regions };
 }
 
 /**
@@ -684,9 +740,9 @@ function nearestMatch(endpoints, pieces) {
  * regions. Rings with the solid on their left are outers; the rest are holes,
  * each assigned to the smallest outer that contains it.
  */
-function ringsToRegions(rings) {
+function ringsToRegions(rings, options = {}) {
   const outlines = rings.map(ring => {
-    const nodes = ringToNodes(ring);
+    const nodes = ringToNodes(ring, options);
     if (!nodes.length) return null;
     return {
       nodes,
@@ -721,8 +777,12 @@ function ringsToRegions(rings) {
  * Rejoining them means a small cut leaves the rest of the curve as one editable
  * edge instead of a node per subdivision step, which is both what the plan asks
  * for and what keeps a second cut cheap and stable.
+ *
+ * With `mergeCollinear`, a point where two straight edges from different
+ * boundaries continue in one line is dropped too: that is where two merged
+ * blocks met, not a point anyone placed.
  */
-function ringToNodes(ring) {
+function ringToNodes(ring, { mergeCollinear = false } = {}) {
   const edges = [];
   for (const piece of ring) {
     const previous = edges[edges.length - 1];
@@ -750,6 +810,17 @@ function ringToNodes(ring) {
       edges.pop();
     }
   }
+  if (mergeCollinear) {
+    for (let index = 0; edges.length > 3 && index < edges.length;) {
+      const edge = edges[index];
+      const nextIndex = (index + 1) % edges.length;
+      if (!continuesStraight(edge, edges[nextIndex])) { index++; continue; }
+      edge.to = edges[nextIndex].to;
+      edges.splice(nextIndex, 1);
+      // The joined edge may line up with the one after it as well.
+      if (nextIndex < index) index--;
+    }
+  }
   if (edges.length < 3) return [];
 
   const nodes = [];
@@ -759,6 +830,18 @@ function ringToNodes(ring) {
     nodes.push(makeGroupNode(edge, next));
   }
   return nodes;
+}
+
+/** Two straight edges from different boundaries that run on in one line. */
+function continuesStraight(edge, next) {
+  if (edge.source.control || next.source.control) return false;
+  if (edge.source.boundary === next.source.boundary) return false;
+  const dx = next.to.x - edge.from.x, dy = next.to.y - edge.from.y;
+  const length = Math.hypot(dx, dy);
+  if (length < COINCIDENT_EPSILON) return false;
+  const offset = Math.abs((edge.to.x - edge.from.x) * dy - (edge.to.y - edge.from.y) * dx) / length;
+  const along = (edge.to.x - edge.from.x) * dx + (edge.to.y - edge.from.y) * dy;
+  return offset < 1e-4 && along > 0 && along < length * length;
 }
 
 function makeGroupNode(edge, next) {
@@ -816,6 +899,36 @@ export function cutBlock(block, cutter) {
       inner,
     })),
   };
+}
+
+/**
+ * Merge blocks that overlap or touch into one. The largest block keeps its id,
+ * material and layer. Blocks join in whatever order connects them, so two that
+ * only meet through a third still merge. Returns `{ changed, block }`, or
+ * `{ changed: false, reason }` when they cannot become one solid.
+ */
+export function mergeBlocks(blocks) {
+  if (blocks.length < 2) return { changed: false, reason: 'Select at least two blocks to merge.' };
+  if (new Set(blocks.map(block => block.layer === 'back')).size > 1) {
+    return { changed: false, reason: 'Terrain blocks and back walls cannot be merged.' };
+  }
+  const [base, ...rest] = blocks.slice().sort((a, b) => regionArea(b) - regionArea(a));
+  let region = base;
+  while (rest.length) {
+    let joined = false;
+    for (let index = 0; index < rest.length; index++) {
+      const result = unionRegions(region, rest[index]);
+      if (result.changed) {
+        region = result.regions[0];
+        rest.splice(index, 1);
+        joined = true;
+        break;
+      }
+      if (!result.apart) return { changed: false, reason: result.reason };
+    }
+    if (!joined) return { changed: false, reason: 'Those blocks do not overlap or touch, so they cannot be merged.' };
+  }
+  return { changed: true, block: { ...base, outer: region.outer, inner: region.inner } };
 }
 
 /** Move a block and every boundary it owns, including its empty spaces. */
@@ -1142,7 +1255,10 @@ export function validateBlock(block) {
       }
       const next = nodes[(index + 1) % nodes.length];
       if (Math.hypot(node.x - next.x, node.y - next.y) < COINCIDENT_EPSILON) {
-        error(`Block ${which} has coincident consecutive points.`);
+        const where = which === 'outer' ? 'outline' : which;
+        error(
+          `Block ${where} has two points on top of each other (points ${index + 1} and ${(index + 1) % nodes.length + 1} at x ${Math.round(node.x)}, y ${Math.round(node.y)}). Delete one of them.`,
+        );
       }
     }
     const points = flattenBoundary(boundary).points;
@@ -1166,6 +1282,7 @@ export function validateBlocks(blocks) {
   return blocks.flatMap((block, index) => validateBlock(block).map(message => ({
     ...message,
     text: blocks.length > 1 ? `Block ${index + 1}: ${message.text}` : message.text,
+    target: { type: 'block', index },
   })));
 }
 

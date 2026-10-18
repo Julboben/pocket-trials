@@ -4,9 +4,16 @@ import { SPIKE_RADIUS } from "../trail-schema.js";
 import { WATER_SIZE, WATER_WIPEOUT_DEPTH } from "../water.js";
 import { terrainMaterials } from "../trails.js";
 import { $, canvas } from "./dom.js";
+import { renderObjects } from "./objects.js";
 import { pickerSelect } from "./picker.js";
+import { schedulePreviewThumbnail, stopEditingPreview } from "./preview.js";
+import { segmentSelects } from "./segmented.js";
 import { editor } from "./state.js";
+import { refuseEdit } from "./status.js";
 import { propThumbnail } from "./thumbnails.js";
+
+/** The tools that only look around, so they work on a read-only trail too. */
+export const NAVIGATION_TOOLS = new Set(["select", "pan"]);
 
 const TOOL_SETTINGS_KEY = "hjulben-editor-tool-settings-v1";
 
@@ -33,7 +40,7 @@ const LAYER_FIELD = {
   options: () => BLOCK_LAYERS,
 };
 
-const TOOL_INFO = {
+export const TOOL_INFO = {
   select: {
     title: "Select",
     hint: "Click a block, a point on its edge, or an object to select it, and drag to move it; a selected block drags from anywhere inside it, and Esc or Cmd/Ctrl+D deselects. Where points and objects overlap, click again to select the next one. Hold Shift to snap the point or corner you hold to 15° and the grid. A selected point shows its curve handles. Drag from empty space to box-select, and Shift-click to add or remove a block, point or object. Alt-click selects a whole ring or cave. Empty cave space selects nothing, so a cave never picks the block around it. The square handles around selected blocks scale them: corners keep the shape, sides stretch it, and Alt scales from the centre. The round handle above them rotates the selection, Shift snaps it to 15°, and R or Shift+R turns it 15° at a time. Press ? for every shortcut.",
@@ -51,6 +58,8 @@ const TOOL_INFO = {
         label: "Material",
         type: "select",
         options: materialOptions,
+        // A list of content that may grow, so never a row of buttons.
+        dropdown: true,
       },
       LAYER_FIELD,
     ],
@@ -62,7 +71,18 @@ const TOOL_INFO = {
   },
   apple: {
     title: "Apple",
-    hint: "Click to place an apple exactly where you click. Every apple must be collected to finish. The tool stays active; Esc returns to Select.",
+    hint: "Click to place an apple exactly where you click. Every apple must be collected to finish. Switch Place to Nisse to hide the trail's one optional nisse instead: riders don't need it to finish, and placing it again moves it. The tool stays active; Esc returns to Select.",
+    fields: [
+      {
+        key: "kind",
+        label: "Place",
+        type: "select",
+        options: () => [
+          ["apple", "Apple"],
+          ["nisse", "Nisse"],
+        ],
+      },
+    ],
   },
   spike: {
     title: "Spike",
@@ -168,6 +188,7 @@ const DEFAULT_TOOL_SETTINGS = {
   // The last material chosen is kept for the next block.
   block: { material: "grass", layer: "terrain" },
   cut: { layer: "terrain" },
+  apple: { kind: "apple" },
   spike: { radius: SPIKE_RADIUS.default, spin: 1 },
   water: { width: WATER_SIZE.width, depth: WATER_SIZE.depth },
   prop: { type: "tree", layer: "back", flip: false, rotation: 0 },
@@ -220,6 +241,11 @@ export function saveToolSettings() {
   } catch (_) {}
 }
 
+/** Whether the Apple tool is set to place the trail's nisse. */
+export function placingNisse() {
+  return toolSettings.apple?.kind === "nisse";
+}
+
 /** The layer a Block or Cut drag works on: "terrain" or "back". */
 export function toolLayer(name) {
   return toolSettings[name]?.layer === "back" ? "back" : "terrain";
@@ -239,66 +265,6 @@ function clampSetting(field, value) {
   );
 }
 
-// Dropdowns with fewer than three options are shown as a row of buttons. The
-// real <select> stays in the page, hidden, so every existing listener and
-// `.value = ...` keeps working; the buttons just mirror it.
-// Only present in a real browser; without it, selects are left as they are.
-const selectValue =
-  (typeof HTMLSelectElement !== "undefined" &&
-    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")) ||
-  null;
-
-function segmentSelect(select) {
-  if (!selectValue) return;
-  const count = select.options.length;
-  if (select.dataset.segmented || count === 0 || count >= 3) return;
-  select.dataset.segmented = "1";
-  const group = document.createElement("span");
-  group.className = "segmented";
-  group.setAttribute("role", "radiogroup");
-  const buttons = [...select.options].map((option) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = option.textContent;
-    button.dataset.value = option.value;
-    button.setAttribute("role", "radio");
-    button.addEventListener("click", () => {
-      if (select.value !== option.value) {
-        select.value = option.value;
-        select.dispatchEvent(new Event("change", { bubbles: true }));
-      }
-      // Hand focus back so the canvas shortcuts keep working.
-      canvas.focus({ preventScroll: true });
-    });
-    group.append(button);
-    return button;
-  });
-  const refresh = () => {
-    const current = selectValue.get.call(select);
-    for (const button of buttons) {
-      const active = button.dataset.value === current;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-checked", String(active));
-    }
-  };
-  // Setting the value from code (syncInspector, tool settings) updates the buttons.
-  Object.defineProperty(select, "value", {
-    configurable: true,
-    get: () => selectValue.get.call(select),
-    set: (value) => {
-      selectValue.set.call(select, value);
-      refresh();
-    },
-  });
-  select.style.display = "none";
-  select.after(group);
-  refresh();
-}
-
-export function segmentSelects(root) {
-  root.querySelectorAll("select").forEach(segmentSelect);
-}
-
 export function renderToolSettings() {
   const info = TOOL_INFO[editor.tool];
   const key = TOOL_KEY_LABELS[editor.tool];
@@ -313,6 +279,7 @@ export function renderToolSettings() {
       let input;
       if (field.type === "select" || field.type === "toggle") {
         input = document.createElement("select");
+        if (field.dropdown) input.dataset.dropdown = "";
         // Copies another select's options, groups included.
         if (field.optionsFrom)
           input.append(
@@ -365,6 +332,7 @@ export function renderToolSettings() {
 }
 
 export function setTool(next) {
+  if (!NAVIGATION_TOOLS.has(next) && refuseEdit()) next = "select";
   editor.hoverPoint = null;
   editor.tool = next;
   document
@@ -385,4 +353,9 @@ export function setTab(name) {
   });
   $("panel-tools").hidden = name !== "tools";
   $("panel-trail").hidden = name !== "trail";
+  $("panel-objects").hidden = name !== "objects";
+  // The preview frame belongs to the Trail tab; its thumbnail is drawn when shown.
+  if (name !== "trail") stopEditingPreview();
+  else schedulePreviewThumbnail();
+  renderObjects();
 }

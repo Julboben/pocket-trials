@@ -22,13 +22,14 @@
  * @property {{ x: number, y?: number | null, facing: 1 | -1 }} start
  * @property {{ x: number, y?: number | null }} finish where the finish flower stands, on either side of the start; a null y means on the surface below it
  * @property {{ x: number, y?: number | null }[]} apples
+ * @property {{ x: number, y?: number | null }} [nisse] the optional hidden nisse, where its feet stand
  * @property {Array<Partial<Spike>>} [spikes]
  * @property {Array<Partial<Water>>} [water]
  * @property {object[]} [props]
  * @property {string} [terrain] material id
- * @property {{ sun?: number, clouds?: number, fog?: number, rain?: number, snow?: number, lightning?: number }} [weather]
+ * @property {{ sun?: number, clouds?: number, fog?: number, rain?: number, snow?: number, lightning?: number, wind?: number, windDirection?: 'left' | 'right' }} [weather]
  * @property {'hills' | 'mountains' | 'forest' | 'desert' | 'city'} [backdrop] parallax background theme; omitted means hills
- * @property {'morning' | 'noon' | 'evening' | 'night'} [timeOfDay] sky, light and grade preset; omitted keeps the trail's own colours
+ * @property {number} [timeOfDay] the hour of the day, 0 (midnight) to 23, for the sky, light and grade; omitted means noon (12)
  * @property {{ gold: number, silver: number, bronze: number }} [medals] target times in seconds
  * @property {Trail} [terrainSource] on a ride's copy of a trail with glass, the trail it copies
  * @property {Map<string, GlassBreak>} [brokenBlocks] on a ride's copy, the panes broken so far, in order
@@ -103,10 +104,12 @@
  *   | { type: 'airTurn', full: boolean }
  *   | { type: 'flip', count: number, direction: number }
  *   | { type: 'land', impact: number }
+ *   | { type: 'suspension', end: 'bottom' | 'top', wheel: 'rear' | 'front', speed: number }
  *   | { type: 'crash', cause: 'spike' | 'head' | 'fall' | 'water', x: number, y: number }
  *   | { type: 'splash', x: number, y: number, speed: number, rider: boolean }
  *   | { type: 'helmet', x: number, y: number, speed: number }
  *   | { type: 'apple', apple: object, collected: number, total: number, split: number }
+ *   | { type: 'nisse', x: number, y: number }
  *   | ({ type: 'shatter', blockId: string } & GlassBreak)
  *   | { type: 'crack', blockId: string, x: number, y: number, speed: number }
  *   | { type: 'goalLocked', missing: number }
@@ -121,6 +124,7 @@
  * @property {Vehicle} vehicle
  * @property {{ x: number, y: number }} flower centre of the finish flower the bike has to touch
  * @property {{ x: number, y: number, taken: boolean }[]} apples
+ * @property {{ x: number, y: number, taken: boolean } | null} nisse
  * @property {Spike[]} spikes
  * @property {Water[]} water
  * @property {'running' | 'crashed' | 'won'} status

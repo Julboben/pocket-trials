@@ -2,16 +2,18 @@ import { fallLine, terrainAt, terrainGeometry } from "./terrain.js";
 import { hypot } from "./det-math.js";
 import {
   signLines,
+  TEXT_PROPS,
   SIGN_LINE_CHARACTERS,
   SIGN_MAX_LINES,
-  TIMES_OF_DAY,
-  DEFAULT_TIME_OF_DAY,
   BACKDROPS,
 } from "./drawing.js";
 import { RADIUS, WHEELBASE } from "./config.js";
 import { WATER_SIZE, normalizeWater, waterAt, waterBodies, waterColumns } from "./water.js";
 import { WATER_PROPS, SURFACE_PROPS, waterPropBody } from "./water-props.js";
+import { BANNER_MAX } from "./event-props.js";
 import { FINISH_FLOWER_LIFT, bikeTouchesFlower } from "./finish.js";
+import { WEATHER_DEFAULTS, WEATHER_LEVELS, WIND_DIRECTIONS, resolveWeather } from "./weather.js";
+import { DEFAULT_HOUR, HOURS, normalizeHour } from "./time-of-day.js";
 import {
   normalizeBlocks as normalizeTerrainBlocks,
   validateBlocks as validateTerrainBlocks,
@@ -110,7 +112,8 @@ export function createBlankTrail(index = 0) {
     props: [],
     spikes: [],
     water: [],
-    weather: { sun: 1, clouds: 0.2 },
+    weather: { ...WEATHER_DEFAULTS },
+    timeOfDay: DEFAULT_HOUR,
   };
 }
 
@@ -255,6 +258,19 @@ export function normalizeTrail(input, index = 0) {
         y: apple.y === null ? null : Number(apple.y),
       }))
     : [];
+  // The optional hidden nisse: at most one, where its feet stand. A trail
+  // without one has no `nisse` field at all.
+  if (trail.nisse && typeof trail.nisse === "object" && Number.isFinite(Number(trail.nisse.x)))
+    trail.nisse = { x: Number(trail.nisse.x), y: optionalY(trail.nisse.y) };
+  else delete trail.nisse;
+  // Where the trail list's thumbnail is centred, framed in the editor. Without
+  // it the game picks the trail's most eventful stretch.
+  // Null and "" would pass as 0, so they count as missing.
+  const coordinate = (value) => value !== null && value !== "" && Number.isFinite(Number(value));
+  const preview = trail.preview;
+  if (preview && typeof preview === "object" && coordinate(preview.x) && coordinate(preview.y))
+    trail.preview = { x: Math.round(Number(preview.x)), y: Math.round(Number(preview.y)) };
+  else delete trail.preview;
   trail.props = Array.isArray(trail.props)
     ? trail.props.map((prop) => ({
         x: Number(prop.x) || 0,
@@ -267,7 +283,7 @@ export function normalizeTrail(input, index = 0) {
         type: String(prop.type || "tree"),
         layer: prop.layer === "front" ? "front" : "back",
         text:
-          prop.type === "sign" && typeof prop.text === "string"
+          TEXT_PROPS.has(prop.type) && typeof prop.text === "string"
             ? prop.text
             : undefined,
         flip: prop.flip === true ? true : undefined,
@@ -283,10 +299,12 @@ export function normalizeTrail(input, index = 0) {
       )
     : [];
   trail.water = Array.isArray(trail.water) ? trail.water.map(normalizeWater) : [];
-  trail.weather = { ...fallback.weather, ...(trail.weather || {}) };
-  // Noon is the default look; an unrecognised value falls back to it too.
-  if (!TIMES_OF_DAY.includes(trail.timeOfDay))
-    trail.timeOfDay = DEFAULT_TIME_OF_DAY;
+  // Every setting is spelled out, defaults included, so the editor shows what
+  // the game draws; unknown settings are dropped.
+  trail.weather = resolveWeather(trail.weather);
+  // The hour of the day, 0…23: rounded and wrapped round the clock, and noon
+  // when it is missing or unreadable.
+  trail.timeOfDay = normalizeHour(trail.timeOfDay);
   // Hills is the default, so it isn't stored.
   if (!BACKDROPS.includes(trail.backdrop) || trail.backdrop === "hills")
     delete trail.backdrop;
@@ -334,8 +352,12 @@ function startTouchesFinish(trail) {
 
 export function validateTrail(trail) {
   const messages = [];
-  const error = (text) => messages.push({ type: "error", text });
-  const warning = (text) => messages.push({ type: "warning", text });
+  // A target names the item a message is about, as the editor's selection
+  // items do ({ type, index }), so the editor can take the author to it.
+  const error = (text, target) =>
+    messages.push(target ? { type: "error", text, target } : { type: "error", text });
+  const warning = (text, target) =>
+    messages.push(target ? { type: "warning", text, target } : { type: "warning", text });
   if (!trail.name.trim()) error("The trail needs a name.");
 
   // Block geometry is validated first, back walls included so blocks are
@@ -360,6 +382,7 @@ export function validateTrail(trail) {
       if (!exposed.has(index))
         warning(
           `Block ${number[index]} is completely buried inside other terrain, so it has no effect.`,
+          { type: "block", index: number[index] - 1 },
         );
     });
     const edges = compiled.bodies.reduce(
@@ -392,16 +415,19 @@ export function validateTrail(trail) {
     finishOffTerrain = true;
     error(
       `The finish at x ${Math.round(trail.finish.x)} is before the start of the terrain (x ${Math.round(firstX)}). Move it onto the trail, or extend the blocks.`,
+      { type: "finish" },
     );
   } else if (Number.isFinite(finalX) && trail.finish.x >= finalX) {
     finishOffTerrain = true;
     error(
       `The finish at x ${Math.round(trail.finish.x)} is past the end of the terrain (x ${Math.round(finalX)}). Move it onto the trail, or extend the blocks.`,
+      { type: "finish" },
     );
   }
   if (Number.isFinite(trail.start?.x) && startTouchesFinish(trail)) {
     error(
       "The finish flower touches the bike at the start, so the trail would end at once. Move the finish away from the start.",
+      { type: "finish" },
     );
   }
   if (!Number.isFinite(trail.start?.x))
@@ -409,12 +435,15 @@ export function validateTrail(trail) {
   else if (compiled && Number.isFinite(trail.start?.y) && trail.start.y >= fallLine(trail))
     error(
       `The start (y ${Math.round(trail.start.y)}) is below all the terrain, so the bike is lost at once. Move it onto the trail.`,
+      { type: "start" },
     );
   if (compiled && Number.isFinite(trail.finish.y) && trail.finish.y >= fallLine(trail))
     error(
       `The finish (y ${Math.round(trail.finish.y)}) is below all the terrain, so it can never be reached. Move it onto the trail.`,
+      { type: "finish" },
     );
   for (const [index, prop] of (trail.props || []).entries()) {
+    const target = { type: "prop", index };
     if (
       ![
         "tree",
@@ -431,6 +460,7 @@ export function validateTrail(trail) {
         "vines",
         "roots",
         "moss",
+        "ivy",
         "sapling",
         "pine-small",
         "cactus-small",
@@ -473,10 +503,53 @@ export function validateTrail(trail) {
         "snow-pine",
         "hut",
         "snowman",
+        "tyre-wall",
+        "hay-bales",
+        "course-tape",
+        "banner",
+        "spectators",
+        "pit-board",
+        "petrol-can",
+        "marshal-start",
+        "marshal-finish",
+        "camera-tower",
+        "warning-triangle",
+        "warning-bang",
+        "warning-skull",
+        "arrow-sign",
+        "halfway-flag",
+        "tutorial-lean",
+        "tutorial-flip",
+        "tutorial-light",
+        "tutorial-lean-forward",
+        "prison-fence",
+        "watchtower",
+        "jail-cell",
+        "escape-tunnel",
+        "ball-and-chain",
+        "wanted-poster",
+        "tally-marks",
+        "spiderweb",
+        "cobweb",
+        "spider",
+        "cocoon",
+        "dungeon-bars",
+        "portcullis",
+        "torch",
+        "hanging-chains",
+        "gibbet",
+        "skeleton",
+        "tent",
+        "grass",
+        "flagpole",
+        "christiania-bike",
+        "bench",
+        "fireplace",
+        "smoke",
         ...WATER_PROPS,
       ].includes(prop.type)
     )
-      warning(`Prop ${index + 1} has an unknown type “${prop.type}”.`);
+      warning(`Prop ${index + 1} has an unknown type “${prop.type}”.`, target);
     if (WATER_PROPS.has(prop.type) && prop.type !== "reeds") {
       const y = Number.isFinite(prop.y) ? prop.y : groundHeight(trail, prop.x);
       if (!waterPropBody(waterBodies(trail), prop.type, prop.x, y))
@@ -484,12 +557,14 @@ export function validateTrail(trail) {
           SURFACE_PROPS.has(prop.type)
             ? `Prop ${index + 1} (${prop.type}) floats on water, but there is no water surface at or just above it.`
             : `Prop ${index + 1} (${prop.type}) lives in water, but it is not in any water.`,
+          target,
         );
     }
     if (prop.type === "sign") {
       if (typeof prop.text !== "string")
         warning(
           `Sign ${index + 1} needs its text as a string; use “” for a blank sign.`,
+          target,
         );
       else if (
         signLines(prop.text).join("").replace(/\s/g, "").length <
@@ -497,25 +572,38 @@ export function validateTrail(trail) {
       )
         warning(
           `Sign ${index + 1} text doesn't fit in ${SIGN_MAX_LINES} lines of ${SIGN_LINE_CHARACTERS} characters and will be cut off.`,
+          target,
         );
-      else if (/[^A-Z0-9 →\/.!+:\-×#']/.test(prop.text.toUpperCase()))
+      else if (/[^A-Z0-9 →←↑↓\/.!+:\-×#']/.test(prop.text.toUpperCase()))
         warning(
           `Sign ${index + 1} text contains characters the pixel font cannot draw.`,
+          target,
         );
+    }
+    if ((prop.type === "banner" || prop.type === "pit-board") && typeof prop.text === "string") {
+      const name = prop.type === "banner" ? "Banner" : "Pit board";
+      const limit = prop.type === "banner" ? BANNER_MAX : 4;
+      const label = prop.text.trim().toUpperCase().replace(/Ä/g, "A");
+      if (label.length > limit)
+        warning(`${name} ${index + 1} text is longer than ${limit} characters and will be cut off.`, target);
+      else if (/[^A-Z0-9 \/.!+:\-#']/.test(label))
+        warning(`${name} ${index + 1} text contains characters the pixel font cannot draw.`, target);
     }
   }
   for (const [index, spike] of (trail.spikes || []).entries()) {
+    const target = { type: "spike", index };
     if (!Number.isFinite(spike.x) || !Number.isFinite(spike.y))
-      error(`Spike ${index + 1} must have finite coordinates.`);
+      error(`Spike ${index + 1} must have finite coordinates.`, target);
     if (!(spike.radius >= SPIKE_RADIUS.min && spike.radius <= SPIKE_RADIUS.max))
       error(
         `Spike ${index + 1} radius must be between ${SPIKE_RADIUS.min} and ${SPIKE_RADIUS.max}.`,
+        target,
       );
     const startY = Number.isFinite(trail.start?.y)
       ? trail.start.y
       : groundHeight(trail, trail.start.x) - 12;
     if (hypot(spike.x - trail.start.x, spike.y - startY) < spike.radius + 70)
-      warning(`Spike ${index + 1} is very close to the start position.`);
+      warning(`Spike ${index + 1} is very close to the start position.`, target);
     for (const apple of trail.apples || []) {
       const appleY = Number.isFinite(apple.y)
         ? apple.y
@@ -523,26 +611,35 @@ export function validateTrail(trail) {
       if (hypot(spike.x - apple.x, spike.y - appleY) < spike.radius + 10)
         warning(
           `Spike ${index + 1} overlaps the apple at x ${Math.round(apple.x)}.`,
+          target,
         );
+    }
+    if (trail.nisse) {
+      // The nisse's middle, about 12 above where its feet stand.
+      const nisseY = (Number.isFinite(trail.nisse.y) ? trail.nisse.y : groundHeight(trail, trail.nisse.x)) - 12;
+      if (hypot(spike.x - trail.nisse.x, spike.y - nisseY) < spike.radius + 14)
+        warning(`Spike ${index + 1} overlaps the nisse.`, target);
     }
   }
   for (const [index, body] of (trail.water || []).entries()) {
     const name = `Water ${index + 1}`;
+    const target = { type: "water", index };
     if (![body.x, body.y, body.width, body.depth].every(Number.isFinite)) {
-      error(`${name} must have finite coordinates and size.`);
+      error(`${name} must have finite coordinates and size.`, target);
       continue;
     }
     if (body.width < WATER_SIZE.minWidth || body.depth < WATER_SIZE.minDepth)
       error(
         `${name} must be at least ${WATER_SIZE.minWidth} wide and ${WATER_SIZE.minDepth} deep.`,
+        target,
       );
     const startY = Number.isFinite(trail.start?.y)
       ? trail.start.y
       : groundHeight(trail, trail.start.x) - 12;
     if (waterAt([body], trail.start.x, startY))
-      warning(`${name} covers the start position.`);
+      warning(`${name} covers the start position.`, target);
     if (compiled && !waterColumns(compiled, body).length)
-      warning(`${name} is completely inside terrain, so it has no effect.`);
+      warning(`${name} is completely inside terrain, so it has no effect.`, target);
   }
   if (trail.medals !== undefined) {
     const times = MEDALS.map((name) => Number(trail.medals?.[name]));
@@ -553,7 +650,7 @@ export function validateTrail(trail) {
     else if (!(times[0] <= times[1] && times[1] <= times[2]))
       error("Medal times must get slower from gold to silver to bronze.");
   }
-  for (const key of ["sun", "clouds", "fog", "rain", "snow", "lightning"]) {
+  for (const key of WEATHER_LEVELS) {
     const value = trail.weather?.[key];
     if (
       value !== undefined &&
@@ -561,6 +658,12 @@ export function validateTrail(trail) {
     )
       error(`Weather.${key} must be between 0 and 1.`);
   }
+  const hour = trail.timeOfDay;
+  if (hour !== undefined && !(Number.isInteger(hour) && hour >= 0 && hour < HOURS))
+    error(`The time of day must be a whole hour from 0 to ${HOURS - 1}.`);
+  const direction = trail.weather?.windDirection;
+  if (direction !== undefined && !WIND_DIRECTIONS.includes(direction))
+    error(`Weather.windDirection must be ${WIND_DIRECTIONS.map((value) => `"${value}"`).join(" or ")}.`);
   // An object resting on "whatever is here" can be left over open air by an
   // edit. Checked last, so a broken finish or terrain, which
   // usually causes it, is the first thing reported.
@@ -569,13 +672,17 @@ export function validateTrail(trail) {
     if (trail.start?.y === null && noGround(trail.start.x))
       error(
         "The ground-anchored start has no terrain under it. Drag the start onto a block.",
+        { type: "start" },
       );
-    for (const apple of trail.apples || []) {
+    for (const [index, apple] of (trail.apples || []).entries()) {
       if (apple.y === null && noGround(apple.x))
         error(
           `Ground-anchored apple at x ${Math.round(apple.x)} has no terrain under it.`,
+          { type: "apple", index },
         );
     }
+    if (trail.nisse?.y === null && noGround(trail.nisse.x))
+      error("The ground-anchored nisse has no terrain under it. Drag it onto a block.", { type: "nisse", index: 0 });
     if (
       !finishOffTerrain &&
       !Number.isFinite(trail.finish.y) &&
@@ -583,6 +690,7 @@ export function validateTrail(trail) {
     )
       error(
         "The ground-anchored finish has no terrain under it. Drag it onto a block, or lift it into the air.",
+        { type: "finish" },
       );
   }
   if (!messages.length)

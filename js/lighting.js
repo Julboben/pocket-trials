@@ -18,18 +18,25 @@ import {
   timeOfDayPalette,
 } from "./drawing.js";
 import { bakeLightField, lightFieldAt, lightReach } from "./light-field.js";
+import { dayBlend, normalizeHour } from "./time-of-day.js";
 import { backWallGeometry, terrainAt, terrainGeometry } from "./terrain.js";
 import { LANTERN_CENTRE } from "./cave-props.js";
 import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
 import { HUT_WINDOW_CENTRE } from "./mountain-props.js";
+import { SEARCHLIGHT } from "./prison-props.js";
+import { TORCH_FLAME } from "./dungeon-props.js";
+import { FIRE, TENT_DOOR_CENTRE } from "./forest-props.js";
 
-// Per time of day: the light open sky gives, the light deep in a cave, how far
-// sky light soaks down through rock and fades in sideways through air, and how
-// much of the sky air must see to be fully lit (see light-field.js).
+// Per look of the day (the keyframes of time-of-day.js): the light open sky
+// gives, the light deep in a cave, how far sky light soaks down through rock
+// and fades in sideways through air, and how much of the sky air must see to
+// be fully lit (see light-field.js). The hours between blend them.
 const AMBIENT = {
+  dawn: { sky: [232, 208, 216], cave: [50, 48, 62], soak: 300, reach: 150, open: 0.38 },
   morning: { sky: [255, 243, 230], cave: [70, 68, 80], soak: 900, reach: 170, open: 0.32 },
   noon: { sky: [255, 255, 255], cave: [78, 80, 94], soak: 1400, reach: 190, open: 0.3 },
   evening: { sky: [244, 210, 188], cave: [50, 42, 58], soak: 260, reach: 150, open: 0.38 },
+  dusk: { sky: [182, 164, 204], cave: [36, 34, 52], soak: 160, reach: 140, open: 0.42 },
   night: { sky: [122, 136, 192], cave: [24, 28, 46], soak: 100, reach: 130, open: 0.45 },
 };
 const FLASH = [170, 185, 215];
@@ -86,9 +93,34 @@ const SUN_RAYS = [
 
 const rgb = ([r, g, b]) => `rgb(${r},${g},${b})`;
 
+// Each hour's ambient light, blended once.
+const hourAmbients = new Map();
+
+/** The ambient light at an hour of the day: a keyframe's, or a blend of two. */
+function hourAmbient(hour) {
+  const h = normalizeHour(hour);
+  let ambient = hourAmbients.get(h);
+  if (!ambient) {
+    const { from, to, t } = dayBlend(h);
+    const a = AMBIENT[from], b = AMBIENT[to];
+    const mix = (x, y) => x + (y - x) * t;
+    ambient = t
+      ? {
+          sky: a.sky.map((value, i) => Math.round(mix(value, b.sky[i]))),
+          cave: a.cave.map((value, i) => Math.round(mix(value, b.cave[i]))),
+          soak: mix(a.soak, b.soak),
+          reach: mix(a.reach, b.reach),
+          open: mix(a.open, b.open),
+        }
+      : a;
+    hourAmbients.set(h, ambient);
+  }
+  return ambient;
+}
+
 /** The lighting settings for a trail's time of day and weather. */
 export function ambientFor(trail) {
-  const preset = AMBIENT[trail.timeOfDay] || AMBIENT.noon;
+  const preset = hourAmbient(trail.timeOfDay);
   const rain = Math.max(0, Math.min(1, Number(trail.weather?.rain) || 0)) * RAIN_SOFTEN;
   return {
     ...preset,
@@ -99,11 +131,12 @@ export function ambientFor(trail) {
 
 /**
  * How strongly the sun glares on a trail, 0…1: only a bright, mostly clear
- * daytime sun does, and rain, storms or fog put it out.
+ * daytime sun does, and rain, storms, fog or the moon put it out.
  */
 export function glareStrength(trail) {
   const { weather = {} } = trail;
-  if (timeOfDayPalette(trail).moon) return 0;
+  const { moon } = timeOfDayPalette(trail);
+  if (moon >= 0.5) return 0;
   const { strength } = sunLight({ width: 0, weather, timeOfDay: trail.timeOfDay });
   const storm = Math.max(
     Number(weather.rain) || 0,
@@ -111,7 +144,7 @@ export function glareStrength(trail) {
     Number(weather.lightning) || 0,
   );
   const fog = Math.max(0, Math.min(1, Number(weather.fog) || 0));
-  const glare = ((strength - SUN_GLARE) / SUN_GLARE_RANGE) * (1 - Math.min(1, storm)) * (1 - fog);
+  const glare = ((strength - SUN_GLARE) / SUN_GLARE_RANGE) * (1 - Math.min(1, storm)) * (1 - fog) * (1 - moon);
   return Math.max(0, Math.min(1, glare));
 }
 
@@ -246,7 +279,7 @@ export function createLighting() {
     const lights = [];
     for (const prop of trail.props || []) {
       const { type } = prop;
-      if (!["lantern", "lamp", "mushrooms", "crane", "hut"].includes(type)) continue;
+      if (!["lantern", "torch", "fireplace", "lamp", "mushrooms", "crane", "hut", "tent", "watchtower"].includes(type)) continue;
       const ground = terrainAt(trail, prop.x);
       if (!ground.solid && !Number.isFinite(prop.y)) continue;
       const y = Number.isFinite(prop.y) ? prop.y : ground.y;
@@ -257,19 +290,39 @@ export function createLighting() {
         const fit = propWallFit(trail, prop);
         const cy = y + (fit?.body || 0) + LANTERN_CENTRE;
         lights.push({ kind: type, phase: prop.x, x: prop.x, y: cy, radius: 150, color: LANTERN, flare: LANTERN_FLARE });
+      } else if (type === "torch") {
+        // Firelight, always; it flickers like a lantern.
+        const flame = at(TORCH_FLAME.x, TORCH_FLAME.y - 6);
+        lights.push({ kind: "lantern", phase: prop.x, x: flame.x, y: flame.y, radius: 160, color: LANTERN, flare: LANTERN_FLARE });
       } else if (type === "mushrooms") {
         const glow = at(0, -6);
         lights.push({ kind: type, phase: prop.x, x: glow.x, y: glow.y, radius: 64, color: GLOW, strength: 0.8 });
       } else if (type === "lamp") {
         const { x: hx, y: hy } = at(LAMP_HEAD.x, LAMP_HEAD.y);
         if (!darkAt(entry, hx, hy)) continue;
-        lights.push({ x: hx, y: hy, radius: 170, color: LAMP, angle: Math.PI / 2 + angle, spread: 0.42 });
+        lights.push({ x: hx, y: hy, radius: 210, color: LAMP, angle: Math.PI / 2 + angle, spread: 0.42 });
         lights.push({ x: hx, y: hy, radius: 40, color: LAMP, strength: 0.6, flare: LAMP_FLARE });
       } else if (type === "hut") {
         // Firelight in the window, after dark; it flickers like a lantern.
         const window = at(...HUT_WINDOW_CENTRE);
         if (!darkAt(entry, window.x, window.y)) continue;
         lights.push({ kind: "lantern", phase: prop.x, x: window.x, y: window.y, radius: 110, color: LANTERN, strength: 0.8, flare: LANTERN_FLARE });
+      } else if (type === "fireplace") {
+        // Firelight, always; it flickers like a lantern, and reaches further
+        // than a torch's.
+        const fire = at(0, FIRE.y - 10);
+        lights.push({ kind: "lantern", phase: prop.x, x: fire.x, y: fire.y, radius: 190, color: LANTERN, flare: LANTERN_FLARE });
+      } else if (type === "tent") {
+        // The lantern inside, after dark, glowing through the doorway.
+        const door = at(...TENT_DOOR_CENTRE);
+        if (!darkAt(entry, door.x, door.y)) continue;
+        lights.push({ kind: "lantern", phase: prop.x, x: door.x, y: door.y, radius: 90, color: LANTERN, strength: 0.7, flare: LANTERN_FLARE });
+      } else if (type === "watchtower") {
+        // A glow round the searchlight itself, after dark; its beam moves, so
+        // drawing.js draws that.
+        const lamp = at(SEARCHLIGHT.x, SEARCHLIGHT.y);
+        if (!darkAt(entry, lamp.x, lamp.y)) continue;
+        lights.push({ x: lamp.x, y: lamp.y, radius: 56, color: LAMP, strength: 0.6, flare: LAMP_FLARE });
       } else {
         const top = at(...CRANE_LIGHTS[0]);
         if (!darkAt(entry, top.x, top.y)) continue;

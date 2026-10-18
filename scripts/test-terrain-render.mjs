@@ -142,6 +142,22 @@ const pixelAt = (raster, left, top, x, y) => {
   check('stone matches across chunk edges', joined.every((value, index) => value === whole.data[index]));
 }
 
+// 3c. Wood is drawn as planks: seams between them, lit tops and shaded
+// bottoms, grain, and it continues across chunk edges.
+{
+  const compiled = terrainGeometry(normalizeTrail(blockTrail([rectangle(0, 300, 800, 700, 'wood')])));
+  const whole = rasterizeTerrainChunk(compiled, 256, 320, 128, 128);
+  const wood = terrainMaterials.wood;
+  const colors = new Set();
+  for (let offset = 0; offset < whole.data.length; offset += 4) colors.add(whole.data.slice(offset, offset + 3).join(','));
+  check('wood has seams', colors.has(compositeColor(wood.detail, wood.fill).join(',')));
+  check('wood has lit tops and shaded bottoms', colors.has(rgb(wood.layers[0])) && colors.has(rgb(wood.layers[1])));
+  const top = rasterizeTerrainChunk(compiled, 256, 320, 128, 64);
+  const bottom = rasterizeTerrainChunk(compiled, 256, 448, 128, 64);
+  const joined = [...top.data, ...bottom.data];
+  check('wood matches across chunk edges', joined.every((value, index) => value === whole.data[index]));
+}
+
 // 4. Where two blocks overlap, the later block's material shows.
 {
   const compiled = terrainGeometry(normalizeTrail(blockTrail([
@@ -273,14 +289,14 @@ const drawCalls = (renderer, trail, x, y, w, h) => {
     getContext() { return this.context; }
   };
   const art = createGameArt(recorder());
-  for (const timeOfDay of ['noon', 'evening', 'night']) {
+  for (const [index, timeOfDay] of [12, 19, 0, 5, 20].entries()) {
     fills.length = 0;
-    art.drawBackground({ width: 800, height: 400, palette: { backdrop: 'city', timeOfDay }, cameraX: 9000 + timeOfDay.length * 777 });
+    art.drawBackground({ width: 800, height: 400, palette: { backdrop: 'city', timeOfDay }, cameraX: 9000 + index * 777 });
     // Tall fills are the sky and the building bodies; windows are 4 tall.
     const bodies = fills.filter(([, , , , height]) => height > 40);
     const colours = new Set(bodies.map(([colour]) => colour));
     const lit = bodies.filter(([colour]) => colour === '#ffeaa8').length;
-    check(`city buildings at ${timeOfDay} are filled with building colours only`, colours.size === 3 && lit === 0 && bodies.length > 0, `(${[...colours].join(', ')})`);
+    check(`city buildings at ${timeOfDay}:00 are filled with building colours only`, colours.size === 3 && lit === 0 && bodies.length > 0, `(${[...colours].join(', ')})`);
   }
   globalThis.OffscreenCanvas = Offscreen;
 }

@@ -75,8 +75,12 @@ The world uses Canvas coordinates:
   weather: {
     sun: 0.25,
     clouds: 0.9,
+    fog: 0,
     rain: 0.5,
-    lightning: 0.35
+    snow: 0,
+    lightning: 0.35,
+    wind: 0.6,
+    windDirection: 'left'
   }
 }
 ```
@@ -176,6 +180,7 @@ Each block sets its own material with its `material` property. Available presets
 | `stone`  | Cobbled stone wall with a pale capstone edge |
 | `snow`   | Pale surface and cool subsurface         |
 | `brick`  | Brick pattern with a green rideable edge |
+| `wood`   | Staggered wooden planks with grain and knots |
 | `glass`  | See-through panes that let light in; can break |
 
 Material definitions live in `terrainMaterials` at the top of `js/materials.js`. Each preset controls fill, internal layers or pattern, edge colors, vegetation, and wheel-spray colors.
@@ -215,6 +220,17 @@ A numeric `y` is the apple's center and allows it to be placed freely in the wor
 
 An apple is collected the moment the player's hitbox touches the apple as drawn: the wheels' tyres, the frame between the axles, or the rider's head and body. A tyre overlapping the apple by a single pixel is enough, but riding close by is not, so place an apple where the route actually touches it. A ground-anchored apple is collected by riding underneath it; anything higher needs a hop or a wheelie.
 
+
+## Nisse
+
+A trail can hide one nisse, a small Danish gnome, as an optional collectible:
+
+```js
+nisse: { x: 1840, y: null },
+```
+
+`x` and `y` are where its feet stand; `y: null` stands it on the topmost surface at `x`. A trail without a nisse leaves the field out. The rider takes it by touching it, like an apple, but it never counts towards the apples: the finish opens without it, nothing points to it, and it doesn't change the trail's hash, so adding, moving or removing it keeps best times, ghosts and leaderboards. Finding it is remembered per trail in the rider's save, shown on the trail's card, and earns achievements. Put it off the main line, where it takes a skill the player already has to reach (see `TRAILS_GUIDE.md`). In the editor, set the Apple tool's **Place** to **Nisse**; placing it again moves it.
+
 ## Props
 
 ```js
@@ -225,11 +241,25 @@ props: [
 ];
 ```
 
-Available prop types are `tree`, `pine`, `sapling`, `pine-small`, `bush`, `fence`, `rock`, `boulder`, `pebbles`, `flowers`, `stump`, `cactus`, `cactus-small`, the desert props `skull`, `tumbleweed`, `car-wreck`, `water-tower`, `windmill`, `heat-haze` and `vulture`, the mountain props `cairn`, `ski-lift`, `icicles`, `snow-pine`, `hut` and `snowman`, `crystal`, `sign`, the woodland prop `squirrel`, `corgi` (Coda), the wall props `vines`, `roots` and `moss`, the farm props `crates`, `apple` (a small decorative apple to hang in trees or fill crates and the wheelbarrow; it is not collected), `ladder`, `wheelbarrow`, `scarecrow`, `beehive` and `tyre`, the street props `cone`, `barrier`, `dumpster`, `lamp` and `bird`, the building-site props `crane` and `scaffolding`, the cave props `hanging-roots`, `stalactites`, `drip`, `lantern`, `bats`, `mushrooms`, `minecart` and `beams`, the water props `lily`, `reeds`, `seaweed`, `fish` and `duck`, and `graffiti`. `y: null` anchors a prop to the topmost surface at `x`; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front`: `back`-layer props are drawn behind the terrain as well as the gameplay, while `front`-layer props are drawn in front of the gameplay.
+Available prop types are `tree`, `pine`, `sapling`, `pine-small`, `bush`, `fence`, `rock`, `boulder`, `pebbles`, `flowers`, `stump`, `cactus`, `cactus-small`, the desert props `skull`, `tumbleweed`, `car-wreck`, `water-tower`, `windmill`, `heat-haze` and `vulture`, the mountain props `cairn`, `ski-lift`, `icicles`, `snow-pine`, `hut` and `snowman`, `crystal`, `sign`, `smoke`, the woodland props `squirrel`, `tent`, `fireplace` and `grass`, `corgi` (Coda), the wall props `vines`, `roots`, `moss` and `ivy`, the farm props `crates`, `apple` (a small decorative apple to hang in trees or fill crates and the wheelbarrow; it is not collected), `ladder`, `wheelbarrow`, `scarecrow`, `beehive` and `tyre`, the street props `cone`, `barrier`, `dumpster`, `lamp`, `bird`, `bench` (a Copenhagen bench) and `christiania-bike`, the building-site props `crane` and `scaffolding`, the cave props `hanging-roots`, `stalactites`, `drip`, `lantern`, `bats`, `mushrooms`, `minecart` and `beams`, the water props `lily`, `reeds`, `seaweed`, `fish` and `duck`, the trials-event props `tyre-wall`, `hay-bales`, `course-tape`, `banner`, `spectators`, `pit-board`, `petrol-can`, `marshal-start`, `marshal-finish` and `camera-tower`, the trail hints `warning-triangle`, `warning-bang`, `warning-skull`, `arrow-sign` and `halfway-flag`, the prison props `prison-fence`, `watchtower`, `jail-cell`, `escape-tunnel`, `ball-and-chain`, `wanted-poster` and `tally-marks`, the spider props `spiderweb`, `cobweb`, `spider` and `cocoon`, the dungeon props `dungeon-bars`, `portcullis`, `torch`, `hanging-chains`, `gibbet` and `skeleton`, the Danish prop `flagpole` (Dannebrog), `graffiti`, and the sprayed tutorial drawings `tutorial-lean`, `tutorial-lean-forward`, `tutorial-flip` and `tutorial-light`. `y: null` anchors a prop to the topmost surface at `x`; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front`: `back`-layer props are drawn behind the terrain as well as the gameplay, while `front`-layer props are drawn in front of the gameplay.
 
-A `sign` prop carries an optional `text` string that is drawn on its board with the game's pixel font. Text is limited to 8 characters; supported characters are `A`–`Z`, `0`–`9`, space, and `→` `/` `.` `!` `+` `-` `:` `×`. Anything else draws as `#`, and longer text is cut off.
+A `sign` prop carries an optional `text` string that is drawn on its board with the game's pixel font. Text wraps onto up to 4 lines of 10 characters; supported characters are `A`–`Z`, `0`–`9`, space, and `→` `←` `↑` `↓` `/` `.` `!` `+` `-` `:` `×` `'`. Lowercase is drawn as uppercase, anything else draws as `#`, and text that doesn't fit is cut off. In the editor's text field, typing `>`, `<` or `^` enters `→`, `←` or `↑`.
 
-Use the editor's **Prop** tool to place a prop. Select it to drag it, edit its type and layer in the inspector — plus its text, for signs — or remove it with **Delete Selection**, `Delete`, or `Backspace`.
+A `banner` and a `pit-board` take `text` too. A blank banner shows one of the made-up sponsors (Knobbly Tyres, Äpple Oil or Hjulben Racing), picked by its position; typing a sponsor's name shows that sponsor's banner, and any other text (up to 16 characters) is printed on a plain blue banner. A pit board shows its text (up to 4 characters) or, when blank, a position from `P1` to `P9`. Neither can be flipped, nor can the `halfway-flag`, so their text always reads the right way round.
+
+Some event props react to the ride. `spectators` cheer while the rider is close, duck when the rider crashes nearby and then wince until the restart. The marshals wave their flag while the rider is close: `marshal-start` a green flag, `marshal-finish` the checkered one. The `camera-tower`'s camera turns to follow the rider, and its red tally light blinks. The `course-tape` flutters in the wind, its loose end blowing downwind. A `halfway-flag` is pale until the rider rides past it, when its beacon lights up and its timing board shows the ride time it was passed at, in the same format as the timer. `arrow-sign` points right; flip it to point left or rotate it to point up or down. The tutorial drawings are painted onto the rock like `graffiti`: lean back (`←`), flip (a loop round the bike, `←`) and the headlight (`L`). All of this is decoration and never changes the ride.
+
+The prison props react too. A `watchtower`'s searchlight sweeps slowly to and fro and swings round to lock on to the rider once they are below it and close; after dark it throws a beam and a bright spot where the beam meets the ground. The prisoner in a `jail-cell` lounges on the bunk until the rider comes by, then grips the bars and rattles them, watching the rider go. In an `escape-tunnel` a prisoner peeks out and looks about, sinking back into the hole as the rider comes close. `tally-marks` are scratched into the rock like `graffiti`, and the `wanted-poster` can't be flipped, like the banner.
+
+The dungeon props set the scene underground. `dungeon-bars` are iron bars that run from the roof down to the floor under each bar, like the support `beams`; out in the open they stand on their own with spear points. Set side by side every 60 units they make one long wall of bars, and now and then two of them are bent apart where someone squeezed through. A `portcullis` hangs from the roof down to the floor and grinds up into the roof as the rider comes, dropping again behind them. A `torch` burns on an iron stand, flickering and lighting the rock around it like a `lantern`. `hanging-chains` and a `gibbet` cage hang from the roof like the cave props, swaying in the draught and swinging after a hard landing nearby. A shackled `skeleton` turns its skull to watch the rider, and its jaw chatters after a hard landing nearby. The bars and the hanging props can't be flipped or rotated.
+
+Dannebrog flies from the `flagpole`, streaming downwind and rippling in the wind. In the woods, a tuft of `grass` sways downwind and is pushed flat as the rider brushes through it, a `tent` glows from the lantern inside it after dark, like the `hut`'s window, and a `fireplace` is a ring of stones round burning logs: its flames flicker and throw sparks, its smoke blows downwind like the hut's, and it lights the ground round it like a `lantern`. On the street, the Copenhagen `bench` and the `christiania-bike` stand still. `tutorial-lean-forward` is sprayed on the rock like the other tutorial drawings: a bike nosing down a drop, an arrow tipping it forward, and the → key.
+
+`smoke` is a plume on its own, rising from its anchor and blown downwind like the hut's chimney smoke. Put it on top of a chimney built from terrain blocks: with `y: null` it sits on the topmost surface at its x. It can't be rotated.
+
+The spider props hang from the rock above them like the cave props (or from their own anchor, under a branch say, when there is no roof), and fit themselves to the room under a low roof. A `spiderweb` trembles as the rider passes and its spider scurries up its anchor thread out of the way. A `cobweb` sags from the roof, its tatters stirring in the wind. A dangling `spider` lets itself down on a thread and climbs back up as the rider comes close, and a `cocoon` sways and twitches now and then.
+
+Use the editor's **Prop** tool to place a prop. Select it to drag it, edit its type and layer in the inspector — plus its text, for signs, banners and pit boards — or remove it with **Delete Selection**, `Delete`, or `Backspace`.
 
 ## Spikes
 
@@ -270,7 +300,7 @@ Trails without water may leave the field out. Water is part of the trail hash on
 
 ## Weather
 
-Weather values are independent and range from `0` to `1`:
+Weather settings are independent. All but `windDirection` range from `0` to `1`:
 
 ```js
 weather: {
@@ -279,31 +309,48 @@ weather: {
   fog: 0.3,
   rain: 0.4,
   snow: 0,
-  lightning: 0.2
+  lightning: 0.2,
+  wind: 0.5,
+  windDirection: 'left'
 }
 ```
 
 - `sun`: sun size and visibility. A bright, mostly clear daytime sun glares, with a halo and slow rays across the view that stay out of caves: faintly from about `sun: 0.8` with `clouds: 0.25` at `noon`, fully at `sun: 1` with clear skies. Rain, snow and lightning put the glare out, and fog dims it.
 - `clouds`: sky cover, `0`–`1`. Separate flat-based clouds grow from a few small puffs into wide banks up to about `0.4`. From `0.3` a cloud deck with a lumpy underside fills in from the top of the sky, pushing the banks down ahead of it. It lowers steadily as the value rises until at `1` the sky is fully overcast, with the sun only a pale glow through it.
 - `fog`: mist. Each backdrop layer further back fades more into it and the sky pales. In play fog lies over the whole level and thickens as the value rises, thinning softly near the rider (a little more ahead than behind) so the ground close by can still be read; a lighter veil covers the rider too. Around `0.5` it is a light haze, and at `1` nothing more than about 5 m (roughly three bike lengths) from the bike can be seen. The editor shows only the backdrop fog.
-- `rain`: how much rain falls: the number of drops, the screen tint, and the ambient rain volume. Low values are just a few drops; from about `0.6` it builds to a wind-driven downpour at `1`, and from `0.5` gusting wind joins the rain sound. Drops land on the first terrain or water they reach, splashing on the ground and rippling on water, so caves and overhangs stay dry.
-- `snow`: how much snow falls. Low values are a few drifting flakes; from about `0.6` it builds to a wind-driven blizzard at `1`. Light snow brings a soft breeze, and heavier snow a higher, whistling wind. Flakes sway as they fall, are nearer or further away, and settle briefly on the first terrain they reach; on water they melt. Caves and overhangs stay clear. Pair it with `clouds` for a grey winter sky. Rain and snow can fall together for sleet.
-- `lightning`: strike frequency, flash strength, and thunder strength. Thunder follows the flash after a delay that grows with distance and comes from its side of the view: a close strike tears and bangs before rolling, a distant one is a long, muffled rumble. It also brings some wind.
+- `rain`: how much rain falls: the number of drops, the screen tint, and the ambient rain volume. Low values are just a few drops; from about `0.6` it builds to a downpour at `1`. The wind sets its slant: straight down in a calm, about 10° at `wind: 0.25`, 45° at `0.6`, and driven nearly flat (about 72°) at `1`. Drops land on the first terrain or water they reach, splashing on the ground and rippling on water, so caves and overhangs stay dry.
+- `snow`: how much snow falls. Low values are a few drifting flakes; from about `0.6` it builds to a blizzard at `1`. Flakes are light, so the wind drives them flatter than rain: a breeze tilts them a little, `wind: 0.5` about 50°, and a gale drives them nearly sideways (about 77°). Flakes sway as they fall, are nearer or further away, and settle briefly on the first terrain they reach; on water they melt. Caves and overhangs stay clear. Pair it with `clouds` for a grey winter sky, and with `wind` for a whiteout. Rain and snow can fall together for sleet, both blown by the same wind.
+- `lightning`: strike frequency, flash strength, and thunder strength. Thunder follows the flash after a delay that grows with distance and comes from its side of the view: a close strike tears and bangs before rolling, a distant one is a long, muffled rumble.
+- `wind`: how hard the wind blows, from still air at `0` to a gale at `1`. It sets the slant of rain and snow and moves every prop that stirs in the wind: flags (the `flagpole` and the `halfway-flag` droop in still air and stream straight out in a gale), the `course-tape`, chimney and fire smoke, the fire's flames and sparks, `grass`, `reeds`, `ivy`, the `ski-lift` chair, how fast a `windmill` turns and a `tumbleweed` rolls, and, more gently, cobwebs, cocoons, spiderwebs and hanging chains. Trees bend in it: the crowns of the `tree`, `sapling`, `pine`, `pine-small` and `snow-pine` lean and sway downwind, with gusts passing through a stand one tree after another, and a `bush` stirs half as much. In a light breeze only the treetops tip now and then; in a gale they lean and sway by up to two art pixels. Above about `0.25` the gusts also show as pale swirls of air blowing through the trail, more and faster as the wind rises. Most skim the ground and follow it over hills; the rest fly high. They only blow through open air, never through the terrain, a cave or the space under an overhang, the same places rain and snow can't reach. They are fewer and fainter in rain, which already shows the wind, and broken into whirling flakes in snow. With reduced motion the trees hold still and there are no swirls. It also sets the wind's sound. A light breeze (up to about `0.2`) is near silent; a strong wind roars, and whistles as it nears a gale.
+- `windDirection`: which way the wind blows, `'left'` or `'right'`. Everything blows the same way, flipped props included: flipping a flag, a tumbleweed or a tuft of grass only mirrors its art.
 
-Any property may be omitted. This supports clear skies, sunny skies with scattered clouds, overcast weather, rain without lightning, lightning without rain, and full storms.
+The defaults are a sunny day with a few clouds and a light breeze blowing left: `sun: 1`, `clouds: 0.2`, `wind: 0.25`, `windDirection: 'left'` and everything else `0`. Any setting may be omitted and takes its default, but trails should spell out all of them, as the editor does. Unknown settings are dropped. Weather is decoration only: it never changes the ride, and it is not part of the trail hash.
+
+The editor groups the settings into **Sky**, **Precipitation** and **Wind**, after **Time of day** (an hour slider with **Morning**, **Noon**, **Evening** and **Night** buttons for the classic times) and **Scenery** (the backdrop), with a windsock beside the wind's direction that shows how hard it blows. The **Weather** presets (Clear, Breezy, Overcast, Drizzle, Storm, Sleet, Blizzard and Gale) set every setting except the wind's direction at once, as a starting point to adjust.
 
 ## Time of day and backdrop
 
 ```js
-timeOfDay: 'evening',
+timeOfDay: 19,
 backdrop: 'desert'
 ```
 
 Both are optional, and each is independent of the other.
 
-`timeOfDay` picks the sky, sun, hill and light colours, and how the scene is lit. Valid values are `morning`, `noon`, `evening` and `night`; anything else, or no value, falls back to `noon`. Evening and night also light the finish and the city windows.
+`timeOfDay` is the hour of the day, a whole number from `0` (midnight) to `23`, and sets the sky, sun, hill and light colours, and how the scene is lit. No value means noon (`12`); other numbers are rounded and wrapped round the clock, and anything else is noon. The day is blended from a few looks on the clock, and every hour between two is a mix of them:
 
-Lighting comes from the terrain and its back walls (see below). Air open to the sky, above the terrain or with no back wall behind it, gets the time of day's light, which fades in through cave mouths and in from the edges of back walls, so a cave closed off by a back wall is dark at any time of day. Air in front of a back wall that sees enough of the sky, such as under a wide overhang, stays lit, with only a soft shade right beneath it. Rock takes the light at its surface and darkens with depth: hardly at all at `noon`, a little in the `morning`, more in the `evening`, and quickly at `night`. Thin slits under ledges, and small sealed hollows in front of a back wall, are lit like the rock around them. Lanterns, glowing mushrooms, lamps and crane lights and the bike's headlight and tail light cast light of their own, which only reaches the surface of the rock. Apples, spikes and the finish get no light of their own, so in the dark they are only seen where some light reaches them; it is up to the trail to light what the rider should see. Rain softens the light, and lightning lights up the whole scene.
+| Hour | Look |
+| --- | --- |
+| `0`–`4`, `22`–`23` | Night: a dark blue sky with the moon and stars |
+| `6` | Dawn: a pink horizon, the sun low, the last stars going out |
+| `7` | Morning: soft, warm light, the sun still low |
+| `10`–`16` | Noon: full daylight, the sun high |
+| `19` | Evening: a golden sky and a large, low, orange sun |
+| `20` | Dusk: the blue hour, the sun's last glow on the horizon and the first stars |
+
+So `5` is halfway from night to dawn, `8` and `9` warm into noon, `17` and `18` turn golden, and at `21` the moon rises. The classic times are `7` (morning), `12` (noon), `19` (evening) and `0` (night), the editor's help points. From about dusk until after dawn (`18` to `6`), the finish, the city windows, lamps and crane lights are lit. The *Night Rider* and *Night Owl* achievements count `21` to `4` as night.
+
+Lighting comes from the terrain and its back walls (see below). Air open to the sky, above the terrain or with no back wall behind it, gets the time of day's light, which fades in through cave mouths and in from the edges of back walls, so a cave closed off by a back wall is dark at any time of day. Air in front of a back wall that sees enough of the sky, such as under a wide overhang, stays lit, with only a soft shade right beneath it. Rock takes the light at its surface and darkens with depth: hardly at all at noon, a little in the morning, more in the evening, and quickly at night. Thin slits under ledges, and small sealed hollows in front of a back wall, are lit like the rock around them. Lanterns, glowing mushrooms, lamps and crane lights and the bike's headlight and tail light cast light of their own, which only reaches the surface of the rock. Apples, spikes and the finish get no light of their own, so in the dark they are only seen where some light reaches them; it is up to the trail to light what the rider should see. Rain softens the light, and lightning lights up the whole scene.
 
 `backdrop` picks the shapes of the two parallax layers behind the terrain. Valid values are `hills`, `mountains`, `forest`, `desert` and `city`; anything else, or no value, means `hills`, and `hills` is not stored.
 
@@ -321,31 +368,32 @@ A prop may also carry `rotation`, in degrees clockwise about its anchor, from -1
 { x: 640, y: 300, type: "rock", layer: "front", rotation: 30 }
 ```
 
-Three props attach to a wall rather than standing on the ground, and grow toward the open air:
+Four props attach to a wall rather than standing on the ground, and grow toward the open air:
 
 | Prop | Place it | It draws |
 | --- | --- | --- |
 | `vines` | Just past the top corner of a cliff | Leafy strands hanging down the face, as far as the drop to the floor below allows |
 | `roots` | On a wall face | Twisted roots growing out of the rock and drooping down |
-| `moss` | On a wall face | Moss clumps pressed against the rock, with a few drips |
+| `moss` | On any surface: a wall face, a slope, a top or the underside of an overhang | Cushions of moss lying along the surface whichever way it faces, lit from the upper right, with spore capsules standing up off it and drips hanging under it where there's room. It finds its own angle, so it can't be rotated |
+| `ivy` | At the foot of a wall, or on its face | A mat of ivy climbing the face from its anchor, as high as the face goes (up to 120), its outer leaves stirring in the wind |
 
 They find the rock by sampling up to 22 units either side, so they can be clicked slightly into the rock or slightly into the air. They are decoration only — nothing collides with them.
 
 The farm props are decoration as well. The `ladder` leans to the right, so put it just left of a tree trunk, or flip it to lean the other way. The `scarecrow` turns its head to watch the rider go past, and the bees around the `beehive` buzz in place; both are visual only and stay still with reduced motion. The `tyre` is half-buried and sits a little below its anchor, so its dirt blends into the ground.
 
-The desert props are decoration as well. A `tumbleweed` rolls slowly to the right along the ground (flip it to roll left), bouncing a little and fading out after up to 360 units or where it reaches a wall or a drop, then rolls in again; where it has no room it just rocks in the breeze. The `windmill` pump's blades spin with the wind, which is stronger under cloud and in rain, snow and thunderstorms. `heat-haze` makes the scene shimmer for about 80 units each way and 44 units up from its anchor; on the `front` layer it shimmers the rider too. It is left out with reduced motion and with simple scenery. A `vulture` circles its anchor, or 170 units above the ground with `y: null`. When the rider crashes within about 640 units of it, with no terrain in between, it glides down a moment later and lands on the ground beside them, where it stands watching until the next attempt. The `car-wreck` is half-buried and sits a little below its anchor, so its sand drifts blend into the ground. With reduced motion, the tumbleweed, windmill and vulture stay still, and the vulture does not come down. All of them are visual only.
+The desert props are decoration as well. A `tumbleweed` is blown along the ground downwind, faster the stronger the `wind`, bouncing a little and fading out after up to 360 units or where it reaches a wall or a drop, then rolls in again; where it has no room, or in still air (`wind` under `0.1`), it just rocks where it lies. The `windmill` pump's blades barely turn in still air and spin to a blur in a gale. `heat-haze` makes the scene shimmer for about 80 units each way and 44 units up from its anchor; on the `front` layer it shimmers the rider too. It is left out with reduced motion and with simple scenery. A `vulture` circles its anchor, or 170 units above the ground with `y: null`. When the rider crashes within about 640 units of it, with no terrain in between, it glides down a moment later and lands on the ground beside them, where it stands watching until the next attempt. The `car-wreck` is half-buried and sits a little below its anchor, so its sand drifts blend into the ground. With reduced motion, the tumbleweed, windmill and vulture stay still, and the vulture does not come down. All of them are visual only.
 
-The mountain props are decoration too. `icicles` hang from the rock above them like the cave's ceiling props, up to 40 units long and shorter where the floor is close, and meltwater drips off the longest one. A `ski-lift` pylon carries a stretch of rope with a chair riding slowly along it. The rope runs 160 units each way and climbs to the right (to the left when flipped), so the pylon can stand at the foot of or on a hill. A `snow-pine` is a big pine under snow; a hard landing within 180 units of it shakes its crown and knocks puffs of snow off its boughs. The `hut`'s chimney smoke blows downwind, to the left like the snow and rain, and leans further in stronger wind; after dark its window glows with firelight. The `snowman` watches the rider go by, like the `scarecrow`, and glances up or down at them. With reduced motion, the chair, smoke and drips stay still and landings do not shake the pines. All of them are visual only.
+The mountain props are decoration too. `icicles` hang from the rock above them like the cave's ceiling props, up to 40 units long and shorter where the floor is close, and meltwater drips off the longest one. A `ski-lift` pylon carries a stretch of rope with a chair riding slowly along it, swinging further and pushed downwind in a stronger wind. The rope runs 160 units each way and climbs to the right (to the left when flipped), so the pylon can stand at the foot of or on a hill. A `snow-pine` is a big pine under snow; a hard landing within 180 units of it shakes its crown and knocks puffs of snow off its boughs. The `hut`'s chimney smoke blows downwind, like the snow and rain, and leans further in stronger wind; after dark its window glows with firelight. The `snowman` watches the rider go by, like the `scarecrow`, and glances up or down at them. With reduced motion, the chair, smoke and drips stay still and landings do not shake the pines. All of them are visual only.
 
 The `squirrel` is woodland decoration. It sits on the ground nibbling a nut until the rider comes close, then runs along the ground to the nearest `tree`, `pine`, `sapling` or `pine-small` within 240 units, climbs the trunk and hides in the crown. It only runs to a tree standing on the ground it can run along, without walls or drops in the way; with no such tree it dashes off away from the rider and fades out. With reduced motion it simply disappears. Put it in the same `layer` as its tree, so it climbs up the front of the trunk.
 
 The `corgi` is Coda, a tri-colour Pembroke Welsh Corgi. He potters about within 80 units of his anchor, sitting, sniffing the ground, standing about and woofing now and then. When the rider comes within 160 units (and 90 above or below), he woofs, runs over and stops a little short of them, wagging and woofing, until they are 300 units away; then he trots home. He only goes along the ground either side of his anchor, up to 220 units, and stops at walls and drops. His woof can be heard when he is on screen. When the rider is close to him (within 64 units either side and 72 above or below), the interact key (`E` by default, shown over his head; d-pad down on a gamepad; a tap on touch screens) tells him to sit: he sits and pants with a wagging tail for 12 seconds, or until the rider leaves. The key only shows, and only works, while the rider is that close. `flip` sets which way he first faces. With reduced motion he sits still at his anchor.
 
-The street and building-site props are decoration too. A `lamp` comes on in the `evening`, at `night` and wherever else it is dark, such as in a cave, shining a beam down from its head, and a `crane` shows blinking warning lights at the same times. A `bird` takes off and flies away when the rider comes close; with reduced motion it simply disappears. The `crane` is tall and meant for the `back` layer, and `scaffolding` is meant for the `front` layer, where the rider shows through it as a silhouette.
+The street and building-site props are decoration too. A `lamp` comes on from dusk until after dawn (from `18` to `6`) and wherever else it is dark, such as in a cave, shining a beam down from its head, and a `crane` shows blinking warning lights at the same times. A `bird` takes off and flies away when the rider comes close; with reduced motion it simply disappears. The `crane` is tall and meant for the `back` layer, and `scaffolding` is meant for the `front` layer, where the rider shows through it as a silhouette.
 
 The cave props are decoration as well. `hanging-roots`, `stalactites`, `drip`, `lantern` and `bats` hang from a cave ceiling: each looks up to 160 units above its anchor for the nearest roof, so place it anywhere under the ceiling (with `y: null` it uses the roof of the first cave below the surface). A `drip` lets a drop swell, fall one pixel at a time and splash into a puddle on the floor below. A `lantern` hangs on a chain from the roof down to its anchor, or stands on the ground where there is no roof above it; it always glows and lights up the cave around it. `mushrooms` stand on the floor and glow too. `bats` scatter away from the rider when the rider comes close; with reduced motion they simply disappear. `beams` are a timber support set that reaches from the floor up to the roof, packed with boards where the roof is uneven, and a `minecart` sits on rails that run along the floor until they reach a wall or a drop, up to 120 units each way. The ceiling props and `beams` cannot be flipped.
 
-The water props are decoration that belongs with [water](#water). `lily` (lily pads with a flower) and `duck` float on the surface of the body under them: each looks up to 160 units above its anchor, or 24 below it, for a surface and rides its ripples. `seaweed` grows from the bed up to just under the surface, swaying in the current, and `reeds` stand on the bed and reach about 28 units out of the water; place either anywhere in the water and it grows from the bed below (with `y: null`, from the ground at `x`). Reeds also stand on dry ground, for a bank. A `fish` swims to and fro at its anchor's depth, up to 96 units each way through open water, heading first the way it faces; with `y: null` it swims halfway down to the bed. A `fish` darts off and the `duck` takes off when the rider comes close; with reduced motion they simply disappear, and everything else stays still. In the `front` layer, water props are drawn under the water, so their submerged parts look wet. The editor warns about a lily, duck, seaweed or fish that is not in any water.
+The water props are decoration that belongs with [water](#water). `lily` (lily pads with a flower) and `duck` float on the surface of the body under them: each looks up to 160 units above its anchor, or 24 below it, for a surface and rides its ripples. `seaweed` grows from the bed up to just under the surface, swaying in the current, and `reeds` stand on the bed and reach about 28 units out of the water, bent downwind and swaying harder the stronger the wind; place either anywhere in the water and it grows from the bed below (with `y: null`, from the ground at `x`). Reeds also stand on dry ground, for a bank. A `fish` swims to and fro at its anchor's depth, up to 96 units each way through open water, heading first the way it faces; with `y: null` it swims halfway down to the bed. A `fish` darts off and the `duck` takes off when the rider comes close; with reduced motion they simply disappear, and everything else stays still. In the `front` layer, water props are drawn under the water, so their submerged parts look wet. The editor warns about a lily, duck, seaweed or fish that is not in any water.
 
 `graffiti` is painted onto the rock itself rather than placed in front of or behind it, so its `layer` doesn't matter. Place it inside a block, ideally a `brick` one: its `y` is the middle of the piece (with `y: null` it sits 40 units below the surface), and any paint that would land in the open air or on the surface lip is left off. It cannot be flipped.
 
@@ -356,6 +404,7 @@ Sign text wraps at word boundaries onto up to 4 lines of 10 characters, and the 
 - The fall line, where the bike is considered lost, is not set by the trail: it is worked out as 200 units below the lowest solid terrain, so it follows the trail however deep it goes. It also sets how low the camera can look.
 - `description`: design notes for the trail. It is not shown during gameplay; the editor lists it as **Notes**.
 - `author`: optional credit for whoever made the trail, up to 40 characters on one line. The trail menu, the Hall of Fame and the results screen show it as "BY …" / "TRAIL BY …". It does not change the trail's hash, so adding or editing credit keeps its times. The editor remembers the last author you typed and fills it in on new trails.
+- `preview`: optional `{ x, y }`, the middle of the trail's thumbnail in the trail list, in whole world units. The thumbnail shows 576 × 192 world units around it, at the same zoom on every trail. The editor sets it with **Edit preview** in the Trail tab. Without it the game picks the trail's most eventful stretch between the start and the finish. Like `author`, it does not change the trail's hash, so framing the thumbnail keeps its times.
 
 ## Medals
 

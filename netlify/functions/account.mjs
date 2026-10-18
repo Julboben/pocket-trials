@@ -18,6 +18,7 @@ import { cleanName, validName, nameKey, blockedName } from '../lib/names.mjs';
 import { TRAIL_RE } from '../lib/verify-run.mjs';
 import { lookOf, legacyRider, playerLook } from '../lib/looks.mjs';
 import { cleanAchievements, cleanStats } from '../../js/achievements.js';
+import { cleanNisseFinds } from '../../js/nisse.js';
 
 const RP_NAME = 'Hjulben';
 
@@ -164,6 +165,8 @@ function sanitizeSave(save) {
     bestTimes,
     achievements: cleanAchievements(save.achievements),
     stats: cleanStats(save.stats),
+    // Official and bonus trails' nisse finds; custom ones stay on the device.
+    nisse: cleanNisseFinds(save.nisse, true),
   };
 }
 

@@ -14,7 +14,46 @@ A brief for whoever draws new props, human or AI. Send it together with:
 - No outlines. Every prop is lit from the right, so the left side and underside are shaded and the right edge gets a highlight.
 - Reuse colours from the existing palettes (`WOOD`, `STONE`, `STEEL`, `SNOW`, `SAND`, …). Use the terrain's own colours anywhere a prop meets the ground, so drifts and bases blend in.
 - Each prop has a local origin at `(0, 0)`, the point where it meets the ground. Up is negative y, and the art faces right.
-- Units are world units. The rider is about 60 tall and a big pine is about 190.
+- Units are world units. See Scale below for how big things should be.
+
+## Scale
+
+**About 27 world units make a metre.**
+
+| | Centimetres |
+|---|---|
+| 1 world unit | about 3.7 cm |
+| 1 art pixel (2 world units) | about 7.4 cm |
+| 10 art pixels (20 world units) | about 74 cm |
+
+This comes from the people in the game: a standing spectator, marshal or prisoner is 48 tall, about 1.75 m.
+
+Measure new props against these, which are taken from the code:
+
+| Reference | Size in world units |
+|---|---|
+| Standing person (`drawPerson`, `drawPrisoner`) | 48 tall |
+| Rider on the bike, ground to top of helmet | about 66 tall (`RIDER_HEAD` is 44 above the axles, the helmet reaches 10 higher, and the axles are 12 off the ground) |
+| Bike | about 74 long: `WHEELBASE` 50 plus a wheel of `RADIUS` 12 at each end, so each wheel is 24 across |
+| Hut | 136 tall, its door 52 |
+| Street lamp | 168 tall |
+| Deciduous tree, big pine | about 182 and 186 tall |
+| Ski-lift pylon, watchtower | about 230 and 236 tall |
+| Construction crane | about 360 tall |
+
+To size a prop, take its real size in metres and multiply by 27, then round to a multiple of 2. For example:
+
+| Real thing | Real size | World units |
+|---|---|---|
+| Door | 2 m tall | 54 |
+| Park bench | 1.8 m long, seat 0.45 m, back 0.85 m | 48 long, seat 12, back 24 |
+| Kitchen table | 0.75 m tall | 20 |
+| Two-person tent | 1.1 m tall | 30 |
+| Garden flagpole | 6 to 8 m | 162 to 216 |
+
+- Tall structures are not drawn at true scale, or they would not fit on screen: only about 340–450 units of height are in view, with the rider two-thirds of the way down. Draw them tall enough not to look like toys next to the rider, like the pylon, watchtower and crane above, and keep the parts people use (doors, cabins, windows, chairs) at true scale, so a taller structure gets longer legs, posts or masts rather than bigger details.
+- Small props may be drawn up to about a quarter bigger than true scale, so their pixel detail still reads. Don't go further than that, or they'll look too big next to the rider.
+- A prop's size is its sprite `bounds` or its `PROP_EXTENTS` entry: the top is how tall it stands, and right minus left is how wide it is. Check these numbers against the tables above before handing a prop over.
 
 ## Drawing tools
 
@@ -50,13 +89,13 @@ Write functions as `export function drawThing({ pixelRect, pixelPath }, …)` an
 |---|---|
 | `time` | Seconds; 0 means hold still |
 | `riderX`, `riderY` | The rider (or ragdoll) position, or `null` |
-| `wind` | Wind strength from 0 to 1, from the weather (`windStrength`) |
+| `weather` | The trail's weather, resolved (see `js/weather.js`); read the wind on a prop with `propWind` |
 | `landing` | The last hard landing `{ x, y, time, strength }`, or `null` |
 | `flight` | A startled animal's `{ age, dir }` (birds, bats, fish, squirrels) |
 | `corgi` | Coda's state from `corgiStep`, kept per prop by render.js |
 | `swoop` | A vulture's pose while it comes down to a crash |
 
-**The wind blows left**, like the falling snow and rain. Anything wind-blown (smoke, flags, grass) leans or drifts left.
+**The wind blows either way**, set by the trail's `windDirection`. `propWind(scene, mirrored)` in drawing.js gives a prop's `wind` (0 to 1) and `downwind` (-1 or 1 in the prop's own frame, already flipped for a mirrored prop). Anything wind-blown (smoke, flags, grass) should lean or drift `downwind`.
 
 ## Reuse before writing new code
 
@@ -67,7 +106,8 @@ Write functions as `export function drawThing({ pixelRect, pixelPath }, …)` an
 | Hanging from the rock above | Add the prop to `CEILING_PROPS`; `propWallFit` gives the roof and the drop to the floor |
 | Pine boughs | `PINE_TIERS` and `drawPineTiers` |
 | A flickering warm light | `lanternFlicker` and the lantern light in lighting.js |
-| Wind strength | `windStrength` in desert-props.js |
+| Fire, for anything that burns | `fireTongues`, `fireFrame` and `drawFire` in fire.js, sized to the prop: the torch and the fireplace both use them |
+| Wind on a prop | `propWind` in drawing.js |
 | Animals that flee from the rider | The `STARTLE` table in render.js |
 
 ## Flipping and rotation
@@ -85,10 +125,28 @@ A prop the rider can use (like telling Coda to sit) works through `js/interactio
 
 Anything that glows at night needs the glowing part drawn on its own, e.g. `drawHutWindowGlass(tools, flicker)`, plus a light point such as `HUT_WINDOW_CENTRE`. The renderer handles when it turns on.
 
+## Making props feel alive
+
+1. **Reactions keep the levels lively.**
+   Bending grass, a flipping mailbox flag, birds flying off and falling snow make the bike feel like part of the world.
+   > ⚠️ Keep these reactions out of the physics simulation so replays still play back exactly the same.
+
+2. **Tie props to existing systems.**
+   - **Time of day:** lamps, windows, lanterns
+   - **Weather:** puddles and dripping roofs in rain, bright flashes in lightning
+   - **Materials:** snowy and sandy versions of the same prop
+
+3. **Use variants instead of new props.**
+   One fence with 3 colour palettes and 2 levels of wear gives a lot of variety for little work.
+
+4. **Anchor props to the ground.**
+   With the new block terrain, wall props (icicles, graffiti, roots) can attach to the nearest edge and follow its angle. That way they stay in place when you edit the terrain.
+
 ## Module checklist
 
 - [ ] `// @ts-check` and a header comment saying what the module holds
 - [ ] All coordinates are multiples of 2, the art is lit from the right and faces right
+- [ ] It is sized against the Scale tables, about 27 units to the metre
 - [ ] The static sprite, its bounds, the live ground contact and the live moving parts are separate functions
 - [ ] Every animation holds still at `time` 0, and nothing uses `Math.random()`
 - [ ] Only the scene fields listed above are used

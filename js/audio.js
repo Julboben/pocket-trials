@@ -1,10 +1,30 @@
-import { STEP, MAX_POINT_SPEED, RADIUS, TAU, clamp } from './config.js';
+import { STEP, TAU, ENGINE, XPBD_MOTOR_ANGULAR_ACCELERATION, clamp } from './config.js';
 
-/** Overall gearing per gear: engine revs (0 idle … 1 redline) per unit of speed. */
-const GEAR_RATIOS = [3.2, 2.3, 1.75, 1.35, 1];
-const UPSHIFT_REVS = .9, DOWNSHIFT_REVS = .42;
-/** Highest revs (0 … 1) the engine reaches with the driven wheel off the ground. */
-const FREE_REV_CEILING = .86;
+/**
+ * The physics engine has one gear, so on the ground it spends most of a run
+ * low in its range: held gas on the flat takes it from idle to about .6 in
+ * 3 s. Heard on a curve that spreads those revs over more of the pitch.
+ */
+const REV_PITCH_CURVE = .7;
+/** Clutch torque, as a share of the motor's peak, that sounds fully worked. */
+const FULL_STRAIN_CLUTCH = .3;
+
+/**
+ * How a skidding tyre sounds on each surface: a band of scrub noise (`band`
+ * Hz, `q`, `level`) and, on hard ground, the rubber's squeal, a narrow band
+ * at `squealAt` Hz. Loose ground tears and hisses; hard ground screeches.
+ */
+const SKID_VOICES = {
+  grass: { band: 420, q: .6, level: .8, squeal: 0, squealAt: 900 },
+  dirt: { band: 700, q: .5, level: 1, squeal: 0, squealAt: 900 },
+  sand: { band: 2200, q: .35, level: .75, squeal: 0, squealAt: 900 },
+  snow: { band: 1300, q: 1.2, level: .55, squeal: .2, squealAt: 850 },
+  concrete: { band: 1000, q: .8, level: .4, squeal: 1, squealAt: 1250 },
+  brick: { band: 850, q: .7, level: .5, squeal: .6, squealAt: 1100 },
+  stone: { band: 1500, q: 1.5, level: .6, squeal: .35, squealAt: 1600 },
+  wood: { band: 320, q: 1.4, level: .7, squeal: .3, squealAt: 700 },
+  glass: { band: 2600, q: 2, level: .3, squeal: 1, squealAt: 2100 },
+};
 
 /**
  * One cycle of exhaust pressure: a sharp spike as the port opens, the
@@ -31,10 +51,25 @@ function shaperCurve(shape, points = 1024) {
   return curve;
 }
 
+/** How fast the bike is going, from both wheels' last step. */
+function rideSpeed(rear, front) {
+  return rear && front ? Math.abs(((rear.x - rear.ox) + (front.x - front.ox)) / (2 * STEP)) : 0;
+}
+
+/**
+ * How hard a tyre is skidding, 0 to 1: braking with a wheel down, scaled by
+ * speed. The skid sound and the gamepad's skid buzz both follow it.
+ */
+export function skidAmount({ state, rear, front, brakePressure }) {
+  const speed = rideSpeed(rear, front);
+  const grounded = rear && front && (rear.grounded || front.grounded);
+  return state === 'running' && grounded && speed > 24 ? (brakePressure || 0) * clamp(speed / 220, 0, 1) : 0;
+}
+
 export function createAudio(getSnapshot) {
   let audio = null;
   let enabled = true, volume = 1;
-  const motor = { gear: 0, revs: 0, time: 0, shiftCutUntil: 0, liftedAt: -1, lastThrottle: 0, nextPop: 0, grip: 0, phase: 'off', startedAt: -10, stalledAt: 0 };
+  const motor = { revs: 0, time: 0, liftedAt: -1, lastThrottle: 0, nextPop: 0, grip: 0, phase: 'off', startedAt: -10, stalledAt: 0 };
 
   function init() {
     if (audio) {
@@ -116,6 +151,11 @@ export function createAudio(getSnapshot) {
     skidFilter.type = 'bandpass'; skidFilter.frequency.value = 520; skidFilter.Q.value = .7;
     skidGain.gain.value = 0;
     skid.connect(skidFilter); skidFilter.connect(skidGain); skidGain.connect(master); skid.start();
+    const squealFilter = context.createBiquadFilter();
+    const squealGain = context.createGain();
+    squealFilter.type = 'bandpass'; squealFilter.frequency.value = 1250; squealFilter.Q.value = 14;
+    squealGain.gain.value = 0;
+    skid.connect(squealFilter); squealFilter.connect(squealGain); squealGain.connect(master);
 
     const rainBuffer = context.createBuffer(1, context.sampleRate * 4, context.sampleRate);
     const rainData = rainBuffer.getChannelData(0);
@@ -171,7 +211,7 @@ export function createAudio(getSnapshot) {
     echo.connect(master);
     audio = {
       context, master, engine, engineDrive, engineFilter, enginePipe, engineGain, raspFilter, raspLevel,
-      pitchDrift, levelDrift, noiseBuffer, skidGain, rainGain,
+      pitchDrift, levelDrift, noiseBuffer, skidFilter, skidGain, squealFilter, squealGain, rainGain,
       windFilter, windGain, brownBuffer: windBuffer, echo,
       // Whether the context is suspended for the pause screen (see update).
       paused: false,
@@ -235,25 +275,26 @@ export function createAudio(getSnapshot) {
 
   /**
    * The engine runs while riding. A new run kicks it into life with a couple
-   * of blips; a crash stalls it and the finish switches it off.
-   * @param {{ angularVelocity?: number, grounded?: boolean } | undefined} drivenWheel
+   * of blips; a crash stalls it and the finish switches it off. It plays the
+   * physics engine: its revs and how hard its clutch pulls on the wheel.
+   * @param {{ rev: number, clutchTorque?: number } | undefined} bikeEngine
    * @param {boolean} fresh the run has not begun moving yet
    */
-  function updateEngine(state, drivenWheel, gas, fresh) {
+  function updateEngine(state, bikeEngine, gas, fresh) {
     const { context, engine, engineDrive, engineFilter, enginePipe, engineGain, raspFilter, raspLevel, pitchDrift, levelDrift } = audio;
     const time = context.currentTime;
     const dt = clamp(time - motor.time, 0, .1);
     motor.time = time;
-    const on = state === 'running' && drivenWheel;
+    const on = state === 'running' && bikeEngine;
     if (on && motor.phase !== 'on') {
       if (fresh) kickStart();
-      Object.assign(motor, { phase: 'on', startedAt: fresh ? time : -10, gear: 0, revs: 0, grip: 0, lastThrottle: 0, liftedAt: -1 });
+      Object.assign(motor, { phase: 'on', startedAt: fresh ? time : -10, revs: 0, grip: 0, lastThrottle: 0, liftedAt: -1 });
     } else if (state === 'ragdoll' && motor.phase === 'on') {
       Object.assign(motor, { phase: 'stalling', stalledAt: time });
     } else if (state === 'menu' || state === 'won') motor.phase = 'off';
     const stall = motor.phase === 'stalling' ? clamp((time - motor.stalledAt) / .8, 0, 1) : 0;
     if (stall >= 1) motor.phase = 'off';
-    if (!(on || motor.phase === 'stalling') || !drivenWheel || state === 'paused') {
+    if (!(on || motor.phase === 'stalling') || !bikeEngine || state === 'paused') {
       // The rider switches off at the finish; elsewhere the engine just cuts.
       engineGain.gain.setTargetAtTime(0, time, state === 'won' ? .12 : .045);
       return;
@@ -267,42 +308,22 @@ export function createAudio(getSnapshot) {
     // eases in to keep traction soft, which would make the engine sluggish.
     motor.grip += ((gas && !stall ? 1 : 0) - motor.grip) * (1 - Math.exp(-dt * (gas ? 22 : 14)));
     const throttle = motor.grip;
-    // The engine is geared to the driven wheel, so it follows that wheel's
-    // spin: wheelspin, a wheel spun up in the air and a wheel hanging free
-    // all rev it, whatever the other wheel is doing.
-    const wheelSpeed = Math.abs((drivenWheel.angularVelocity || 0) * RADIUS);
-    const free = !drivenWheel.grounded;
-    const wheelRevs = () => wheelSpeed / MAX_POINT_SPEED * GEAR_RATIOS[motor.gear];
-    // The gearbox shifts up near the top of each gear on the gas, and back
-    // down as the bike slows; the rider only shifts with the wheel on the ground.
-    if (!free && time - motor.shiftCutUntil > .2) {
-      if (motor.gear < GEAR_RATIOS.length - 1 && throttle > .3 && wheelRevs() > UPSHIFT_REVS) {
-        motor.gear++;
-        motor.shiftCutUntil = time + .07;
-      } else if (motor.gear > 0 && wheelRevs() < DOWNSHIFT_REVS) {
-        motor.gear--;
-        motor.shiftCutUntil = time;
-      }
-    }
-    // With the wheel loaded the clutch only lets the revs flare a little above
-    // the wheel. With nothing to push against the engine spins up on its own,
-    // slowed by the wheel's weight, and a rider eases off short of the top
-    // rather than holding it flat out. Off the gas the rider coasts on the
-    // clutch and the engine settles to idle.
-    const engaged = clamp(throttle * 4, 0, 1);
-    const flare = free ? FREE_REV_CEILING : motor.gear === 0 ? .55 : .25;
-    const wheel = free ? Math.min(wheelRevs(), FREE_REV_CEILING) : wheelRevs();
-    const target = clamp(Math.max(wheel * engaged, throttle * flare, startRevs), 0, 1) * (1 - stall);
-    const rise = free ? 3.5 + throttle * 2 : 5 + throttle * 8;
-    motor.revs += (target - motor.revs) * (1 - Math.exp(-dt * (target > motor.revs ? rise : 9)));
+    // The revs are the physics engine's: the slipping clutch lets them run
+    // above the wheel pulling away, a climb holds them down, off the gas the
+    // clutch lets go and they drop to idle, and in the air they spin up to
+    // the limiter.
+    const physicsRevs = clamp((bikeEngine.rev - ENGINE.idle) / (ENGINE.redline - ENGINE.idle), 0, 1);
+    motor.revs = Math.max(physicsRevs ** REV_PITCH_CURVE, startRevs) * (1 - stall);
     const revs = motor.revs;
+    // The clutch's pull is the work: hard pulling away and on climbs, lighter
+    // at speed, and next to nothing with the wheel in the air, where the
+    // engine screams thinner instead of barking.
+    const strain = clamp((bikeEngine.clutchTorque || 0) / XPBD_MOTOR_ANGULAR_ACCELERATION / FULL_STRAIN_CLUTCH, 0, 1);
 
-    // Holding top speed on the ground taps the rev limiter now and then. In
-    // the air the engine is unloaded: it screams thinner instead of barking.
-    const redline = free ? 0 : throttle * clamp((revs - .95) / .05, 0, 1);
-    const limiterCut = redline * (Math.sin(time * TAU * 9) > .7 ? .35 : 0);
-    const cut = Math.max(time < motor.shiftCutUntil ? 1 : 0, limiterCut);
-    const load = Math.max(throttle * (free ? .6 : 1), clamp(startRevs * 1.6, 0, 1)) * (1 - cut);
+    // Held on the gas at the top of its range the engine taps the limiter.
+    const redline = throttle * clamp((physicsRevs - .97) / .03, 0, 1);
+    const cut = redline * (Math.sin(time * TAU * 9) > .7 ? .35 : 0);
+    const load = Math.max(throttle * (.6 + .4 * strain), clamp(startRevs * 1.6, 0, 1)) * (1 - cut);
 
     // Snapping the gas shut from high revs crackles and pops in the pipe.
     const easing = throttle < motor.lastThrottle;
@@ -337,8 +358,8 @@ export function createAudio(getSnapshot) {
 
   function update() {
     if (!audio) return;
-    const { state, rear, front, facing, gas, started, brakePressure, weather } = getSnapshot();
-    const { context, skidGain, rainGain, windFilter, windGain } = audio;
+    const { state, rear, front, engine, gas, started, brakePressure, weather } = getSnapshot();
+    const { context, skidFilter, skidGain, squealFilter, squealGain, rainGain, windFilter, windGain } = audio;
     // Pausing freezes every sound where it is (rain, wind, a rolling thunder
     // clap, the engine) by suspending the whole context; resuming carries on.
     const paused = state === 'paused';
@@ -347,39 +368,46 @@ export function createAudio(getSnapshot) {
       (paused ? context.suspend() : context.resume()).catch(() => {});
     }
     if (paused) return;
-    const speed = rear && front ? Math.abs(((rear.x - rear.ox) + (front.x - front.ox)) / (2 * STEP)) : 0;
-    const running = state === 'running';
-    const grounded = rear && front && (rear.grounded || front.grounded);
-    updateEngine(state, facing < 0 ? front : rear, Boolean(gas), !started);
-    const skidLevel = running && grounded && speed > 24 ? brakePressure * clamp(speed / 220, 0, 1) * .16 : 0;
-    skidGain.gain.setTargetAtTime(skidLevel, context.currentTime, .025);
+    const speed = rideSpeed(rear, front);
+    updateEngine(state, engine, Boolean(gas), !started);
+    const skidLevel = skidAmount({ state, rear, front, brakePressure }) * .16;
+    // The skid sounds like the ground under the tyre doing it: the rear when
+    // it is down, else the front.
+    const skidding = rear?.grounded ? rear : front;
+    const voice = SKID_VOICES[skidding?.material] || SKID_VOICES.dirt;
+    skidFilter.frequency.setTargetAtTime(voice.band, context.currentTime, .05);
+    skidFilter.Q.setTargetAtTime(voice.q, context.currentTime, .05);
+    squealFilter.frequency.setTargetAtTime(voice.squealAt * (.9 + clamp(speed / 300, 0, 1) * .2), context.currentTime, .05);
+    skidGain.gain.setTargetAtTime(skidLevel * voice.level, context.currentTime, .025);
+    // The narrow squeal band passes little of the noise, so it is boosted.
+    squealGain.gain.setTargetAtTime(skidLevel * voice.squeal * 2.5, context.currentTime, .025);
     const rainIntensity = clamp(Number(weather?.rain) || 0, 0, 1);
-    const snow = clamp(Number(weather?.snow) || 0, 0, 1);
-    const lightning = clamp(Number(weather?.lightning) || 0, 0, 1);
-    const inPlay = state !== 'menu';
+    // At the finish the rain and wind fade out under the win jingle, which is
+    // why the context is not suspended as it is for the pause screen.
+    const inPlay = state !== 'menu' && state !== 'won';
+    const fade = state === 'won' ? .8 : 0;
     const storm = (value) => clamp((value - .5) / .5, 0, 1) ** 1.3;
     const rainStorm = storm(rainIntensity);
     const rainLevel = inPlay && rainIntensity > 0
       ? (.012 + rainIntensity * .04 + rainStorm * .02) * (.94 + Math.sin(context.currentTime * .63) * .06)
       : 0;
-    rainGain.gain.setTargetAtTime(rainLevel, context.currentTime, .35);
-    // Wind comes with storms: a rainstorm, a blizzard (with a light breeze
-    // in gentle snow), and some with lightning.
-    const snowWind = Math.max(snow * .25, storm(snow));
-    const windStrength = inPlay ? Math.min(1, Math.max(rainStorm, snowWind, lightning * .45)) : 0;
+    rainGain.gain.setTargetAtTime(rainLevel, context.currentTime, fade || .35);
+    // The trail's wind: a light breeze is near silent, a gale roars, and it
+    // whistles higher as it strengthens.
+    const blow = clamp(Number(weather?.wind) || 0, 0, 1);
+    const windLevel = inPlay ? clamp((blow - .15) / .85, 0, 1) ** 1.3 : 0;
+    const whistle = clamp((blow - .55) / .4, 0, 1);
     const time = context.currentTime;
-    // Slow, uneven gusts from sines that never line up.
-    const gust = clamp(
+    // Slow, uneven swells from sines that never line up, so it never drones.
+    const swell = clamp(
       .55 + Math.sin(time * .23) * .25 + Math.sin(time * .61 + 1.3) * .15 + Math.sin(time * 1.7 + 2.1) * .07,
       0, 1,
     );
-    // Snow wind whistles higher than the rainstorm's roar.
-    const whistle = snowWind > rainStorm ? 1 : 0;
     windFilter.frequency.setTargetAtTime(
-      (260 + whistle * 280) + gust * (300 + whistle * 500) * (.5 + windStrength * .5), time, .3,
+      260 + whistle * 280 + swell * (300 + whistle * 500) * (.5 + blow * .5), time, .3,
     );
     windFilter.Q.setTargetAtTime(.7 + whistle * .9, time, .5);
-    windGain.gain.setTargetAtTime(windStrength * (.03 + gust * .08), time, .4);
+    windGain.gain.setTargetAtTime(windLevel * (.05 + swell * .08), time, fade || .4);
   }
 
   return {
@@ -431,6 +459,23 @@ export function createAudio(getSnapshot) {
       } else {
         playNoise(.1, .035, 1150);
         playTone(230, .12, 'triangle', .035, 0, 340);
+      }
+    },
+    /**
+     * A suspension leg reaching the end of its stroke: a dull thud as it
+     * bottoms on a big landing, or a lighter clack as it tops out. `speed`
+     * is how fast the leg was moving, in px/s.
+     */
+    suspension(end, speed) {
+      if (end === 'bottom') {
+        const strength = clamp((speed - 100) / 300, 0, 1);
+        playTone(78 - strength * 18, .09 + strength * .05, 'triangle', .04 + strength * .05, 0, 44);
+        playNoise(.05 + strength * .03, .02 + strength * .035, 380 + strength * 200);
+        playTone(310, .035, 'square', .008 + strength * .012, .004, 220);
+      } else {
+        const strength = clamp((speed - 50) / 200, 0, 1);
+        playTone(150, .05, 'triangle', .025 + strength * .03, 0, 105);
+        playNoise(.03, .012 + strength * .018, 1300);
       }
     },
     land(impactSpeed) {
@@ -512,6 +557,13 @@ export function createAudio(getSnapshot) {
     apple() {
       playTone(620, .1, 'square', .07, 0, 880);
       playTone(880, .13, 'square', .055, .07, 1240);
+    },
+    // A little sleigh-bell jingle for finding the nisse.
+    nisse() {
+      [988, 1319, 1175, 1568].forEach((note, index) => {
+        playTone(note, .09, 'triangle', .06, index * .07, note * 1.02);
+      });
+      playNoise(.12, .025, 6400);
     },
     crash() {
       playNoise(.35, .18, 700);

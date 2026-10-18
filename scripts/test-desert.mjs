@@ -6,18 +6,19 @@ import { rectangle } from './lib/terrain-fixtures.mjs';
 import { propSpan, propWallFit } from '../js/drawing.js';
 import {
   TUMBLEWEED_RUN, TUMBLEWEED_STEP, VULTURE_HEIGHT, hazeShift, hazeStreaks,
-  swoopDuration, tumbleweedRoll, vultureNotice, vultureOrbit, vulturePerch, vultureSwoop, windStrength, windmillAngle,
+  swoopDuration, tumbleweedRoll, vultureNotice, vultureOrbit, vulturePerch, vultureSwoop, windmillAngle,
 } from '../js/desert-props.js';
 
 // Ground at 320 from 0 to 3000, with a wall rising to 200 from x 1000 to 1100.
-const trail = (props) => normalizeTrail({
+const trail = (props, windDirection = 'right') => normalizeTrail({
   name: 'test', finish: { x: 2800, y: null }, apples: [], spikes: [],
   terrainBlocks: [rectangle(0, 320, 3000, 620, 'sand', 'ground'), rectangle(1000, 200, 1100, 320, 'concrete', 'wall')],
-  start: { x: 120, y: null, facing: 1 }, props,
+  start: { x: 120, y: null, facing: 1 }, props, weather: { windDirection },
 });
 const prop = (type, x, extra = {}) => ({ type, x, y: null, layer: 'back', ...extra });
 
-// The tumbleweed traces the ground the way it rolls, up to its run or a wall.
+// The tumbleweed traces the ground downwind, up to its run or a wall, however
+// it was placed facing.
 {
   const open = prop('tumbleweed', 1200);
   const fit = propWallFit(trail([open]), open);
@@ -25,8 +26,10 @@ const prop = (type, x, extra = {}) => ({ type, x, y: null, layer: 'back', ...ext
   assert.ok(fit.path.every((dy) => dy === 0), 'flat ground');
   const walled = prop('tumbleweed', 900);
   assert.ok(propWallFit(trail([walled]), walled).path.length * TUMBLEWEED_STEP <= 100 + TUMBLEWEED_STEP, 'the wall stops it');
+  const leftward = prop('tumbleweed', 1200);
+  assert.ok(propWallFit(trail([leftward], 'left'), leftward).path.length * TUMBLEWEED_STEP <= 100 + TUMBLEWEED_STEP, 'in a wind blowing left, it rolls left into the wall');
   const flipped = prop('tumbleweed', 1200, { flip: true });
-  assert.ok(propWallFit(trail([flipped]), flipped).path.length * TUMBLEWEED_STEP <= 100 + TUMBLEWEED_STEP, 'flipped, it rolls left into the wall');
+  assert.equal(propWallFit(trail([flipped]), flipped).path.length, TUMBLEWEED_RUN / TUMBLEWEED_STEP + 1, 'flipping it does not turn it into the wind');
   const [rise, hang] = propSpan('tumbleweed', { path: [0, -30, -60, 10] });
   assert.ok(rise >= 60 + 24 && hang >= 10, 'culling covers the ball over the whole path');
 }
@@ -42,9 +45,13 @@ const prop = (type, x, extra = {}) => ({ type, x, y: null, layer: 'back', ...ext
   const short = tumbleweedRoll([0, 0, 0], 4);
   assert.equal(short.distance, 0);
   assert.equal(short.alpha, 1);
+  // Faster in a stronger wind, and not blown along at all in still air.
+  assert.ok(tumbleweedRoll(path, 2, 0, 0.9).distance > tumbleweedRoll(path, 2, 0, 0.3).distance, 'faster in a gale');
+  const still = tumbleweedRoll(path, 4, 0, 0);
+  assert.equal(still.distance, 0, 'it stays put in still air');
 }
 
-// The windmill turns one way only, faster in more wind; storms blow harder.
+// The windmill turns one way only, faster in more wind.
 {
   let last = windmillAngle(0, 0.2);
   for (let t = 0.1; t < 30; t += 0.1) {
@@ -53,9 +60,6 @@ const prop = (type, x, extra = {}) => ({ type, x, y: null, layer: 'back', ...ext
     last = angle;
   }
   assert.ok(windmillAngle(20, 1) - windmillAngle(0, 1) > windmillAngle(20, 0.1) - windmillAngle(0, 0.1));
-  const calm = windStrength({});
-  const storm = windStrength({ clouds: 1, rain: 1, lightning: 1 });
-  assert.ok(calm > 0 && calm < storm && storm <= 1);
 }
 
 // The heat haze is still at time 0 and only shimmers by a pixel either way.

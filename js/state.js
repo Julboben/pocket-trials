@@ -35,6 +35,8 @@ export const DEFAULT_PREFERENCES = {
   volume: 80,
   shake: reducedMotion ? 'off' : 'on',
   haptics: 'off',
+  // Gamepad rumble is on out of the box, as on a console; phone vibration is not.
+  rumble: 'on',
   ghost: 'on',
   headlight: 'on',
   bindings: DEFAULT_BINDINGS
@@ -42,7 +44,7 @@ export const DEFAULT_PREFERENCES = {
 
 const CHOICES = {
   scenery: ['full', 'reduced'], controls: ['show', 'hide'], sound: ['on', 'off'],
-  shake: ['on', 'off'], haptics: ['on', 'off'], ghost: ['on', 'world', 'off'],
+  shake: ['on', 'off'], haptics: ['on', 'off'], rumble: ['on', 'off'], ghost: ['on', 'world', 'off'],
   headlight: ['on', 'off']
 };
 
@@ -102,6 +104,14 @@ export function trailKey(entry) {
   return isRankedSource(entry.source) ? `${entry.id}@${hash}` : 'trail:' + hash;
 }
 
+/**
+ * Where finding a trail's nisse is remembered: an official or bonus trail by
+ * its id, so editing the trail keeps the find, and a custom trail by its hash.
+ */
+export function nisseKey(entry) {
+  return isRankedSource(entry.source) ? entry.id : 'trail:' + trailHash(entry.trail);
+}
+
 export function currentTrailEntry() {
   if (session.trailSource === 'official') return officialTrailEntries[session.trailIndex];
   if (session.trailSource === 'bonus') return bonusTrailEntries[session.bonusTrailIndex];
@@ -141,6 +151,9 @@ export function progressOf(save) {
   const career = {
     trails, golds, officialTotal: officialTrailEntries.length,
     bonusFinished: bonusTrailEntries.filter(entry => finished(entry.id)).length, bonusTotal: bonusTrailEntries.length,
+    // The official trails with a nisse, and how many of those it was found on.
+    nisseTotal: officialTrailEntries.filter(entry => entry.trail.nisse).length,
+    nisseFound: officialTrailEntries.filter(entry => entry.trail.nisse && save.nisse?.[nisseKey(entry)]).length,
   };
   const achievements = { ...save.achievements };
   const stats = { ...save.stats };

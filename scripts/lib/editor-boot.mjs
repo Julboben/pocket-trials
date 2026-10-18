@@ -37,6 +37,16 @@ globalThis.addEventListener = (type, handler) => {
 
 await import('../../js/editor/main.js');
 
+// The fixture is a trail file, which only the dev server can write, so every
+// shape but `readonly` is opened as if the dev server were running. Without
+// it the trail is read-only and none of the editing gestures would apply.
+if (kind !== 'readonly') {
+  const { editor } = await import('../../js/editor/state.js');
+  const { updateTrailControls } = await import('../../js/editor/trails.js');
+  editor.devServer = true;
+  updateTrailControls();
+}
+
 const fire = (type, extra = {}) => canvas.dispatch(type, { pointerId: 1, button: 0, clientX: 0, clientY: 0, ...extra });
 // The editor opens centred on the start, so a screen position is only a world
 // position once the camera is subtracted. The interact checks measure it first.
@@ -174,6 +184,70 @@ if (kind === 'interact') {
   process.exit(0);
 }
 
+// Without the dev server a file trail can't be saved, so it can't be renamed
+// or keep drafts either.
+if (kind === 'readonly') {
+  const { currentEntry } = await import('../../js/editor/trails.js');
+  const { listDrafts } = await import('../../js/editor/drafts.js');
+  const hidden = id => document.getElementById(id).hidden === true;
+  const out = {
+    errors: [],
+    renameHidden: hidden('rename-trail'),
+    draftHidden: hidden('save-draft') && hidden('versions-save-draft'),
+    deleteHidden: hidden('delete-trail'),
+    fieldsLocked: ['selection-fieldset', 'trail-fields'].every(id => document.getElementById(id).disabled === true),
+    toolsLocked: toolButton('block').disabled === true && toolButton('select').disabled === false,
+  };
+  // Every way of changing the trail is tried, and none of them does.
+  const before = current();
+  toolButton('apple').click();
+  fire('pointerdown', { clientX: 300, clientY: 300 });
+  fire('pointerup');
+  out.toolRefused = toolButton('select').classList.contains('active');
+  key('a', { code: 'KeyA', metaKey: true });
+  out.selectsAll = Boolean(document.getElementById('selection-fields').hidden === false);
+  for (let x = 0; x <= 1200; x += 150)
+    for (let y = 0; y <= 800; y += 200) drag([x, y], [x + 60, y + 40]);
+  key('a', { code: 'KeyA', metaKey: true });
+  for (const name of ['ArrowRight', 'ArrowUp', '[', ']']) key(name, { code: name });
+  key('x', { code: 'KeyX' });
+  key('r', { code: 'KeyR' });
+  key('Delete', { code: 'Delete' });
+  for (const code of ['KeyB', 'KeyA', 'KeyP', 'KeyW']) key('', { code });
+  canvas.dispatch('dblclick', { clientX: 400, clientY: 400 });
+  key('s', { code: 'KeyS', metaKey: true });
+  out.unchanged = JSON.stringify(current()) === JSON.stringify(before);
+  out.drafts = listDrafts(currentEntry().id).length;
+  process.stdout.write(JSON.stringify(out));
+  process.exit(0);
+}
+
+// A validation message about one item takes the author to it.
+if (kind === 'warned') {
+  const { editor } = await import('../../js/editor/state.js');
+  flushInspector();
+  const out = { errors: [] };
+  editor.cameraX = -5000;
+  const button = document.getElementById('validation-list').children
+    .flatMap(item => item.children)
+    .find(child => child.tagName?.toLowerCase() === 'button');
+  out.clickable = Boolean(button);
+  button?.click();
+  out.selection = editor.selection;
+  out.centredX = editor.cameraX + 1200 / 2 / editor.zoom;
+  const issues = document.getElementById('selection-issues');
+  out.issuesShown = issues.hidden === false;
+  out.issues = issues.children.map(item => item.textContent);
+  // Nothing selected, nothing listed.
+  editor.selection = null;
+  flushInspector();
+  const { syncInspector } = await import('../../js/editor/inspector.js');
+  syncInspector();
+  out.issuesHiddenAfter = issues.hidden === true;
+  process.stdout.write(JSON.stringify(out));
+  process.exit(0);
+}
+
 // The Water tool: drawing, clicking, moving, resizing and deleting a body.
 if (kind === 'water') {
   toolButton('apple').click();
@@ -306,8 +380,223 @@ if (kind === 'rotate') {
   process.exit(0);
 }
 
+// Editing a group's props and spikes together from the inspector and keys.
+if (kind === 'group') {
+  const { editor } = await import('../../js/editor/state.js');
+  const { syncInspector } = await import('../../js/editor/inspector.js');
+  const field = id => document.getElementById(id);
+  const out = {};
+  const undo = field('undo');
+  const select = () => {
+    editor.selection = {
+      kind: 'items',
+      items: [0, 1, 2].map(index => ({ type: 'prop', index }))
+        .concat([0, 1].map(index => ({ type: 'spike', index }))),
+    };
+    syncInspector();
+  };
+  const set = (id, value) => {
+    field(id).value = value;
+    field(id).dispatch('change');
+  };
+  select();
+  out.rowsShown = ['prop-type', 'layer', 'flip', 'radius', 'spin']
+    .every(name => field(`selection-${name}-row`).hidden === false);
+  out.mixed = ['prop-type', 'layer', 'radius', 'spin'].map(name => field(`selection-${name}`).value);
+  // The sign can't flip, so only the tree and the rock count: one of each.
+  out.flipMixed = field('selection-flip').value;
+
+  set('selection-layer', 'front');
+  out.layers = current().props.map(prop => prop.layer);
+  out.layerShared = field('selection-layer').value;
+  undo.click();
+  out.layersUndone = current().props.map(prop => prop.layer);
+
+  set('selection-flip', 'true');
+  out.flips = current().props.map(prop => Boolean(prop.flip));
+  undo.click();
+
+  set('selection-prop-type', 'pine');
+  out.types = current().props.map(prop => prop.type);
+  undo.click();
+  select();
+
+  set('selection-radius', '40');
+  out.radii = current().spikes.map(spike => spike.radius);
+  undo.click();
+  select();
+  // Clearing a Mixed field changes nothing.
+  set('selection-radius', '');
+  out.radiiCleared = current().spikes.map(spike => spike.radius);
+  set('selection-spin', '-0.5');
+  out.spins = current().spikes.map(spike => spike.spin);
+  undo.click();
+  select();
+
+  // X flips the group, and again unflips it, once all of them are flipped.
+  key('x', { code: 'KeyX' });
+  out.keyFlip = current().props.map(prop => Boolean(prop.flip));
+  key('x', { code: 'KeyX' });
+  out.keyUnflip = current().props.map(prop => Boolean(prop.flip));
+  key(']');
+  out.cycled = new Set(current().props.map(prop => prop.type)).size;
+  undo.click();
+  undo.click();
+  undo.click();
+
+  // Selecting from the Objects tab: Cmd/Ctrl-click toggles, Shift-click adds a range.
+  const { setTab } = await import('../../js/editor/tools.js');
+  setTab('objects');
+  const groupRow = name => document.getElementById('object-groups').children[['terrain', 'back', 'backProps', 'frontProps', 'water', 'spikes', 'apples'].indexOf(name)];
+  const rowName = (group, index) => groupRow(group).children[1].children[index].children[0];
+  const picked = () => editor.selection?.kind === 'items'
+    ? editor.selection.items.map(item => `${item.type}${item.index}`)
+    : editor.selection ? [`${editor.selection.kind}${editor.selection.index}`] : [];
+  groupRow('spikes').children[0].children[0].click();
+  rowName('spikes', 0).click();
+  out.listPlain = picked();
+  // A lone spike has no size.
+  out.loneSizeHidden = field('selection-size-row').hidden === true;
+  rowName('spikes', 1).dispatch('click', { metaKey: true });
+  out.listAdded = picked();
+  out.spikeSize = field('selection-size').textContent;
+  rowName('spikes', 0).dispatch('click', { ctrlKey: true });
+  out.listRemoved = picked();
+  groupRow('backProps').children[0].children[0].click();
+  rowName('backProps', 0).click();
+  rowName('backProps', 1).dispatch('click', { shiftKey: true });
+  out.listRange = picked();
+
+  // A block measures by its outline.
+  editor.selection = { kind: 'block', blockIndex: 0 };
+  syncInspector();
+  out.blockSize = field('selection-size').textContent;
+  process.stdout.write(JSON.stringify(out));
+  process.exit(0);
+}
+
 // A roof or cave ceiling placed or dragged over something standing on the
 // ground must not lift it onto the new top.
+// Locking a group or an item in the Objects tab, and what it then refuses.
+if (kind === 'locks') {
+  const { editor } = await import('../../js/editor/state.js');
+  // Find the camera as the interact checks do.
+  toolButton('apple').click();
+  fire('pointerdown', { clientX: 0, clientY: 0 });
+  fire('pointerup');
+  const probe = current().apples.at(-1);
+  cameraX = probe.x;
+  cameraY = probe.y;
+  document.getElementById('undo').click();
+  toolButton('select').click();
+
+  const out = { errors: [] };
+  const title = () => document.getElementById('selection-title').textContent;
+  const groupRow = key => document.getElementById('object-groups').children[['terrain', 'back', 'backProps', 'frontProps', 'water', 'spikes', 'apples'].indexOf(key)];
+  const groupLock = key => groupRow(key).children[0].children[1];
+  const box = () => {
+    drag([1000, 100], [1400, 500]);
+    return editor.selection;
+  };
+
+  // Unlocked, a press on the back wall takes the back wall.
+  drag([1100, 100], [1100, 100]);
+  out.unlockedTakesWall = title();
+  editor.selection = null;
+
+  // The stub DOM only finds tool buttons by selector, so the tab is opened directly.
+  const { setTab } = await import('../../js/editor/tools.js');
+  setTab('objects');
+  out.panelShown = document.getElementById('panel-objects').hidden === false;
+  out.groupCount = document.getElementById('object-groups').children.length;
+  groupLock('back').click();
+  out.badge = document.getElementById('tab-objects').getAttribute('data-icon-after');
+  // A group lock belongs to this trail alone.
+  out.groupLockKeys = [...localStorage.store.keys()].filter(name => name.includes('locked-groups'));
+  // Locked, the same press draws a box, which takes only the apple.
+  out.boxOverWall = box()?.kind ?? null;
+  key('a', { code: 'KeyA', metaKey: true });
+  out.selectAllBlocks = (editor.selection.items || []).filter(item => item.type === 'block').map(item => item.index);
+  // The Block tool can't add to a locked group.
+  const { toolSettings } = await import('../../js/editor/tools.js');
+  toolButton('block').click();
+  toolSettings.block.layer = 'back';
+  const blocksBefore = current().terrainBlocks.length;
+  drag([1000, 700], [1200, 800], { altKey: true });
+  out.blockRefused = current().terrainBlocks.length === blocksBefore;
+  toolSettings.block.layer = 'terrain';
+  toolButton('select').click();
+
+  // Unlocking the group, then locking only the apple.
+  groupLock('back').click();
+  out.badgeGone = document.getElementById('tab-objects').getAttribute('data-icon-after');
+  groupRow('apples').children[0].children[0].click();
+  const appleRow = groupRow('apples').children[1].children[0];
+  out.appleName = appleRow.children[0].textContent;
+  appleRow.children[1].click();
+  editor.selection = null;
+  // Cmd draws a box even over the (now unlocked) back wall.
+  drag([1150, 250], [1250, 350], { metaKey: true });
+  out.lockedAppleBoxed = editor.selection?.kind ?? null;
+  out.notInFile = !/"locked"|"lock"/.test(JSON.stringify(current()));
+
+  // Locking what is selected lets go of it.
+  drag([200, 450], [200, 450]);
+  out.slabSelected = editor.selection?.kind ?? null;
+  groupLock('terrain').click();
+  out.releasedOnLock = editor.selection;
+  groupLock('terrain').click();
+
+  // A cut skips a locked group: lock the terrain and cut through the slab.
+  groupLock('terrain').click();
+  const slab = JSON.stringify(current().terrainBlocks[0]);
+  toolButton('cut').click();
+  toolSettings.cut.layer = 'terrain';
+  fire('pointerdown', world(380, 250));
+  for (const [x, y] of [[420, 250], [420, 650], [380, 650]]) fire('pointermove', world(x, y));
+  fire('pointerup');
+  out.cutRefused = JSON.stringify(current().terrainBlocks[0]) === slab && current().terrainBlocks.length === 2;
+  groupLock('terrain').click();
+  process.stdout.write(JSON.stringify(out));
+  process.exit(0);
+}
+
+// The nisse: the Apple tool places it, placing it again moves it, and it can
+// be selected, deleted and brought back with undo.
+if (kind === 'nisse') {
+  toolButton('apple').click();
+  fire('pointerdown', { clientX: 0, clientY: 0 });
+  fire('pointerup');
+  const probe = current().apples.at(-1);
+  cameraX = probe.x;
+  cameraY = probe.y;
+  document.getElementById('undo').click();
+
+  const out = {};
+  const { toolSettings } = await import('../../js/editor/tools.js');
+  // The stub DOM keeps appended options as children, not in `options`.
+  const walk = node => [node, ...[...(node.children || [])].flatMap(walk)];
+  out.placeField = walk(document.getElementById('tool-settings-fields')).some(node => node.value === 'nisse');
+  // What the Place select's change handler does.
+  toolSettings.apple.kind = 'nisse';
+  fire('pointerdown', world(300, 200));
+  fire('pointerup');
+  out.placed = current().nisse;
+  out.apples = current().apples.length;
+  fire('pointerdown', world(600, 150));
+  fire('pointerup');
+  out.moved = current().nisse;
+  out.title = document.getElementById('selection-title').textContent;
+  out.hintShown = document.getElementById('selection-nisse-hint').hidden === false;
+  document.getElementById('delete-selection').click();
+  out.deleted = !('nisse' in current());
+  document.getElementById('undo').click();
+  out.restored = current().nisse;
+  toolSettings.apple.kind = 'apple';
+  process.stdout.write(JSON.stringify(out));
+  process.exit(0);
+}
+
 if (kind === 'covered') {
   toolButton('apple').click();
   fire('pointerdown', { clientX: 0, clientY: 0 });

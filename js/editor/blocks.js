@@ -6,18 +6,20 @@ import {
   edgeCurve,
   insertBoundaryNode,
   isCurvedEdge,
+  mergeBlocks,
   normalizeBlocks,
   rectangleBlock,
 } from "../terrain-geometry.js";
 import { ctx } from "./dom.js";
 import { pushHistory } from "./history.js";
+import { isBlockLocked } from "./locks.js";
 import { syncInspector } from "./inspector.js";
 import { floorUnder, groundY, render } from "./render.js";
 import { blocksSelection } from "./selection.js";
 import { gridSpacing } from "./snap.js";
 import { editor } from "./state.js";
-import { showStatus } from "./status.js";
-import { setTool, toolLayer, toolMaterial, toolSettings } from "./tools.js";
+import { refuseEdit, showStatus } from "./status.js";
+import { placingNisse, setTool, toolLayer, toolMaterial, toolSettings } from "./tools.js";
 
 export { isBackWall };
 
@@ -151,8 +153,13 @@ export function insertBlockNode(boundaryIndex, nodeIndex, t, blockIndex) {
 }
 
 export function addAt(point) {
+  if (refuseEdit()) return;
   pushHistory();
-  if (editor.tool === "apple") {
+  if (editor.tool === "apple" && placingNisse()) {
+    // A trail has one nisse at most, so placing it again moves it.
+    editor.trail.nisse = { x: point.x, y: point.y };
+    editor.selection = { kind: "nisse", index: 0 };
+  } else if (editor.tool === "apple") {
     editor.trail.apples.push({ x: point.x, y: point.y });
     editor.selection = { kind: "apple", index: editor.trail.apples.length - 1 };
   } else if (editor.tool === "start") {
@@ -437,7 +444,8 @@ export function commitShape(kind, points, closed, rect = false, circle = null) {
   };
   let reason = null;
   const back = toolLayer("cut") === "back";
-  const onLayer = (index) => blocks()[index] && isBackWall(blocks()[index]) === back;
+  const onLayer = (index) =>
+    blocks()[index] && isBackWall(blocks()[index]) === back && !isBlockLocked(index);
   // Cut from the last index down, so pieces inserted after a block never shift
   // the indices of the blocks still to be cut.
   const selected = selectedBlocks().filter(onLayer).sort((a, b) => b - a);
@@ -468,6 +476,39 @@ export function commitShape(kind, points, closed, rect = false, circle = null) {
     reason || `The cut did not overlap any ${back ? "back wall" : "terrain block"}.`,
   );
   return false;
+}
+
+/**
+ * Merges the selected blocks into one, in the largest block's material. The
+ * merged block takes the place of the topmost one, so it is not hidden behind
+ * blocks that were drawn between them. Says why when they can't be merged.
+ */
+export function mergeSelectedBlocks() {
+  if (refuseEdit()) return false;
+  const list = blocks();
+  const indices = selectedBlocks().filter((index) => list[index]);
+  const result = mergeBlocks(indices.map((index) => list[index]));
+  if (!result.changed) {
+    showStatus("warning", result.reason);
+    return false;
+  }
+  pushHistory();
+  const top = Math.max(...indices);
+  const merged = normalizeBlocks([result.block], "grass")[0];
+  editor.trail.terrainBlocks = list.flatMap((block, index) => {
+    if (index === top) return [merged];
+    return indices.includes(index) ? [] : [block];
+  });
+  editor.selection = {
+    kind: "block",
+    blockIndex: top - indices.filter((index) => index < top).length,
+  };
+  const mixed = new Set(indices.map((index) => list[index].material)).size > 1;
+  showStatus(
+    "info",
+    `Merged ${indices.length} ${isBackWall(merged) ? "back walls" : "blocks"}${mixed ? ` into ${merged.material}` : ""}.`,
+  );
+  return true;
 }
 
 /** A copy of a block with fresh ids, so it's fully independent of the original. */
@@ -531,6 +572,7 @@ const outlineKey = (boundary) =>
  * material, so the cave stays dark. Returns how many were added.
  */
 export function fillCavesWithBackWalls() {
+  if (refuseEdit()) return 0;
   const caves = selectedCaves();
   if (!caves.length) return 0;
   pushHistory();

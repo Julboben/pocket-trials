@@ -24,7 +24,10 @@ const base = () => ({
 /**
  * `blocks` is a plain block trail. `badgoal` is the same trail with its finish
  * well past the end of the terrain, so it does not validate. `interact` uses
- * the plain trail too, and drives precise gestures against it.
+ * the plain trail too, and drives precise gestures against it. `warned` has a
+ * prop of an unknown type, so its validation warning points at a prop. `locks`
+ * adds a back wall beside the slab with an apple in front of it. `group` has
+ * props and spikes that differ, for editing them together in the inspector.
  */
 export function loadTrailShape(kind) {
   const trail = base();
@@ -33,9 +36,32 @@ export function loadTrailShape(kind) {
     { x: 500, y: null, type: 'tree', layer: 'back' },
     { x: 250, y: null, type: 'tree', layer: 'back' },
   ];
+  if (kind === 'warned') trail.props = [{ x: 600, y: null, type: 'nope', layer: 'back' }];
+  if (kind === 'locks') {
+    // A back wall behind and beside the slab, with an apple in front of it.
+    trail.terrainBlocks.push({
+      id: 'b2', material: 'rock', layer: 'back',
+      outer: { id: 'bo2', nodes: [
+        { id: 'w1', x: 900, y: 0, mode: 'corner', in: null, out: null, edge: 'straight' },
+        { id: 'w2', x: 1600, y: 0, mode: 'corner', in: null, out: null, edge: 'straight' },
+        { id: 'w3', x: 1600, y: 600, mode: 'corner', in: null, out: null, edge: 'straight' },
+        { id: 'w4', x: 900, y: 600, mode: 'corner', in: null, out: null, edge: 'straight' },
+      ] },
+      inner: [],
+    });
+    trail.apples = [{ x: 1200, y: 300 }];
+  }
   if (kind === 'rotate') {
     trail.props = [{ x: 600, y: null, type: 'rock', layer: 'back' }];
     trail.water = [{ x: 1000, y: 200, width: 200, depth: 60 }];
+  }
+  if (kind === 'group') {
+    trail.props = [
+      { x: 200, y: null, type: 'tree', layer: 'back' },
+      { x: 400, y: null, type: 'rock', layer: 'front', flip: true },
+      { x: 600, y: null, type: 'sign', layer: 'back', text: 'GO' },
+    ];
+    trail.spikes = [{ x: 300, y: 200, radius: 20, spin: 0 }, { x: 500, y: 200, radius: 30, spin: 1 }];
   }
   return { html: html(), trail };
 }

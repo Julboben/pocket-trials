@@ -1,6 +1,6 @@
 // Long dropdowns, such as the prop types and the trail picker, open a dialog
 // with a search field and group filters instead of the native list. Like the
-// segmented buttons in tools.js, the real <select> stays in the page, hidden,
+// segmented buttons in segmented.js, the real <select> stays in the page, hidden,
 // so every existing listener and `.value = ...` keeps working; the trigger
 // button and the dialog just mirror it.
 // Only present in a real browser; without it, selects are left as they are.
@@ -21,13 +21,15 @@ function itemsOf(select) {
   return [...select.options].map((option) => ({
     value: option.value,
     text: clean(option.textContent),
+    marker: option.dataset.marker ?? "",
+    icon: option.dataset.icon ?? "",
     group: option.parentElement?.tagName === "OPTGROUP" ? option.parentElement.label : "",
   }));
 }
 
-// Every word typed has to appear in the name, the value or the group.
+// Every word typed has to appear in the name, the marker, the value or the group.
 function matches(item, query) {
-  const haystack = `${item.text} ${item.value} ${item.group}`.toLowerCase();
+  const haystack = `${item.text} ${item.marker} ${item.value} ${item.group}`.toLowerCase();
   return query
     .toLowerCase()
     .split(/\s+/)
@@ -45,6 +47,26 @@ function thumbnailImage(thumbnail, value) {
     image.alt = "";
   }
   return image;
+}
+
+/** An option's own icon, one of the editor's `data-icon` names. */
+function iconImage(name) {
+  // A box the size of a thumbnail, so the pixel icon keeps its own size.
+  const box = document.createElement("span");
+  box.className = "picker-thumb picker-icon";
+  box.setAttribute("aria-hidden", "true");
+  const icon = document.createElement("span");
+  icon.dataset.icon = name;
+  box.append(icon);
+  return box;
+}
+
+/** An option's number, such as a trail's 01 or B01, shown before its name. */
+function markerLabel(marker) {
+  const node = document.createElement("span");
+  node.className = "picker-marker";
+  node.textContent = marker;
+  return node;
 }
 
 function optionNodes() {
@@ -71,7 +93,7 @@ function renderGroups() {
   const count = (group) =>
     session.items.filter((item) => (!group || item.group === group) && matches(item, query))
       .length;
-  $("picker-groups").hidden = groups.length < 2;
+  $("picker-groups").hidden = !session.filters || groups.length < 2;
   $("picker-groups").replaceChildren(
     ...[null, ...groups].map((group) => {
       const button = document.createElement("button");
@@ -127,7 +149,9 @@ function renderResults() {
     option.dataset.value = item.value;
     option.setAttribute("role", "option");
     option.setAttribute("aria-selected", String(item.value === session.current));
-    if (session.thumbnail) option.append(thumbnailImage(session.thumbnail, item.value));
+    if (item.icon) option.append(iconImage(item.icon));
+    else if (session.thumbnail) option.append(thumbnailImage(session.thumbnail, item.value));
+    if (item.marker) option.append(markerLabel(item.marker));
     const label = document.createElement("span");
     label.textContent = item.text;
     option.append(label);
@@ -173,7 +197,7 @@ function onSearchKey(event) {
   let next = null;
   if (event.key === "ArrowDown" || event.key === "ArrowUp")
     next = nearestVertically(event.key === "ArrowDown" ? 1 : -1);
-  else if (session.thumbnail && (event.key === "ArrowRight" || event.key === "ArrowLeft"))
+  else if (session.grid && (event.key === "ArrowRight" || event.key === "ArrowLeft"))
     next = nodes[index + (event.key === "ArrowRight" ? 1 : -1)];
   else if (event.key === "Enter") {
     event.preventDefault();
@@ -209,30 +233,56 @@ function bind() {
   search.addEventListener("input", render);
   search.addEventListener("keydown", onSearchKey);
   // Typing a search must not trigger the editor's shortcuts.
-  dialog.addEventListener("keydown", (event) => event.stopPropagation());
+  // Cmd/Ctrl+P would print instead; in the quick pick it closes it again.
+  dialog.addEventListener("keydown", (event) => {
+    event.stopPropagation();
+    if ((event.metaKey || event.ctrlKey) && event.code === "KeyP") {
+      event.preventDefault();
+      if (session?.toggle) dialog.close();
+    }
+  });
   dialog.addEventListener("click", (event) => {
     if (event.target === dialog) dialog.close();
   });
   dialog.addEventListener("close", () => {
+    // The quick pick has no trigger button to hand focus back to, so closing
+    // it without choosing returns to the canvas.
+    if (session?.toggle && document.activeElement !== canvas)
+      canvas.focus({ preventScroll: true });
     session = null;
   });
 }
 
-function open(select, { title, thumbnail }) {
+function open(
+  select,
+  {
+    title,
+    thumbnail,
+    grid = Boolean(thumbnail),
+    heading = `CHOOSE ${title.toUpperCase()}`,
+    filters = true,
+    toggle = false,
+  },
+) {
+  if (!selectValue) return;
+  bind();
   const dialog = /** @type {HTMLDialogElement} */ ($("picker"));
   const current = selectValue.get.call(select);
   session = {
     select,
     thumbnail,
+    grid,
+    filters,
+    toggle,
     items: itemsOf(select),
     current,
     active: current,
     group: null,
   };
-  $("picker-title").textContent = `CHOOSE ${title.toUpperCase()}`;
-  dialog.classList.toggle("picker-grid", Boolean(thumbnail));
+  $("picker-title").textContent = heading;
+  dialog.classList.toggle("picker-grid", grid);
   $("picker-keys").textContent =
-    `Type to search · ${thumbnail ? "Arrows" : "↑ ↓"} to move · Enter to choose · Esc to close`;
+    `Type to search · ${grid ? "Arrows" : "↑ ↓"} to move · Enter to choose · Esc to close`;
   const search = /** @type {HTMLInputElement} */ ($("picker-search"));
   search.value = "";
   search.placeholder = `Search ${session.items.length} ${title.toLowerCase()}s`;
@@ -242,10 +292,19 @@ function open(select, { title, thumbnail }) {
 }
 
 /**
+ * Open the picker on `select` straight away, with no trigger button; choosing
+ * an option sets it and fires its change event. Besides pickerSelect's
+ * options, `grid` lays the options out as tiles, `heading` replaces the
+ * "CHOOSE ..." title, `filters: false` hides the group buttons, and `toggle` lets Cmd/Ctrl+P close it again.
+ */
+export const openPicker = open;
+
+/**
  * Show `select` as a button that opens the searchable picker. `title` names
  * one option ("Prop"); `thumbnail(value)` may return an image URL for each.
+ * `placeholder` labels the button when no option is chosen.
  */
-export function pickerSelect(select, { title, thumbnail = null }) {
+export function pickerSelect(select, { title, thumbnail = null, placeholder = "" }) {
   if (!selectValue || select.dataset.picker) return;
   select.dataset.picker = "1";
   bind();
@@ -258,9 +317,10 @@ export function pickerSelect(select, { title, thumbnail = null }) {
     const option = select.selectedOptions[0];
     const label = document.createElement("span");
     label.className = "picker-trigger-label";
-    label.textContent = option ? clean(option.textContent) : "";
+    label.textContent = option ? clean(option.textContent) : placeholder;
     trigger.replaceChildren(
       ...(thumbnail && option ? [thumbnailImage(thumbnail, option.value)] : []),
+      ...(option?.dataset.marker ? [markerLabel(option.dataset.marker)] : []),
       label,
     );
   };

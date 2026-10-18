@@ -35,7 +35,9 @@ export function openPlaytest(spawn = null) {
   editor.spaceHeld = false;
   $("playtest-name").textContent = editor.trail.name.toUpperCase();
   $("playtest").hidden = false;
-  playtestFrame.src = "./index.html?playtest=1";
+  // Debug mode follows the editor's own ?debug=1 into the play test.
+  const debug = new URLSearchParams(window.location.search).get("debug") === "1";
+  playtestFrame.src = `./index.html?playtest=1${debug ? "&debug=1" : ""}`;
   playtestFrame.focus();
 }
 

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   ACHIEVEMENTS, ACHIEVEMENT_GROUPS, achievement, statGains, eventAchievements, finishAchievements,
-  interactAchievements, eggAchievements, bikeBroken, hasAchievement, newlyEarned, cleanAchievements, cleanStats, mergeAchievements, mergeStats, aheadOf,
+  interactAchievements, eggAchievements, editorAchievements, editorProgress, bikeBroken, hasAchievement, newlyEarned, cleanAchievements, cleanStats, mergeAchievements, mergeStats, aheadOf,
   createFeatTracker, statProgressText
 } from '../js/achievements.js';
 import { createLimWatcher } from '../js/easter-eggs.js';
@@ -29,7 +29,7 @@ const trailIds = new Set(catalog.trails.map(entry => entry.id));
     assert.ok(a.name && a.blurb, `${a.id} has a name and blurb`);
     assert.ok(icons[a.icon], `${a.id}'s icon "${a.icon}" exists`);
     assert.ok(Object.isFrozen(a), `${a.id} is frozen`);
-    const ways = ['career', 'stat', 'event', 'finish', 'interact', 'egg'].filter(way => a[way] !== undefined);
+    const ways = ['career', 'stat', 'event', 'finish', 'interact', 'egg', 'editor'].filter(way => a[way] !== undefined);
     assert.equal(ways.length, 1, `${a.id} is earned exactly one way`);
     if (a.hint) assert.ok(a.secret, `${a.id} only has a hint as a secret`);
     if (a.group === 'easter-eggs') assert.ok(a.secret, `${a.id} is a secret, like every easter egg`);
@@ -120,6 +120,15 @@ const trailIds = new Set(catalog.trails.map(entry => entry.id));
     assert.equal(eggAchievements(name).length, 1, `easter egg ${name} earns an achievement`);
   }
   assert.deepEqual(eggAchievements('nope'), []);
+  assert.deepEqual(editorAchievements('publish'), ['groundbreaker']);
+  assert.deepEqual(editorAchievements('share'), ['show-and-tell']);
+  assert.deepEqual(editorAchievements('playtest'), ['test-pilot']);
+  assert.deepEqual(editorAchievements('nope'), []);
+  assert.deepEqual(editorProgress({ publish: 1, 'new-trail': 2 }), { ids: ['groundbreaker'], gains: { published: 2 } });
+  assert.deepEqual(editorProgress({ share: 3 }), { ids: ['show-and-tell'], gains: {} });
+  assert.ok(hasAchievement('trail-network', {}, { published: 5 }, { trails: 0, golds: 0, officialTotal: 9, bonusFinished: 0, bonusTotal: 2 }), 'five new trails make a network');
+  assert.ok(!hasAchievement('trail-network', {}, { published: 4 }, { trails: 0, golds: 0, officialTotal: 9, bonusFinished: 0, bonusTotal: 2 }));
+  for (const a of ACHIEVEMENTS) if (a.group === 'trail-maker') assert.ok(!a.secret, `${a.id} is listed openly`);
 
   // Here Be Kraken: real riding stretches the bike by about a tenth at most.
   const wheel = (x, y = 0) => ({ x, y });
@@ -148,7 +157,7 @@ const trailIds = new Set(catalog.trails.map(entry => entry.id));
 
   const run = {
     flips: 0, time: 30, medal: null, gold: 20, helmet: true, bike: 'elasto', night: false, rain: false, snow: false,
-    attempts: 3, previousBest: null, worldBest: null, custom: false
+    attempts: 3, previousBest: null, worldBest: null, custom: false, shared: false
   };
   const gold = { ...run, time: 19.5, medal: 'gold' };
   assert.deepEqual(finishAchievements(run), [], 'a plain finish earns nothing');
@@ -174,6 +183,7 @@ const trailIds = new Set(catalog.trails.map(entry => entry.id));
   assert.deepEqual(finishAchievements({ ...run, previousBest: 34.9 }), []);
   assert.deepEqual(finishAchievements({ ...run, attempts: 25 }), ['never-give-up']);
   assert.deepEqual(finishAchievements({ ...run, custom: true }), ['homebrew']);
+  assert.deepEqual(finishAchievements({ ...run, custom: true, shared: true }), ['homebrew', 'guest-rider']);
   assert.deepEqual(finishAchievements({ ...run, rain: true, snow: true }), ['singin-in-the-rain', 'snow-day']);
   assert.deepEqual(finishAchievements({ ...run, previousBest: 30.0004 }), ['deja-vu'], 'matching to the millisecond');
   assert.deepEqual(finishAchievements({ ...run, time: 30.001, previousBest: 30 }), []);

@@ -74,16 +74,16 @@
           },
           {
             "id": "n8",
-            "x": 455.3291,
-            "y": 322,
+            "x": 450,
+            "y": 320,
             "mode": "corner",
             "in": [
-              363.6624,
-              322
+              358.3333,
+              320
             ],
             "out": [
-              481.1624,
-              322
+              475.8333,
+              320
             ],
             "edge": "curve"
           },
@@ -615,8 +615,8 @@
       "layer": "front"
     },
     {
-      "x": 1450,
-      "y": null,
+      "x": 1447,
+      "y": 303.3154750876885,
       "type": "fence",
       "layer": "back"
     },
@@ -754,13 +754,13 @@
     },
     {
       "x": 117.71,
-      "y": 280.3,
+      "y": 289.3,
       "type": "apple",
       "layer": "back"
     },
     {
       "x": 127.53,
-      "y": 282.19,
+      "y": 291.19,
       "type": "apple",
       "layer": "back"
     },
@@ -835,18 +835,36 @@
       "y": 205.18062500000002,
       "type": "apple",
       "layer": "back"
+    },
+    {
+      "x": 550.6748979920627,
+      "y": 284.4328876826045,
+      "type": "grass",
+      "layer": "back"
+    },
+    {
+      "x": 1915.6787176981136,
+      "y": 299.2463475269449,
+      "type": "grass",
+      "layer": "back"
     }
   ],
   "spikes": [],
   "water": [],
   "weather": {
     "sun": 0.7,
-    "clouds": 0.15
+    "clouds": 0.15,
+    "fog": 0,
+    "rain": 0,
+    "snow": 0,
+    "lightning": 0,
+    "wind": 0.1,
+    "windDirection": "left"
   },
+  "timeOfDay": 12,
   "medals": {
     "gold": 11,
     "silver": 14.5,
     "bronze": 19
-  },
-  "timeOfDay": "noon"
+  }
 }

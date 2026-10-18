@@ -8,10 +8,11 @@ import {
   trailToModule,
   validateTrail,
 } from "../trail-schema.js";
-import { detectDevServer, terrainMaterials, trailEntries } from "../trails.js";
+import { detectDevServer, reportEditorFeat, terrainMaterials, trailEntries } from "../trails.js";
+import { DISCORD_LINK_LENGTH, trailShareUrl } from "../trail-link.js";
 import { bindAutosave } from "./autosave.js";
 import { bindClipboard } from "./clipboard.js";
-import { $, wrap } from "./dom.js";
+import { $, canvas, wrap } from "./dom.js";
 import { pushHistory, redo, undo, updateHistoryButtons } from "./history.js";
 import { bindInput } from "./input.js";
 import { bindInspector, rememberedAuthor, renameTrail, syncInspector } from "./inspector.js";
@@ -20,9 +21,11 @@ import { pickerSelect } from "./picker.js";
 import { bindPlaytest } from "./playtest.js";
 import { GAME_ART_KEY, render } from "./render.js";
 import { editor } from "./state.js";
-import { refuse, showStatus } from "./status.js";
+import { refuse, refuseEdit, showStatus } from "./status.js";
 import { propThumbnail } from "./thumbnails.js";
-import { TOOL_KEY_LABELS, materialLabel, segmentSelects, setTab, setTool } from "./tools.js";
+import { segmentSelects } from "./segmented.js";
+import { editingPreview, resetPreview, startEditingPreview, stopEditingPreview } from "./preview.js";
+import { TOOL_KEY_LABELS, materialLabel, setTab, setTool } from "./tools.js";
 import {
   announceVersion,
   bindVersions,
@@ -37,7 +40,14 @@ import {
   storedTrailIndex,
   updateTrailControls,
 } from "./trails.js";
-import { focusOnStart, resize, updateZoom, zoomAtCenter } from "./view.js";
+import {
+  focusOnStart,
+  resize,
+  toggleGameArt,
+  updateGameArtButton,
+  updateZoom,
+  zoomAtCenter,
+} from "./view.js";
 
 editor.trailIndex = storedTrailIndex();
 
@@ -66,13 +76,17 @@ for (const name of Object.keys(terrainMaterials)) {
   $("selection-material").append(option);
 }
 
-// Two-option dropdowns are shown as button rows; this must run after the
-// material dropdowns above are filled, so those stay dropdowns.
+// Short dropdowns are shown as button rows; this must run after the
+// material dropdowns above are filled.
 segmentSelects(document);
 
 pickerSelect($("trail-picker"), { title: "Trail" });
 
-pickerSelect($("selection-prop-type"), { title: "Prop", thumbnail: propThumbnail });
+pickerSelect($("selection-prop-type"), {
+  title: "Prop",
+  thumbnail: propThumbnail,
+  placeholder: "Mixed",
+});
 
 document
   .querySelectorAll("[data-tool]")
@@ -120,6 +134,7 @@ const renameDialog = /** @type {HTMLDialogElement} */ ($("rename-dialog"));
 const renameInput = /** @type {HTMLInputElement} */ ($("rename-input"));
 
 $("rename-trail").addEventListener("click", () => {
+  if (refuseEdit()) return;
   renameInput.value = editor.trail.name;
   renameDialog.returnValue = "";
   renameDialog.showModal();
@@ -158,14 +173,24 @@ bindMenu();
 
 bindVersions();
 
-$("game-art").checked = editor.gameArt;
+updateGameArtButton();
 
-$("game-art").addEventListener("change", (event) => {
-  editor.gameArt = event.target.checked;
-  try {
-    store().setItem(GAME_ART_KEY, editor.gameArt ? "1" : "0");
-  } catch (_) {}
-  render();
+$("edit-preview").addEventListener("click", () => {
+  if (editingPreview()) stopEditingPreview();
+  else startEditingPreview();
+  // Hand focus back so Esc and the canvas shortcuts keep working.
+  canvas.focus({ preventScroll: true });
+});
+
+$("reset-preview").addEventListener("click", () => {
+  resetPreview();
+  canvas.focus({ preventScroll: true });
+});
+
+$("game-art").addEventListener("click", () => {
+  toggleGameArt();
+  // Hand focus back so the canvas shortcuts, Y included, keep working.
+  canvas.focus({ preventScroll: true });
 });
 
 $("save-draft").addEventListener("click", saveDraft);
@@ -194,7 +219,38 @@ $("export-js").addEventListener("click", () => {
   );
 });
 
+// The whole trail rides in the link's hash, so sharing needs no server.
+$("share-trail").addEventListener("click", async () => {
+  const errors = validateTrail(editor.trail).filter(
+    (message) => message.type === "error",
+  );
+  if (errors.length && !refuse("sharing", errors)) return;
+  let url;
+  try {
+    url = await trailShareUrl(editor.trail, new URL("./", window.location.href));
+  } catch (error) {
+    showStatus("error", `Could not make a share link: ${error.message}`);
+    return;
+  }
+  const length = url.length.toLocaleString("en-US");
+  reportEditorFeat("share");
+  try {
+    await navigator.clipboard.writeText(url);
+  } catch (_) {
+    // No clipboard access (an insecure page, or permission refused).
+    window.prompt("Copy this link to share the trail:", url);
+    return;
+  }
+  if (url.length > DISCORD_LINK_LENGTH) {
+    showStatus(
+      "info",
+      `Share link copied · ${length} characters is too long for a Discord message, so post it somewhere else, or share the exported JSON file`,
+    );
+  } else showStatus("info", `Share link copied (${length} characters). Opening it plays the trail and saves it under Custom Trails.`);
+});
+
 $("import-json").addEventListener("click", () => {
+  if (refuseEdit()) return;
   try {
     pushHistory();
     editor.trail = normalizeTrail(JSON.parse($("trail-json").value), editor.trailIndex);
@@ -228,6 +284,7 @@ resize();
 detectDevServer().then((available) => {
   editor.devServer = available;
   updateTrailControls();
+  render();
   document.querySelector(".editor-shell").removeAttribute("data-booting");
   announceVersion();
 });

@@ -11,12 +11,14 @@ import { drawFigure, posedRide } from '../scene-preview.js';
 import { drawGarage } from '../garage-backdrop.js';
 import {
   DEFAULT_LOOK, LOOK_PARTS, SLOT_LABELS, isColorless, isDefaultItem, itemsForSlot, lookItem, lookKey,
-  normalizeLook, partName, sameLook, starterLook
+  normalizeLook, partName, sameLook, shownItemsForSlot, starterLook
 } from '../cosmetics.js';
 
 // What each view frames, in world units around the bike's axles.
 const SWATCH_VIEWS = {
-  head: { dx: 6, dy: -45, width: 30, height: 30 },
+  // The head centred. Every head swatch and avatar shares it, so tall items
+  // show at the same size as the rest, their tops cropped.
+  head: { dx: -2, dy: -44, width: 30, height: 30 },
   outfit: { dx: -8, dy: -30, width: 44, height: 44 },
   bike: { dx: 0, dy: -22, width: 88, height: 70 },
   // The big preview: the whole rider and bike, wheels and floor included.
@@ -132,12 +134,12 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
 
   root.classList.add('look-editor');
 
-  // Tabs, one per part, beside the big preview.
-  const tabs = element('div', 'look-tabs');
+  // Tabs, one per part, over the big preview; styled like the menu's other tab bars.
+  const tabs = element('div', 'menu-tabs look-tabs');
   tabs.setAttribute('role', 'tablist');
   tabs.setAttribute('aria-label', 'Rider look');
   const tabButtons = LOOK_PARTS.map(entry => {
-    const tab = element('button', 'look-tab');
+    const tab = element('button', 'menu-tab look-tab');
     tab.type = 'button';
     tab.setAttribute('role', 'tab');
     tab.dataset.lookPart = entry.id;
@@ -162,16 +164,10 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
   const top = element('div', 'look-top');
   top.append(tabs, stage);
 
-  // The part's styles, with the selected one described.
-  const styles = element('section', 'look-section');
-  const styleHead = sectionHead();
-  const detail = element('div', 'look-detail');
-  const detailName = element('b');
-  const detailBlurb = element('small');
-  detail.append(detailName, detailBlurb);
-  const options = element('div', 'look-options');
-  options.setAttribute('role', 'radiogroup');
-  styles.append(styleHead.head, detail, options);
+  // The part's styles, with the selected one described, and its extra
+  // slot's (the hair tab's beards) in a panel of their own.
+  const styles = styleSection();
+  const extras = styleSection();
 
   // The part's colours, in their own panel.
   const colors = element('section', 'look-section look-colors');
@@ -189,7 +185,20 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
   revert.addEventListener('click', () => set(original));
   actions.append(revert);
 
-  root.replaceChildren(top, styles, colors, actions);
+  root.replaceChildren(top, styles.section, extras.section, colors, actions);
+
+  function styleSection() {
+    const section = element('section', 'look-section');
+    const head = sectionHead();
+    const detail = element('div', 'look-detail');
+    const name = element('b');
+    const blurb = element('small');
+    detail.append(name, blurb);
+    const options = element('div', 'look-options');
+    options.setAttribute('role', 'radiogroup');
+    section.append(head.head, detail, options);
+    return { section, head, name, blurb, options };
+  }
 
   function stepButton(iconName, step) {
     const button = element('button', `look-step ${step < 0 ? 'look-step-previous' : 'look-step-next'}`);
@@ -231,12 +240,13 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
     lightSwitch.title = label;
   }
 
-  function renderStyles() {
-    const slot = part.style;
-    const items = itemsForSlot(slot);
+  /** Fills `panel` (from styleSection) with `slot`'s styles. */
+  function renderStyles(panel, slot) {
+    const { head, name: detailName, blurb: detailBlurb, options } = panel;
+    const items = shownItemsForSlot(slot, owns);
     const selected = lookItem(slot, look[slot]);
-    styleHead.title.textContent = SLOT_LABELS[slot].toUpperCase();
-    styleHead.note.textContent = `${items.findIndex(item => item.id === look[slot]) + 1} / ${items.length}`;
+    head.title.textContent = SLOT_LABELS[slot].toUpperCase();
+    head.note.textContent = `${items.findIndex(item => item.id === look[slot]) + 1} / ${items.length}`;
     detailName.textContent = selected?.name.toUpperCase() ?? '';
     detailBlurb.textContent = selected?.blurb ?? '';
     options.setAttribute('aria-label', SLOT_LABELS[slot]);
@@ -292,7 +302,11 @@ export function createCustomizer(root, { paint, previewKey, onChange = () => {},
       tab.setAttribute('aria-selected', String(entry === part));
       tab.querySelector('small').textContent = partName(look, entry);
     }
-    renderStyles();
+    renderStyles(styles, part.style);
+    // Beards only for riders who can grow one.
+    const extra = part.extra === 'beard' && !lookItem('gender', look.gender)?.face.beard ? null : part.extra;
+    extras.section.hidden = !extra;
+    if (extra) renderStyles(extras, extra);
     renderColors();
     revert.disabled = sameLook(look, original);
   }

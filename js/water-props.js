@@ -188,10 +188,13 @@ export function drawLily({ pixelRect }, wave) {
 const STALKS = [[-8, 0.75, false], [-4, 1, true], [0, 0.6, false], [4, 0.9, true], [8, 0.5, false]];
 
 /**
- * Reeds `height` tall standing on y = 0, swaying in the breeze, with a couple
- * of brown cattails. `groundOffset` seats each stalk on the ground under it.
+ * Reeds `height` tall standing on y = 0, with a couple of brown cattails,
+ * bent `downwind` (-1 left, 1 right) and swaying faster and further the
+ * stronger the `wind` (0…1). `groundOffset` seats each stalk on the ground
+ * under it.
  */
-export function drawReeds({ pixelRect }, height, time, x, groundOffset) {
+export function drawReeds({ pixelRect }, height, time, x, groundOffset, wind = 0.25, downwind = -1) {
+  const bend = downwind * wind * 14;
   STALKS.forEach(([sx, share, cattail], index) => {
     const base = snap(groundOffset(sx));
     const length = snap(height * share * (0.85 + waterPropNoise(x, index) * 0.3));
@@ -199,7 +202,8 @@ export function drawReeds({ pixelRect }, height, time, x, groundOffset) {
     let top = { x: sx, y: base };
     for (let py = 0; py < length; py += 2) {
       const t = py / length;
-      const lean = snap(Math.sin(time * 1.3 + phase) * 4 * t * t + (index - 2) * 3 * t * t);
+      const sway = time ? Math.sin(time * (0.9 + wind * 2.4) + phase) * (1 + wind * 5) : 0;
+      const lean = snap((sway + (index - 2) * 3 + bend) * t * t);
       const color = t < 0.4 ? REED.dark : t > 0.9 && !cattail ? REED.dry : REED.base;
       pixelRect(sx + lean, base - py - 2, 2, 2, color, 2);
       top = { x: sx + lean, y: base - py - 2 };
@@ -214,7 +218,7 @@ export function drawReeds({ pixelRect }, height, time, x, groundOffset) {
     const base = snap(groundOffset(lx));
     for (let py = 0; py < length; py += 2) {
       const t = py / length;
-      pixelRect(lx + dir * snap(t * t * 8), base - py - 2, 2, 2, t < 0.5 ? LEAF.dark : LEAF.mid, 2);
+      pixelRect(lx + snap((dir * 8 + bend * 0.6) * t * t), base - py - 2, 2, 2, t < 0.5 ? LEAF.dark : LEAF.mid, 2);
     }
   }
 }

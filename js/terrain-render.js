@@ -6,6 +6,7 @@ import {
   compositeColor,
   drawStartPennant,
 } from "./drawing.js";
+import { resolveWeather, windSign } from "./weather.js";
 import {
   terrainBodySpans,
   mergeSpans,
@@ -29,6 +30,10 @@ const STONE_WIDTH = 15;
 const STONE_HEIGHT = 10;
 const STONE_FLATTEN = 1.4;
 const STONE_GROWTH = 3;
+// Wood is laid as horizontal planks this many art pixels tall and long, each
+// row's butt joints shifted by its own amount, like boards on a wall or deck.
+const PLANK_HEIGHT = 9;
+const PLANK_LENGTH = 34;
 // Back walls are drawn as their material in shadow, a little cool, so they
 // read as rock set back behind the riding surface.
 const BACK_WALL_SHADE = [0.5, 0.52, 0.58];
@@ -54,14 +59,15 @@ function startSignAnchor(trail) {
   return surface.solid ? { x, y: surface.y } : null;
 }
 
-function drawStartSign(context, trail, anchor) {
+function drawStartSign(context, trail, anchor, time) {
   // Look for the ground just above the anchor, so the pole's base follows
-  // the slope it stands on.
+  // the slope it stands on. The pennant flies in the trail's wind.
   const reference = anchor.y - 16;
+  const weather = resolveWeather(trail.weather);
   drawStartPennant(context, anchor.x, anchor.y, (localX) => {
     const surface = terrainAt(trail, anchor.x + localX, reference);
     return surface?.solid ? surface.y - anchor.y : 0;
-  });
+  }, time, weather.wind, windSign(weather));
 }
 
 // ---------------------------------------------------------------------------
@@ -146,6 +152,19 @@ function materialColors(name) {
             faces: [fill, mixColor(fill, light, 0.4), mixColor(fill, dark, 0.35)],
             top: light,
             bottom: dark,
+          }
+        : null,
+    // Each plank gets one of three tones, a lit top, a shaded bottom, and
+    // darker grain and knots.
+    wood:
+      material.pattern === "wood"
+        ? {
+            seam: compositeColor(material.detail, material.fill),
+            faces: [fill, mixColor(fill, light, 0.35), mixColor(fill, dark, 0.3)],
+            top: light,
+            bottom: dark,
+            grain: mixColor(fill, dark, 0.6),
+            knot: mixColor(dark, edge, 0.5),
           }
         : null,
     vegetation: material.vegetation ? opaque(material.vegetation) : null,
@@ -352,6 +371,9 @@ export function rasterizeTerrainChunk(
         } else if (colors.stone) {
           color = stoneShade(stoneCell, column0 + column, row0 + row, colors.stone);
           if (color !== colors.fill) what = 2;
+        } else if (colors.wood) {
+          color = woodShade(column0 + column, row0 + row, colors.wood);
+          if (color !== colors.fill) what = 2;
         } else {
           // Strata repeat all the way down; the first four are as before.
           const depth = y - span.top;
@@ -503,12 +525,43 @@ function stoneShade(cellAt, column, row, stone) {
 }
 
 /**
+ * The colour of a wood-pattern pixel at world art pixel (`column`, `row`): a
+ * dark seam between planks and at their butt joints, a lit row under the seam
+ * above and a shaded one over the seam below, and between them the plank's own
+ * tone with a broken grain line and the odd knot.
+ */
+function woodShade(column, row, wood) {
+  const plank = Math.floor(row / PLANK_HEIGHT);
+  const within = row - plank * PLANK_HEIGHT;
+  const along = column + Math.floor(hash2(plank, 31) * PLANK_LENGTH);
+  const board = Math.floor(along / PLANK_LENGTH);
+  const into = along - board * PLANK_LENGTH;
+  if (within === 0 || into === 0) return wood.seam;
+  if (within === 1) return wood.top;
+  if (within === PLANK_HEIGHT - 1) return wood.bottom;
+  // A knot sits on some boards, away from their ends.
+  if (hash2(board, plank + 5) < 0.3) {
+    const knotColumn = 6 + Math.floor(hash2(plank, board + 11) * (PLANK_LENGTH - 12));
+    const knotRow = 3 + Math.floor(hash2(board + 13, plank) * (PLANK_HEIGHT - 6));
+    const dx = into - knotColumn;
+    if (within === knotRow && (dx === 0 || dx === 1)) return wood.knot;
+    // The grain parts around the knot rather than running through it.
+    if (Math.abs(within - knotRow) === 1 && dx >= -1 && dx <= 2) return wood.grain;
+    if (within === knotRow && dx >= -3 && dx <= 4) return wood.faces[0];
+  }
+  const grainRow = 2 + Math.floor(hash2(plank, board + 23) * (PLANK_HEIGHT - 4));
+  if (within === grainRow && hash2(column >> 2, plank * 31 + board) < 0.55)
+    return wood.grain;
+  return wood.faces[Math.floor(hash2(board, plank + 3) * wood.faces.length)];
+}
+
+/**
  * The colour of a wall-face pixel `reach` columns in from the air, or null to
  * keep the fill. Ledges are seeded by world position, so chunks agree.
  */
 function wallShade(colors, reach, lit, faceColumn, y, pixel) {
   const worldRow = Math.floor(y / pixel);
-  if (!colors.brick && !colors.glass && !colors.stone) {
+  if (!colors.brick && !colors.glass && !colors.stone && !colors.wood) {
     const course = Math.floor(worldRow / LEDGE_ROWS);
     const group = Math.floor(faceColumn / 3) * 2 + (lit ? 1 : 0);
     if (hash2(course, group) > LEDGE_CHANCE) {
@@ -586,7 +639,7 @@ function drawPebbles(
         const colors = materialColors(
           (terrainBodyAt(compiled, px, cy) || span.topBody).material,
         );
-        if (colors.glass || colors.stone) continue;
+        if (colors.glass || colors.stone || colors.wood) continue;
         for (
           let column = Math.floor((px - rx) / pixel) - column0;
           column <= Math.ceil((px + rx) / pixel) - column0;
@@ -863,8 +916,9 @@ export function createTerrainRenderer({ backWalls = false } = {}) {
   // invalidated, so an edit is noticed here without the caller doing anything,
   // and only the chunks in the columns it changed are drawn again. A ride's
   // copy of a trail counts as the trail itself, so a pane breaking or a
-  // restart redraws only the glass.
-  function draw(ctx, trail, viewX, viewY, width, height) {
+  // restart redraws only the glass. `time` (seconds, 0 to hold still) waves
+  // the start pennant.
+  function draw(ctx, trail, viewX, viewY, width, height, time = 0) {
     if ((trail?.terrainSource || trail) !== currentTrail) invalidate(trail);
     else refresh(trail);
     if (!currentGeometry) return;
@@ -886,7 +940,7 @@ export function createTerrainRenderer({ backWalls = false } = {}) {
       }
     }
     const sign = startSign(trail);
-    if (sign) drawStartSign(ctx, trail, sign);
+    if (sign) drawStartSign(ctx, trail, sign, time);
   }
 
   function refresh(trail) {

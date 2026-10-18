@@ -135,10 +135,13 @@ export function drawCairnFoot({ pixelRect }, groundOffset) {
 // Ski-lift pylon
 // ---------------------------------------------------------------------------
 
-export const PYLON_TOP = -178;
+// The tower stands about 8 m tall: its upper column, head and rope are drawn
+// PYLON_LIFT above the numbers they were first written with.
+const PYLON_LIFT = 52;
+export const PYLON_TOP = -178 - PYLON_LIFT;
 export const PYLON_BODY_BOTTOM = -10;
 // Top of the haul rope where it rides over the sheaves.
-export const CABLE_Y = -168;
+export const CABLE_Y = -168 - PYLON_LIFT;
 // How far the rope runs either side of the tower before it fades out.
 export const CABLE_HALF = 160;
 // The rope climbs this many units per unit to the right (left when flipped),
@@ -167,12 +170,12 @@ const pylonHalf = (py) => (py < -60 ? 4 : 6);
 
 // The tower number, drawn live by drawing.js so it never reads mirrored: its
 // centre on a plain pylon, and the colour.
-export const PYLON_NUMBER = { text: "7", x: 1, y: -122, color: WOOD.dark };
+export const PYLON_NUMBER = { text: "7", x: 1, y: -122 - PYLON_LIFT, color: WOOD.dark };
 
 /** The tower above the footing: a steel column with pegs, a number plate and the sheave head. */
 export function drawPylon({ pixelRect }) {
   // Tubular column, wider at the foot.
-  for (let py = -152; py < PYLON_BODY_BOTTOM; py += 2) {
+  for (let py = -152 - PYLON_LIFT; py < PYLON_BODY_BOTTOM; py += 2) {
     const half = pylonHalf(py);
     pixelRect(-half, py, half * 2, 2, STEEL.base, 2);
     pixelRect(-half, py, 2, 2, STEEL.dark, 2);
@@ -184,22 +187,22 @@ export function drawPylon({ pixelRect }) {
   pixelRect(-8, -62, 2, 4, STEEL.dark, 2);
   pixelRect(4, -62, 4, 2, STEEL.light, 2);
   // Climbing pegs up the lit side.
-  for (let py = -144; py < -20; py += 10) pixelRect(pylonHalf(py), py, 4, 2, STEEL.light, 2);
+  for (let py = -144 - PYLON_LIFT; py < -20; py += 10) pixelRect(pylonHalf(py), py, 4, 2, STEEL.light, 2);
   // Tower number plate; the number itself is PYLON_NUMBER.
-  pixelRect(-6, -124, 12, 16, PAINT.yellowDark, 2);
-  pixelRect(-4, -122, 10, 12, PAINT.yellow, 2);
+  pixelRect(-6, -124 - PYLON_LIFT, 12, 16, PAINT.yellowDark, 2);
+  pixelRect(-4, -122 - PYLON_LIFT, 10, 12, PAINT.yellow, 2);
   // Crossarm, seen end on.
-  pixelRect(-8, -160, 16, 8, STEEL.base, 2);
-  pixelRect(-8, -160, 2, 8, STEEL.dark, 2);
-  pixelRect(4, -160, 4, 2, STEEL.light, 2);
-  pixelRect(6, -158, 2, 6, STEEL.mid, 2);
+  pixelRect(-8, -160 - PYLON_LIFT, 16, 8, STEEL.base, 2);
+  pixelRect(-8, -160 - PYLON_LIFT, 2, 8, STEEL.dark, 2);
+  pixelRect(4, -160 - PYLON_LIFT, 4, 2, STEEL.light, 2);
+  pixelRect(6, -158 - PYLON_LIFT, 2, 6, STEEL.mid, 2);
   // Lightning rod.
   pixelRect(-2, PYLON_TOP, 2, 18, IRON.base, 2);
   pixelRect(-2, PYLON_TOP, 2, 2, STEEL.light, 2);
   // Sheave train: a beam along the rope with four wheels on it.
-  pixelRect(-SHEAVE_HALF, -164, SHEAVE_HALF * 2, 4, IRON.base, 2);
-  pixelRect(-SHEAVE_HALF, -164, SHEAVE_HALF * 2, 2, IRON.light, 2);
-  pixelRect(-SHEAVE_HALF, -164, 2, 4, IRON.dark, 2);
+  pixelRect(-SHEAVE_HALF, -164 - PYLON_LIFT, SHEAVE_HALF * 2, 4, IRON.base, 2);
+  pixelRect(-SHEAVE_HALF, -164 - PYLON_LIFT, SHEAVE_HALF * 2, 2, IRON.light, 2);
+  pixelRect(-SHEAVE_HALF, -164 - PYLON_LIFT, 2, 4, IRON.dark, 2);
   for (const c of SHEAVES) {
     pixelRect(c - 2, CABLE_Y + 2, 6, 2, IRON.dark, 2);
     pixelRect(c - 4, CABLE_Y + 4, 10, 2, IRON.dark, 2);
@@ -207,9 +210,9 @@ export function drawPylon({ pixelRect }) {
     pixelRect(c, CABLE_Y + 4, 2, 2, STEEL.light, 2);
   }
   // Snow on the crossarm and on the beam ends.
-  pixelRect(-8, -162, 6, 2, SNOW.shade, 2);
-  pixelRect(-SHEAVE_HALF, -166, 4, 2, SNOW.base, 2);
-  pixelRect(SHEAVE_HALF - 4, -166, 4, 2, SNOW.light, 2);
+  pixelRect(-8, -162 - PYLON_LIFT, 6, 2, SNOW.shade, 2);
+  pixelRect(-SHEAVE_HALF, -166 - PYLON_LIFT, 4, 2, SNOW.base, 2);
+  pixelRect(SHEAVE_HALF - 4, -166 - PYLON_LIFT, 4, 2, SNOW.light, 2);
 }
 
 /** The concrete footing under the column, down to the ground. */
@@ -237,10 +240,12 @@ export function drawCable({ pixelRect }) {
 /**
  * Where the chair is at `time` (seconds), from the tower: `x` along the
  * rope, `y` its grip, `alpha` as it fades in and out at the ends, and its
- * `swing` (-1, 0, 1 art pixel at the seat). `phase` is a fixed 0…1 per prop.
- * Standing still (time 0) it waits a little way up the line.
+ * `swing` (whole art pixels at the seat): it swings further and is pushed
+ * `downwind` (-1 left, 1 right) the stronger the `wind` (0…1). `phase` is a
+ * fixed 0…1 per prop. Standing still (time 0) it waits a little way up the
+ * line.
  */
-export function liftChair(time, phase) {
+export function liftChair(time, phase, wind = 0.25, downwind = -1) {
   // A gap off the ends, so the chair does not pop straight back in.
   const span = CABLE_HALF * 2 + 48;
   const x = time
@@ -248,7 +253,7 @@ export function liftChair(time, phase) {
     : snap(CABLE_HALF * 0.45);
   const alpha = clamp((CABLE_HALF - Math.abs(x)) / CABLE_FADE, 0, 1);
   // Swinging gently, and kicked back a little as it rides over the sheaves.
-  let swing = time ? Math.round(Math.sin(time * 1.3 + phase * 6) * 0.8) : 0;
+  let swing = time ? Math.round(Math.sin(time * (1 + wind * 1.2) + phase * 6) * (0.5 + wind * 1.2) + downwind * wind * 1.2) : 0;
   if (time && Math.abs(x) < SHEAVE_HALF + 4) swing = -1;
   // The grip lifts over the sheave wheels.
   const y = CABLE_Y + cableSag(x) + (Math.abs(x) < SHEAVE_HALF ? -2 : 0);
@@ -527,15 +532,16 @@ export function pineSnowPuffs({ age, strength }) {
 // Hut with a smoking chimney
 // ---------------------------------------------------------------------------
 
-export const HUT_BOUNDS = [-58, -118, 58, -8];
+export const HUT_BOUNDS = [-58, -136, 58, -8];
 export const HUT_BODY_BOTTOM = -8;
 // The window's glass, and where the chimney's smoke leaves it.
-export const HUT_WINDOW = { left: 8, top: -42, width: 18, height: 14 };
+export const HUT_WINDOW = { left: 8, top: -52, width: 18, height: 14 };
 // The middle of the window, where its firelight comes from.
 export const HUT_WINDOW_CENTRE = [HUT_WINDOW.left + HUT_WINDOW.width / 2, HUT_WINDOW.top + HUT_WINDOW.height / 2];
-export const HUT_CHIMNEY = { x: 28, y: -118 };
-const HUT_APEX = -102;
-const HUT_WALL_TOP = -56;
+export const HUT_CHIMNEY = { x: 28, y: -136 };
+// The walls are 11 logs high, so the door is tall enough for a person.
+const HUT_APEX = -120;
+const HUT_WALL_TOP = -74;
 // The outer edge of the roof's snow at a row: 45 degrees from the apex.
 const roofHalf = (py) => py - HUT_APEX + 4;
 
@@ -557,12 +563,12 @@ export function drawHut({ pixelRect, drawPixelDisc }) {
     }
   }
   // Round attic vent with louvres.
-  drawPixelDisc(0, -74, 6, WOOD.dark, 2);
-  pixelRect(-4, -78, 8, 2, WOOD.base, 2);
-  pixelRect(-4, -74, 8, 2, WOOD.base, 2);
-  pixelRect(-2, -70, 6, 2, WOOD.base, 2);
+  drawPixelDisc(0, -92, 6, WOOD.dark, 2);
+  pixelRect(-4, -96, 8, 2, WOOD.base, 2);
+  pixelRect(-4, -92, 8, 2, WOOD.base, 2);
+  pixelRect(-2, -88, 6, 2, WOOD.base, 2);
   // Log walls, with the log ends crossing at the corners.
-  for (let log = 0; log < 8; log++) {
+  for (let log = 0; log < 11; log++) {
     const py = HUT_WALL_TOP + log * 6;
     pixelRect(-40, py, 80, 2, WOOD.light, 2);
     pixelRect(-40, py + 2, 80, 2, WOOD.plank, 2);
@@ -576,17 +582,17 @@ export function drawHut({ pixelRect, drawPixelDisc }) {
       pixelRect(end, py + 4, 6, 2, WOOD.light, 2);
     }
   }
-  // Door: planks in a dark frame, a handle and a step.
-  pixelRect(-32, -44, 20, 36, WOOD.dark, 2);
+  // Door, about 1.9 m tall: planks in a dark frame, a handle and a step.
+  pixelRect(-32, -60, 20, 52, WOOD.dark, 2);
   for (let px = -30; px < -14; px += 2) {
     const plank = Math.floor((px + 30) / 4);
-    pixelRect(px, -42, 2, 34, (px + 30) % 4 === 0 ? WOOD.base : plank % 2 ? WOOD.plank : WOOD.light, 2);
+    pixelRect(px, -58, 2, 50, (px + 30) % 4 === 0 ? WOOD.base : plank % 2 ? WOOD.plank : WOOD.light, 2);
   }
-  pixelRect(-30, -42, 16, 2, WOOD.base, 2);
-  pixelRect(-30, -30, 16, 2, WOOD.base, 2);
-  pixelRect(-30, -18, 16, 2, WOOD.base, 2);
-  pixelRect(-18, -28, 2, 4, IRON.base, 2);
-  pixelRect(-18, -28, 2, 2, STEEL.light, 2);
+  pixelRect(-30, -58, 16, 2, WOOD.base, 2);
+  pixelRect(-30, -40, 16, 2, WOOD.base, 2);
+  pixelRect(-30, -22, 16, 2, WOOD.base, 2);
+  pixelRect(-18, -36, 2, 4, IRON.base, 2);
+  pixelRect(-18, -36, 2, 2, STEEL.light, 2);
   pixelRect(-34, -10, 24, 2, WOOD.tip, 2);
   // Window frame and shutters; the glass is drawn by drawHutWindowGlass.
   const w = HUT_WINDOW;
@@ -606,7 +612,7 @@ export function drawHut({ pixelRect, drawPixelDisc }) {
   pixelRect(w.left - 4, w.top + w.height, 4, 2, SNOW.shade, 2);
   pixelRect(w.left + w.width, w.top + w.height, 4, 2, SNOW.light, 2);
   // Roof: a dark fascia under a deep layer of snow, both sides of the apex.
-  for (let py = HUT_APEX; py < -46; py += 2) {
+  for (let py = HUT_APEX; py < HUT_WALL_TOP + 10; py += 2) {
     const half = roofHalf(py);
     for (const side of [-1, 1]) {
       const outer = side < 0 ? -half : half - 8;
@@ -623,14 +629,14 @@ export function drawHut({ pixelRect, drawPixelDisc }) {
   pixelRect(-6, HUT_APEX - 4, 12, 4, SNOW.base, 2);
   pixelRect(-6, HUT_APEX - 4, 4, 4, SNOW.shade, 2);
   pixelRect(2, HUT_APEX - 4, 4, 2, SNOW.light, 2);
-  pixelRect(-58, -48, 8, 4, SNOW.shade, 2);
-  pixelRect(-58, -44, 4, 2, SNOW.deep, 2);
-  pixelRect(50, -48, 8, 4, SNOW.base, 2);
-  pixelRect(54, -44, 4, 2, SNOW.shade, 2);
+  pixelRect(-58, HUT_WALL_TOP + 8, 8, 4, SNOW.shade, 2);
+  pixelRect(-58, HUT_WALL_TOP + 12, 4, 2, SNOW.deep, 2);
+  pixelRect(50, HUT_WALL_TOP + 8, 8, 4, SNOW.base, 2);
+  pixelRect(54, HUT_WALL_TOP + 12, 4, 2, SNOW.shade, 2);
   // Little icicles off the eaves, under the overhangs.
   for (const [ix, length] of [[-56, 6], [-52, 4], [52, 4], [56, 8]]) {
-    pixelRect(ix, -42, 2, length, ICE.light, 2);
-    pixelRect(ix, -42 + length - 2, 2, 2, ICE.base, 2);
+    pixelRect(ix, HUT_WALL_TOP + 14, 2, length, ICE.light, 2);
+    pixelRect(ix, HUT_WALL_TOP + 14 + length - 2, 2, 2, ICE.base, 2);
   }
   // Stone chimney through the right slope, down into the snow.
   const c = HUT_CHIMNEY;
@@ -695,15 +701,16 @@ export function drawHutFoundation({ pixelRect }, groundOffset) {
  * Puffs of chimney smoke at `time` (seconds), as [{ x, y, radius, alpha }]
  * in the hut's local units: each rises, swells, thins out and is blown
  * `downwind` (-1 to the left, 1 to the right, in the hut's local units). In
- * a stronger `wind` (0…1, see windStrength) the plume bends over sooner and
+ * a stronger `wind` (0…1, from the trail's weather) the plume bends over sooner and
  * flatter. `phase` is a fixed 0…1 per prop. Standing still (time 0) they hold.
  */
 export function chimneySmoke(time, phase, wind = 0.25, downwind = -1) {
   const PUFFS = 6;
   const LIFE = 4.2;
   const w = clamp(Number(wind) || 0, 0, 1);
-  const lean = 10 + w * 50;
-  const climb = 72 - w * 24;
+  // In still air it rises nearly straight up; in a gale it is torn off flat.
+  const lean = 4 + w * 120;
+  const climb = 76 - w * 50;
   const out = [];
   for (let k = 0; k < PUFFS; k++) {
     const t = ((((time || 0.6) / LIFE + k / PUFFS + phase) % 1) + 1) % 1;

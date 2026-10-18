@@ -1,6 +1,7 @@
 // Button flashes and the toast over the canvas.
 import { $ } from "./dom.js";
 import { showValidation } from "./menu.js";
+import { editor } from "./state.js";
 
 /**
  * Swap a button's label briefly, then put it back.
@@ -43,6 +44,18 @@ export function refuse(action, errors) {
   // attention rather than leaving the reasons behind a closed menu.
   showValidation();
   return false;
+}
+
+/** Tell the author why an edit or save on a read-only trail did nothing. */
+export function refuseReadOnly() {
+  showStatus("info", "This trail is read-only here. Duplicate it to edit it, or export it.");
+}
+
+/** Refuse an edit on a read-only trail; true when it was refused. */
+export function refuseEdit() {
+  if (!editor.readOnly) return false;
+  refuseReadOnly();
+  return true;
 }
 
 let toastTimer = null;

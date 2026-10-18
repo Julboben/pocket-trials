@@ -3,10 +3,9 @@ import { bodyPose } from './bike-lamps.js';
 const HAIR_STEP = 1 / 120;
 const HAIR_MAX_STEPS = 4;
 const HAIR_LENGTHS = [4, 4, 4, 4, 4];
-// Where the ponytail leaves the head: under the back of the helmet, or at the
-// nape of a bare head, which sits further forward.
-const HAIR_ROOT = [-8, -44];
-const BARE_HAIR_ROOT = [-6, -42];
+// Where the ponytail leaves the head: a high ponytail at the back of the
+// crown, in the same place with or without a helmet.
+const HAIR_ROOT = [-9, -46];
 const HAIR_REST = [-.55, .84];
 // Each strand's colour is the matching entry of the cut's `strands`.
 const HAIR_STRANDS = [
@@ -15,6 +14,16 @@ const HAIR_STRANDS = [
   { offset: 0, reach: .9, width: 3 }
 ];
 const DEFAULT_COLORS = { strands: ['#54362d', '#54362d', '#684438'], outline: '#2e1d19', shine: '#8c5d48' };
+
+// What an outfit's accessory trails behind the rider (see lookParts().accessory):
+// where it leaves the body and the way it hangs, in body coordinates as
+// HAIR_ROOT and HAIR_REST, its links' lengths, and its width from the root
+// to the tip. A cape hangs from the shoulders and flares out; a scarf's
+// loose end streams from the neck.
+const ACCESSORIES = {
+  cape: { root: [-9, -37], rest: [-.8, .6], lengths: [5, 5, 5, 5, 5, 5], width: [3, 8], ragdoll: 2 },
+  scarf: { root: [-6, -38], rest: [-.9, .25], lengths: [3, 3, 3, 3, 3], width: [2, 2], ragdoll: 0 },
+};
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -51,8 +60,8 @@ export function riderBodyFrame({ rear, front, facing = 1, flipVisual = facing, l
   };
 }
 
-export function hairRoot(pose, exact, bare = false) {
-  const [x, y] = bare ? BARE_HAIR_ROOT : HAIR_ROOT;
+export function hairRoot(pose, exact) {
+  const [x, y] = HAIR_ROOT;
   return riderBodyFrame(pose, exact).point(x, y);
 }
 
@@ -101,16 +110,41 @@ function catmullRom(points, samplesPerSegment) {
   return curve;
 }
 
+/** Where an accessory leaves the body on a bike pose; see hairRoot. */
+export function accessoryRoot(pose, shape, exact) {
+  const [x, y] = ACCESSORIES[shape].root;
+  return riderBodyFrame(pose, exact).point(x, y);
+}
+
+/** The way an accessory hangs at rest on a bike pose; see hairRestDirection. */
+export function accessoryRestDirection(pose, shape) {
+  const [x, y] = ACCESSORIES[shape].rest;
+  return riderBodyFrame(pose, true).direction(x, y);
+}
+
+/** Where an accessory leaves the thrown rider, behind their shoulder. */
+export function freeAccessoryRoot(shoulder, facing, shape) {
+  return { x: shoulder.x - facing * ACCESSORIES[shape].ragdoll, y: shoulder.y };
+}
+
+/** The way an accessory hangs from the thrown rider. */
+export function freeAccessoryRestDirection(facing, shape) {
+  const [x, y] = ACCESSORIES[shape].rest;
+  const length = Math.hypot(x, y);
+  return { x: x * facing / length, y: y / length };
+}
+
 /**
- * @param {{ strands: string[], outline: string, shine: string }} [colors]
- *   the ponytail's colours, as in lookParts().hair
+ * A chain of links trailing from `root`, swinging with the rider, pulled by
+ * gravity and blown back by their speed, and kept off their back and the
+ * ground: the simulation under the ponytail and the accessories.
  */
-export function createRiderHair(root, rest, colors = DEFAULT_COLORS) {
+function createChain(root, rest, lengths) {
   let { x, y } = root;
   const hair = {
     accumulator: 0,
     root: { ...root },
-    points: HAIR_LENGTHS.map(length => {
+    points: lengths.map(length => {
       x += rest.x * length;
       y += rest.y * length + length * .3;
       return { x, y, px: x, py: y };
@@ -142,8 +176,8 @@ export function createRiderHair(root, rest, colors = DEFAULT_COLORS) {
         targetX /= targetLength; targetY /= targetLength;
       }
       const stiffness = lerp(.045, .008, along);
-      point.x += (parent.x + targetX * HAIR_LENGTHS[index] - point.x) * stiffness;
-      point.y += (parent.y + targetY * HAIR_LENGTHS[index] - point.y) * stiffness;
+      point.x += (parent.x + targetX * lengths[index] - point.x) * stiffness;
+      point.y += (parent.y + targetY * lengths[index] - point.y) * stiffness;
       const dx = point.x - parent.x, dy = point.y - parent.y;
       const distance = Math.hypot(dx, dy) || 1;
       parentDirection = { x: dx / distance, y: dy / distance };
@@ -154,8 +188,8 @@ export function createRiderHair(root, rest, colors = DEFAULT_COLORS) {
       points.forEach((point, index) => {
         const dx = point.x - chainParent.x, dy = point.y - chainParent.y;
         const distance = Math.hypot(dx, dy) || 1;
-        point.x = chainParent.x + dx / distance * HAIR_LENGTHS[index];
-        point.y = chainParent.y + dy / distance * HAIR_LENGTHS[index];
+        point.x = chainParent.x + dx / distance * lengths[index];
+        point.y = chainParent.y + dy / distance * lengths[index];
         if (back) pushOutOfBack(point, back);
         chainParent = point;
       });
@@ -177,6 +211,7 @@ export function createRiderHair(root, rest, colors = DEFAULT_COLORS) {
 
   return {
     get root() { return hair.root; },
+    get points() { return hair.points; },
     update(dt, { root, rest, back = null, groundAt = null }) {
       if (dt <= 0) return;
       const steps = Math.min(HAIR_MAX_STEPS, Math.floor((hair.accumulator + dt) / HAIR_STEP));
@@ -189,13 +224,30 @@ export function createRiderHair(root, rest, colors = DEFAULT_COLORS) {
     settle(seconds, state) {
       for (let elapsed = 0; elapsed < seconds; elapsed += HAIR_STEP) step(HAIR_STEP, hair.root, state.root, 1, state.rest, state.back, state.groundAt);
     },
-    draw(pixelPath, drawnRoot) {
+    /** The chain's spine as drawn from `drawnRoot`, smoothed, the links nearest it pinned to it. */
+    spine(drawnRoot) {
       const offsetX = drawnRoot.x - hair.root.x, offsetY = drawnRoot.y - hair.root.y;
       const controls = [[drawnRoot.x, drawnRoot.y], ...hair.points.map((point, index) => {
         const pinned = 1 - (index + 1) / hair.points.length;
         return [point.x + offsetX * pinned, point.y + offsetY * pinned];
       })];
-      const spine = catmullRom(controls, 2);
+      return catmullRom(controls, 2);
+    }
+  };
+}
+
+/**
+ * @param {{ strands: string[], outline: string, shine: string }} [colors]
+ *   the ponytail's colours, as in lookParts().hair
+ */
+export function createRiderHair(root, rest, colors = DEFAULT_COLORS) {
+  const chain = createChain(root, rest, HAIR_LENGTHS);
+  return {
+    get root() { return chain.root; },
+    update: chain.update,
+    settle: chain.settle,
+    draw(pixelPath, drawnRoot) {
+      const spine = chain.spine(drawnRoot);
       const last = spine.length - 1;
       const strands = HAIR_STRANDS.map(({ offset, reach, width }) => {
         const count = Math.max(2, Math.round(last * reach) + 1);
@@ -217,6 +269,76 @@ export function createRiderHair(root, rest, colors = DEFAULT_COLORS) {
       });
       const shine = strands[2];
       pixelPath(shine.slice(0, Math.ceil(shine.length * .35)).map(point => [point.x, point.y]), colors.shine, 1, 2);
+    }
+  };
+}
+
+/**
+ * An outfit's accessory, as in lookParts().accessory: a cloth ribbon on a
+ * chain, widening from the root to the tip, with a shaded edge.
+ * @param {{ shape: string, fill: string, light: string, shade: string, outline: string }} accessory
+ */
+export function createRiderAccessory(root, rest, accessory) {
+  const { lengths, width: [rootWidth, tipWidth] } = ACCESSORIES[accessory.shape];
+  const chain = createChain(root, rest, lengths);
+  return {
+    get root() { return chain.root; },
+    update: chain.update,
+    settle: chain.settle,
+    draw(pixelPath, drawnRoot) {
+      const spine = chain.spine(drawnRoot);
+      const last = spine.length - 1;
+      const width = index => Math.round(lerp(rootWidth, tipWidth, index / last));
+      for (const [pass, extra] of [['outline', 1], ['fill', 0]]) {
+        for (let i = 1; i <= last; i++) {
+          const color = pass === 'outline' ? accessory.outline : accessory.fill;
+          pixelPath([spine[i - 1], spine[i]], color, width(i) + extra, 2);
+        }
+      }
+      // The underside in shade along the lower edge, and a lit fold along the top.
+      for (let i = 2; i <= last; i++) {
+        const [ax, ay] = spine[i - 1], [bx, by] = spine[i];
+        const length = Math.hypot(bx - ax, by - ay) || 1;
+        const side = Math.max(0, width(i) - 2) / 2;
+        const nx = -(by - ay) / length * side, ny = (bx - ax) / length * side;
+        const lower = ny >= 0 ? 1 : -1;
+        pixelPath([[ax + nx * lower, ay + ny * lower], [bx + nx * lower, by + ny * lower]], accessory.shade, 1, 2);
+        if (side) pixelPath([[ax - nx * lower, ay - ny * lower], [bx - nx * lower, by - ny * lower]], accessory.light, 1, 2);
+      }
+    }
+  };
+}
+
+/**
+ * Everything that trails behind a rider in `parts` (lookParts): their
+ * ponytail and their outfit's accessory, as one piece driven by the hair's
+ * state, with `accessory` the accessory's own root and rest. Drawn from
+ * the hair's drawn root, the accessory moved with it.
+ */
+export function createRiderTrails(state, parts) {
+  const ponytail = parts.hair.ponytail ? createRiderHair(state.root, state.rest, parts.hair) : null;
+  const accessory = parts.accessory && state.accessory
+    ? createRiderAccessory(state.accessory.root, state.accessory.rest, parts.accessory) : null;
+  let root = { ...state.root };
+  const accessoryState = next => ({ ...next, root: next.accessory.root, rest: next.accessory.rest });
+  return {
+    get root() { return root; },
+    update(dt, next) {
+      root = { ...next.root };
+      ponytail?.update(dt, next);
+      if (accessory && next.accessory) accessory.update(dt, accessoryState(next));
+    },
+    settle(seconds, next) {
+      root = { ...next.root };
+      ponytail?.settle(seconds, next);
+      if (accessory && next.accessory) accessory.settle(seconds, accessoryState(next));
+    },
+    draw(pixelPath, drawnRoot) {
+      if (accessory) {
+        const { x, y } = accessory.root;
+        accessory.draw(pixelPath, { x: x + drawnRoot.x - root.x, y: y + drawnRoot.y - root.y });
+      }
+      ponytail?.draw(pixelPath, drawnRoot);
     }
   };
 }

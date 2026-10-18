@@ -5,6 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Hjulben Trail Editor</title>
         <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+        <link rel="stylesheet" href="./css/tokens.css" />
         <link rel="stylesheet" href="./css/icons.css" />
         <link rel="stylesheet" href="./css/editor.css" />
     </head>
@@ -108,8 +109,15 @@
                                 <button id="show-versions" role="menuitem">
                                     <span data-icon="clock" aria-hidden="true"></span><span>Versions</span>
                                 </button>
+                                <button id="share-trail" role="menuitem">
+                                    <span data-icon="share" aria-hidden="true"></span><span>Copy share link</span>
+                                </button>
                                 <button id="open-data" role="menuitem">
                                     <span data-icon="download" aria-hidden="true"></span><span>Import / export</span>
+                                </button>
+                                <button id="open-quick-pick" role="menuitem">
+                                    <span data-icon="search" aria-hidden="true"></span><span>Quick pick</span
+                                    ><kbd>⌘P</kbd>
                                 </button>
                                 <button id="show-shortcuts" role="menuitem">
                                     <span data-icon="keyboard" aria-hidden="true"></span><span>Keyboard shortcuts</span
@@ -159,6 +167,16 @@
                         >
                             TRAIL
                         </button>
+                        <button
+                            class="side-tab"
+                            role="tab"
+                            id="tab-objects"
+                            aria-selected="false"
+                            aria-controls="panel-objects"
+                            data-tab="objects"
+                        >
+                            OBJECTS
+                        </button>
                     </div>
 
                     <div
@@ -196,10 +214,6 @@
                                     <span data-icon="scissors" aria-hidden="true"></span><span>Cut</span>
                                 </button>
                             </div>
-                            <label class="checkbox-row"
-                                >Show game art
-                                <input id="game-art" type="checkbox"
-                            /></label>
                         </section>
                         <section class="tool-group">
                             <h3>OBJECTS</h3>
@@ -244,145 +258,241 @@
                         aria-labelledby="tab-trail"
                         hidden
                     >
-                        <label
-                            >Name <input id="trail-name" type="text"
-                        /></label>
-                        <label
-                            >Author
-                            <input
-                                id="trail-author"
-                                type="text"
-                                maxlength="40"
-                                autocomplete="nickname"
-                                placeholder="Credited in the game"
-                        /></label>
-                        <label
-                            >Notes
-                            <textarea
-                                id="trail-description"
-                                rows="3"
-                                placeholder="Design notes, not shown in the game"
-                            ></textarea></label>
-                        <fieldset>
-                            <legend>TIME OF DAY</legend>
+                        <fieldset class="field-group" id="trail-fields">
                             <label
-                                >Time of day
-                                <select id="time-of-day">
-                                    <option value="morning">Morning</option>
-                                    <option value="noon">Noon</option>
-                                    <option value="evening">Evening</option>
-                                    <option value="night">Night</option>
-                                </select></label
-                            >
+                                >Name <input id="trail-name" type="text"
+                            /></label>
                             <label
-                                >Backdrop
-                                <select id="backdrop">
-                                    <option value="hills">Hills</option>
-                                    <option value="mountains">Mountains</option>
-                                    <option value="forest">Forest</option>
-                                    <option value="desert">Desert</option>
-                                    <option value="city">City</option>
-                                </select></label
-                            >
+                                >Author
+                                <input
+                                    id="trail-author"
+                                    type="text"
+                                    maxlength="40"
+                                    autocomplete="nickname"
+                                    placeholder="Credited in the game"
+                            /></label>
+                            <label
+                                >Notes
+                                <textarea
+                                    id="trail-description"
+                                    rows="3"
+                                    placeholder="Design notes, not shown in the game"
+                                ></textarea></label>
+                            <fieldset>
+                                <legend>PREVIEW</legend>
+                                <canvas
+                                    id="trail-preview"
+                                    class="trail-preview"
+                                    role="img"
+                                    aria-label="The trail's thumbnail in the game's trail list"
+                                ></canvas>
+                                <p class="tool-hint" id="preview-note"></p>
+                                <div class="preview-actions">
+                                    <button type="button" id="edit-preview">EDIT PREVIEW</button>
+                                    <button type="button" id="reset-preview">RESET TO AUTOMATIC</button>
+                                </div>
+                            </fieldset>
+                            <fieldset>
+                                <legend>SCENERY</legend>
+                                <label
+                                    >Backdrop
+                                    <select id="backdrop" data-dropdown>
+                                        <option value="hills">Hills</option>
+                                        <option value="mountains">Mountains</option>
+                                        <option value="forest">Forest</option>
+                                        <option value="desert">Desert</option>
+                                        <option value="city">City</option>
+                                    </select></label
+                                >
+                            </fieldset>
+                            <fieldset>
+                                <legend>TIME OF DAY</legend>
+                                <label
+                                    ><span class="range-head"
+                                        >Time
+                                        <output
+                                            id="time-of-day-value"
+                                            for="time-of-day"
+                                        ></output></span
+                                    >
+                                    <input
+                                        id="time-of-day"
+                                        type="range"
+                                        min="0"
+                                        max="23"
+                                        step="1"
+                                        list="time-of-day-marks"
+                                /></label>
+                                <datalist id="time-of-day-marks"></datalist>
+                                <div
+                                    class="presets"
+                                    id="time-marks"
+                                    role="group"
+                                    aria-label="Times of day"
+                                ></div>
+                            </fieldset>
+                            <fieldset>
+                                <legend>WEATHER</legend>
+                                <div
+                                    class="presets"
+                                    id="weather-presets"
+                                    role="group"
+                                    aria-label="Weather presets"
+                                ></div>
+                            </fieldset>
+                            <fieldset>
+                                <legend>SKY</legend>
+                                <label
+                                    ><span class="range-head"
+                                        >Sun
+                                        <output
+                                            id="weather-sun-value"
+                                            for="weather-sun"
+                                        ></output></span
+                                    >
+                                    <input
+                                        id="weather-sun"
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                /></label>
+                                <label
+                                    ><span class="range-head"
+                                        >Clouds
+                                        <output
+                                            id="weather-clouds-value"
+                                            for="weather-clouds"
+                                        ></output></span
+                                    >
+                                    <input
+                                        id="weather-clouds"
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                /></label>
+                                <label
+                                    ><span class="range-head"
+                                        >Fog
+                                        <output
+                                            id="weather-fog-value"
+                                            for="weather-fog"
+                                        ></output></span
+                                    >
+                                    <input
+                                        id="weather-fog"
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                /></label>
+                            </fieldset>
+                            <fieldset>
+                                <legend>PRECIPITATION</legend>
+                                <label
+                                    ><span class="range-head"
+                                        >Rain
+                                        <output
+                                            id="weather-rain-value"
+                                            for="weather-rain"
+                                        ></output></span
+                                    >
+                                    <input
+                                        id="weather-rain"
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                /></label>
+                                <label
+                                    ><span class="range-head"
+                                        >Snow
+                                        <output
+                                            id="weather-snow-value"
+                                            for="weather-snow"
+                                        ></output></span
+                                    >
+                                    <input
+                                        id="weather-snow"
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                /></label>
+                                <label
+                                    ><span class="range-head"
+                                        >Lightning
+                                        <output
+                                            id="weather-lightning-value"
+                                            for="weather-lightning"
+                                        ></output></span
+                                    >
+                                    <input
+                                        id="weather-lightning"
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                /></label>
+                            </fieldset>
+                            <fieldset>
+                                <legend>WIND</legend>
+                                <div class="field-row wind-row">
+                                    <span>Blowing</span>
+                                    <span class="segmented" role="group" aria-label="Wind direction">
+                                        <button type="button" id="wind-left" aria-label="Wind blowing left">← Left</button>
+                                        <button type="button" id="wind-right" aria-label="Wind blowing right">Right →</button>
+                                    </span>
+                                    <canvas
+                                        id="windsock"
+                                        class="windsock"
+                                        width="64"
+                                        height="40"
+                                        role="img"
+                                        aria-label="Windsock showing the wind"
+                                    ></canvas>
+                                </div>
+                                <label
+                                    ><span class="range-head"
+                                        >Strength
+                                        <output
+                                            id="weather-wind-value"
+                                            for="weather-wind"
+                                        ></output></span
+                                    >
+                                    <input
+                                        id="weather-wind"
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                /></label>
+                            </fieldset>
                         </fieldset>
-                        <fieldset>
-                            <legend>WEATHER</legend>
-                            <label
-                                ><span class="range-head"
-                                    >Sun
-                                    <output
-                                        id="weather-sun-value"
-                                        for="weather-sun"
-                                    ></output></span
-                                >
-                                <input
-                                    id="weather-sun"
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.05"
-                            /></label>
-                            <label
-                                ><span class="range-head"
-                                    >Clouds
-                                    <output
-                                        id="weather-clouds-value"
-                                        for="weather-clouds"
-                                    ></output></span
-                                >
-                                <input
-                                    id="weather-clouds"
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.05"
-                            /></label>
-                            <label
-                                ><span class="range-head"
-                                    >Fog
-                                    <output
-                                        id="weather-fog-value"
-                                        for="weather-fog"
-                                    ></output></span
-                                >
-                                <input
-                                    id="weather-fog"
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.05"
-                            /></label>
-                            <label
-                                ><span class="range-head"
-                                    >Rain
-                                    <output
-                                        id="weather-rain-value"
-                                        for="weather-rain"
-                                    ></output></span
-                                >
-                                <input
-                                    id="weather-rain"
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.05"
-                            /></label>
-                            <label
-                                ><span class="range-head"
-                                    >Snow
-                                    <output
-                                        id="weather-snow-value"
-                                        for="weather-snow"
-                                    ></output></span
-                                >
-                                <input
-                                    id="weather-snow"
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.05"
-                            /></label>
-                            <label
-                                ><span class="range-head"
-                                    >Lightning
-                                    <output
-                                        id="weather-lightning-value"
-                                        for="weather-lightning"
-                                    ></output></span
-                                >
-                                <input
-                                    id="weather-lightning"
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.05"
-                            /></label>
-                        </fieldset>
+                    </div>
+
+                    <div
+                        class="side-panel"
+                        id="panel-objects"
+                        role="tabpanel"
+                        aria-labelledby="tab-objects"
+                        hidden
+                    >
+                        <p class="objects-hint">
+                            Click a name to select it and bring it into view.
+                            Cmd/Ctrl-click adds it to the selection or takes it
+                            out, and Shift-click adds every row up to it.
+                            Anything locked is still drawn, but can't be
+                            selected or changed.
+                        </p>
+                        <ul class="object-groups" id="object-groups"></ul>
                     </div>
 
                     <div class="toolbox-footer">
                         <div class="zoom-controls">
-                            <button id="zoom-out" aria-label="Zoom out"><span data-icon="minus" aria-hidden="true"></span></button
+                            <button id="game-art" aria-pressed="false" aria-label="Show game art"><span data-icon="picture" aria-hidden="true"></span></button
+                            ><button id="zoom-out" aria-label="Zoom out"><span data-icon="minus" aria-hidden="true"></span></button
                             ><span id="zoom-label">100%</span
                             ><button id="zoom-in" aria-label="Zoom in"><span data-icon="plus" aria-hidden="true"></span></button>
                         </div>
@@ -418,9 +528,15 @@
                         Select an object on the canvas to edit it. Trail-wide
                         settings are in the TRAIL tab.
                     </p>
+                    <ul
+                        class="selection-issues"
+                        id="selection-issues"
+                        aria-label="Problems with the selection"
+                        hidden
+                    ></ul>
 
                     <div id="selection-fields" hidden>
-                        <fieldset>
+                        <fieldset id="selection-fieldset">
                             <legend>SELECTION</legend>
                             <label
                                 >X
@@ -430,9 +546,13 @@
                                 >Y
                                 <input id="selection-y" type="number" step="1"
                             /></label>
+                            <div class="field-row" id="selection-size-row" hidden>
+                                Size (width × height)
+                                <output id="selection-size" class="size-readout"></output>
+                            </div>
                             <label id="selection-material-row" hidden
                                 >Material
-                                <select id="selection-material"></select
+                                <select id="selection-material" data-dropdown></select
                             ></label>
                             <label id="selection-block-layer-row" hidden
                                 >Layer
@@ -443,6 +563,9 @@
                             >
                             <button class="wide-action" id="fill-back-walls" hidden>
                                 FILL CAVES WITH BACK WALLS
+                            </button>
+                            <button class="wide-action" id="merge-blocks" hidden>
+                                MERGE BLOCKS
                             </button>
                             <label id="selection-node-row" hidden
                                 >Point
@@ -474,100 +597,32 @@
                                     <optgroup label="Trees">
                                         <option value="tree">Tree</option>
                                         <option value="pine">Pine</option>
+                                        <option value="pine-small">Pine (small)</option>
                                         <option value="sapling">Sapling</option>
-                                        <option value="pine-small">
-                                            Pine (small)
-                                        </option>
+                                        <option value="snow-pine">Snowy pine</option>
+                                        <option value="stump">Stump</option>
                                     </optgroup>
-                                    <optgroup label="Undergrowth">
+                                    <optgroup label="Plants">
                                         <option value="bush">Bush</option>
                                         <option value="flowers">Flowers</option>
-                                        <option value="stump">Stump</option>
+                                        <option value="grass">Grass</option>
                                         <option value="cactus">Cactus</option>
-                                        <option value="cactus-small">
-                                            Cactus (small)
-                                        </option>
+                                        <option value="cactus-small">Cactus (small)</option>
+                                        <option value="tumbleweed">Tumbleweed</option>
                                     </optgroup>
-                                    <optgroup label="Woodland">
-                                        <option value="squirrel">Squirrel</option>
-                                        <option value="corgi">Coda (corgi)</option>
-                                    </optgroup>
-                                    <optgroup label="Rock and desert">
+                                    <optgroup label="Rocks">
                                         <option value="rock">Rock</option>
                                         <option value="boulder">Boulder</option>
-                                        <option value="crystal">Crystal</option>
                                         <option value="pebbles">Pebbles</option>
-                                    </optgroup>
-                                    <optgroup label="Desert">
-                                        <option value="skull">Cow skull</option>
-                                        <option value="tumbleweed">Tumbleweed</option>
-                                        <option value="car-wreck">
-                                            Rusted car wreck
-                                        </option>
-                                        <option value="water-tower">
-                                            Water tower
-                                        </option>
-                                        <option value="windmill">
-                                            Windmill pump
-                                        </option>
-                                        <option value="heat-haze">Heat haze</option>
-                                        <option value="vulture">Vulture</option>
-                                    </optgroup>
-                                    <optgroup label="Mountain">
+                                        <option value="crystal">Crystal</option>
                                         <option value="cairn">Cairn</option>
-                                        <option value="ski-lift">Ski-lift pylon</option>
-                                        <option value="icicles">Icicles</option>
-                                        <option value="snow-pine">Snowy pine</option>
-                                        <option value="hut">Mountain hut</option>
-                                        <option value="snowman">Snowman</option>
                                     </optgroup>
-                                    <optgroup label="Built">
-                                        <option value="fence">Fence</option>
-                                        <option value="sign">Sign</option>
-                                    </optgroup>
-                                    <optgroup label="Farm">
-                                        <option value="crates">Crates</option>
-                                        <option value="apple">Apple (decor)</option>
-                                        <option value="ladder">Ladder</option>
-                                        <option value="wheelbarrow">
-                                            Wheelbarrow
-                                        </option>
-                                        <option value="scarecrow">Scarecrow</option>
-                                        <option value="beehive">Beehive</option>
-                                        <option value="tyre">Tractor tyre</option>
-                                    </optgroup>
-                                    <optgroup label="Street">
-                                        <option value="cone">Traffic cone</option>
-                                        <option value="barrier">Barrier</option>
-                                        <option value="dumpster">Dumpster</option>
-                                        <option value="lamp">Street lamp</option>
-                                        <option value="bird">Bird</option>
-                                    </optgroup>
-                                    <optgroup label="Building site">
-                                        <option value="crane">Crane</option>
-                                        <option value="scaffolding">
-                                            Scaffolding
-                                        </option>
-                                    </optgroup>
-                                    <optgroup label="Cave">
-                                        <option value="hanging-roots">
-                                            Hanging roots
-                                        </option>
-                                        <option value="stalactites">
-                                            Stalactites
-                                        </option>
-                                        <option value="drip">Dripping water</option>
-                                        <option value="lantern">Lantern</option>
-                                        <option value="bats">Bats</option>
-                                        <option value="mushrooms">
-                                            Glowing mushrooms
-                                        </option>
-                                        <option value="minecart">
-                                            Mine cart on rails
-                                        </option>
-                                        <option value="beams">
-                                            Support beams
-                                        </option>
+                                    <optgroup label="On walls">
+                                        <option value="vines">Vines</option>
+                                        <option value="ivy">Ivy</option>
+                                        <option value="moss">Moss</option>
+                                        <option value="roots">Roots</option>
+                                        <option value="graffiti">Graffiti</option>
                                     </optgroup>
                                     <optgroup label="Water">
                                         <option value="lily">Water lilies</option>
@@ -576,11 +631,103 @@
                                         <option value="fish">Fish</option>
                                         <option value="duck">Duck</option>
                                     </optgroup>
-                                    <optgroup label="Walls">
-                                        <option value="graffiti">Graffiti</option>
-                                        <option value="vines">Vines</option>
-                                        <option value="roots">Roots</option>
-                                        <option value="moss">Moss</option>
+                                    <optgroup label="Animals">
+                                        <option value="squirrel">Squirrel</option>
+                                        <option value="corgi">Coda (corgi)</option>
+                                        <option value="bird">Bird</option>
+                                        <option value="vulture">Vulture</option>
+                                        <option value="bats">Bats</option>
+                                    </optgroup>
+                                    <optgroup label="Farm and countryside">
+                                        <option value="fence">Fence</option>
+                                        <option value="crates">Crates</option>
+                                        <option value="apple">Apple (decor)</option>
+                                        <option value="ladder">Ladder</option>
+                                        <option value="wheelbarrow">Wheelbarrow</option>
+                                        <option value="scarecrow">Scarecrow</option>
+                                        <option value="beehive">Beehive</option>
+                                        <option value="tyre">Tractor tyre</option>
+                                        <option value="tent">Tent</option>
+                                        <option value="fireplace">Fireplace</option>
+                                        <option value="flagpole">Dannebrog flagpole</option>
+                                    </optgroup>
+                                    <optgroup label="Desert">
+                                        <option value="skull">Cow skull</option>
+                                        <option value="car-wreck">Rusted car wreck</option>
+                                        <option value="water-tower">Water tower</option>
+                                        <option value="windmill">Windmill pump</option>
+                                        <option value="heat-haze">Heat haze</option>
+                                    </optgroup>
+                                    <optgroup label="Mountain">
+                                        <option value="hut">Mountain hut</option>
+                                        <option value="ski-lift">Ski-lift pylon</option>
+                                        <option value="snowman">Snowman</option>
+                                        <option value="icicles">Icicles</option>
+                                    </optgroup>
+                                    <optgroup label="City">
+                                        <option value="lamp">Street lamp</option>
+                                        <option value="bench">Copenhagen bench</option>
+                                        <option value="cone">Traffic cone</option>
+                                        <option value="barrier">Barrier</option>
+                                        <option value="dumpster">Dumpster</option>
+                                        <option value="christiania-bike">Christiania bike</option>
+                                        <option value="crane">Crane</option>
+                                        <option value="scaffolding">Scaffolding</option>
+                                        <option value="smoke">Smoke</option>
+                                    </optgroup>
+                                    <optgroup label="Cave and mine">
+                                        <option value="stalactites">Stalactites</option>
+                                        <option value="hanging-roots">Hanging roots</option>
+                                        <option value="drip">Dripping water</option>
+                                        <option value="lantern">Lantern</option>
+                                        <option value="mushrooms">Glowing mushrooms</option>
+                                        <option value="beams">Support beams</option>
+                                        <option value="minecart">Mine cart on rails</option>
+                                    </optgroup>
+                                    <optgroup label="Dungeon and cobwebs">
+                                        <option value="dungeon-bars">Dungeon bars</option>
+                                        <option value="portcullis">Portcullis</option>
+                                        <option value="torch">Torch</option>
+                                        <option value="hanging-chains">Hanging chains</option>
+                                        <option value="gibbet">Gibbet cage</option>
+                                        <option value="skeleton">Skeleton</option>
+                                        <option value="spiderweb">Spiderweb</option>
+                                        <option value="cobweb">Cobweb</option>
+                                        <option value="spider">Dangling spider</option>
+                                        <option value="cocoon">Cocoon</option>
+                                    </optgroup>
+                                    <optgroup label="Prison">
+                                        <option value="prison-fence">Prison fence</option>
+                                        <option value="watchtower">Watchtower</option>
+                                        <option value="jail-cell">Jail cell</option>
+                                        <option value="escape-tunnel">Escape tunnel</option>
+                                        <option value="ball-and-chain">Ball and chain</option>
+                                        <option value="wanted-poster">Wanted poster</option>
+                                        <option value="tally-marks">Tally marks</option>
+                                    </optgroup>
+                                    <optgroup label="Trials event">
+                                        <option value="tyre-wall">Tyre wall</option>
+                                        <option value="hay-bales">Hay bales</option>
+                                        <option value="course-tape">Course tape</option>
+                                        <option value="banner">Sponsor banner</option>
+                                        <option value="spectators">Spectators</option>
+                                        <option value="marshal-start">Start marshal</option>
+                                        <option value="marshal-finish">Finish marshal</option>
+                                        <option value="pit-board">Pit board</option>
+                                        <option value="petrol-can">Petrol can</option>
+                                        <option value="camera-tower">Camera tower</option>
+                                    </optgroup>
+                                    <optgroup label="Signs and hints">
+                                        <option value="sign">Sign</option>
+                                        <option value="arrow-sign">Arrow sign</option>
+                                        <option value="warning-triangle">Warning sign</option>
+                                        <option value="warning-bang">Warning sign (!)</option>
+                                        <option value="warning-skull">Warning sign (skull)</option>
+                                        <option value="halfway-flag">Halfway flag</option>
+                                        <option value="tutorial-lean">Drawing: lean back</option>
+                                        <option value="tutorial-lean-forward">Drawing: lean forward</option>
+                                        <option value="tutorial-flip">Drawing: flip</option>
+                                        <option value="tutorial-light">Drawing: headlight</option>
                                     </optgroup>
                                 </select></label
                             >
@@ -593,8 +740,9 @@
                                     autocomplete="off"
                             /></label>
                             <label id="selection-layer-row" hidden
-                                >Layer
+                                >Prop layer
                                 <select id="selection-layer">
+                                    <option value="" hidden>Mixed</option>
                                     <option value="back">Back</option>
                                     <option value="front">Front</option>
                                 </select></label
@@ -602,6 +750,7 @@
                             <label id="selection-flip-row" hidden
                                 >Flip
                                 <select id="selection-flip">
+                                    <option value="" hidden>Mixed</option>
                                     <option value="false">Normal</option>
                                     <option value="true">Flipped</option>
                                 </select></label
@@ -659,6 +808,16 @@
                                 id="selection-water-hint"
                                 hidden
                             ></p>
+                            <p
+                                class="tool-hint"
+                                id="selection-nisse-hint"
+                                hidden
+                            >
+                                The trail's hidden nisse. Riders don't need it
+                                to finish and nothing points to it, so put it
+                                off the main line, where it takes some skill
+                                to reach.
+                            </p>
                             <button class="danger" id="delete-selection">
                                 DELETE SELECTION
                             </button>
@@ -853,7 +1012,7 @@
                         <dt>Double-click</dt>
                         <dd>Add a point to an edge</dd>
                         <dt><kbd>Alt</kbd> drag</dt>
-                        <dd>Duplicate what you drag</dd>
+                        <dd>Duplicate what you drag; press <kbd>Alt</kbd> mid-drag to switch</dd>
                         <dt><kbd>⌘/Ctrl</kbd> <kbd>C</kbd> <kbd>X</kbd> <kbd>V</kbd></dt>
                         <dd>Copy, cut, paste (also into another trail)</dd>
                         <dt><kbd>Delete</kbd></dt>
@@ -903,6 +1062,8 @@
                         <dd>Zoom, also pinch</dd>
                         <dt><kbd>=</kbd> <kbd>−</kbd> <kbd>0</kbd></dt>
                         <dd>Zoom in, out, reset</dd>
+                        <dt><kbd>Y</kbd></dt>
+                        <dd>Show or hide the game art</dd>
                         <dt><kbd>Home</kbd></dt>
                         <dd>Back to the start</dd>
                     </dl>
@@ -918,6 +1079,8 @@
                         <dd>Play test</dd>
                         <dt><kbd>⌘/Ctrl</kbd> <kbd>Shift</kbd> <kbd>Enter</kbd></dt>
                         <dd>Play test from the mouse; the start stays put</dd>
+                        <dt><kbd>⌘/Ctrl</kbd> <kbd>P</kbd></dt>
+                        <dd>Quick pick: search every tool, block and prop</dd>
                         <dt><kbd>?</kbd></dt>
                         <dd>This list</dd>
                     </dl>

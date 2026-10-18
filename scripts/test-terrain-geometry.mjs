@@ -7,7 +7,7 @@ import {
   rectangleBlock, cutBlock, normalizeBlock, regionRings, pointInRegion,
   regionArea, flattenBoundary, moveBlock, insertBoundaryNode, validateBlock, addInnerBoundary,
   createNode, createBoundary, createRegion, hitTestBlock, removeBoundaryNodes, setBoundaryEdge,
-  setNodeMode, blockSolidArea, isCurvedEdge, scaleBlock, rotateBlock,
+  setNodeMode, blockSolidArea, isCurvedEdge, scaleBlock, rotateBlock, mergeBlocks,
 } from "../js/terrain-geometry.js";
 import { normalizeTrail, validateTrail } from "../js/trail-schema.js";
 
@@ -273,6 +273,83 @@ check("the island is still its own solid", pointInRegion(withIsland.blocks[0], 5
   const gash = cutBlock(heavy, [[190, 200], [210, 200], [210, 260], [190, 260]]);
   check("a heavily subdivided curve survives a cut", gash.changed);
   check("a heavy curve stays a manageable node count", gash.changed && count(gash.blocks[0]) < 60);
+}
+
+// 15. Merging blocks that overlap or touch.
+{
+  const near = (a, b) => Math.abs(a - b) < 1e-3;
+  const box = (left, top, right, bottom, material = "grass") => rectangleBlock(left, top, right, bottom, material);
+  const valid = block => validateBlock(block).length === 0;
+
+  const overlap = mergeBlocks([box(0, 0, 100, 100), box(50, 50, 150, 150)]);
+  check("overlapping blocks merge", overlap.changed);
+  check("overlap area is the union", overlap.changed && near(regionArea(overlap.block), 17500));
+  check("overlap is one outline of eight corners", overlap.changed && overlap.block.outer.nodes.length === 8 && overlap.block.inner.length === 0);
+  check("overlap is valid", overlap.changed && valid(overlap.block));
+
+  const side = mergeBlocks([box(0, 0, 100, 100), box(100, 0, 200, 100)]);
+  check("blocks sharing an edge merge", side.changed && near(regionArea(side.block), 20000));
+  check("a shared edge leaves no points where the blocks met", side.changed && side.block.outer.nodes.length === 4);
+
+  const partial = mergeBlocks([box(0, 0, 100, 100), box(100, 20, 200, 80)]);
+  check("blocks sharing part of an edge merge", partial.changed && near(regionArea(partial.block), 16000));
+  check("a partly shared edge keeps both of its ends", partial.changed && partial.block.outer.nodes.length === 8);
+  check("partly shared edge is solid where they meet", partial.changed && pointInRegion(partial.block, 100, 50));
+  check("partly shared edge is valid", partial.changed && valid(partial.block));
+
+  const larger = mergeBlocks([box(0, 30, 100, 70), box(100, 0, 200, 100)]);
+  check("a short edge against a long one merges", larger.changed && near(regionArea(larger.block), 14000) && larger.block.outer.nodes.length === 8);
+
+  const cup = cutBlock(box(0, 0, 300, 200), [[100, -10], [200, -10], [200, 150], [100, 150]]).blocks[0];
+  const lid = mergeBlocks([cup, box(50, -50, 250, 50)]);
+  check("closing a U shape merges", lid.changed);
+  check("closing a U shape leaves a cave", lid.changed && lid.block.inner.length === 1 && !pointInRegion(lid.block, 150, 100));
+  check("closed U is valid", lid.changed && valid(lid.block));
+
+  const caved = cutBlock(box(0, 0, 200, 200), [[50, 50], [150, 50], [150, 150], [50, 150]]).blocks[0];
+  const plug = mergeBlocks([caved, box(25, 25, 175, 175)]);
+  check("a block over a cave fills it", plug.changed && plug.block.inner.length === 0 && near(regionArea(plug.block), 40000));
+  const partPlug = mergeBlocks([caved, box(40, 40, 100, 160)]);
+  check("a block over part of a cave shrinks it", partPlug.changed && partPlug.block.inner.length === 1 && near(regionArea(partPlug.block), 40000 - 5000));
+
+  const round = normalizeBlock({
+    material: "grass",
+    outer: {
+      nodes: [
+        { x: 0, y: 0, edge: "curve", out: [40, -60] },
+        { x: 100, y: 0, mode: "smooth", in: [60, -60], edge: "straight" },
+        { x: 100, y: 100, edge: "straight" },
+        { x: 0, y: 100, edge: "straight" },
+      ],
+    },
+    inner: [],
+  });
+  const withCurve = mergeBlocks([box(80, 40, 180, 100), round]);
+  check("a curved block merges", withCurve.changed);
+  check("its untouched curve stays one curved edge", withCurve.changed
+    && withCurve.block.outer.nodes.filter(node => isCurvedEdge(node, withCurve.block.outer.nodes[(withCurve.block.outer.nodes.indexOf(node) + 1) % withCurve.block.outer.nodes.length])).length === 1);
+
+  const apart = mergeBlocks([box(0, 0, 100, 100), box(200, 0, 300, 100)]);
+  check("blocks that are apart are refused", !apart.changed && typeof apart.reason === "string");
+  const corner = mergeBlocks([box(0, 0, 100, 100), box(100, 100, 200, 200)]);
+  check("blocks meeting at a corner are refused", !corner.changed);
+
+  const chain = mergeBlocks([box(0, 0, 100, 100), box(200, 0, 300, 100), box(90, 40, 210, 60)]);
+  check("blocks that only meet through a third merge", chain.changed && near(regionArea(chain.block), 20000 + 100 * 20));
+
+  const big = box(0, 0, 200, 200, "rock");
+  const mixed = mergeBlocks([box(150, 0, 250, 100, "sand"), big]);
+  check("the largest block keeps its id and material", mixed.changed && mixed.block.id === big.id && mixed.block.material === "rock");
+
+  const wall = { ...box(50, 0, 150, 100), layer: "back" };
+  check("terrain and back walls are refused", !mergeBlocks([box(0, 0, 100, 100), wall]).changed);
+  check("one block is refused", !mergeBlocks([box(0, 0, 100, 100)]).changed);
+  const walls = mergeBlocks([{ ...box(0, 0, 100, 100), layer: "back" }, wall]);
+  check("back walls merge into a back wall", walls.changed && walls.block.layer === "back");
+
+  // A cut that ends exactly on a flat edge still works with every collinear split recorded.
+  const flush = cutBlock(box(0, 0, 100, 100), [[0, 20], [50, 20], [50, 60], [0, 60]]);
+  check("a cut flush with an edge opens a notch", flush.changed && flush.blocks.length === 1 && near(regionArea(flush.blocks[0]), 8000));
 }
 
 console.log(failures ? `\n${failures} failing` : "\nTerrain geometry tests passed.");

@@ -8,18 +8,17 @@ import {
   BIKE_VELOCITY_ITERATIONS,
   XPBD_CHASSIS_COMPLIANCE,
   XPBD_CHASSIS_AREA_COMPLIANCE,
-  XPBD_SUSPENSION_COMPLIANCE,
   XPBD_SUSPENSION_EXTENSION_COMPLIANCE,
-  XPBD_SUSPENSION_DAMPING,
-  XPBD_SUSPENSION_REBOUND_DAMPING,
   XPBD_SUSPENSION_SLIDER_COMPLIANCE,
   SUSPENSION_REST_LENGTH,
   SUSPENSION_TRAVEL,
-  SUSPENSION_BUMP_STOP_LENGTH,
-  XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE,
   SUSPENSION_TOP_OUT_LENGTH,
   XPBD_SUSPENSION_TOP_OUT_COMPLIANCE,
+  FORK_SUSPENSION,
+  SHOCK_SUSPENSION,
+  SUSPENSION_FLIP_TIME,
   WHEEL_INERTIA,
+  WHEEL_SPIN_DRAG,
   WHEEL_FRICTION,
   WHEEL_SLIDE_FRICTION,
   WHEEL_DRIVE_SLIP,
@@ -27,6 +26,7 @@ import {
   XPBD_CHASSIS_TOP_INVERSE_MASS,
   XPBD_MOTOR_ANGULAR_ACCELERATION,
   XPBD_TORQUE_FALLOFF_SPEED,
+  ENGINE,
   XPBD_MOTOR_REACTION_SCALE,
   XPBD_RIDER_GROUND_ANGULAR_ACCELERATION,
   XPBD_RIDER_AIR_ANGULAR_ACCELERATION,
@@ -39,12 +39,11 @@ import {
   XPBD_TOUCHDOWN_SPIN_ABSORPTION,
   XPBD_THROTTLE_LEAN_ASSIST,
   XPBD_THROTTLE_INPUT_RESPONSE,
+  XPBD_THROTTLE_RELEASE_RESPONSE,
   XPBD_LEAN_INPUT_RESPONSE,
   XPBD_UPHILL_FORWARD_LEAN_REDUCTION,
   XPBD_UPHILL_FORWARD_LEAN_FULL_TILT,
-  XPBD_BRAKE_REACTION_SCALE,
-  XPBD_BRAKE_REACTION_LIMIT,
-  XPBD_BRAKE_RATE,
+  XPBD_UPHILL_FORWARD_LEAN_SPEED,
   XPBD_BRAKE_TORQUE,
   XPBD_COAST_RESISTANCE_LOW_SPEED,
   XPBD_COAST_RESISTANCE_HIGH_SPEED,
@@ -59,7 +58,9 @@ import {
   createDistanceConstraint,
   createAreaConstraint,
   createSliderConstraint,
-  createAxisLimitConstraint,
+  createLegConstraint,
+  legOffset,
+  dampLegConstraint,
   signedTriangleArea,
   resetConstraintMultiplier,
   solveXpbdConstraint,
@@ -78,7 +79,7 @@ import {
   terrainSweepCollision,
 } from "./terrain.js";
 import { passThroughGlass, shatterGlass } from "./glass.js";
-import { atan2, exp, hypot } from "./det-math.js";
+import { atan2, cos, exp, hypot, pow, sin } from "./det-math.js";
 
 const distance = (a, b) => hypot(a.x - b.x, a.y - b.y);
 const CRASHED_CHASSIS_CONTACT = { bounce: 0.1, friction: 0.35 };
@@ -93,6 +94,110 @@ const CRASHED_FRAME_PROBES = [
   [20, 6],
 ];
 const CRASHED_FRAME_PROBE_RADIUS = 3;
+
+// A wheel's suspension, measured along the line the wheel travels on: the
+// spring with its damper, a firmer top-out spring over the last of the
+// stretch, a slider holding the wheel on its line, and the stroke limits.
+// fitSuspension() aims them each step.
+function suspensionLeg(wheel, mount, { rearMount, frontMount }) {
+  const leg = options => createLegConstraint(wheel, mount, rearMount, frontMount, options);
+  return {
+    wheel,
+    spring: leg({ extensionCompliance: XPBD_SUSPENSION_EXTENSION_COMPLIANCE }),
+    topOut: leg({
+      compliance: XPBD_SUSPENSION_TOP_OUT_COMPLIANCE,
+      upper: SUSPENSION_TOP_OUT_LENGTH - SUSPENSION_REST_LENGTH,
+    }),
+    slider: createSliderConstraint(wheel, mount, rearMount, frontMount, {
+      compliance: XPBD_SUSPENSION_SLIDER_COMPLIANCE,
+    }),
+    // A half-plane rather than a circle round the mount, so on a hard hit the
+    // wheel cannot slip round it and come out above the frame.
+    limit: leg({ lower: -SUSPENSION_TRAVEL, upper: SUSPENSION_TRAVEL }),
+  };
+}
+
+// The fork goes on the leading wheel and the shock on the trailing one,
+// whichever way the rider faces. Each wheel travels on a line through its
+// resting place, square below its mount, tilted `rake` toward the rider: the
+// fork wheel moves up and back along the fork as it compresses.
+function fitSuspension({ suspension, chassis }, facing) {
+  const axisX = chassis.frontMount.x - chassis.rearMount.x,
+    axisY = chassis.frontMount.y - chassis.rearMount.y;
+  // +1 while the frame's axis normal (-axisY, axisX) points away from the top.
+  const down =
+    (chassis.top.x - chassis.rearMount.x) * -axisY +
+      (chassis.top.y - chassis.rearMount.y) * axisX >
+    0
+      ? -1
+      : 1;
+  for (const leg of suspension) {
+    const { wheel, spring, topOut, slider, limit } = leg;
+    const leading = (wheel === suspension[1].wheel) === facing > 0;
+    const settings = leading ? FORK_SUSPENSION : SHOCK_SUSPENSION;
+    spring.settings = settings;
+    spring.damping = settings.damping;
+    spring.reboundDamping = settings.reboundDamping;
+    // On a flip the fork's raked line becomes the shock's square one and
+    // back. Turned in one step, a compressed wheel would sit a few px off its
+    // new line and the slider would snap it there, so the line turns over
+    // SUSPENSION_FLIP_TIME instead.
+    const rake = settings.rake * facing;
+    const turn = (FORK_SUSPENSION.rake * STEP) / SUSPENSION_FLIP_TIME;
+    leg.rake =
+      leg.rake === undefined ? rake : clamp(rake, leg.rake - turn, leg.rake + turn);
+    const square = cos(leg.rake),
+      lean = sin(leg.rake);
+    for (const leg of [spring, topOut, limit]) {
+      leg.along = lean;
+      leg.across = down * square;
+      leg.rest = SUSPENSION_REST_LENGTH * square;
+    }
+    slider.along = square;
+    slider.across = -down * lean;
+    slider.target = -SUSPENSION_REST_LENGTH * lean;
+  }
+}
+
+// How far the leg is compressed along its line (negative when stretched).
+function legTravel(leg) {
+  return leg.rest - legOffset(leg);
+}
+
+// The suspension's length along its line: SUSPENSION_REST_LENGTH at rest.
+function legLength({ spring }) {
+  return SUSPENSION_REST_LENGTH - legTravel(spring);
+}
+
+// Share of the way from `start` px of compression to full travel.
+function travelShare(compression, start) {
+  return clamp(
+    (compression - start) / (SUSPENSION_TRAVEL - start),
+    0,
+    1,
+  );
+}
+
+// A rising-rate spring: stiffness climbs from its base past risingRateStart
+// to 1 + risingRateGain times it at full travel. Set once per step from the
+// predicted travel, so the XPBD solve sees a constant compliance.
+function updateRisingRate(spring) {
+  const { compliance, risingRateStart, risingRateGain, risingRatePower } =
+    spring.settings;
+  const share = travelShare(legTravel(spring), risingRateStart);
+  spring.compliance =
+    compliance / (1 + risingRateGain * pow(share, risingRatePower));
+}
+
+// Compression damping at the spring's travel: the base value above
+// bottomingStart, rising with the square of the way through the bottoming
+// zone to bottomingDamping at full travel.
+function compressionDamping(spring) {
+  const { settings } = spring;
+  if (!settings) return spring.damping;
+  const depth = travelShare(legTravel(spring), settings.bottomingStart);
+  return lerp(spring.damping, settings.bottomingDamping, depth * depth);
+}
 
 export function createVehicle(rear, front) {
   const mountY = (rear.y + front.y) / 2 - SUSPENSION_REST_LENGTH;
@@ -115,6 +220,8 @@ export function createVehicle(rear, front) {
       XPBD_CHASSIS_TOP_INVERSE_MASS,
     ),
   };
+  const rearLeg = suspensionLeg(rear, chassis.rearMount, chassis);
+  const frontLeg = suspensionLeg(front, chassis.frontMount, chassis);
   // As in Elasto Mania, nothing ties the wheels to each other: each hangs from
   // the chassis on its own leg, so the wheelbase gives a little on hard hits.
   const constraints = [
@@ -137,96 +244,16 @@ export function createVehicle(rear, front) {
     createAreaConstraint(chassis.rearMount, chassis.frontMount, chassis.top, {
       compliance: XPBD_CHASSIS_AREA_COMPLIANCE,
     }),
-    createDistanceConstraint(rear, chassis.rearMount, SUSPENSION_REST_LENGTH, {
-      compliance: XPBD_SUSPENSION_COMPLIANCE,
-      extensionCompliance: XPBD_SUSPENSION_EXTENSION_COMPLIANCE,
-      damping: XPBD_SUSPENSION_DAMPING,
-      reboundDamping: XPBD_SUSPENSION_REBOUND_DAMPING,
-    }),
-    createDistanceConstraint(
-      front,
-      chassis.frontMount,
-      SUSPENSION_REST_LENGTH,
-      {
-        compliance: XPBD_SUSPENSION_COMPLIANCE,
-        extensionCompliance: XPBD_SUSPENSION_EXTENSION_COMPLIANCE,
-        damping: XPBD_SUSPENSION_DAMPING,
-        reboundDamping: XPBD_SUSPENSION_REBOUND_DAMPING,
-      },
-    ),
-    createDistanceConstraint(
-      rear,
-      chassis.rearMount,
-      SUSPENSION_BUMP_STOP_LENGTH,
-      {
-        compliance: XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE,
-        minLength: SUSPENSION_BUMP_STOP_LENGTH,
-      },
-    ),
-    createDistanceConstraint(
-      front,
-      chassis.frontMount,
-      SUSPENSION_BUMP_STOP_LENGTH,
-      {
-        compliance: XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE,
-        minLength: SUSPENSION_BUMP_STOP_LENGTH,
-      },
-    ),
-    createDistanceConstraint(rear, chassis.rearMount, SUSPENSION_TOP_OUT_LENGTH, {
-      compliance: XPBD_SUSPENSION_TOP_OUT_COMPLIANCE,
-      maxLength: SUSPENSION_TOP_OUT_LENGTH,
-    }),
-    createDistanceConstraint(front, chassis.frontMount, SUSPENSION_TOP_OUT_LENGTH, {
-      compliance: XPBD_SUSPENSION_TOP_OUT_COMPLIANCE,
-      maxLength: SUSPENSION_TOP_OUT_LENGTH,
-    }),
-    createSliderConstraint(
-      rear,
-      chassis.rearMount,
-      chassis.rearMount,
-      chassis.frontMount,
-      { compliance: XPBD_SUSPENSION_SLIDER_COMPLIANCE },
-    ),
-    createSliderConstraint(
-      front,
-      chassis.frontMount,
-      chassis.rearMount,
-      chassis.frontMount,
-      { compliance: XPBD_SUSPENSION_SLIDER_COMPLIANCE },
-    ),
+    rearLeg.spring,
+    frontLeg.spring,
+    rearLeg.topOut,
+    frontLeg.topOut,
+    rearLeg.slider,
+    frontLeg.slider,
     // Limits run after the compliant links so every solver iteration ends in a
     // valid travel range rather than allowing a later slider to violate it.
-    createDistanceConstraint(rear, chassis.rearMount, SUSPENSION_REST_LENGTH, {
-      compliance: 0,
-      minLength: SUSPENSION_REST_LENGTH - SUSPENSION_TRAVEL,
-      maxLength: SUSPENSION_REST_LENGTH + SUSPENSION_TRAVEL,
-    }),
-    createDistanceConstraint(
-      front,
-      chassis.frontMount,
-      SUSPENSION_REST_LENGTH,
-      {
-        compliance: 0,
-        minLength: SUSPENSION_REST_LENGTH - SUSPENSION_TRAVEL,
-        maxLength: SUSPENSION_REST_LENGTH + SUSPENSION_TRAVEL,
-      },
-    ),
-    createAxisLimitConstraint(
-      rear,
-      chassis.rearMount,
-      chassis.rearMount,
-      chassis.frontMount,
-      chassis.top,
-      SUSPENSION_REST_LENGTH - SUSPENSION_TRAVEL,
-    ),
-    createAxisLimitConstraint(
-      front,
-      chassis.frontMount,
-      chassis.rearMount,
-      chassis.frontMount,
-      chassis.top,
-      SUSPENSION_REST_LENGTH - SUSPENSION_TRAVEL,
-    ),
+    rearLeg.limit,
+    frontLeg.limit,
   ];
   const chassisPoints = [chassis.rearMount, chassis.frontMount, chassis.top];
   // The physical pieces between the points: suspension legs and frame edges.
@@ -241,7 +268,7 @@ export function createVehicle(rear, front) {
     createFrameProbe(chassisPoints, along, height),
   );
   const bikePoints = [rear, front, ...chassisPoints];
-  return {
+  const vehicle = {
     rear,
     front,
     chassis,
@@ -251,6 +278,7 @@ export function createVehicle(rear, front) {
     frameLinks,
     bikePoints,
     dampedConstraints: constraints,
+    suspension: [rearLeg, frontLeg],
     wheelOrder: {
       forward: [
         [rear, "rear"],
@@ -264,7 +292,10 @@ export function createVehicle(rear, front) {
     riderAccelerations: new Float64Array(bikePoints.length * 2),
     reactionAccelerations: new Float64Array(bikePoints.length * 2),
     traction: { options: {} },
+    engine: { rev: ENGINE.idle },
   };
+  fitSuspension(vehicle, 1);
+  return vehicle;
 }
 
 function integratePoint(point, accelerationX = 0, accelerationY = GRAVITY) {
@@ -334,16 +365,6 @@ function keepPivotPlanted(accelerations, rear, front, mass) {
   pivot.pinLoad = lift * STEP * mass;
 }
 
-function rollingSpin(point) {
-  const spin = point.angularVelocity || 0;
-  if (!point.contact) return spin;
-  const tx = -point.contact.ny;
-  const ty = point.contact.nx;
-  const groundSpin =
-    ((point.x - point.ox) * tx + (point.y - point.oy) * ty) / STEP / RADIUS;
-  return Math.abs(groundSpin) > Math.abs(spin) ? groundSpin : spin;
-}
-
 // `state` is the per-vehicle scratch filled once per step by stepVehicle.
 function applyWheelTraction(point, name, drive, state, hooks) {
   if (!point.contact) return;
@@ -398,6 +419,7 @@ function applyWheelTraction(point, name, drive, state, hooks) {
   options.rollingResistance = drive && coasting ? coastResistance : 0;
   options.appliedImpulse = drive ? 0 : point.tractionImpulse || 0;
   const result = solveWheelContactVelocity(point, point.contact, options);
+  state.brakeSpin += result.brakeSpin || 0;
   point.tractionImpulse = drive ? result.tangentImpulse : 0;
   point.brakeHold = result.held ? result.frictionLimit * STEP : 0;
   point.angularVelocity = clamp(
@@ -972,6 +994,42 @@ function updateCrashedPassThrough(vehicle, trail) {
 
 // `controls.crashed` hands the bike to physics alone: the chassis collides with
 // the terrain so a riderless bike tips over and tumbles instead of sinking.
+// Engine torque at `rev`: full up to standstill and tapering linearly to 28%
+// at XPBD_TORQUE_FALLOFF_SPEED, then thinning out without ever cutting off.
+function torqueAt(rev) {
+  const ratio = Math.max(0, rev) * RADIUS / XPBD_TORQUE_FALLOFF_SPEED;
+  return (
+    XPBD_MOTOR_ANGULAR_ACCELERATION *
+    (ratio >= 1 ? 0.28 / ratio : 0.28 + 0.72 * (1 - ratio))
+  );
+}
+
+// One step of the engine. `wheelSpin` is the driven wheel's forward spin.
+// The clutch passes torque to the wheel only while the engine turns faster
+// than it, in proportion to the gap and up to what its grip at these revs
+// allows, so it always slips a little under load; the rest of the engine's
+// torque spins the flywheel up. Braking, the rider pulls the clutch in.
+// Returns the clutch's torque and the flywheel's, in rear-wheel terms.
+function runEngine(engine, throttle, wheelSpin, braking, crashed) {
+  const { inertia, idle, engage, clutch, drag, redline } = ENGINE;
+  const engineTorque = crashed ? 0 : throttle * torqueAt(engine.rev);
+  const grip = braking
+    ? 0
+    : clutch * XPBD_MOTOR_ANGULAR_ACCELERATION * clamp((engine.rev - idle) / engage, 0, 1);
+  // The torque that would bring engine and wheel to one speed this step.
+  const lockUp = ((engine.rev - wheelSpin) / STEP) * (inertia / (inertia + 1));
+  const clutchTorque = clamp(lockUp, 0, grip);
+  const revBefore = engine.rev;
+  engine.rev += ((engineTorque - clutchTorque) * STEP) / inertia;
+  engine.rev += (idle - engine.rev) * (1 - throttle) * (1 - exp(-drag * STEP));
+  engine.rev = clamp(engine.rev, idle, redline);
+  // The flywheel's change of spin, as a torque in rear-wheel terms.
+  const crankTorque = ((engine.rev - revBefore) / STEP) * inertia;
+  // Kept for the engine sound: how hard the clutch pulls on the wheel.
+  engine.clutchTorque = clutchTorque;
+  return { engineTorque, clutchTorque, crankTorque };
+}
+
 export function stepVehicle(vehicle, trail, controls, hooks = {}) {
   const { rear, front, chassis, constraints } = vehicle;
   const {
@@ -997,25 +1055,39 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
       }
     }
   }
+  if (vehicle.lastFacing !== undefined && vehicle.lastFacing !== facing)
+    vehicle.engine.rev = Math.max(
+      ENGINE.idle,
+      facing * (facing > 0 ? rear : front).angularVelocity,
+    );
   vehicle.lastFacing = facing;
+  fitSuspension(vehicle, facing);
   const grounded = rear.grounded || front.grounded;
   rear.impactSpeed = 0;
   front.impactSpeed = 0;
   const midpointX = (rear.x + front.x) / 2;
   const midpointY = Math.min(rear.y, front.y) - RADIUS;
   const slope = terrainAt(trail, midpointX, midpointY).slope;
-  const uphill = clamp(-slope * facing, 0, 1);
+  // The uphill cut on forward lean applies while the bike moves or is on the
+  // gas, and fades out standing still off the gas; see
+  // XPBD_UPHILL_FORWARD_LEAN_SPEED.
+  const speed =
+    hypot(rear.x - rear.ox + front.x - front.ox, rear.y - rear.oy + front.y - front.oy) /
+    (2 * STEP);
+  const uphill =
+    clamp(-slope * facing, 0, 1) *
+    Math.max(clamp(speed / XPBD_UPHILL_FORWARD_LEAN_SPEED, 0, 1), throttle);
   const drivenWheel = facing > 0 ? rear : front;
-  // Engine speed: only a wheel turning forward winds the torque down.
-  const wheelSurfaceSpeed = Math.max(
-    0,
-    facing * drivenWheel.angularVelocity * RADIUS,
+  const { clutchTorque, crankTorque } = runEngine(
+    vehicle.engine,
+    throttle,
+    facing * drivenWheel.angularVelocity,
+    braking,
+    crashed,
   );
-  const speedRatio = wheelSurfaceSpeed / XPBD_TORQUE_FALLOFF_SPEED;
-  const torqueCurve =
-    speedRatio >= 1 ? 0.28 / speedRatio : 0.28 + 0.72 * (1 - speedRatio);
-  const angularDrive =
-    facing * XPBD_MOTOR_ANGULAR_ACCELERATION * throttle * torqueCurve;
+  // Torques here are in rear-wheel terms: the angular acceleration they give
+  // the wheel alone.
+  const angularDrive = facing * clutchTorque;
   const riderAssist = riderTorqueMultiplier(
     leanControl,
     facing,
@@ -1044,12 +1116,13 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
   const chassisInertia = momentOfInertia(chassisPoints);
   const bikeInertia = momentOfInertia(bikePoints);
   const bikeSpin = angularVelocity(bikePoints, bikeInertia);
+  const groundLeverage = riderGroundLeverage(vehicle);
   const groundLean =
     leanControl *
     XPBD_RIDER_GROUND_ANGULAR_ACCELERATION *
     riderAssist *
     riderTerrainScale *
-    riderGroundLeverage(vehicle) *
+    groundLeverage *
     forwardLeanWeightShift(vehicle, facing, leanControl);
   const airLeanLimit =
     Math.abs(leanControl) * XPBD_RIDER_AIR_ANGULAR_ACCELERATION * riderAssist;
@@ -1064,29 +1137,20 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
       riderSpinTorqueScale(groundLean, bikeSpin, XPBD_RIDER_MAX_GROUND_SPIN)
     : airLean;
   // The engine pushes against the tire's grip on the ground, and that pushes
-  // the front up. In the air only the rider's lean turns the bike, as in
-  // Elasto Mania: gas just spins the wheel.
+  // the front up. In the air the wheel's own spin turns the bike instead; see
+  // the airborne wheels below.
   const drivenWheelAcceleration = drivenWheel.contact ? angularDrive : 0;
+  // The flywheel spinning up or down turns the frame the other way, on the
+  // ground and in the air alike.
   const motorReactionTorque =
-    -drivenWheelAcceleration * wheelMoment * XPBD_MOTOR_REACTION_SCALE;
-  const diveWheel = facing > 0 ? front : rear;
-  const rollingForward = (rollingSpin(rear) + rollingSpin(front)) * facing > 0;
-  const brakingWheelAcceleration =
-    braking && diveWheel.grounded && rollingForward
-      ? -(rollingSpin(rear) + rollingSpin(front)) *
-        XPBD_BRAKE_RATE *
-        brakePressure
-      : 0;
-  const brakeReactionLimit = XPBD_BRAKE_REACTION_LIMIT * bikeInertia;
-  const brakeReactionTorque = clamp(
-    -brakingWheelAcceleration * wheelMoment * XPBD_BRAKE_REACTION_SCALE,
-    -brakeReactionLimit,
-    brakeReactionLimit,
-  );
-  const reactionAlpha =
-    (motorReactionTorque + brakeReactionTorque) / bikeInertia;
+    -(drivenWheelAcceleration + facing * crankTorque) *
+    wheelMoment *
+    XPBD_MOTOR_REACTION_SCALE;
+  const reactionAlpha = motorReactionTorque / bikeInertia;
   const motorReactionAcceleration = motorReactionTorque / bikeInertia;
-  const brakeReactionAcceleration = brakeReactionTorque / bikeInertia;
+  // The brakes' push-back is applied after the tires, from what they did;
+  // this is last step's, for the physics trace.
+  const brakeReactionAcceleration = vehicle.brakeReaction || 0;
   const reactionAccelerations = angularAccelerations(
     bikePoints,
     reactionAlpha,
@@ -1107,6 +1171,10 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
     angularDrive,
     riderAssist,
     riderTerrainScale,
+    // For the debug readout: the share of ground lean that reaches the bike,
+    // and whether it counts as hanging from one wheel, which keeps it whole.
+    groundLeverage,
+    hanging: hangsBelowWheel(vehicle) ? 1 : 0,
     riderAngularAcceleration,
     motorReactionAcceleration,
     brakeReactionAcceleration,
@@ -1124,8 +1192,8 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
       chassis.frontMount,
       chassis.top,
     ),
-    rearSuspensionLength: distance(rear, chassis.rearMount),
-    frontSuspensionLength: distance(front, chassis.frontMount),
+    rearSuspensionLength: legLength(vehicle.suspension[0]),
+    frontSuspensionLength: legLength(vehicle.suspension[1]),
   };
   hooks.dynamics?.(dynamics);
 
@@ -1150,6 +1218,7 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
   for (const constraint of vehicle.dampedConstraints)
     resetConstraintMultiplier(constraint);
   hooks.afterIntegration?.();
+  for (const { spring } of vehicle.suspension) updateRisingRate(spring);
   const momentumBeforeSolve = crashed ? 0 : angularMomentum(bikePoints);
 
   const solverWheels =
@@ -1194,15 +1263,17 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
   traction.brakePressure = brakePressure;
   traction.coasting = coasting;
   traction.throttle = throttle;
+  traction.brakeSpin = 0;
   for (const [point, name] of solverWheels) {
     if (!point.contact) {
       point.brakeHold = 0;
-      const rolling =
-        (rear.x - rear.ox + (front.x - front.ox)) / (2 * STEP * RADIUS);
-      point.angularVelocity +=
-        (point === drivenWheel ? angularDrive : 0) * STEP;
-      point.angularVelocity +=
-        (rolling - point.angularVelocity) * (1 - exp(-8 * STEP));
+      const spinBefore = point.angularVelocity;
+      // A wheel in the air keeps its spin but for the engine, which spins the
+      // driven wheel up on the gas, the brakes, and the drag of its bearings,
+      // which slowly runs it down. It lands with whatever spin it has, as a
+      // real one does.
+      if (point === drivenWheel) point.angularVelocity += angularDrive * STEP;
+      point.angularVelocity *= exp(-WHEEL_SPIN_DRAG * STEP);
       if (braking) {
         const brakeLimit = XPBD_BRAKE_TORQUE * brakePressure * STEP;
         point.angularVelocity -= clamp(
@@ -1216,16 +1287,35 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
         -MAX_POINT_SPEED / RADIUS,
         MAX_POINT_SPEED / RADIUS,
       );
+      // Whatever spin the engine, brake or drag gives the wheel in the air,
+      // the bike takes the other way, as angular momentum is kept: gas lifts
+      // the nose and braking a spinning wheel drops it. It stops once the
+      // wheel is at its top speed, as at the rev limiter.
+      if (!crashed)
+        addSpin(
+          bikePoints,
+          (-(point.angularVelocity - spinBefore) * wheelMoment) / bikeInertia,
+        );
       point.spin += point.angularVelocity * STEP;
       continue;
     }
     applyWheelTraction(point, name, true, traction, hooks);
   }
+  // The brakes push back on the frame as hard as they hold the wheels: that,
+  // with the tires slowing the bike, is the dive under braking. Recorded for
+  // the physics trace as an angular acceleration.
+  vehicle.brakeReaction = crashed
+    ? 0
+    : (traction.brakeSpin * wheelMoment) / bikeInertia / STEP;
+  if (!crashed) addSpin(bikePoints, (traction.brakeSpin * wheelMoment) / bikeInertia);
   for (let iteration = 0; iteration < BIKE_VELOCITY_ITERATIONS; iteration++) {
     for (const constraint of vehicle.dampedConstraints) {
-      dampDistanceConstraint(
+      (constraint.type === "leg" ? dampLegConstraint : dampDistanceConstraint)(
         constraint,
-        dampingPerIteration(constraint.damping, BIKE_VELOCITY_ITERATIONS),
+        dampingPerIteration(
+          compressionDamping(constraint),
+          BIKE_VELOCITY_ITERATIONS,
+        ),
         dampingPerIteration(
           constraint.reboundDamping ?? constraint.damping,
           BIKE_VELOCITY_ITERATIONS,
@@ -1239,18 +1329,16 @@ export function stepVehicle(vehicle, trail, controls, hooks = {}) {
     for (const [point, name] of solverWheels)
       applyWheelTraction(point, name, false, traction, hooks);
   }
-  // Negative while the spring is stretched, so the drawn body lifts away from
-  // a wheel it hangs from.
-  rear.compression = clamp(
-    SUSPENSION_REST_LENGTH - distance(rear, chassis.rearMount),
-    -SUSPENSION_TRAVEL,
-    SUSPENSION_TRAVEL,
-  );
-  front.compression = clamp(
-    SUSPENSION_REST_LENGTH - distance(front, chassis.frontMount),
-    -SUSPENSION_TRAVEL,
-    SUSPENSION_TRAVEL,
-  );
+  // How far the body has come down on each wheel, square to the frame as the
+  // drawn body measures it: a raked fork's travel times the cosine of its
+  // rake, which the slider's `along` holds. Negative while the spring is
+  // stretched, so the drawn body lifts away from a wheel it hangs from.
+  for (const { wheel, spring, slider } of vehicle.suspension)
+    wheel.compression = clamp(
+      legTravel(spring) * slider.along,
+      -SUSPENSION_TRAVEL,
+      SUSPENSION_TRAVEL,
+    );
   hooks.iteration?.(-1);
   return dynamics;
 }
@@ -1274,8 +1362,8 @@ export function vehicleMetrics(vehicle) {
       vehicle.front.x - vehicle.rear.x,
     ),
     wheelbase: distance(vehicle.rear, vehicle.front),
-    rearSuspensionLength: distance(vehicle.rear, vehicle.chassis.rearMount),
-    frontSuspensionLength: distance(vehicle.front, vehicle.chassis.frontMount),
+    rearSuspensionLength: legLength(vehicle.suspension[0]),
+    frontSuspensionLength: legLength(vehicle.suspension[1]),
     chassisArea: signedTriangleArea(
       vehicle.chassis.rearMount,
       vehicle.chassis.frontMount,
@@ -1310,7 +1398,7 @@ export function createSimulation({ vehicle, trail, facing = 1, hooks = {} }) {
         exp(
           -((accelerating ? throttleTarget : 0) > throttle
             ? XPBD_THROTTLE_INPUT_RESPONSE
-            : 4) * STEP,
+            : XPBD_THROTTLE_RELEASE_RESPONSE) * STEP,
         ),
     );
     brakePressure = lerp(

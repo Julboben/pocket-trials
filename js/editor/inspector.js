@@ -1,5 +1,5 @@
 // The selection and trail panels on the right.
-import { canFlip, canRotate } from "../drawing.js";
+import { TEXT_PROPS, canRotate } from "../drawing.js";
 import {
   cubicPoint,
   edgeCurve,
@@ -15,12 +15,16 @@ import {
   validateTrail,
 } from "../trail-schema.js";
 import { store } from "../local-store.js";
+import { WEATHER_LEVELS, WEATHER_PRESETS, resolveWeather } from "../weather.js";
+import { startWindsock } from "./windsock.js";
+import { TIME_MARKS, clockTime, hourName, normalizeHour } from "../time-of-day.js";
 import {
   blocks,
   boundariesOf,
   boundaryAt,
   fillCavesWithBackWalls,
   isBackWall,
+  mergeSelectedBlocks,
   realignSmooth,
   replaceBlock,
   replaceBoundary,
@@ -29,10 +33,11 @@ import {
 } from "./blocks.js";
 import { $, canvas } from "./dom.js";
 import { canRotateSelection, rotateSelected } from "./rotate.js";
-import { pushHistory, updateHistoryButtons } from "./history.js";
+import { pushHistory, snapshot, updateHistoryButtons } from "./history.js";
 import { scheduleAutosave } from "./autosave.js";
 import { updateVersionChip } from "./drafts.js";
-import { updateValidationBadge } from "./menu.js";
+import { closeMenu, updateValidationBadge } from "./menu.js";
+import { renderObjects } from "./objects.js";
 import { showStatus } from "./status.js";
 import {
   finishY,
@@ -46,10 +51,18 @@ import {
   groupTitle,
   itemsCentre,
   moveItems,
+  releaseLocked,
+  revealItem,
+  selectedOf,
+  selectionBox,
+  flippableProps,
+  selectionItems,
 } from "./selection.js";
 import { editor, waters } from "./state.js";
 import { saveToolSettings, toolSettings } from "./tools.js";
 import { moveWaterTo, waterDepthHint, waterHandle, waterSize } from "./water.js";
+import { NISSE_GROUND_LIFT } from "../nisse.js";
+import { syncPreviewControls } from "./preview.js";
 
 export function selectedPosition() {
   if (!editor.selection) return null;
@@ -101,6 +114,8 @@ export function selectedPosition() {
     const prop = editor.trail.props[editor.selection.index];
     return [prop.x, objectY(prop)];
   }
+  if (editor.selection.kind === "nisse")
+    return editor.trail.nisse ? [editor.trail.nisse.x, objectY(editor.trail.nisse, NISSE_GROUND_LIFT)] : null;
   if (editor.selection.kind === "spike") {
     const spike = editor.trail.spikes[editor.selection.index];
     return [spike.x, spike.y];
@@ -134,18 +149,17 @@ const BLOCK_KINDS = [
  * they wait until the pointer pauses or is released.
  */
 export function syncInspector({ live = false } = {}) {
+  releaseLocked();
   syncTerrain();
   $("trail-name").value = editor.trail.name;
   $("trail-author").value = editor.trail.author || "";
+  syncPreviewControls();
   // Don't overwrite notes the author is typing.
   if (document.activeElement !== $("trail-description"))
     $("trail-description").value = editor.trail.description || "";
-  $("time-of-day").value = editor.trail.timeOfDay || "noon";
+  syncTimeOfDay();
   $("backdrop").value = editor.trail.backdrop || "hills";
-  for (const key of ["sun", "clouds", "fog", "rain", "snow", "lightning"]) {
-    $(`weather-${key}`).value = editor.trail.weather?.[key] ?? 0;
-    showWeatherValue(key);
-  }
+  syncWeather();
   const position = selectedPosition();
   $("selection-fields").hidden = !editor.selection;
   $("selection-title").textContent = !editor.selection
@@ -161,6 +175,12 @@ export function syncInspector({ live = false } = {}) {
     $("selection-x").value = Math.round(position[0]);
     $("selection-y").value = Math.round(position[1]);
   }
+  // How big the selection is, or how far apart a group's things stand. Water
+  // on its own has its own Width and Depth fields.
+  const box = editor.selection?.kind === "water" ? null : selectionBox();
+  const size = box && [box.right - box.left, box.bottom - box.top].map(Math.round);
+  $("selection-size-row").hidden = !size || !(size[0] || size[1]);
+  if (size) $("selection-size").textContent = `${size[0]} × ${size[1]}`;
   // A group with blocks in it can change their material together.
   const isBlock =
     BLOCK_KINDS.includes(editor.selection?.kind) || selectedBlocks().length > 0;
@@ -170,6 +190,7 @@ export function syncInspector({ live = false } = {}) {
   $("selection-material-row").hidden = !isBlock;
   $("selection-block-layer-row").hidden = !isBlock;
   $("fill-back-walls").hidden = !selectedCaves().length;
+  $("merge-blocks").hidden = selectedBlocks().length < 2;
   $("selection-edge-row").hidden = !["blockPoint", "blockEdge"].includes(
     editor.selection?.kind,
   );
@@ -177,25 +198,41 @@ export function syncInspector({ live = false } = {}) {
     editor.selection?.kind,
   );
   $("selection-facing-row").hidden = editor.selection?.kind !== "start";
-  $("selection-prop-type-row").hidden = editor.selection?.kind !== "prop";
-  $("selection-layer-row").hidden = editor.selection?.kind !== "prop";
+  // A group's props and spikes share their type, layer, flip, radius and spin
+  // fields. Where they differ the field shows Mixed, and a new value sets them all.
+  const props = selectedOf("prop").map((index) => editor.trail.props[index]);
+  const flippable = flippableProps();
+  $("selection-prop-type-row").hidden = !props.length;
+  $("selection-layer-row").hidden = !props.length;
+  $("selection-flip-row").hidden = !flippable.length;
+  if (props.length) {
+    $("selection-prop-type").value = shared(props.map((prop) => prop.type));
+    $("selection-layer").value = shared(props.map(propLayer));
+  }
+  if (flippable.length)
+    $("selection-flip").value = shared(flippable.map((prop) => String(Boolean(prop.flip))));
   $("selection-prop-text-row").hidden =
-    editor.selection?.kind !== "prop" || editor.trail.props[editor.selection.index]?.type !== "sign";
+    editor.selection?.kind !== "prop" || !TEXT_PROPS.has(editor.trail.props[editor.selection.index]?.type);
   const selectedProp = editor.selection?.kind === "prop" ? editor.trail.props[editor.selection.index] : null;
-  $("selection-flip-row").hidden = !selectedProp || !canFlip(selectedProp.type);
-  if (selectedProp) $("selection-flip").value = String(Boolean(selectedProp.flip));
   $("selection-rotation-row").hidden = !selectedProp || !canRotate(selectedProp.type);
   if (selectedProp && document.activeElement !== $("selection-rotation"))
     $("selection-rotation").value = selectedProp.rotation || 0;
   // A lone prop has its own Rotation field; blocks and groups turn by a quarter.
   $("selection-rotate-row").hidden = Boolean(selectedProp) || !canRotateSelection();
-  $("selection-radius-row").hidden = editor.selection?.kind !== "spike";
-  $("selection-spin-row").hidden = editor.selection?.kind !== "spike";
+  const spikes = selectedOf("spike").map((index) => editor.trail.spikes[index]);
+  for (const key of ["radius", "spin"]) {
+    $(`selection-${key}-row`).hidden = !spikes.length;
+    if (!spikes.length) continue;
+    const value = shared(spikes.map((spike) => spike[key]));
+    $(`selection-${key}`).value = value;
+    $(`selection-${key}`).placeholder = value === "" ? "Mixed" : "";
+  }
   const selectedWater =
     editor.selection?.kind === "water" ? waters()[editor.selection.index] : null;
   $("selection-water-width-row").hidden = !selectedWater;
   $("selection-water-depth-row").hidden = !selectedWater;
   $("selection-water-hint").hidden = !selectedWater;
+  $("selection-nisse-hint").hidden = editor.selection?.kind !== "nisse";
   if (selectedWater) {
     $("selection-water-width").value = Math.round(selectedWater.width);
     $("selection-water-depth").value = Math.round(selectedWater.depth);
@@ -222,13 +259,7 @@ export function syncInspector({ live = false } = {}) {
   if (editor.selection?.kind === "start")
     $("selection-facing").value = String(editor.trail.start.facing);
   if (editor.selection?.kind === "prop") {
-    $("selection-prop-type").value = editor.trail.props[editor.selection.index].type;
-    $("selection-layer").value = editor.trail.props[editor.selection.index].layer;
     $("selection-prop-text").value = editor.trail.props[editor.selection.index].text || "";
-  }
-  if (editor.selection?.kind === "spike") {
-    $("selection-radius").value = editor.trail.spikes[editor.selection.index].radius;
-    $("selection-spin").value = editor.trail.spikes[editor.selection.index].spin;
   }
   if (live) {
     clearTimeout(pendingDetails);
@@ -239,23 +270,67 @@ export function syncInspector({ live = false } = {}) {
 
 let pendingDetails = null;
 
+const propLayer = (prop) => (prop.layer === "front" ? "front" : "back");
+
+/** The value every one of `values` has, or "" when they differ. */
+const shared = (values) => (new Set(values).size === 1 ? values[0] : "");
+
 function syncDetails() {
   clearTimeout(pendingDetails);
   pendingDetails = null;
   const json = JSON.stringify(editor.trail, null, 2);
   $("trail-json").value = json;
   updateVersionChip(json);
+  renderObjects();
   scheduleAutosave();
   const messages = validateTrail(editor.trail);
   $("validation-list").replaceChildren(
     ...messages.map((message) => {
       const item = document.createElement("li");
       item.className = message.type;
-      item.textContent = message.text;
+      if (!message.target) {
+        item.textContent = message.text;
+        return item;
+      }
+      // A message about one item takes the author to it.
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = message.text;
+      button.title = "Select it and show it on the canvas";
+      button.addEventListener("click", () => {
+        closeMenu();
+        revealItem(message.target);
+      });
+      item.append(button);
       return item;
     }),
   );
   updateValidationBadge(messages);
+  syncSelectionIssues(messages);
+}
+
+/** The errors and warnings about the selected items, shown above their fields. */
+function syncSelectionIssues(messages) {
+  // A point, edge or handle of a block shares its block's problems.
+  const targets = selectionItems().map((item) =>
+    item.type === "point" ? { type: "block", index: item.blockIndex } : item,
+  );
+  if (Number.isInteger(editor.selection?.blockIndex))
+    targets.push({ type: "block", index: editor.selection.blockIndex });
+  const issues = messages.filter(
+    ({ target }) =>
+      target &&
+      targets.some((item) => item.type === target.type && item.index === target.index),
+  );
+  $("selection-issues").hidden = !issues.length;
+  $("selection-issues").replaceChildren(
+    ...issues.map((message) => {
+      const item = document.createElement("li");
+      item.className = message.type;
+      item.textContent = message.text;
+      return item;
+    }),
+  );
 }
 
 /** Finish any JSON and validation a live drag left waiting. */
@@ -341,6 +416,8 @@ export function updateSelectedPosition(x, y) {
   } else if (kind === "apple") {
     editor.trail.apples[editor.selection.index].x = x;
     editor.trail.apples[editor.selection.index].y = y;
+  } else if (kind === "nisse") {
+    if (editor.trail.nisse) Object.assign(editor.trail.nisse, { x, y });
   } else if (kind === "prop") {
     editor.trail.props[editor.selection.index].x = x;
     editor.trail.props[editor.selection.index].y = y;
@@ -366,6 +443,54 @@ export function updateSelectedPosition(x, y) {
 function showWeatherValue(key) {
   const value = Number($(`weather-${key}`).value) || 0;
   $(`weather-${key}-value`).textContent = `${Math.round(value * 100)}%`;
+}
+
+/**
+ * The weather controls: each slider, which way the wind blows, and the preset
+ * the weather matches, if any.
+ */
+function syncWeather() {
+  const weather = resolveWeather(editor.trail.weather);
+  for (const key of WEATHER_LEVELS) {
+    $(`weather-${key}`).value = String(weather[key]);
+    showWeatherValue(key);
+  }
+  for (const direction of ["left", "right"]) {
+    const button = $(`wind-${direction}`);
+    const active = weather.windDirection === direction;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  }
+  for (const button of $("weather-presets").querySelectorAll("button")) {
+    const preset = WEATHER_PRESETS.find(({ id }) => id === button.dataset.preset);
+    const active = Boolean(preset) && Object.entries(preset.weather).every(([key, value]) => weather[key] === value);
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  }
+}
+
+/** The time of day slider, its readout, and the help point it is on, if any. */
+function syncTimeOfDay() {
+  const hour = normalizeHour(editor.trail.timeOfDay);
+  $("time-of-day").value = String(hour);
+  showTimeOfDay(hour);
+  for (const button of $("time-marks").querySelectorAll("button")) {
+    const active = Number(button.dataset.hour) === hour;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  }
+}
+
+function showTimeOfDay(hour) {
+  $("time-of-day-value").textContent = `${clockTime(hour)} · ${hourName(hour)}`;
+}
+
+/** Changes the trail's weather as one undoable step. */
+function setWeather(changes) {
+  pushHistory();
+  editor.trail.weather = { ...resolveWeather(editor.trail.weather), ...changes };
+  syncInspector();
+  render();
 }
 
 const AUTHOR_KEY = "hjulben-editor-author";
@@ -403,6 +528,30 @@ function setTrailName(name) {
   editor.trail.label = `${name.toUpperCase()} / ${String(editor.trailIndex + 1).padStart(2, "0")}`;
 }
 
+/**
+ * A slider that changes the trail live while it is dragged (or stepped with
+ * the arrow keys), as one undo step per drag. Its input events change the
+ * trail as it goes, so by the change event that ends the drag the trail
+ * already has the new value: the undo step is the trail from before the first
+ * input instead, or undo would put back the value just set.
+ */
+function bindTrailSlider(id, apply, show) {
+  let before = null;
+  $(id).addEventListener("input", (event) => {
+    before ??= snapshot();
+    apply(Number(event.target.value));
+    show();
+    render();
+  });
+  $(id).addEventListener("change", (event) => {
+    pushHistory(before ?? snapshot());
+    before = null;
+    apply(Number(event.target.value));
+    syncInspector();
+    render();
+  });
+}
+
 function bindTrailInput(id, apply) {
   $(id).addEventListener("change", (event) => {
     pushHistory();
@@ -413,6 +562,7 @@ function bindTrailInput(id, apply) {
 }
 
 let propTextPending = false;
+const SIGN_ARROW_KEYS = { "<": "←", ">": "→", "^": "↑" };
 
 export function bindInspector() {
   bindTrailInput("trail-name", setTrailName);
@@ -428,28 +578,60 @@ export function bindInspector() {
     editor.trail.description = value;
   });
 
-  bindTrailInput("time-of-day", (value) => {
-    editor.trail.timeOfDay = value;
-  });
+  // The hour, dragged through the day, with a help point for each of the
+  // classic times.
+  bindTrailSlider(
+    "time-of-day",
+    (hour) => { editor.trail.timeOfDay = normalizeHour(hour); },
+    () => showTimeOfDay(editor.trail.timeOfDay),
+  );
+  for (const mark of TIME_MARKS) {
+    const option = document.createElement("option");
+    option.value = String(mark.hour);
+    option.label = mark.name;
+    $("time-of-day-marks").append(option);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = mark.name;
+    button.dataset.hour = String(mark.hour);
+    button.title = clockTime(mark.hour);
+    button.addEventListener("click", () => {
+      if (normalizeHour(editor.trail.timeOfDay) === mark.hour) return;
+      pushHistory();
+      editor.trail.timeOfDay = mark.hour;
+      syncInspector();
+      render();
+    });
+    $("time-marks").append(button);
+  }
 
   bindTrailInput("backdrop", (value) => {
     if (value && value !== "hills") editor.trail.backdrop = value;
     else delete editor.trail.backdrop;
   });
 
-  for (const key of ["sun", "clouds", "fog", "rain", "snow", "lightning"]) {
-    $(`weather-${key}`).addEventListener("change", (event) => {
-      pushHistory();
-      editor.trail.weather[key] = Number(event.target.value);
-      syncInspector();
-      render();
+  for (const key of WEATHER_LEVELS)
+    bindTrailSlider(
+      `weather-${key}`,
+      (value) => { editor.trail.weather[key] = value; },
+      () => showWeatherValue(key),
+    );
+  for (const direction of ["left", "right"])
+    $(`wind-${direction}`).addEventListener("click", () => {
+      if (resolveWeather(editor.trail.weather).windDirection !== direction)
+        setWeather({ windDirection: direction });
     });
-    $(`weather-${key}`).addEventListener("input", (event) => {
-      editor.trail.weather[key] = Number(event.target.value);
-      showWeatherValue(key);
-      render();
-    });
+  // A preset sets everything but the wind's direction, for the author to
+  // fine-tune from.
+  for (const preset of WEATHER_PRESETS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = preset.name;
+    button.dataset.preset = preset.id;
+    button.addEventListener("click", () => setWeather(preset.weather));
+    $("weather-presets").append(button);
   }
+  startWindsock($("windsock"), () => editor.trail.weather);
 
   $("selection-x").addEventListener("change", (event) => {
     const position = selectedPosition();
@@ -516,6 +698,12 @@ export function bindInspector() {
     render();
   });
 
+  $("merge-blocks").addEventListener("click", () => {
+    mergeSelectedBlocks();
+    syncInspector();
+    render();
+  });
+
   $("selection-edge").addEventListener("change", (event) => {
     if (!["blockPoint", "blockEdge"].includes(editor.selection?.kind)) return;
     const boundary = boundaryAt(editor.selection);
@@ -557,12 +745,15 @@ export function bindInspector() {
   });
 
   $("selection-flip").addEventListener("change", (event) => {
-    if (editor.selection?.kind !== "prop") return;
-    const prop = editor.trail.props[editor.selection.index];
-    if (!canFlip(prop.type)) return;
-    pushHistory();
-    if (event.target.value === "true") prop.flip = true;
-    else delete prop.flip;
+    const flip = event.target.value === "true";
+    const chosen = flippableProps().filter((prop) => Boolean(prop.flip) !== flip);
+    if (chosen.length) {
+      pushHistory();
+      for (const prop of chosen) {
+        if (flip) prop.flip = true;
+        else delete prop.flip;
+      }
+    }
     syncInspector();
     render();
   });
@@ -589,20 +780,30 @@ export function bindInspector() {
     });
 
   $("selection-prop-type").addEventListener("change", (event) => {
-    if (editor.selection?.kind !== "prop") return;
-    pushHistory();
-    const prop = editor.trail.props[editor.selection.index];
-    prop.type = event.target.value;
-    if (prop.type === "sign" && typeof prop.text !== "string") prop.text = "";
+    const type = event.target.value;
+    const chosen = selectedOf("prop")
+      .map((index) => editor.trail.props[index])
+      .filter((prop) => prop.type !== type);
+    if (type && chosen.length) {
+      pushHistory();
+      for (const prop of chosen) {
+        prop.type = type;
+        if (prop.type === "sign" && typeof prop.text !== "string") prop.text = "";
+      }
+    }
     syncInspector();
     render();
   });
 
   $("selection-layer").addEventListener("change", (event) => {
-    if (editor.selection?.kind !== "prop") return;
-    pushHistory();
-    editor.trail.props[editor.selection.index].layer =
-      event.target.value === "front" ? "front" : "back";
+    const layer = event.target.value === "front" ? "front" : "back";
+    const chosen = selectedOf("prop")
+      .map((index) => editor.trail.props[index])
+      .filter((prop) => propLayer(prop) !== layer);
+    if (chosen.length) {
+      pushHistory();
+      for (const prop of chosen) prop.layer = layer;
+    }
     syncInspector();
     render();
   });
@@ -617,31 +818,42 @@ export function bindInspector() {
       pushHistory();
       propTextPending = false;
     }
-    editor.trail.props[editor.selection.index].text = event.target.value;
+    // The pixel font has no < > ^, so they stand in for the arrows it does have.
+    const field = event.target;
+    const value = field.value.replace(/[<>^]/g, (key) => SIGN_ARROW_KEYS[key]);
+    if (value !== field.value) {
+      const caret = field.selectionStart;
+      field.value = value;
+      field.setSelectionRange(caret, caret);
+    }
+    editor.trail.props[editor.selection.index].text = value;
     render();
   });
 
   $("selection-prop-text").addEventListener("change", () => syncInspector());
 
+  // Clearing a Mixed field leaves the spikes as they were.
   $("selection-radius").addEventListener("change", (event) => {
-    if (editor.selection?.kind !== "spike") return;
-    pushHistory();
-    editor.trail.spikes[editor.selection.index].radius = Math.max(
-      SPIKE_RADIUS.min,
-      Math.min(
-        SPIKE_RADIUS.max,
-        Number(event.target.value) || SPIKE_RADIUS.default,
-      ),
-    );
+    const spikes = selectedOf("spike").map((index) => editor.trail.spikes[index]);
+    if (spikes.length && event.target.value !== "") {
+      pushHistory();
+      const radius = Math.max(
+        SPIKE_RADIUS.min,
+        Math.min(SPIKE_RADIUS.max, Number(event.target.value) || SPIKE_RADIUS.default),
+      );
+      for (const spike of spikes) spike.radius = radius;
+    }
     syncInspector();
     render();
   });
 
   $("selection-spin").addEventListener("change", (event) => {
-    if (editor.selection?.kind !== "spike") return;
-    pushHistory();
-    const spin = Number(event.target.value);
-    editor.trail.spikes[editor.selection.index].spin = Number.isFinite(spin) ? spin : 0;
+    const spikes = selectedOf("spike").map((index) => editor.trail.spikes[index]);
+    if (spikes.length && event.target.value !== "") {
+      pushHistory();
+      const spin = Number(event.target.value);
+      for (const spike of spikes) spike.spin = Number.isFinite(spin) ? spin : 0;
+    }
     syncInspector();
     render();
   });

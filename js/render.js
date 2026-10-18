@@ -12,6 +12,7 @@ import {
   fogColor,
   PAINTED_PROPS,
   graffitiTurnedBounds,
+  paintedBounds,
   paintedPropY,
   propAlignmentSlope,
   propGroundOffset,
@@ -24,26 +25,38 @@ import {
   waterPropAt,
 } from "./drawing.js";
 import { fallLine, terrainAt, groundShadowSamples, terrainGeometry, terrainRaycastAt } from "./terrain.js";
+import { terrainSolidAt } from "./terrain-runtime.js";
 import { finishHeight } from "./trail-schema.js";
 import { waterBodies, waterColumns, surfaceWave } from "./water.js";
 import { createTerrainRenderer } from "./terrain-render.js";
+import { riderCollisionPoints } from "./ride.js";
+import { probeClearance } from "./debug-hud.js";
 import { vehicleMetrics } from "./vehicle-physics.js";
 import { ragdollCenter } from "./ragdoll.js";
-import { appleBob } from "./apple.js";
+import { appleShine } from "./apple.js";
 import { spikeAngle } from "./spike.js";
 import {
-  createRiderHair,
+  createRiderTrails,
   hairRoot,
   hairRestDirection,
   freeHairRestDirection,
   hairBackSupport,
+  accessoryRoot,
+  accessoryRestDirection,
+  freeAccessoryRoot,
+  freeAccessoryRestDirection,
 } from "./rider-hair.js";
 import { lookParts } from "./cosmetics.js";
 import { reducedMotion } from "./state.js";
 import { createLighting } from "./lighting.js";
-import { CRANE_LIGHTS, GRAFFITI_BOUNDS, LAMP_HEAD } from "./city-props.js";
+import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
+import { CAMERA_TALLY, HALFWAY_BEACON, HALFWAY_REACH } from "./event-props.js";
+import { SEARCHLIGHT, SEARCHLIGHT_BEAM } from "./prison-props.js";
+import { drawNisse, nisseWiggle } from "./nisse.js";
+import { TORCH_FLAME } from "./dungeon-props.js";
+import { FLAGPOLE } from "./countryside-props.js";
 import { WATER_PROPS, FISH_DART, FISH_RANGE } from "./water-props.js";
-import { SQUIRREL_HIDE_MAX, SQUIRREL_RANGE } from "./forest-props.js";
+import { FIRE, IVY, SQUIRREL_HIDE_MAX, SQUIRREL_RANGE, TENT_DOOR_CENTRE } from "./forest-props.js";
 import {
   HAZE_HALF,
   TUMBLEWEED_RUN,
@@ -56,9 +69,9 @@ import {
   vultureOrbit,
   vulturePerch,
   vultureSwoop,
-  windStrength,
 } from "./desert-props.js";
-import { CABLE_HALF, CABLE_TOP, HUT_WINDOW_CENTRE } from "./mountain-props.js";
+import { rainSlant, resolveWeather, snowDrift, windSign } from "./weather.js";
+import { CABLE_HALF, CABLE_TOP, HUT_CHIMNEY, HUT_WINDOW_CENTRE } from "./mountain-props.js";
 import { nearestInteraction } from "./interactions.js";
 import {
   CORGI_HEART,
@@ -88,11 +101,11 @@ const SCENERY_SHADOWS = {
   sapling: { width: 10, alpha: 0.15, thickness: 3, lift: 20 },
   "pine-small": { width: 9, alpha: 0.15, thickness: 3, lift: 22 },
   crates: { width: 26, alpha: 0.15, thickness: 3, lift: 24 },
-  wheelbarrow: { width: 18, alpha: 0.13, thickness: 3, lift: 14 },
+  wheelbarrow: { width: 18, alpha: 0.13, thickness: 3, lift: 10 },
   scarecrow: { width: 8, alpha: 0.15, thickness: 3, lift: 30 },
   beehive: { width: 14, alpha: 0.14, thickness: 3, lift: 20 },
   cone: { width: 7, alpha: 0.14, thickness: 3, lift: 8 },
-  dumpster: { width: 30, alpha: 0.15, thickness: 3, lift: 20 },
+  dumpster: { width: 28, alpha: 0.15, thickness: 3, lift: 16 },
   lamp: { width: 6, alpha: 0.15, thickness: 3, lift: 40 },
   skull: { width: 12, alpha: 0.13, thickness: 3, lift: 6 },
   "car-wreck": { width: 54, alpha: 0.15, thickness: 3, lift: 16 },
@@ -103,10 +116,27 @@ const SCENERY_SHADOWS = {
   "snow-pine": { width: 16, alpha: 0.15, thickness: 3, lift: 38 },
   hut: { width: 48, alpha: 0.15, thickness: 3, lift: 30 },
   snowman: { width: 16, alpha: 0.13, thickness: 3, lift: 20 },
+  "tyre-wall": { width: 30, alpha: 0.15, thickness: 3, lift: 14 },
+  "hay-bales": { width: 26, alpha: 0.14, thickness: 3, lift: 16 },
+  "petrol-can": { width: 8, alpha: 0.14, thickness: 3, lift: 10 },
+  spectators: { width: 30, alpha: 0.12, thickness: 3, lift: 20 },
+  "camera-tower": { width: 24, alpha: 0.14, thickness: 3, lift: 50 },
+  "prison-fence": { width: 40, alpha: 0.1, thickness: 3, lift: 20 },
+  watchtower: { width: 28, alpha: 0.15, thickness: 3, lift: 60 },
+  "jail-cell": { width: 36, alpha: 0.15, thickness: 3, lift: 26 },
+  "ball-and-chain": { width: 7, alpha: 0.14, thickness: 3, lift: 4 },
+  torch: { width: 8, alpha: 0.12, thickness: 3, lift: 26 },
+  skeleton: { width: 18, alpha: 0.12, thickness: 3, lift: 10 },
+  tent: { width: 36, alpha: 0.14, thickness: 3, lift: 22 },
+  flagpole: { width: 6, alpha: 0.12, thickness: 3, lift: 50 },
+  "christiania-bike": { width: 28, alpha: 0.14, thickness: 3, lift: 10 },
+  bench: { width: 30, alpha: 0.14, thickness: 3, lift: 12 },
 };
+/** Seconds the scene takes to slow to a stop behind the results. */
+const WIN_SETTLE = 0.7;
 const GHOST_ALPHA = 0.38;
-// World units around the hair root that the ghost's hair can reach.
-const GHOST_HAIR_REACH = 40;
+// World units around the hair root that the ghost's hair and cape can reach.
+const GHOST_HAIR_REACH = 56;
 // Where a front prop hides the rider, the hidden part shows as a silhouette.
 const XRAY_COLOR = "#fff3be";
 const XRAY_ALPHA = 0.25;
@@ -121,8 +151,8 @@ const PROP_RISE = {
   "cactus-small": 60,
   ladder: 102,
   scarecrow: 114,
-  lamp: 130,
-  crane: 282,
+  lamp: -LAMP_HEAD.y + 16,
+  crane: -CRANE_LIGHTS[0][1] + 6,
   scaffolding: 146,
   skull: 28,
   "car-wreck": 48,
@@ -132,11 +162,30 @@ const PROP_RISE = {
   cairn: 46,
   "ski-lift": -CABLE_TOP + 4,
   "snow-pine": 192,
-  hut: 204,
+  hut: -HUT_CHIMNEY.y + 86,
   snowman: 80,
+  "camera-tower": 154,
+  "halfway-flag": 126,
+  watchtower: -SEARCHLIGHT.y + 14,
+  torch: -TORCH_FLAME.y + 36,
+  flagpole: -FLAGPOLE.top + 8,
+  fireplace: -FIRE.smoke + 90,
+  ivy: IVY.max + 10,
+  smoke: 96,
 };
 // How far each prop's art hangs below its anchor, for culling.
-const PROP_HANG = { vines: 148, roots: 28, moss: 28, graffiti: 38 };
+const PROP_HANG = {
+  vines: 148,
+  ivy: 4,
+  roots: 28,
+  moss: 32,
+  graffiti: 38,
+  "tutorial-lean": 34,
+  "tutorial-flip": 34,
+  "tutorial-light": 34,
+  "tutorial-lean-forward": 34,
+  "tally-marks": 18,
+};
 // How far each prop's art reaches either side of its anchor, for culling.
 const PROP_REACH = {
   crane: 180,
@@ -150,6 +199,12 @@ const PROP_REACH = {
   "heat-haze": HAZE_HALF + 10,
   "ski-lift": CABLE_HALF + 30,
   hut: 104,
+  banner: 96,
+  "course-tape": 76,
+  fireplace: 84,
+  smoke: 84,
+  // Its leaves drift a long way downwind as they fall.
+  tree: 300,
 };
 // Perched birds and ducks take off, roosting bats scatter, fish dart off and
 // squirrels run for a tree when the rider comes within `x` and `y` of them;
@@ -165,7 +220,7 @@ const STARTLE = {
 // and it is left out with reduced motion and in the lighter graphics mode.
 const HAZE_PROPS = new Set(["heat-haze"]);
 // Props that glow, and how far their light reaches either side, for culling.
-const GLOW_REACH = { lamp: 70, crane: 180, lantern: 100, mushrooms: 40, hut: 60 };
+const GLOW_REACH = { lamp: 70, crane: 180, lantern: 100, torch: 100, fireplace: 100, tent: 60, mushrooms: 40, hut: 60, "camera-tower": 30, "halfway-flag": 30, watchtower: SEARCHLIGHT_BEAM.length + 20 };
 // How far a hair strand may sink into a floor and still be lifted back onto it.
 const HAIR_GROUND_ALLOWANCE = 8;
 // Markers for missing apples out of view keep this far (world units) inside
@@ -192,18 +247,23 @@ export function createRenderer(canvas) {
     H = 410,
     pixelScale = 1;
   /** The player's tyre dirt from the effects; the ghost's wheels stay clean. */
-  let wheelDirt = null;
+  let wheelDirt = null,
+    wheelSquish = null;
   let hair = null,
     ghostHair = null,
     flipVisual = 1,
     trail = null,
     cameraX = 0,
-    cameraY = 0;
+    cameraY = 0,
+    // The rider's place in the last frame, for the menu's resume snapshot.
+    riderOnScreen = { x: 0.5, y: 0.5 };
   let xrayMask = null,
     xrayRider = null,
+    glowLayer = null,
+    glowMask = null,
     ghostHairLayer = null;
   // What props react to this frame; see drawProp.
-  let propScene = { time: 0, riderX: null, riderY: null, wind: 0, landing: null };
+  let propScene = { time: 0, riderX: null, riderY: null, weather: resolveWeather(), landing: null };
   // The last hard landing, { x, y, time, strength }, which shakes the snow off
   // nearby snowy pines.
   let landing = null;
@@ -211,6 +271,9 @@ export function createRenderer(canvas) {
   // not the wall clock, so it stops while the game is paused and nothing
   // carries on behind the pause screen (or jumps ahead after the menu).
   let sceneClock = 0;
+  // Seconds the results have been up. Behind them the scene slows to a stop,
+  // as it is still behind the pause screen, rather than freezing mid-burst.
+  let wonFor = 0;
   let frameNow = 0;
   // Birds and bats that have taken off, with when and which way, for the
   // current ride.
@@ -220,6 +283,12 @@ export function createRenderer(canvas) {
   // and when they set off. `crashedAt` is when the ragdoll first appeared.
   const swoops = new Map();
   let crashedAt = null;
+  // When the rider last came off, for the spectators to duck (scene clock, ms).
+  let crashStart = null;
+  // Halfway flags the rider has passed this ride: the split, and when.
+  const passes = new Map();
+  let passRide = null;
+  let passFromX = null;
   // Each corgi's state (see corgiStep) for the current ride, and how many
   // woofs have gone off in view since game.js last asked, for the sound.
   const corgis = new Map();
@@ -314,10 +383,6 @@ export function createRenderer(canvas) {
     }
   }
 
-  // The bob follows the ride clock, as the pickup does, so a touch is taken
-  // exactly where the apple is drawn. It is gameplay, so it stays with
-  // reduced motion.
-  const appleDrawY = (apple, ride) => apple.y + appleBob(apple, ride.time);
 
   function drawSceneryShadow(
     x,
@@ -369,7 +434,7 @@ export function createRenderer(canvas) {
     }
     for (const apple of ride.apples) {
       if (apple.taken || !inView(apple.x, 40)) continue;
-      drawSceneryShadow(apple.x, appleDrawY(apple, ride), light, {
+      drawSceneryShadow(apple.x, apple.y, light, {
         width: 8,
         alpha: 0.18,
         thickness: 3,
@@ -529,13 +594,33 @@ export function createRenderer(canvas) {
     }
   }
 
+  // A halfway flag lights up once the rider rides past it, keeping the ride
+  // time it was passed at for its timing board. Purely visual.
+  function watchHalfway(ride, focus, now) {
+    if (passRide !== ride) {
+      passes.clear();
+      passRide = ride;
+      passFromX = null;
+    }
+    const fromX = passFromX;
+    passFromX = ride.ragdoll ? null : focus.x;
+    if (!ride.started || ride.ragdoll || fromX === null || fromX === focus.x) return;
+    for (const prop of trail.props || []) {
+      if (prop.type !== "halfway-flag" || passes.has(prop)) continue;
+      if ((fromX - prop.x) * (focus.x - prop.x) > 0) continue;
+      const y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
+      if (!Number.isFinite(y) || Math.abs(focus.y - y) > HALFWAY_REACH) continue;
+      passes.set(prop, { split: ride.elapsed, start: now });
+    }
+  }
+
   // Graffiti, painted onto the rock just after the terrain is drawn.
   function drawWallPaint() {
     for (const prop of trail.props || []) {
       if (!PAINTED_PROPS.has(prop.type) || !inView(prop.x, 70)) continue;
       const y = paintedPropY(trail, prop);
       if (y === null) continue;
-      const [, top, , bottom] = propRotation(prop) ? graffitiTurnedBounds() : GRAFFITI_BOUNDS;
+      const [, top, , bottom] = propRotation(prop) ? graffitiTurnedBounds(prop.type) : paintedBounds(prop.type);
       if (!inView(prop.x, 70, y + bottom + 2, bottom - top + 2)) continue;
       gameArt.drawWallPaint(trail, prop);
     }
@@ -543,8 +628,11 @@ export function createRenderer(canvas) {
 
   // The glowing parts of props, drawn over the lit scene: the lighting pass
   // casts their light. Street lamps, crane lights and hut windows only once it
-  // is dark around them; lanterns and mushrooms always.
-  function drawPropGlows() {
+  // is dark around them; lanterns and mushrooms always. Back-layer props sit
+  // behind the rider, the terrain and front props, so their glows are drawn
+  // into a layer with those cut out of it first (see drawGlowsBehind).
+  function drawPropGlows(ride, look, state, full) {
+    const behind = [];
     for (const prop of trail.props || []) {
       const rotation = propRotation(prop);
       const reach = GLOW_REACH[prop.type] && GLOW_REACH[prop.type] + (rotation ? PROP_RISE[prop.type] ?? 90 : 0);
@@ -559,24 +647,71 @@ export function createRenderer(canvas) {
             ? [0, LAMP_HEAD.y]
             : prop.type === "hut"
               ? HUT_WINDOW_CENTRE
-              : [0, -10];
+              : prop.type === "camera-tower"
+                ? [CAMERA_TALLY.x, CAMERA_TALLY.y]
+                : prop.type === "halfway-flag"
+                  ? [HALFWAY_BEACON.x, HALFWAY_BEACON.y]
+                  : prop.type === "watchtower"
+                    ? [SEARCHLIGHT.x, SEARCHLIGHT.y]
+                    : prop.type === "torch"
+                      ? [TORCH_FLAME.x, TORCH_FLAME.y]
+                      : prop.type === "tent"
+                        ? TENT_DOOR_CENTRE
+                        : prop.type === "fireplace"
+                          ? [0, FIRE.y - 10]
+                          : [0, -10];
       const head = propPoint(prop, y, hx, hy);
       const dark = lighting.isDark(trail, head.x, head.y);
-      if (!dark && (prop.type === "lamp" || prop.type === "crane" || prop.type === "hut")) continue;
+      if (!dark && (prop.type === "lamp" || prop.type === "crane" || prop.type === "hut" || prop.type === "tent" || prop.type === "watchtower")) continue;
+      const lit = passes.has(prop);
+      if (prop.type === "halfway-flag" && !lit) continue;
       const fit = propWallFit(trail, prop);
       let [rise, hang] = propSpan(prop.type, fit) || [PROP_RISE[prop.type] ?? 90, 0];
       if (rotation) rise = hang = Math.max(rise, hang);
       if (!inView(prop.x, reach, y + hang + reach, rise + hang + reach * 2)) continue;
-      gameArt.drawPropGlow(
+      const glow = [
         prop.type,
         prop.x,
         y,
         propGroundOffset(trail, prop),
         prop.flip,
         propScene.time,
-        { dark, trail, prop, fit, emissive: true, rotation },
-      );
+        { dark, trail, prop, fit, emissive: true, rotation, lit, rider: { x: propScene.riderX, y: propScene.riderY } },
+      ];
+      if (prop.layer === "front") gameArt.drawPropGlow(...glow);
+      else behind.push(glow);
     }
+    if (behind.length) drawGlowsBehind(behind, ride, look, state, full);
+  }
+
+  // Draws back-layer glows into a scratch layer, cuts out everything in
+  // front of them (the terrain, front props, the bike and rider), and lays
+  // what is left over the scene.
+  function drawGlowsBehind(glows, ride, look, state, full) {
+    const { width, height } = canvas;
+    const transform = ctx.getTransform();
+    glowLayer ??= xrayCanvas(width, height);
+    glowMask ??= xrayCanvas(width, height);
+    for (const layer of [glowLayer, glowMask]) {
+      fitLayer(layer, width, height);
+      layer.context.setTransform(transform);
+      layer.context.imageSmoothingEnabled = false;
+    }
+    for (const glow of glows) glowLayer.art.drawPropGlow(...glow);
+    terrainRenderer.draw(glowMask.context, ride.trail, cameraX, cameraY, W, H, propScene.time);
+    drawProps("front", full, glowMask.art);
+    if (hair) hair.draw(glowMask.tools.pixelPath, currentHairRoot(ride, false, flipVisual, look));
+    glowMask.art.drawBike(bikeDrawing(ride, look, flipVisual, state));
+    if (ride.ragdoll) glowMask.art.drawRagdoll(ride.ragdoll, look);
+    const context = glowLayer.context;
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.globalCompositeOperation = "destination-out";
+    context.drawImage(glowMask.canvas, 0, 0, width, height, 0, 0, width, height);
+    context.globalCompositeOperation = "source-over";
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(glowLayer.canvas, 0, 0, width, height, 0, 0, width, height);
+    ctx.restore();
   }
 
   // `area` limits drawing to props that can reach a world-space box
@@ -626,6 +761,8 @@ export function createRenderer(canvas) {
       let scene = propScene;
       const corgi = corgis.get(prop);
       if (corgi) scene = { ...propScene, corgi };
+      const pass = passes.get(prop);
+      if (pass) scene = { ...propScene, passed: { split: pass.split, age: (frameNow - pass.start) / 1000 } };
       const flight = flights.get(prop);
       if (flight) {
         const age = (frameNow - flight.start) / 1000;
@@ -801,12 +938,22 @@ export function createRenderer(canvas) {
       const head = ride.ragdoll.points.head;
       return { x: head.x - ride.facing * 6, y: head.y };
     }
-    return hairRoot(riderPose(ride, flip), exact, !lookParts(look).helmet);
+    return hairRoot(riderPose(ride, flip), exact);
   }
 
   function hairState(ride, flip, look) {
     const pose = riderPose(ride, flip);
+    const shape = lookParts(look).accessory?.shape;
     return {
+      // The outfit's accessory, which trails from the body rather than the head.
+      accessory: shape
+        ? ride.ragdoll
+          ? {
+              root: freeAccessoryRoot(ride.ragdoll.points.shoulder, ride.facing, shape),
+              rest: freeAccessoryRestDirection(ride.facing, shape),
+            }
+          : { root: accessoryRoot(pose, shape, true), rest: accessoryRestDirection(pose, shape) }
+        : null,
       root: currentHairRoot(ride, true, flip, look),
       rest: ride.ragdoll
         ? freeHairRestDirection(ride.facing)
@@ -819,10 +966,13 @@ export function createRenderer(canvas) {
     };
   }
 
-  /** Steps a hair simulation for `ride`; returns it, or null for cuts without a ponytail. */
+  /**
+   * Steps what trails behind the rider of `ride` (a ponytail, a cape); returns
+   * it, or null for a look with neither.
+   */
   function updateHair(current, ride, look, dt, flip = flipVisual) {
     const parts = lookParts(look);
-    if (!parts.hair.ponytail) return null;
+    if (!parts.hair.ponytail && !parts.accessory) return null;
     const state = hairState(ride, flip, look);
     let next = current;
     if (
@@ -830,7 +980,7 @@ export function createRenderer(canvas) {
       next.lookKey !== parts.key ||
       Math.hypot(state.root.x - next.root.x, state.root.y - next.root.y) > 60
     )
-      next = Object.assign(createRiderHair(state.root, state.rest, parts.hair), { lookKey: parts.key });
+      next = Object.assign(createRiderTrails(state, parts), { lookKey: parts.key });
     next.update(dt, state);
     return next;
   }
@@ -915,6 +1065,7 @@ export function createRenderer(canvas) {
       leanVisual: ride.leanVisual,
       look,
       dirt: wheelDirt,
+      squish: wheelSquish,
     };
   }
 
@@ -1002,18 +1153,17 @@ export function createRenderer(canvas) {
     const markers = [];
     for (const apple of ride.apples) {
       if (apple.taken) continue;
-      const appleY = appleDrawY(apple, ride);
-      if (inView(apple.x, -APPLE_HINT_VISIBLE, appleY, -APPLE_HINT_VISIBLE)) {
-        drawHintArrow(apple.x, appleY - 40 + bob, 0, 1, 18);
+      if (inView(apple.x, -APPLE_HINT_VISIBLE, apple.y, -APPLE_HINT_VISIBLE)) {
+        drawHintArrow(apple.x, apple.y - 40 + bob, 0, 1, 18);
         continue;
       }
       const x = clamp(apple.x, cameraX + side, cameraX + W - side);
-      const y = clamp(appleY, cameraY + top, cameraY + H - bottom);
+      const y = clamp(apple.y, cameraY + top, cameraY + H - bottom);
       if (markers.some((marker) => Math.abs(marker.x - x) < 34 && Math.abs(marker.y - y) < 34)) continue;
       markers.push({ x, y });
-      const distance = Math.hypot(apple.x - x, appleY - y);
+      const distance = Math.hypot(apple.x - x, apple.y - y);
       const dx = (apple.x - x) / distance,
-        dy = (appleY - y) / distance;
+        dy = (apple.y - y) / distance;
       ctx.fillStyle = "#182321d9";
       ctx.fillRect(Math.round(x / 2) * 2 - 15, Math.round(y / 2) * 2 - 15, 30, 30);
       gameArt.drawApple(x, y + 1);
@@ -1095,9 +1245,24 @@ export function createRenderer(canvas) {
   // The first terrain or water surface along each slanted falling path, for
   // rain and snow to land on. Weather drifts sideways by `drift` world units
   // per unit fallen, so every point on one path shares x - drift * y; paths
-  // are cached by that, and each is cast against the terrain only once.
+  // are cached by that, and each is cast against the terrain only once. Drops
+  // and flakes come in at the top of the view, so a path is only cast from
+  // just above it: traced further back, a path blown nearly flat in a gale
+  // would run into a hill far upwind and keep the whole view dry. A path that
+  // starts inside rock (the roof of a cave the view is in) is sheltered all
+  // the way down. The start steps with the camera, a band at a time, so the
+  // casts are reused.
   const weatherGround = new WeakMap();
   const WEATHER_COLUMN = ART_PIXEL * 2;
+  const WEATHER_BAND = 128;
+  // How far above the view a path starts: past where drops and flakes come in.
+  const WEATHER_ABOVE = 64;
+  // How much of the camera's vertical movement rain and snow follow. Sideways
+  // they move with the world at their depth, for parallax; up and down they
+  // keep nearly to the screen, or a rider falling as fast as the flakes would
+  // see the snow stand still (or rise), and one riding upward would see it
+  // rush past.
+  const WEATHER_VERTICAL_PARALLAX = 0.05;
 
   function weatherGroundAt(x, y, drift) {
     const geometry = terrainGeometry(trail);
@@ -1105,29 +1270,34 @@ export function createRenderer(canvas) {
     if (!cache || cache.geometry !== geometry)
       weatherGround.set(
         trail,
-        (cache = { geometry, water: waterBodies(trail), slants: new Map() }),
+        (cache = { geometry, water: waterBodies(trail), paths: new Map() }),
       );
     const slant = Math.round(drift * 100) / 100;
-    let columns = cache.slants.get(slant);
+    const top = Math.floor((cameraY - WEATHER_ABOVE) / WEATHER_BAND) * WEATHER_BAND;
+    const key = `${slant}|${top}`;
+    let columns = cache.paths.get(key);
     if (!columns) {
-      // Only a slider being dragged changes the slant; keep just the latest few.
-      if (cache.slants.size >= 4) cache.slants.clear();
-      cache.slants.set(slant, (columns = new Map()));
+      // A slider being dragged changes the slant, and the camera the band;
+      // keep just the latest few.
+      if (cache.paths.size >= 8) cache.paths.delete(cache.paths.keys().next().value);
+      cache.paths.set(key, (columns = new Map()));
     }
     const column = Math.round((x - slant * y) / WEATHER_COLUMN);
     let hit = columns.get(column);
     if (hit === undefined) {
       const along = (atY) => column * WEATHER_COLUMN + slant * atY;
       hit = { y: Infinity, water: false };
-      if (geometry) {
-        const top = geometry.bounds.top - 1,
-          bottom = geometry.bounds.bottom + 1;
-        const contact = terrainRaycastAt(trail, along(top), top, along(bottom), bottom);
-        if (contact) hit.y = contact.y;
+      if (geometry && top < geometry.bounds.bottom) {
+        const bottom = geometry.bounds.bottom + 1;
+        if (terrainSolidAt(geometry, along(top), top)) hit.y = top;
+        else {
+          const contact = terrainRaycastAt(trail, along(top), top, along(bottom), bottom);
+          if (contact) hit.y = contact.y;
+        }
       }
       for (const body of cache.water) {
         const at = along(body.y);
-        if (at >= body.x && at <= body.x + body.width && body.y < hit.y)
+        if (body.y >= top && at >= body.x && at <= body.x + body.width && body.y < hit.y)
           hit = { y: body.y, water: true };
       }
       columns.set(column, hit);
@@ -1135,14 +1305,14 @@ export function createRenderer(canvas) {
     return hit;
   }
 
-  function drawRain(intensity, time) {
+  // `drift` is how far the drops are blown sideways per unit they fall
+  // (negative to the left), from the wind.
+  function drawRain(intensity, time, drift) {
     const scale = clamp((W * H) / (760 * 430), 0.6, 2.2);
     // Above about 0.6 the rain builds to a downpour: more, longer, faster
-    // drops, driven at a steeper slant, under a darker sky.
+    // drops under a darker sky.
     const storm = Math.max(0, (intensity - 0.6) / 0.4) ** 1.5;
     const count = Math.max(1, Math.round(scale * (160 * intensity ** 1.15 + 240 * storm)));
-    const slant = 0.12 + storm * 0.16;
-    const segments = storm > 0.4 ? 3 : 2;
     const motion = reducedMotion ? 0 : time * 720;
     const spanX = W + 80,
       spanY = H + 70;
@@ -1156,29 +1326,33 @@ export function createRenderer(canvas) {
       const fall =
         rainHash(index, 2) * spanY +
         motion * (0.6 + rainHash(index, 3) * 0.25 + storm * 0.45) * depth -
-        cameraY * depth;
+        cameraY * depth * WEATHER_VERTICAL_PARALLAX;
       const cycle = Math.floor(fall / spanY);
       const y = fall - cycle * spanY - 35;
+      // Blown sideways over this fall only, so moving the wind slider swings
+      // the drops rather than throwing them across the screen.
       const rawX =
-        (rainHash(index, 4) + rainHash(index + cycle * 7919, 5)) * spanX -
-        fall * slant -
+        (rainHash(index, 4) + rainHash(index + cycle * 7919, 5)) * spanX +
+        (y + 35) * drift -
         cameraX * depth;
       const x = (((rawX % spanX) + spanX) % spanX) - 40;
       ctx.globalAlpha = 0.25 + depth * 0.3 + storm * 0.1;
-      // A slanted streak as offset one-pixel columns.
+      // The streak runs along the drop's slant, so the further the wind lays
+      // it over, the less it reaches down and the more it reaches across.
       const length = (8 + intensity * 6 + storm * 14) * depth + rainHash(index, 6) * 4;
-      const part = Math.max(1, Math.round(length / segments / ART_PIXEL)) * ART_PIXEL;
+      const down = Math.max(1, Math.round(length / Math.hypot(1, drift) / ART_PIXEL)) * ART_PIXEL;
+      const across = Math.abs(drift) * down;
       const left = Math.round(x / ART_PIXEL) * ART_PIXEL,
         top = Math.round(y / ART_PIXEL) * ART_PIXEL;
       // Rain stops at the first terrain or water it reaches, with a splash.
       const worldX = left - ART_PIXEL / 2 + cameraX,
         worldY = top + cameraY;
-      const hit = weatherGroundAt(worldX, worldY, -slant);
+      const hit = weatherGroundAt(worldX, worldY, drift);
       // Where along its slant this drop meets the ground.
-      const landX = worldX - slant * (hit.y - worldY);
+      const landX = worldX + drift * (hit.y - worldY);
       const surface = hit.water ? hit.y + surfaceWave(landX, propScene.time) : hit.y;
       const ground = Math.round((surface - cameraY) / ART_PIXEL) * ART_PIXEL;
-      const age = top + part * segments - ground;
+      const age = top + down - ground;
       if (age >= 0 && age < RAIN_SPLASH) {
         const left = Math.round((landX + ART_PIXEL / 2 - cameraX) / ART_PIXEL) * ART_PIXEL;
         const phase = Math.floor((age / RAIN_SPLASH) * 2);
@@ -1195,11 +1369,28 @@ export function createRenderer(canvas) {
         }
       }
       if (top >= ground) continue;
-      for (let segment = 0; segment < segments; segment++) {
-        const from = top + segment * part;
-        const size = Math.min(part, ground - from);
-        if (size <= 0) break;
-        ctx.fillRect(left - segment * ART_PIXEL, from, ART_PIXEL, size);
+      const side = Math.sign(drift);
+      if (across <= down) {
+        // Falling steeply: one-pixel columns, each lower one a step downwind.
+        const columns = Math.round(across / ART_PIXEL) + 1;
+        for (let column = 0; column < columns; column++) {
+          const from = top + Math.round((column * down) / columns / ART_PIXEL) * ART_PIXEL;
+          const to = top + Math.round(((column + 1) * down) / columns / ART_PIXEL) * ART_PIXEL;
+          const size = Math.min(to, ground) - from;
+          if (size <= 0) break;
+          ctx.fillRect(left + side * column * ART_PIXEL, from, ART_PIXEL, size);
+        }
+      } else {
+        // Driven nearly flat: one-pixel rows, each lower one further downwind.
+        const rows = down / ART_PIXEL;
+        for (let row = 0; row < rows; row++) {
+          const y = top + row * ART_PIXEL;
+          if (y >= ground) break;
+          const near = Math.round((row * across) / rows / ART_PIXEL) * ART_PIXEL;
+          const far = Math.round(((row + 1) * across) / rows / ART_PIXEL) * ART_PIXEL;
+          const width = Math.max(ART_PIXEL, far - near);
+          ctx.fillRect(side < 0 ? left - near - width + ART_PIXEL : left + near, y, width, ART_PIXEL);
+        }
       }
     }
     ctx.globalAlpha = 1;
@@ -1210,17 +1401,131 @@ export function createRenderer(canvas) {
 
   /**
    * Snowflakes. Like rain, the slider sets how many fall, and from about 0.6
-   * it builds to a blizzard: more, larger flakes driven sideways by the wind
-   * under a white haze. Each flake sways as it falls, with nearer flakes
-   * bigger, brighter, and faster. A flake rests briefly where it lands on
-   * terrain and melts straight into water.
+   * it builds to a blizzard: more, larger flakes under a white haze. The wind
+   * drives them sideways by `drift` per unit fallen. Each flake sways as it
+   * falls, with nearer flakes bigger, brighter, and faster. A flake rests
+   * briefly where it lands on terrain and melts straight into water.
    */
-  function drawSnow(intensity, time) {
+  // Wind swirls live in the world, in stretches this wide, each with its own
+  // gusts, so a gust stays put in the world as the camera moves.
+  const GUST_STRETCH = 600;
+
+  /**
+   * Gusts made visible: thin, pale streaks of air blowing through the world
+   * downwind (`dir`, -1 left or 1 right), each with a gentle wave and some
+   * curling into a loop on the way. None in light air; a few in a stiff
+   * breeze; several, faster, in a gale. Most fly low and follow the ground
+   * below them, up a hill and down the other side; the rest fly high and
+   * nearly level. They only show in open air: nothing is drawn inside the
+   * terrain or under it, so none blow through a hill, a cave or the space
+   * under an overhang (the same first surface from above that stops the rain;
+   * see weatherGroundAt). Rain already shows the wind, so with rain they are
+   * fewer, fainter and shorter; with snow they are broken into dots, like
+   * snow being whirled along. Worked out from the time alone, like the rain
+   * and snow, and left out with reduced motion.
+   */
+  function drawWindSwirls(wind, time, dir, rain, snow) {
+    const strength = clamp((wind - 0.25) / 0.75, 0, 1);
+    if (!strength || reducedMotion) return;
+    const wet = Math.max(rain, snow);
+    // Gust slots per stretch, rising slowly through a stiff breeze and
+    // quickly towards a gale: about one gust in view at a time at 0.4 wind,
+    // four in a gale. The last slot only fires some of its gusts, so the
+    // count grows smoothly with the wind.
+    const want = (0.6 + 9.4 * strength ** 1.4) * (1 - wet * 0.55);
+    const slots = Math.ceil(want);
+    const share = want - Math.floor(want) || 1;
+    const speed = 150 + strength * 230;
+    // The open air's floor at a world x: the first surface from above the
+    // view, smoothed a little so a low gust flows over the ground rather than
+    // stepping with it.
+    const floorAt = (x) => {
+      const hits = [-12, 0, 12].map((dx) => weatherGroundAt(x + dx, cameraY, 0).y).filter(Number.isFinite);
+      return hits.length ? hits.reduce((sum, y) => sum + y, 0) / hits.length : Infinity;
+    };
+    const open = (x, y) => y < weatherGroundAt(x, cameraY, 0).y;
+    const first = Math.floor((cameraX - GUST_STRETCH) / GUST_STRETCH);
+    const last = Math.floor((cameraX + W + GUST_STRETCH) / GUST_STRETCH);
+    for (let stretch = first; stretch <= last; stretch++)
+      for (let slot = 0; slot < slots; slot++) {
+        const index = stretch * 61 + slot;
+        // Each slot sends a gust every so often, from its own place each time.
+        const period = 3.2 + rainHash(index, 31) * 3;
+        const clock = time + rainHash(index, 32) * period;
+        const cycle = Math.floor(clock / period);
+        const age = clock - cycle * period;
+        const seed = index + cycle * 7919;
+        const life = 1.6 + rainHash(seed, 33) * 0.9;
+        if (age > life) continue;
+        if (slot === slots - 1 && rainHash(seed, 43) > share) continue;
+        const travel = speed * (0.75 + rainHash(seed, 34) * 0.5);
+        const startX = stretch * GUST_STRETCH + rainHash(seed, 39) * GUST_STRETCH;
+        // Low gusts skim the ground and follow it; high ones fly nearly level.
+        const low = rainHash(seed, 40) < 0.7;
+        const height = low ? 14 + rainHash(seed, 42) * 50 : 90 + rainHash(seed, 42) * 130;
+        const follow = low ? 1 : 0.2;
+        const startFloor = floorAt(startX);
+        if (!Number.isFinite(startFloor) || !open(startX, startFloor - height)) continue;
+        const length = (70 + rainHash(seed, 35) * 70) * (1 - rain * 0.4);
+        const curl = rainHash(seed, 36) < 0.55 ? 7 + rainHash(seed, 37) * 6 : 0;
+        const wave = (low ? 3 : 5) + rainHash(seed, 38) * 5;
+        const headAlong = age * travel;
+        // Skip gusts nowhere near the view.
+        const headX = startX + dir * headAlong;
+        if (headX < cameraX - 200 || headX > cameraX + W + 200) continue;
+        // A point of the gust, `back` world units behind its head.
+        const at = (back) => {
+          const along = Math.max(0, headAlong - back);
+          let x = startX + dir * along;
+          let y = Math.sin(along / 40 + rainHash(seed, 41) * 6.3) * wave;
+          if (curl) {
+            // A loop part-way along: the air turns over once and carries on.
+            const loopAt = travel * life * 0.45;
+            const into = (along - loopAt) / (curl * 6.3);
+            if (into > 0 && into < 1) {
+              const turn = into * Math.PI * 2;
+              x += dir * (Math.sin(turn) * curl - into * curl * 6.3);
+              y -= (1 - Math.cos(turn)) * curl;
+            } else if (into >= 1) x -= dir * curl * 6.3;
+          }
+          const floor = floorAt(x);
+          const ground = Number.isFinite(floor) ? startFloor + (floor - startFloor) * follow : startFloor;
+          return [x, ground - height + y];
+        };
+        // Fading in at the start of its life and out at the end, and along its tail.
+        const life01 = age / life;
+        const fade = Math.min(1, life01 * 5, (1 - life01) * 4) * (0.55 - rain * 0.22);
+        let previous = null;
+        for (let back = 0; back < length; back += ART_PIXEL) {
+          const [x, y] = at(back);
+          // Only in open air: not in the ground, a cave or under an overhang.
+          if (!open(x, y + ART_PIXEL)) continue;
+          const left = Math.round((x - cameraX) / ART_PIXEL) * ART_PIXEL;
+          const top = Math.round((y - cameraY) / ART_PIXEL) * ART_PIXEL;
+          const key = left + "," + top;
+          if (key === previous) continue;
+          previous = key;
+          // Snow breaks the streak into flakes being whirled along.
+          if (snow && (back / ART_PIXEL) % 3 !== 0) continue;
+          // A pale streak with a faint shaded underside, so it reads against a
+          // light sky as well as dark leaves.
+          const tail = 1 - back / length;
+          ctx.globalAlpha = fade * tail * 0.4;
+          ctx.fillStyle = "rgb(70, 96, 100)";
+          ctx.fillRect(left, top + ART_PIXEL, ART_PIXEL, ART_PIXEL);
+          ctx.globalAlpha = fade * tail;
+          ctx.fillStyle = "rgb(244, 249, 247)";
+          ctx.fillRect(left, top, ART_PIXEL, ART_PIXEL);
+        }
+      }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawSnow(intensity, time, drift) {
     const scale = clamp((W * H) / (760 * 430), 0.6, 2.2);
     const storm = Math.max(0, (intensity - 0.6) / 0.4) ** 1.5;
     const count = Math.max(1, Math.round(scale * (150 * intensity ** 1.15 + 520 * storm)));
     const seconds = reducedMotion ? 0 : time;
-    const wind = 0.12 + storm * 0.9;
     const spanX = W + 120,
       spanY = H + 40;
     if (storm) {
@@ -1234,7 +1539,7 @@ export function createRenderer(canvas) {
       const fall =
         rainHash(index, 12) * spanY +
         seconds * 55 * (0.7 + rainHash(index, 13) * 0.6) * depth * (1 + storm * 1.8) -
-        cameraY * depth;
+        cameraY * depth * WEATHER_VERTICAL_PARALLAX;
       const cycle = Math.floor(fall / spanY);
       const y = fall - cycle * spanY - 20;
       const sway =
@@ -1242,8 +1547,8 @@ export function createRenderer(canvas) {
         10 *
         depth;
       const rawX =
-        (rainHash(index, 16) + rainHash(index + cycle * 7919, 17)) * spanX -
-        fall * wind +
+        (rainHash(index, 16) + rainHash(index + cycle * 7919, 17)) * spanX +
+        (y + 20) * drift +
         sway -
         cameraX * depth;
       const x = (((rawX % spanX) + spanX) % spanX) - 60;
@@ -1252,13 +1557,13 @@ export function createRenderer(canvas) {
         top = Math.round(y / ART_PIXEL) * ART_PIXEL;
       const worldX = left + size / 2 + cameraX,
         worldY = top + size + cameraY;
-      const hit = weatherGroundAt(worldX, worldY, -wind);
+      const hit = weatherGroundAt(worldX, worldY, drift);
       const ground = Math.round((hit.y - cameraY) / ART_PIXEL) * ART_PIXEL;
       const alpha = 0.45 + depth * 0.4;
       if (top + size > ground) {
         if (hit.water || top + size - ground > SNOW_SETTLE) continue;
         // Resting where it landed until it melts away.
-        const rest = Math.round((left + wind * (top + size - ground)) / ART_PIXEL) * ART_PIXEL;
+        const rest = Math.round((left - drift * (top + size - ground)) / ART_PIXEL) * ART_PIXEL;
         ctx.globalAlpha = alpha * (1 - (top + size - ground) / SNOW_SETTLE);
         ctx.fillRect(rest, ground - ART_PIXEL, size, ART_PIXEL);
         continue;
@@ -1273,11 +1578,15 @@ export function createRenderer(canvas) {
     const rainIntensity = clamp(Number(trail.weather?.rain) || 0, 0, 1);
     const snow = clamp(Number(trail.weather?.snow) || 0, 0, 1);
     const fog = fogAmount(trail.weather);
-    if (!rainIntensity && !snow && !fog && weather.flash <= 0) return;
+    const air = propScene.weather;
+    const wind = clamp(Number(air?.wind) || 0, 0, 1);
+    if (!rainIntensity && !snow && !fog && weather.flash <= 0 && wind <= 0.25) return;
     ctx.save();
     if (fog) fogHaze(fog);
-    if (rainIntensity) drawRain(rainIntensity, weather.time);
-    if (snow) drawSnow(snow, weather.time);
+    // Gusts behind the rain and snow; all three are blown by the same wind.
+    drawWindSwirls(wind, weather.time, windSign(air), rainIntensity, snow);
+    if (rainIntensity) drawRain(rainIntensity, weather.time, windSign(air) * rainSlant(air.wind));
+    if (snow) drawSnow(snow, weather.time, windSign(air) * snowDrift(air.wind));
     if (weather.flash > 0) {
       // The lighting pass lights the scene up; this adds the glare on top.
       ctx.fillStyle = `rgba(225, 239, 237, ${weather.flash * 0.14})`;
@@ -1301,17 +1610,18 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  function drawPhysicsOverlay(vehicle) {
+  function drawPhysicsOverlay(vehicle, ride) {
     const { chassis } = vehicle;
     ctx.save();
     ctx.globalAlpha = 0.85;
     ctx.lineWidth = 1;
     for (const constraint of vehicle.dampedConstraints) {
-      if (constraint.type !== "distance") continue;
-      ctx.strokeStyle =
-        constraint.minLength !== null || constraint.maxLength !== null
-          ? "#f0b45f"
-          : "#83d1ce";
+      if (constraint.type !== "distance" && constraint.type !== "leg") continue;
+      const limit =
+        constraint.type === "leg"
+          ? constraint.lower !== null || constraint.upper !== null
+          : constraint.minLength !== null || constraint.maxLength !== null;
+      ctx.strokeStyle = limit ? "#f0b45f" : "#83d1ce";
       ctx.beginPath();
       ctx.moveTo(constraint.a.x, constraint.a.y);
       ctx.lineTo(constraint.b.x, constraint.b.y);
@@ -1334,6 +1644,17 @@ export function createRenderer(canvas) {
       );
       ctx.stroke();
     }
+    // The rider's crash probes: only the head ends a run on terrain, so it is
+    // drawn red when it touches; the shoulder and hip go orange inside it.
+    if (ride && !ride.ragdoll)
+      for (const [name, probe] of Object.entries(riderCollisionPoints(ride))) {
+        const clearance = probeClearance(ride.trail, probe);
+        const touching = clearance !== null && clearance <= 0;
+        ctx.strokeStyle = touching ? (name === "head" ? "#ff3b30" : "#ff9f2e") : "#7fd8ff";
+        ctx.beginPath();
+        ctx.arc(probe.x, probe.y, probe.radius, 0, TAU);
+        ctx.stroke();
+      }
     const center = vehicleMetrics(vehicle).center;
     ctx.strokeStyle = "#ff8952";
     ctx.beginPath();
@@ -1357,13 +1678,21 @@ export function createRenderer(canvas) {
       );
   }
 
-  function drawApples(ride, now) {
+  // The shine is only decoration, so it follows the scene clock and is left
+  // out with reduced motion.
+  function drawApples(ride) {
     for (const apple of ride.apples) {
-      if (apple.taken) continue;
-      const appleY = appleDrawY(apple, ride);
-      if (!inView(apple.x, 30, appleY)) continue;
-      gameArt.drawApple(apple.x, appleY);
+      if (apple.taken || !inView(apple.x, 30, apple.y)) continue;
+      gameArt.drawApple(apple.x, apple.y, reducedMotion ? null : appleShine(apple, sceneClock / 1000));
     }
+  }
+
+  // The nisse's hat tip flops now and then, on the scene clock; held still
+  // with reduced motion.
+  function drawNisseInRide(ride) {
+    const nisse = ride.nisse;
+    if (!nisse || nisse.taken || !inView(nisse.x, 30, nisse.y - 12)) return;
+    drawNisse({ pixelRect }, nisse.x, nisse.y, reducedMotion ? 0 : nisseWiggle(nisse, sceneClock / 1000));
   }
 
   function drawSpikes(ride) {
@@ -1424,22 +1753,32 @@ export function createRenderer(canvas) {
     debug,
   }) {
     const paused = state === "paused";
-    const animationDt = paused ? 0 : dt;
+    wonFor = state === "won" ? wonFor + dt : 0;
+    const settle = state === "won" ? Math.max(0, 1 - wonFor / WIN_SETTLE) ** 2 : 1;
+    const animationDt = paused ? 0 : dt * settle;
+    // The weather clock steps with the physics, which stops at the finish;
+    // keep it in step with the props while they slow down.
+    if (state === "won") effects.weather.time += animationDt;
     sceneClock += animationDt * 1000;
     const now = sceneClock;
     const focus = focusOf(ride);
     // The ride is already interpolated for this frame, and nothing here feeds
     // back into the simulation, so replays are unaffected.
+    if (!ride.ragdoll) crashStart = null;
+    else crashStart ??= now;
     propScene = {
       time: reducedMotion ? 0 : now / 1000,
       riderX: focus.x,
       riderY: focus.y,
-      wind: windStrength(trail.weather),
+      weather: resolveWeather(trail.weather),
       landing,
+      // Where the rider came off, and how long ago, for the spectators.
+      crash: ride.ragdoll ? { x: focus.x, y: focus.y, age: (now - crashStart) / 1000 } : null,
     };
     frameNow = now;
     startleProps(ride, focus, now);
     watchCrash(ride, focus, now);
+    watchHalfway(ride, focus, now);
     walkCorgis(ride, focus, animationDt);
     camera.follow(focus, {
       facing: ride.facing,
@@ -1458,6 +1797,7 @@ export function createRenderer(canvas) {
     // Whole device pixels, so art on the world's pixel grid never straddles a pixel.
     cameraX = Math.round(view.x * worldToDevice) / worldToDevice;
     cameraY = Math.round(view.y * worldToDevice) / worldToDevice;
+    riderOnScreen = { x: (focus.x - cameraX) / W, y: (focus.y - cameraY) / H };
 
     ctx.setTransform(worldToDevice, 0, 0, worldToDevice, 0, 0);
     ctx.imageSmoothingEnabled = false;
@@ -1474,9 +1814,10 @@ export function createRenderer(canvas) {
     ctx.translate(-cameraX, -cameraY);
     effects.update(animationDt);
     wheelDirt = effects.wheelDirt;
+    wheelSquish = effects.tyreSquish;
     backWallRenderer.draw(ctx, trail, cameraX, cameraY, W, H);
     drawProps("back", full);
-    terrainRenderer.draw(ctx, ride.trail, cameraX, cameraY, W, H);
+    terrainRenderer.draw(ctx, ride.trail, cameraX, cameraY, W, H, propScene.time);
     drawGlassCracks(ride.trail);
     drawWallPaint();
     drawSkidMarks(effects.skidMarks);
@@ -1484,14 +1825,15 @@ export function createRenderer(canvas) {
     drawParticles(effects.particles, true);
     drawGoal(ride);
     drawSpikes(ride);
-    drawApples(ride, now);
+    drawApples(ride);
+    drawNisseInRide(ride);
     const fog = fogAmount(trail.weather);
     if (fog) drawFog(fog, focus, ride.facing);
     drawGhost(ghost, ghostLook ?? look, animationDt);
     hair = updateHair(hair, ride, look, ride.status === "won" ? 0 : animationDt);
     if (hair) hair.draw(pixelPath, currentHairRoot(ride, false, flipVisual, look));
     drawBike(ride, look, flipVisual, ride.ragdoll ? "ragdoll" : state);
-    if (debug) drawPhysicsOverlay(ride.vehicle);
+    if (debug) drawPhysicsOverlay(ride.vehicle, ride);
     if (ride.ragdoll) gameArt.drawRagdoll(ride.ragdoll, look);
     // Water props in front are drawn before the water, so what is under the
     // surface looks wet.
@@ -1513,7 +1855,7 @@ export function createRenderer(canvas) {
       time: propScene.time,
       flip: flipVisual,
     });
-    drawPropGlows();
+    drawPropGlows(ride, look, ride.ragdoll ? "ragdoll" : state, full);
     drawInteractHint();
     drawPopups(animationDt);
     drawAppleHints(ride);
@@ -1538,6 +1880,7 @@ export function createRenderer(canvas) {
     cameraY = Math.round(view.y * worldToDevice) / worldToDevice;
     flipVisual = ride.facing;
     wheelDirt = null;
+    wheelSquish = null;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(worldToDevice, 0, 0, worldToDevice, 0, 0);
@@ -1563,6 +1906,8 @@ export function createRenderer(canvas) {
     reset,
     land,
     takeWoofs,
+    /** Whether the scene behind the results has come to a stop. */
+    settled: () => wonFor >= WIN_SETTLE,
     interact,
     setInteractKey(label) {
       interactLabel = String(label || "");
@@ -1575,6 +1920,8 @@ export function createRenderer(canvas) {
       headlights = Boolean(on);
       lighting.setHeadlights(on);
     },
+    /** Where the rider was in the last frame, as fractions of the view's width and height. */
+    riderOnScreen: () => riderOnScreen,
     get width() {
       return W;
     },

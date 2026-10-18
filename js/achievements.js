@@ -11,7 +11,11 @@
 //   interact  using a prop of that type (see interactions.js)
 //   egg       an easter egg game.js reports by name: poking at the game from
 //             the console, breaking it, or a cheat code held down
-// Only event, finish, interact and egg achievements are stored, in
+//   editor    something done with the trail editor: publishing a custom trail,
+//             sharing one or finishing a play-test. It's handed to the game (see
+//             reportEditorFeat in trails.js), which gives it to the active rider.
+//             New trails published count towards the `published` stat
+// Only event, finish, interact, egg and editor achievements are stored, in
 // `save.achievements` as id -> time earned; the rest are worked out whenever
 // they're needed. Every trail counts, custom ones too, but editor play-tests
 // don't (see game.js). Ids are stored in saves, so they are never renamed or
@@ -22,29 +26,32 @@ import { WHEELBASE } from './config.js';
 /**
  * @typedef {{
  *   trails: number, golds: number, officialTotal: number,
- *   bonusFinished: number, bonusTotal: number
+ *   bonusFinished: number, bonusTotal: number,
+ *   nisseFound?: number, nisseTotal?: number
  * }} CareerProgress
  * @typedef {{
  *   flips: number, time: number, medal: string | null, gold: number | null,
  *   helmet: boolean, bike: string, night: boolean, rain: boolean, snow: boolean,
- *   attempts: number, previousBest: number | null, worldBest: number | null, custom: boolean
+ *   attempts: number, previousBest: number | null, worldBest: number | null, custom: boolean,
+ *   shared: boolean
  * }} FinishedRun what a run that reached the finish did: its flips, time,
  *   medal and the gold time, whether the rider wore a helmet, the bike
  *   (item id), whether the trail is at night or has rain or snow, how many
  *   attempts it took since the trail was opened, the best time on the trail
- *   before it and the world-best time (null if none), and whether it is a
- *   custom trail
+ *   before it and the world-best time (null if none), whether it is a
+ *   custom trail, and whether it came from someone's share link
  * @typedef {{ type: 'air' | 'wheelie' | 'stoppie', time: number }} Feat
  *   a stretch in the air, on the back wheel only or on the front wheel only,
  *   in seconds
  * @typedef {{
- *   id: string, group: 'career' | 'riding' | 'lifetime', name: string, blurb: string, icon: string,
+ *   id: string, group: 'career' | 'riding' | 'lifetime' | 'trail-maker' | 'easter-eggs',
+ *   name: string, blurb: string, icon: string,
  *   secret?: boolean, hint?: string,
  *   career?: (progress: CareerProgress) => boolean,
  *   stat?: string, goal?: number, unit?: 'tenths',
  *   event?: (event: any) => boolean,
  *   finish?: (run: FinishedRun) => boolean,
- *   interact?: string, egg?: string
+ *   interact?: string, egg?: string, editor?: 'publish' | 'share' | 'playtest'
  * }} Achievement
  *   `hint` is shown in place of the blurb while a secret is still hidden.
  */
@@ -54,6 +61,7 @@ export const ACHIEVEMENT_GROUPS = Object.freeze([
   { id: 'career', title: 'CAREER', blurb: 'Progress through the official and bonus trails' },
   { id: 'riding', title: 'RIDING', blurb: 'Earned on any trail, custom ones too' },
   { id: 'lifetime', title: 'LIFETIME', blurb: 'Totals across every ride' },
+  { id: 'trail-maker', title: 'TRAIL MAKER', blurb: 'Build your own trails in the editor and share them' },
   { id: 'easter-eggs', title: 'EASTER EGGS', blurb: 'For the curious. Bring your dev tools.' },
 ].map(group => Object.freeze(group)));
 
@@ -62,7 +70,7 @@ const everyTrail = (finished, total) => total > 0 && finished >= total;
 /** Every achievement, in the order the menu lists them. */
 export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze([
   {
-    id: 'first-steps', group: 'career', name: 'First Steps', icon: 'flag',
+    id: 'first-steps', group: 'career', name: 'First Steps', icon: 'footprints',
     blurb: 'Finish your first official trail.', career: p => p.trails >= 1
   },
   {
@@ -74,7 +82,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Win your first gold medal.', career: p => p.golds >= 1
   },
   {
-    id: 'gold-rush', group: 'career', name: 'Gold Rush', icon: 'trophy',
+    id: 'gold-rush', group: 'career', name: 'Gold Rush', icon: 'pickaxe',
     blurb: 'Win gold on every official trail.', career: p => everyTrail(p.golds, p.officialTotal)
   },
   {
@@ -82,22 +90,27 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Finish a bonus trail.', career: p => p.bonusFinished >= 1
   },
   {
-    id: 'completionist', group: 'career', name: 'Completionist', icon: 'trophy',
+    id: 'completionist', group: 'career', name: 'Completionist', icon: 'crown',
     blurb: 'Finish every official and bonus trail.',
     career: p => everyTrail(p.trails, p.officialTotal) && p.bonusFinished >= p.bonusTotal
   },
   {
-    id: 'halfway-there', group: 'career', name: 'Halfway There', icon: 'flag',
+    id: 'halfway-there', group: 'career', name: 'Halfway There', icon: 'halfway',
     blurb: 'Finish half of the official trails.',
     career: p => p.officialTotal > 0 && p.trails >= Math.ceil(p.officialTotal / 2)
   },
   {
-    id: 'hat-trick', group: 'career', name: 'Hat Trick', icon: 'trophy',
+    id: 'hat-trick', group: 'career', name: 'Hat Trick', icon: 'medals',
     blurb: 'Win 3 gold medals.', career: p => p.golds >= 3
   },
   {
     id: 'treasure-hunter', group: 'career', name: 'Treasure Hunter', icon: 'chest',
     blurb: 'Finish every bonus trail.', career: p => everyTrail(p.bonusFinished, p.bonusTotal)
+  },
+  {
+    id: 'nisse-hunter', group: 'career', name: 'Nisse Hunter', icon: 'nisse',
+    blurb: 'Find the nisse on every official trail that hides one.',
+    career: p => everyTrail(p.nisseFound ?? 0, p.nisseTotal ?? 0)
   },
 
   {
@@ -109,7 +122,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Land a triple flip in one jump.', event: e => e.type === 'flip' && e.count >= 3
   },
   {
-    id: 'flip-circus', group: 'riding', name: 'Flip Circus', icon: 'rotate-right',
+    id: 'flip-circus', group: 'riding', name: 'Flip Circus', icon: 'tent',
     blurb: 'Land 5 flips in one run and finish it.', finish: run => run.flips >= 5
   },
   {
@@ -162,11 +175,11 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Win a gold medal on a night trail.', finish: run => run.night && run.medal === 'gold'
   },
   {
-    id: 'show-off', group: 'riding', name: 'Show-Off', icon: 'rotate-right',
+    id: 'show-off', group: 'riding', name: 'Show-Off', icon: 'shades',
     blurb: 'Land 10 flips in one run and finish it.', finish: run => run.flips >= 10
   },
   {
-    id: 'spin-cycle', group: 'riding', name: 'Spin Cycle', icon: 'rotate-right', secret: true,
+    id: 'spin-cycle', group: 'riding', name: 'Spin Cycle', icon: 'washer', secret: true,
     blurb: 'Land a quadruple flip in one jump.', event: e => e.type === 'flip' && e.count >= 4
   },
   {
@@ -185,7 +198,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     finish: run => Number.isFinite(run.worldBest) && run.time < run.worldBest
   },
   {
-    id: 'leaps-and-bounds', group: 'riding', name: 'Leaps and Bounds', icon: 'clock',
+    id: 'leaps-and-bounds', group: 'riding', name: 'Leaps and Bounds', icon: 'fast-forward',
     blurb: 'Take 5 seconds off your best time on a trail.',
     finish: run => Number.isFinite(run.previousBest) && run.previousBest - run.time >= 5
   },
@@ -222,12 +235,16 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Fall out of the world.', event: e => e.type === 'crash' && e.cause === 'fall'
   },
   {
-    id: 'not-so-fast', group: 'riding', name: 'Not So Fast', icon: 'apple', secret: true,
+    id: 'not-so-fast', group: 'riding', name: 'Not So Fast', icon: 'no-entry', secret: true,
     blurb: 'Reach the finish with apples still missing.', event: e => e.type === 'goalLocked'
   },
   {
-    id: 'patience', group: 'riding', name: 'Patience', icon: 'snail', secret: true,
+    id: 'patience', group: 'riding', name: 'Patience', icon: 'hourglass', secret: true,
     blurb: 'Wait a whole minute at the start before setting off.', event: e => e.type === 'start' && e.wait >= 60
+  },
+  {
+    id: 'hej-nisse', group: 'riding', name: 'Hej, Nisse!', icon: 'nisse',
+    blurb: 'Find a nisse hidden off the trail.', event: e => e.type === 'nisse'
   },
   {
     id: 'deja-vu', group: 'riding', name: 'Déjà Vu', icon: 'ghost', secret: true,
@@ -236,11 +253,11 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
   },
 
   {
-    id: 'frequent-flyer', group: 'lifetime', name: 'Frequent Flyer', icon: 'rotate-right',
+    id: 'frequent-flyer', group: 'lifetime', name: 'Frequent Flyer', icon: 'plane',
     blurb: 'Land 100 flips.', stat: 'flips', goal: 100
   },
   {
-    id: 'crash-test-dummy', group: 'lifetime', name: 'Crash Test Dummy', icon: 'crash',
+    id: 'crash-test-dummy', group: 'lifetime', name: 'Crash Test Dummy', icon: 'dummy',
     blurb: 'Crash 100 times.', stat: 'crashes', goal: 100
   },
   {
@@ -252,7 +269,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Shatter 50 glass panes.', stat: 'panes', goal: 50
   },
   {
-    id: 'satellite', group: 'lifetime', name: 'Satellite', icon: 'rotate-right',
+    id: 'satellite', group: 'lifetime', name: 'Satellite', icon: 'satellite',
     blurb: 'Land 1,000 flips.', stat: 'flips', goal: 1000
   },
   {
@@ -260,11 +277,11 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Crash 500 times.', stat: 'crashes', goal: 500
   },
   {
-    id: 'orchard-keeper', group: 'lifetime', name: 'Orchard Keeper', icon: 'apple',
+    id: 'orchard-keeper', group: 'lifetime', name: 'Orchard Keeper', icon: 'basket',
     blurb: 'Collect 2,500 apples.', stat: 'apples', goal: 2500
   },
   {
-    id: 'window-shopper', group: 'lifetime', name: 'Window Shopper', icon: 'shatter',
+    id: 'window-shopper', group: 'lifetime', name: 'Window Shopper', icon: 'bag',
     blurb: 'Shatter 250 glass panes.', stat: 'panes', goal: 250
   },
   {
@@ -272,12 +289,33 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Spend 10 minutes in the air.', stat: 'airtime', goal: 6000, unit: 'tenths'
   },
   {
-    id: 'one-wheel-wonder', group: 'lifetime', name: 'One-Wheel Wonder', icon: 'wheelie',
+    id: 'one-wheel-wonder', group: 'lifetime', name: 'One-Wheel Wonder', icon: 'unicycle',
     blurb: 'Spend 5 minutes on your back wheel.', stat: 'wheelie', goal: 3000, unit: 'tenths'
   },
 
   {
-    id: 'under-the-hood', group: 'easter-eggs', name: 'Under the Hood', icon: 'wrench', secret: true,
+    id: 'groundbreaker', group: 'trail-maker', name: 'Groundbreaker', icon: 'pencil',
+    blurb: 'Publish your first custom trail in the editor.', editor: 'publish'
+  },
+  {
+    id: 'test-pilot', group: 'trail-maker', name: 'Test Pilot', icon: 'play',
+    blurb: 'Finish a play-test of a trail in the editor.', editor: 'playtest'
+  },
+  {
+    id: 'show-and-tell', group: 'trail-maker', name: 'Show and Tell', icon: 'share',
+    blurb: 'Copy a share link for a trail in the editor.', editor: 'share'
+  },
+  {
+    id: 'trail-network', group: 'trail-maker', name: 'Trail Network', icon: 'publish',
+    blurb: 'Publish 5 different custom trails.', stat: 'published', goal: 5
+  },
+  {
+    id: 'guest-rider', group: 'trail-maker', name: 'Guest Rider', icon: 'download',
+    blurb: 'Finish a trail someone shared with you.', finish: run => run.shared
+  },
+
+  {
+    id: 'under-the-hood', group: 'easter-eggs', name: 'Under the Hood', icon: 'terminal', secret: true,
     hint: 'Some query strings open doors.',
     blurb: 'Reach into a ride from the browser console.', egg: 'debug-console'
   },
@@ -292,7 +330,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     blurb: 'Send a world time the server can’t reproduce.', egg: 'rejected-run'
   },
   {
-    id: 'here-be-kraken', group: 'easter-eggs', name: 'Here Be Kraken', icon: 'crash', secret: true,
+    id: 'here-be-kraken', group: 'easter-eggs', name: 'Here Be Kraken', icon: 'kraken', secret: true,
     hint: 'Every physics engine has its limits.',
     blurb: 'Break the physics: pull the bike apart.', egg: 'kraken'
   },
@@ -301,7 +339,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
     hint: 'Wolfenstein 3D had a cheat. It still works.', blurb: 'Hold L, I and M at once.', egg: 'lim'
   },
   {
-    id: 'any-percent', group: 'easter-eggs', name: 'Any%', icon: 'flag', secret: true,
+    id: 'any-percent', group: 'easter-eggs', name: 'Any%', icon: 'bolt', secret: true,
     hint: 'Some trails are shorter than others. Make one.',
     blurb: 'Finish a trail in under a second.', finish: run => run.time < 1
   },
@@ -389,6 +427,20 @@ export const interactAchievements = type => ACHIEVEMENTS.filter(a => a.interact 
 
 /** The ids the easter egg `name` earns. */
 export const eggAchievements = name => ACHIEVEMENTS.filter(a => a.egg === name).map(a => a.id);
+
+/** The ids doing `feat` with the editor earns: 'publish', 'share' or 'playtest'. */
+export const editorAchievements = feat => ACHIEVEMENTS.filter(a => a.editor === feat).map(a => a.id);
+
+/**
+ * The editor's feats, feat -> how many times, as achievement ids and lifetime
+ * stat gains. 'new-trail' is a custom trail published for the first time.
+ * @param {Record<string, number>} feats
+ */
+export function editorProgress(feats) {
+  const ids = Object.keys(feats).flatMap(editorAchievements);
+  const published = feats['new-trail'] || 0;
+  return { ids, gains: published > 0 ? { published } : {} };
+}
 
 /**
  * Whether the physics has come apart: the wheels have left the finite world,

@@ -16,14 +16,9 @@ export const XPBD_CHASSIS_COMPLIANCE = 0.000001;
 export const XPBD_CHASSIS_AREA_COMPLIANCE = 0.000001;
 // The spring carries the chassis on its own: sliders keep each wheel in line
 // with its mount, so each wheel sinks on its own when it lands, by how hard
-// that wheel hits: about 5 px below its resting sag from a 20 px drop, 9 px
-// from 80 px and 11.5 px from 200 px. It bounces back one to three times and
-// settles within about a second.
-// Damping is the share of spring speed removed per step; near 1 locks it.
-// Rebound is firmer so the spring does not catapult the bike upward.
-export const XPBD_SUSPENSION_COMPLIANCE = 0.0036;
-export const XPBD_SUSPENSION_DAMPING = .26;
-export const XPBD_SUSPENSION_REBOUND_DAMPING = .42;
+// that wheel hits. It bounces back one to three times and settles within
+// about a second. The spring and damper settings for each end are in
+// FORK_SUSPENSION and SHOCK_SUSPENSION below.
 // Pulled past its rest length the spring is softer, as in Elasto Mania: a
 // bike hooked on a ledge by one wheel hangs from that wheel's spring, which
 // stretches about 11 px under the whole bike and bobs before it settles, while
@@ -32,17 +27,69 @@ export const XPBD_SUSPENSION_EXTENSION_COMPLIANCE = 0.012;
 export const XPBD_SUSPENSION_SLIDER_COMPLIANCE = 0.0001;
 export const SUSPENSION_REST_LENGTH = 20;
 export const SUSPENSION_TRAVEL = 16;
-// A stiffer second spring over the last part of travel, so the soft main
-// spring keeps sinking further on harder landings instead of slamming into
-// the travel limit, which would throw the bike back into the air.
-export const SUSPENSION_BUMP_STOP_LENGTH = 10;
-export const XPBD_SUSPENSION_BUMP_STOP_COMPLIANCE = 0.0003;
 // The same on the way out: a firmer top-out spring over the last part of
 // stretch catches a bike that drops onto one hooked wheel before the travel
 // limit jerks it.
 export const SUSPENSION_TOP_OUT_LENGTH = 32;
 export const XPBD_SUSPENSION_TOP_OUT_COMPLIANCE = 0.002;
+// Front and rear differ as on a motocross bike. Each end's spring gets
+// stiffer as it compresses: past `risingRateStart` (px of compression) its
+// stiffness climbs with `risingRatePower` of the way to full travel, to
+// 1 + `risingRateGain` times the `compliance` stiffness at the bottom. There
+// is no separate bump stop, so the end of the stroke stores less energy to
+// hand back as a kick.
+// Damping is the share of spring speed removed per step; near 1 locks it.
+// Rebound is firmer than compression so the spring does not catapult the
+// bike upward. Each end also has a bottoming cone: past `bottomingStart` the
+// compression damping climbs, with the square of the way into that zone, to
+// `bottomingDamping` at full travel, so a hard landing is slowed over the
+// last part of the stroke instead of slamming the travel limit.
+// The fork is on the leading wheel, whichever way the rider faces, and is
+// raked back by `rake` (radians from square to the frame), as the drawn fork
+// is: the wheel travels up and back along it, so a step face or square edge
+// pushes the wheel up into the fork instead of stopping it dead and pitching
+// the bike over the bars. The rear wheel travels square to the frame.
+// The fork is linear until its air spring ramps up near the bottom, and its
+// lighter damping lets it recover quickly for the next bump. It sags 3.4 px
+// at rest and sinks a further 5.5 px from a 20 px drop, 10.3 px from 80 px
+// and 12.5 px from 200 px.
+export const FORK_SUSPENSION = {
+  rake: 23 * Math.PI / 180,
+  compliance: 0.0036,
+  risingRateStart: 9,
+  risingRateGain: 4,
+  risingRatePower: 3,
+  damping: .22,
+  reboundDamping: .38,
+  bottomingStart: 9,
+  bottomingDamping: .95,
+};
+// The rear shock's linkage makes it progressive over the whole stroke, from
+// a soft start: it sags 5 px at rest, about a third of its travel as race sag
+// is set, which leaves it droop to keep the tire on the ground as the weight
+// comes off it. It sinks a further 4.3 px from a 20 px drop, 8.4 px from
+// 80 px and 11.1 px from 200 px. Firmer rebound keeps it from kicking the
+// bike over the bars.
+export const SHOCK_SUSPENSION = {
+  rake: 0,
+  compliance: 0.0065,
+  risingRateStart: 0,
+  risingRateGain: 3,
+  risingRatePower: 2,
+  damping: .28,
+  reboundDamping: .55,
+  bottomingStart: 9,
+  bottomingDamping: .95,
+};
+// On a flip the fork and shock swap wheels. Each wheel's line of travel turns
+// to its new rake over this many seconds, about as long as the drawn bike
+// takes to turn around, rather than in one step.
+export const SUSPENSION_FLIP_TIME = .15;
 export const WHEEL_INERTIA = .5;
+// Share of its spin (per second) a wheel off the ground loses to bearing,
+// seal and brake-pad drag, so a wheel spinning in the air or on a crashed
+// bike slowly runs down: to about a third in 2.5 s.
+export const WHEEL_SPIN_DRAG = .4;
 // Tire grip is Coulomb friction on the real ground force each tire takes: a
 // gripping tire holds up to WHEEL_FRICTION times its load, a slipping one
 // pushes with WHEEL_SLIDE_FRICTION times it until it hooks up again. The motor
@@ -61,6 +108,28 @@ export const XPBD_MOTOR_ANGULAR_ACCELERATION = 808;
 // Engine torque tapers linearly to 28% at this wheel speed and keeps thinning
 // out above it without ever cutting off, so the bike has no top speed.
 export const XPBD_TORQUE_FALLOFF_SPEED = 340;
+// The engine between the throttle and the rear wheel. `rev` is its speed in
+// rear-wheel terms (rad/s the wheel turns with the clutch locked), and the
+// torque above follows it. Its flywheel is light, `inertia` times the rear
+// wheel's, so it revs up fast in a blip or in the air, and spinning it up
+// barely kicks the frame. Off the gas it falls back to `idle` with rate
+// `drag` (1/s), and it never revs past `redline`. A centrifugal clutch joins
+// it to the wheel, gripping harder as the revs rise: from nothing at `idle`
+// to full past idle + `engage`, carrying up to `clutch` times the peak torque.
+// It always slips a little under load, so the engine runs above the wheel's
+// speed and its drive comes in soft: held gas lifts the front a few degrees on
+// the flat and lets it settle, where a locked clutch loops the bike. The
+// price is slower steep climbs. `inertia` also sets how firmly the slipping
+// clutch couples: at .25 the front barely lifts, at .29 a 10° climb loops the
+// bike under held gas, and from .31 a 5° one does.
+export const ENGINE = {
+  inertia: .27,
+  idle: 3,
+  engage: 5,
+  clutch: 1.2,
+  drag: 3,
+  redline: 860 / 12,
+};
 // Full reaction: the torque that drives the rear wheel pushes the front up,
 // on climbs as on flat ground. Held throttle on a hill of about 40° or more
 // loops the bike over backward unless the rider leans forward.
@@ -86,22 +155,26 @@ export const XPBD_RIDER_MAX_GROUND_SPIN = 3;
 export const XPBD_TOUCHDOWN_SPIN_THRESHOLD = 3;
 export const XPBD_TOUCHDOWN_SPIN_ABSORPTION = .6;
 export const XPBD_THROTTLE_LEAN_ASSIST = .12;
-export const XPBD_THROTTLE_INPUT_RESPONSE = 1.1;
-export const XPBD_LEAN_INPUT_RESPONSE = 5.8;
+// How fast the throttle opens and closes (1/s): about as fast as a twist grip,
+// so a blip counts, and it springs shut as soon as it is let go. The engine
+// and clutch shape how the torque then arrives.
+export const XPBD_THROTTLE_INPUT_RESPONSE = 10;
+export const XPBD_THROTTLE_RELEASE_RESPONSE = 12;
+export const XPBD_LEAN_INPUT_RESPONSE = 10;
 export const XPBD_UPHILL_FORWARD_LEAN_REDUCTION = 1.4;
+// Below this speed (px/s) the uphill cut fades out, to nothing at a standstill,
+// so a rider standing on a climb can lean forward and lift the rear wheel as
+// far as gravity allows. Moving, forward lean stays cut and holding it climbs.
+export const XPBD_UPHILL_FORWARD_LEAN_SPEED = 40;
 // Nose-up tilt from the slope (radians) at which the front wheel counts as
 // lifted: forward lean is back to full strength for pulling it down.
 export const XPBD_UPHILL_FORWARD_LEAN_FULL_TILT = 12 * Math.PI / 180;
-// Brake dive follows travel speed, capped at about twice full-lean pitch; the
-// front suspension dives and takes up part of it. It only acts while rolling
-// forward: braking a bike that rolls back must not lift its front wheel.
-export const XPBD_BRAKE_REACTION_SCALE = 1;
-export const XPBD_BRAKE_REACTION_LIMIT = 60;
-export const XPBD_BRAKE_RATE = 64;
 // Most wheel spin (rad/s²) a fully held brake removes. Enough to lock a
 // rolling wheel within a few steps and hold it against full tire friction, so
 // the bike skids to a stop, stays parked on slopes, and pivots on a locked
-// front wheel in a stoppie.
+// front wheel in a stoppie. Each brake pushes back on the frame as hard as it
+// actually holds its wheel; that, with the tires slowing the bike at the
+// ground, is the dive under braking, with no extra push of its own.
 export const XPBD_BRAKE_TORQUE = 720;
 // Two wheel impulses are distributed over the full vehicle mass, so these
 // values produce 105 / 18 px/s² center-of-mass coast losses.

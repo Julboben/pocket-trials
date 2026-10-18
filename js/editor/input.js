@@ -11,7 +11,7 @@ import {
 import { isCurvedEdge } from "../terrain-geometry.js";
 import { typingInField } from "./clipboard.js";
 import { $, canvas } from "./dom.js";
-import { pushHistory, redo, snapshot, undo } from "./history.js";
+import { pushHistory, redo, restore, snapshot, undo } from "./history.js";
 import { hitStack, hitTest, sameHit } from "./hit-test.js";
 import {
   endScale,
@@ -37,6 +37,7 @@ import {
   updateSelectedPosition,
 } from "./inspector.js";
 import { closePlaytest, openPlaytest, playtestOpen } from "./playtest.js";
+import { openQuickPick } from "./quick-pick.js";
 import { render, renderView } from "./render.js";
 import {
   blockNodes,
@@ -56,13 +57,23 @@ import {
 } from "./selection.js";
 import { gridSpacing, snapToAngleAndGrid } from "./snap.js";
 import { clampZoom, editor } from "./state.js";
-import { showStatus } from "./status.js";
-import { PREVIEW_TOOLS, TOOL_KEYS, setTool } from "./tools.js";
+import { refuseEdit, refuseReadOnly, showStatus } from "./status.js";
+import { PREVIEW_TOOLS, TOOL_KEYS, setTool, toolSettings } from "./tools.js";
+import { groupLabel, isGroupLocked, toolGroup } from "./locks.js";
 import { commitWater } from "./water.js";
+import {
+  beginPreviewDrag,
+  draggingPreview,
+  editingPreview,
+  endPreviewDrag,
+  movePreviewDrag,
+  stopEditingPreview,
+} from "./preview.js";
 import { canSave, saveDraft, saveTrail } from "./trails.js";
 import {
   focusOnStart,
   pointerWorld,
+  toggleGameArt,
   updateZoom,
   zoomAtCenter,
 } from "./view.js";
@@ -84,6 +95,11 @@ let dragSnapshot = null;
 let dragOrigin = null;
 
 let lastDragPointer = null;
+
+// A plain drag of something that can be copied, so pressing Alt mid-drag can
+// turn it into a duplicate: the trail before the drag, what was grabbed and
+// where. Null once it has been duplicated, or for drags that can't be.
+let dragCopyable = null;
 
 let pendingKind = null;
 // Pressing a selected item that shares its spot with others: a click without
@@ -134,6 +150,10 @@ function applyRotate(event) {
 
 // An Alt press that becomes a duplicate once the mouse moves.
 let altPress = null;
+
+// A press on a read-only trail, which would have been a drag: if it moves, the
+// author is told why nothing follows the mouse.
+let readOnlyPress = null;
 
 /**
  * The points a Shift-drag measures its angle from: the neighbours of a dragged
@@ -248,6 +268,25 @@ function dragSelectionTo(pointer, shift) {
   render();
 }
 
+/**
+ * Alt pressed during a plain drag: the original goes back to where it was and
+ * a copy follows the mouse instead, the same as an Alt-drag from the start.
+ * The drag's single undo step covers it all.
+ */
+function duplicateMidDrag(shift) {
+  const copyable = dragCopyable;
+  if (!copyable || !dragging || scaling() || rotating()) return;
+  dragCopyable = null;
+  restore(copyable.before);
+  const copy = duplicateTarget(copyable.hit);
+  // Nothing to copy after all: the original goes on following the mouse.
+  if (copy) editor.selection = copy;
+  dragOrigin = startDragOrigin(copyable.point);
+  // Not moved yet: the copy waits for the first move, which records the undo step.
+  if (lastDragPointer) dragSelectionTo(lastDragPointer, shift);
+  else render();
+}
+
 // Pressing or releasing Shift mid-drag turns snapping on or off straight away,
 // without waiting for the pointer to move.
 const onShiftChange = (event) => {
@@ -293,9 +332,11 @@ function resetPointerState() {
   dragSnapshot = null;
   dragOrigin = null;
   lastDragPointer = null;
+  dragCopyable = null;
   editor.snapGuide = null;
   editor.marquee = null;
   altPress = null;
+  readOnlyPress = null;
   scalePoint = null;
   rotatePoint = null;
   pressClient = null;
@@ -305,6 +346,10 @@ function resetPointerState() {
 }
 
 export const endPointer = () => {
+  if (endPreviewDrag()) {
+    resetPointerState();
+    return;
+  }
   if (editor.pendingShape) {
     const shape = editor.pendingShape;
     const kind = pendingKind;
@@ -441,6 +486,18 @@ export function bindInput() {
       canvas.setPointerCapture(event.pointerId);
       return;
     }
+    // Editing the preview: the canvas only moves its frame (panning still works).
+    if (editingPreview()) {
+      beginPreviewDrag(point);
+      canvas.setPointerCapture(event.pointerId);
+      return;
+    }
+    // A tool that adds to, or cuts, a locked group does nothing until it is unlocked.
+    const group = toolGroup(editor.tool, toolSettings);
+    if (!editor.readOnly && group && isGroupLocked(group)) {
+      showStatus("warning", `The ${groupLabel(group).toLowerCase()} group is locked. Unlock it in the Objects tab.`);
+      return;
+    }
     if (editor.tool === "block" || editor.tool === "cut" || editor.tool === "water") {
       // These tools draw a shape: start the drag and show it as it grows.
       pendingKind = editor.tool;
@@ -543,11 +600,23 @@ export function bindInput() {
       if (stack.length > 1 && sameHit(stack[0], hit))
         showStatus("info", `${stack.length} things here. Click again to select the next one.`);
     }
-    if (editor.selection) {
+    if (editor.selection && editor.readOnly) {
+      // Pressing selects, so the inspector shows it; dragging says why it
+      // doesn't move.
+      readOnlyPress = { clientX: event.clientX, clientY: event.clientY };
+      canvas.setPointerCapture(event.pointerId);
+    } else if (editor.selection) {
       pressClient = { clientX: event.clientX, clientY: event.clientY };
       dragSnapshot = snapshot();
       dragOrigin = startDragOrigin(point);
       dragging = true;
+      // What is really being dragged: the selection, which may be the next
+      // one down a stack, or the grabbed member of a group.
+      const dragged = editor.selection.kind === "items" ? hit : editor.selection;
+      const draggedItem = dragged?.kind === "blockEdge" ? { type: "block" } : itemFromHit(dragged);
+      // Start, finish and curve handles can't be duplicated, so Alt leaves their drag alone.
+      if (draggedItem && draggedItem.type !== "start" && draggedItem.type !== "finish")
+        dragCopyable = { before: dragSnapshot, hit: dragged, point };
       canvas.setPointerCapture(event.pointerId);
     }
     syncInspector();
@@ -557,7 +626,10 @@ export function bindInput() {
   canvas.addEventListener("pointermove", (event) => {
     editor.pointerClient = { clientX: event.clientX, clientY: event.clientY };
     // No button held: the release was missed, so end the drag here.
-    if ((dragging || panning || editor.marquee || altPress) && event.buttons === 0) {
+    if (
+      (dragging || panning || editor.marquee || altPress || readOnlyPress || draggingPreview()) &&
+      event.buttons === 0
+    ) {
       endPointer();
       return;
     }
@@ -569,6 +641,12 @@ export function bindInput() {
       renderView();
       return;
     }
+    if (draggingPreview()) {
+      movePreviewDrag(pointerWorld(event));
+      return;
+    }
+    // The frame is all a press does while editing the preview.
+    if (editingPreview()) return;
     if (PREVIEW_TOOLS.has(editor.tool) && !dragging) {
       editor.hoverPoint = pointerWorld(event);
       renderView();
@@ -592,6 +670,18 @@ export function bindInput() {
       renderView();
       return;
     }
+    if (readOnlyPress) {
+      if (
+        Math.hypot(
+          event.clientX - readOnlyPress.clientX,
+          event.clientY - readOnlyPress.clientY,
+        ) < 4
+      )
+        return;
+      readOnlyPress = null;
+      refuseEdit();
+      return;
+    }
     if (altPress) {
       // Wait for a real drag, so an Alt-click stays a click.
       if (
@@ -603,6 +693,7 @@ export function bindInput() {
         return;
       const press = altPress;
       altPress = null;
+      if (refuseEdit()) return;
       // One undo step covers both the copy and the move.
       const before = snapshot();
       const copy = duplicateTarget(press.hit);
@@ -638,7 +729,19 @@ export function bindInput() {
     }
     if (!dragging || !editor.selection || !pastSlop(event)) return;
     lastDragPointer = { clientX: event.clientX, clientY: event.clientY };
+    // Alt went down while the canvas didn't have the key events (or before
+    // the first move): duplicate now.
+    if (event.altKey && dragCopyable) {
+      duplicateMidDrag(event.shiftKey);
+      return;
+    }
     dragSelectionTo(lastDragPointer, event.shiftKey);
+  });
+
+  window.addEventListener("keydown", (event) => {
+    if (event.key !== "Alt" || event.repeat || !dragCopyable) return;
+    event.preventDefault();
+    duplicateMidDrag(event.shiftKey);
   });
 
   window.addEventListener("keydown", onShiftChange);
@@ -663,6 +766,7 @@ export function bindInput() {
     const hit = hitTest(point, { preferEdges: true });
     // A double-click on an edge adds a point to it, keeping the edge's shape.
     if (hit?.kind === "blockEdge") {
+      if (refuseEdit()) return;
       pushHistory();
       insertBlockNode(hit.boundaryIndex, hit.index, hit.t, hit.blockIndex);
       syncInspector();
@@ -685,6 +789,7 @@ export function bindInput() {
   });
 
   $("show-shortcuts").addEventListener("click", () => shortcuts.showModal());
+  $("open-quick-pick").addEventListener("click", openQuickPick);
 
   // Clicking the backdrop closes the list too.
   shortcuts.addEventListener("click", (event) => {
@@ -694,6 +799,15 @@ export function bindInput() {
   shortcuts.addEventListener("close", () => canvas.focus({ preventScroll: true }));
 
   window.addEventListener("keydown", (event) => {
+    // Cmd/Ctrl+P opens the quick pick in place of printing, which the editor has no use for.
+    if ((event.metaKey || event.ctrlKey) && event.code === "KeyP" && !event.shiftKey && !event.altKey) {
+      event.preventDefault();
+      if (!playtestOpen() && !document.querySelector("dialog[open]")) {
+        /** @type {HTMLElement} */ (document.activeElement)?.blur?.();
+        openQuickPick();
+      }
+      return;
+    }
     if (shortcuts.open) return;
     if (event.key === "?" && !typingInField() && !playtestOpen()) {
       event.preventDefault();
@@ -705,6 +819,11 @@ export function bindInput() {
         event.preventDefault();
         closePlaytest();
       }
+      return;
+    }
+    if (event.key === "Escape" && editingPreview() && !typingInField()) {
+      event.preventDefault();
+      stopEditingPreview();
       return;
     }
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
@@ -738,6 +857,7 @@ export function bindInput() {
       /** @type {HTMLElement} */ (document.activeElement)?.blur?.();
       if (!event.shiftKey) saveDraft();
       else if (canSave()) saveTrail();
+      else refuseReadOnly();
       return;
     }
     if ((event.metaKey || event.ctrlKey) && event.code === "KeyY") {
@@ -810,6 +930,10 @@ export function bindInput() {
     }
     if (event.code === "KeyX") {
       toggleFlip();
+      return;
+    }
+    if (event.code === "KeyY") {
+      toggleGameArt();
       return;
     }
     if (event.code === "KeyR") {
