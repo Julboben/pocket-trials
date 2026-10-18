@@ -1257,6 +1257,12 @@ export function createRenderer(canvas) {
   const WEATHER_BAND = 128;
   // How far above the view a path starts: past where drops and flakes come in.
   const WEATHER_ABOVE = 64;
+  // How much of the camera's vertical movement rain and snow follow. Sideways
+  // they move with the world at their depth, for parallax; up and down they
+  // keep nearly to the screen, or a rider falling as fast as the flakes would
+  // see the snow stand still (or rise), and one riding upward would see it
+  // rush past.
+  const WEATHER_VERTICAL_PARALLAX = 0.05;
 
   function weatherGroundAt(x, y, drift) {
     const geometry = terrainGeometry(trail);
@@ -1320,7 +1326,7 @@ export function createRenderer(canvas) {
       const fall =
         rainHash(index, 2) * spanY +
         motion * (0.6 + rainHash(index, 3) * 0.25 + storm * 0.45) * depth -
-        cameraY * depth;
+        cameraY * depth * WEATHER_VERTICAL_PARALLAX;
       const cycle = Math.floor(fall / spanY);
       const y = fall - cycle * spanY - 35;
       // Blown sideways over this fall only, so moving the wind slider swings
@@ -1533,7 +1539,7 @@ export function createRenderer(canvas) {
       const fall =
         rainHash(index, 12) * spanY +
         seconds * 55 * (0.7 + rainHash(index, 13) * 0.6) * depth * (1 + storm * 1.8) -
-        cameraY * depth;
+        cameraY * depth * WEATHER_VERTICAL_PARALLAX;
       const cycle = Math.floor(fall / spanY);
       const y = fall - cycle * spanY - 20;
       const sway =
