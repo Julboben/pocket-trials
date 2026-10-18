@@ -327,7 +327,7 @@ const run = (replay = firstTrailRun) => ({ inputs: replay.inputs, seed: replay.s
   assert.equal((await api('save', { method: 'PUT', body: { save: { ...save, extra: 'x'.repeat(40_000) } }, token: julianToken })).status, 413);
 
   let { body } = await loginRider(julian);
-  assert.deepEqual(body.save, { look: legacyLook('female'), rider: 'female', createdAt: 1700000000000, trail: 1, unlocked: 2, bestTimes: { [firstKey]: 8.192 }, achievements: { bonk: 5 }, stats: { flips: 3 } }, 'only savegame fields are kept');
+  assert.deepEqual(body.save, { look: legacyLook('female'), rider: 'female', createdAt: 1700000000000, trail: 1, unlocked: 2, bestTimes: { [firstKey]: 8.192 }, achievements: { bonk: 5 }, stats: { flips: 3 }, nisse: {} }, 'only savegame fields are kept');
   assert.deepEqual(body.player.look, legacyLook('female'));
 
   // A look changed in the Garage reaches the player and their next login.

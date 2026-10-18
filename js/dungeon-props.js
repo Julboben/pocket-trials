@@ -96,6 +96,9 @@ export function barLayout(roofs, groundOffset, bent = false) {
 /**
  * The bars, as laid out by barLayout: iron rods with two straps riveted
  * across them, flecked with rust, and a socket where each meets the floor.
+ * @param {{ pixelRect: (...args: any[]) => void }} tools
+ * @param {any[]} bars
+ * @param {(index: number) => number} [noise]
  */
 export function drawDungeonBars({ pixelRect }, bars, noise = () => 0.5) {
   const tools = { pixelRect };
@@ -239,7 +242,7 @@ export function drawTorchStand({ pixelRect }) {
 export function drawTorchFeet({ pixelRect }, groundOffset) {
   const ground = snap(groundOffset(0));
   rod({ pixelRect }, 0, TORCH_BODY_BOTTOM, ground - 2);
-  for (const [x, w, color] of [[-8, 6, IRON.dark], [2, 6, IRON.light]]) {
+  for (const [x, w, color] of /** @type {[number, number, string][]} */ ([[-8, 6, IRON.dark], [2, 6, IRON.light]])) {
     const y = snap(groundOffset(x + w / 2));
     pixelRect(x, y - 2, w, 2, color, 2);
     pixelRect(x + (x < 0 ? 4 : 0), y - 4, 2, 2, IRON.base, 2);

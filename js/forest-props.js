@@ -430,6 +430,9 @@ export function ivyRustle(time, wind, phase, index) {
  * Ivy as laid out by ivyLayout: woody stems, then lobed leaves over them,
  * each shaded on its left and lit on its right, the outer ones nudged by
  * `rustle(index)` (see ivyRustle).
+ * @param {{ pixelRect: (...args: any[]) => void }} tools
+ * @param {any} layout
+ * @param {(index: number) => number} [rustle]
  */
 export function drawIvy({ pixelRect }, layout, rustle = () => 0) {
   for (const [x, y] of layout.stems) pixelRect(x, y, 2, 2, x > 6 ? IVY_STEM.base : IVY_STEM.dark, 2);
@@ -504,6 +507,7 @@ export function mossPlacement(cushions, normal) {
  * lit from the upper right and darkest against the rock. Spore stalks stand
  * up off it unless it hangs under an overhang, and drips hang under it unless
  * it lies on top of the ground.
+ * @param {{ pixelRect: (...args: any[]) => void }} tools
  * @param {{ u: number, r: number }[]} cushions
  * @param {[number, number]} [normal]
  */

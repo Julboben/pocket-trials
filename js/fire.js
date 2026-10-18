@@ -62,6 +62,7 @@ export function fireFrame(tongues, time, phase = 0) {
  * many) climb off it to `rise` above its tallest tongue and wink out. Out in
  * the open, a `wind` (0…1) bends the tips and carries the sparks `downwind`
  * (-1 left, 1 right), and they climb less high.
+ * @param {{ pixelRect: (...args: any[]) => void }} tools
  * @param {{ x: number, height: number, half: number, lick: number }[]} frame
  */
 export function drawFire({ pixelRect }, frame, time = 0, phase = 0, { sparks = 2, rise = 24, wind = 0, downwind = -1 } = {}) {
