@@ -352,7 +352,8 @@ export function createOverlay() {
    */
 
   /**
-   * "0.420s TO PASS FREJA", or the leader's margin, from the player's best.
+   * "0.420s TO PASS FREJA", or the leader's margin, from the player's best,
+   * or a cheer when the player is alone at the top.
    * @param {WorldStanding} standing
    */
   function rivalText({ rank, best, ahead, behind }) {
@@ -364,6 +365,8 @@ export function createOverlay() {
         ? "TIED WITH " + name(behind.name) + " FOR #1"
         : "LEADING " + name(behind.name) + " BY " + gap(behind.time);
     }
+    // First on the board, with nobody yet to lead.
+    if (rank === 1) return "FIRST PLACE IN THE WORLD!";
     return "";
   }
 
@@ -387,7 +390,7 @@ export function createOverlay() {
     showRank("WORLD", "#" + standing.rank + " / " + standing.total);
     const rival = rivalText(standing);
     $("results-rival").textContent = rival;
-    announce("World rank " + standing.rank + " of " + standing.total + "." + (rival ? " " + rival + "." : ""));
+    announce("World rank " + standing.rank + " of " + standing.total + "." + (rival ? " " + rival.replace(/[^!]$/, "$&.") : ""));
     return dialog.open;
   }
 
