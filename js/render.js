@@ -54,7 +54,7 @@ import { CAMERA_TALLY, HALFWAY_BEACON, HALFWAY_REACH } from "./event-props.js";
 import { SEARCHLIGHT, SEARCHLIGHT_BEAM } from "./prison-props.js";
 import { drawNisse, nisseWiggle } from "./nisse.js";
 import { TORCH_FLAME } from "./dungeon-props.js";
-import { FLAGPOLE, MILL } from "./countryside-props.js";
+import { FARMHOUSE, FLAGPOLE, MILL, farmhouseWindowCentre } from "./countryside-props.js";
 import { WATER_PROPS, FISH_DART, FISH_RANGE } from "./water-props.js";
 import { FIRE, IVY, SQUIRREL_HIDE_MAX, SQUIRREL_RANGE, TENT_DOOR_CENTRE } from "./forest-props.js";
 import {
@@ -132,6 +132,7 @@ const SCENERY_SHADOWS = {
   "christiania-bike": { width: 28, alpha: 0.14, thickness: 3, lift: 10 },
   bench: { width: 30, alpha: 0.14, thickness: 3, lift: 12 },
   mill: { width: 36, alpha: 0.15, thickness: 3, lift: 40 },
+  farmhouse: { width: 100, alpha: 0.15, thickness: 3, lift: 40 },
 };
 /** Seconds the scene takes to slow to a stop behind the results. */
 const WIN_SETTLE = 0.7;
@@ -174,6 +175,7 @@ const PROP_RISE = {
   ivy: IVY.max + 10,
   smoke: 96,
   mill: -(MILL.hub.y - MILL.sail) + 4,
+  farmhouse: -FARMHOUSE.chimney.y + 86,
 };
 // How far each prop's art hangs below its anchor, for culling.
 const PROP_HANG = {
@@ -215,6 +217,8 @@ const PROP_REACH = {
   // Its leaves drift a long way downwind as they fall.
   tree: 300,
   mill: MILL.sail + 8,
+  // Its chimney smoke blows well out past the gable downwind.
+  farmhouse: 150,
 };
 // Perched birds and ducks take off, roosting bats scatter, fish dart off and
 // squirrels run for a tree when the rider comes within `x` and `y` of them;
@@ -232,7 +236,7 @@ const STARTLE = {
 // and it is left out with reduced motion and in the lighter graphics mode.
 const HAZE_PROPS = new Set(["heat-haze"]);
 // Props that glow, and how far their light reaches either side, for culling.
-const GLOW_REACH = { lamp: 70, crane: 180, lantern: 100, torch: 100, fireplace: 100, tent: 60, mushrooms: 40, hut: 60, "camera-tower": 30, "halfway-flag": 30, watchtower: SEARCHLIGHT_BEAM.length + 20 };
+const GLOW_REACH = { lamp: 70, crane: 180, lantern: 100, torch: 100, fireplace: 100, tent: 60, mushrooms: 40, hut: 60, farmhouse: 100, "camera-tower": 30, "halfway-flag": 30, watchtower: SEARCHLIGHT_BEAM.length + 20 };
 // How far a hair strand may sink into a floor and still be lifted back onto it.
 const HAIR_GROUND_ALLOWANCE = 8;
 // Markers for missing apples out of view keep this far (world units) inside
@@ -639,7 +643,7 @@ export function createRenderer(canvas) {
   }
 
   // The glowing parts of props, drawn over the lit scene: the lighting pass
-  // casts their light. Street lamps, crane lights and hut windows only once it
+  // casts their light. Street lamps, crane lights and house windows only once it
   // is dark around them; lanterns and mushrooms always. Back-layer props sit
   // behind the rider, the terrain and front props, so their glows are drawn
   // into a layer with those cut out of it first (see drawGlowsBehind).
@@ -671,10 +675,12 @@ export function createRenderer(canvas) {
                         ? TENT_DOOR_CENTRE
                         : prop.type === "fireplace"
                           ? [0, FIRE.y - 10]
-                          : [0, -10];
+                          : prop.type === "farmhouse"
+                            ? farmhouseWindowCentre(2)
+                            : [0, -10];
       const head = propPoint(prop, y, hx, hy);
       const dark = lighting.isDark(trail, head.x, head.y);
-      if (!dark && (prop.type === "lamp" || prop.type === "crane" || prop.type === "hut" || prop.type === "tent" || prop.type === "watchtower")) continue;
+      if (!dark && (prop.type === "lamp" || prop.type === "crane" || prop.type === "hut" || prop.type === "farmhouse" || prop.type === "tent" || prop.type === "watchtower")) continue;
       const lit = passes.has(prop);
       if (prop.type === "halfway-flag" && !lit) continue;
       const fit = propWallFit(trail, prop);

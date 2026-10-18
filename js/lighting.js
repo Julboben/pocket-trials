@@ -23,6 +23,7 @@ import { backWallGeometry, terrainAt, terrainGeometry } from "./terrain.js";
 import { LANTERN_CENTRE } from "./cave-props.js";
 import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
 import { HUT_WINDOW_CENTRE } from "./mountain-props.js";
+import { farmhouseLitWindows, farmhouseWindowCentre } from "./countryside-props.js";
 import { SEARCHLIGHT } from "./prison-props.js";
 import { TORCH_FLAME } from "./dungeon-props.js";
 import { FIRE, TENT_DOOR_CENTRE } from "./forest-props.js";
@@ -279,7 +280,7 @@ export function createLighting() {
     const lights = [];
     for (const prop of trail.props || []) {
       const { type } = prop;
-      if (!["lantern", "torch", "fireplace", "lamp", "mushrooms", "crane", "hut", "tent", "watchtower"].includes(type)) continue;
+      if (!["lantern", "torch", "fireplace", "lamp", "mushrooms", "crane", "hut", "farmhouse", "tent", "watchtower"].includes(type)) continue;
       const ground = terrainAt(trail, prop.x);
       if (!ground.solid && !Number.isFinite(prop.y)) continue;
       const y = Number.isFinite(prop.y) ? prop.y : ground.y;
@@ -307,6 +308,15 @@ export function createLighting() {
         const window = at(...HUT_WINDOW_CENTRE);
         if (!darkAt(entry, window.x, window.y)) continue;
         lights.push({ kind: "lantern", phase: prop.x, x: window.x, y: window.y, radius: 110, color: LANTERN, strength: 0.8, flare: LANTERN_FLARE });
+      } else if (type === "farmhouse") {
+        // Lamplight in the lit windows, after dark; each flickers on its own.
+        const middle = at(...farmhouseWindowCentre(2));
+        if (!darkAt(entry, middle.x, middle.y)) continue;
+        farmhouseLitWindows(prop.x).forEach((lit, index) => {
+          if (!lit) return;
+          const window = at(...farmhouseWindowCentre(index));
+          lights.push({ kind: "lantern", phase: prop.x + index * 37, x: window.x, y: window.y, radius: 80, color: LANTERN, strength: 0.6, flare: LANTERN_FLARE });
+        });
       } else if (type === "fireplace") {
         // Firelight, always; it flickers like a lantern, and reaches further
         // than a torch's.

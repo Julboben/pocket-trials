@@ -318,7 +318,22 @@ import {
   TORCH_TONGUES,
 } from "./dungeon-props.js";
 import { FLAME, drawFire, fireFrame } from "./fire.js";
-import { FLAGPOLE, MILL, drawFlagpole, drawMillBase, drawMillSails, drawMillTower, millAngle } from "./countryside-props.js";
+import {
+  FARMHOUSE,
+  FARMHOUSE_BOUNDS,
+  FLAGPOLE,
+  MILL,
+  drawFarmhouse,
+  drawFarmhouseBase,
+  drawFarmhouseWindowGlass,
+  drawFlagpole,
+  drawMillBase,
+  drawMillSails,
+  drawMillTower,
+  farmhouseLitWindows,
+  farmhouseWindowCentre,
+  millAngle,
+} from "./countryside-props.js";
 import { resolveWeather, windSign } from "./weather.js";
 import { dayBlend, normalizeHour } from "./time-of-day.js";
 import {
@@ -4043,6 +4058,8 @@ const CANOPY_SPRITES = {
   bench: { bounds: [-38, -44, 38, 0], draw: drawBench },
   fireplace: { bounds: [-22, -12, 22, 0], draw: drawFireplace },
   mill: { bounds: [-48, -174, 48, MILL.bodyBottom], draw: drawMillTower },
+  // Its variant is the wash: 0 limewashed white, 1 yellow ochre.
+  farmhouse: { bounds: FARMHOUSE_BOUNDS, draw: drawFarmhouse },
   "wanted-poster": { bounds: [WANTED.left, WANTED.top, WANTED.left + WANTED.width, WANTED.top + WANTED.height], draw: drawWantedPoster },
 };
 const canopySprites = new Map();
@@ -4226,6 +4243,8 @@ const PROP_EXTENTS = {
   smoke: [-80, -96, 80],
   // The sails sweep round the hub, above and either side of the tower.
   mill: [-MILL.sail - 4, MILL.hub.y - MILL.sail - 4, MILL.sail + 4],
+  // Room for the chimney smoke rising and blowing downwind, either way.
+  farmhouse: [-150, FARMHOUSE.chimney.y - 86, 150],
 };
 // How far below its anchor each ceiling prop's art can reach.
 const CEILING_HANG = {
@@ -6375,6 +6394,15 @@ export function createGameArt(ctx) {
       drawMillBase({ pixelRect }, groundOffset);
       const { wind } = propWind(scene, mirrored);
       drawMillSails({ pixelRect, pixelPath, drawPixelDisc }, millAngle(scene.time || 0, wind, propNoise(x, 52)));
+    } else if (type === "farmhouse") {
+      // A half-timbered farmhouse, white or ochre by its place in the trail:
+      // the house, its plinth down to the ground, and chimney smoke blown
+      // downwind like the hut's.
+      drawCanopy(type, propNoise(x, 53) < 0.5 ? 1 : 0);
+      drawFarmhouseBase({ pixelRect }, groundOffset);
+      const { wind, downwind } = propWind(scene, mirrored);
+      ctx.translate(FARMHOUSE.chimney.x - HUT_CHIMNEY.x, FARMHOUSE.chimney.y - HUT_CHIMNEY.y);
+      drawSmokePuffs(chimneySmoke(scene.time || 0, propNoise(x, 54), wind, downwind));
     } else if (type === "smoke") {
       // A plume rising from its anchor, on top of a chimney built from terrain
       // say, blown downwind like the hut's.
@@ -7554,6 +7582,24 @@ export function createGameArt(ctx) {
       }
       ctx.globalAlpha = 1;
       drawHutWindowGlass({ pixelRect }, flicker);
+    } else if (type === "farmhouse") {
+      // Lamplight in most of the windows, each lamp flickering on its own.
+      ctx.scale(dir, 1);
+      for (const [index, lit] of farmhouseLitWindows(x).entries()) {
+        if (!lit) continue;
+        const flicker = lanternFlicker(x + index * 37, time);
+        const [cx, cy] = farmhouseWindowCentre(index);
+        if (!emissive) {
+          ctx.globalCompositeOperation = "screen";
+          ctx.globalAlpha = 0.18 * flicker;
+          drawPixelDisc(cx, cy, 20, HUT_LIGHT.flame, 2);
+          ctx.globalAlpha = 0.28 * flicker;
+          drawPixelDisc(cx, cy, 12, HUT_LIGHT.glass, 2);
+          ctx.globalCompositeOperation = "source-over";
+        }
+        ctx.globalAlpha = 1;
+        drawFarmhouseWindowGlass({ pixelRect }, index, flicker);
+      }
     } else if (type === "lamp") {
       // Glass centre and the ground below it, relative to the anchor.
       const headX = dir * LAMP_HEAD.x;

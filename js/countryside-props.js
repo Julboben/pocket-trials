@@ -7,6 +7,7 @@
 // still flies the right way.
 
 import { STEEL } from "./city-props.js";
+import { HUT_LIGHT } from "./mountain-props.js";
 
 const WHITE = { dark: "#b5bcae", base: "#f4e9d1", light: "#fffdf4" };
 const YELLOW = { dark: "#d9953a", base: "#f1b95d", light: "#ffe39a" };
@@ -204,4 +205,197 @@ export function drawMillSails({ pixelRect, pixelPath, drawPixelDisc }, angle) {
   }
   drawPixelDisc(hx, hy, 5, MILL_CAP.dark, 2);
   drawPixelDisc(hx + 1, hy - 1, 2, MILL_CAP.light, 2);
+}
+
+// ----------------------------------------------------------------- farmhouse
+
+/**
+ * A Danish half-timbered farmhouse (a "bindingsværk" længe), long side on:
+ * the walls' half-width, the thatch's eaves and ridge, where the sprite hands
+ * over to the tarred plinth that follows the ground, and the top of the
+ * chimney, where its smoke leaves. About 8.5 m long, with a door and windows
+ * at true scale under a steep, hipped thatched roof.
+ */
+export const FARMHOUSE = { half: 114, eaves: -66, ridge: -148, bodyBottom: -14, chimney: { x: 20, y: -174 } };
+/** The windows' frames, in the bays between the posts; the glass is inset 2. */
+export const FARMHOUSE_WINDOWS = [-82, -54, 2, 30, 58].map((left) => ({ left, top: -58, width: 24, height: 26 }));
+/** The middle of window `index`, where its lamplight comes from. */
+export const farmhouseWindowCentre = (index) => {
+  const { left, top, width, height } = FARMHOUSE_WINDOWS[index];
+  return [left + width / 2, top + height / 2];
+};
+export const FARMHOUSE_BOUNDS = [-128, FARMHOUSE.chimney.y - 2, 128, FARMHOUSE.bodyBottom];
+
+const LIME = { shade: "#b5bcae", base: "#f4e9d1", light: "#fffdf4" };
+// Yellow ochre, the other Danish farmhouse wash.
+const OCHRE = { shade: "#d9953a", base: "#f1b95d", light: "#ffe39a" };
+const TIMBER = { dark: "#4d3f2f", light: "#66543f" };
+const THATCH = { dark: "#806244", base: "#aa8a60", light: "#c39664", streak: "#856d4f" };
+const DOOR = { dark: "#477158", base: "#568061", light: "#618b66" };
+const TAR = MILL_CAP;
+const FARM_GLASS = { dark: "#3f6f78", base: "#568f98" };
+const GRANITE = { dark: "#697872", base: "#8b978c", light: "#a2ab9e" };
+
+/**
+ * Which of the farmhouse's windows have a lamp lit behind them after dark,
+ * for a house at world `x`: most of them, never fewer than two, the same
+ * ones every night.
+ */
+export function farmhouseLitWindows(x) {
+  const lit = FARMHOUSE_WINDOWS.map((_, index) => {
+    const s = Math.sin(x * 12.9898 + index * 78.233) * 43758.5453;
+    return s - Math.floor(s) > 0.3;
+  });
+  if (lit.filter(Boolean).length < 2) lit[1] = lit[3] = true;
+  return lit;
+}
+
+/**
+ * The farmhouse, down to FARMHOUSE.bodyBottom: dark timber framing with
+ * limewashed walls (`ochre` 0) or yellow-ochre ones (`ochre` 1), five
+ * white-framed windows (their glass by drawFarmhouseWindowGlass), a green
+ * plank door, braces in the end bays, and a thick hipped thatched roof with
+ * crossed ridge poles and a whitewashed chimney. The plinth is live.
+ */
+export function drawFarmhouse({ pixelRect, pixelPath }, ochre = 0) {
+  const { half, eaves, ridge, bodyBottom, chimney } = FARMHOUSE;
+  const wall = ochre ? OCHRE : LIME;
+  const top = eaves;
+  // The wash, in shade under the eaves and along the left end, lit at the right.
+  pixelRect(-half, top, half * 2, bodyBottom - top, wall.base, 2);
+  pixelRect(-half, top, half * 2, 4, wall.shade, 2);
+  pixelRect(half - 2, top + 4, 2, bodyBottom - top - 4, wall.light, 2);
+  // Posts every bay, lit on their right edge.
+  for (let x = -half; x < half; x += 28) {
+    pixelRect(x, top, 4, bodyBottom - top, TIMBER.dark, 2);
+    pixelRect(x + 2, top + 4, 2, bodyBottom - top - 4, TIMBER.light, 2);
+  }
+  // The sill beam, and a rail across each bay with a shadow under it: a mid
+  // rail in plain bays, a lintel and a sill round each window.
+  const rail = (left, y) => {
+    pixelRect(left, y, 24, 4, TIMBER.dark, 2);
+    pixelRect(left, y, 24, 2, TIMBER.light, 2);
+    pixelRect(left, y + 4, 24, 2, wall.shade, 2);
+  };
+  pixelRect(-half, bodyBottom - 4, half * 2, 4, TIMBER.dark, 2);
+  pixelRect(-half, bodyBottom - 4, half * 2, 2, TIMBER.light, 2);
+  const windows = new Set(FARMHOUSE_WINDOWS.map((w) => w.left));
+  for (let left = -half + 4; left < half; left += 28) {
+    if (left === -26) continue;
+    if (windows.has(left)) {
+      rail(left, -62);
+      rail(left, -32);
+    } else rail(left, -44);
+  }
+  // Braces in the end bays, from the sill up to the posts at the corners.
+  pixelPath([[-108, bodyBottom - 6], [-90, -60]], TIMBER.dark, 2, 2);
+  pixelPath([[108, bodyBottom - 6], [90, -60]], TIMBER.dark, 2, 2);
+  // White window frames with their glazing bars.
+  for (const [index, w] of FARMHOUSE_WINDOWS.entries()) {
+    pixelRect(w.left, w.top, w.width, w.height, LIME.light, 2);
+    pixelRect(w.left, w.top, 2, w.height, LIME.shade, 2);
+    drawFarmhouseWindowGlass({ pixelRect }, index, 0);
+  }
+  // The door: green planks with a small window, ledges and a brass handle.
+  const door = { left: -26, top: -62, width: 24 };
+  pixelRect(door.left, door.top, door.width, bodyBottom - door.top, DOOR.base, 2);
+  for (let x = door.left + 4; x < door.left + door.width; x += 4) pixelRect(x, door.top, 2, bodyBottom - door.top, DOOR.light, 2);
+  pixelRect(door.left, door.top, 2, bodyBottom - door.top, DOOR.dark, 2);
+  pixelRect(door.left, -36, door.width, 2, DOOR.dark, 2);
+  pixelRect(door.left, -22, door.width, 2, DOOR.dark, 2);
+  pixelRect(door.left + 6, door.top + 6, 12, 10, LIME.light, 2);
+  pixelRect(door.left + 8, door.top + 8, 8, 6, FARM_GLASS.dark, 2);
+  pixelRect(door.left + 12, door.top + 8, 2, 2, FARM_GLASS.base, 2);
+  pixelRect(door.left + 18, -42, 2, 4, YELLOW.base, 2);
+  pixelRect(door.left + 18, -42, 2, 2, YELLOW.light, 2);
+  // The thatch: a steep slope between two hips, shaded along the left hip
+  // and lit along the right, laid in courses, with the thick cut edge of the
+  // straw along the eaves.
+  const ridgeHalf = 72;
+  for (let y = ridge; y < eaves; y += 2) {
+    const reach = snap(ridgeHalf + ((y - ridge) * (128 - ridgeHalf)) / (eaves - 2 - ridge));
+    for (let x = -reach; x < reach; x += 2) {
+      const hip = x < -reach + 6 ? -1 : x >= reach - 6 ? 1 : 0;
+      const course = (y - ridge) % 12 === 10;
+      const fleck = (((x * 7 + y * 3) % 26) + 26) % 26 === 0;
+      let color = hip < 0 ? THATCH.dark : hip > 0 ? THATCH.light : fleck ? THATCH.light : THATCH.base;
+      if (course) color = hip > 0 ? THATCH.base : THATCH.streak;
+      if (y >= eaves - 6) color = (x + 128) % 6 === 0 ? THATCH.base : THATCH.streak;
+      if (y === eaves - 2) color = THATCH.dark;
+      pixelRect(x, y, 2, 2, color, 2);
+    }
+  }
+  // The ridge: a dark cap of heather, held down by crossed poles.
+  pixelRect(-ridgeHalf - 2, ridge - 4, ridgeHalf * 2 + 4, 6, TIMBER.dark, 2);
+  pixelRect(-ridgeHalf, ridge - 4, ridgeHalf * 2 + 2, 2, TIMBER.light, 2);
+  for (let x = -ridgeHalf + 8; x <= ridgeHalf - 8; x += 16) {
+    if (Math.abs(x - chimney.x) < 14) continue;
+    pixelPath([[x - 4, ridge + 2], [x + 4, ridge - 10]], TIMBER.dark, 1, 2);
+    pixelPath([[x + 4, ridge + 2], [x - 4, ridge - 10]], TIMBER.light, 1, 2);
+  }
+  // A whitewashed chimney astride the ridge, with a tarred cap.
+  pixelRect(chimney.x - 6, chimney.y + 4, 12, ridge - chimney.y - 2, LIME.base, 2);
+  pixelRect(chimney.x - 6, chimney.y + 4, 2, ridge - chimney.y - 2, LIME.shade, 2);
+  pixelRect(chimney.x + 4, chimney.y + 4, 2, ridge - chimney.y - 2, LIME.light, 2);
+  pixelRect(chimney.x - 8, chimney.y, 16, 4, TAR.base, 2);
+  pixelRect(chimney.x - 8, chimney.y, 4, 4, TAR.dark, 2);
+  pixelRect(chimney.x + 4, chimney.y, 4, 2, TAR.light, 2);
+}
+
+/**
+ * The glass of window `index`: dark with a glint of sky by day (`lit` 0), or
+ * warm lamplight after dark (`lit` > 0, a flicker 0.88…1), crossed by its
+ * white glazing bars: two casements, three panes high.
+ */
+export function drawFarmhouseWindowGlass({ pixelRect }, index, lit = 1) {
+  const w = FARMHOUSE_WINDOWS[index];
+  const left = w.left + 2, top = w.top + 2, width = w.width - 4, height = w.height - 4;
+  if (lit > 0) {
+    pixelRect(left, top, width, height, HUT_LIGHT.glass, 2);
+    pixelRect(left + 2, top + height - 6, width - 4, 4, lit < 0.95 ? HUT_LIGHT.glass : HUT_LIGHT.core, 2);
+  } else {
+    pixelRect(left, top, width, height, FARM_GLASS.dark, 2);
+    pixelRect(left + width - 6, top, 4, 2, FARM_GLASS.base, 2);
+    pixelRect(left + width - 4, top + 2, 2, 2, FARM_GLASS.base, 2);
+    pixelRect(left + 2, top + 12, 2, 2, FARM_GLASS.base, 2);
+  }
+  // A stout middle post, and a bar across each casement.
+  pixelRect(left + 8, top, 4, height, LIME.light, 2);
+  pixelRect(left + 8, top, 2, height, LIME.base, 2);
+  pixelRect(left, top + 6, width, 2, LIME.light, 2);
+  pixelRect(left, top + 14, width, 2, LIME.light, 2);
+}
+
+/**
+ * The live part, down to the ground: a tarred fieldstone plinth under the
+ * walls, a granite step at the door, and hollyhocks against the end walls.
+ */
+export function drawFarmhouseBase({ pixelRect }, groundOffset) {
+  const { half, bodyBottom } = FARMHOUSE;
+  for (let x = -half - 2; x < half + 2; x += 2) {
+    const ground = snap(groundOffset(x + 1));
+    if (ground <= bodyBottom) continue;
+    const color = x < -half + 2 ? TAR.dark : x >= half ? TAR.light : (x + 120) % 14 === 0 ? TAR.dark : TAR.base;
+    pixelRect(x, bodyBottom, 2, ground - bodyBottom, color, 2);
+    pixelRect(x, bodyBottom, 2, 2, x < -half + 2 ? TAR.base : TAR.light, 2);
+  }
+  // The step, a granite block at the threshold, down to the ground.
+  for (let x = -30; x < 2; x += 2) {
+    const ground = snap(groundOffset(x + 1));
+    if (ground <= bodyBottom + 2) continue;
+    pixelRect(x, bodyBottom + 2, 2, ground - bodyBottom - 2, x < -26 ? GRANITE.dark : x >= -2 ? GRANITE.light : GRANITE.base, 2);
+    pixelRect(x, bodyBottom + 2, 2, 2, GRANITE.light, 2);
+  }
+  // Hollyhocks: tall stems with leaves low down and flowers up the top.
+  for (const [x, height] of [[-104, 50], [-96, 58], [92, 46], [100, 38]]) {
+    const ground = snap(groundOffset(x + 1));
+    pixelRect(x, ground - height, 2, height, BLADES.dark, 2);
+    pixelRect(x - 4, ground - 10, 4, 4, BLADES.base, 2);
+    pixelRect(x + 2, ground - 16, 4, 4, BLADES.light, 2);
+    for (let y = ground - height; y < ground - height / 2; y += 6) {
+      pixelRect(x - 2, y, 6, 4, RED.base, 2);
+      pixelRect(x + 2, y, 2, 2, RED.light, 2);
+      pixelRect(x, y + 2, 2, 2, YELLOW.light, 2);
+    }
+  }
 }

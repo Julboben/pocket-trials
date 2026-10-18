@@ -346,10 +346,10 @@ function drawProps(layer) {
   }
 }
 
-const GLOWING_PROPS = new Set(["lamp", "crane", "lantern", "torch", "fireplace", "mushrooms", "hut", "tent", "camera-tower", "watchtower"]);
+const GLOWING_PROPS = new Set(["lamp", "crane", "lantern", "torch", "fireplace", "mushrooms", "hut", "farmhouse", "tent", "camera-tower", "watchtower"]);
 
 /**
- * Street lamps, crane lights, hut windows, tents and searchlights after dark;
+ * Street lamps, crane lights, hut and farmhouse windows, tents and searchlights after dark;
  * lanterns, torches, mushrooms and a camera tower's tally light always.
  */
 function drawPropGlows(dark) {

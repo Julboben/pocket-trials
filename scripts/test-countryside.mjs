@@ -6,11 +6,11 @@ import assert from 'node:assert/strict';
 import { normalizeTrail, validateTrail } from '../js/trail-schema.js';
 import { rectangle } from './lib/terrain-fixtures.mjs';
 import { PAINTED_PROPS, WALL_PROPS, canFlip, canRotate, mossSurface, paintedBounds, propWallFit } from '../js/drawing.js';
-import { FLAGPOLE, MILL, flagDroop, flagRipple, millAngle } from '../js/countryside-props.js';
+import { FARMHOUSE, FARMHOUSE_BOUNDS, FARMHOUSE_WINDOWS, FLAGPOLE, MILL, farmhouseLitWindows, flagDroop, flagRipple, millAngle } from '../js/countryside-props.js';
 import { FIRE_TONGUES, GRASS_BRUSH, IVY, LEAF_REST, LEAVES_AIRBORNE, TREE_SWAY_MAX, fallingLeaves, grassLean, ivyLayout, ivyRustle, mossCushions, mossPlacement, treeSway } from '../js/forest-props.js';
 import { fireFrame, fireTongues } from '../js/fire.js';
 
-const COUNTRYSIDE_PROPS = ['tent', 'grass', 'flagpole', 'christiania-bike', 'bench', 'fireplace', 'tutorial-lean-forward'];
+const COUNTRYSIDE_PROPS = ['tent', 'grass', 'flagpole', 'christiania-bike', 'bench', 'fireplace', 'farmhouse', 'tutorial-lean-forward'];
 
 // Every new prop is a known type; the drawing is painted on the rock.
 {
@@ -24,7 +24,7 @@ const COUNTRYSIDE_PROPS = ['tent', 'grass', 'flagpole', 'christiania-bike', 'ben
   assert.ok(!warnings.some((text) => /unknown type/.test(text)), warnings.join('\n'));
   assert.ok(PAINTED_PROPS.has('tutorial-lean-forward') && canRotate('tutorial-lean-forward'));
   assert.ok(paintedBounds('tutorial-lean-forward')[3] > 0, 'it reaches below its anchor');
-  for (const type of ['tent', 'grass', 'flagpole', 'christiania-bike', 'bench', 'fireplace']) assert.ok(canFlip(type), `${type} can flip`);
+  for (const type of ['tent', 'grass', 'flagpole', 'christiania-bike', 'bench', 'fireplace', 'farmhouse']) assert.ok(canFlip(type), `${type} can flip`);
 }
 
 // Grass leans downwind, harder in a strong wind, and holds its lean at time 0.
@@ -218,6 +218,28 @@ const COUNTRYSIDE_PROPS = ['tent', 'grass', 'flagpole', 'christiania-bike', 'ben
   assert.ok(-turn(1) > -turn(0.25) * 2, 'faster in a gale');
   assert.ok(-turn(1) < (Math.PI * 2) / 3.5, 'but always slowly');
   assert.ok(MILL.hub.y - MILL.sail > -260, 'tall, but not taller than the view can show');
+}
+
+// The farmhouse is a landmark, but its door and windows are at true scale
+// (PROPS_GUIDE.md), and the same windows are lit every night: most of them,
+// never fewer than two.
+{
+  const [left, top, right, bottom] = FARMHOUSE_BOUNDS;
+  assert.ok(right - left >= 216 && right - left <= 280, 'about 8 to 10 m long, roof and all');
+  assert.ok(-top > 160 && -top < 200, 'tall, but no taller than the windmill');
+  assert.ok([left, top, right, bottom, FARMHOUSE.chimney.x, FARMHOUSE.chimney.y].every((v) => v % 2 === 0), 'on the art grid');
+  for (const w of FARMHOUSE_WINDOWS) {
+    assert.ok(w.height >= 22 && w.height <= 34 && w.top > FARMHOUSE.eaves && w.top + w.height < FARMHOUSE.bodyBottom, 'a window sits in the wall');
+    assert.ok([w.left, w.top, w.width, w.height].every((v) => v % 2 === 0));
+  }
+  for (const x of Array.from({ length: 200 }, (_, i) => i * 37.5 - 400)) {
+    const lit = farmhouseLitWindows(x);
+    assert.equal(lit.length, FARMHOUSE_WINDOWS.length);
+    assert.ok(lit.filter(Boolean).length >= 2, `at least two windows lit at x ${x}`);
+    assert.deepEqual(farmhouseLitWindows(x), lit, 'the same ones every time');
+  }
+  const houses = Array.from({ length: 200 }, (_, i) => farmhouseLitWindows(i * 53).join());
+  assert.ok(new Set(houses).size > 4, 'different houses light different rooms');
 }
 
 console.log('Countryside props: all checks passed.');

@@ -552,6 +552,7 @@ export function validateTrail(trail) {
         "fireplace",
         "smoke",
         "mill",
+        "farmhouse",
         ...WATER_PROPS,
       ].includes(prop.type)
     )
