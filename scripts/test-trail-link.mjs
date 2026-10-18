@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { deflateRawSync } from 'node:zlib';
 import { normalizeTrail } from '../js/trail-schema.js';
 import { trailHash } from '../js/trail-hash.js';
@@ -42,6 +44,42 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bon
   // A trail that decodes but doesn't validate.
   const broken = await encodeTrailLink({ name: 'Broken', terrainBlocks: [] });
   await rejects(readSharedTrail(`#trail=${broken}`), /./);
+}
+
+// An opened link is kept under Custom Trails: opening it again reuses that
+// copy, a newer link to the same trail updates it, and a link to one of your
+// own trails never overwrites your edits.
+{
+  const stored = new Map();
+  globalThis.localStorage = /** @type {any} */ ({
+    getItem: key => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, String(value)), removeItem: key => stored.delete(key)
+  });
+  // trails.js loads the catalogs when imported.
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = /** @type {any} */ (async url => {
+    const path = fileURLToPath(url);
+    return existsSync(path) ? { ok: true, json: async () => JSON.parse(readFileSync(path, 'utf8')) } : { ok: false, status: 404 };
+  });
+  const { customTrailEntries, saveBrowserTrail, saveSharedTrail } = await import('../js/trails.js');
+  globalThis.fetch = realFetch;
+  const base = normalizeTrail(loadCatalogTrails('official')[0].trail);
+
+  const linked = { ...base, name: 'Linked' };
+  const copy = saveSharedTrail(linked);
+  assert.equal(copy.shared, true);
+  assert.equal(saveSharedTrail({ ...linked, label: 'LINKED / 09' }), copy, 'the same link reuses its copy, whatever its default label');
+  const count = customTrailEntries.length;
+  const updated = saveSharedTrail({ ...linked, description: 'Now with more props.' });
+  assert.equal(updated.id, copy.id, 'a newer link to the same trail updates its copy');
+  assert.equal(updated.trail.description, 'Now with more props.');
+  assert.equal(customTrailEntries.length, count, 'without adding another');
+
+  const mine = saveBrowserTrail({ ...base, name: 'Mine', description: 'My edit.' });
+  assert.equal(saveSharedTrail({ ...base, name: 'Mine', description: 'My edit.' }), mine, 'a link to your own trail finds it');
+  const theirs = saveSharedTrail({ ...base, name: 'Mine', description: 'An older version.' });
+  assert.notEqual(theirs.id, mine.id, 'a different version of your own trail opens as a copy');
+  assert.equal(theirs.shared, true);
+  assert.equal(mine.trail.description, 'My edit.', 'your trail keeps your edits');
 }
 
 console.log('trail link tests passed');

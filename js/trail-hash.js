@@ -12,7 +12,8 @@ import { TERRAIN_COMPILER_VERSION } from './terrain-runtime.js';
 // fresh leaderboards, ghosts and best times on every trail.
 const GAMEPLAY_KEYS = ['terrainBlocks', 'start', 'finish', 'apples', 'spikes'];
 
-function canonical(value) {
+/** JSON with sorted keys, so equal trails compare equal whatever order their keys were written in. */
+export function canonical(value) {
   if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
   if (value && typeof value === 'object') {
     return '{' + Object.keys(value).sort().filter(key => value[key] !== undefined)

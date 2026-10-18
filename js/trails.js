@@ -1,5 +1,5 @@
 import { store } from './local-store.js';
-import { trailHash } from './trail-hash.js';
+import { canonical, trailHash } from './trail-hash.js';
 export { terrainMaterials } from './materials.js';
 
 async function loadJson(url, description) {
@@ -164,13 +164,21 @@ export function saveBrowserTrail(trail, key = null, { shared = false } = {}) {
 
 /**
  * Saves a trail opened from a share link under Custom Trails. Opening the same
- * link again reuses the copy saved the first time. A link to one of your own
- * trails finds that trail, which stays yours rather than becoming shared.
+ * link again reuses the copy saved the first time, and a newer link to the
+ * same trail (new props, weather or nisse, which the hash leaves out) updates
+ * that copy. A link to one of your own trails finds that trail, which stays
+ * yours rather than becoming shared; if the link differs from it, the link
+ * opens as a shared copy rather than overwrite your edits.
  */
 export function saveSharedTrail(trail) {
   const hash = trailHash(trail);
-  return customTrailEntries.find(entry => entry.storage === 'browser' && entry.name === trail.name && trailHash(entry.trail) === hash)
-    || saveBrowserTrail(trail, null, { shared: true });
+  // The label is left out: a link without one gets a numbered default.
+  const content = value => canonical({ ...value, label: undefined });
+  const copies = customTrailEntries.filter(entry => entry.storage === 'browser' && entry.name === trail.name && trailHash(entry.trail) === hash);
+  const same = copies.find(entry => content(entry.trail) === content(trail));
+  if (same) return same;
+  const older = copies.find(entry => entry.shared);
+  return saveBrowserTrail(trail, older?.key ?? null, { shared: true });
 }
 
 export function removeTrailEntry(id) {

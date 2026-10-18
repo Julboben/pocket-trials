@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RIDE_VERSION, simulateRun } from '../js/ride.js';
 import { decodeInputs } from '../js/replay-codec.js';
+import { validRows } from '../netlify/lib/verify-run.mjs';
 import { generateTrailCatalog } from './generate-trail-catalog.mjs';
 import { loadCatalogTrails } from './lib/trails.mjs';
 import './watch-trails.mjs';
@@ -83,7 +84,8 @@ async function handleReferenceRun(request, response) {
   if (request.method !== 'POST') return sendJson(response, 405, { error: 'Use POST to save a reference run.' });
   let run;
   try { run = JSON.parse(await readBody(request)); } catch (error) { return sendJson(response, 400, { error: `Invalid run JSON: ${error.message}` }); }
-  if (!Array.isArray(run?.inputs) || !run.inputs.length) return sendJson(response, 400, { error: 'The run has no inputs.' });
+  // Checked before decoding: a run's counts can ask for far more steps than its size suggests.
+  if (!validRows(run?.inputs)) return sendJson(response, 400, { error: 'The run\'s inputs are malformed or longer than ten minutes.' });
   if (run.physics !== RIDE_VERSION) return sendJson(response, 409, { error: 'The run was ridden with older physics. Reload the game and ride it again.' });
   const inputs = decodeInputs(run.inputs);
   const seed = Number.isFinite(run.seed) ? run.seed : 1;
