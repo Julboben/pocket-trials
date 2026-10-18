@@ -478,13 +478,14 @@ function rejoin(ride, inputs, from, guess) {
   const window = Math.round(REPAIR_REJOIN / STEP);
   const candidates = guess != null ? [guess] : [];
   for (let at = Math.max(0, from - window); at < Math.min(inputs.length, from + window); at += DECISION_STEPS) candidates.push(at);
-  let best = null;
+  // A patch that ends past the end of the run has nothing left to rejoin.
+  let best = { at: inputs.length, progress: -Infinity };
   for (const at of candidates) {
     const probe = cloneRide(ride);
     let step = at;
     while (step < inputs.length && probe.status === 'running') stepRide(probe, inputs[step++]);
     const progress = probe.status === 'won' ? Infinity : probe.collected * 1e6 + step - at;
-    if (!best || progress > best.progress) best = { at, progress };
+    if (progress > best.progress) best = { at, progress };
     if (progress === Infinity) break;
   }
   return best.at;

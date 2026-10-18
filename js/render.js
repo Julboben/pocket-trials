@@ -1398,81 +1398,118 @@ export function createRenderer(canvas) {
    * falls, with nearer flakes bigger, brighter, and faster. A flake rests
    * briefly where it lands on terrain and melts straight into water.
    */
+  // Wind swirls live in the world, in stretches this wide, each with its own
+  // gusts, so a gust stays put in the world as the camera moves.
+  const GUST_STRETCH = 600;
+
   /**
-   * Gusts made visible: thin, pale streaks of air blowing across the screen
+   * Gusts made visible: thin, pale streaks of air blowing through the world
    * downwind (`dir`, -1 left or 1 right), each with a gentle wave and some
    * curling into a loop on the way. None in light air; a few in a stiff
-   * breeze; several, faster, in a gale. Rain already shows the wind, so with
-   * rain they are fewer, fainter and shorter; with snow they are broken into
-   * dots, like snow being whirled along. Like the rain and snow they are
-   * worked out from the time alone, in screen space, and they are left out
-   * with reduced motion.
+   * breeze; several, faster, in a gale. Most fly low and follow the ground
+   * below them, up a hill and down the other side; the rest fly high and
+   * nearly level. They only show in open air: nothing is drawn inside the
+   * terrain or under it, so none blow through a hill, a cave or the space
+   * under an overhang (the same first surface from above that stops the rain;
+   * see weatherGroundAt). Rain already shows the wind, so with rain they are
+   * fewer, fainter and shorter; with snow they are broken into dots, like
+   * snow being whirled along. Worked out from the time alone, like the rain
+   * and snow, and left out with reduced motion.
    */
   function drawWindSwirls(wind, time, dir, rain, snow) {
     const strength = clamp((wind - 0.25) / 0.75, 0, 1);
     if (!strength || reducedMotion) return;
-    const scale = clamp((W * H) / (760 * 430), 0.6, 2.2);
     const wet = Math.max(rain, snow);
-    const slots = Math.round(scale * (2 + strength * 9) * (1 - wet * 0.55));
+    // Gust slots per stretch, rising slowly through a stiff breeze and
+    // quickly towards a gale: about one gust in view at a time at 0.4 wind,
+    // four in a gale. The last slot only fires some of its gusts, so the
+    // count grows smoothly with the wind.
+    const want = (0.6 + 9.4 * strength ** 1.4) * (1 - wet * 0.55);
+    const slots = Math.ceil(want);
+    const share = want - Math.floor(want) || 1;
     const speed = 150 + strength * 230;
-    for (let index = 0; index < slots; index++) {
-      // Each slot sends a gust every so often, from its own place each time.
-      const period = 3.2 + rainHash(index, 31) * 3;
-      const clock = time + rainHash(index, 32) * period;
-      const cycle = Math.floor(clock / period);
-      const age = clock - cycle * period;
-      const life = 1.6 + rainHash(index + cycle * 7919, 33) * 0.9;
-      if (age > life) continue;
-      const seed = index + cycle * 7919;
-      const depth = 0.6 + rainHash(seed, 34) * 0.5;
-      const length = (70 + rainHash(seed, 35) * 70) * (1 - rain * 0.4);
-      const curl = rainHash(seed, 36) < 0.55 ? 7 + rainHash(seed, 37) * 6 : 0;
-      const wave = 4 + rainHash(seed, 38) * 6;
-      // Where the gust starts, anywhere across the view (it fades in), and
-      // how high; nearer gusts (deeper) move faster.
-      const travel = speed * depth;
-      const startX = rainHash(seed, 39) * (W + 160) - 80 - dir * travel * life * 0.3;
-      const baseY = H * (0.18 + rainHash(seed, 40) * 0.55);
-      // A point of the streak, `back` units behind its head.
-      const at = (back) => {
-        const along = Math.max(0, age * travel - back);
-        let x = startX + dir * along;
-        let y = baseY + Math.sin(along / 40 + rainHash(seed, 41) * 6.3) * wave;
-        if (curl) {
-          // A loop part-way along: the air turns over once and carries on.
-          const loopAt = travel * life * 0.45;
-          const into = (along - loopAt) / (curl * 6.3);
-          if (into > 0 && into < 1) {
-            const turn = into * Math.PI * 2;
-            x += dir * (Math.sin(turn) * curl - into * curl * 6.3);
-            y -= (1 - Math.cos(turn)) * curl;
-          } else if (into >= 1) x -= dir * curl * 6.3;
+    // The open air's floor at a world x: the first surface from above the
+    // view, smoothed a little so a low gust flows over the ground rather than
+    // stepping with it.
+    const floorAt = (x) => {
+      const hits = [-12, 0, 12].map((dx) => weatherGroundAt(x + dx, cameraY, 0).y).filter(Number.isFinite);
+      return hits.length ? hits.reduce((sum, y) => sum + y, 0) / hits.length : Infinity;
+    };
+    const open = (x, y) => y < weatherGroundAt(x, cameraY, 0).y;
+    const first = Math.floor((cameraX - GUST_STRETCH) / GUST_STRETCH);
+    const last = Math.floor((cameraX + W + GUST_STRETCH) / GUST_STRETCH);
+    for (let stretch = first; stretch <= last; stretch++)
+      for (let slot = 0; slot < slots; slot++) {
+        const index = stretch * 61 + slot;
+        // Each slot sends a gust every so often, from its own place each time.
+        const period = 3.2 + rainHash(index, 31) * 3;
+        const clock = time + rainHash(index, 32) * period;
+        const cycle = Math.floor(clock / period);
+        const age = clock - cycle * period;
+        const seed = index + cycle * 7919;
+        const life = 1.6 + rainHash(seed, 33) * 0.9;
+        if (age > life) continue;
+        if (slot === slots - 1 && rainHash(seed, 43) > share) continue;
+        const travel = speed * (0.75 + rainHash(seed, 34) * 0.5);
+        const startX = stretch * GUST_STRETCH + rainHash(seed, 39) * GUST_STRETCH;
+        // Low gusts skim the ground and follow it; high ones fly nearly level.
+        const low = rainHash(seed, 40) < 0.7;
+        const height = low ? 14 + rainHash(seed, 42) * 50 : 90 + rainHash(seed, 42) * 130;
+        const follow = low ? 1 : 0.2;
+        const startFloor = floorAt(startX);
+        if (!Number.isFinite(startFloor) || !open(startX, startFloor - height)) continue;
+        const length = (70 + rainHash(seed, 35) * 70) * (1 - rain * 0.4);
+        const curl = rainHash(seed, 36) < 0.55 ? 7 + rainHash(seed, 37) * 6 : 0;
+        const wave = (low ? 3 : 5) + rainHash(seed, 38) * 5;
+        const headAlong = age * travel;
+        // Skip gusts nowhere near the view.
+        const headX = startX + dir * headAlong;
+        if (headX < cameraX - 200 || headX > cameraX + W + 200) continue;
+        // A point of the gust, `back` world units behind its head.
+        const at = (back) => {
+          const along = Math.max(0, headAlong - back);
+          let x = startX + dir * along;
+          let y = Math.sin(along / 40 + rainHash(seed, 41) * 6.3) * wave;
+          if (curl) {
+            // A loop part-way along: the air turns over once and carries on.
+            const loopAt = travel * life * 0.45;
+            const into = (along - loopAt) / (curl * 6.3);
+            if (into > 0 && into < 1) {
+              const turn = into * Math.PI * 2;
+              x += dir * (Math.sin(turn) * curl - into * curl * 6.3);
+              y -= (1 - Math.cos(turn)) * curl;
+            } else if (into >= 1) x -= dir * curl * 6.3;
+          }
+          const floor = floorAt(x);
+          const ground = Number.isFinite(floor) ? startFloor + (floor - startFloor) * follow : startFloor;
+          return [x, ground - height + y];
+        };
+        // Fading in at the start of its life and out at the end, and along its tail.
+        const life01 = age / life;
+        const fade = Math.min(1, life01 * 5, (1 - life01) * 4) * (0.55 - rain * 0.22);
+        let previous = null;
+        for (let back = 0; back < length; back += ART_PIXEL) {
+          const [x, y] = at(back);
+          // Only in open air: not in the ground, a cave or under an overhang.
+          if (!open(x, y + ART_PIXEL)) continue;
+          const left = Math.round((x - cameraX) / ART_PIXEL) * ART_PIXEL;
+          const top = Math.round((y - cameraY) / ART_PIXEL) * ART_PIXEL;
+          const key = left + "," + top;
+          if (key === previous) continue;
+          previous = key;
+          // Snow breaks the streak into flakes being whirled along.
+          if (snow && (back / ART_PIXEL) % 3 !== 0) continue;
+          // A pale streak with a faint shaded underside, so it reads against a
+          // light sky as well as dark leaves.
+          const tail = 1 - back / length;
+          ctx.globalAlpha = fade * tail * 0.4;
+          ctx.fillStyle = "rgb(70, 96, 100)";
+          ctx.fillRect(left, top + ART_PIXEL, ART_PIXEL, ART_PIXEL);
+          ctx.globalAlpha = fade * tail;
+          ctx.fillStyle = "rgb(244, 249, 247)";
+          ctx.fillRect(left, top, ART_PIXEL, ART_PIXEL);
         }
-        return [x, y];
-      };
-      // Fading in at the start of its life and out at the end, and along its tail.
-      const life01 = age / life;
-      const fade = Math.min(1, life01 * 5, (1 - life01) * 4) * (0.55 - rain * 0.22);
-      let previous = null;
-      for (let back = 0; back < length; back += ART_PIXEL) {
-        const [x, y] = at(back);
-        const left = Math.round(x / ART_PIXEL) * ART_PIXEL, top = Math.round(y / ART_PIXEL) * ART_PIXEL;
-        const key = left + "," + top;
-        if (key === previous) continue;
-        previous = key;
-        // Snow breaks the streak into flakes being whirled along.
-        if (snow && (back / ART_PIXEL) % 3 !== 0) continue;
-        // A pale streak with a faint shaded underside, so it reads against a
-        // light sky as well as dark leaves.
-        const tail = 1 - back / length;
-        ctx.globalAlpha = fade * tail * 0.4;
-        ctx.fillStyle = "rgb(70, 96, 100)";
-        ctx.fillRect(left, top + ART_PIXEL, ART_PIXEL, ART_PIXEL);
-        ctx.globalAlpha = fade * tail;
-        ctx.fillStyle = "rgb(244, 249, 247)";
-        ctx.fillRect(left, top, ART_PIXEL, ART_PIXEL);
       }
-    }
     ctx.globalAlpha = 1;
   }
 

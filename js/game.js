@@ -332,6 +332,13 @@ export function startGame({ shared = null } = {}) {
    * career achievement that completes (finding every official one). Like
    * achievements it belongs to a rider, and play-tests and replays don't count.
    */
+  /** Whether the active rider has already found this trail's nisse. A playtest always shows it. */
+  function nisseFound() {
+    if (session.trailSource === 'playtest') return false;
+    const entry = currentTrailEntry();
+    return Boolean(entry && session.saveGame?.nisse?.[nisseKey(entry)]);
+  }
+
   function findNisse() {
     const { saveGame } = session;
     if (!saveGame || session.trailSource === 'playtest' || replay) return;
@@ -429,6 +436,9 @@ export function startGame({ shared = null } = {}) {
     session.trail = trail;
     const seed = replay ? replay.data.seed : (Math.random() * 2 ** 31) >>> 0;
     const ride = createRide(trail, { seed, helmet: lookParts(replay?.look ?? session.look).helmet });
+    // Once found, the nisse is gone from the trail for this rider, on every
+    // ride after. Replays still show the run as it was ridden.
+    if (!replay && nisseFound()) ride.nisse = null;
     session.ride = ride;
     recorded = []; startStep = 0; flips = 0; broken = false;
     accumulator = 0; landingSoundCooldown = 0; splashSoundCooldown = 0; suspensionSoundCooldown = 0;

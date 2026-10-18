@@ -970,17 +970,17 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
       bestLabel.title = medal + ' medal';
     }
     button.append(preview, numberLabel, copy, bestLabel);
-    // A trail that hides a nisse says so, and whether this rider found it.
-    if (trail.nisse) {
+    // Which trails hide a nisse is a secret: the badge only shows once this
+    // rider has found it.
+    if (trail.nisse && nisse) {
       const badge = document.createElement('span');
       badge.className = 'trail-nisse';
-      badge.dataset.found = String(Boolean(nisse));
       // The icon paints its own background, so it sits inside the badge's frame.
       const icon = document.createElement('span');
       icon.dataset.icon = 'nisse';
       icon.setAttribute('aria-hidden', 'true');
       badge.append(icon);
-      badge.title = nisse ? 'Nisse found' : 'A nisse hides on this trail';
+      badge.title = 'Nisse found';
       badge.setAttribute('aria-label', badge.title);
       button.append(badge);
     }
