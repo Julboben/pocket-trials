@@ -2158,7 +2158,7 @@ Example trail: easy.
     "rain": 0,
     "snow": 0,
     "lightning": 0,
-    "wind": 0.25,
+    "wind": 0.1,
     "windDirection": "left"
   },
   "timeOfDay": 12,
@@ -5329,8 +5329,8 @@ Example trail: advanced.
           },
           {
             "id": "ncps9",
-            "x": 4037.9321,
-            "y": -889.4221,
+            "x": 4027.9321,
+            "y": -629.4221,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -5338,8 +5338,8 @@ Example trail: advanced.
           },
           {
             "id": "ncmdq",
-            "x": 4300,
-            "y": -1040.7271,
+            "x": 4290,
+            "y": -780.7271000000001,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -5347,8 +5347,8 @@ Example trail: advanced.
           },
           {
             "id": "ncroj",
-            "x": 5000,
-            "y": -1228.2915,
+            "x": 4990,
+            "y": -968.2915,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -5522,6 +5522,12 @@ Example trail: advanced.
       "y": 315.27921242412003,
       "type": "snow-pine",
       "layer": "back"
+    },
+    {
+      "x": 4145.197937707391,
+      "y": -701.8272116663264,
+      "type": "snow-pine",
+      "layer": "back"
     }
   ],
   "spikes": [],
@@ -5533,7 +5539,7 @@ Example trail: advanced.
     "rain": 0,
     "snow": 1,
     "lightning": 0,
-    "wind": 1,
+    "wind": 0.8,
     "windDirection": "left"
   },
   "timeOfDay": 12,
