@@ -581,3 +581,99 @@ export function treeSway(time, wind, downwind, x, phase = 0, worldDownwind = dow
   const sway = Math.sin(time * 1.3 + phase * Math.PI * 2) * w * 1.2;
   return clamp(lean + gust + sway, -TREE_SWAY_MAX, TREE_SWAY_MAX);
 }
+
+// ------------------------------------------------------------- falling leaves
+
+// A leaf's two faces as it tumbles, from the crown's summer greens: its
+// shaded underside and its lit top.
+const LEAF_TONES = ["#568061", "#86a56a"];
+const LEAF_RESTING = "#618b66";
+// Seconds a leaf lies on the ground before it fades, and the fade.
+export const LEAF_REST = 1.6;
+const LEAF_FADE = 0.6;
+// The gust wave's timing, as in treeSway.
+const GUST_RATE = 0.9;
+const GUST_SPACING = 95;
+
+const leafHash = (a, b, c) => {
+  const v = Math.sin(a * 12.9898 + b * 78.233 + c * 37.719) * 43758.5453;
+  return v - Math.floor(v);
+};
+
+// How likely each of a tree's four leaf slots is to let go when a gust
+// passes, by wind (0…1): even in still air the first now and then; in a gale
+// nearly all four, never more.
+const LEAF_CHANCES = [
+  (w) => 0.1 + 0.8 * w * w,
+  (w) => clamp((w - 0.45) * 1.6, 0, 1),
+  (w) => clamp((w - 0.6) * 1.6, 0, 1),
+  (w) => clamp((w - 0.8) * 2.5, 0, 1),
+];
+/** The most leaves a tree has in the air at once. */
+export const LEAVES_AIRBORNE = 4;
+
+/**
+ * The leaves a tree standing at world x has let go of at `time`, falling,
+ * fluttering downwind and resting on the ground before they fade: each
+ * { x, y, flat, color, alpha } in the tree's own frame, on the art grid.
+ * Leaves let go as a gust passes the tree (the same wave that bends its crown
+ * in treeSway), a few slots at a time, more in a stronger `wind` (0…1), and
+ * now and then one even in still air. They start somewhere in `crown`
+ * ({ left, right, top, bottom }), drift `downwind` (-1 or 1, the tree's frame;
+ * the gusts themselves cross the world in `worldDownwind`) and land on
+ * `groundAt(localX)`, the ground's y. None at time 0.
+ */
+export function fallingLeaves(time, wind, downwind, x, crown, groundAt, worldDownwind = downwind) {
+  if (!time) return [];
+  const w = clamp(Number(wind) || 0, 0, 1);
+  const sign = Math.sign(worldDownwind || -1);
+  const period = (Math.PI * 2) / GUST_RATE;
+  // The gust that passed this tree most recently, and the two before it.
+  const now = Math.floor((time * GUST_RATE - (x * sign) / GUST_SPACING - Math.PI / 2) / (Math.PI * 2));
+  const drift = downwind * (6 + 34 * w);
+  const leaves = [];
+  for (let k = now - 2; k <= now; k++) {
+    const peak = (Math.PI / 2 + Math.PI * 2 * k + (x * sign) / GUST_SPACING) / GUST_RATE;
+    LEAF_CHANCES.forEach((chance, slot) => {
+      if (leafHash(x, k, slot) >= chance(w)) return;
+      const release = peak + slot * 0.15 + leafHash(x, k, slot + 10) * 0.4;
+      const age = time - release;
+      if (age < 0 || age > period * 3) return;
+      const x0 = crown.left + leafHash(x, k, slot + 20) * (crown.right - crown.left);
+      const y0 = crown.top + leafHash(x, k, slot + 30) * (crown.bottom - crown.top);
+      // Falling steadily; a stronger wind carries it further on the way down.
+      const fall = 22 + leafHash(x, k, slot + 40) * 10;
+      const flutter = leafHash(x, k, slot + 50) * 6.3;
+      // Rocking from side to side as it falls, about once every two seconds.
+      const swing = (a) => a * 3.5 + flutter;
+      const xAt = (a) => x0 + drift * a + Math.sin(swing(a)) * 5;
+      // When it lands: where its fall meets the ground under it, refined
+      // from the ground where it would land on the previous guess.
+      let land = Math.max(0, (groundAt(x0) - y0) / fall);
+      for (let i = 0; i < 3; i++) land = Math.max(0, (groundAt(xAt(land)) - 2 - y0) / fall);
+      const flying = Math.min(age, land);
+      const lx = Math.round(xAt(flying) / 2) * 2;
+      const ly = Math.round((y0 + fall * flying) / 2) * 2;
+      const resting = age >= land;
+      const gone = age - land - LEAF_REST;
+      if (gone > LEAF_FADE) return;
+      // It glides on one face through a swing, turns edge on for a moment at
+      // the end of it, and comes back showing the other face.
+      const turning = !resting && Math.abs(Math.cos(swing(flying))) < 0.22;
+      const face = Math.sin(swing(flying)) > 0 ? 1 : 0;
+      leaves.push({
+        release,
+        resting,
+        x: lx,
+        y: resting ? Math.round((groundAt(lx) - 2) / 2) * 2 : ly,
+        flat: resting || !turning,
+        color: resting ? LEAF_RESTING : LEAF_TONES[face],
+        alpha: Math.min(1, age / 0.15, gone > 0 ? 1 - gone / LEAF_FADE : 1),
+      });
+    });
+  }
+  // Never more than LEAVES_AIRBORNE in the air: the latest to let go wait.
+  const airborne = leaves.filter((leaf) => !leaf.resting).sort((a, b) => a.release - b.release);
+  const held = new Set(airborne.slice(LEAVES_AIRBORNE));
+  return leaves.filter((leaf) => !held.has(leaf)).map(({ release, resting, ...leaf }) => leaf);
+}

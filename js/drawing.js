@@ -107,6 +107,7 @@ import {
   grassLean,
   IVY,
   TREE_SWAY_MAX,
+  fallingLeaves,
   treeSway,
   drawIvy,
   drawMoss,
@@ -3275,6 +3276,8 @@ function movedTools(tools, dx) {
 
 // The crown's top, for bending it in the wind.
 const TREE_CANOPY_TOP = -182;
+// Where the tree's leaves let go from, inside its crown.
+const TREE_LEAF_CROWN = { left: -54, right: 54, top: -166, bottom: -96 };
 
 /**
  * The deciduous tree's crown and upper trunk, its foliage and branches bent
@@ -4055,8 +4058,9 @@ const isStartSign = (type, text) =>
 // Generous local bounds [left, top, right] of each prop, in world units; the
 // bottom follows the ground under it.
 const PROP_EXTENTS = {
-  // Room for the crown bending in the wind (TREE_SWAY_MAX).
-  tree: [-68, -184, 68],
+  // Room for the crown bending in the wind (TREE_SWAY_MAX), and for its
+  // leaves drifting downwind, either way, as they fall.
+  tree: [-300, -184, 300],
   pine: [-52, -186, 52],
   bush: [-36, -44, 36],
   fence: [-42, -38, 42],
@@ -5517,6 +5521,23 @@ export function createGameArt(ctx) {
       );
       rectAboveGround(2, -44, 2, 10, "#66543f", 2, groundOffset);
       rectAboveGround(-4, -26, 2, 8, "#856d4f", 2, groundOffset);
+
+      // Leaves let go as gusts pass and flutter down to the ground, where
+      // they rest a moment before fading. None in snow.
+      if (!(scene.weather?.snow > 0.2)) {
+        const { wind, downwind } = propWind(scene, mirrored);
+        const base = ctx.globalAlpha;
+        for (const leaf of fallingLeaves(scene.time || 0, wind, downwind, x, TREE_LEAF_CROWN, groundOffset, mirrored ? -downwind : downwind)) {
+          ctx.globalAlpha = base * leaf.alpha;
+          // Drawn a little larger than life, so it reads as a leaf: flat, a
+          // small lens with a bump; edge on, a short upright sliver.
+          if (leaf.flat) {
+            pixelRect(leaf.x - 2, leaf.y, 6, 2, leaf.color, 2);
+            pixelRect(leaf.x, leaf.y - 2, 2, 2, leaf.color, 2);
+          } else pixelRect(leaf.x, leaf.y - 2, 2, 4, leaf.color, 2);
+        }
+        ctx.globalAlpha = base;
+      }
     } else if (type === "pine") {
       // Local x = 0 is the shared trunk / canopy center.
       // Overall size: 92 units wide, 182 units tall.

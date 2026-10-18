@@ -203,6 +203,8 @@ const PROP_REACH = {
   "course-tape": 76,
   fireplace: 84,
   smoke: 84,
+  // Its leaves drift a long way downwind as they fall.
+  tree: 300,
 };
 // Perched birds and ducks take off, roosting bats scatter, fish dart off and
 // squirrels run for a tree when the rider comes within `x` and `y` of them;

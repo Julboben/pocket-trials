@@ -7,7 +7,7 @@ import { normalizeTrail, validateTrail } from '../js/trail-schema.js';
 import { rectangle } from './lib/terrain-fixtures.mjs';
 import { PAINTED_PROPS, WALL_PROPS, canFlip, canRotate, mossSurface, paintedBounds, propWallFit } from '../js/drawing.js';
 import { FLAGPOLE, flagDroop, flagRipple } from '../js/countryside-props.js';
-import { FIRE_TONGUES, GRASS_BRUSH, IVY, TREE_SWAY_MAX, grassLean, ivyLayout, ivyRustle, mossCushions, mossPlacement, treeSway } from '../js/forest-props.js';
+import { FIRE_TONGUES, GRASS_BRUSH, IVY, LEAF_REST, LEAVES_AIRBORNE, TREE_SWAY_MAX, fallingLeaves, grassLean, ivyLayout, ivyRustle, mossCushions, mossPlacement, treeSway } from '../js/forest-props.js';
 import { fireFrame, fireTongues } from '../js/fire.js';
 
 const COUNTRYSIDE_PROPS = ['tent', 'grass', 'flagpole', 'christiania-bike', 'bench', 'fireplace', 'tutorial-lean-forward'];
@@ -164,6 +164,48 @@ const COUNTRYSIDE_PROPS = ['tent', 'grass', 'flagpole', 'christiania-bike', 'ben
   assert.ok(gale.moving > 0.6, 'a gale keeps them moving');
   assert.ok(gale.mean < -0.5 && over(1, 1).mean > 0.5, 'and leans them downwind, either way');
   assert.ok(gale.peak <= TREE_SWAY_MAX && breeze.peak < 2, 'never past two art pixels; a breeze only one');
+}
+
+// Leaves let go as gusts pass, flutter down downwind, rest on the ground a
+// moment and fade: a few in still air, more in a gale, never more than
+// LEAVES_AIRBORNE in the air at once, and none at time 0.
+{
+  const crown = { left: -54, right: 54, top: -166, bottom: -96 };
+  const slope = (lx) => lx * 0.25;
+  const sample = (wind, downwind = -1) => {
+    let falling = 0, peak = 0, drift = 0, landed = 0, ok = true, n = 0;
+    for (let t = 0.5; t < 120; t += 0.1) {
+      const leaves = fallingLeaves(t, wind, downwind, 300, crown, slope);
+      const air = leaves.filter((leaf) => leaf.y < slope(leaf.x) - 2);
+      n++; falling += air.length; peak = Math.max(peak, air.length);
+      for (const leaf of leaves) {
+        drift += leaf.x;
+        if (leaf.y >= slope(leaf.x) - 2) landed++;
+        if (leaf.y > slope(leaf.x) || leaf.x % 2 || leaf.y % 2 || leaf.alpha < 0 || leaf.alpha > 1) ok = false;
+      }
+    }
+    return { falling: falling / n, peak, drift, landed, ok };
+  };
+  assert.deepEqual(fallingLeaves(0, 1, -1, 300, crown, slope), [], 'none at time 0');
+  const calm = sample(0), gale = sample(1), right = sample(1, 1);
+  assert.ok(calm.falling > 0.01 && calm.falling < 0.15, `a leaf only now and then in still air (${calm.falling.toFixed(2)})`);
+  assert.ok(sample(0.4).falling < 0.3, 'still only a few in a moderate breeze');
+  assert.ok(gale.falling > calm.falling * 4, 'many more in a gale');
+  assert.ok(gale.peak <= LEAVES_AIRBORNE, `never more than ${LEAVES_AIRBORNE} in the air (${gale.peak})`);
+  assert.ok(gale.drift < 0 && right.drift > 0, 'they drift downwind, either way');
+  assert.ok(gale.landed > 0 && gale.ok, 'they land on the ground, never below it, on the art grid');
+  assert.ok(LEAF_REST > 0.5, 'and rest there a moment');
+  // A falling leaf changes its look slowly, as it rocks and turns over, not
+  // every frame or two: it shouldn't blink.
+  let changes = 0, previous = null, seen = 0;
+  for (let t = 20; t < 80; t += 1 / 60) {
+    const leaf = fallingLeaves(t, 1, -1, 300, crown, () => 0).filter((l) => l.y < -2)[0];
+    const look = leaf ? `${leaf.flat}${leaf.color}` : null;
+    if (look) seen++;
+    if (look && previous && look !== previous) changes++;
+    previous = look;
+  }
+  assert.ok(seen > 0 && changes / 60 < 4, `it turns over gently (${(changes / 60).toFixed(1)} changes a second)`);
 }
 
 console.log('Countryside props: all checks passed.');
