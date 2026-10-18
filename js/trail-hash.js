@@ -1,12 +1,15 @@
 // @ts-check
+import { RIDE_VERSION } from './ride.js';
 import { TERRAIN_COMPILER_VERSION } from './terrain-runtime.js';
 
 // Identifies a trail by the geometry and rules that decide a run, so renaming
 // or re-importing a trail keeps its leaderboard, while any edit that changes
 // the ride starts a fresh one.
 //
-// The terrain compiler version is hashed too: a compiler change alters what the
-// wheels touch, so old replays and scores must not carry over.
+// The terrain compiler and physics versions are hashed too: a compiler change
+// alters what the wheels touch and a physics change how the bike rides, so
+// old replays and scores must not carry over. Bumping RIDE_VERSION starts
+// fresh leaderboards, ghosts and best times on every trail.
 const GAMEPLAY_KEYS = ['terrainBlocks', 'start', 'finish', 'apples', 'spikes'];
 
 function canonical(value) {
@@ -28,6 +31,7 @@ export function trailHash(trail) {
   // The first block's material, under the key every published hash was made with.
   if (Array.isArray(fields.terrainBlocks)) fields.terrain = fields.terrainBlocks[0]?.material;
   fields.terrainCompiler = TERRAIN_COMPILER_VERSION;
+  fields.physics = RIDE_VERSION;
   // Water is only hashed when a trail has some.
   if (Array.isArray(trail?.water) && trail.water.length) fields.water = trail.water;
   const text = canonical(fields);
