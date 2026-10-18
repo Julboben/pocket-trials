@@ -11,14 +11,9 @@ A plan for the props to add to each level theme. How to build them, and how to m
 - [x] **Windmill** (`mill`): a Danish "hollandsk mølle", its sails turning slowly with the wind.
 - [x] **Dannebrog flagpole**: a white garden flagpole with the red-and-white flag flying in the wind. The flag could go up when a checkpoint is reached.
 - [x] **Nisse**: a small Danish gnome with a red hat, hidden somewhere in each level as a secret collectible or easter egg.
-- [ ] **Sankt Hans bonfire**: the midsummer bonfire with a witch on top. It glows and gives off sparks on night levels.
-- [ ] **Mailbox on a post**: in Danish post-red, with a small flag that flips up when the bike passes.
-- [ ] **Rune stone**: for mountain or forest levels, inspired by the Jelling stones.
-- [ ] **Stone dike**: a low wall of stacked fieldstones (*stendige*) that repeats along the ground.
-- [ ] **Round straw bales**: wrapped in white plastic and scattered across fields. They also work as obstacles to ride over.
-- [ ] **Self-serve roadside stall**: a small wooden stand with an honesty box and a hand-painted sign like "KARTOFLER 20 KR".
-- [ ] **Dolmen**: a Stone Age burial chamber made of large stones with a capstone on top. It works as both a prop and a natural jump.
-- [ ] **Wind turbines**: on the horizon, with blades turning slowly.
+- [x] **Mailbox on a post** (`mailbox`): in Danish post-red, with a small flag that flips up when the bike passes.
+- [x] **Self-serve roadside stall** (`stall`): a small wooden stand with an honesty box and a hand-painted sign like "KARTOFLER 20 KR".
+- [x] **Wind turbines** (`wind-turbine`): on the horizon, with blades turning slowly.
 
 ## 🌲 Forest
 

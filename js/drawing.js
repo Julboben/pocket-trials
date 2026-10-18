@@ -323,16 +323,31 @@ import {
   FARMHOUSE_BOUNDS,
   FLAGPOLE,
   MILL,
+  STALL,
+  STALL_BOUNDS,
+  TURBINE,
+  TURBINE_BOUNDS,
   drawFarmhouse,
   drawFarmhouseBase,
   drawFarmhouseWindowGlass,
   drawFlagpole,
+  drawMailbox,
   drawMillBase,
   drawMillSails,
   drawMillTower,
+  drawStall,
+  drawStallCoin,
+  drawStallLegs,
+  drawTurbineBlades,
+  drawTurbineFoot,
+  drawTurbineTower,
   farmhouseLitWindows,
   farmhouseWindowCentre,
+  mailboxFlagLift,
   millAngle,
+  stallCoin,
+  stallSignLines,
+  turbineAngle,
 } from "./countryside-props.js";
 import { resolveWeather, windSign } from "./weather.js";
 import { dayBlend, normalizeHour } from "./time-of-day.js";
@@ -1268,7 +1283,7 @@ const PAINTED_ART = {
 /** A painted prop's local bounds, [left, top, right, bottom]. */
 export const paintedBounds = (type) => (PAINTED_ART[type] ?? PAINTED_ART.graffiti).bounds;
 // Props whose `text` the author sets: signs, banners and pit boards.
-export const TEXT_PROPS = new Set(["sign", "banner", "pit-board"]);
+export const TEXT_PROPS = new Set(["sign", "banner", "pit-board", "stall"]);
 // Props that print text or numbers, which would read backwards mirrored.
 const LETTERED_PROPS = new Set(["banner", "pit-board", "halfway-flag", "wanted-poster"]);
 // Props that hang from a cave ceiling. Each looks up from its anchor for the
@@ -4060,6 +4075,8 @@ const CANOPY_SPRITES = {
   mill: { bounds: [-48, -174, 48, MILL.bodyBottom], draw: drawMillTower },
   // Its variant is the wash: 0 limewashed white, 1 yellow ochre.
   farmhouse: { bounds: FARMHOUSE_BOUNDS, draw: drawFarmhouse },
+  stall: { bounds: STALL_BOUNDS, draw: drawStall },
+  "wind-turbine": { bounds: TURBINE_BOUNDS, draw: drawTurbineTower },
   "wanted-poster": { bounds: [WANTED.left, WANTED.top, WANTED.left + WANTED.width, WANTED.top + WANTED.height], draw: drawWantedPoster },
 };
 const canopySprites = new Map();
@@ -4245,6 +4262,11 @@ const PROP_EXTENTS = {
   mill: [-MILL.sail - 4, MILL.hub.y - MILL.sail - 4, MILL.sail + 4],
   // Room for the chimney smoke rising and blowing downwind, either way.
   farmhouse: [-150, FARMHOUSE.chimney.y - 86, 150],
+  // Room for the flag swung out to the right.
+  mailbox: [-14, -58, 26],
+  stall: [STALL_BOUNDS[0], STALL_BOUNDS[1], STALL_BOUNDS[2]],
+  // The blades sweep round the hub, above and either side of the tower.
+  "wind-turbine": [-TURBINE.blade - 4, TURBINE.hub.y - TURBINE.blade - 4, TURBINE.blade + 4],
 };
 // How far below its anchor each ceiling prop's art can reach.
 const CEILING_HANG = {
@@ -6403,6 +6425,31 @@ export function createGameArt(ctx) {
       const { wind, downwind } = propWind(scene, mirrored);
       ctx.translate(FARMHOUSE.chimney.x - HUT_CHIMNEY.x, FARMHOUSE.chimney.y - HUT_CHIMNEY.y);
       drawSmokePuffs(chimneySmoke(scene.time || 0, propNoise(x, 54), wind, downwind));
+    } else if (type === "mailbox") {
+      // The flag flips up as the rider passes (scene.passed), the way the
+      // halfway flag lights up.
+      drawMailbox({ pixelRect, pixelPath }, groundOffset, mailboxFlagLift(scene.passed?.age ?? null, scene.time || 0));
+    } else if (type === "stall") {
+      drawCanopy(type);
+      drawStallLegs({ pixelRect }, groundOffset);
+      // The sign is centred on the anchor, so it is painted the right way
+      // round on a flipped stall by turning it back.
+      if (mirrored) ctx.scale(-1, 1);
+      const lines = stallSignLines(text);
+      const { top, height } = STALL.sign;
+      lines.forEach((line, index) => drawPixelText(line, 0, top + (height - lines.length * 12 + 2) / 2 + index * 12, "#a8322a"));
+      if (mirrored) ctx.scale(-1, 1);
+      // A coin dropping into the honesty box after the rider pays.
+      const coin = scene.paid && scene.time ? stallCoin(scene.time - scene.paid.time) : null;
+      if (coin) drawStallCoin({ pixelRect }, coin);
+    } else if (type === "wind-turbine") {
+      // Far off on the horizon, its blades turning slowly clockwise, however
+      // it is flipped.
+      drawCanopy(type);
+      drawTurbineFoot({ pixelRect }, groundOffset);
+      const { wind } = propWind(scene, mirrored);
+      const angle = turbineAngle(scene.time || 0, wind, propNoise(x, 55));
+      drawTurbineBlades({ pixelPath, drawPixelDisc }, mirrored ? Math.PI - angle : angle);
     } else if (type === "smoke") {
       // A plume rising from its anchor, on top of a chimney built from terrain
       // say, blown downwind like the hut's.
@@ -7636,6 +7683,22 @@ export function createGameArt(ctx) {
       ctx.globalAlpha = 1;
       ctx.scale(dir, 1);
       drawLampGlass({ pixelRect });
+    } else if (type === "wind-turbine") {
+      // The red warning light on the nacelle. A wind farm's lights blink
+      // together, so every turbine blinks in step.
+      if (craneLightOn(0, time)) {
+        const cx = dir * TURBINE.light.x,
+          ly = TURBINE.light.y;
+        if (!emissive) {
+          ctx.globalCompositeOperation = "screen";
+          ctx.globalAlpha = 0.35;
+          drawPixelDisc(cx, ly, 6, "#e8755b", 2);
+          ctx.globalCompositeOperation = "source-over";
+          ctx.globalAlpha = 1;
+        }
+        pixelRect(cx - 2, ly - 2, 4, 4, "#e8755b", 2);
+        pixelRect(cx, ly - 2, 2, 2, "#ffc295", 2);
+      }
     } else if (type === "crane") {
       CRANE_LIGHTS.forEach(([lx, ly], index) => {
         // Blink slowly, out of step with each other.

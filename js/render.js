@@ -54,7 +54,7 @@ import { CAMERA_TALLY, HALFWAY_BEACON, HALFWAY_REACH } from "./event-props.js";
 import { SEARCHLIGHT, SEARCHLIGHT_BEAM } from "./prison-props.js";
 import { drawNisse, nisseWiggle } from "./nisse.js";
 import { TORCH_FLAME } from "./dungeon-props.js";
-import { FARMHOUSE, FLAGPOLE, MILL, farmhouseWindowCentre } from "./countryside-props.js";
+import { FARMHOUSE, FLAGPOLE, MILL, STALL, STALL_COIN_DROP, TURBINE, farmhouseWindowCentre } from "./countryside-props.js";
 import { WATER_PROPS, FISH_DART, FISH_RANGE } from "./water-props.js";
 import { FIRE, IVY, SQUIRREL_HIDE_MAX, SQUIRREL_RANGE, TENT_DOOR_CENTRE } from "./forest-props.js";
 import {
@@ -133,6 +133,8 @@ const SCENERY_SHADOWS = {
   bench: { width: 30, alpha: 0.14, thickness: 3, lift: 12 },
   mill: { width: 36, alpha: 0.15, thickness: 3, lift: 40 },
   farmhouse: { width: 100, alpha: 0.15, thickness: 3, lift: 40 },
+  mailbox: { width: 8, alpha: 0.13, thickness: 3, lift: 20 },
+  stall: { width: 34, alpha: 0.14, thickness: 3, lift: 20 },
 };
 /** Seconds the scene takes to slow to a stop behind the results. */
 const WIN_SETTLE = 0.7;
@@ -176,6 +178,8 @@ const PROP_RISE = {
   smoke: 96,
   mill: -(MILL.hub.y - MILL.sail) + 4,
   farmhouse: -FARMHOUSE.chimney.y + 86,
+  stall: -STALL.sign.top + 4,
+  "wind-turbine": -(TURBINE.hub.y - TURBINE.blade) + 4,
 };
 // How far each prop's art hangs below its anchor, for culling.
 const PROP_HANG = {
@@ -219,6 +223,7 @@ const PROP_REACH = {
   mill: MILL.sail + 8,
   // Its chimney smoke blows well out past the gable downwind.
   farmhouse: 150,
+  "wind-turbine": TURBINE.blade + 8,
 };
 // Perched birds and ducks take off, roosting bats scatter, fish dart off and
 // squirrels run for a tree when the rider comes within `x` and `y` of them;
@@ -235,8 +240,10 @@ const STARTLE = {
 // Heat haze shimmers the scene behind it, so it stays out of the x-ray mask,
 // and it is left out with reduced motion and in the lighter graphics mode.
 const HAZE_PROPS = new Set(["heat-haze"]);
+// Props that change once the rider rides past them (see watchHalfway).
+const PASS_PROPS = new Set(["halfway-flag", "mailbox"]);
 // Props that glow, and how far their light reaches either side, for culling.
-const GLOW_REACH = { lamp: 70, crane: 180, lantern: 100, torch: 100, fireplace: 100, tent: 60, mushrooms: 40, hut: 60, farmhouse: 100, "camera-tower": 30, "halfway-flag": 30, watchtower: SEARCHLIGHT_BEAM.length + 20 };
+const GLOW_REACH = { lamp: 70, crane: 180, lantern: 100, torch: 100, fireplace: 100, tent: 60, mushrooms: 40, hut: 60, farmhouse: 100, "wind-turbine": 20, "camera-tower": 30, "halfway-flag": 30, watchtower: SEARCHLIGHT_BEAM.length + 20 };
 // How far a hair strand may sink into a floor and still be lifted back onto it.
 const HAIR_GROUND_ALLOWANCE = 8;
 // Markers for missing apples out of view keep this far (world units) inside
@@ -301,7 +308,8 @@ export function createRenderer(canvas) {
   let crashedAt = null;
   // When the rider last came off, for the spectators to duck (scene clock, ms).
   let crashStart = null;
-  // Halfway flags the rider has passed this ride: the split, and when.
+  // Halfway flags and mailboxes the rider has passed this ride: the split,
+  // and when.
   const passes = new Map();
   let passRide = null;
   let passFromX = null;
@@ -309,6 +317,8 @@ export function createRenderer(canvas) {
   // woofs have gone off in view since game.js last asked, for the sound.
   const corgis = new Map();
   let corgiRide = null;
+  // When (scene time) a coin last went into each stall's honesty box.
+  const payments = new Map();
   let woofs = 0;
   // The interact key's label, shown over whatever it would act on.
   let interactLabel = "";
@@ -522,6 +532,19 @@ export function createRenderer(canvas) {
         return { sound: "pant", announce: "Coda sits. Good dog." };
       },
     },
+    stall: {
+      // The honesty box, ready again once the last coin has dropped in.
+      find(prop) {
+        const anchor = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
+        const paid = payments.get(prop);
+        const ready = paid === undefined || !propScene.time || propScene.time - paid > STALL_COIN_DROP + 0.4;
+        return { x: prop.x + (prop.flip ? -1 : 1) * STALL.slot.x, y: anchor, hint: -STALL.slot.y + 12, ready };
+      },
+      act(prop) {
+        payments.set(prop, propScene.time);
+        return { sound: "coin", announce: "A coin in the honesty box. Tak!" };
+      },
+    },
   };
 
   /** The interaction nearest the rider and in reach, with its prop, or null. */
@@ -611,7 +634,8 @@ export function createRenderer(canvas) {
   }
 
   // A halfway flag lights up once the rider rides past it, keeping the ride
-  // time it was passed at for its timing board. Purely visual.
+  // time it was passed at for its timing board, and a mailbox's flag flips
+  // up. Purely visual.
   function watchHalfway(ride, focus, now) {
     if (passRide !== ride) {
       passes.clear();
@@ -622,7 +646,7 @@ export function createRenderer(canvas) {
     passFromX = ride.ragdoll ? null : focus.x;
     if (!ride.started || ride.ragdoll || fromX === null || fromX === focus.x) return;
     for (const prop of trail.props || []) {
-      if (prop.type !== "halfway-flag" || passes.has(prop)) continue;
+      if (!PASS_PROPS.has(prop.type) || passes.has(prop)) continue;
       if ((fromX - prop.x) * (focus.x - prop.x) > 0) continue;
       const y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
       if (!Number.isFinite(y) || Math.abs(focus.y - y) > HALFWAY_REACH) continue;
@@ -677,10 +701,12 @@ export function createRenderer(canvas) {
                           ? [0, FIRE.y - 10]
                           : prop.type === "farmhouse"
                             ? farmhouseWindowCentre(2)
-                            : [0, -10];
+                            : prop.type === "wind-turbine"
+                              ? [TURBINE.light.x, TURBINE.light.y]
+                              : [0, -10];
       const head = propPoint(prop, y, hx, hy);
       const dark = lighting.isDark(trail, head.x, head.y);
-      if (!dark && (prop.type === "lamp" || prop.type === "crane" || prop.type === "hut" || prop.type === "farmhouse" || prop.type === "tent" || prop.type === "watchtower")) continue;
+      if (!dark && (prop.type === "lamp" || prop.type === "crane" || prop.type === "hut" || prop.type === "farmhouse" || prop.type === "wind-turbine" || prop.type === "tent" || prop.type === "watchtower")) continue;
       const lit = passes.has(prop);
       if (prop.type === "halfway-flag" && !lit) continue;
       const fit = propWallFit(trail, prop);
@@ -779,6 +805,8 @@ export function createRenderer(canvas) {
       let scene = propScene;
       const corgi = corgis.get(prop);
       if (corgi) scene = { ...propScene, corgi };
+      const paid = payments.get(prop);
+      if (paid !== undefined) scene = { ...propScene, paid: { time: paid } };
       const pass = passes.get(prop);
       if (pass) scene = { ...propScene, passed: { split: pass.split, age: (frameNow - pass.start) / 1000 } };
       const flight = flights.get(prop);

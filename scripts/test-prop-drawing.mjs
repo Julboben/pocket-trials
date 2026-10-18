@@ -40,6 +40,8 @@ const trail = normalizeTrail({
 const scenes = [
   undefined,
   { time: 3.3, riderX: 610, riderY: 300, wind: 0.6, landing: { x: 590, y: 320, time: 3, strength: 1 } },
+  // Just passed (a halfway flag, a mailbox) and just paid (a stall).
+  { time: 3.3, riderX: 610, riderY: 300, passed: { split: 12.3, age: 0.1 }, paid: { time: 3.2 } },
 ];
 const failures = [];
 for (const type of types) {

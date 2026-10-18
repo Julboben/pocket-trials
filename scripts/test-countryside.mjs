@@ -6,11 +6,11 @@ import assert from 'node:assert/strict';
 import { normalizeTrail, validateTrail } from '../js/trail-schema.js';
 import { rectangle } from './lib/terrain-fixtures.mjs';
 import { PAINTED_PROPS, WALL_PROPS, canFlip, canRotate, mossSurface, paintedBounds, propWallFit } from '../js/drawing.js';
-import { FARMHOUSE, FARMHOUSE_BOUNDS, FARMHOUSE_WINDOWS, FLAGPOLE, MILL, farmhouseLitWindows, flagDroop, flagRipple, millAngle } from '../js/countryside-props.js';
+import { FARMHOUSE, FARMHOUSE_BOUNDS, FARMHOUSE_WINDOWS, FLAGPOLE, MILL, STALL, STALL_COIN_DROP, STALL_SIGN_LINE, STALL_SIGN_LINES, STALL_TEXT, TURBINE, farmhouseLitWindows, flagDroop, flagRipple, mailboxFlagLift, millAngle, stallCoin, stallSignLines, turbineAngle } from '../js/countryside-props.js';
 import { FIRE_TONGUES, GRASS_BRUSH, IVY, LEAF_REST, LEAVES_AIRBORNE, TREE_SWAY_MAX, fallingLeaves, grassLean, ivyLayout, ivyRustle, mossCushions, mossPlacement, treeSway } from '../js/forest-props.js';
 import { fireFrame, fireTongues } from '../js/fire.js';
 
-const COUNTRYSIDE_PROPS = ['tent', 'grass', 'flagpole', 'christiania-bike', 'bench', 'fireplace', 'farmhouse', 'tutorial-lean-forward'];
+const COUNTRYSIDE_PROPS = ['tent', 'grass', 'flagpole', 'christiania-bike', 'bench', 'fireplace', 'farmhouse', 'mailbox', 'stall', 'wind-turbine', 'tutorial-lean-forward'];
 
 // Every new prop is a known type; the drawing is painted on the rock.
 {
@@ -24,7 +24,7 @@ const COUNTRYSIDE_PROPS = ['tent', 'grass', 'flagpole', 'christiania-bike', 'ben
   assert.ok(!warnings.some((text) => /unknown type/.test(text)), warnings.join('\n'));
   assert.ok(PAINTED_PROPS.has('tutorial-lean-forward') && canRotate('tutorial-lean-forward'));
   assert.ok(paintedBounds('tutorial-lean-forward')[3] > 0, 'it reaches below its anchor');
-  for (const type of ['tent', 'grass', 'flagpole', 'christiania-bike', 'bench', 'fireplace', 'farmhouse']) assert.ok(canFlip(type), `${type} can flip`);
+  for (const type of ['tent', 'grass', 'flagpole', 'christiania-bike', 'bench', 'fireplace', 'farmhouse', 'mailbox', 'stall', 'wind-turbine']) assert.ok(canFlip(type), `${type} can flip`);
 }
 
 // Grass leans downwind, harder in a strong wind, and holds its lean at time 0.
@@ -240,6 +240,50 @@ const COUNTRYSIDE_PROPS = ['tent', 'grass', 'flagpole', 'christiania-bike', 'ben
   }
   const houses = Array.from({ length: 200 }, (_, i) => farmhouseLitWindows(i * 53).join());
   assert.ok(new Set(houses).size > 4, 'different houses light different rooms');
+}
+
+// The mailbox's flag is down until the rider passes, then flips up,
+// overshoots a little and settles; with reduced motion it is simply up.
+{
+  assert.equal(mailboxFlagLift(null, 3), 0, 'down until passed');
+  assert.equal(mailboxFlagLift(0.1, 0), 1, 'up at once at time 0');
+  assert.equal(mailboxFlagLift(0, 3), 0, 'it starts from down');
+  const lifts = Array.from({ length: 80 }, (_, i) => mailboxFlagLift(i * 0.02, 3));
+  assert.ok(Math.max(...lifts) > 1 && Math.max(...lifts) < 1.25, 'overshoots a little');
+  assert.equal(mailboxFlagLift(5, 3), 1, 'and settles up');
+}
+
+// The stall's sign wraps to its lines, falls back to the default, and the
+// honesty box takes a coin that drops into its slot.
+{
+  assert.deepEqual(stallSignLines(STALL_TEXT), ['KARTOFLER', '20 KR']);
+  assert.deepEqual(stallSignLines('  '), stallSignLines(STALL_TEXT), 'a blank sign reads the default');
+  for (const text of ['jordbær 30 kr', 'NYE KARTOFLER 20 KR BAKKEN', 'ÆBLER', 'ASPARGESKARTOFLER']) {
+    const lines = stallSignLines(text);
+    assert.ok(lines.length <= STALL_SIGN_LINES && lines.every((line) => line.length <= STALL_SIGN_LINE), text);
+  }
+  const trail = (text) => normalizeTrail({
+    name: 'test', finish: { x: 2800, y: null }, apples: [], spikes: [],
+    terrainBlocks: [rectangle(0, 320, 3000, 620, 'stone', 'ground')],
+    start: { x: 120, y: null, facing: 1 }, props: [{ type: 'stall', x: 400, y: null, text }],
+  });
+  const warns = (text) => validateTrail(trail(text)).filter((m) => m.type === 'warning').map((m) => m.text).join('\n');
+  assert.equal(trail('ÆG 2 KR').props[0].text, 'ÆG 2 KR', 'the stall keeps its text');
+  assert.ok(/cannot draw/.test(warns('Æg 10 kr')), 'Æ is flagged, the pixel font has no glyph for it');
+  assert.ok(/cut off/.test(warns('Nye danske kartofler 20 kr')), 'too long is flagged');
+  assert.ok(!/Stall/.test(warns('Jordbaer 30 kr')), 'a sign that fits is fine');
+  assert.equal(stallCoin(-0.1), null);
+  assert.equal(stallCoin(STALL_COIN_DROP), null, 'gone in once it has dropped');
+  const drop = Array.from({ length: 10 }, (_, i) => stallCoin((i * STALL_COIN_DROP) / 10));
+  assert.ok(drop.every((coin, i) => coin && coin.x === STALL.slot.x && coin.y < STALL.slot.y && (i === 0 || coin.y >= drop[i - 1].y)), 'it falls into the slot');
+}
+
+// The wind turbine turns the other way from the windmill, still at time 0,
+// and stands tall without leaving the view.
+{
+  assert.equal(turbineAngle(0, 1, 0.3), -millAngle(0, 1, 0.3), 'still at time 0');
+  assert.ok(turbineAngle(30, 0.5, 0) - turbineAngle(0.001, 0.5, 0) > 0, 'it turns clockwise');
+  assert.ok(TURBINE.hub.y - TURBINE.blade > -300 && TURBINE.hub.y - TURBINE.blade < -240, 'tall, but within the view');
 }
 
 console.log('Countryside props: all checks passed.');

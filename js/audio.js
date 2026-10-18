@@ -554,6 +554,13 @@ export function createAudio(getSnapshot) {
         air.start(t, Math.random() * .5); air.stop(t + .14);
       }
     },
+    /** A coin dropping into a stall's honesty box: a bright clink and a rattle. */
+    coin() {
+      playTone(2350, .05, 'triangle', .05, 0, 2200);
+      playTone(3100, .08, 'sine', .035, .02, 3000);
+      playTone(1900, .06, 'triangle', .03, .16, 1800);
+      playNoise(.05, .02, 5200);
+    },
     apple() {
       playTone(620, .1, 'square', .07, 0, 880);
       playTone(880, .13, 'square', .055, .07, 1240);

@@ -399,3 +399,252 @@ export function drawFarmhouseBase({ pixelRect }, groundOffset) {
     }
   }
 }
+
+/** Fills `x`…`x + width` from `top` down to the ground under each column. */
+function downTo(pixelRect, x, top, width, color, groundOffset) {
+  for (let column = 0; column < width; column += 2) {
+    const bottom = snap(groundOffset(x + column + 1));
+    if (bottom > top) pixelRect(x + column, top, 2, bottom - top, color, 2);
+  }
+}
+
+// ------------------------------------------------------------------- mailbox
+
+/**
+ * A Danish post-red mailbox on a wooden post, about 1.4 m to its lid: where
+ * its flag pivots on the box's right side, and how long the arm is.
+ */
+export const MAILBOX = { top: -56, flag: { x: 10, y: -40, arm: 14 } };
+// How long the flag takes to flip up, in seconds, before it bounces and settles.
+const MAILBOX_FLIP = 0.3;
+
+/**
+ * How far the mailbox's flag is raised, 0 (down) to 1 (up), `age` seconds
+ * after the rider passed it, or null if they haven't: it flips up, overshoots
+ * a little and settles. At time 0 it is simply up once passed.
+ */
+export function mailboxFlagLift(age, time) {
+  if (age === null || age === undefined || !Number.isFinite(age)) return 0;
+  if (!time || age >= MAILBOX_FLIP + 1) return 1;
+  if (age < MAILBOX_FLIP) return 1 - (1 - age / MAILBOX_FLIP) ** 2;
+  const settle = age - MAILBOX_FLIP;
+  return 1 + 0.18 * Math.sin(settle * 22) * Math.exp(-settle * 7);
+}
+
+/**
+ * The mailbox, drawn live: the post down to the ground, the red box with a
+ * slanted lid, its letter slot and the yellow post horn, and the yellow flag
+ * on its right side, swung from hanging down (`lift` 0) to standing up (1)
+ * through the front.
+ */
+export function drawMailbox({ pixelRect, pixelPath }, groundOffset, lift = 0) {
+  // The post.
+  downTo(pixelRect, -2, -32, 2, MILL_WOOD.base, groundOffset);
+  downTo(pixelRect, 0, -32, 2, MILL_WOOD.light, groundOffset);
+  pixelRect(-6, -34, 12, 2, MILL_WOOD.dark, 2);
+  // The box, shaded on the left, lit on the right, under its sloping lid.
+  pixelRect(-10, -52, 20, 18, RED.base, 2);
+  pixelRect(-10, -52, 2, 18, RED.dark, 2);
+  pixelRect(8, -50, 2, 16, RED.light, 2);
+  pixelRect(-10, -36, 20, 2, RED.dark, 2);
+  // The lid, overhanging the box a little.
+  pixelRect(-10, -56, 20, 2, RED.light, 2);
+  pixelRect(-12, -54, 24, 2, RED.base, 2);
+  pixelRect(-12, -54, 4, 2, RED.dark, 2);
+  pixelRect(-12, -52, 24, 2, RED.dark, 2);
+  // The letter slot, with a lip over it.
+  pixelRect(-6, -48, 12, 2, MILL_INK, 2);
+  pixelRect(-6, -50, 12, 2, RED.light, 2);
+  // The post horn: a mouthpiece, its tube and the flared bell.
+  pixelRect(-6, -42, 8, 2, YELLOW.base, 2);
+  pixelRect(-6, -42, 2, 2, YELLOW.dark, 2);
+  pixelRect(2, -44, 2, 6, YELLOW.base, 2);
+  pixelRect(4, -44, 2, 6, YELLOW.light, 2);
+  // The flag, on its arm.
+  const { x, y, arm } = MAILBOX.flag;
+  const angle = Math.PI / 2 - lift * Math.PI;
+  const ux = Math.cos(angle), uy = Math.sin(angle);
+  const end = [snap(x + ux * arm), snap(y + uy * arm)];
+  pixelPath([[x, y], end], YELLOW.dark, 1, 2);
+  // The plate on the arm's last stretch, out to its right.
+  for (let r = arm - 6; r <= arm; r += 2) {
+    const cx = snap(x + ux * r), cy = snap(y + uy * r);
+    pixelRect(cx, cy, 2, 2, YELLOW.base, 2);
+    pixelRect(snap(cx - uy * 4), snap(cy + ux * 4), 2, 2, YELLOW.base, 2);
+    pixelRect(snap(cx - uy * 2), snap(cy + ux * 2), 2, 2, r === arm ? YELLOW.light : YELLOW.base, 2);
+  }
+  pixelRect(x - 2, y - 2, 4, 4, STEEL.base, 2);
+}
+
+// -------------------------------------------------------- roadside stall
+
+/**
+ * A self-serve roadside stall: a little wooden stand with a tarred roof, a
+ * crate of potatoes and punnets of strawberries on the counter, an honesty
+ * box for the money, and a hand-painted sign on the roof. About 2.3 m wide,
+ * its counter at table height. The sign's text is drawn by drawing.js, the
+ * right way round even when the stall is flipped.
+ */
+export const STALL = { bodyBottom: -14, sign: { left: -40, top: -104, width: 80, height: 30 }, slot: { x: 24, y: -44 } };
+export const STALL_BOUNDS = [-42, STALL.sign.top, 42, STALL.bodyBottom];
+/** What the sign says when the trail doesn't say otherwise. */
+export const STALL_TEXT = "KARTOFLER 20 KR";
+/** The sign's longest line, in characters, and how many lines it holds. */
+export const STALL_SIGN_LINE = 9;
+export const STALL_SIGN_LINES = 2;
+// How long a coin takes to drop into the honesty box, in seconds.
+export const STALL_COIN_DROP = 0.35;
+
+/**
+ * The sign's text in lines, upper case: words wrapped to STALL_SIGN_LINE
+ * characters, at most STALL_SIGN_LINES lines, overlong words cut. A blank or
+ * missing text reads STALL_TEXT.
+ */
+export function stallSignLines(text) {
+  const words = String(text ?? "").toUpperCase().trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return stallSignLines(STALL_TEXT);
+  const lines = [];
+  for (const word of words) {
+    const last = lines.length - 1;
+    if (last >= 0 && lines[last].length + 1 + word.length <= STALL_SIGN_LINE) lines[last] += ` ${word}`;
+    else lines.push(word.slice(0, STALL_SIGN_LINE));
+  }
+  return lines.slice(0, STALL_SIGN_LINES);
+}
+
+/**
+ * Where a coin dropped into the honesty box `age` seconds ago is, relative
+ * to the stall, or null once it has gone in: it falls from a hand's height
+ * into the slot, speeding up.
+ */
+export function stallCoin(age) {
+  if (!Number.isFinite(age) || age < 0 || age >= STALL_COIN_DROP) return null;
+  const t = age / STALL_COIN_DROP;
+  return { x: STALL.slot.x, y: STALL.slot.y - snap(18 * (1 - t * t)) - 2 };
+}
+
+/**
+ * The stall down to STALL.bodyBottom: its posts, plank back, counter and
+ * skirt, the produce, the honesty box and the blank sign board. Its legs
+ * follow the ground (drawStallLegs).
+ */
+export function drawStall({ pixelRect, drawPixelDisc }) {
+  const { bodyBottom, sign, slot } = STALL;
+  // The plank back, in the shade under the roof.
+  for (let x = -26; x < 26; x += 2) pixelRect(x, -62, 2, 32, (x + 26) % 10 === 0 ? MILL_WOOD.dark : MILL_WOOD.base, 2);
+  pixelRect(-26, -62, 52, 4, MILL_WOOD.dark, 2);
+  // The posts.
+  for (const x of [-30, 26]) {
+    pixelRect(x, -62, 4, bodyBottom + 62, MILL_WOOD.base, 2);
+    pixelRect(x + 2, -62, 2, bodyBottom + 62, MILL_WOOD.light, 2);
+  }
+  // The roof: tarred boards over a fascia, overhanging either side.
+  pixelRect(-38, -70, 76, 6, TAR.base, 2);
+  pixelRect(-38, -70, 76, 2, TAR.light, 2);
+  pixelRect(-38, -64, 76, 2, TAR.dark, 2);
+  pixelRect(-38, -70, 4, 8, TAR.dark, 2);
+  // The counter and the skirt of planks under it.
+  for (let x = -32; x < 32; x += 2) {
+    const color = x < -28 ? MILL_WOOD.dark : (x + 32) % 8 === 0 ? MILL_WOOD.dark : (x + 32) % 8 === 6 ? MILL_WOOD.tip : MILL_WOOD.light;
+    pixelRect(x, -26, 2, bodyBottom + 26, color, 2);
+  }
+  pixelRect(-34, -30, 68, 4, MILL_WOOD.tip, 2);
+  pixelRect(-34, -28, 68, 2, MILL_WOOD.base, 2);
+  // A crate heaped with potatoes.
+  pixelRect(-26, -40, 24, 10, MILL_WOOD.light, 2);
+  pixelRect(-26, -40, 2, 10, MILL_WOOD.base, 2);
+  pixelRect(-26, -36, 24, 2, MILL_WOOD.base, 2);
+  for (const [px, py, r] of [[-22, -42, 3], [-16, -43, 3], [-10, -42, 3], [-6, -44, 2], [-19, -46, 2], [-12, -47, 2]]) {
+    drawPixelDisc(px, py, r, THATCH.dark, 2);
+    pixelRect(px, py - 2, 2, 2, THATCH.light, 2);
+  }
+  // Punnets of strawberries.
+  for (const px of [0, 8]) {
+    pixelRect(px, -34, 6, 4, DOOR.base, 2);
+    pixelRect(px, -36, 6, 2, RED.base, 2);
+    pixelRect(px + 2, -38, 2, 2, RED.light, 2);
+    pixelRect(px + 4, -36, 2, 2, RED.dark, 2);
+  }
+  // The honesty box: a green tin with a slot in its lid and a padlock.
+  pixelRect(slot.x - 6, slot.y, 12, 14, DOOR.base, 2);
+  pixelRect(slot.x - 6, slot.y, 2, 14, DOOR.dark, 2);
+  pixelRect(slot.x + 4, slot.y + 2, 2, 12, DOOR.light, 2);
+  pixelRect(slot.x - 6, slot.y - 2, 12, 2, DOOR.light, 2);
+  pixelRect(slot.x - 2, slot.y - 2, 6, 2, MILL_INK, 2);
+  pixelRect(slot.x - 2, slot.y + 6, 4, 4, YELLOW.dark, 2);
+  pixelRect(slot.x, slot.y + 6, 2, 2, YELLOW.light, 2);
+  // The sign board on two stakes, whitewashed planks lit from the right.
+  for (const x of [-24, 20]) pixelRect(x, sign.top + sign.height, 4, -70 - sign.top - sign.height, MILL_WOOD.base, 2);
+  pixelRect(sign.left, sign.top, sign.width, sign.height, LIME.base, 2);
+  pixelRect(sign.left, sign.top, 2, sign.height, LIME.shade, 2);
+  pixelRect(sign.left, sign.top + sign.height - 2, sign.width, 2, LIME.shade, 2);
+  pixelRect(sign.left + sign.width - 2, sign.top, 2, sign.height - 2, LIME.light, 2);
+}
+
+/** The stall's legs, the posts' feet, down to the ground under them. */
+export function drawStallLegs({ pixelRect }, groundOffset) {
+  for (const x of [-30, 26]) {
+    downTo(pixelRect, x, STALL.bodyBottom, 2, MILL_WOOD.base, groundOffset);
+    downTo(pixelRect, x + 2, STALL.bodyBottom, 2, MILL_WOOD.light, groundOffset);
+  }
+}
+
+/** A coin, as it drops into the honesty box (see stallCoin). */
+export function drawStallCoin({ pixelRect }, coin) {
+  pixelRect(coin.x - 2, coin.y, 4, 2, YELLOW.base, 2);
+  pixelRect(coin.x, coin.y, 2, 2, YELLOW.light, 2);
+}
+
+// --------------------------------------------------------------- wind turbine
+
+/**
+ * A wind turbine on the horizon, pale with distance: where its rotor turns,
+ * how long the blades are, the warning light on its nacelle, and where the
+ * sprite hands over to the foot of the tower that follows the ground. Far
+ * too big to draw at true scale, it is drawn slim and hazy so it reads as
+ * far away, behind the rest of the trail.
+ */
+export const TURBINE = { hub: { x: 0, y: -206 }, blade: 76, light: { x: -4, y: -216 }, bodyBottom: -20 };
+export const TURBINE_BOUNDS = [-10, -218, 14, TURBINE.bodyBottom];
+const HAZE = { shade: "#b9c4af", base: "#d9dccb", light: "#eef3ed" };
+
+/**
+ * How far the rotor has turned at `time`, in radians, clockwise as wind
+ * turbines turn: the windmill's slow, gusty turning (millAngle) the other
+ * way round. Still at time 0, at its own angle.
+ */
+export const turbineAngle = (time, wind = 0.25, phase = 0) => -millAngle(time, wind, phase);
+
+/** The slender tower, and the nacelle on top, down to TURBINE.bodyBottom. */
+export function drawTurbineTower({ pixelRect }) {
+  const { hub, bodyBottom } = TURBINE;
+  for (let y = hub.y; y < bodyBottom; y += 2) {
+    pixelRect(-2, y, 4, 2, HAZE.base, 2);
+    pixelRect(-2, y, 2, 2, HAZE.shade, 2);
+  }
+  // The nacelle, behind the hub.
+  pixelRect(-8, hub.y - 8, 20, 8, HAZE.base, 2);
+  pixelRect(-8, hub.y - 2, 20, 2, HAZE.shade, 2);
+  pixelRect(-8, hub.y - 8, 20, 2, HAZE.light, 2);
+}
+
+/** The foot of the tower, down to the ground. */
+export function drawTurbineFoot({ pixelRect }, groundOffset) {
+  downTo(pixelRect, -2, TURBINE.bodyBottom, 2, HAZE.shade, groundOffset);
+  downTo(pixelRect, 0, TURBINE.bodyBottom, 2, HAZE.base, groundOffset);
+  // A low concrete footing round it.
+  downTo(pixelRect, -6, -2, 12, HAZE.shade, groundOffset);
+}
+
+/** The three blades turned to `angle` round the hub, broad at the root and fine at the tip. */
+export function drawTurbineBlades({ pixelPath, drawPixelDisc }, angle) {
+  const { hub, blade } = TURBINE;
+  for (let i = 0; i < 3; i++) {
+    const a = angle + (i * Math.PI * 2) / 3;
+    const at = (r) => [hub.x + Math.cos(a) * r, hub.y + Math.sin(a) * r];
+    pixelPath([at(4), at(blade * 0.4)], HAZE.base, 2, 2);
+    pixelPath([at(blade * 0.4), at(blade)], HAZE.light, 1, 2);
+  }
+  drawPixelDisc(hub.x, hub.y, 4, HAZE.shade, 2);
+  drawPixelDisc(hub.x + 1, hub.y - 1, 2, HAZE.light, 2);
+}

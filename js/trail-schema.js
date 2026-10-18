@@ -10,6 +10,7 @@ import {
 import { RADIUS, WHEELBASE } from "./config.js";
 import { WATER_SIZE, normalizeWater, waterAt, waterBodies, waterColumns } from "./water.js";
 import { WATER_PROPS, SURFACE_PROPS, waterPropBody } from "./water-props.js";
+import { STALL_SIGN_LINE, STALL_SIGN_LINES, stallSignLines } from "./countryside-props.js";
 import { BANNER_MAX } from "./event-props.js";
 import { FINISH_FLOWER_LIFT, bikeTouchesFlower } from "./finish.js";
 import { WEATHER_DEFAULTS, WEATHER_LEVELS, WIND_DIRECTIONS, resolveWeather } from "./weather.js";
@@ -553,6 +554,9 @@ export function validateTrail(trail) {
         "smoke",
         "mill",
         "farmhouse",
+        "mailbox",
+        "stall",
+        "wind-turbine",
         ...WATER_PROPS,
       ].includes(prop.type)
     )
@@ -588,6 +592,13 @@ export function validateTrail(trail) {
           `Sign ${index + 1} text contains characters the pixel font cannot draw.`,
           target,
         );
+    }
+    if (prop.type === "stall" && typeof prop.text === "string" && prop.text.trim()) {
+      const words = prop.text.trim().toUpperCase().split(/\s+/);
+      if (stallSignLines(prop.text).join(" ").length < words.join(" ").length)
+        warning(`Stall ${index + 1} sign doesn't fit in ${STALL_SIGN_LINES} lines of ${STALL_SIGN_LINE} characters and will be cut off.`, target);
+      else if (/[^A-Z0-9 \/.!+:\-#']/.test(words.join(" ")))
+        warning(`Stall ${index + 1} sign contains characters the pixel font cannot draw.`, target);
     }
     if ((prop.type === "banner" || prop.type === "pit-board") && typeof prop.text === "string") {
       const name = prop.type === "banner" ? "Banner" : "Pit board";
