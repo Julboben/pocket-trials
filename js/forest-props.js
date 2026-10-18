@@ -550,3 +550,34 @@ export function drawMoss({ pixelRect }, cushions, normal = [1, 0]) {
     }
   }
 }
+
+// ---------------------------------------------------------------- tree sway
+
+/** The furthest a crown's top is ever pushed by the wind: two art pixels. */
+export const TREE_SWAY_MAX = 4;
+
+/**
+ * How far the top of a tree's crown standing at world x is pushed by the
+ * wind at `time`, in world units along x in the tree's own frame (the base
+ * of the crown never moves; see drawSwayingCanopy in drawing.js). Three
+ * parts, all scaled by the `wind` (0…1) and blown `downwind` (-1 left, 1
+ * right, in the tree's frame):
+ *   - a steady lean, only worth a pixel in a strong wind;
+ *   - gusts that travel through a stand of trees in the wind's direction in
+ *     the world (`worldDownwind`, which a flipped tree's `downwind` isn't),
+ *     so neighbours lean one after another;
+ *   - a slow sway to and fro, each tree in its own time (`phase`, 0…1).
+ * Still at time 0 and in still air, and never past TREE_SWAY_MAX.
+ */
+export function treeSway(time, wind, downwind, x, phase = 0, worldDownwind = downwind) {
+  const w = clamp(Number(wind) || 0, 0, 1);
+  if (!time || !w) return 0;
+  const lean = downwind * w * w * 2;
+  // A gust is a slow wave rolling downwind across the world, about 600
+  // units from crest to crest, every 7 seconds or so.
+  const wave = Math.sin(time * 0.9 - (x * Math.sign(worldDownwind || -1)) / 95);
+  // Gusts still reach light air, enough to tip a treetop by a pixel as one passes.
+  const gust = downwind * Math.max(0, wave) ** 3 * Math.sqrt(w) * 2.6;
+  const sway = Math.sin(time * 1.3 + phase * Math.PI * 2) * w * 1.2;
+  return clamp(lean + gust + sway, -TREE_SWAY_MAX, TREE_SWAY_MAX);
+}

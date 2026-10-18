@@ -33,7 +33,7 @@ import {
 } from "./blocks.js";
 import { $, canvas } from "./dom.js";
 import { canRotateSelection, rotateSelected } from "./rotate.js";
-import { pushHistory, updateHistoryButtons } from "./history.js";
+import { pushHistory, snapshot, updateHistoryButtons } from "./history.js";
 import { scheduleAutosave } from "./autosave.js";
 import { updateVersionChip } from "./drafts.js";
 import { closeMenu, updateValidationBadge } from "./menu.js";
@@ -528,6 +528,30 @@ function setTrailName(name) {
   editor.trail.label = `${name.toUpperCase()} / ${String(editor.trailIndex + 1).padStart(2, "0")}`;
 }
 
+/**
+ * A slider that changes the trail live while it is dragged (or stepped with
+ * the arrow keys), as one undo step per drag. Its input events change the
+ * trail as it goes, so by the change event that ends the drag the trail
+ * already has the new value: the undo step is the trail from before the first
+ * input instead, or undo would put back the value just set.
+ */
+function bindTrailSlider(id, apply, show) {
+  let before = null;
+  $(id).addEventListener("input", (event) => {
+    before ??= snapshot();
+    apply(Number(event.target.value));
+    show();
+    render();
+  });
+  $(id).addEventListener("change", (event) => {
+    pushHistory(before ?? snapshot());
+    before = null;
+    apply(Number(event.target.value));
+    syncInspector();
+    render();
+  });
+}
+
 function bindTrailInput(id, apply) {
   $(id).addEventListener("change", (event) => {
     pushHistory();
@@ -556,17 +580,11 @@ export function bindInspector() {
 
   // The hour, dragged through the day, with a help point for each of the
   // classic times.
-  $("time-of-day").addEventListener("change", (event) => {
-    pushHistory();
-    editor.trail.timeOfDay = normalizeHour(Number(event.target.value));
-    syncInspector();
-    render();
-  });
-  $("time-of-day").addEventListener("input", (event) => {
-    editor.trail.timeOfDay = normalizeHour(Number(event.target.value));
-    showTimeOfDay(editor.trail.timeOfDay);
-    render();
-  });
+  bindTrailSlider(
+    "time-of-day",
+    (hour) => { editor.trail.timeOfDay = normalizeHour(hour); },
+    () => showTimeOfDay(editor.trail.timeOfDay),
+  );
   for (const mark of TIME_MARKS) {
     const option = document.createElement("option");
     option.value = String(mark.hour);
@@ -592,19 +610,12 @@ export function bindInspector() {
     else delete editor.trail.backdrop;
   });
 
-  for (const key of WEATHER_LEVELS) {
-    $(`weather-${key}`).addEventListener("change", (event) => {
-      pushHistory();
-      editor.trail.weather[key] = Number(event.target.value);
-      syncInspector();
-      render();
-    });
-    $(`weather-${key}`).addEventListener("input", (event) => {
-      editor.trail.weather[key] = Number(event.target.value);
-      showWeatherValue(key);
-      render();
-    });
-  }
+  for (const key of WEATHER_LEVELS)
+    bindTrailSlider(
+      `weather-${key}`,
+      (value) => { editor.trail.weather[key] = value; },
+      () => showWeatherValue(key),
+    );
   for (const direction of ["left", "right"])
     $(`wind-${direction}`).addEventListener("click", () => {
       if (resolveWeather(editor.trail.weather).windDirection !== direction)

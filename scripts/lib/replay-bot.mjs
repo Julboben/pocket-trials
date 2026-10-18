@@ -161,6 +161,7 @@ const EXPLORE_REPEAT = .75;           // chance of holding the previous input
 const EXPLORE_TURN = .08;             // chance of turning around at a decision
 const EXPLORE_GAS = .6;               // chance a new input holds the throttle
 const EXPLORE_HOLDS = [1, 2, 4];      // decisions a new input is held for, so climbs get sustained gas
+const STRETCH_MAX = 16 * 4 * DECISION_STEPS; // longest random stretch, in steps
 const GUIDE_FOLLOW = .6;              // chance a guided place rides on with its reference
 const GUIDE_SHIFTS = [-24, -12, -6, 6, 12, 24]; // steps a reference is resumed early or late
 const GUIDE_FRONT = 240;              // steps behind the furthest guided place that still count as the front
@@ -326,9 +327,12 @@ function inputsOf(node) {
 
 /**
  * @param {object[][]} [references] per-step inputs of runs to follow
- * @param {{ start?: any, done?: (ride: any) => boolean, minutes?: number }} [options] as for recordTrail
+ * @param {{ start?: any, done?: (ride: any) => boolean, minutes?: number, at?: number, polish?: boolean }} [options]
+ *   as for recordTrail, plus how far into the references `start` is, and whether to look for a
+ *   quicker route after the first one or stop there
+ * @returns the inputs from `start`, and where in its reference the route ended if it did following one
  */
-export function exploreTrail(entry, references = [], { start: from, done = ride => ride.status === 'won', minutes = MAX_MINUTES } = {}) {
+export function exploreTrail(entry, references = [], { start: from, done = ride => ride.status === 'won', minutes = MAX_MINUTES, at: startAt = 0, polish = true } = {}) {
   references = references.map(inputs => inputs.concat(Array(GUIDE_TAIL).fill(inputs[inputs.length - 1])));
   const random = seededGenerator(1);
   const start = from ? cloneRide(from) : createRide(entry.trail);
@@ -355,8 +359,8 @@ export function exploreTrail(entry, references = [], { start: from, done = ride 
     }
     if (followed && cell.apples === mostApples) front = Math.max(front, along(guide));
   };
-  visit(start, null, 0, references.length ? { ref: 0, at: 0 } : null);
-  for (let ref = 1; ref < references.length; ref++) visit(start, null, 0, { ref, at: 0 });
+  visit(start, null, 0, references.length ? { ref: 0, at: startAt } : null);
+  for (let ref = 1; ref < references.length; ref++) visit(start, null, 0, { ref, at: startAt });
   // Rarely chosen cells are favoured, cells holding the most apples so far
   // more, and of those the ones closest to the next apple, or at the front
   // of a reference, most of all.
@@ -385,7 +389,7 @@ export function exploreTrail(entry, references = [], { start: from, done = ride 
   let reported = started;
   while (Date.now() - started < minutes * 60000) {
     iterations++;
-    if (best && iterations > firstWin * 2 + EXPLORE_MIN_POLISH) break;
+    if (best && (!polish || iterations > firstWin * 2 + EXPLORE_MIN_POLISH)) break;
     const cell = choose();
     cell.chosen++;
     const ride = cloneRide(cell.ride);
@@ -393,9 +397,9 @@ export function exploreTrail(entry, references = [], { start: from, done = ride 
     let input = node?.input ?? { facing: ride.facing, leanInput: 0, accelerating: true, braking: false };
     const decisions = 4 + Math.floor(random() * 13);
     const reference = cell.guide && references[cell.guide.ref];
-    const won = () => {
+    const won = at => {
       if (!best || steps < best.steps) {
-        best = { node, steps };
+        best = { node, steps, at };
         if (!firstWin) firstWin = iterations;
         console.log(`  ${entry.id}: explorer finished in ${ride.elapsed.toFixed(2)}s after ${iterations} tries`);
       }
@@ -413,18 +417,18 @@ export function exploreTrail(entry, references = [], { start: from, done = ride 
           if (count && sameInput(node.input, next)) node.count++;
           else node = { parent: node, input: next, count: 1 };
         }
-        if (done(ride)) { won(); break; }
+        if (done(ride)) { won(at); break; }
         if (ride.status !== 'running' || steps * STEP > MAX_SECONDS) break;
         visit(ride, node, steps, { ref: cell.guide.ref, at }, true);
       }
     } else {
-      // Random moves, at least `decisions` long. As a stretch of a reference
+      // Up to `decisions` random moves. As a stretch of a reference
       // they either delay it (a detour) or stand in for that much of it.
       const replaces = random() < .5;
       let ridden = 0, ended = false;
       // Nodes already stored in a cell are shared, so only the newest unstored one is extended.
       let fresh = false;
-      while (!ended && ridden < decisions * DECISION_STEPS) {
+      for (let move = 0; move < decisions && !ended && ridden < STRETCH_MAX; move++) {
         // Patches in a reference are mostly short holds; longer moves are for finding a way without one.
         for (const next of reference && random() < .5 ? holdMove(ride, input, random) : pickMove(ride, input, random)) {
           stepRide(ride, next);
@@ -433,7 +437,7 @@ export function exploreTrail(entry, references = [], { start: from, done = ride 
           if (fresh && sameInput(node.input, next)) node.count++;
           else { node = { parent: node, input: next, count: 1 }; fresh = true; }
           input = next;
-          if (done(ride)) { won(); ended = true; break; }
+          if (done(ride)) { won(cell.guide ? cell.guide.at + (replaces ? ridden : 0) : null); ended = true; break; }
           if (ride.status !== 'running' || steps * STEP > MAX_SECONDS) { ended = true; break; }
           if (ridden % DECISION_STEPS) continue;
           const at = cell.guide && cell.guide.at + (replaces ? ridden : 0);
@@ -452,5 +456,77 @@ export function exploreTrail(entry, references = [], { start: from, done = ride 
         + `${references.length ? `, ${(Math.max(0, front) * 100).toFixed(0)}% along` : ''}${best ? `, best ${(best.steps * STEP).toFixed(2)}s` : ''}\n`);
     }
   }
-  return best ? { inputs: inputsOf(best.node), backtracks: 0, done: true } : null;
+  return best ? { inputs: inputsOf(best.node), backtracks: 0, done: true, at: best.at } : null;
+}
+
+// Repairs a reference run that stopped finishing (after a physics or trail
+// change) one break at a time. It plays the run until it crashes or runs
+// out, then has the explorer search from a moment shortly before that for a
+// patch that takes the next apple, or the finish: first mostly following the
+// run's own inputs, then, for a stretch that needs a new way, without them.
+// The rest of the run carries on from the point in it that gets furthest
+// from where the patch ends. A break that can't be patched from close by is
+// tried again from further back. Each search only spans a few seconds, so it
+// depends far less on luck than exploring the whole trail does.
+const REPAIR_BACK = [1, 3, 6, 12];    // seconds before a break a patch may start
+const REPAIR_MINUTES = [1, 2, 3, 4];  // search budget for a patch from each of those, guided and then not
+const REPAIR_REJOIN = 6;              // seconds around a patch's end to look for the place to rejoin the run
+
+// The point in `inputs` to carry on from after a patch that left the ride as
+// `ride`: the one whose rest gets furthest, preferring the patch's own guess.
+function rejoin(ride, inputs, from, guess) {
+  const window = Math.round(REPAIR_REJOIN / STEP);
+  const candidates = guess != null ? [guess] : [];
+  for (let at = Math.max(0, from - window); at < Math.min(inputs.length, from + window); at += DECISION_STEPS) candidates.push(at);
+  let best = null;
+  for (const at of candidates) {
+    const probe = cloneRide(ride);
+    let step = at;
+    while (step < inputs.length && probe.status === 'running') stepRide(probe, inputs[step++]);
+    const progress = probe.status === 'won' ? Infinity : probe.collected * 1e6 + step - at;
+    if (!best || progress > best.progress) best = { at, progress };
+    if (progress === Infinity) break;
+  }
+  return best.at;
+}
+
+/** @param {object[]} reference per-step inputs of a run that once finished */
+export function repairRun(entry, reference, { minutes = MAX_MINUTES } = {}) {
+  const started = Date.now();
+  let inputs = reference.slice();
+  for (let patches = 0; ; patches++) {
+    // Play the run, keeping a copy of the ride every decision to patch from.
+    const ride = createRide(entry.trail);
+    const saved = [];
+    let step = 0;
+    for (; step < inputs.length && ride.status === 'running'; step++) {
+      if (step % DECISION_STEPS === 0) saved.push(cloneRide(ride));
+      stepRide(ride, inputs[step]);
+    }
+    if (ride.status === 'won') return { inputs: inputs.slice(0, step), backtracks: 0, done: true, patches };
+    const apples = ride.collected;
+    const done = apples < ride.apples.length ? probe => probe.collected > apples : probe => probe.status === 'won';
+    let patched = null;
+    for (const [index, back] of REPAIR_BACK.entries()) {
+      const from = Math.max(0, saved.length - 1 - Math.round(back / STEP / DECISION_STEPS));
+      for (const guided of [true, false]) {
+        const left = minutes - (Date.now() - started) / 60000;
+        if (left <= 0) break;
+        const result = exploreTrail(entry, guided ? [inputs] : [], {
+          start: saved[from], at: from * DECISION_STEPS, done, minutes: Math.min(REPAIR_MINUTES[index], left), polish: false
+        });
+        if (!result) continue;
+        const end = cloneRide(saved[from]);
+        for (const input of result.inputs) stepRide(end, input);
+        const at = rejoin(end, inputs, from * DECISION_STEPS + result.inputs.length, result.at);
+        process.stderr.write(`  ${entry.id}: patched a break at ${(step * STEP).toFixed(2)}s from ${back}s before it`
+          + `${guided ? '' : ', finding a new way'}\n`);
+        patched = inputs.slice(0, from * DECISION_STEPS).concat(result.inputs, inputs.slice(at));
+        break;
+      }
+      if (patched) break;
+    }
+    if (!patched) return { inputs, backtracks: 0, done: false, patches };
+    inputs = patched;
+  }
 }

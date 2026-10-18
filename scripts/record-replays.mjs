@@ -11,8 +11,8 @@
 // ghost (localStorage `hjulben-ghost-v1:<trail id>@<hash>`) or the output of
 // `hjulbenGame.dumpRun()` as tests/replays/human/<trail file>.json. A human
 // run that still finishes becomes the replay as is. One that stopped
-// finishing, like an old replay broken by a physics change, guides the
-// explorer instead, which keeps what still works and patches the rest.
+// finishing, like an old replay broken by a physics change, is repaired
+// where it breaks (see repairRun), and failing that guides the explorer.
 //
 // An existing replay is kept (its outcome refreshed) while it still finishes
 // the trail, so editing one trail or tweaking physics only re-records the
@@ -28,7 +28,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { simulateRun } from '../js/ride.js';
 import { decodeInputs, encodeInputs } from '../js/replay-codec.js';
-import { exploreTrail, recordTrail } from './lib/replay-bot.mjs';
+import { MAX_MINUTES, exploreTrail, recordTrail, repairRun } from './lib/replay-bot.mjs';
 import { loadCatalogTrails, repoRoot } from './lib/trails.mjs';
 
 const OUT_DIR = repoRoot + 'tests/replays/';
@@ -117,6 +117,12 @@ for (const entry of officialTrails) {
   for (const { source, inputs } of reuse ? [] : references) {
     const { ride } = outcomeOf(entry.trail, inputs);
     if (ride.status === 'won') { result = { inputs: inputs.slice(0, ride.steps), backtracks: 0, source }; break; }
+  }
+  // A reference that stopped finishing is patched where it breaks.
+  for (const { source, inputs } of result ? [] : references) {
+    console.log(`  ${entry.id}: repairing the ${source}`);
+    const repaired = repairRun(entry, inputs, { minutes: MAX_MINUTES / references.length });
+    if (repaired.done) { result = { ...repaired, source: `repaired ${source}` }; break; }
   }
   // The greedy bot can't use a reference, so a trail that has one goes straight to the explorer.
   if (!result && !exploreOnly && !references.length) result = recordTrail(entry);

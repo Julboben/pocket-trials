@@ -7,7 +7,7 @@ import { normalizeTrail, validateTrail } from '../js/trail-schema.js';
 import { rectangle } from './lib/terrain-fixtures.mjs';
 import { PAINTED_PROPS, WALL_PROPS, canFlip, canRotate, mossSurface, paintedBounds, propWallFit } from '../js/drawing.js';
 import { FLAGPOLE, flagDroop, flagRipple } from '../js/countryside-props.js';
-import { FIRE_TONGUES, GRASS_BRUSH, IVY, grassLean, ivyLayout, ivyRustle, mossCushions, mossPlacement } from '../js/forest-props.js';
+import { FIRE_TONGUES, GRASS_BRUSH, IVY, TREE_SWAY_MAX, grassLean, ivyLayout, ivyRustle, mossCushions, mossPlacement, treeSway } from '../js/forest-props.js';
 import { fireFrame, fireTongues } from '../js/fire.js';
 
 const COUNTRYSIDE_PROPS = ['tent', 'grass', 'flagpole', 'christiania-bike', 'bench', 'fireplace', 'tutorial-lean-forward'];
@@ -146,6 +146,24 @@ const COUNTRYSIDE_PROPS = ['tent', 'grass', 'flagpole', 'christiania-bike', 'ben
   assert.ok(Math.sign(last.x - first.x) === -Math.sign(last.y - first.y) && Math.abs(last.x - first.x) > 10, 'it runs along the hill');
   assert.ok(placed.every(({ x, y }) => x % 2 === 0 && y % 2 === 0), 'on the art grid');
   assert.ok(!canRotate('moss'), 'it finds its own angle, so it is not turned by hand');
+}
+
+// A tree's crown bends in the wind: still in still air and at time 0, tipping
+// a pixel now and then as a gust passes in a breeze, leaning and swaying
+// downwind in a gale, and never further than TREE_SWAY_MAX.
+{
+  const over = (wind, downwind = -1) => {
+    const tops = [];
+    for (let t = 0.01; t < 120; t += 0.05) for (const x of [80, 210, 340]) tops.push(treeSway(t, wind, downwind, x, (x * 0.37) % 1));
+    return { moving: tops.filter((top) => Math.abs(top) >= 1).length / tops.length, mean: tops.reduce((a, b) => a + b, 0) / tops.length, peak: Math.max(...tops.map(Math.abs)) };
+  };
+  assert.equal(treeSway(0, 1, -1, 100, 0.3), 0, 'still at time 0');
+  assert.equal(over(0).peak, 0, 'still in still air');
+  const breeze = over(0.25), gale = over(1);
+  assert.ok(breeze.moving > 0.05 && breeze.moving < 0.35, `a breeze tips the tops now and then (${breeze.moving.toFixed(2)})`);
+  assert.ok(gale.moving > 0.6, 'a gale keeps them moving');
+  assert.ok(gale.mean < -0.5 && over(1, 1).mean > 0.5, 'and leans them downwind, either way');
+  assert.ok(gale.peak <= TREE_SWAY_MAX && breeze.peak < 2, 'never past two art pixels; a breeze only one');
 }
 
 console.log('Countryside props: all checks passed.');

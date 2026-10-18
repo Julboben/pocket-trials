@@ -106,6 +106,8 @@ import {
   FIRE_TONGUES,
   grassLean,
   IVY,
+  TREE_SWAY_MAX,
+  treeSway,
   drawIvy,
   drawMoss,
   mossCushions,
@@ -3239,7 +3241,52 @@ const APPLE_SHINE = {
 const TREE_CANOPY_BOTTOM = -64;
 const PINE_CANOPY_BOTTOM = -26;
 
-function drawTreeCanopy({ pixelRect, pixelPath, drawPixelDisc }) {
+/**
+ * Tools that draw bent by the wind: everything is moved along x by `sway`
+ * times how far up the crown it is (0 at `foot`, 1 at `top`, to a power so
+ * the top moves most), snapped to the art grid. Each shape moves whole, so a
+ * crown drawn from overlapping clumps bends without tearing.
+ */
+function bentTools(tools, sway, foot, top) {
+  const shift = (y) => {
+    const up = Math.max(0, Math.min(1, (foot - y) / (foot - top)));
+    return Math.round((sway * up ** 1.3) / ART_PIXEL) * ART_PIXEL;
+  };
+  return {
+    ...tools,
+    shift,
+    pixelRect: (x, y, w, h, color, pixel) => tools.pixelRect(x + shift(y + h / 2), y, w, h, color, pixel),
+    drawPixelDisc: (x, y, r, color, pixel) => tools.drawPixelDisc(x + shift(y), y, r, color, pixel),
+    pixelPath: (points, color, thickness, pixel) =>
+      tools.pixelPath(points.map(([x, y]) => [x + shift(y), y]), color, thickness, pixel),
+  };
+}
+
+/** Tools that draw everything moved along x by `dx`, for a pine tier that bends whole. */
+function movedTools(tools, dx) {
+  return {
+    ...tools,
+    pixelRect: (x, y, w, h, color, pixel) => tools.pixelRect(x + dx, y, w, h, color, pixel),
+    drawPixelDisc: (x, y, r, color, pixel) => tools.drawPixelDisc(x + dx, y, r, color, pixel),
+    pixelPath: (points, color, thickness, pixel) =>
+      tools.pixelPath(points.map(([x, y]) => [x + dx, y]), color, thickness, pixel),
+  };
+}
+
+// The crown's top, for bending it in the wind.
+const TREE_CANOPY_TOP = -182;
+
+/**
+ * The deciduous tree's crown and upper trunk, its foliage and branches bent
+ * by `sway` (world units at the top of the crown; see treeSway). The trunk
+ * stays upright.
+ */
+function drawTreeCanopy(tools, sway = 0) {
+  // The trunk stays upright; the branches and foliage bend.
+  const { pixelRect } = tools;
+  const leaves = bentTools(tools, sway, TREE_CANOPY_BOTTOM, TREE_CANOPY_TOP);
+  const { pixelPath, drawPixelDisc } = leaves;
+  const leafRect = leaves.pixelRect;
   // Upper trunk, hidden behind the crown.
   pixelRect(-8, -114, 16, TREE_CANOPY_BOTTOM + 114, "#66543f", 2);
   pixelRect(2, -110, 6, TREE_CANOPY_BOTTOM + 110, "#856d4f", 2);
@@ -3304,31 +3351,48 @@ function drawTreeCanopy({ pixelRect, pixelPath, drawPixelDisc }) {
   drawPixelDisc(12, -132, 14, "#618b66", 2);
 
   // A few chunky leaf accents, rather than scattered noise.
-  pixelRect(-16, -152, 8, 4, "#568061", 2);
-  pixelRect(-22, -148, 6, 4, "#568061", 2);
-  pixelRect(28, -116, 8, 4, "#618b66", 2);
-  pixelRect(22, -112, 6, 4, "#618b66", 2);
-  pixelRect(-10, -104, 8, 4, "#568061", 2);
+  leafRect(-16, -152, 8, 4, "#568061", 2);
+  leafRect(-22, -148, 6, 4, "#568061", 2);
+  leafRect(28, -116, 8, 4, "#618b66", 2);
+  leafRect(22, -112, 6, 4, "#618b66", 2);
+  leafRect(-10, -104, 8, 4, "#568061", 2);
 
   // Top of the first bark detail; the rest is drawn with the lower trunk.
   pixelRect(-4, -68, 2, TREE_CANOPY_BOTTOM + 68, "#856d4f", 2);
 }
 
-function drawPineCanopy(tools) {
+/**
+ * Bough tiers bent by `sway` (world units at `top`): each tier moves whole by
+ * how high its middle stands between `foot` and `top`, so the boughs shift
+ * tier by tier rather than row by row. `each(tools, tier)` draws extras that
+ * ride on a tier, like its snow.
+ */
+function drawBentTiers(tools, tiers, sway, foot, top, each = null) {
+  const { shift } = bentTools(tools, sway, foot, top);
+  for (const tier of tiers) {
+    const moved = movedTools(tools, shift((tier.top + tier.bottom) / 2));
+    drawPineTiers(moved, [tier]);
+    if (each) each(moved, tier);
+  }
+}
+
+function drawPineCanopy(tools, sway = 0) {
   const { pixelRect } = tools;
   // Upper trunk, hidden behind the boughs.
   pixelRect(-6, -100, 12, PINE_CANOPY_BOTTOM + 100, "#66543f", 2);
   pixelRect(2, -100, 4, PINE_CANOPY_BOTTOM + 100, "#856d4f", 2);
   pixelRect(4, -96, 2, PINE_CANOPY_BOTTOM + 96, "#aa8a60", 2);
-  // Broad lower boughs first; smaller tiers overlap them.
-  drawPineTiers(tools, PINE_TIERS);
+  // Broad lower boughs first; smaller tiers overlap them. They bend in the wind.
+  drawBentTiers(tools, PINE_TIERS, sway, PINE_CANOPY_BOTTOM, -186);
   // Small highlight on the central leader.
-  pixelRect(0, -180, 2, 6, "#618b66", 2);
+  const { shift } = bentTools(tools, sway, PINE_CANOPY_BOTTOM, -186);
+  pixelRect(shift(-177), -180, 2, 6, "#618b66", 2);
 }
 
-function drawBushCanopy({ pixelRect, drawPixelDisc }) {
-  // Low, broad shrub with overlapping leaf clusters.
-  // Sprite bounds: x -32..32, y -44..0.
+function drawBushCanopy(tools, sway = 0) {
+  // Low, broad shrub with overlapping leaf clusters. Its clumps stir in the
+  // wind over a base that stays put. Sprite bounds: x -36..36, y -44..0.
+  const { pixelRect, drawPixelDisc } = bentTools(tools, sway, 0, -44);
 
   // Connected shaded base.
   pixelRect(-28, -12, 56, 12, "#477158", 2);
@@ -3368,7 +3432,11 @@ const SAPLING_CANOPY_BOTTOM = -30;
 const SMALL_PINE_CANOPY_BOTTOM = -14;
 const SMALL_CACTUS_BOTTOM = -8;
 
-function drawSaplingCanopy({ pixelRect, pixelPath, drawPixelDisc }) {
+function drawSaplingCanopy(tools, sway = 0) {
+  // The trunk stays upright; the branch and leaves bend in the wind.
+  const { pixelRect } = tools;
+  const leaves = bentTools(tools, sway, SAPLING_CANOPY_BOTTOM, -76);
+  const { pixelPath, drawPixelDisc } = leaves;
   // Upper trunk, hidden behind the crown.
   pixelRect(-4, -56, 4, SAPLING_CANOPY_BOTTOM + 56, "#66543f", 2);
   pixelRect(0, -56, 2, SAPLING_CANOPY_BOTTOM + 56, "#856d4f", 2);
@@ -3387,7 +3455,7 @@ function drawSaplingCanopy({ pixelRect, pixelPath, drawPixelDisc }) {
   // Sunlit top right.
   drawPixelDisc(8, -64, 6, "#618b66", 2);
   drawPixelDisc(14, -54, 4, "#618b66", 2);
-  pixelRect(-14, -48, 6, 2, "#568061", 2);
+  leaves.pixelRect(-14, -48, 6, 2, "#568061", 2);
 }
 
 // The pines' tiered, shaded bough pattern, for any tier list.
@@ -3425,32 +3493,32 @@ function drawPineTiers({ pixelRect }, tiers) {
 
 // The big pine under a load of snow. Each tier gets its snow before the tier
 // above is drawn, so the tier above covers it.
-function drawSnowPineCanopy(tools) {
+function drawSnowPineCanopy(tools, sway = 0) {
   const { pixelRect } = tools;
   // Upper trunk, hidden behind the boughs.
   pixelRect(-6, -100, 12, PINE_CANOPY_BOTTOM + 100, "#66543f", 2);
   pixelRect(2, -100, 4, PINE_CANOPY_BOTTOM + 100, "#856d4f", 2);
   pixelRect(4, -96, 2, PINE_CANOPY_BOTTOM + 96, "#aa8a60", 2);
-  for (const tier of PINE_TIERS) {
-    drawPineTiers(tools, [tier]);
-    drawPineSnow(tools, tier);
-  }
-  drawPineSnowCap(tools);
+  // Each tier and the snow on it bend together in the wind.
+  drawBentTiers(tools, PINE_TIERS, sway, PINE_CANOPY_BOTTOM, -188, drawPineSnow);
+  const { shift } = bentTools(tools, sway, PINE_CANOPY_BOTTOM, -188);
+  drawPineSnowCap(movedTools(tools, shift(-185)));
 }
 
-function drawSmallPineCanopy(tools) {
+function drawSmallPineCanopy(tools, sway = 0) {
   const { pixelRect } = tools;
   // Upper trunk, hidden behind the boughs.
   pixelRect(-4, -60, 4, SMALL_PINE_CANOPY_BOTTOM + 60, "#66543f", 2);
   pixelRect(0, -60, 2, SMALL_PINE_CANOPY_BOTTOM + 60, "#856d4f", 2);
   pixelRect(2, -60, 2, SMALL_PINE_CANOPY_BOTTOM + 60, "#aa8a60", 2);
-  drawPineTiers(tools, [
+  drawBentTiers(tools, [
     { top: -56, bottom: -14, halfWidth: 22 },
     { top: -72, bottom: -40, halfWidth: 16 },
     { top: -86, bottom: -60, halfWidth: 10 },
-  ]);
+  ], sway, SMALL_PINE_CANOPY_BOTTOM, -88);
   // Highlight on the leader.
-  pixelRect(0, -84, 2, 4, "#618b66", 2);
+  const { shift } = bentTools(tools, sway, SMALL_PINE_CANOPY_BOTTOM, -88);
+  pixelRect(shift(-82), -84, 2, 4, "#618b66", 2);
 }
 
 function drawSmallCactusBody(tools) {
@@ -3865,10 +3933,11 @@ function riderSide(scene, x, mirrored) {
 
 // Local bounds [left, top, right, bottom] of each canopy sprite, in world units.
 const CANOPY_SPRITES = {
-  tree: { bounds: [-64, -182, 64, TREE_CANOPY_BOTTOM], draw: drawTreeCanopy },
-  pine: { bounds: [-48, -186, 48, PINE_CANOPY_BOTTOM], draw: drawPineCanopy },
+  // Room either side for the crown bending in the wind (TREE_SWAY_MAX).
+  tree: { bounds: [-68, -182, 68, TREE_CANOPY_BOTTOM], draw: drawTreeCanopy },
+  pine: { bounds: [-52, -186, 52, PINE_CANOPY_BOTTOM], draw: drawPineCanopy },
   bush: {
-    bounds: [-32, -44, 32, 0],
+    bounds: [-36, -44, 36, 0],
     draw: drawBushCanopy,
   },
   cactus: {
@@ -3876,11 +3945,11 @@ const CANOPY_SPRITES = {
     draw: drawCactusBody,
   },
   sapling: {
-    bounds: [-28, -76, 28, SAPLING_CANOPY_BOTTOM],
+    bounds: [-32, -76, 32, SAPLING_CANOPY_BOTTOM],
     draw: drawSaplingCanopy,
   },
   "pine-small": {
-    bounds: [-24, -88, 24, SMALL_PINE_CANOPY_BOTTOM],
+    bounds: [-28, -88, 28, SMALL_PINE_CANOPY_BOTTOM],
     draw: drawSmallPineCanopy,
   },
   "cactus-small": {
@@ -3909,7 +3978,7 @@ const CANOPY_SPRITES = {
   "car-wreck": { bounds: [-70, -44, 70, WRECK_SINK], draw: drawCarWreck },
   "water-tower": { bounds: [-38, -178, 40, TOWER_BODY_BOTTOM], draw: drawWaterTower },
   windmill: { bounds: [-62, -172, 24, WINDMILL_BODY_BOTTOM], draw: drawWindmillTower },
-  "snow-pine": { bounds: [-50, -188, 50, PINE_CANOPY_BOTTOM], draw: drawSnowPineCanopy },
+  "snow-pine": { bounds: [-54, -188, 54, PINE_CANOPY_BOTTOM], draw: drawSnowPineCanopy },
   "ski-lift": { bounds: [-28, PYLON_TOP, 28, PYLON_BODY_BOTTOM], draw: drawPylon },
   hut: { bounds: HUT_BOUNDS, draw: drawHut },
   cairn: { bounds: [-16, -44, 16, 0], draw: drawCairn },
@@ -3943,8 +4012,10 @@ const CANOPY_SPRITES = {
 };
 const canopySprites = new Map();
 
-function canopySprite(type) {
-  if (canopySprites.has(type)) return canopySprites.get(type);
+/** A canopy's cached sprite; `variant` is how far a crown that bends is bent. */
+function canopySprite(type, variant = 0) {
+  const key = variant ? `${type}:${variant}` : type;
+  if (canopySprites.has(key)) return canopySprites.get(key);
   const {
     bounds: [left, top, right, bottom],
     draw,
@@ -3962,7 +4033,7 @@ function canopySprite(type) {
     -left / ART_PIXEL,
     -top / ART_PIXEL,
   );
-  draw(createDrawingTools(context));
+  draw(createDrawingTools(context), variant);
   const sprite = {
     canvas,
     left,
@@ -3970,7 +4041,7 @@ function canopySprite(type) {
     width: right - left,
     height: bottom - top,
   };
-  canopySprites.set(type, sprite);
+  canopySprites.set(key, sprite);
   return sprite;
 }
 // A sign reading "GO" (or a "start" prop) is drawn as the start pennant.
@@ -3984,9 +4055,10 @@ const isStartSign = (type, text) =>
 // Generous local bounds [left, top, right] of each prop, in world units; the
 // bottom follows the ground under it.
 const PROP_EXTENTS = {
-  tree: [-64, -184, 64],
-  pine: [-48, -186, 48],
-  bush: [-32, -44, 32],
+  // Room for the crown bending in the wind (TREE_SWAY_MAX).
+  tree: [-68, -184, 68],
+  pine: [-52, -186, 52],
+  bush: [-36, -44, 36],
   fence: [-42, -38, 42],
   rock: [-18, -20, 20],
   boulder: [-24, -42, 24],
@@ -3994,8 +4066,8 @@ const PROP_EXTENTS = {
   stump: [-12, -18, 12],
   cactus: [-32, -104, 32],
   "cactus-small": [-14, -58, 14],
-  sapling: [-28, -78, 28],
-  "pine-small": [-24, -90, 24],
+  sapling: [-32, -78, 32],
+  "pine-small": [-28, -90, 28],
   pebbles: [-14, -12, 14],
   crystal: [-16, -42, 16],
   // The pennant flies downwind, either way.
@@ -5262,8 +5334,26 @@ export function createGameArt(ctx) {
     ctx.globalAlpha = base;
   }
 
-  function drawCanopy(type) {
-    const sprite = canopySprite(type);
+  /**
+   * How far the wind bends the top of a tree or bush at x (see treeSway),
+   * scaled by `scale`: bushes stir half as much as trees.
+   */
+  function windSwayOf(scene, x, mirrored, scale = 1) {
+    const { wind, downwind } = propWind(scene, mirrored);
+    return scale * treeSway(scene.time || 0, wind, downwind, x, propNoise(x, 50), mirrored ? -downwind : downwind);
+  }
+
+  /**
+   * A crown bent by the wind, `top` world units at its top (see treeSway):
+   * drawn from a sprite whose clumps were bent as it was drawn (see
+   * bentTools), one cached for each whole unit of bend.
+   */
+  function drawSwayingCanopy(type, top) {
+    drawCanopy(type, Math.max(-TREE_SWAY_MAX, Math.min(TREE_SWAY_MAX, Math.round(top))));
+  }
+
+  function drawCanopy(type, variant = 0) {
+    const sprite = canopySprite(type, variant);
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(
       sprite.canvas,
@@ -5405,8 +5495,9 @@ export function createGameArt(ctx) {
     if (type === "tree") {
       // Mature deciduous tree: approximately 124 units wide
       // and 180 units tall, centered over the ground anchor.
-      // The trunk stays upright; its base follows the terrain.
-      drawCanopy(type);
+      // The trunk stays upright; its base follows the terrain. The crown
+      // bends in the wind over it.
+      drawSwayingCanopy(type, windSwayOf(scene, x, mirrored));
 
       // Main trunk with a shaded side and a narrow sunlit edge.
       const trunkTop = TREE_CANOPY_BOTTOM;
@@ -5429,8 +5520,9 @@ export function createGameArt(ctx) {
     } else if (type === "pine") {
       // Local x = 0 is the shared trunk / canopy center.
       // Overall size: 92 units wide, 182 units tall.
-      // Keep the tree upright; only its base follows the terrain.
-      drawCanopy(type);
+      // Keep the tree upright; only its base follows the terrain. Its boughs
+      // bend in the wind, tier by tier.
+      drawSwayingCanopy(type, windSwayOf(scene, x, mirrored));
 
       // Trunk: centered, with shaded bark and a narrow lit edge.
       const trunkTop = PINE_CANOPY_BOTTOM;
@@ -5442,8 +5534,9 @@ export function createGameArt(ctx) {
       rectAboveGround(-4, -22, 2, 8, "#856d4f", 2, groundOffset);
       rectAboveGround(0, -12, 2, 6, "#856d4f", 2, groundOffset);
     } else if (type === "sapling" || type === "pine-small") {
-      // Young trees: cached crown, thin trunk whose base follows the slope.
-      drawCanopy(type);
+      // Young trees: cached crown bent by the wind, thin trunk whose base
+      // follows the slope.
+      drawSwayingCanopy(type, windSwayOf(scene, x, mirrored));
       const trunkTop =
         type === "sapling"
           ? SAPLING_CANOPY_BOTTOM
@@ -5484,9 +5577,9 @@ export function createGameArt(ctx) {
         pixelRect(s.x + 2, top, s.w - 2, 2, "#aeb5a7", 2);
       }
     } else if (type === "bush") {
-      // Draw the cached shrub intact.
-      // drawProp() already applies the ground-alignment rotation.
-      drawCanopy("bush");
+      // The cached shrub, its clumps stirring in the wind, half as much as a
+      // tree's. drawProp() already applies the ground-alignment rotation.
+      drawSwayingCanopy("bush", windSwayOf(scene, x, mirrored, 0.5));
     } else if (type === "fence") {
       // A post-and-rail fence, 80 wide and 36 tall (about 1.3 m).
       // Rails sit behind the posts; existing slope rotation is preserved.
@@ -5877,7 +5970,7 @@ export function createGameArt(ctx) {
       const shake = pineShake(scene.landing, x, y, scene.time || 0);
       ctx.save();
       if (shake) ctx.translate(pineSway(shake), 0);
-      drawCanopy(type);
+      drawSwayingCanopy(type, windSwayOf(scene, x, mirrored));
       ctx.restore();
       const trunkTop = PINE_CANOPY_BOTTOM;
       rectDownTo(-6, trunkTop, 8, "#66543f", 2, groundOffset);

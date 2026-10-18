@@ -1398,6 +1398,84 @@ export function createRenderer(canvas) {
    * falls, with nearer flakes bigger, brighter, and faster. A flake rests
    * briefly where it lands on terrain and melts straight into water.
    */
+  /**
+   * Gusts made visible: thin, pale streaks of air blowing across the screen
+   * downwind (`dir`, -1 left or 1 right), each with a gentle wave and some
+   * curling into a loop on the way. None in light air; a few in a stiff
+   * breeze; several, faster, in a gale. Rain already shows the wind, so with
+   * rain they are fewer, fainter and shorter; with snow they are broken into
+   * dots, like snow being whirled along. Like the rain and snow they are
+   * worked out from the time alone, in screen space, and they are left out
+   * with reduced motion.
+   */
+  function drawWindSwirls(wind, time, dir, rain, snow) {
+    const strength = clamp((wind - 0.25) / 0.75, 0, 1);
+    if (!strength || reducedMotion) return;
+    const scale = clamp((W * H) / (760 * 430), 0.6, 2.2);
+    const wet = Math.max(rain, snow);
+    const slots = Math.round(scale * (2 + strength * 9) * (1 - wet * 0.55));
+    const speed = 150 + strength * 230;
+    for (let index = 0; index < slots; index++) {
+      // Each slot sends a gust every so often, from its own place each time.
+      const period = 3.2 + rainHash(index, 31) * 3;
+      const clock = time + rainHash(index, 32) * period;
+      const cycle = Math.floor(clock / period);
+      const age = clock - cycle * period;
+      const life = 1.6 + rainHash(index + cycle * 7919, 33) * 0.9;
+      if (age > life) continue;
+      const seed = index + cycle * 7919;
+      const depth = 0.6 + rainHash(seed, 34) * 0.5;
+      const length = (70 + rainHash(seed, 35) * 70) * (1 - rain * 0.4);
+      const curl = rainHash(seed, 36) < 0.55 ? 7 + rainHash(seed, 37) * 6 : 0;
+      const wave = 4 + rainHash(seed, 38) * 6;
+      // Where the gust starts, anywhere across the view (it fades in), and
+      // how high; nearer gusts (deeper) move faster.
+      const travel = speed * depth;
+      const startX = rainHash(seed, 39) * (W + 160) - 80 - dir * travel * life * 0.3;
+      const baseY = H * (0.18 + rainHash(seed, 40) * 0.55);
+      // A point of the streak, `back` units behind its head.
+      const at = (back) => {
+        const along = Math.max(0, age * travel - back);
+        let x = startX + dir * along;
+        let y = baseY + Math.sin(along / 40 + rainHash(seed, 41) * 6.3) * wave;
+        if (curl) {
+          // A loop part-way along: the air turns over once and carries on.
+          const loopAt = travel * life * 0.45;
+          const into = (along - loopAt) / (curl * 6.3);
+          if (into > 0 && into < 1) {
+            const turn = into * Math.PI * 2;
+            x += dir * (Math.sin(turn) * curl - into * curl * 6.3);
+            y -= (1 - Math.cos(turn)) * curl;
+          } else if (into >= 1) x -= dir * curl * 6.3;
+        }
+        return [x, y];
+      };
+      // Fading in at the start of its life and out at the end, and along its tail.
+      const life01 = age / life;
+      const fade = Math.min(1, life01 * 5, (1 - life01) * 4) * (0.55 - rain * 0.22);
+      let previous = null;
+      for (let back = 0; back < length; back += ART_PIXEL) {
+        const [x, y] = at(back);
+        const left = Math.round(x / ART_PIXEL) * ART_PIXEL, top = Math.round(y / ART_PIXEL) * ART_PIXEL;
+        const key = left + "," + top;
+        if (key === previous) continue;
+        previous = key;
+        // Snow breaks the streak into flakes being whirled along.
+        if (snow && (back / ART_PIXEL) % 3 !== 0) continue;
+        // A pale streak with a faint shaded underside, so it reads against a
+        // light sky as well as dark leaves.
+        const tail = 1 - back / length;
+        ctx.globalAlpha = fade * tail * 0.4;
+        ctx.fillStyle = "rgb(70, 96, 100)";
+        ctx.fillRect(left, top + ART_PIXEL, ART_PIXEL, ART_PIXEL);
+        ctx.globalAlpha = fade * tail;
+        ctx.fillStyle = "rgb(244, 249, 247)";
+        ctx.fillRect(left, top, ART_PIXEL, ART_PIXEL);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
   function drawSnow(intensity, time, drift) {
     const scale = clamp((W * H) / (760 * 430), 0.6, 2.2);
     const storm = Math.max(0, (intensity - 0.6) / 0.4) ** 1.5;
@@ -1455,11 +1533,13 @@ export function createRenderer(canvas) {
     const rainIntensity = clamp(Number(trail.weather?.rain) || 0, 0, 1);
     const snow = clamp(Number(trail.weather?.snow) || 0, 0, 1);
     const fog = fogAmount(trail.weather);
-    if (!rainIntensity && !snow && !fog && weather.flash <= 0) return;
+    const air = propScene.weather;
+    const wind = clamp(Number(air?.wind) || 0, 0, 1);
+    if (!rainIntensity && !snow && !fog && weather.flash <= 0 && wind <= 0.25) return;
     ctx.save();
     if (fog) fogHaze(fog);
-    // Both are blown by the same wind.
-    const air = propScene.weather;
+    // Gusts behind the rain and snow; all three are blown by the same wind.
+    drawWindSwirls(wind, weather.time, windSign(air), rainIntensity, snow);
     if (rainIntensity) drawRain(rainIntensity, weather.time, windSign(air) * rainSlant(air.wind));
     if (snow) drawSnow(snow, weather.time, windSign(air) * snowDrift(air.wind));
     if (weather.flash > 0) {
