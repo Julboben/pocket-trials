@@ -155,7 +155,10 @@
                             autofocus
                         >
                             <span id="primary-label">Play Again</span
-                            ><kbd class="results-key" aria-hidden="true"
+                            ><kbd
+                                class="results-key"
+                                id="primary-key"
+                                aria-hidden="true"
                                 >Enter</kbd
                             >
                         </button>
@@ -193,7 +196,7 @@
                 </dialog>
                 <div class="pause-overlay" id="pause-overlay" hidden>
                     <span class="pause-title">PAUSED</span
-                    ><span class="pause-hint">Press P or Esc to resume</span>
+                    ><span class="pause-hint" id="pause-hint"></span>
                 </div>
             </div>
             <section

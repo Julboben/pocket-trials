@@ -2,6 +2,7 @@
 // In-game DOM: HUD pills, toast, pause screen and the results screen.
 import { $, timeText, runTimeText, deltaText } from "../state.js";
 import { MEDALS, normalizeAuthor } from "../trail-schema.js";
+import { keyTextNodes, keyTextWords } from "./key-text.js";
 
 export function createOverlay() {
   const dialog = /** @type {HTMLDialogElement} */ ($("overlay"));
@@ -96,9 +97,12 @@ export function createOverlay() {
     $("timer-detail").hidden = !splitting && shownMedal === "none";
   }
 
-  /** @param {string} [icon] a pixel icon shown after the message */
+  /**
+   * @param {import("./key-text.js").KeyText} message
+   * @param {string} [icon] a pixel icon shown after the message
+   */
   function toast(message, duration = 2600, icon) {
-    $("toast").textContent = message;
+    $("toast").replaceChildren(...keyTextNodes(message));
     if (icon) $("toast").dataset.iconAfter = icon;
     else delete $("toast").dataset.iconAfter;
     toastUntil =
@@ -117,7 +121,7 @@ export function createOverlay() {
    * Announces an earned achievement on its own card, a popover on the top
    * layer, so it shows over the ride, the results and the menu alike and never
    * hides the game's own messages. Several in a row take turns.
-   * @param {{ name: string, blurb: string, icon: string }} earned
+   * @param {{ name: string, blurb: import("./key-text.js").KeyText, icon: string }} earned
    */
   function achievement(earned) {
     queueCard({ ...earned, label: "ACHIEVEMENT UNLOCKED", opens: "achievements" });
@@ -148,13 +152,13 @@ export function createOverlay() {
     $("achievement-popover-label").textContent = earned.label;
     $("achievement-popover-icon").dataset.icon = earned.icon;
     $("achievement-popover-name").textContent = earned.name;
-    $("achievement-popover-blurb").textContent = earned.blurb;
+    $("achievement-popover-blurb").replaceChildren(...keyTextNodes(earned.blurb));
     // Shown again for each one, so it slides in again.
     if (popover.matches(":popover-open")) popover.hidePopover();
     placeAchievement();
     popover.showPopover();
     achievementUntil = now + 4000;
-    announce((earned.opens === "garage" ? "New gear: " : "Achievement earned: ") + earned.name + ". " + earned.blurb);
+    announce((earned.opens === "garage" ? "New gear: " : "Achievement earned: ") + earned.name + ". " + keyTextWords(earned.blurb));
   }
 
   /** The top layer is the whole window, so the card is pinned to the game's corner. */
@@ -212,9 +216,12 @@ export function createOverlay() {
     );
   }
 
-  function showPause(visible) {
+  /** @param {import("./key-text.js").KeyText} [hint] how to resume */
+  function showPause(visible, hint = "") {
     $("pause-overlay").hidden = !visible;
-    if (visible) announce("Paused. Press P or Escape to resume.");
+    if (!visible) return;
+    $("pause-hint").replaceChildren(...keyTextNodes(hint));
+    announce("Paused. " + keyTextWords(hint));
   }
 
   function hide() {
@@ -232,9 +239,9 @@ export function createOverlay() {
    *   official: boolean, bonus?: boolean, time: number, previousBest: number | null, rank: number | null,
    *   worldPending?: boolean,
    *   medals?: { gold: number, silver: number, bronze: number }, medal: string | null,
-   *   apples: number, primaryLabel: string, restartKey: string,
-   *   author?: string
-   * }} result
+   *   apples: number, primaryLabel: string, author?: string,
+   *   keys: { confirm: string, restart: string }
+   * }} result keys: the badges on the buttons, "" for none
    */
   function showResults(result) {
     const { time, previousBest, rank, medals, medal } = result;
@@ -299,7 +306,10 @@ export function createOverlay() {
       : sideNote;
     $("overlay-description").hidden = !$("overlay-description").textContent;
     $("primary-label").textContent = result.primaryLabel;
-    $("retry-key").textContent = result.restartKey;
+    $("primary-key").textContent = result.keys.confirm;
+    $("primary-key").hidden = !result.keys.confirm;
+    $("retry-key").textContent = result.keys.restart;
+    $("retry-key").hidden = !result.keys.restart;
     $("pause-overlay").hidden = true;
     openDialog();
     announce(

@@ -18,6 +18,7 @@ import { RIDE_VERSION } from '../ride.js';
 import { normalizeAuthor, normalizeTrail, validateTrail, medalFor } from '../trail-schema.js';
 import { ACTION_LABELS, keyLabel } from '../input.js';
 import { createGamepadDiagram } from './gamepad-diagram.js';
+import { keyTextNodes } from './key-text.js';
 import { canRumble } from '../haptics.js';
 import { VERSION } from '../version.js';
 import { RELEASES } from '../changelog.js';
@@ -888,7 +889,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     const name = document.createElement('strong');
     name.textContent = hidden ? 'SECRET' : achievement.name.toUpperCase();
     const blurb = document.createElement('small');
-    blurb.textContent = hidden ? achievement.hint ?? 'Keep riding to find out.' : achievement.blurb;
+    blurb.replaceChildren(...keyTextNodes(hidden ? achievement.hint ?? 'Keep riding to find out.' : achievement.blurb));
     copy.append(name, blurb);
     const state = document.createElement('span');
     state.className = 'achievement-state';

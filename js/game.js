@@ -26,6 +26,7 @@ import { createDebugHud } from './debug-hud.js';
 import { riderPalette } from './drawing.js';
 import { gearCard, legacyRider, lookOf, lookParts, newlyUnlockedItems } from './cosmetics.js';
 import { createOverlay } from './ui/overlay.js';
+import { keyChoices, keyTextNodes } from './ui/key-text.js';
 import { createMenu, loadStoredState } from './ui/menu.js';
 import { $, session, currentTrailEntry, trailKey, nisseKey, timeText, isRankedSource, bonusUnlock, riderLook, progressOf } from './state.js';
 import { isNight } from './time-of-day.js';
@@ -164,7 +165,30 @@ export function startGame({ shared = null } = {}) {
 
   // --- Device features -----------------------------------------------------
 
-  const restartKey = () => keyLabel(session.preferences.bindings.restart[0] || 'KeyR');
+  // Phones and tablets without a mouse, where prompts name the on-screen buttons.
+  const touchScreen = window.matchMedia('(hover: none) and (pointer: coarse)');
+
+  /**
+   * The keys prompts name, for what the player is using: the gamepad's
+   * buttons, their own key bindings, or none on a touch screen. `pause` lists
+   * every key that resumes, as Esc does too on a keyboard.
+   */
+  function promptKeys() {
+    if (input.activeGamepad()) return { confirm: 'A', restart: 'Y', pause: ['Start'] };
+    if (touchScreen.matches) return { confirm: '', restart: '', pause: [] };
+    const { bindings } = session.preferences;
+    return {
+      confirm: 'Enter',
+      restart: keyLabel(bindings.restart[0] || 'KeyR'),
+      pause: [...bindings.pause.slice(0, 1).map(keyLabel), 'Esc'],
+    };
+  }
+
+  /** How to leave the pause screen. A tap anywhere on it works everywhere. */
+  function pauseHint() {
+    const { pause } = promptKeys();
+    return pause.length ? ['Press ', ...keyChoices(pause), ' to resume'] : 'Tap to resume';
+  }
 
   // Phone vibration and gamepad rumble. Watching a replay is not riding, so it stays still.
   const haptics = createHaptics({
@@ -542,8 +566,9 @@ export function startGame({ shared = null } = {}) {
     $('crash-retry').hidden = false;
     // Focused, so Enter rides the trail, as it continues from the results.
     $('crash-retry').focus({ preventScroll: true });
-    overlay.toast('Replay finished · Press ' + restartKey() + ' to watch again', Infinity);
-    overlay.announce('Replay finished. Press ' + restartKey() + ' to watch it again, or Enter to ride the trail.');
+    const { restart } = promptKeys();
+    overlay.toast(restart ? ['Replay finished · Press ', { key: restart }, ' to watch again'] : 'Replay finished · Tap Restart to watch again', Infinity);
+    overlay.announce('Replay finished. ' + (restart ? 'Press ' + restart : 'Select Restart') + ' to watch it again, or select Ride This Trail.');
   }
 
   /** Leaves a replay for a ride of your own on its trail. */
@@ -574,7 +599,7 @@ export function startGame({ shared = null } = {}) {
     if (next !== 'won') overlay.hide();
     $('crash-retry').hidden = next !== 'ragdoll';
     $('crash-retry').textContent = replay ? 'Ride This Trail' : 'Retry';
-    overlay.showPause(next === 'paused');
+    overlay.showPause(next === 'paused', pauseHint());
     holdWakeLock(next === 'running' || next === 'ragdoll');
   }
 
@@ -708,13 +733,13 @@ export function startGame({ shared = null } = {}) {
       official: false, time, previousBest, rank: null, medals, medal: medalFor(medals, time),
       apples: ride.apples.length, author: session.trail.author,
       primaryLabel: 'Play Again',
-      restartKey: restartKey()
+      keys: promptKeys()
     });
     // Test Pilot: given to the rider back in the game, as play-tests don't count as riding.
     if (!replay) reportEditorFeat('playtest');
     showSaveReference();
     $('overlay-badge').textContent = 'PLAY TEST COMPLETED';
-    $('overlay-description').textContent = 'Play-test runs are not saved. Press Escape to return to the editor.';
+    $('overlay-description').replaceChildren(...keyTextNodes(['Play-test runs are not saved. Press ', { key: 'Esc' }, ' to return to the editor.']));
     $('overlay-description').hidden = false;
     setState('won');
   }
@@ -774,7 +799,7 @@ export function startGame({ shared = null } = {}) {
       medals, medal: medalFor(medals, time),
       apples: ride.apples.length, author: session.trail.author,
       primaryLabel: official && !last ? 'Next Trail' : creditsAfterResults ? 'Roll Credits' : 'Play Again',
-      restartKey: restartKey()
+      keys: promptKeys()
     });
     showSaveReference();
     if (submission) {
@@ -857,15 +882,17 @@ export function startGame({ shared = null } = {}) {
         sounds.crack(event.speed);
         haptics.play('tick');
         break;
-      case 'crash':
+      case 'crash': {
         effects.burst(event.x, event.y, CRASH_COLORS[event.cause], event.cause === 'spike' ? 18 : 15);
         sounds.crash();
         if (session.preferences.shake === 'on') camera.kick(6);
         haptics.play('crash');
         setState('ragdoll');
-        overlay.announce('Rider down. Press ' + restartKey() + ' or select Retry to try again.');
-        overlay.toast('Rider down · Press ' + restartKey() + ' to retry', Infinity);
+        const { restart } = promptKeys();
+        overlay.announce('Rider down. ' + (restart ? 'Press ' + restart + ' or select' : 'Select') + ' Retry to try again.');
+        overlay.toast(restart ? ['Rider down · Press ', { key: restart }, ' to retry'] : 'Rider down', Infinity);
         break;
+      }
       case 'helmet':
         effects.burst(event.x, event.y, riderPalette(replay?.look ?? session.look).helmet, 8);
         sounds.helmet(event.speed);
@@ -1074,6 +1101,7 @@ export function startGame({ shared = null } = {}) {
     if (session.state === 'won' && lastRun) watchReplay({ data: lastRun, name: session.saveGame?.name || 'Your run' });
   });
   // Focus the game first: hiding the focused button would blur it and auto-pause.
+  $('pause-overlay').addEventListener('click', resumeGame);
   $('crash-retry').addEventListener('click', () => { focusGame(); if (replay) rideAfterReplay(); else startFresh(); });
   $('headlight').addEventListener('click', () => { toggleHeadlight(); focusGame(); });
   $('sound-control').addEventListener('click', () => { toggleSound(); focusGame(); });

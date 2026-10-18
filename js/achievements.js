@@ -45,7 +45,7 @@ import { WHEELBASE } from './config.js';
  *   in seconds
  * @typedef {{
  *   id: string, group: 'career' | 'riding' | 'lifetime' | 'trail-maker' | 'easter-eggs',
- *   name: string, blurb: string, icon: string,
+ *   name: string, blurb: import('./ui/key-text.js').KeyText, icon: string,
  *   secret?: boolean, hint?: string,
  *   career?: (progress: CareerProgress) => boolean,
  *   stat?: string, goal?: number, unit?: 'tenths',
@@ -336,7 +336,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
   },
   {
     id: 'lim', group: 'easter-eggs', name: 'Full Health, No High Score', icon: 'keyboard', secret: true,
-    hint: 'Wolfenstein 3D had a cheat. It still works.', blurb: 'Hold L, I and M at once.', egg: 'lim'
+    hint: 'Wolfenstein 3D had a cheat. It still works.', blurb: ['Hold ', { key: 'L' }, ', ', { key: 'I' }, ' and ', { key: 'M' }, ' at once.'], egg: 'lim'
   },
   {
     id: 'any-percent', group: 'easter-eggs', name: 'Any%', icon: 'bolt', secret: true,

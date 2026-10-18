@@ -134,6 +134,10 @@ export function createInput({ element, buttons, indicators = [], isActive, onPre
     button.addEventListener('pointercancel', release);
     button.addEventListener('lostpointercapture', release);
     button.addEventListener('contextmenu', event => event.preventDefault());
+    // Safari's magnifier and double-tap zoom come with the touch, not the
+    // pointer, so a quick double tap on a held control turns them off here.
+    // The pointer events above still fire; these buttons need no click.
+    button.addEventListener('touchstart', event => event.preventDefault(), { passive: false });
   }
 
   /** Reads the first gamepad; call once per animation frame. */

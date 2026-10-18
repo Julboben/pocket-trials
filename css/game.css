@@ -95,6 +95,8 @@ select:focus-visible {
     outline: none;
     user-select: none;
     -webkit-user-select: none;
+    /* No iOS callout (copy, look up) from a long press on the game. */
+    -webkit-touch-callout: none;
     /* Until the first frame is drawn the markup only holds placeholders, so it
        stays hidden. The loader fades in late enough to never show on a fast load. */
     &[data-booting] > * {
@@ -833,10 +835,8 @@ h2 {
     color: inherit;
     font-size: var(--text-xs);
     opacity: 0.55;
-    /* Keyboard shortcuts mean nothing on a touch screen. */
-    @media (hover: none) and (pointer: coarse) {
-        display: none;
-    }
+    /* The label follows the device in use (see promptKeys in game.js), and is
+       hidden on a touch screen, where there is no key to press. */
     .secondary & {
         position: static;
         translate: none;
@@ -881,6 +881,8 @@ h2 {
 }
 .key-binding {
     display: flex;
+    /* Centred, so the key badge keeps its own height instead of filling the row. */
+    align-items: center;
     justify-content: space-between;
     gap: 8px;
     min-height: 34px;
