@@ -72,9 +72,10 @@ for (const { file, text } of sources) {
   });
 }
 
+// A token is used by var() in a stylesheet, or read from script with getPropertyValue().
 const used = sources.map(({ file, text }) => (file === 'css/tokens.css' ? text.replace(/(--[\w-]+)\s*:/g, '') : text)).join('\n');
 for (const name of tokens.keys()) {
-  if (!used.includes(`var(${name}`)) errors.push(`css/tokens.css: ${name} is never used`);
+  if (!used.includes(`var(${name}`) && !used.includes(`getPropertyValue('${name}')`)) errors.push(`css/tokens.css: ${name} is never used`);
 }
 
 if (errors.length) {

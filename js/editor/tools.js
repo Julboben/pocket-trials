@@ -209,9 +209,38 @@ export const TOOL_KEYS = {
   KeyF: "finish",
 };
 
+// What to print for each tool's key. The shortcuts go by physical key (code),
+// so on a non-QWERTY layout the letter on the key differs: where the browser
+// can say what is printed on it (navigator.keyboard), the labels follow that,
+// else they show the QWERTY letter.
 export const TOOL_KEY_LABELS = Object.fromEntries(
   Object.entries(TOOL_KEYS).map(([code, name]) => [name, code.slice(3)]),
 );
+
+/**
+ * Bring TOOL_KEY_LABELS in line with the keyboard's layout, where the browser
+ * exposes it. Resolves to whether any label changed.
+ */
+export async function resolveToolKeyLabels() {
+  const keyboard = /** @type {any} */ (globalThis.navigator)?.keyboard;
+  if (typeof keyboard?.getLayoutMap !== "function") return false;
+  let layout;
+  try {
+    layout = await keyboard.getLayoutMap();
+  } catch (_) {
+    return false;
+  }
+  let changed = false;
+  for (const [code, name] of Object.entries(TOOL_KEYS)) {
+    const key = layout?.get?.(code);
+    if (typeof key !== "string" || key.length !== 1) continue;
+    const label = key.toUpperCase();
+    if (TOOL_KEY_LABELS[name] === label) continue;
+    TOOL_KEY_LABELS[name] = label;
+    changed = true;
+  }
+  return changed;
+}
 
 // Tools that place a new object where you click, and show a preview of it.
 export const PLACING_TOOLS = new Set(["apple", "spike", "prop"]);

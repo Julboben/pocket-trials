@@ -71,14 +71,52 @@ export function createAudio(getSnapshot) {
   let enabled = true, volume = 1;
   const motor = { revs: 0, time: 0, liftedAt: -1, lastThrottle: 0, nextPop: 0, grip: 0, phase: 'off', startedAt: -10, stalledAt: 0 };
 
+  /**
+   * Wakes the context when something other than the pause screen stopped it:
+   * the tab going hidden (see suspend), or iOS interrupting it for a call or
+   * another app's sound. Browsers only let a context run after a gesture, so
+   * the call may hang until one; it is made once per stop, not every frame.
+   */
+  function resumeContext() {
+    if (!audio || audio.resuming || audio.paused || audio.hidden || audio.context.state === 'running') return;
+    audio.resuming = true;
+    audio.context.resume().catch(() => {}).finally(() => { if (audio) audio.resuming = false; });
+  }
+
+  /** Whether sound is actually playing: the context exists and is running. */
+  function isRunning() {
+    return Boolean(audio) && audio.context.state === 'running';
+  }
+
+  /**
+   * Stops the context while the tab is hidden, whatever the game is doing:
+   * the frame loop stops with it, so update() can't. The next update, or
+   * init() from a gesture, starts it again.
+   */
+  function suspend() {
+    if (!audio) return;
+    audio.hidden = true;
+    audio.context.suspend().catch(() => {});
+  }
+
+  /** Creates the context on the first gesture; later calls wake it if needed. */
   function init() {
     if (audio) {
-      if (audio.context.state === 'suspended' && !audio.paused) audio.context.resume();
+      audio.hidden = false;
+      resumeContext();
       return;
     }
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (!AudioContext) return;
     const context = new AudioContext();
+    // iOS reports 'interrupted' (and Safari 'suspended') when another app
+    // takes the sound; a stop that isn't ours is undone by the next gesture
+    // or visible frame.
+    context.addEventListener('statechange', () => {
+      if (!audio) return;
+      audio.resuming = false;
+      if (context.state !== 'running') resumeContext();
+    });
     const master = context.createGain();
     const compressor = context.createDynamicsCompressor();
     master.gain.value = masterLevel();
@@ -213,8 +251,11 @@ export function createAudio(getSnapshot) {
       context, master, engine, engineDrive, engineFilter, enginePipe, engineGain, raspFilter, raspLevel,
       pitchDrift, levelDrift, noiseBuffer, skidFilter, skidGain, squealFilter, squealGain, rainGain,
       windFilter, windGain, brownBuffer: windBuffer, echo,
-      // Whether the context is suspended for the pause screen (see update).
+      // Whether the context is suspended for the pause screen (see update),
+      // or for a hidden tab (see suspend), and whether a resume is pending.
       paused: false,
+      hidden: false,
+      resuming: false,
     };
   }
 
@@ -365,9 +406,13 @@ export function createAudio(getSnapshot) {
     const paused = state === 'paused';
     if (paused !== audio.paused) {
       audio.paused = paused;
-      (paused ? context.suspend() : context.resume()).catch(() => {});
+      if (paused) context.suspend().catch(() => {});
     }
     if (paused) return;
+    // A frame means the tab is visible again; wake the context if the pause
+    // screen, the hidden tab or an interruption left it stopped.
+    audio.hidden = false;
+    if (context.state !== 'running') resumeContext();
     const speed = rideSpeed(rear, front);
     updateEngine(state, engine, Boolean(gas), !started);
     const skidLevel = skidAmount({ state, rear, front, brakePressure }) * .16;
@@ -412,6 +457,8 @@ export function createAudio(getSnapshot) {
 
   return {
     init,
+    suspend,
+    isRunning,
     setEnabled,
     setVolume,
     update,

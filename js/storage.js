@@ -1,6 +1,7 @@
 import { clamp } from './config.js';
 import { store } from './local-store.js';
-import { cachedOnlineBoard, refreshOnlineBoard } from './online-leaderboard.js';
+import { cachedOnlineBoard } from './online-leaderboard.js';
+import { RIDE_VERSION } from './ride.js';
 import { cleanRiderName } from './rider-name.js';
 import { isDefaultItem, keepIdentity, legacyRider, lookOf, normalizeLook, ownedLook } from './cosmetics.js';
 import { aheadOf, cleanAchievements, cleanStats, mergeAchievements, mergeStats } from './achievements.js';
@@ -14,6 +15,8 @@ const SEEN_VERSION_KEY = 'hjulben-seen-version-v1';
 const SEEN_HOW_TO_KEY = 'hjulben-seen-how-to-v1';
 const SLOT_COUNT = 3;
 export const LEADERBOARD_SIZE = 10;
+/** Fired on window when a write to storage failed (usually because it is full), with `{ key }`. */
+export const STORAGE_FAILED_EVENT = 'hjulben:storage-failed';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -44,9 +47,26 @@ function readJson(key, fallback) {
   return value;
 }
 
+/**
+ * Writes through to storage. The parsed copy is kept even when the write
+ * fails, so the session carries on with what it has, and the failure is
+ * announced so the player can be told their progress won't survive a reload.
+ */
+function writeThrough(key, text) {
+  try {
+    store().setItem(key, text);
+  } catch (_) {
+    // Full: make room by dropping ghosts of outdated runs, then try once more.
+    pruneGhosts();
+    try { store().setItem(key, text); } catch (_) {
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(STORAGE_FAILED_EVENT, { detail: { key } }));
+    }
+  }
+}
+
 function writeJson(key, value) {
   cache.set(key, value);
-  try { store().setItem(key, JSON.stringify(value)); } catch (_) {}
+  writeThrough(key, JSON.stringify(value));
 }
 
 const emptySlots = () => Array(SLOT_COUNT).fill(null);
@@ -58,11 +78,13 @@ const TOKEN_RE = /^[\w-]+\.[\w-]+$/;
 
 // Saves from before looks existed only have a `rider` of 'male' or 'female',
 // which becomes the matching look; `rider` is still written for older clients.
+// Anything else that is off gets repaired rather than dropped: a save holds
+// best times and achievements that must not vanish over a bad name.
 function normalizeSave(save, trailCount) {
-  if (!save || !(save.look && typeof save.look === 'object') && !['male', 'female'].includes(save.rider)) return null;
+  if (!save || typeof save !== 'object') return null;
   const look = lookOf(save);
-  const name = cleanRiderName(save.name);
-  if (!name || typeof save.playerId !== 'string' || !UUID_RE.test(save.playerId)) return null;
+  const name = cleanRiderName(save.name) || 'Rider';
+  const playerId = typeof save.playerId === 'string' && UUID_RE.test(save.playerId) ? save.playerId : newPlayerId();
   const unlocked = clamp(Number(save.unlocked) || 0, 0, trailCount - 1);
   const trail = clamp(Number(save.trail) || 0, 0, unlocked);
   // Keyed by trailKey(), so editing a trail's gameplay leaves its old best behind.
@@ -72,11 +94,13 @@ function normalizeSave(save, trailCount) {
     .filter(([, value]) => Number.isFinite(value) && value > 0));
   return {
     look, rider: legacyRider(look), createdAt: Number(save.createdAt) || Date.now(), trail, unlocked, bestTimes,
+    // When the look was last changed in the Garage; the newer of two copies wins when they merge.
+    lookUpdatedAt: Math.max(0, Math.floor(Number(save.lookUpdatedAt)) || 0),
     // Earned achievements (id -> time) and lifetime stats; see achievements.js.
     achievements: cleanAchievements(save.achievements), stats: cleanStats(save.stats),
     // Where the rider has found a trail's nisse: trail key -> time (see nisse.js).
     nisse: cleanNisseFinds(save.nisse),
-    name, playerId: save.playerId,
+    name, playerId,
     // Online riders carry the server's session token; offline saves have none.
     token: typeof save.token === 'string' && TOKEN_RE.test(save.token) ? save.token : null,
     // Stays true after the session expires, so the rider is shown as signed out, not offline.
@@ -98,7 +122,7 @@ function slots(trailCount) {
 
 function persistSlots(trailCount, next) {
   cache.set(SAVE_SLOTS_KEY, { trailCount, slots: next });
-  try { store().setItem(SAVE_SLOTS_KEY, JSON.stringify(next)); } catch (_) {}
+  writeThrough(SAVE_SLOTS_KEY, JSON.stringify(next));
 }
 
 export function savePreferences(preferences) {
@@ -157,6 +181,7 @@ export function createSave(slotIndex, look, trailCount, name, account = null) {
   const clean = ownedLook(look, isDefaultItem);
   const save = {
     look: clean,
+    lookUpdatedAt: Date.now(),
     rider: legacyRider(clean),
     createdAt: Date.now(),
     trail: 0,
@@ -164,6 +189,7 @@ export function createSave(slotIndex, look, trailCount, name, account = null) {
     bestTimes: {},
     achievements: {},
     stats: {},
+    nisse: {},
     name: cleanName,
     playerId: account?.playerId ?? newPlayerId(),
     token: account?.token ?? null,
@@ -185,6 +211,7 @@ export function saveLook(slotIndex, trailCount, look, owns) {
   updateSave(slotIndex, trailCount, save => {
     save.look = ownedLook(keepIdentity(normalizeLook(look, { fallback: save.look }), save.look), owns);
     save.rider = legacyRider(save.look);
+    save.lookUpdatedAt = Date.now();
   });
   return cloneSave(slots(trailCount)[slotIndex]);
 }
@@ -209,6 +236,17 @@ export function clearSaveToken(slotIndex, trailCount) {
 }
 
 /**
+ * Swaps in the fresh session token the server sent for a rider whose old one
+ * was about to expire. Returns the slot it went into, or -1.
+ */
+export function renewSaveToken(playerId, token, trailCount) {
+  if (typeof token !== 'string' || !TOKEN_RE.test(token)) return -1;
+  const index = slots(trailCount).findIndex(save => save?.playerId === playerId && save.token);
+  if (index >= 0) updateSave(index, trailCount, save => { save.token = token; });
+  return index;
+}
+
+/**
  * Puts a logged-in rider into their existing slot, or the first free one,
  * merging the cloud save and the server's best runs (as ghosts) with what is
  * on this device.
@@ -226,13 +264,16 @@ export function restoreOnlineSave(trailCount, { token, player, save: cloud, runs
     const time = Number(ghost?.time);
     if (!Number.isFinite(time) || time <= 0) continue;
     bestTimes[trail] = Math.min(time, bestTimes[trail] ?? Infinity);
+    // Only a ghost this build can play replaces what the device has: the
+    // server keeps runs from older physics, which would oust a usable one.
+    if (ghost.physics !== RIDE_VERSION || !Array.isArray(ghost.inputs)) continue;
     const stored = readGhost(trail);
-    if (!stored || stored.physics !== ghost.physics || time < stored.time) saveGhost(trail, ghost);
+    if (!stored || stored.physics !== RIDE_VERSION || time < stored.time) saveGhost(trail, ghost);
   }
   const unlocked = Math.max(Number(local?.unlocked) || 0, Number(cloud?.unlocked) || 0);
-  // The server's look wins: it is what the rider last saved on any device.
+  const look = newerLook(local, cloud, player);
   next[index] = normalizeSave({
-    look: player.look ?? cloud?.look ?? local?.look,
+    ...look,
     rider: player.rider,
     createdAt: local?.createdAt ?? cloud?.createdAt ?? Date.now(),
     trail: local?.trail ?? cloud?.trail ?? 0,
@@ -248,9 +289,23 @@ export function restoreOnlineSave(trailCount, { token, player, save: cloud, runs
 }
 
 /**
+ * The look to keep of a device's copy and the cloud's: whichever was changed
+ * in the Garage last, so a change made while offline isn't undone by the
+ * next sync. Without timestamps (older saves) the cloud's wins, as it is what
+ * the rider last saved from any device.
+ * @returns {{ look: object, lookUpdatedAt: number }}
+ */
+function newerLook(local, cloud, player) {
+  const localAt = Number(local?.lookUpdatedAt) || 0, cloudAt = Number(cloud?.lookUpdatedAt) || 0;
+  if (local?.look && localAt > cloudAt) return { look: local.look, lookUpdatedAt: localAt };
+  return { look: player?.look ?? cloud?.look ?? local?.look, lookUpdatedAt: Math.max(localAt, cloudAt) };
+}
+
+/**
  * Catches a signed-in save up with its cloud copy, fetched without logging in
- * again. The server's look wins, as on login; best times, unlocked trails,
- * achievements and stats keep the best of both, so neither device loses progress.
+ * again. The look changed last wins (see newerLook); best times, unlocked
+ * trails, achievements and stats keep the best of both, so neither device
+ * loses progress.
  * @returns {{ save: object, changed: boolean, ahead: boolean } | null} the
  *   updated save, whether this device's copy changed, and whether it has
  *   progress the cloud lacks (so it should be uploaded); null if the slot no
@@ -268,7 +323,7 @@ export function applyCloudSave(slotIndex, trailCount, { player, save: cloud }) {
   const cloudUnlocked = Number(cloud?.unlocked) || 0;
   const merged = normalizeSave({
     ...local,
-    look: player.look ?? cloud?.look ?? local.look,
+    ...newerLook(local, cloud, player),
     unlocked: Math.max(Number(local.unlocked) || 0, cloudUnlocked),
     bestTimes,
     achievements: mergeAchievements(local.achievements, cloud?.achievements),
@@ -278,6 +333,8 @@ export function applyCloudSave(slotIndex, trailCount, { player, save: cloud }) {
   }, trailCount);
   if (!merged) return null;
   const ahead = cloudUnlocked < merged.unlocked
+    // A look changed here (in the Garage, maybe offline) that the cloud hasn't got.
+    || merged.lookUpdatedAt > (Number(cloud?.lookUpdatedAt) || 0)
     || Object.entries(merged.bestTimes).some(([key, time]) => !(Number(cloudBest[key]) <= time))
     || aheadOf(merged, cloud)
     // An official or bonus trail's nisse found here and not yet in the cloud.
@@ -304,8 +361,9 @@ function updateSave(slotIndex, trailCount, change) {
 
 export function saveProgress(slotIndex, trailIndex, unlockedTrail, trailCount) {
   updateSave(slotIndex, trailCount, save => {
-    save.trail = clamp(trailIndex, 0, unlockedTrail);
-    save.unlocked = clamp(unlockedTrail, 0, trailCount - 1);
+    // Another tab may have got further meanwhile; progress only goes forward.
+    save.unlocked = clamp(Math.max(unlockedTrail, Number(save.unlocked) || 0), 0, trailCount - 1);
+    save.trail = clamp(trailIndex, 0, save.unlocked);
   });
 }
 
@@ -385,8 +443,12 @@ function loadLeaderboards() {
   return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
 }
 
+/**
+ * The board to show for a trail: the world board if one has been fetched
+ * (see refreshOnlineBoard, which the menu calls for the boards it shows),
+ * otherwise this device's own.
+ */
 export function readLeaderboard(trailId) {
-  refreshOnlineBoard(trailId);                    // background fetch, throttled to every 30s
   const online = cachedOnlineBoard(trailId);
   if (online) return online.slice(0, LEADERBOARD_SIZE);
   const runs = loadLeaderboards()[trailId];       // fallback: local board
@@ -398,7 +460,9 @@ const GHOST_KEY_PREFIX = 'hjulben-ghost-v1:';
 /**
  * The fastest finished run on a trail, as encoded inputs for ghost playback.
  * Ghosts saved since looks existed also carry the rider's `look` (see lookOf).
- * @returns {{ time: number, splits: number[], startStep: number, seed: number, inputs: number[][], physics: number, look?: object, rider?: string } | null}
+ * `slow` marks a run the game ran in slow motion for: fine as a ghost, never
+ * sent to the world board.
+ * @returns {{ time: number, splits: number[], startStep: number, seed: number, inputs: number[][], physics: number, look?: object, rider?: string, slow?: boolean } | null}
  */
 export function readGhost(trailKey) {
   const ghost = readJson(GHOST_KEY_PREFIX + trailKey, null);
@@ -407,6 +471,52 @@ export function readGhost(trailKey) {
 
 export function saveGhost(trailKey, ghost) {
   writeJson(GHOST_KEY_PREFIX + trailKey, ghost);
+}
+
+/** Every stored ghost's key, as 'official:<id>@<hash>' or 'trail:<hash>'. */
+function ghostKeys() {
+  const keys = [];
+  try {
+    const storage = store();
+    for (let index = 0; index < storage.length; index++) {
+      const key = storage.key(index);
+      if (key?.startsWith(GHOST_KEY_PREFIX)) keys.push(key.slice(GHOST_KEY_PREFIX.length));
+    }
+  } catch (_) {}
+  return keys;
+}
+
+/** Drops ghosts that this build can no longer play, which only take up room. */
+function pruneGhosts() {
+  for (const key of ghostKeys()) {
+    const ghost = readJson(GHOST_KEY_PREFIX + key, null);
+    if (!ghost || ghost.physics !== RIDE_VERSION) {
+      cache.delete(GHOST_KEY_PREFIX + key);
+      try { store().removeItem(GHOST_KEY_PREFIX + key); } catch (_) {}
+    }
+  }
+}
+
+/**
+ * Clears out what an edit to a shipped trail leaves behind: the ghost and
+ * local board of a version that is no longer in the catalog (`current` is
+ * every trail key the game knows now). Best times stay in the saves, where
+ * they also say which trails a rider has finished. Custom trails keep theirs,
+ * since a trail imported again gets the same key.
+ */
+export function pruneStaleTrailData(current) {
+  const currentKeys = new Set(current);
+  const currentIds = new Set([...currentKeys].map(key => key.replace(/@.*$/, '')));
+  const stale = key => !currentKeys.has(key) && currentIds.has(key.replace(/@.*$/, ''));
+  for (const key of ghostKeys()) {
+    if (!stale(key)) continue;
+    cache.delete(GHOST_KEY_PREFIX + key);
+    try { store().removeItem(GHOST_KEY_PREFIX + key); } catch (_) {}
+  }
+  const boards = loadLeaderboards();
+  const kept = Object.fromEntries(Object.entries(boards).filter(([key]) => !stale(key)));
+  if (Object.keys(kept).length !== Object.keys(boards).length) writeJson(LEADERBOARD_KEY, kept);
+  pruneGhosts();
 }
 
 // Returns the 1-based rank of the new run, or null when it misses the board.

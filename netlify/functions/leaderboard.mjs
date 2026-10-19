@@ -7,11 +7,14 @@
 // `run` is the ride's recorded inputs ({ inputs, seed, physics }). The server
 // replays them and takes the time from its own simulation, never the client's.
 import { db } from '../lib/db.mjs';
-import { HttpError, json, respond, readBody, requirePlayer } from '../lib/auth.mjs';
+import { HttpError, json, respond, readBody, requireSession, renewedToken } from '../lib/auth.mjs';
 import { TRAIL_RE, verifyRun } from '../lib/verify-run.mjs';
 import { lookOf, legacyRider, playerLook } from '../lib/looks.mjs';
+import { rateLimit } from '../lib/rate-limit.mjs';
 
 const TOP = 10;
+// Replaying a run costs real CPU, so a player gets this many a minute.
+const SUBMITS_PER_MINUTE = 12;
 
 async function top(sql, trail) {
   const rows = await sql`
@@ -45,14 +48,20 @@ async function worldGhost(sql, trail) {
 }
 
 async function submit(req) {
-  const playerId = requirePlayer(req);
+  const session = requireSession(req);
+  const playerId = session.player;
   const body = await readBody(req, 1_000_000);
   const trail = String(body.trail ?? '');
+  if (!TRAIL_RE.test(trail)) throw new HttpError(400, 'bad trail');
+  const sql = await db();
+  // Checked before the replay, which is the expensive part.
+  await rateLimit(sql, 'submit:' + playerId, SUBMITS_PER_MINUTE, 60);
   const { timeMs, replay } = await verifyRun(trail, body.run, new URL(req.url).origin);
 
-  const sql = await db();
   const [player] = await sql`select look, rider from players where id = ${playerId}`;
   if (!player) throw new HttpError(401, 'not signed in');
+  // Whether this run beats the player's row, before the upsert folds them together.
+  const [previous] = await sql`select time_ms from runs where trail = ${trail} and player_id = ${playerId}`;
   // The look the run was ridden in, shown on the board and on its ghost, as
   // the player was created: gender and skin come from their row.
   const look = playerLook(body, player);
@@ -88,10 +97,12 @@ async function submit(req) {
     rank, total,
     time: timeMs / 1000,
     best: best.time_ms / 1000,
-    improved: best.time_ms === timeMs,
+    // A run that only ties the row's time changes nothing on the board.
+    improved: !previous || timeMs < previous.time_ms,
     ahead: rival(ahead),
     behind: rival(behind),
     runs: await top(sql, trail),
+    token: renewedToken(session),
   });
 }
 

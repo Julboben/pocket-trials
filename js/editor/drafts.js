@@ -27,17 +27,34 @@ function write(key, value) {
   }
 }
 
-/** Drafts for a trail, newest first: `{ at, trail }`. */
+/**
+ * A short fingerprint of a text (FNV-1a, 8 hex digits). Drafts and autosaves
+ * carry the fingerprint of the published trail they were made on, so one made
+ * on a version the file has since moved past is not opened over the file.
+ */
+export function hashText(text) {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index++) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
+/** Drafts for a trail, newest first: `{ at, trail, base }`. */
 export function listDrafts(id) {
   return read(DRAFTS_PREFIX + id, []);
 }
 
-/** Keep a copy of the trail; an unchanged trail only moves the newest draft's time. */
-export function addDraft(id, trail) {
+/**
+ * Keep a copy of the trail; an unchanged trail only moves the newest draft's
+ * time. `base` fingerprints the published trail the draft was made on.
+ */
+export function addDraft(id, trail, base) {
   const drafts = listDrafts(id);
   const at = Date.now();
-  if (drafts[0] && JSON.stringify(drafts[0].trail) === JSON.stringify(trail)) drafts[0].at = at;
-  else drafts.unshift({ at, trail: JSON.parse(JSON.stringify(trail)) });
+  if (drafts[0] && JSON.stringify(drafts[0].trail) === JSON.stringify(trail)) Object.assign(drafts[0], { at, base });
+  else drafts.unshift({ at, trail: JSON.parse(JSON.stringify(trail)), base });
   if (!write(DRAFTS_PREFIX + id, drafts.slice(0, MAX_DRAFTS))) return null;
   return at;
 }
@@ -57,14 +74,15 @@ export function clearDrafts(id) {
   } catch (_) {}
 }
 
-/** The trail as it was when last autosaved: `{ at, trail }`, or null. */
+/** The trail as it was when last autosaved: `{ at, trail, base }`, or null. */
 export function readAutosave(id) {
   const autosave = read(AUTOSAVE_PREFIX + id, null);
   return Number.isFinite(autosave?.at) && autosave.trail ? autosave : null;
 }
 
-export function writeAutosave(id, trail) {
-  return write(AUTOSAVE_PREFIX + id, { at: Date.now(), trail });
+/** `base` fingerprints the published trail the edits were made on. */
+export function writeAutosave(id, trail, base) {
+  return write(AUTOSAVE_PREFIX + id, { at: Date.now(), trail, base });
 }
 
 export function clearAutosave(id) {

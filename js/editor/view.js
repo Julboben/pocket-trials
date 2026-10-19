@@ -9,7 +9,63 @@ import {
   renderView,
   syncTerrain,
 } from "./render.js";
+import { regionBounds } from "../terrain-geometry.js";
 import { clampZoom, editor } from "./state.js";
+
+/** The box round every block of the trail, or null without any. */
+export function trailBounds() {
+  const blocks = editor.trail?.terrainBlocks || [];
+  if (!blocks.length) return null;
+  const box = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };
+  for (const block of blocks) {
+    const bounds = regionBounds(block);
+    box.left = Math.min(box.left, bounds.left);
+    box.right = Math.max(box.right, bounds.right);
+    box.top = Math.min(box.top, bounds.top);
+    box.bottom = Math.max(box.bottom, bounds.bottom);
+  }
+  return Number.isFinite(box.left) ? box : null;
+}
+
+// How far past the trail the view can be panned, in world units at zoom 1:
+// generous, so there is room to build on, but the trail can't be lost
+// altogether.
+const PAN_MARGIN = 3000;
+
+/**
+ * Keep the trail within reach: the view may wander a good way past the blocks,
+ * but never so far that none of them could be found again.
+ */
+export function clampCamera() {
+  const bounds = trailBounds();
+  if (!bounds) return;
+  const { width, height } = viewportSize();
+  const margin = PAN_MARGIN / Math.min(1, editor.zoom);
+  const viewWidth = width / editor.zoom;
+  const viewHeight = height / editor.zoom;
+  const minX = bounds.left - margin;
+  const maxX = Math.max(minX, bounds.right + margin - viewWidth);
+  const minY = bounds.top - margin;
+  const maxY = Math.max(minY, bounds.bottom + margin - viewHeight);
+  editor.cameraX = Math.min(maxX, Math.max(minX, editor.cameraX));
+  editor.cameraY = Math.min(maxY, Math.max(minY, editor.cameraY));
+}
+
+/** Zoom and move the view so the whole trail is in it, with a little air round it. */
+export function fitTrail() {
+  const bounds = trailBounds();
+  const { width, height } = viewportSize();
+  if (!bounds || !width || !height) return false;
+  const padding = 80;
+  const spanX = bounds.right - bounds.left + padding * 2;
+  const spanY = bounds.bottom - bounds.top + padding * 2;
+  editor.zoom = clampZoom(Math.min(width / spanX, height / spanY));
+  editor.cameraX = (bounds.left + bounds.right) / 2 - width / 2 / editor.zoom;
+  editor.cameraY = (bounds.top + bounds.bottom) / 2 - height / 2 / editor.zoom;
+  editor.focusPending = false;
+  updateZoom();
+  return true;
+}
 
 export function focusOnStart() {
   const { width, height } = viewportSize();
@@ -68,6 +124,7 @@ export function zoomAtCenter(factor) {
 }
 
 export function updateZoom() {
+  clampCamera();
   $("zoom-label").textContent = Math.round(editor.zoom * 100) + "%";
   updateGameArtButton();
   renderView();

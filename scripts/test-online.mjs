@@ -49,7 +49,8 @@ async function call(handler, path, { method = 'POST', body, token, origin = SITE
   return { status: res.status, body: await res.json() };
 }
 const api = (action, options) => call(account, '/api/account/' + action, options);
-const submit = (options) => call(leaderboard, '/api/leaderboard', options);
+// Each submission starts with a clean rate limit; the limit itself is tested on its own below.
+const submit = async (options) => { await sql`delete from rate_limits`; return call(leaderboard, '/api/leaderboard', options); };
 const board = trail => call(leaderboard, '/api/leaderboard?trail=' + encodeURIComponent(trail), { method: 'GET' });
 
 // --- Software authenticator (ES256, "none" attestation) -------------------------
@@ -327,7 +328,7 @@ const run = (replay = firstTrailRun) => ({ inputs: replay.inputs, seed: replay.s
   assert.equal((await api('save', { method: 'PUT', body: { save: { ...save, extra: 'x'.repeat(40_000) } }, token: julianToken })).status, 413);
 
   let { body } = await loginRider(julian);
-  assert.deepEqual(body.save, { look: legacyLook('female'), rider: 'female', createdAt: 1700000000000, trail: 1, unlocked: 2, bestTimes: { [firstKey]: 8.192 }, achievements: { bonk: 5 }, stats: { flips: 3 }, nisse: {} }, 'only savegame fields are kept');
+  assert.deepEqual(body.save, { look: legacyLook('female'), lookUpdatedAt: 0, rider: 'female', createdAt: 1700000000000, trail: 1, unlocked: 2, bestTimes: { [firstKey]: 8.192 }, achievements: { bonk: 5 }, stats: { flips: 3 }, nisse: {} }, 'only savegame fields are kept');
   assert.deepEqual(body.player.look, legacyLook('female'));
 
   // A look changed in the Garage reaches the player and their next login.
@@ -345,6 +346,28 @@ const run = (replay = firstTrailRun) => ({ inputs: replay.inputs, seed: replay.s
   assert.deepEqual(fetched.body.player.look, look);
   assert.deepEqual(fetched.body.save, body.save);
   assert.equal(body.runs.length, 1);
+
+  // A stale copy from another device can't wipe out progress: the cloud keeps the best of both.
+  const stale = { ...save, unlocked: 1, bestTimes: { [firstKey]: 9.5 }, achievements: { wheelie: 7 }, stats: { flips: 1, crashes: 4 } };
+  const merged = await api('save', { method: 'PUT', body: { save: stale }, token: julianToken });
+  assert.equal(merged.status, 200);
+  assert.equal(merged.body.save.unlocked, 2, 'progress keeps the higher');
+  assert.equal(merged.body.save.bestTimes[firstKey], 8.192, 'best times keep the faster');
+  assert.deepEqual(merged.body.save.achievements, { bonk: 5, wheelie: 7 }, 'achievements are the union');
+  assert.deepEqual(merged.body.save.stats, { flips: 3, crashes: 4 }, 'stats keep the higher');
+  assert.equal(merged.body.token, null, 'a fresh session is not renewed');
+  assert.deepEqual((await api('save', { method: 'GET', token: julianToken })).body.save, merged.body.save);
+
+  // The look changed last wins, whichever device sends it.
+  const older = { ...save, look: { ...look, hair: 'ponytail' }, lookUpdatedAt: 1000 };
+  const newer = { ...save, look: { ...look, hair: 'mohawk' }, lookUpdatedAt: 2000 };
+  assert.equal((await api('save', { method: 'PUT', body: { save: newer }, token: julianToken })).status, 200);
+  const staleLook = await api('save', { method: 'PUT', body: { save: older }, token: julianToken });
+  assert.equal(staleLook.body.save.look.hair, 'mohawk', 'an older look does not replace a newer one');
+  assert.equal(staleLook.body.save.lookUpdatedAt, 2000);
+  assert.equal((await api('save', { method: 'GET', token: julianToken })).body.player.look.hair, 'mohawk');
+  const newest = await api('save', { method: 'PUT', body: { save: { ...older, lookUpdatedAt: 3000 } }, token: julianToken });
+  assert.equal(newest.body.save.look.hair, 'ponytail', 'a newer look does');
   const { trail, ghost } = body.runs[0];
   assert.equal(trail, firstKey);
   assert.equal(ghost.physics, RIDE_VERSION);
@@ -352,6 +375,50 @@ const run = (replay = firstTrailRun) => ({ inputs: replay.inputs, seed: replay.s
   assert.equal(ghost.splits.length, firstTrailRun.outcome.apples, 'ghost has a split per apple');
   assert.ok(Number.isInteger(ghost.startStep) && ghost.startStep >= 0);
   assert.equal(ghost.inputs.reduce((sum, row) => sum + row[0], 0), firstTrailRun.steps, 'ghost keeps the inputs up to the finish');
+}
+
+// --- Rate limits ----------------------------------------------------------------
+
+{
+  await sql`delete from rate_limits`;
+  let last = 200;
+  for (let count = 0; count < 20 && last === 200; count++) {
+    ({ status: last } = await call(leaderboard, '/api/leaderboard', { body: { trail: firstKey, run: run() }, token: julianToken }));
+  }
+  assert.equal(last, 429, 'a player is limited to a few submissions a minute');
+  await sql`delete from rate_limits`;
+  assert.equal((await call(leaderboard, '/api/leaderboard', { body: { trail: firstKey, run: run() }, token: julianToken })).status, 200, 'the limit lifts with the window');
+  last = 200;
+  for (let count = 0; count < 25 && last !== 429; count++) {
+    ({ status: last } = await api('register-options', { body: { name: 'someone' + count } }));
+  }
+  assert.equal(last, 429, 'passkey ceremonies are limited per address');
+  await sql`delete from rate_limits`;
+}
+
+// --- Deleting a rider -------------------------------------------------------------
+
+{
+  const doomed = createAuthenticator();
+  const { status, body: created } = await registerRider('Doomed', doomed, 'male');
+  assert.equal(status, 200, JSON.stringify(created));
+  const doomedToken = created.token;
+  assert.equal((await submit({ body: { trail: firstKey, run: run() }, token: doomedToken })).status, 200);
+  assert.ok((await board(firstKey)).body.runs.some(r => r.name === 'Doomed'), 'the rider is on the board');
+
+  const ceremony = async authenticator => {
+    const options = await api('login-options', { body: {} });
+    return { state: options.body.state, response: authenticator.login(options.body.options) };
+  };
+  assert.equal((await api('delete', { body: await ceremony(doomed) })).status, 401, 'deleting needs a signed-in rider');
+  assert.equal((await api('delete', { body: await ceremony(julian), token: doomedToken })).status, 403, 'another rider’s passkey cannot delete this one');
+  assert.equal((await api('delete', { body: { state: 'x', response: {} }, token: doomedToken })).status, 400);
+  assert.equal((await api('delete', { body: await ceremony(doomed), token: doomedToken })).status, 200, 'the rider confirms with their own passkey');
+
+  assert.equal((await loginRider(doomed)).status, 404, 'the passkey is gone');
+  assert.equal((await api('save', { method: 'GET', token: doomedToken })).status, 401, 'the session is gone');
+  assert.ok(!(await board(firstKey)).body.runs.some(r => r.name === 'Doomed'), 'the runs are gone');
+  assert.equal((await api('register-options', { body: { name: 'doomed' } })).status, 200, 'the name is free again');
 }
 
 // --- Passkeys on other hosts ----------------------------------------------------

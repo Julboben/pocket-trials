@@ -418,6 +418,8 @@ function applyWheelTraction(point, name, drive, state, hooks) {
     drive && !braking && (point !== drivenWheel || throttle < 0.01);
   options.rollingResistance = drive && coasting ? coastResistance : 0;
   options.appliedImpulse = drive ? 0 : point.tractionImpulse || 0;
+  // The drive pass turns the drawn wheel; the match-up pass only corrects it.
+  options.advanceSpin = drive;
   const result = solveWheelContactVelocity(point, point.contact, options);
   state.brakeSpin += result.brakeSpin || 0;
   point.tractionImpulse = drive ? result.tangentImpulse : 0;
@@ -742,7 +744,7 @@ function frameWeights(along, height) {
 function createFrameProbe(points, along, height) {
   const weights = frameWeights(along, height);
   const denominator = points.reduce(
-    (sum, point, index) => sum + weights[index] ** 2 * point.inverseMass,
+    (sum, point, index) => sum + weights[index] * weights[index] * point.inverseMass,
     0,
   );
   return {
@@ -912,7 +914,7 @@ export function collideWithBike(vehicle, point, inverseMass, apply = true) {
       ny = length > 1e-6 ? dy / length : -1;
     let denominator = inverseMass;
     for (let index = 0; index < bikePoints.length; index++)
-      denominator += weights[index] ** 2 * bikePoints[index].inverseMass;
+      denominator += weights[index] * weights[index] * bikePoints[index].inverseMass;
     const lambda = (reach - length) / denominator;
     move(point, nx * lambda * inverseMass, ny * lambda * inverseMass);
     let closing = (point.x - point.ox) * nx + (point.y - point.oy) * ny;

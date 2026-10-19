@@ -111,7 +111,7 @@ function buildBody(block, blockIndex) {
   rings.forEach((ring, ringIndex) => {
     for (let step = 0; step < ring.length; step++) {
       const a = ring[step], b = ring[(step + 1) % ring.length];
-      if (Math.hypot(b[0] - a[0], b[1] - a[1]) <= COINCIDENT_EPSILON) continue;
+      if (hypot(b[0] - a[0], b[1] - a[1]) <= COINCIDENT_EPSILON) continue;
       pairs.push([a[0], a[1], b[0], b[1], outward[ringIndex]]);
     }
   });
@@ -254,7 +254,7 @@ function classifyEdges(compiled) {
       const offset = index * 4;
       const ax = edges[offset], ay = edges[offset + 1], bx = edges[offset + 2], by = edges[offset + 3];
       const side = body.sides[index];
-      const length = Math.hypot(bx - ax, by - ay);
+      const length = hypot(bx - ax, by - ay);
       const nx = (by - ay) / length * side, ny = -(bx - ax) / length * side;
       if (!others.length) { live.push(ax, ay, bx, by, nx, ny); continue; }
       const cuts = splitPoints(ax, ay, bx, by, others);

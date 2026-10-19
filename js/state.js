@@ -12,7 +12,10 @@ import { hasAchievement } from './achievements.js';
 
 export const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.getElementById(id));
 
-export const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// A live binding: importers see the system setting change while the game runs.
+const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+export let reducedMotion = reducedMotionQuery.matches;
+reducedMotionQuery.addEventListener('change', event => { reducedMotion = event.matches; });
 
 /** Default key bindings; each action accepts several `KeyboardEvent.code`s. */
 export const DEFAULT_BINDINGS = {

@@ -7,6 +7,12 @@
 // ghosts reproduce on every browser and in Node.
 //
 // Accuracy is within about one ulp of the correctly rounded result.
+//
+// The rule covers everything the ride reads: ride.js, vehicle-physics.js,
+// physics.js, ragdoll.js, glass.js, water.js, terrain-runtime.js and the
+// curve flattening in terrain-geometry.js. The editor's own geometry (cuts,
+// node modes, hit-testing) may use Math.*: it shapes a trail before it is
+// saved, and the saved numbers are what every engine then reads.
 
 const TO_INT = 6755399441055744; // 1.5 * 2^52: adding and subtracting rounds to an integer
 const roundToInt = x => (x + TO_INT) - TO_INT;

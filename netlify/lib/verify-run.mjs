@@ -66,9 +66,15 @@ export async function verifyRun(trailKey, run, origin) {
   const seed = Number(run.seed) >>> 0;
 
   const [id, hash] = trailKey.split('@');
-  const trail = await fetchShippedTrail(id, origin);
+  let trail = await fetchShippedTrail(id, origin);
   if (!trail) throw new HttpError(400, 'unknown trail');
-  if (trailHash(trail) !== hash) throw new HttpError(409, 'outdated trail');
+  if (trailHash(trail) !== hash) {
+    // A warm instance may still hold the trail from before a deploy changed
+    // its ride; fetch it once more before calling the run outdated.
+    trailCache.delete(id);
+    trail = await fetchShippedTrail(id, origin);
+    if (!trail || trailHash(trail) !== hash) throw new HttpError(409, 'outdated trail');
+  }
 
   const inputs = decodeInputs(run.inputs);
   const ride = createRide(trail, { seed });

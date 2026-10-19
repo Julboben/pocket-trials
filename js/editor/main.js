@@ -9,7 +9,7 @@ import {
   validateTrail,
 } from "../trail-schema.js";
 import { detectDevServer, reportEditorFeat, terrainMaterials, trailEntries } from "../trails.js";
-import { DISCORD_LINK_LENGTH, trailShareUrl } from "../trail-link.js";
+import { DISCORD_LINK_LENGTH, MAX_JSON_BYTES, trailShareUrl } from "../trail-link.js";
 import { bindAutosave } from "./autosave.js";
 import { bindClipboard } from "./clipboard.js";
 import { $, canvas, wrap } from "./dom.js";
@@ -25,7 +25,7 @@ import { refuse, refuseEdit, showStatus } from "./status.js";
 import { propThumbnail } from "./thumbnails.js";
 import { segmentSelects } from "./segmented.js";
 import { editingPreview, resetPreview, startEditingPreview, stopEditingPreview } from "./preview.js";
-import { TOOL_KEY_LABELS, materialLabel, setTab, setTool } from "./tools.js";
+import { TOOL_KEY_LABELS, materialLabel, renderToolSettings, resolveToolKeyLabels, setTab, setTool } from "./tools.js";
 import {
   announceVersion,
   bindVersions,
@@ -95,9 +95,18 @@ document
   );
 
 // Hover tooltips naming each tool's shortcut.
-document.querySelectorAll("[data-tool]").forEach((button) => {
-  const key = TOOL_KEY_LABELS[button.dataset.tool];
-  if (key) button.title = `${button.textContent.trim()} (${key})`;
+function labelToolButtons() {
+  document.querySelectorAll("[data-tool]").forEach((button) => {
+    const key = TOOL_KEY_LABELS[button.dataset.tool];
+    if (key) button.title = `${button.textContent.trim()} (${key})`;
+  });
+}
+labelToolButtons();
+// On a non-QWERTY keyboard the labels follow what is printed on the keys.
+resolveToolKeyLabels().then((changed) => {
+  if (!changed) return;
+  labelToolButtons();
+  renderToolSettings();
 });
 
 document
@@ -225,6 +234,16 @@ $("share-trail").addEventListener("click", async () => {
     (message) => message.type === "error",
   );
   if (errors.length && !refuse("sharing", errors)) return;
+  // The game stops unpacking a link past MAX_JSON_BYTES, so a bigger trail
+  // would make a link that can't be opened.
+  const bytes = new TextEncoder().encode(JSON.stringify(editor.trail)).length;
+  if (bytes > MAX_JSON_BYTES) {
+    showStatus(
+      "error",
+      `This trail is too big to share as a link (${(bytes / (1 << 20)).toFixed(1)} MiB of JSON, the limit is ${MAX_JSON_BYTES >> 20} MiB). Share the exported JSON file instead.`,
+    );
+    return;
+  }
   let url;
   try {
     url = await trailShareUrl(editor.trail, new URL("./", window.location.href));
@@ -252,8 +271,11 @@ $("share-trail").addEventListener("click", async () => {
 $("import-json").addEventListener("click", () => {
   if (refuseEdit()) return;
   try {
+    // Parsed and normalized before the undo step is taken, so a typo in the
+    // JSON leaves the history as it was.
+    const imported = normalizeTrail(JSON.parse($("trail-json").value), editor.trailIndex);
     pushHistory();
-    editor.trail = normalizeTrail(JSON.parse($("trail-json").value), editor.trailIndex);
+    editor.trail = imported;
     editor.selection = null;
     editor.focusPending = true;
     focusOnStart();

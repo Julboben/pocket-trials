@@ -1,0 +1,14 @@
+# Security headers for every page Netlify serves. The game loads scripts,
+# styles, fonts and trails from its own origin only, and talks to its own
+# /api/ functions. Inline styles are allowed for the few style attributes in
+# the markup; there are no inline scripts. The editor's play test runs the
+# game in a same-origin iframe.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; frame-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  X-Frame-Options: SAMEORIGIN
+
+/api/*
+  Cache-Control: no-store

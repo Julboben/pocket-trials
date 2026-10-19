@@ -9,9 +9,16 @@ const sources = ['official', 'bonus', 'custom'];
 // and the committed catalog.json is the same on every machine.
 export const CUSTOM_CATALOG = 'custom-catalog.json';
 
+/**
+ * Writes trails/catalog.json and the custom catalog. A file that can't be
+ * parsed, or has no name, is left out with a warning rather than stopping the
+ * whole catalog: one broken file must not take every other trail with it.
+ * Returns the warnings, one per skipped file.
+ */
 export async function generateTrailCatalog() {
   const catalog = { schemaVersion: 1, trails: [] };
   const customCatalog = { schemaVersion: 1, trails: [] };
+  const warnings = [];
   for (const source of sources) {
     const directory = path.join(trailsRoot, source);
     await mkdir(directory, { recursive: true });
@@ -22,9 +29,13 @@ export async function generateTrailCatalog() {
       try {
         trail = JSON.parse(await readFile(path.join(directory, file), 'utf8'));
       } catch (error) {
-        throw new Error(`Could not parse trails/${relativePath}: ${error.message}`);
+        warnings.push(`Skipped trails/${relativePath}: could not parse it (${error.message}).`);
+        continue;
       }
-      if (!trail.name || typeof trail.name !== 'string') throw new Error(`trails/${relativePath} needs a string name.`);
+      if (!trail || typeof trail.name !== 'string' || !trail.name.trim()) {
+        warnings.push(`Skipped trails/${relativePath}: it needs a string name.`);
+        continue;
+      }
       (source === 'custom' ? customCatalog : catalog).trails.push({
         id: `${source}:${file.replace(/\.json$/i, '')}`,
         source,
@@ -35,7 +46,9 @@ export async function generateTrailCatalog() {
   }
   await writeFile(path.join(trailsRoot, 'catalog.json'), `${JSON.stringify(catalog, null, 2)}\n`);
   await writeFile(path.join(trailsRoot, CUSTOM_CATALOG), `${JSON.stringify(customCatalog, null, 2)}\n`);
+  for (const warning of warnings) console.warn(warning);
   console.log(`Generated trails/catalog.json with ${catalog.trails.length} trails and trails/${CUSTOM_CATALOG} with ${customCatalog.trails.length}.`);
+  return warnings;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {

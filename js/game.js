@@ -11,12 +11,13 @@ import { encodeInputs, decodeInputs } from './replay-codec.js';
 import { medalFor, normalizeTrail } from './trail-schema.js';
 import {
   readBest, saveBest, readLeaderboard, recordLeaderboardRun, readGhost, saveGhost,
-  saveProgress as persistProgress, savePreferences, clearSaveToken, recordAchievements, recordNisse
+  saveProgress as persistProgress, savePreferences, clearSaveToken, renewSaveToken, recordAchievements, recordNisse,
+  pruneStaleTrailData, STORAGE_FAILED_EVENT
 } from './storage.js';
 import { bikeBroken, createFeatTracker, editorProgress, eggAchievements, eventAchievements, finishAchievements, interactAchievements, newlyEarned, statGains } from './achievements.js';
 import { createLimWatcher, installConsoleCheats } from './easter-eggs.js';
-import { submitOnlineRun, fetchWorldGhost, refreshOnlineBoard, cachedOnlineBoard } from './online-leaderboard.js';
-import { queueSaveSync } from './account.js';
+import { submitOnlineRun, fetchWorldGhost, refreshOnlineBoard, cachedOnlineBoard, queuePendingRun, dropPendingRun, flushPendingRuns } from './online-leaderboard.js';
+import { queueSaveSync, SIGNED_OUT_EVENT, SESSION_RENEWED_EVENT } from './account.js';
 import { createInput, keyLabel } from './input.js';
 import { createHaptics } from './haptics.js';
 import { createCamera } from './camera.js';
@@ -44,7 +45,9 @@ export function startGame({ shared = null } = {}) {
   const renderer = createRenderer(/** @type {HTMLCanvasElement} */ ($('canvas')));
   const camera = createCamera();
   const effects = createEffects();
-  const overlay = createOverlay();
+  // Results closed by the browser (a second Escape, a phone's back gesture)
+  // go to the menu, where the ride can be picked up again.
+  const overlay = createOverlay({ onDismiss: () => { if (session.state === 'won' && !menu.isOpen()) showMainMenu(); } });
   // The rider's hand on the grip, ahead of the physics' smoothed throttle.
   let gasHeld = false;
   const sounds = createAudio(() => {
@@ -67,11 +70,14 @@ export function startGame({ shared = null } = {}) {
     onStartBonus: index => startSelectedTrail(() => loadBonusTrail(index), false),
     onStartCustom: index => startSelectedTrail(() => loadCustomTrail(index), false),
     onClose: closeMainMenu,
+    // The back gesture mid-ride: the menu, which pauses the ride, as Escape does.
+    onBack: () => { sounds.escape(); showMainMenu(); },
     riderOnScreen: () => renderer.riderOnScreen(),
     onWatchReplay: watchReplay,
     onPreferences: applyPreferences,
-    // Editor achievements wait for a rider, so a new or newly picked one gets them.
-    onRiderChange: () => claimEditorFeats()
+    // Editor achievements wait for a rider, so a new or newly picked one gets
+    // them, and a rider just logged in sends the runs that waited for them.
+    onRiderChange: () => { claimEditorFeats(); flushPendingRuns(tokenFor); }
   });
 
   const params = new URLSearchParams(window.location.search);
@@ -140,6 +146,12 @@ export function startGame({ shared = null } = {}) {
   // Attempts that got going since the trail was opened from the menu or Next
   // Trail, for achievements such as First Try.
   let attempts = 0, openingTrail = false;
+  // How much of the attempt was simulated against the time that passed. A
+  // device too slow for the fixed step drops time (see frame()), which plays
+  // in slow motion: more time to react per simulated second, so such a run
+  // is kept on the device but not posted to the world board.
+  let simulatedTime = 0, passedTime = 0;
+  const SLOW_MOTION_RATIO = .9;
   /** Time in the air and on one wheel during the current attempt, for achievements. */
   const feats = createFeatTracker(STEP);
   /** @type {{ ride: any, inputs: any[], index: number, data: any } | null} */
@@ -467,7 +479,7 @@ export function startGame({ shared = null } = {}) {
     // ride after. Replays still show the run as it was ridden.
     if (!replay && nisseFound()) ride.nisse = null;
     session.ride = ride;
-    recorded = []; startStep = 0; flips = 0; broken = false;
+    recorded = []; startStep = 0; flips = 0; broken = false; simulatedTime = 0; passedTime = 0;
     accumulator = 0; landingSoundCooldown = 0; splashSoundCooldown = 0; suspensionSoundCooldown = 0;
     effects.reset(trail);
     renderer.reset(trail, ride.facing);
@@ -476,7 +488,9 @@ export function startGame({ shared = null } = {}) {
     else loadGhost(trail);
     // The world board's best time, ready for Ghostbuster when the run finishes.
     if (isRankedSource(session.trailSource)) refreshOnlineBoard(trailKey(currentTrailEntry()));
-    input.clear();
+    // Keys and buttons still held carry over, so gas held through a restart
+    // sets off at once, and restart held keeps the bike on the line.
+    input.paint();
     overlay.setDirection(ride.facing);
     overlay.setTrail(trail.name, marker, ride.apples.length, trail.medals);
     overlay.setReplay(replay?.name ?? null);
@@ -571,10 +585,20 @@ export function startGame({ shared = null } = {}) {
     overlay.announce('Replay finished. ' + (restart ? 'Press ' + restart : 'Select Restart') + ' to watch it again, or select Ride This Trail.');
   }
 
-  /** Leaves a replay for a ride of your own on its trail. */
+  /**
+   * Leaves a replay for a ride of your own on its trail. It counts as more
+   * attempts on the trail, not a fresh opening, so watching a replay doesn't
+   * hand out First Try.
+   */
   function rideAfterReplay() {
+    const { source, index } = replay;
     endReplay();
-    openingTrail = true;
+    // An official trail still needs a rider who has got that far.
+    if (source === 'official' && (!session.saveGame || index > session.unlockedTrail)) {
+      showMainMenu();
+      overlay.toast(session.saveGame ? 'That trail is still locked · Finish the ones before it first' : 'Pick a rider to ride the trails', 5000);
+      return;
+    }
     startFresh();
   }
 
@@ -595,7 +619,10 @@ export function startGame({ shared = null } = {}) {
   function setState(next) {
     session.state = next;
     redraw = true;
-    input.clear();
+    // Held controls stay held through a restart or a crash; only leaving the
+    // ride (the menu, losing focus) lets go of them, so a key released while
+    // the game wasn't listening can't stay stuck.
+    input.paint();
     if (next !== 'won') overlay.hide();
     $('crash-retry').hidden = next !== 'ragdoll';
     $('crash-retry').textContent = replay ? 'Ride This Trail' : 'Retry';
@@ -640,6 +667,13 @@ export function startGame({ shared = null } = {}) {
     holdWakeLock(false);
     setMenuOpen(true);
     menu.open();
+    // A good moment to send runs that couldn't be posted when they were ridden.
+    flushPendingRuns(tokenFor).then(sent => { if (sent) overlay.toast(sent === 1 ? 'Posted a waiting run to the world board' : `Posted ${sent} waiting runs to the world board`, 4000); });
+  }
+
+  /** The session token of a rider on this device, for posting their runs. */
+  function tokenFor(playerId) {
+    return session.saveSlots.find(save => save?.playerId === playerId)?.token ?? null;
   }
 
   function setMenuOpen(open) {
@@ -665,6 +699,7 @@ export function startGame({ shared = null } = {}) {
     endReplay();
     menu.close();
     setMenuOpen(false);
+    menu.markRideStarted();
     openingTrail = true;
     load();
     setState('running');
@@ -779,9 +814,13 @@ export function startGame({ shared = null } = {}) {
     }
     const storedGhost = readGhost(key);
     const inputs = encodeInputs(recorded);
+    // A device too slow for the fixed step drops time (see frame()), which
+    // plays in slow motion: more time to react per simulated second. Such a
+    // run counts here, but is never posted to the world board, now or later.
+    const slowMotion = passedTime > 0 && simulatedTime / passedTime < SLOW_MOTION_RATIO;
     lastRun = { time, startStep, seed: ride.seed, inputs, physics: RIDE_VERSION, look: session.look };
     if (!storedGhost || storedGhost.physics !== RIDE_VERSION || time < storedGhost.time) {
-      saveGhost(key, { time, splits: ride.splits.slice(), startStep, seed: ride.seed, inputs, physics: RIDE_VERSION, look: session.look });
+      saveGhost(key, { time, splits: ride.splits.slice(), startStep, seed: ride.seed, inputs, physics: RIDE_VERSION, look: session.look, ...(slowMotion ? { slow: true } : {}) });
     }
     earn(finishedRunAchievements(ride, previousBest, worldBest), {}, before);
     const medals = session.trail.medals;
@@ -789,11 +828,20 @@ export function startGame({ shared = null } = {}) {
     // Beating the last official trail for the first time ends the career: the
     // results' main button rolls the credits.
     creditsAfterResults = official && last && Boolean(saveGame) && previousBest === null;
-    // Only a run the player actually rode is sent to the world board.
-    // Offline saves stay local-only. The server replays the inputs to time the run.
-    const submission = ranked && session.state === 'running' && saveGame?.token
-      ? submitOnlineRun(key, { look: session.look, token: saveGame.token, run: { inputs, seed: ride.seed, physics: RIDE_VERSION } })
+    // Only a run the player actually rode, at full speed, is sent to the
+    // world board. Offline saves stay local-only. The server replays the
+    // inputs to time the run. The run is kept as waiting before it is sent,
+    // so closing the tab mid-upload, or a refused session, doesn't lose it;
+    // the server's answer settles it.
+    const run = { inputs, seed: ride.seed, physics: RIDE_VERSION };
+    const eligible = ranked && session.state === 'running' && Boolean(saveGame?.token) && !slowMotion;
+    const queued = eligible ? queuePendingRun(key, { look: session.look, playerId: saveGame.playerId, run, time }) : null;
+    const submission = eligible
+      ? submitOnlineRun(key, { look: session.look, token: saveGame.token, playerId: saveGame.playerId, run })
       : null;
+    if (ranked && saveGame?.token && slowMotion) {
+      overlay.toast('Not posted to the world board: the game ran in slow motion · Try Reduced scenery in Settings', 6000);
+    }
     overlay.showResults({
       official, bonus: session.trailSource === 'bonus', time, previousBest, rank, worldPending: !!submission,
       medals, medal: medalFor(medals, time),
@@ -806,11 +854,20 @@ export function startGame({ shared = null } = {}) {
       const slot = session.activeSaveSlot;
       const shown = overlay.currentResults();
       submission.then(result => {
+        // Settled, one way or the other; a signed-out rider's run waits for their login.
+        const settled = result && ('rank' in result || 'rejected' in result);
+        if (settled && queued?.at) dropPendingRun(key, saveGame.playerId, queued.at);
         if (result && 'signedOut' in result) {
-          clearSaveToken(slot, trails.length);
-          if (session.saveSlots[slot]) Object.assign(session.saveSlots[slot], { token: null, online: true });
-          overlay.toast('Signed out · Log in from the menu to post world times', 5000);
-        } else if (result && 'rejected' in result) egg('rejected-run');
+          signOut(saveGame.playerId);
+        } else if (result && 'rejected' in result) {
+          // The server replayed the inputs and they didn't finish: that's the egg.
+          if (result.reason === 'run does not finish') egg('rejected-run');
+          else overlay.toast(result.reason === 'bad inputs' ? 'Too long for the world board · Runs over ten minutes stay on this device' : 'The world board didn’t take the run · Reload to get the latest version', 6000);
+        } else if (result && 'failed' in result) {
+          // Offline or a server hiccup: the waiting run goes when the server can be reached.
+          overlay.toast(queued ? 'Couldn’t reach the world board · The run is kept and posted later'
+            : 'Couldn’t reach the world board, and the browser’s storage is too full to keep the run', 6000);
+        }
         const standing = result && 'rank' in result ? result : null;
         // Riders who have already moved on still hear how the run placed.
         if (!overlay.showWorldStanding(shown, standing) && standing) {
@@ -993,7 +1050,8 @@ export function startGame({ shared = null } = {}) {
 
   function frame(now) {
     fpsMeter?.frame(now);
-    const dt = lastTime ? Math.min((now - lastTime) / 1000, .05) : 1 / 60;
+    const elapsed = lastTime ? (now - lastTime) / 1000 : 1 / 60;
+    const dt = Math.min(elapsed, .05);
     lastTime = now;
     input.pollGamepad();
     // Toasts time out in the menu too, where achievements can still be earned.
@@ -1010,6 +1068,8 @@ export function startGame({ shared = null } = {}) {
           // Drop time a slow frame cannot catch up on instead of spiralling.
           if (++steps >= MAX_STEPS_PER_FRAME) { accumulator = Math.min(accumulator, STEP); break; }
         }
+        // Measured from the rider setting off, as waiting at the line is free.
+        if (ride.started && state === 'running') { simulatedTime += steps * STEP; passedTime += elapsed; }
       } else accumulator = 0;
       const stepping = session.state === 'running' || session.state === 'ragdoll';
       const alpha = stepping ? accumulator / STEP : 1;
@@ -1071,13 +1131,41 @@ export function startGame({ shared = null } = {}) {
   $('canvas').addEventListener('pointerdown', () => { if (!menu.isOpen()) handlePress('interact'); });
   window.addEventListener('blur', () => { input.clear(); pauseGame(); });
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { input.clear(); pauseGame(); }
+    // The frame loop stops with the tab, so the sound is stopped here: the
+    // pause alone would leave the engine or the rain running in the background.
+    if (document.hidden) { input.clear(); pauseGame(); sounds.suspend(); }
     else {
       holdWakeLock(session.state === 'running' || session.state === 'ragdoll');
       // Another device may have changed the rider while this tab was away.
       if (menu.isOpen()) menu.refreshCloudSave();
     }
     lastTime = 0; accumulator = 0;
+  });
+  // Back online: runs finished while away can go up now.
+  window.addEventListener('online', () => { flushPendingRuns(tokenFor); });
+
+  /** The server no longer accepts a rider's session; they log in again for a new one. */
+  function signOut(playerId) {
+    const slot = session.saveSlots.findIndex(save => save?.playerId === playerId && save.token);
+    if (slot < 0) return;
+    clearSaveToken(slot, trails.length);
+    Object.assign(session.saveSlots[slot], { token: null, online: true });
+    overlay.toast('Signed out · Log in from the menu to keep posting world times and backing up', 6000);
+    if (menu.isOpen()) menu.updateDashboard();
+  }
+  window.addEventListener(SIGNED_OUT_EVENT, event => signOut(/** @type {CustomEvent} */ (event).detail.playerId));
+  // A session about to expire was renewed by the server; the rider stays signed in.
+  window.addEventListener(SESSION_RENEWED_EVENT, event => {
+    const { playerId, token } = /** @type {CustomEvent} */ (event).detail;
+    const slot = renewSaveToken(playerId, token, trails.length);
+    if (slot >= 0 && session.saveSlots[slot]) session.saveSlots[slot].token = token;
+  });
+  // Storage is full: the game carries on, but the player should know that a reload loses progress.
+  let storageWarned = false;
+  window.addEventListener(STORAGE_FAILED_EVENT, () => {
+    if (storageWarned) return;
+    storageWarned = true;
+    overlay.toast('Couldn’t save: the browser’s storage is full · Progress is lost on reload until space is freed', Infinity);
   });
 
   $('primary').addEventListener('click', () => {
@@ -1123,12 +1211,21 @@ export function startGame({ shared = null } = {}) {
     redraw = true;
   }
   window.addEventListener('resize', () => { resize(); menu.drawBackground(); });
+  // A window dragged to a screen of another pixel density keeps its size, so
+  // only the renderer notices; the dashboard backdrop is redrawn for it too.
+  renderer.onPixelRatioChange(() => { redraw = true; menu.drawBackground(); });
   if ('ResizeObserver' in window) new ResizeObserver(resize).observe($('canvas'));
   window.addEventListener('gamepadconnected', () => { if (menu.isOpen()) sounds.menuMove(); });
 
-  const unlockAudio = () => sounds.init();
-  window.addEventListener('pointerdown', unlockAudio, { once: true, capture: true });
-  window.addEventListener('keydown', unlockAudio, { once: true, capture: true });
+  // Browsers only let sound start from a gesture, and iOS may not count the
+  // first one (or stops the sound again for a call), so every gesture asks
+  // until the context is actually running, then they stop listening.
+  const unlockEvents = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'];
+  const unlockAudio = () => {
+    sounds.init();
+    if (sounds.isRunning()) for (const type of unlockEvents) window.removeEventListener(type, unlockAudio, { capture: true });
+  };
+  for (const type of unlockEvents) window.addEventListener(type, unlockAudio, { capture: true });
   const lim = createLimWatcher();
   window.addEventListener('keydown', event => {
     if (event.repeat || !lim.down(event.code)) return;
@@ -1152,6 +1249,8 @@ export function startGame({ shared = null } = {}) {
   window.addEventListener('storage', event => { if (event.key === EDITOR_FEATS_KEY) claimEditorFeats(); });
 
   loadStoredState();
+  // Ghosts and local boards of trail versions that are gone only take up room.
+  pruneStaleTrailData([...officialTrailEntries, ...bonusTrailEntries].map(trailKey));
   applyPreferences();
   handleFullscreenChange();
   resize();

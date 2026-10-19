@@ -97,6 +97,9 @@ export function createInput({ element, buttons, indicators = [], isActive, onPre
       done(event.code === 'Escape' || RESERVED.has(event.code) ? null : event.code);
       return true;
     }
+    // On macOS a key released while Cmd is down never reports its release,
+    // so Cmd lets go of everything rather than leave a key stuck.
+    if (event.code === 'MetaLeft' || event.code === 'MetaRight') { keys.clear(); paint(); return false; }
     const action = codeActions.get(event.code);
     if (!action) return false;
     pad.inUse = false;
@@ -150,7 +153,9 @@ export function createInput({ element, buttons, indicators = [], isActive, onPre
     if (!gamepad) { pad.previous = []; pad.index = -1; pad.inUse = false; return; }
     pad.index = gamepad.index;
     const pressed = gamepad.buttons.map(button => button.pressed || button.value > .5);
-    if (pressed.some(Boolean) || gamepad.axes.some(axis => Math.abs(axis) > STICK_DEADZONE)) pad.inUse = true;
+    // Only a button claims the pad: an idle stick can drift past the deadzone,
+    // which must not switch the prompts over to pad buttons.
+    if (pressed.some(Boolean)) pad.inUse = true;
     // Compared with the last frame's buttons, kept before they're replaced.
     const previous = pad.previous;
     const edge = index => pressed[index] && !previous[index];

@@ -38,7 +38,7 @@ import { scheduleAutosave } from "./autosave.js";
 import { updateVersionChip } from "./drafts.js";
 import { closeMenu, updateValidationBadge } from "./menu.js";
 import { renderObjects } from "./objects.js";
-import { showStatus } from "./status.js";
+import { refuseEdit, showStatus } from "./status.js";
 import {
   finishY,
   groundY,
@@ -187,6 +187,9 @@ export function syncInspector({ live = false } = {}) {
   // The finish can be moved in y, so its Y row is shown. Every other object
   // with a fixed height is left as it was.
   $("selection-y-row").hidden = !editor.selection;
+  // An apple, prop or finish with a height of its own can be put back on the ground.
+  const lifted = groundable();
+  $("selection-on-ground").hidden = !lifted || !Number.isFinite(lifted.y);
   $("selection-material-row").hidden = !isBlock;
   $("selection-block-layer-row").hidden = !isBlock;
   $("fill-back-walls").hidden = !selectedCaves().length;
@@ -433,11 +436,35 @@ export function updateSelectedPosition(x, y) {
   } else if (kind === "finish") {
     // The finish is a point: it can be moved in y as well as x, so a flag can
     // stand on a floating block or hang above a cave instead of being pinned to the
-    // surface. Dragging it sets an explicit height, which the inspector can
-    // clear to send it back to the ground.
+    // surface. Dragging it sets an explicit height; the inspector's "On the
+    // ground" button (putOnGround) sends it back to the surface below.
     editor.trail.finish.x = x;
     editor.trail.finish.y = y;
   }
+}
+
+/** The selected object whose height can be a number or "on the ground", if any. */
+function groundable() {
+  const kind = editor.selection?.kind;
+  if (kind === "apple") return editor.trail.apples[editor.selection.index];
+  if (kind === "prop") return editor.trail.props[editor.selection.index];
+  if (kind === "nisse") return editor.trail.nisse;
+  if (kind === "finish") return editor.trail.finish;
+  return null;
+}
+
+/**
+ * Forget the selected object's height, so it stands on whatever surface is
+ * under it again, and follows the ground when the terrain changes.
+ */
+function putOnGround() {
+  const object = groundable();
+  if (!object || !Number.isFinite(object.y)) return;
+  if (refuseEdit()) return;
+  pushHistory();
+  object.y = null;
+  syncInspector();
+  render();
 }
 
 function showWeatherValue(key) {
@@ -565,7 +592,11 @@ let propTextPending = false;
 const SIGN_ARROW_KEYS = { "<": "←", ">": "→", "^": "↑" };
 
 export function bindInspector() {
-  bindTrailInput("trail-name", setTrailName);
+  // A blank name is refused, as the rename dialog refuses it: the field goes
+  // back to the name the trail has.
+  $("trail-name").addEventListener("change", (event) => {
+    if (!renameTrail(event.target.value)) syncInspector();
+  });
 
   bindTrailInput("trail-author", (value) => {
     const author = normalizeAuthor(value);
@@ -633,23 +664,24 @@ export function bindInspector() {
   }
   startWindsock($("windsock"), () => editor.trail.weather);
 
-  $("selection-x").addEventListener("change", (event) => {
-    const position = selectedPosition();
-    if (!position) return;
-    pushHistory();
-    updateSelectedPosition(Number(event.target.value), position[1]);
-    syncInspector();
-    render();
-  });
+  // A cleared or unreadable coordinate leaves the selection where it is:
+  // Number("") is 0, which would send it to the edge of the world.
+  for (const [axis, id] of [[0, "selection-x"], [1, "selection-y"]])
+    $(id).addEventListener("change", (event) => {
+      const position = selectedPosition();
+      if (!position) return;
+      const value = Number(event.target.value);
+      if (event.target.value.trim() === "" || !Number.isFinite(value)) {
+        syncInspector();
+        return;
+      }
+      pushHistory();
+      updateSelectedPosition(axis === 0 ? value : position[0], axis === 1 ? value : position[1]);
+      syncInspector();
+      render();
+    });
 
-  $("selection-y").addEventListener("change", (event) => {
-    const position = selectedPosition();
-    if (!position) return;
-    pushHistory();
-    updateSelectedPosition(position[0], Number(event.target.value));
-    syncInspector();
-    render();
-  });
+  $("selection-on-ground").addEventListener("click", putOnGround);
 
   $("selection-material").addEventListener("change", (event) => {
     const material = event.target.value;

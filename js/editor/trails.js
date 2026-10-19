@@ -20,9 +20,11 @@ import { autosaveNow } from "./autosave.js";
 import { $ } from "./dom.js";
 import {
   addDraft,
+  clearAutosave,
   clearDrafts,
   draftAge,
   formatDraftTime,
+  hashText,
   listDrafts,
   markSaved,
   moveDrafts,
@@ -67,11 +69,15 @@ function rememberTrail() {
  */
 function setVersion(kind, at, trail, published = editor.version?.published) {
   const base = JSON.stringify(trail, null, 2);
+  const publishedJson = kind === "saved" ? base : published;
   editor.version = {
     kind,
     at,
     base,
-    published: kind === "saved" ? base : published,
+    published: publishedJson,
+    // Fingerprints the published trail, so drafts and autosaves made from
+    // here can tell when the file has moved on without them.
+    baseHash: hashText(publishedJson ?? base),
     edited: false,
     unpublished: kind === "saved" ? false : base !== published,
   };
@@ -95,6 +101,19 @@ export function loadTrailData(index) {
   const autosave = entry ? readAutosave(entry.id) : null;
   const newest = Math.max(savedAt(entry?.id), listDrafts(entry?.id)[0]?.at ?? 0);
   if (!autosave || autosave.at <= newest) return trail;
+  // Edits made on a version the file has moved past (a git pull, say) can't
+  // go on top of the file; they are kept as a draft, in Versions, instead.
+  if (autosave.base && autosave.base !== editor.version.baseHash) {
+    // The autosave only goes once the draft is safely written; with storage
+    // full it stays, and the edits open on top of the file instead so they
+    // are at least on screen, with the warning saying so.
+    if (addDraft(entry.id, autosave.trail, autosave.base) !== null) {
+      clearAutosave(entry.id);
+      editor.version.rescuedAt = autosave.at;
+      return trail;
+    }
+    editor.version.rescueFailedAt = autosave.at;
+  }
   try {
     const restored = normalizeTrail(autosave.trail, index);
     if (JSON.stringify(restored, null, 2) === editor.version.base) return trail;
@@ -112,9 +131,19 @@ function loadVersion(index) {
   const fallback = () => normalizeTrail(stored || createBlankTrail(index), index);
   const draft = entry ? listDrafts(entry.id)[0] : null;
   if (draft && draft.at > savedAt(entry.id)) {
+    const published = publishedJson(index);
+    // A draft made on an older published trail (the file changed under it,
+    // through git, say) must not shadow the file, and publishing it would
+    // overwrite the file's changes. The file opens; the draft stays in Versions.
+    if (draft.base && draft.base !== hashText(published)) {
+      const trail = fallback();
+      setVersion("saved", null, trail);
+      editor.version.shadowedDraftAt = draft.at;
+      return trail;
+    }
     try {
       const trail = normalizeTrail(draft.trail, index);
-      setVersion("draft", draft.at, trail, publishedJson(index));
+      setVersion("draft", draft.at, trail, published);
       return trail;
     } catch (_) {}
   }
@@ -125,6 +154,21 @@ function loadVersion(index) {
 
 /** Tell the author when a trail opened on a draft or autosave rather than the saved trail. */
 export function announceVersion() {
+  if (editor.version?.shadowedDraftAt || editor.version?.rescuedAt) {
+    const at = editor.version.shadowedDraftAt || editor.version.rescuedAt;
+    showStatus(
+      "warning",
+      `${savedName(currentEntry())} has changed since your ${editor.version.shadowedDraftAt ? "draft" : "unsaved edits"} (${formatDraftTime(at)}), so it opened instead. The ${editor.version.shadowedDraftAt ? "draft is" : "edits are kept as a draft"} in Versions.`,
+    );
+    return;
+  }
+  if (editor.version?.rescueFailedAt) {
+    showStatus(
+      "error",
+      `${savedName(currentEntry())} has changed since your unsaved edits (${formatDraftTime(editor.version.rescueFailedAt)}), and browser storage is too full to keep them as a draft. They are opened on top of the new file: check them, then save a draft or export.`,
+    );
+    return;
+  }
   if (editor.version?.restoredAt) {
     showStatus(
       "info",
@@ -152,7 +196,7 @@ export function saveDraft() {
     return;
   }
   const entry = currentEntry();
-  const at = addDraft(entry.id, editor.trail);
+  const at = addDraft(entry.id, editor.trail, editor.version.baseHash);
   if (!at) {
     showStatus("error", "Could not save the draft: browser storage is full or blocked.");
     return;
@@ -465,14 +509,19 @@ export async function saveTrail() {
     autosaveNow();
     buildPicker();
     updateTrailControls();
-    showStatus(
-      "info",
+    const published =
       entry.storage === "browser"
         ? "Published to this browser's trail library."
         : saved?.movedFrom
           ? `Published to trails/${entry.file} (renamed from ${saved.movedFrom.replace(/^custom\//, "")}).`
-          : `Published to trails/${entry.file}.`,
-    );
+          : `Published to trails/${entry.file}.`;
+    // The file was written, but the dev server could not rebuild the catalog
+    // (another trail file may be broken), so the game may not list it yet.
+    const warning = saved?.warning;
+    if (warning) {
+      delete saved.warning;
+      showStatus("warning", `${published} ${warning}`);
+    } else showStatus("info", published);
   } catch (error) {
     showStatus("error", `Could not publish: ${error.message}`);
   }
