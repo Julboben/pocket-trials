@@ -2,6 +2,48 @@
 /** @type {{ version: string, date: string, changes: { type: 'new' | 'improved' | 'fixed', text: string }[] }[]} */
 export const RELEASES = [
   {
+    "version": "0.4.1",
+    "date": "2026-10-19",
+    "changes": [
+      {
+        "type": "new",
+        "text": "New countryside, farm, nature and water props have been added, including a farmhouse, along with new hint drawings that now appear on some official trails."
+      },
+      {
+        "type": "improved",
+        "text": "Your online progress now syncs more safely. Fastest times, highest progress, achievements, finds and your rider's look are merged, so an out-of-date device can no longer wipe out progress from another. Runs that couldn't be posted are kept and sent later, and sessions renew or sign out cleanly."
+      },
+      {
+        "type": "improved",
+        "text": "Delete Online now removes your rider for good after you confirm with a passkey. The first rider you create now defaults to offline."
+      },
+      {
+        "type": "improved",
+        "text": "On-screen prompts now show the right keys for your setup: your own key bindings on a keyboard, the buttons on a gamepad, and none on a touch screen. Tapping the pause screen resumes the game on touch screens. There's also an offline note on the leaderboard, a toast when an update is available, and clearer messages when a trail fails to load."
+      },
+      {
+        "type": "improved",
+        "text": "Being the only rider at #1 on a board now shows FIRST PLACE IN THE WORLD! The NEW badge also pulses to catch your eye."
+      },
+      {
+        "type": "improved",
+        "text": "Editor: Pinch to zoom, a fit trail option and shortcut labels that match your keyboard layout. The editor now also guards against several problems, such as undo in text fields, buried starts, apples and finishes, oversized share links, stale drafts and deleting the last terrain block."
+      },
+      {
+        "type": "fixed",
+        "text": "Held keys now survive restarts and crashes. Replays no longer reset First Try or bypass unlocks, and runs ridden in slow motion stay local and aren't uploaded."
+      },
+      {
+        "type": "fixed",
+        "text": "Audio now stops in hidden tabs and unlocks reliably on iOS, wheel spin no longer doubles, and the back gesture no longer leaves a ride."
+      },
+      {
+        "type": "fixed",
+        "text": "Fixed iOS scrolling on the trails overview, and double taps no longer zoom in on buttons or open Safari's magnifier on touch controls."
+      }
+    ]
+  },
+  {
     "version": "0.4.0",
     "date": "2026-10-18",
     "changes": [
