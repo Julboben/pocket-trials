@@ -2,6 +2,23 @@
 
 Player-facing release notes. The game shows them under **What's new**, and each GitHub Release uses its section.
 
+## 0.4.1 — 2026-10-19
+
+### New
+- New countryside, farm, nature and water props have been added, including a farmhouse, along with new hint drawings that now appear on some official trails.
+
+### Improved
+- Your online progress now syncs more safely. Fastest times, highest progress, achievements, finds and your rider's look are merged, so an out-of-date device can no longer wipe out progress from another. Runs that couldn't be posted are kept and sent later, and sessions renew or sign out cleanly.
+- Delete Online now removes your rider for good after you confirm with a passkey. The first rider you create now defaults to offline.
+- On-screen prompts now show the right keys for your setup: your own key bindings on a keyboard, the buttons on a gamepad, and none on a touch screen. Tapping the pause screen resumes the game on touch screens. There's also an offline note on the leaderboard, a toast when an update is available, and clearer messages when a trail fails to load.
+- Being the only rider at #1 on a board now shows FIRST PLACE IN THE WORLD! The NEW badge also pulses to catch your eye.
+- Editor: Pinch to zoom, a fit trail option and shortcut labels that match your keyboard layout. The editor now also guards against several problems, such as undo in text fields, buried starts, apples and finishes, oversized share links, stale drafts and deleting the last terrain block.
+
+### Fixed
+- Held keys now survive restarts and crashes. Replays no longer reset First Try or bypass unlocks, and runs ridden in slow motion stay local and aren't uploaded.
+- Audio now stops in hidden tabs and unlocks reliably on iOS, wheel spin no longer doubles, and the back gesture no longer leaves a ride.
+- Fixed iOS scrolling on the trails overview, and double taps no longer zoom in on buttons or open Safari's magnifier on touch controls.
+
 ## 0.4.0 — 2026-10-18
 
 ### Heads up
