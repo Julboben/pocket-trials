@@ -33,6 +33,20 @@ const MIME_TYPES = {
   '.ogg': 'audio/ogg'
 };
 
+const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
+
+/** Is this Origin header the local page (any port, http only)? */
+function isLocalOrigin(origin) {
+  try {
+    const url = new URL(origin);
+    return url.protocol === 'http:' && LOCAL_HOSTS.includes(url.hostname === '::1' ? '[::1]' : url.hostname);
+  } catch (_) {
+    return false;
+  }
+}
+
+const isJson = contentType => /^application\/json\b/i.test(String(contentType || '').trim());
+
 function sendJson(response, status, body) {
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   response.end(JSON.stringify(body));
@@ -49,6 +63,21 @@ async function readBody(request) {
   return Buffer.concat(chunks).toString('utf8');
 }
 
+/**
+ * Rebuilds the catalog after a file changed. The file is already written, so
+ * a catalog that can't be rebuilt is reported as a warning rather than a
+ * failed save; the warning rides in the entry, which the editor shows.
+ */
+async function rebuildCatalog() {
+  try {
+    const warnings = await generateTrailCatalog();
+    return warnings.length ? { warning: `The trail list could not include every file: ${warnings.join(' ')}` } : {};
+  } catch (error) {
+    console.error(error);
+    return { warning: `The file was saved, but the trail list could not be rebuilt: ${error.message}` };
+  }
+}
+
 async function handleTrailRequest(request, response, file) {
   const match = TRAIL_FILE.exec(file);
   if (!match) return sendJson(response, 400, { error: 'Trail files must be official/<name>.json, bonus/<name>.json or custom/<name>.json using letters, numbers, - and _.' });
@@ -61,16 +90,16 @@ async function handleTrailRequest(request, response, file) {
     try { trail = JSON.parse(await readBody(request)); } catch (error) { return sendJson(response, 400, { error: `Invalid trail JSON: ${error.message}` }); }
     if (!trail || typeof trail.name !== 'string' || !trail.name.trim()) return sendJson(response, 400, { error: 'The trail needs a name.' });
     await writeFile(target, `${JSON.stringify(trail, null, 2)}\n`);
-    await generateTrailCatalog();
+    const catalog = await rebuildCatalog();
     console.log(`Saved trails/${entry.file}`);
-    return sendJson(response, 200, { entry: { ...entry, name: trail.name } });
+    return sendJson(response, 200, { ...catalog, entry: { ...entry, name: trail.name, ...catalog } });
   }
   if (request.method === 'DELETE') {
     if (source !== 'custom') return sendJson(response, 403, { error: 'Official and bonus trails cannot be deleted from the editor.' });
     await unlink(target).catch(error => { if (error.code !== 'ENOENT') throw error; });
-    await generateTrailCatalog();
+    const catalog = await rebuildCatalog();
     console.log(`Deleted trails/${entry.file}`);
-    return sendJson(response, 200, { entry });
+    return sendJson(response, 200, { ...catalog, entry: { ...entry, ...catalog } });
   }
   return sendJson(response, 405, { error: 'Use PUT to save or DELETE to remove a trail.' });
 }
@@ -124,7 +153,17 @@ const server = http.createServer(async (request, response) => {
   try {
     const { pathname } = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
     const hostname = (request.headers.host || '').replace(/:\d+$/, '');
-    if (pathname.startsWith('/api/') && !['localhost', '127.0.0.1', '[::1]'].includes(hostname)) return sendJson(response, 403, { error: 'The trail API only accepts local requests.' });
+    if (pathname.startsWith('/api/')) {
+      if (!LOCAL_HOSTS.includes(hostname)) return sendJson(response, 403, { error: 'The trail API only accepts local requests.' });
+      // A page on another site can't be allowed to write trail files or
+      // replays: a POST with a plain content type is a "simple" request that
+      // the browser sends without asking, so the origin is checked, and
+      // every write has to be JSON.
+      const origin = request.headers.origin;
+      if (origin !== undefined && !isLocalOrigin(origin)) return sendJson(response, 403, { error: 'The trail API only accepts requests from the local page.' });
+      if ((request.method === 'POST' || request.method === 'PUT') && !isJson(request.headers['content-type']))
+        return sendJson(response, 415, { error: 'The trail API only accepts application/json.' });
+    }
     if (pathname === '/api/dev') return sendJson(response, 200, { writable: true });
     // No online board here. An empty answer, rather than a 404, keeps the console
     // clean; the client can't parse it, so it quietly uses the local board.

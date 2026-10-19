@@ -177,6 +177,9 @@ Current storage keys:
 - `hjulben-active-slot-v1`
 - `hjulben-leaderboard-v1`
 - `hjulben-ghost-v1:<trail>` (inputs of the best run, re-simulated as the ghost)
+- `hjulben-pending-runs-v1` (finished runs still to be posted to the world board)
+
+Ghosts and local boards of a shipped trail's earlier versions are removed at start-up, as are ghosts from an older physics version; when storage is full the game says so and keeps going with what it has.
 
 The dashboard's Leaderboard view ranks the ten fastest finishes per official, bonus and custom trail across all savegames on the device. Runs remain on the board after their savegame is deleted. Step between trails with the arrows, or click the trail name to pick one from a list. Each run shows its date, including the year. Every trail is keyed by a hash of what decides a run (terrain, start, finish, apples, spikes, and water), and official and bonus trails also by their id (`official:<id>@<hash>`, `bonus:<id>@<hash>`). Editing a trail's gameplay starts fresh leaderboards, ghosts and best times, online and local, while renaming it or changing its props keeps them.
 
@@ -189,9 +192,13 @@ When creating a rider, players choose **Online** (the default) or **Offline**:
 - **Online** riders sign up with a **passkey** (fingerprint, face or device PIN). No email or password is involved. The name is reserved for them on the world leaderboard. Names are unique regardless of case, accents, spaces, `_`, `.` and `-`, and offensive or reserved names are refused. Progress is backed up to the server. After clearing site data, or on another device with the same passkey (synced through iCloud, Google or a password manager), **Log in with passkey** on the dashboard or in Riders restores the save, best times and ghosts.
 - **Offline** riders stay in the browser and never appear on the world board. **Go Online** in Riders claims the name later and uploads the rider's best runs.
 
-The world board doesn't trust times sent by the browser. A finished run is sent as its recorded inputs. The server replays them through the same deterministic simulation (`js/ride.js`) against the official or bonus trail, checks that it finishes, and uses its own time. It keeps each rider's best run per trail, and its replay becomes the ghost when restoring a save.
+Deleting a slot with × only frees it on that device; the online rider, their cloud save and their world times stay, and logging in brings them back. **Delete Online** in Riders removes the rider from the server for good (name, cloud save, passkeys and world-board runs), after confirming with their passkey, and frees the name.
 
-Server code lives in `netlify/functions/` (`account.mjs`, `leaderboard.mjs`) and `netlify/lib/`. It uses Neon Postgres and keeps no server-side sessions: logins and passkey challenges are HMAC-signed tokens.
+The world board doesn't trust times sent by the browser. A finished run is sent as its recorded inputs. The server replays them through the same deterministic simulation (`js/ride.js`) against the official or bonus trail, checks that it finishes, and uses its own time. It keeps each rider's best run per trail, and its replay becomes the ghost when restoring a save. A run that can't be posted (offline, or the server didn't answer) is kept in `hjulben-pending-runs-v1` and sent the next time the dashboard opens, the browser comes back online, or the rider logs in. A run ridden in slow motion, because the device couldn't keep up with the physics, is kept on the device but not posted. Each rider may post a dozen runs a minute, and each address may start twenty passkey ceremonies a minute (`netlify/lib/rate-limit.mjs`).
+
+The cloud save is merged on the server rather than replaced: best times keep the faster, progress and lifetime stats the higher, achievements and nisse finds the union, so a device that uploads a stale copy never wipes out another device's progress. Sessions last 180 days; one used in its last 30 days gets a fresh token with the reply, so a rider who keeps playing is never signed out.
+
+Server code lives in `netlify/functions/` (`account.mjs`, `leaderboard.mjs`) and `netlify/lib/`. It uses Neon Postgres and keeps no server-side sessions: logins and passkey challenges are HMAC-signed tokens. `_headers` sets the content security policy and the other security headers for every page.
 
 Setup on Netlify:
 

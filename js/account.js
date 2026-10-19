@@ -128,9 +128,27 @@ export async function loginRider() {
   }
 }
 
+/**
+ * Removes the signed-in rider from the server for good: name, cloud save,
+ * passkeys and world-board runs. The rider confirms with their passkey.
+ * @param {string} token
+ */
+export async function deleteRider(token) {
+  if (!passkeysSupported()) throw new AccountError('unsupported');
+  try {
+    const { options, state } = await call('login-options', {});
+    const response = await usePasskey(options);
+    await call('delete', { state, response }, { token });
+  } catch (error) {
+    throw passkeyError(error);
+  }
+}
+
 /** A short message for the player. */
 export function accountErrorText(error) {
   switch (error?.message) {
+    case 'wrong passkey': return 'That passkey belongs to another rider. Confirm with this rider’s passkey.';
+    case 'not signed in': return 'This rider is signed out. Log in first, then try again.';
     case 'name taken': return 'That name is taken. If it’s yours, log in with your passkey instead.';
     case 'name not allowed': return 'That name isn’t allowed. Please pick another.';
     case 'invalid name': return NAME_HINT + '.';
@@ -151,10 +169,24 @@ const pendingSaves = new Map();   // token -> { timer, save }
 const lastSent = new Map();       // token -> payload JSON, so retries don't rewrite an unchanged save
 const sending = new Map();        // token -> uploads in flight
 
+/** Fired on window when the server no longer accepts a rider's session, with `{ playerId }`. */
+export const SIGNED_OUT_EVENT = 'hjulben:signed-out';
+/** Fired on window with `{ playerId, token }` when the server sent a fresh session token. */
+export const SESSION_RENEWED_EVENT = 'hjulben:session-renewed';
+
+const signal = (type, detail) => window.dispatchEvent(new CustomEvent(type, { detail }));
+
+/** Passes on a fresh token the server sent with a reply, if any. */
+export function noteRenewal(playerId, data) {
+  if (typeof data?.token === 'string' && typeof window !== 'undefined') signal(SESSION_RENEWED_EVENT, { playerId, token: data.token });
+}
+
 function sendSave(save, keepalive = false) {
-  const { look, rider, createdAt, trail, unlocked, bestTimes, achievements, stats } = save;
-  const body = JSON.stringify({ save: { look, rider, createdAt, trail, unlocked, bestTimes, achievements, stats } });
   const token = save.token;
+  if (!token) return;
+  // Exactly the fields the server keeps (sanitizeSave in account.mjs).
+  const { look, lookUpdatedAt, rider, createdAt, trail, unlocked, bestTimes, achievements, stats, nisse } = save;
+  const body = JSON.stringify({ save: { look, lookUpdatedAt, rider, createdAt, trail, unlocked, bestTimes, achievements, stats, nisse } });
   if (lastSent.get(token) === body) return;
   lastSent.set(token, body);
   sending.set(token, (sending.get(token) ?? 0) + 1);
@@ -167,20 +199,34 @@ function sendSave(save, keepalive = false) {
     headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
     body,
     keepalive,
-  }).then(res => { if (!res.ok) lastSent.delete(token); }, () => lastSent.delete(token)).finally(done);
+  }).then(async res => {
+    if (res.ok) { noteRenewal(save.playerId, await res.json().catch(() => null)); return; }
+    lastSent.delete(token);
+    if (res.status === 401) signal(SIGNED_OUT_EVENT, { playerId: save.playerId });
+  }, () => lastSent.delete(token)).finally(done);
 }
 
 /** Whether this device has a change for the rider that the server doesn't have yet. */
 const unsent = token => pendingSaves.has(token) || sending.has(token);
 
+/** Resolves once nothing is waiting to go up for `token`, or after `limit` ms. */
+function settled(token, limit = 10_000) {
+  return new Promise(resolve => {
+    const started = Date.now();
+    const check = () => (!unsent(token) || Date.now() - started > limit ? resolve() : setTimeout(check, 250));
+    check();
+  });
+}
+
 /**
  * The rider's cloud save and look, as last saved from any device. Null when
- * offline, or when this device has an upload pending or in flight, since its
- * own change is newer than whatever the server would send.
+ * offline. An upload pending or in flight from this device goes first, so
+ * what comes back already includes it (the server merges saves).
  * @returns {Promise<{ player: { id: string, name: string, rider: string, look?: object }, save: object | null } | { signedOut: true } | null>}
  */
-export async function fetchCloudSave(token) {
-  if (!token || typeof window === 'undefined' || unsent(token)) return null;
+export async function fetchCloudSave(token, playerId = null) {
+  if (!token || typeof window === 'undefined') return null;
+  if (unsent(token)) await settled(token);
   let res;
   try {
     res = await fetch(API + 'save', {
@@ -194,6 +240,7 @@ export async function fetchCloudSave(token) {
   if (!res.ok || unsent(token)) return null;
   const data = await res.json().catch(() => null);
   if (!data?.player) return null;
+  noteRenewal(playerId ?? data.player.id, data);
   // The server may now hold another device's save, so the next upload must go out even if it matches our last one.
   lastSent.delete(token);
   return data;

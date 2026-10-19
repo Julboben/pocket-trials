@@ -512,7 +512,11 @@ export function mergeAchievements(a, b) {
   return cleanAchievements(merged);
 }
 
-/** Both copies' stats, each the higher count: neither device loses a ride. */
+/**
+ * Both copies' stats, each the higher count. Rides done on two devices since
+ * they last synced are not added up: the higher count wins, so a device never
+ * loses what it has, but totals can undercount.
+ */
 export function mergeStats(a, b) {
   const merged = cleanStats(a);
   for (const [name, count] of Object.entries(cleanStats(b))) merged[name] = Math.max(count, merged[name] ?? 0);

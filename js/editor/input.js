@@ -71,6 +71,8 @@ import {
 } from "./preview.js";
 import { canSave, saveDraft, saveTrail } from "./trails.js";
 import {
+  clampCamera,
+  fitTrail,
   focusOnStart,
   pointerWorld,
   toggleGameArt,
@@ -87,6 +89,48 @@ let pointerStart = null;
 let gestureStartZoom = 1;
 
 let gestureAnchor = null;
+
+// Every pointer that is down on the canvas, by id, so a second finger can be
+// told from the first: only the primary pointer draws, drags or selects, and
+// two fingers together pinch to zoom and pan instead.
+const pointers = new Map();
+
+// The pinch in progress: the fingers' starting distance, the zoom then, and
+// the world point under their midpoint, which stays under it as they move.
+let pinch = null;
+
+// Once a pinch ends, the finger still down must not start a drag or a shape.
+let pinchEnded = false;
+
+/** Both fingers' midpoint and distance, in client pixels. */
+function pinchGeometry() {
+  const [a, b] = [...pointers.values()];
+  return {
+    clientX: (a.clientX + b.clientX) / 2,
+    clientY: (a.clientY + b.clientY) / 2,
+    distance: Math.max(1, Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)),
+  };
+}
+
+function startPinch() {
+  const geometry = pinchGeometry();
+  pinch = {
+    distance: geometry.distance,
+    zoom: editor.zoom,
+    anchor: pointerWorld(geometry),
+  };
+}
+
+/** Zoom by how far the fingers have spread, keeping the midpoint's world point under them. */
+function movePinch() {
+  if (!pinch || pointers.size < 2) return;
+  const geometry = pinchGeometry();
+  editor.zoom = clampZoom((pinch.zoom * geometry.distance) / pinch.distance);
+  const bounds = canvas.getBoundingClientRect();
+  editor.cameraX = pinch.anchor.x - (geometry.clientX - bounds.left) / editor.zoom;
+  editor.cameraY = pinch.anchor.y - (geometry.clientY - bounds.top) / editor.zoom;
+  updateZoom();
+}
 
 // The trail as it was when a drag began. It becomes an undo step only once the
 // drag actually moves something, so a plain click never leaves an empty one.
@@ -440,6 +484,7 @@ export function bindInput() {
       const deltaScale = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : 1;
       editor.cameraX += (event.deltaX * deltaScale) / editor.zoom;
       editor.cameraY += (event.deltaY * deltaScale) / editor.zoom;
+      clampCamera();
       renderView();
     },
     { passive: false },
@@ -473,6 +518,20 @@ export function bindInput() {
 
   canvas.addEventListener("pointerdown", (event) => {
     if (event.button === 2) return;
+    pointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
+    // A second finger turns the touch into a pinch: whatever the first was
+    // drawing is dropped, and from here the two zoom and pan together. (Safari
+    // reports trackpad pinches as gesture events, handled above.)
+    if (pointers.size === 2) {
+      cancelPendingShape();
+      resetPointerState();
+      startPinch();
+      canvas.setPointerCapture(event.pointerId);
+      return;
+    }
+    if (pointers.size > 2 || pinch || pinchEnded) return;
+    // Only the primary pointer (the first finger, or the mouse) edits.
+    if (event.isPrimary === false) return;
     canvas.focus({ preventScroll: true });
     const point = pointerWorld(event);
     if (event.button === 1 || editor.tool === "pan" || editor.spaceHeld) {
@@ -624,6 +683,13 @@ export function bindInput() {
   });
 
   canvas.addEventListener("pointermove", (event) => {
+    if (pointers.has(event.pointerId))
+      pointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
+    if (pinch) {
+      movePinch();
+      return;
+    }
+    if (event.isPrimary === false || pinchEnded) return;
     editor.pointerClient = { clientX: event.clientX, clientY: event.clientY };
     // No button held: the release was missed, so end the drag here.
     if (
@@ -638,6 +704,7 @@ export function bindInput() {
         pointerStart.cameraX - (event.clientX - pointerStart.clientX) / editor.zoom;
       editor.cameraY =
         pointerStart.cameraY - (event.clientY - pointerStart.clientY) / editor.zoom;
+      clampCamera();
       renderView();
       return;
     }
@@ -774,10 +841,32 @@ export function bindInput() {
     }
   });
 
-  canvas.addEventListener("pointerup", endPointer);
+  /**
+   * A pointer lifted or lost. Lifting one of two pinching fingers ends the
+   * pinch; the other finger does nothing more until it lifts too.
+   * @returns whether the primary pointer's press is over
+   */
+  function releasePointer(event) {
+    pointers.delete(event.pointerId);
+    if (pinch) {
+      pinch = null;
+      pinchEnded = pointers.size > 0;
+      return false;
+    }
+    if (pinchEnded) {
+      pinchEnded = pointers.size > 0;
+      return false;
+    }
+    return event.isPrimary !== false;
+  }
+
+  canvas.addEventListener("pointerup", (event) => {
+    if (releasePointer(event)) endPointer();
+  });
 
   // A cancelled gesture discards a half-drawn shape instead of applying it.
-  canvas.addEventListener("pointercancel", () => {
+  canvas.addEventListener("pointercancel", (event) => {
+    if (!releasePointer(event)) return;
     if (!cancelPendingShape()) endPointer();
   });
 
@@ -847,7 +936,8 @@ export function bindInput() {
       }
       return;
     }
-    if ((event.metaKey || event.ctrlKey) && event.code === "KeyZ") {
+    // Undo and redo in a text field belong to the field.
+    if ((event.metaKey || event.ctrlKey) && event.code === "KeyZ" && !typingInField()) {
       event.preventDefault();
       event.shiftKey ? redo() : undo();
       return;
@@ -860,7 +950,7 @@ export function bindInput() {
       else refuseReadOnly();
       return;
     }
-    if ((event.metaKey || event.ctrlKey) && event.code === "KeyY") {
+    if ((event.metaKey || event.ctrlKey) && event.code === "KeyY" && !typingInField()) {
       event.preventDefault();
       redo();
       return;
@@ -953,7 +1043,9 @@ export function bindInput() {
       return;
     }
     if (event.key === "Home") {
-      focusOnStart();
+      // Shift fits the whole trail in the view; plain Home goes back to the start.
+      if (event.shiftKey) fitTrail();
+      else focusOnStart();
       render();
       return;
     }

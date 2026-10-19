@@ -18,6 +18,7 @@ import { DEFAULT_HOUR, HOURS, normalizeHour } from "./time-of-day.js";
 import {
   normalizeBlocks as normalizeTerrainBlocks,
   validateBlocks as validateTerrainBlocks,
+  pointInRegion,
   regionBounds,
 } from "./terrain-geometry.js";
 /** Blocks for a brand new trail: one rectangular slab to build on. */
@@ -193,6 +194,15 @@ export function normalizeSpike(spike, groundY = null) {
 }
 
 export const AUTHOR_MAX_LENGTH = 40;
+// The name is shown in the trail list and the label on the loading card, so
+// neither can run on for ever; the description is the trail's blurb.
+export const NAME_MAX_LENGTH = 60;
+export const LABEL_MAX_LENGTH = 80;
+export const DESCRIPTION_MAX_LENGTH = 2000;
+// Past these the editor and the game slow down, so the author is warned.
+export const PROP_WARNING_COUNT = 300;
+export const APPLE_WARNING_COUNT = 200;
+export const SPIKE_WARNING_COUNT = 200;
 
 /**
  * A prop's rotation in degrees, clockwise: wrapped to (-180, 180] and rounded
@@ -224,17 +234,19 @@ const optionalY = (y) =>
 export function normalizeTrail(input, index = 0) {
   const fallback = createBlankTrail(index);
   const trail = { ...fallback, ...cloneTrail(input || {}) };
-  trail.name = String(trail.name || fallback.name);
+  trail.name = String(trail.name || fallback.name).slice(0, NAME_MAX_LENGTH);
   trail.label = String(
     trail.label ||
       `${trail.name.toUpperCase()} / ${String(index + 1).padStart(2, "0")}`,
-  );
+  ).slice(0, LABEL_MAX_LENGTH);
   // Credits are optional; an empty author is not stored.
   const author = normalizeAuthor(trail.author);
   if (author) trail.author = author;
   else delete trail.author;
   trail.description =
-    typeof trail.description === "string" ? trail.description : "";
+    typeof trail.description === "string"
+      ? trail.description.slice(0, DESCRIPTION_MAX_LENGTH)
+      : "";
   // The finish is a point, like the start. A null y means it stands on the
   // surface below, which is what a plain ground finish wants; a number pins it
   // in the air.
@@ -253,10 +265,12 @@ export function normalizeTrail(input, index = 0) {
     y: optionalY(start.y),
     facing: Number(start.facing) < 0 ? -1 : 1,
   };
+  // An apple without a height, or with one that isn't a number, hangs over
+  // the ground, like a prop.
   trail.apples = Array.isArray(trail.apples)
     ? trail.apples.map((apple) => ({
-        x: Number(apple.x) || 0,
-        y: apple.y === null ? null : Number(apple.y),
+        x: Number(apple?.x) || 0,
+        y: optionalY(apple?.y),
       }))
     : [];
   // The optional hidden nisse: at most one, where its feet stand. A trail
@@ -351,6 +365,29 @@ function startTouchesFinish(trail) {
   return bikeTouchesFlower(finishFlower(trail), { rear, front, probes });
 }
 
+/**
+ * Is a point buried in solid terrain? Checked a unit above the point as well,
+ * so something standing exactly on a surface, which the even-odd test can count
+ * as inside, is not reported.
+ */
+function insideTerrain(blocks, x, y) {
+  return blocks.some(
+    (block) => pointInRegion(block, x, y) && pointInRegion(block, x, y - 1),
+  );
+}
+
+/**
+ * The start's wheel centres: at the start's height when it has one, else each
+ * on the ground under it, as the bike is set down.
+ */
+function startWheels(trail) {
+  const { x, y } = trail.start;
+  return [x - WHEELBASE / 2, x + WHEELBASE / 2].map((wheelX) => ({
+    x: wheelX,
+    y: Number.isFinite(y) ? y : terrainAt(trail, wheelX, null).y - RADIUS,
+  }));
+}
+
 export function validateTrail(trail) {
   const messages = [];
   // A target names the item a message is about, as the editor's selection
@@ -438,10 +475,48 @@ export function validateTrail(trail) {
       `The start (y ${Math.round(trail.start.y)}) is below all the terrain, so the bike is lost at once. Move it onto the trail.`,
       { type: "start" },
     );
+  else if (compiled && startWheels(trail).some((wheel) => insideTerrain(blocks, wheel.x, wheel.y)))
+    error(
+      "The bike starts inside solid terrain. Move the start onto open ground, or lift it.",
+      { type: "start" },
+    );
   if (compiled && Number.isFinite(trail.finish.y) && trail.finish.y >= fallLine(trail))
     error(
       `The finish (y ${Math.round(trail.finish.y)}) is below all the terrain, so it can never be reached. Move it onto the trail.`,
       { type: "finish" },
+    );
+  else if (
+    compiled &&
+    Number.isFinite(trail.finish.y) &&
+    insideTerrain(blocks, trail.finish.x, trail.finish.y - FINISH_FLOWER_LIFT)
+  )
+    error(
+      "The finish flower is inside solid terrain, so it can never be reached. Move it into the open.",
+      { type: "finish" },
+    );
+  for (const [index, apple] of (trail.apples || []).entries()) {
+    const target = { type: "apple", index };
+    if (!Number.isFinite(apple?.x)) {
+      error(`Apple ${index + 1} must have a finite x.`, target);
+      continue;
+    }
+    if (compiled && Number.isFinite(apple.y) && insideTerrain(blocks, apple.x, apple.y))
+      error(
+        `Apple ${index + 1} (x ${Math.round(apple.x)}) is inside solid terrain, so it can never be picked.`,
+        target,
+      );
+  }
+  if ((trail.props || []).length > PROP_WARNING_COUNT)
+    warning(
+      `The trail has ${trail.props.length} props; more than ${PROP_WARNING_COUNT} may be slow to draw on older devices.`,
+    );
+  if ((trail.apples || []).length > APPLE_WARNING_COUNT)
+    warning(
+      `The trail has ${trail.apples.length} apples; more than ${APPLE_WARNING_COUNT} may be slow on older devices.`,
+    );
+  if ((trail.spikes || []).length > SPIKE_WARNING_COUNT)
+    warning(
+      `The trail has ${trail.spikes.length} spikes; more than ${SPIKE_WARNING_COUNT} may be slow on older devices.`,
     );
   for (const [index, prop] of (trail.props || []).entries()) {
     const target = { type: "prop", index };

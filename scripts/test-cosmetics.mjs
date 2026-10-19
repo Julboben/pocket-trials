@@ -293,10 +293,12 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
   const [old, broken, newer] = storage.loadSaveSlots(9);
   assert.deepEqual(old.look, legacyLook('female'), 'old saves get their rider as a look');
   assert.equal(old.rider, 'female');
-  assert.equal(broken, null, 'saves with neither a look nor a rider are dropped');
+  assert.equal(broken?.name, 'BROKEN', 'a save with neither a look nor a rider is repaired, not dropped');
+  assert.deepEqual(broken.look, legacyLook('male'), 'and rides in the default look');
   assert.deepEqual(newer.look, { ...DEFAULT_LOOK, skin: 'deep', helmet: 'none' });
 
   const look = { ...starterLook('male', 'fair'), hair: 'buzz', hairColor: 'red', helmet: 'none', bike: 'classic', bikeColor: 'blue' };
+  storage.deleteSave(1, 9);
   const created = storage.createSave(1, look, 9, 'NEWBIE');
   assert.deepEqual(created.look, { ...look, bike: STARTER_LOOKS.male.bike }, 'a new rider has won nothing yet');
   assert.equal(created.rider, 'male');

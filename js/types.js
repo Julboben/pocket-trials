@@ -131,6 +131,7 @@
  * @property {boolean} started whether the timer has started (on first input)
  * @property {number} time simulated seconds since spawn
  * @property {number} elapsed timer seconds
+ * @property {number} elapsedSteps steps the timer has run, which `elapsed` is made from
  * @property {number} collected
  * @property {number} facing
  * @property {number} throttle

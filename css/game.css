@@ -176,8 +176,8 @@ select:focus-visible {
     color: var(--color-text);
     box-shadow: var(--shadow-pixel);
     &:hover:not(:disabled) {
-        background: #293132;
-        border-color: #465152;
+        background: var(--color-icon-button-hover);
+        border-color: var(--color-icon-button-hover-border);
     }
     &:disabled {
         opacity: 0.3;
@@ -233,11 +233,11 @@ canvas {
     display: flex;
     align-items: center;
     gap: 7px;
-    border: 1px solid #ffffff24;
+    border: 1px solid var(--color-hud-border);
     border-radius: 9px;
-    background: #17201edb;
+    background: var(--color-hud);
     color: var(--color-text);
-    box-shadow: 0 4px 16px #16221c30;
+    box-shadow: var(--shadow-hud);
     font-size: var(--text-lg);
     font-weight: var(--weight-heavy);
     font-variant-numeric: tabular-nums;
@@ -247,7 +247,7 @@ canvas {
     }
 }
 .timer-icon {
-    color: #d8ebcb;
+    color: var(--color-hud-icon);
 }
 /* A quieter slot after the clock for the next medal in reach or the split
    against the ghost. The timer is the last pill, so it can grow and shrink
@@ -258,7 +258,7 @@ canvas {
     align-items: center;
     margin-left: 3px;
     padding-left: 10px;
-    border-left: 1px solid #ffffff1a;
+    border-left: 1px solid var(--color-hud-divider);
     font-size: var(--text-sm);
     letter-spacing: 0.5px;
 }
@@ -266,7 +266,7 @@ canvas {
     display: flex;
     align-items: center;
     gap: 5px;
-    color: #f4f2e9a6;
+    color: var(--color-hud-text-soft);
     &::before {
         content: "";
         width: 7px;
@@ -323,7 +323,7 @@ canvas {
     display: flex;
     align-items: flex-end;
     gap: 9px;
-    color: #f7f0dc;
+    color: var(--color-scene-text);
     font-size: var(--font-display-step);
     line-height: 0.75;
     text-shadow: var(--shadow-text-scene);
@@ -366,10 +366,10 @@ canvas {
     & .icon-button {
         width: 32px;
         height: 32px;
-        background: #182321d9;
+        background: var(--color-hud-button);
         @media (max-width: 760px) {
-            border-color: #ffffff52;
-            background: #101b1aee;
+            border-color: var(--color-hud-button-border-phone);
+            background: var(--color-hud-button-phone);
         }
     }
     @media (max-width: 760px) {
@@ -385,8 +385,8 @@ canvas {
     left: 8px;
     padding: 3px 6px;
     border-radius: var(--radius-pixel);
-    background: #101b1acc;
-    color: #b8f5c8;
+    background: var(--color-debug);
+    color: var(--color-debug-text);
     font: var(--text-lg)/1.2 var(--font-ui);
     pointer-events: none;
 }
@@ -398,8 +398,8 @@ canvas {
     margin: 0;
     padding: 4px 6px;
     border-radius: var(--radius-pixel);
-    background: #101b1acc;
-    color: #b8f5c8;
+    background: var(--color-debug);
+    color: var(--color-debug-text);
     font: var(--text-xl)/1.3 var(--font-ui);
     white-space: pre;
     pointer-events: none;
@@ -430,9 +430,9 @@ canvas {
 .toast {
     max-width: 100%;
     padding: 8px 12px;
-    border: 1px solid #fff4;
+    border: 1px solid var(--color-toast-border);
     border-radius: 7px;
-    background: #17201eee;
+    background: var(--color-toast);
     color: var(--color-text);
     font-size: var(--text-md);
     font-weight: var(--weight-heavy);
@@ -467,7 +467,7 @@ canvas {
     overflow: visible;
     border: 1px solid var(--color-gold);
     border-radius: var(--radius-pixel);
-    background: #17201ef2;
+    background: var(--color-toast);
     box-shadow: var(--shadow-pixel);
     color: var(--color-text);
     text-align: left;
@@ -580,7 +580,7 @@ canvas {
     }
 }
 .overlay {
-    background: #09100dc2;
+    background: var(--color-dim);
 }
 .pause-overlay {
     position: absolute;
@@ -591,7 +591,7 @@ canvas {
     gap: 10px;
     align-items: center;
     justify-content: center;
-    background: #09100d99;
+    background: var(--color-dim-soft);
     color: var(--color-text);
     text-shadow: 3px 3px 0 var(--color-shadow);
     user-select: none;
@@ -612,7 +612,7 @@ canvas {
     margin: auto;
     width: min(360px, 100%);
     padding: 26px;
-    border: 1px solid #4b5553;
+    border: 1px solid var(--color-modal-border);
     border-radius: 18px;
     background: var(--color-modal);
     color: var(--color-text);
@@ -744,15 +744,15 @@ h2 {
     }
     & [data-medal="gold"] {
         background: var(--color-medal-gold);
-        color: #3d2c07;
+        color: var(--color-medal-gold-ink);
     }
     & [data-medal="silver"] {
         background: var(--color-medal-silver);
-        color: #27322f;
+        color: var(--color-medal-silver-ink);
     }
     & [data-medal="bronze"] {
         background: var(--color-medal-bronze);
-        color: #2f1a0c;
+        color: var(--color-medal-bronze-ink);
     }
 }
 .modal .results-rank {
@@ -853,7 +853,7 @@ h2 {
         color: var(--color-medal-silver);
     }
     &[data-medal="bronze"] {
-        color: #d9955f;
+        color: var(--color-medal-bronze);
     }
 }
 
@@ -1315,7 +1315,7 @@ h2 {
     }
     &.lights[aria-pressed="false"],
     &.sound[aria-pressed="false"] {
-        color: #8b9695;
+        color: var(--color-text-faint);
     }
     &.lights[aria-pressed="false"] .symbol {
         --icon: var(--icon-headlight-off);
@@ -1430,7 +1430,7 @@ h2 {
     }
     &::after {
         background: var(--face);
-        box-shadow: inset -3px -3px 0 #0000002e;
+        box-shadow: inset -3px -3px 0 var(--color-shade);
     }
     & .caption {
         position: absolute;
@@ -1479,7 +1479,7 @@ h2 {
         transform: translate(1px, 1px);
     }
     &::after {
-        box-shadow: inset 3px 3px 0 #0000002e;
+        box-shadow: inset 3px 3px 0 var(--color-shade);
     }
 }
 
@@ -1642,7 +1642,7 @@ h2 {
     border: 1px solid var(--color-border);
     border-bottom: 0;
     border-radius: var(--radius-pixel) var(--radius-pixel) 0 0;
-    background: #15232899;
+    background: var(--color-panel);
     color: var(--color-text-muted);
     font-size: var(--text-md);
     font-weight: var(--weight-heavy);
@@ -1715,7 +1715,7 @@ h2 {
     gap: 3px;
     padding: 3px;
     border-radius: 10px;
-    background: #101516;
+    background: var(--color-option-track);
 }
 .setting-option {
     min-height: 39px;
@@ -1754,6 +1754,41 @@ h2 {
     }
     @media (max-width: 760px) {
         position: fixed;
+    }
+}
+/* "Update ready · Reload" on the dashboard, once a new release has installed. */
+.update-toast {
+    position: absolute;
+    z-index: 3;
+    left: 50%;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 8px 8px 14px;
+    border: 1px solid var(--color-toast-border);
+    border-radius: var(--radius-pixel);
+    background: var(--color-toast);
+    box-shadow: var(--shadow-pixel);
+    color: var(--color-text);
+    font-size: var(--text-md);
+    font-weight: var(--weight-heavy);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+.update-reload {
+    padding: 6px 12px;
+    border: 1px solid var(--color-accent);
+    border-radius: var(--radius-pixel);
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-heavy);
+    letter-spacing: 1px;
+    cursor: pointer;
+    &:hover {
+        background: var(--color-accent-hover);
     }
 }
 .menu-scroll {
@@ -1882,7 +1917,7 @@ h2 {
     align-items: center;
     gap: 14px;
     padding: 11px 14px 11px 11px;
-    border-color: #587268;
+    border-color: var(--color-green-border-dim);
     background: var(--color-green-surface);
     color: var(--color-text);
     text-align: left;
@@ -1994,20 +2029,32 @@ h2 {
     height: 34px;
     padding: 0 6px;
     transform: translateY(-50%);
-    border: 1px solid #704b47;
-    background: #342a2a;
-    color: #dc8a79;
+    border: 1px solid var(--color-danger-border);
+    background: var(--color-danger-surface);
+    color: var(--color-danger-text);
     font-size: var(--text-3xl);
     font-weight: var(--weight-heavy);
     &:hover,
     &.armed {
-        border-color: #ef815f;
-        background: #60362f;
-        color: #fff0e8;
+        border-color: var(--color-danger);
+        background: var(--color-danger-surface-hover);
+        color: var(--color-text);
     }
     &.armed {
         font-size: var(--text-xs);
         letter-spacing: 0.4px;
+    }
+}
+/* Removes an online rider from the server too; styled like Log in / Go online, in the danger colours. */
+.delete-online {
+    border-color: var(--color-danger-border);
+    background: var(--color-danger-surface);
+    color: var(--color-danger-text);
+    &:hover,
+    &.armed {
+        border-color: var(--color-danger);
+        background: var(--color-danger-surface-hover);
+        color: var(--color-text);
     }
 }
 .load-game-help {
@@ -2030,11 +2077,19 @@ h2 {
         color: var(--color-gender-female);
     }
 }
-/* The Garage's title: the rider's name, then their gender. */
+/* The Garage's title: the rider's name, then their gender. A long name is
+   cut short so the gender symbol and the Back button keep their places. */
 #garage-rider {
+    min-width: 0;
     display: flex;
     align-items: center;
     gap: 8px;
+    & .garage-rider-name {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
     & .save-gender {
         --px: 2px;
     }
@@ -2062,7 +2117,7 @@ h2 {
     width: 96px;
     height: 67px;
     overflow: hidden;
-    border: 1px solid #52645e;
+    border: 1px solid var(--color-preview-border);
     background: var(--color-paper);
     @media (max-width: 520px) {
         width: 82px;
@@ -2086,7 +2141,7 @@ h2 {
     height: 46px;
     display: grid;
     place-items: center;
-    border: 3px solid #ffffff4a;
+    border: 3px solid var(--color-avatar-border);
     border-radius: var(--radius-round);
     background: var(--color-male-bg);
     color: var(--color-male);
@@ -2229,13 +2284,13 @@ h2 {
    want riders to build trails. It needs a mouse, so touch-only phones and
    tablets don't show it. After the hover rule above, so it keeps its green. */
 .menu-action.menu-editor {
-    border-color: #4f7a63;
-    background: #1f3a33;
+    border-color: var(--color-green-row-border);
+    background: var(--color-green-row);
     & span {
         color: var(--color-green);
     }
     &:hover {
-        background: #29493f;
+        background: var(--color-green-row-hover);
     }
     @media (hover: none) and (pointer: coarse) {
         display: none;
@@ -2247,6 +2302,10 @@ h2 {
     justify-content: space-between;
     gap: 16px;
     margin-bottom: 15px;
+    /* So a title can shrink and cut its text instead of pushing Back out. */
+    & > div {
+        min-width: 0;
+    }
     & h3 {
         margin: 5px 0 0;
         font-size: calc(var(--font-display-step) * 2);
@@ -2544,7 +2603,7 @@ h2 {
     color: var(--color-green);
 }
 .podium-3 .leaderboard-rank {
-    color: #d8b98a;
+    color: var(--color-medal-bronze);
 }
 .podium-1 {
     background: var(--color-surface-raised);
@@ -2581,16 +2640,27 @@ h2 {
     font-size: var(--text-xs);
     font-weight: var(--weight-heavy);
     letter-spacing: 1.2px;
-    opacity: 0.6;
 }
-.leaderboard-help {
+.leaderboard-help,
+.leaderboard-offline {
     margin: 13px 0 0;
+}
+.leaderboard-offline {
+    color: var(--color-warning-text);
+}
+/* The YOU tag after the rider's name, kept whole while a long name is cut short. */
+.leaderboard-you {
+    flex: none;
+    color: var(--color-accent);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-heavy);
+    letter-spacing: 1px;
 }
 .save-warning {
     margin: 0 0 16px;
     padding: 12px;
     border-left: 3px solid var(--color-accent);
-    background: #1f2d30;
+    background: var(--color-note);
     color: var(--color-text-muted);
     font-size: var(--text-md);
     line-height: 1.6;
@@ -2710,7 +2780,7 @@ h2 {
 .look-section {
     padding: 10px;
     border: 1px solid var(--color-border);
-    background: #15232899;
+    background: var(--color-panel);
     box-shadow: var(--shadow-pixel);
 }
 .look-section {
@@ -2787,7 +2857,7 @@ h2 {
 .look-chip[aria-checked="true"],
 .look-gender[aria-checked="true"] {
     border-color: var(--color-accent);
-    background: #3a3b36;
+    background: var(--color-option-checked);
     outline: 2px solid var(--color-accent);
     outline-offset: -4px;
 }
@@ -2848,7 +2918,7 @@ h2 {
     width: 100%;
     height: 100%;
     background: linear-gradient(90deg, var(--chip-a) 50%, var(--chip-b) 50%);
-    box-shadow: inset 0 0 0 1px #0003;
+    box-shadow: inset 0 0 0 1px var(--color-shade);
 }
 .look-colors.disabled .look-chips {
     opacity: 0.35;
@@ -2876,7 +2946,7 @@ h2 {
 /* Asks before leaving the Garage with an unsaved look; laid out with
    .overlay above. */
 .menu-confirm {
-    background: #0d1b20b3;
+    background: var(--color-dim-menu);
     & .modal-badge {
         color: var(--color-accent);
     }
@@ -3122,7 +3192,7 @@ h2 {
     font-weight: var(--weight-heavy);
     letter-spacing: 1.2px;
     &[data-type="heads-up"] {
-        color: #ffd166;
+        color: var(--color-heads-up);
         & + span {
             font-weight: var(--weight-heavy);
         }
@@ -3131,7 +3201,7 @@ h2 {
         color: var(--color-green);
     }
     &[data-type="improved"] {
-        color: #9cc7e0;
+        color: var(--color-improved);
     }
     &[data-type="fixed"] {
         color: var(--color-accent);
@@ -3202,7 +3272,7 @@ h2 {
 }
 kbd {
     padding: 1px 4px;
-    border: 1px solid #607074;
+    border: 1px solid var(--color-kbd-border);
     background: var(--color-shell);
     color: var(--color-text);
     font: inherit;
@@ -3289,6 +3359,11 @@ kbd {
     color: var(--color-text-muted);
     font-size: var(--text-sm);
     line-height: 1.5;
+    /* A live region stays in the page so screen readers hear its text; it
+       only takes up room while it has some. */
+    &:empty {
+        display: none;
+    }
     &.error {
         color: var(--color-danger-text);
     }
@@ -3361,14 +3436,23 @@ html[data-sandbox] body::after {
 
 /* Phones are played upright, with the touch controls under the trail. Turned
    sideways, the game hides behind this until the phone is turned back; the
-   game pauses a ride meanwhile. Short screens only, so a tablet can lie flat. */
+   game pauses a ride meanwhile. Short screens only, so a tablet can lie flat
+   (which is why manifest.webmanifest leaves the orientation free). The media
+   query shows it on its own; overlay.js also opens it as a modal dialog, so
+   it sits on the top layer above the results and any popover. */
 .turn-upright {
     position: fixed;
     z-index: 1001;
     inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
     padding: 24px;
     display: none;
     flex-direction: column;
+    border: 0;
     align-items: center;
     justify-content: center;
     gap: 12px;
@@ -3383,6 +3467,12 @@ html[data-sandbox] body::after {
         max-width: 36ch;
         color: var(--color-text-muted);
         font-size: var(--text-sm);
+    }
+    &[open] {
+        display: flex;
+    }
+    &::backdrop {
+        background: transparent;
     }
     @media (orientation: landscape) and (pointer: coarse) and (max-height: 500px) {
         display: flex;

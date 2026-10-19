@@ -35,10 +35,23 @@ async function loadTrailEntries() {
 function showLoadError(error) {
   const message = document.createElement('div');
   message.setAttribute('role', 'alert');
-  message.style.cssText = 'position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:24px;'
+  message.style.cssText = 'position:fixed;inset:0;z-index:1000;display:grid;place-items:center;align-content:center;gap:16px;padding:24px;'
     + 'background:#0f1a1c;color:#f6f3e8;font:600 14px/1.6 ui-monospace,monospace;text-align:center;';
-  message.textContent = `Could not load the trails: ${error.message}. Start the game with "npm run dev" so the trail files can be fetched.`;
+  // Developers opening index.html from disk get the cause; players get what to do.
+  const local = ['localhost', '127.0.0.1', '[::1]', ''].includes(window.location.hostname);
+  const text = document.createElement('p');
+  text.style.margin = '0';
+  text.textContent = local
+    ? `Could not load the trails: ${error.message}. Start the game with "npm run dev" so the trail files can be fetched.`
+    : 'Couldn’t load the trails — check your connection and reload.';
+  const retry = document.createElement('button');
+  retry.type = 'button';
+  retry.textContent = 'Retry';
+  retry.style.cssText = 'padding:10px 22px;border:1px solid #f6f3e8;border-radius:2px;background:#ff8952;color:#241710;font:inherit;cursor:pointer;';
+  retry.addEventListener('click', () => window.location.reload());
+  message.append(text, retry);
   document.body.append(message);
+  retry.focus();
 }
 
 let loadedEntries;

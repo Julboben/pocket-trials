@@ -508,11 +508,52 @@ export function deleteItems(items) {
     editor.trail.terrainBlocks = blocks().filter((_, index) => !removed.has(index));
 }
 
+/**
+ * The blocks deleting these items would remove: the blocks themselves, and
+ * any whose outer ring would be left with fewer than three points (see
+ * deleteItems, which drops such a block).
+ */
+function blocksRemovedBy(items) {
+  const removed = new Set(items.filter((item) => item.type === "block").map((item) => item.index));
+  const outerPoints = new Map();
+  for (const point of items) {
+    if (point.type !== "point" || point.boundaryIndex !== 0) continue;
+    outerPoints.set(point.blockIndex, (outerPoints.get(point.blockIndex) ?? 0) + 1);
+  }
+  for (const [blockIndex, count] of outerPoints) {
+    const block = blocks()[blockIndex];
+    if (block && block.outer.nodes.length - count < 3) removed.add(blockIndex);
+  }
+  return [...removed];
+}
+
+/**
+ * Would removing these blocks leave the trail without any terrain? A trail
+ * needs at least one block to ride on, so the last one can't be deleted.
+ */
+function removesLastTerrain(indices) {
+  const removed = new Set(indices);
+  const terrain = blocks().filter((block) => !isBackWall(block));
+  if (!terrain.length) return false;
+  return blocks().every((block, index) => isBackWall(block) || removed.has(index));
+}
+
+function refuseLastTerrain() {
+  showStatus(
+    "warning",
+    "A trail needs at least one terrain block, so the last one can't be deleted. Draw another block first.",
+  );
+}
+
 export function deleteSelection() {
   if (!editor.selection || ["finish", "start"].includes(editor.selection.kind)) return;
   if (refuseEdit()) return;
   const kind = editor.selection.kind;
   if (kind === "items") {
+    if (removesLastTerrain(blocksRemovedBy(editor.selection.items))) {
+      refuseLastTerrain();
+      return;
+    }
     pushHistory();
     deleteItems(editor.selection.items);
     editor.selection = null;
@@ -555,8 +596,12 @@ export function deleteSelection() {
     // the block.
     const block = blocks()[editor.selection.blockIndex];
     if (!block || !boundaryAt(editor.selection)) return;
-    pushHistory();
     const next = withBoundary(block, editor.selection.boundaryIndex, null);
+    if (!next && removesLastTerrain([editor.selection.blockIndex])) {
+      refuseLastTerrain();
+      return;
+    }
+    pushHistory();
     if (next) {
       replaceBlock(editor.selection.blockIndex, next);
       editor.selection = { kind: "block", blockIndex: editor.selection.blockIndex };
@@ -567,6 +612,10 @@ export function deleteSelection() {
       editor.selection = null;
     }
   } else if (kind === "block") {
+    if (removesLastTerrain(selectedBlocks())) {
+      refuseLastTerrain();
+      return;
+    }
     pushHistory();
     const removed = new Set(selectedBlocks());
     editor.trail.terrainBlocks = blocks().filter((_, index) => !removed.has(index));

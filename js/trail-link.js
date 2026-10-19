@@ -12,8 +12,9 @@ const HASH_KEY = 'trail';
 const FORMAT = '1';
 // A Discord message holds 2000 characters; leave room for a few words.
 export const DISCORD_LINK_LENGTH = 1900;
-// Inflating stops past this, so a crafted link can't exhaust memory.
-const MAX_JSON_BYTES = 1 << 20;
+// Inflating stops past this, so a crafted link can't exhaust memory, and
+// packing refuses a trail whose JSON is bigger, as its link could never open.
+export const MAX_JSON_BYTES = 1 << 20;
 
 /** @param {Uint8Array} bytes */
 function toBase64Url(bytes) {
@@ -56,7 +57,9 @@ async function inflate(bytes) {
 
 /** The packed trail for a link's hash, `1.<data>`. */
 export async function encodeTrailLink(trail) {
-  const bytes = await deflate(new TextEncoder().encode(JSON.stringify(trail)));
+  const json = new TextEncoder().encode(JSON.stringify(trail));
+  if (json.length > MAX_JSON_BYTES) throw new Error('the trail is too big for a link');
+  const bytes = await deflate(json);
   return `${FORMAT}.${toBase64Url(bytes)}`;
 }
 

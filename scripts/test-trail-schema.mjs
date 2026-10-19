@@ -3,8 +3,10 @@ import { FALL_MARGIN, fallLine, terrainAt } from '../js/terrain.js';
 import { rectangle } from './lib/terrain-fixtures.mjs';
 import {
   SPIKE_RADIUS, createBlankTrail, normalizeTrail, normalizeSpike, validateTrail, medalFor, normalizeMedals,
-  trailTerrainBlocks, trailBackWalls, AUTHOR_MAX_LENGTH, normalizeRotation
+  trailTerrainBlocks, trailBackWalls, AUTHOR_MAX_LENGTH, NAME_MAX_LENGTH, LABEL_MAX_LENGTH, DESCRIPTION_MAX_LENGTH,
+  PROP_WARNING_COUNT, APPLE_WARNING_COUNT, SPIKE_WARNING_COUNT, normalizeRotation
 } from '../js/trail-schema.js';
+import { RADIUS, WHEELBASE } from '../js/config.js';
 import { trailHash } from '../js/trail-hash.js';
 import { isOnlineTrail } from '../js/online-leaderboard.js';
 import { loadCatalogTrails } from './lib/trails.mjs';
@@ -58,6 +60,74 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bon
   assert.equal(trail.spikes.length, 1);
   assert.ok(Number.isFinite(trail.spikes[0].y));
   assert.equal(trail.start.facing, 1);
+}
+
+// Apples: a missing or unreadable height means "over the ground", never NaN,
+// and an apple without a finite x is an error rather than a silent 0.
+{
+  const trail = normalizeTrail({ ...createBlankTrail(), apples: [{ x: 300 }, { x: 400, y: 'high' }, { x: 500, y: null }, { x: 600, y: '120' }] });
+  assert.deepEqual(trail.apples.map(apple => apple.y), [null, null, null, 120]);
+  assert.deepEqual(errors(trail), []);
+  assert.ok(errors({ ...trail, apples: [{ x: Number.NaN, y: null }] }).some(text => text.includes('Apple 1 must have a finite x')));
+}
+
+// Things buried in solid terrain are errors: the start's wheels, an apple with
+// a height of its own, and the finish flower. On the surface they are fine.
+{
+  const blank = normalizeTrail(createBlankTrail());
+  const groundAt = x => terrainAt(blank, x, null).y;
+  assert.deepEqual(errors(blank), []);
+  const buried = x => normalizeTrail({ ...blank, start: { x, y: groundAt(x) + 40, facing: 1 } });
+  assert.ok(errors(buried(300)).some(text => text.includes('starts inside solid terrain')));
+  // One wheel under the ground is enough: here only the rear wheel is in the slab.
+  const edge = normalizeTrail({ ...blank, start: { x: 1400 + WHEELBASE / 2 - 2, y: groundAt(1398) + 40, facing: 1 } });
+  assert.ok(errors(edge).some(text => text.includes('starts inside solid terrain')), 'a rear wheel in the ground is reported');
+  const resting = normalizeTrail({ ...blank, start: { x: 300, y: groundAt(300) - RADIUS, facing: 1 } });
+  assert.ok(!errors(resting).some(text => text.includes('inside solid terrain')), 'wheels on the ground are fine');
+  const hovering = normalizeTrail({ ...blank, start: { x: 300, y: groundAt(300) - 120, facing: 1 } });
+  assert.ok(!errors(hovering).some(text => text.includes('inside solid terrain')), 'a start in the air is fine');
+
+  const apples = normalizeTrail({ ...blank, apples: [{ x: 300, y: groundAt(300) + 30 }, { x: 500, y: groundAt(500) }, { x: 700, y: groundAt(700) - 60 }] });
+  const appleErrors = errors(apples).filter(text => text.includes('inside solid terrain'));
+  assert.equal(appleErrors.length, 1);
+  assert.ok(appleErrors[0].startsWith('Apple 1'), 'only the buried apple is reported; one on the surface is not');
+  assert.ok(validateTrail(apples).some(message => message.target?.type === 'apple' && message.target.index === 0));
+
+  const finish = normalizeTrail({ ...blank, finish: { x: 1200, y: groundAt(1200) + 60 } });
+  assert.ok(errors(finish).some(text => text.includes('finish flower is inside solid terrain')));
+  const flag = normalizeTrail({ ...blank, finish: { x: 1200, y: groundAt(1200) } });
+  assert.ok(!errors(flag).some(text => text.includes('inside solid terrain')), 'a finish standing on the ground is fine');
+  // A buried start is one error, not an inside error on top of a below-the-terrain one.
+  const sunk = normalizeTrail({ ...blank, start: { x: 300, y: 9000, facing: 1 } });
+  assert.ok(!errors(sunk).some(text => text.includes('starts inside solid terrain')));
+}
+
+// Text is capped: a name, label or description can't run on for ever.
+{
+  const blank = normalizeTrail(createBlankTrail());
+  const long = normalizeTrail({ ...blank, name: 'n'.repeat(500), label: 'l'.repeat(500), description: 'd'.repeat(5000) });
+  assert.equal(long.name.length, NAME_MAX_LENGTH);
+  assert.equal(long.label.length, LABEL_MAX_LENGTH);
+  assert.equal(long.description.length, DESCRIPTION_MAX_LENGTH);
+  assert.deepEqual(normalizeTrail(long), long, 'capped text normalizes idempotently');
+  assert.ok(normalizeTrail({ ...blank, name: 'n'.repeat(70), label: '' }).label.length <= LABEL_MAX_LENGTH, 'a label made from a long name fits');
+}
+
+// Very many objects are a warning, not an error.
+{
+  const blank = normalizeTrail(createBlankTrail());
+  const warnings = trail => validateTrail(trail).filter(message => message.type === 'warning').map(message => message.text);
+  const many = normalizeTrail({
+    ...blank,
+    props: Array.from({ length: PROP_WARNING_COUNT + 1 }, (_, i) => ({ x: 10 + i, y: null, type: 'rock' })),
+    apples: Array.from({ length: APPLE_WARNING_COUNT + 1 }, (_, i) => ({ x: 10 + i, y: null })),
+    spikes: Array.from({ length: SPIKE_WARNING_COUNT + 1 }, (_, i) => ({ x: 10 + i, y: 100, radius: 10 })),
+  });
+  assert.ok(warnings(many).some(text => text.includes(`${PROP_WARNING_COUNT + 1} props`)));
+  assert.ok(warnings(many).some(text => text.includes(`${APPLE_WARNING_COUNT + 1} apples`)));
+  assert.ok(warnings(many).some(text => text.includes(`${SPIKE_WARNING_COUNT + 1} spikes`)));
+  assert.ok(!errors(many).some(text => text.includes('may be slow')));
+  assert.ok(!warnings(blank).some(text => text.includes('may be slow')));
 }
 
 // Medals.

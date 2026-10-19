@@ -22,6 +22,7 @@ import {
   GLASS_BREAK_DRAG,
   TAU,
 } from './config.js';
+import { hypot } from './det-math.js';
 import { breakTerrainBlock, terrainGeometry } from './terrain.js';
 import { ringArea } from './terrain-geometry.js';
 import { trailTerrainBlocks } from './trail-schema.js';
@@ -77,7 +78,7 @@ export function paneSize(rings) {
     for (let point = 0; point < ring.length; point++) {
       const [ax, ay] = ring[point],
         [bx, by] = ring[(point + 1) % ring.length];
-      perimeter += Math.hypot(bx - ax, by - ay);
+      perimeter += hypot(bx - ax, by - ay);
     }
   });
   area = Math.max(area, 0);

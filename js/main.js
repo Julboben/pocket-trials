@@ -22,9 +22,25 @@ window.addEventListener('hashchange', () => {
 });
 
 // Offline play once installed. The worker serves the game's own files from
-// its cache, so a deploy shows up on the load after the one that installed it;
-// trail files, and everything on the dev server, stay network-first.
+// its cache; a new release installs in the background and takes over the page
+// (see sw.js), and the dashboard then offers a reload. Trail files, and
+// everything on the dev server, stay network-first.
 if ('serviceWorker' in navigator && window.isSecureContext) {
+  // A worker taking over a page that already had one means a new release.
+  // The first install claims the page too, but there is nothing to reload for.
+  const hadController = Boolean(navigator.serviceWorker.controller);
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return;
+    // The toast lives in the menu screen, so it only shows on the dashboard and never mid-ride.
+    const toast = document.getElementById('update-toast');
+    if (!toast) return;
+    toast.hidden = false;
+    document.getElementById('update-reload')?.addEventListener('click', () => {
+      reloading = true;
+      window.location.reload();
+    }, { once: true });
+  });
   // Checks for a new release on every load too: the browser's own check on
   // reload can't be relied on, and the game's files come from the cache.
   const register = () => navigator.serviceWorker.register('./sw.js').then(registration => registration.update()).catch(() => {});

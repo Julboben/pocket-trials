@@ -3,8 +3,11 @@
 //   POST /api/account/register          { state, response, look }    -> { token, player }
 //   POST /api/account/login-options     {}                           -> { options, state }
 //   POST /api/account/login             { state, response }          -> { token, player, save, runs }
-//   GET  /api/account/save              (Bearer token)               -> { player, save }
-//   PUT  /api/account/save              { save }  (Bearer token)     -> { ok }
+//   GET  /api/account/save              (Bearer token)               -> { player, save, token? }
+//   PUT  /api/account/save              { save }  (Bearer token)     -> { ok, save, token? }
+//   POST /api/account/delete            { state, response } (Bearer) -> { ok }   removes the rider for good
+// `token` is a fresh session token, sent when the current one is close to
+// expiring. PUT merges the save with the cloud copy and returns the result.
 import { randomBytes, randomUUID } from 'node:crypto';
 import {
   generateRegistrationOptions, verifyRegistrationResponse,
@@ -12,22 +15,26 @@ import {
 } from '@simplewebauthn/server';
 import { db } from '../lib/db.mjs';
 import {
-  HttpError, json, respond, readBody, unsign, sessionToken, challengeToken, requirePlayer, relyingParty,
+  HttpError, json, respond, readBody, unsign, sessionToken, challengeToken, requireSession, renewedToken, relyingParty,
 } from '../lib/auth.mjs';
 import { cleanName, validName, nameKey, blockedName } from '../lib/names.mjs';
 import { TRAIL_RE } from '../lib/verify-run.mjs';
 import { lookOf, legacyRider, playerLook } from '../lib/looks.mjs';
-import { cleanAchievements, cleanStats } from '../../js/achievements.js';
-import { cleanNisseFinds } from '../../js/nisse.js';
+import { rateLimit, clientAddress } from '../lib/rate-limit.mjs';
+import { cleanAchievements, cleanStats, mergeAchievements, mergeStats } from '../../js/achievements.js';
+import { cleanNisseFinds, mergeNisseFinds } from '../../js/nisse.js';
 
 const RP_NAME = 'Hjulben';
+// Passkey ceremonies per address a minute: enough for retries, not for guessing names.
+const CEREMONIES_PER_MINUTE = 20;
 
-async function registerOptions(req) {
+async function registerOptions(req, context) {
   const body = await readBody(req, 2_000);
   const name = cleanName(body.name);
   if (!validName(name)) throw new HttpError(400, 'invalid name');
   if (blockedName(name)) throw new HttpError(400, 'name not allowed');
   const sql = await db();
+  await rateLimit(sql, 'ceremony:' + clientAddress(req, context), CEREMONIES_PER_MINUTE, 60);
   // A name without a passkey (imported from the old board) is free to claim.
   const [existing] = await sql`
     select id, exists (select 1 from credentials c where c.player_id = players.id) as claimed
@@ -95,19 +102,23 @@ async function register(req) {
   return json({ token: sessionToken(playerId), player: { id: playerId, name: state.name, rider, look } });
 }
 
-async function loginOptions(req) {
+async function loginOptions(req, context) {
   const { rpID, origin } = relyingParty(req);
+  await rateLimit(await db(), 'ceremony:' + clientAddress(req, context), CEREMONIES_PER_MINUTE, 60);
   // No allowCredentials: the browser offers every passkey this site owns.
   const options = await generateAuthenticationOptions({ rpID, challenge: randomBytes(32), userVerification: 'preferred' });
   return json({ options, state: challengeToken({ type: 'login', challenge: options.challenge, rpID, origin }) });
 }
 
-async function login(req) {
-  const body = await readBody(req, 20_000);
+/**
+ * Checks a passkey assertion made for login-options' challenge, and returns
+ * the credential's row joined with its player. Used by login and, as a fresh
+ * proof that it is really the rider, by delete.
+ */
+async function verifyPasskey(sql, body) {
   const state = unsign(body.state, 'login');
   if (!state) throw new HttpError(400, 'expired, try again');
   const credentialId = String(body.response?.id ?? '');
-  const sql = await db();
   const [row] = await sql`
     select c.id, c.public_key, c.counter, c.transports, p.id as player_id, p.name, p.rider, p.look, p.save
     from credentials c join players p on p.id = c.player_id
@@ -135,6 +146,13 @@ async function login(req) {
   if (!verification.verified) throw new HttpError(400, 'passkey rejected');
 
   await sql`update credentials set counter = ${verification.authenticationInfo.newCounter}, last_used_at = now() where id = ${row.id}`;
+  return row;
+}
+
+async function login(req) {
+  const body = await readBody(req, 20_000);
+  const sql = await db();
+  const row = await verifyPasskey(sql, body);
   const runs = await sql`select trail, replay from runs where player_id = ${row.player_id} and replay is not null`;
   return json({
     token: sessionToken(row.player_id),
@@ -142,6 +160,22 @@ async function login(req) {
     save: row.save ?? null,
     runs: runs.map(run => ({ trail: run.trail, ghost: run.replay })),
   });
+}
+
+/**
+ * Removes a rider for good: their name, cloud save, passkeys and every run
+ * on the world board (the tables cascade). A session token alone isn't
+ * enough, since one could be lifted from a device: the rider proves it is
+ * them with their passkey, which must belong to the signed-in player.
+ */
+async function deleteRider(req) {
+  const session = requireSession(req);
+  const body = await readBody(req, 20_000);
+  const sql = await db();
+  const row = await verifyPasskey(sql, body);
+  if (row.player_id !== session.player) throw new HttpError(403, 'wrong passkey');
+  await sql`delete from players where id = ${session.player}`;
+  return json({ ok: true });
 }
 
 /** Keeps only the fields a savegame has, so the column can't be used as free storage. */
@@ -158,6 +192,8 @@ function sanitizeSave(save) {
   const look = lookOf(save);
   return {
     look,
+    // When the look was last changed in the Garage, so the newest one wins (see mergeSaves).
+    lookUpdatedAt: int(save.lookUpdatedAt, Number.MAX_SAFE_INTEGER),
     rider: legacyRider(look),
     createdAt: int(save.createdAt, Number.MAX_SAFE_INTEGER),
     trail: int(save.trail, 999),
@@ -170,13 +206,45 @@ function sanitizeSave(save) {
   };
 }
 
+/**
+ * A save folded into the cloud copy, the way the game merges them: best times
+ * keep the faster, progress and lifetime stats the higher, achievements and
+ * nisse finds the union. So a device that uploads a stale copy, because it
+ * played before its download finished or offline, never wipes out what
+ * another device saved. The look is whichever was changed last, and the
+ * current trail is the one sent.
+ */
+function mergeSaves(cloud, save) {
+  if (!cloud || typeof cloud !== 'object') return save;
+  const bestTimes = { ...save.bestTimes };
+  for (const [key, value] of Object.entries(cloud.bestTimes ?? {})) {
+    const time = Number(value);
+    if (TRAIL_RE.test(key) && Number.isFinite(time) && time > 0) bestTimes[key] = Math.min(time, bestTimes[key] ?? Infinity);
+  }
+  const cloudLookAt = Math.floor(Number(cloud.lookUpdatedAt)) || 0;
+  const newerLook = cloudLookAt > save.lookUpdatedAt && cloud.look && typeof cloud.look === 'object';
+  return {
+    ...save,
+    look: newerLook ? lookOf(cloud) : save.look,
+    lookUpdatedAt: newerLook ? cloudLookAt : save.lookUpdatedAt,
+    createdAt: Math.min(save.createdAt || Infinity, Number(cloud.createdAt) || Infinity) || save.createdAt,
+    unlocked: Math.max(save.unlocked, Math.floor(Number(cloud.unlocked)) || 0),
+    bestTimes,
+    achievements: mergeAchievements(save.achievements, cloud.achievements),
+    stats: mergeStats(save.stats, cloud.stats),
+    nisse: cleanNisseFinds(mergeNisseFinds(save.nisse, cloud.nisse), true),
+  };
+}
+
 async function putSave(req) {
-  const playerId = requirePlayer(req);
+  const session = requireSession(req);
+  const playerId = session.player;
   const body = await readBody(req, 32_000);
-  const save = sanitizeSave(body.save);
+  const sent = sanitizeSave(body.save);
   const sql = await db();
-  const [player] = await sql`select look, rider from players where id = ${playerId}`;
+  const [player] = await sql`select look, rider, save from players where id = ${playerId}`;
   if (!player) throw new HttpError(401, 'not signed in');
+  const save = mergeSaves(player.save, sent);
   save.look = playerLook(save, player);
   save.rider = legacyRider(save.look);
   const rows = await sql`
@@ -184,18 +252,19 @@ async function putSave(req) {
       look = ${JSON.stringify(save.look)}::jsonb, save_updated_at = now()
     where id = ${playerId} returning id`;
   if (!rows.length) throw new HttpError(401, 'not signed in');
-  return json({ ok: true });
+  return json({ ok: true, save, token: renewedToken(session) });
 }
 
 /** The cloud save and look of a signed-in rider, so another device can catch up without logging in again. */
 async function getSave(req) {
-  const playerId = requirePlayer(req);
+  const session = requireSession(req);
   const sql = await db();
-  const [row] = await sql`select id, name, rider, look, save from players where id = ${playerId}`;
+  const [row] = await sql`select id, name, rider, look, save from players where id = ${session.player}`;
   if (!row) throw new HttpError(401, 'not signed in');
   return json({
     player: { id: row.id, name: row.name, rider: row.rider, look: lookOf(row) },
     save: row.save ?? null,
+    token: renewedToken(session),
   });
 }
 
@@ -205,6 +274,7 @@ const ROUTES = {
   'login-options': { POST: loginOptions },
   'login': { POST: login },
   'save': { GET: getSave, PUT: putSave },
+  'delete': { POST: deleteRider },
 };
 
 export default (req, context) => respond(async () => {
@@ -213,7 +283,7 @@ export default (req, context) => respond(async () => {
   if (!route) throw new HttpError(404, 'not found');
   const handler = Object.hasOwn(route, req.method) ? route[req.method] : null;
   if (!handler) throw new HttpError(405, 'method not allowed');
-  return handler(req);
+  return handler(req, context);
 });
 
 export const config = { path: '/api/account/:action' };

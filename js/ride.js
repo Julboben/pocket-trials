@@ -157,8 +157,11 @@ export function createRide(trail, { seed = 1, start = trail.start, helmet = true
     random: seededRandom(seed),
     status: "running",
     started: false,
+    // The clocks are kept as step counts and turned into seconds each step,
+    // so they never drift from summing an inexact STEP.
     time: 0,
     elapsed: 0,
+    elapsedSteps: 0,
     spikeTime: 0,
     collected: 0,
     steps: 0,
@@ -418,6 +421,8 @@ function advanceRide(ride, input, hooks, events) {
   const leanInput = running ? clamp(Number(input.leanInput) || 0, -1, 1) : 0;
   const accelerating = running && Boolean(input.accelerating);
   const braking = running && Boolean(input.braking);
+  // The clock starts on any input, lean included: rocking the rider back and
+  // forth moves the bike, so a free lean would be a free head start.
   if (running && !ride.started && (accelerating || braking || leanInput)) {
     ride.started = true;
     events.push({ type: "start" });
@@ -434,9 +439,9 @@ function advanceRide(ride, input, hooks, events) {
       point.py = point.y;
     }
   ride.steps++;
-  ride.time += STEP;
-  ride.spikeTime += STEP;
-  if (running && ride.started) ride.elapsed += STEP;
+  ride.time = ride.steps * STEP;
+  ride.spikeTime = ride.time;
+  if (running && ride.started) ride.elapsed = ++ride.elapsedSteps * STEP;
 
   ride.leanControl = lerp(
     ride.leanControl,

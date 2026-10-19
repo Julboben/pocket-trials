@@ -98,7 +98,7 @@ function solveAxisOffset(constraint, along, across, target, alpha) {
     break;
   }
   let weight = 0;
-  for (let i = 0; i < 4; i++) weight += inverseMass(points[i]) * (gradients[i * 2] ** 2 + gradients[i * 2 + 1] ** 2);
+  for (let i = 0; i < 4; i++) weight += inverseMass(points[i]) * (gradients[i * 2] * gradients[i * 2] + gradients[i * 2 + 1] * gradients[i * 2 + 1]);
   if (weight + alpha <= EPSILON) return { offset, deltaLambda: 0, ax: 0, ay: 0 };
   const deltaLambda = (target - offset - alpha * constraint.lambda) / (weight + alpha);
   constraint.lambda += deltaLambda;
@@ -386,7 +386,10 @@ export function solveWheelContactVelocity(point, contact, {
   rollingResistance = 0,
   // Tangent impulse this contact already gave this step; a later pass only
   // gets what is left of the friction limit.
-  appliedImpulse = 0
+  appliedImpulse = 0,
+  // Whether the wheel's drawn rotation advances by this pass: once per step,
+  // so a second pass does not turn the wheel twice.
+  advanceSpin = true
 }) {
   let vx = (point.x - point.ox) / dt;
   let vy = (point.y - point.oy) / dt;
@@ -412,7 +415,7 @@ export function solveWheelContactVelocity(point, contact, {
     omega = (tangentialSpeed - reduction) / radius;
     setVelocity(point, vx * dt, vy * dt);
     point.angularVelocity = omega;
-    point.spin = (point.spin || 0) + omega * dt;
+    if (advanceSpin) point.spin = (point.spin || 0) + omega * dt;
     return { normalImpulse, tangentImpulse: reduction ? -reduction : 0, slip };
   }
   const load = Math.max(0, normalLoad) + normalImpulse;
@@ -452,6 +455,6 @@ export function solveWheelContactVelocity(point, contact, {
   vy += ty * tangentImpulse;
   setVelocity(point, vx * dt, vy * dt);
   point.angularVelocity = omega;
-  point.spin = (point.spin || 0) + omega * dt;
+  if (advanceSpin) point.spin = (point.spin || 0) + omega * dt;
   return { normalImpulse, tangentImpulse, slip, held, frictionLimit, brakeSpin };
 }

@@ -1,9 +1,11 @@
 // Service worker. The game's own files (CORE) are served from the cache this
 // worker filled when it installed: CACHE changes with their content, so every
 // release installs a fresh copy of all of them and a page never mixes files
-// from two releases. It takes over on the next load. Trail files and anything
+// from two releases. A new worker takes over the open pages as soon as it has
+// installed (skipWaiting + claim); main.js then offers a reload, so a running
+// page keeps its own release until the player asks. Trail files and anything
 // else are network-first, and kept so the game also starts offline.
-const CACHE = 'hjulben-32f46091';
+const CACHE = 'hjulben-a82b3f14';
 const CORE = [
   './',
   './css/editor.css',
@@ -13,6 +15,10 @@ const CORE = [
   './editor.html',
   './fonts/Jersey10-Regular.woff2',
   './icons/apple-touch-icon.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon-maskable-192.png',
+  './icons/icon-maskable-512.png',
   './icons/icon-maskable.svg',
   './icons/icon.svg',
   './index.html',
@@ -144,7 +150,12 @@ self.addEventListener('install', event => {
       .filter(Boolean);
     if (failed.length) console.warn('[sw] could not precache:', failed);
     try {
-      const catalog = await (await fetch('./trails/catalog.json')).json();
+      // The catalog is kept too: without it the game can't find the trail
+      // files, so a fresh install could not start offline.
+      const response = await fetch(fresh('./trails/catalog.json'));
+      if (!response.ok) throw new Error('catalog.json ' + response.status);
+      await cache.put('./trails/catalog.json', response.clone());
+      const catalog = await response.json();
       await Promise.allSettled(
         catalog.trails.map(entry => cache.add(fresh('./trails/' + entry.file))),
       );
@@ -189,14 +200,23 @@ async function cacheFirst(event) {
   return response;
 }
 
+// How long a network-first request may wait for the network: the short wait
+// before a cached copy is used instead, and the hard limit when there is no
+// cached copy, so a stalled connection fails the request instead of hanging it.
+const SLOW_MS = 3000;
+const GIVE_UP_MS = 15000;
+
 async function networkFirst(event) {
   const cache = await caches.open(CACHE);
   try {
     // A slow network should not hold up the page, but giving up after the
-    // timeout would break a first load with nothing cached. So the cached
-    // copy is used when there is one, and otherwise the fetch keeps going.
+    // short timeout would break a first load with nothing cached. So the
+    // cached copy is used when there is one, and otherwise the fetch keeps
+    // going, up to the hard limit.
     const network = fetch(event.request);
-    const timeout = new Promise((resolve) => setTimeout(resolve, 3000, null));
+    // A fetch given up on may still fail later; that is nobody's business then.
+    network.catch(() => {});
+    const timeout = new Promise((resolve) => setTimeout(resolve, SLOW_MS, null));
     const response = await Promise.race([network, timeout]);
     if (response) {
       // waitUntil keeps the worker alive until the copy is stored.
@@ -214,7 +234,10 @@ async function networkFirst(event) {
       );
       return cached;
     }
-    const late = await network;
+    const giveUp = new Promise((_, reject) =>
+      setTimeout(reject, GIVE_UP_MS - SLOW_MS, new Error('[sw] network timeout: ' + event.request.url)),
+    );
+    const late = await Promise.race([network, giveUp]);
     if (late.ok) event.waitUntil(cache.put(event.request, late.clone()));
     return late;
   } catch (error) {

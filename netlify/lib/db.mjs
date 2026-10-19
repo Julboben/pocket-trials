@@ -47,6 +47,13 @@ begin
   -- before looks existed, whose look follows from their rider column.
   alter table players add column if not exists look jsonb;
   alter table runs add column if not exists look jsonb;
+
+  -- Fixed-window request counts (see rate-limit.mjs). Stale rows are harmless.
+  create table if not exists rate_limits (
+    key text constraint rate_limits_pkey primary key,
+    window_start timestamptz not null,
+    count integer not null
+  );
 end $$`;
 
 /** Swaps the database for tests. `fake` must work as a tagged template and have `.query(text, params)`. */

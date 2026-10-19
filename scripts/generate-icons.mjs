@@ -137,9 +137,13 @@ const maskableSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${logo
 </svg>
 `;
 
-/** RGB pixels of the logo, scaled up by whole pixels and centred on the app background. */
-function appIconPixels(size) {
-  const scale = Math.floor((size * 0.9) / logoSize);
+/**
+ * RGB pixels of the logo, scaled up by whole pixels and centred on the app
+ * background. Maskable icons are cropped to a circle of 80% of their width, so
+ * their logo takes less of the square.
+ */
+function appIconPixels(size, logoShare = 0.9) {
+  const scale = Math.floor((size * logoShare) / logoSize);
   const offset = Math.floor((size - logoSize * scale) / 2);
   const hex = colour => [1, 3, 5].map(i => parseInt(colour.slice(i, i + 2), 16));
   const background = hex(appBackground);
@@ -196,14 +200,22 @@ function pngPixels(file) {
   return inflateSync(Buffer.concat(parts));
 }
 
-const touchSize = 180;
-const touchPixels = appIconPixels(touchSize);
+// The PNG app icons: iOS's touch icon, and the sizes installers want
+// alongside the SVGs in manifest.webmanifest.
+const pngIcon = (path, size, logoShare) => {
+  const pixels = appIconPixels(size, logoShare);
+  return { path, content: png(size, pixels), pixels };
+};
 
 const outputs = [
   { path: 'css/icons.css', content: css, label: `${names.length} icons` },
   { path: 'icons/icon.svg', content: faviconSvg },
   { path: 'icons/icon-maskable.svg', content: maskableSvg },
-  { path: 'icons/apple-touch-icon.png', content: png(touchSize, touchPixels), pixels: touchPixels },
+  pngIcon('icons/apple-touch-icon.png', 180),
+  pngIcon('icons/icon-192.png', 192),
+  pngIcon('icons/icon-512.png', 512),
+  pngIcon('icons/icon-maskable-192.png', 192, 0.6),
+  pngIcon('icons/icon-maskable-512.png', 512, 0.6),
 ];
 
 let stale = false;

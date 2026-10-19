@@ -19,7 +19,7 @@ import { terrainColumnSpans } from "./terrain-runtime.js";
 // World units per texel; the field is smoothed when it is drawn.
 export const LIGHT_UNIT = 4;
 // Larger trails are baked coarser to bound the bake time and memory.
-const MAX_TEXELS = 2_500_000;
+const MAX_TEXELS = 1_000_000;
 // Room around the terrain, in world units: enough for the fades to settle.
 const MARGIN = { side: 64, above: 16, below: 160 };
 // Rock this close to air takes the air's light; deeper, the soaked sky light.
@@ -51,6 +51,22 @@ const smooth = (v) => {
   return t * t * (3 - 2 * t);
 };
 
+// Working arrays, kept between bakes so a new trail or hour doesn't allocate
+// tens of megabytes again: only the field's own arrays are made fresh. Each
+// slot is grown to the largest field seen (bounded by MAX_TEXELS) and sweeps
+// whose lifetimes don't overlap share a slot.
+const scratch = new Map();
+function scratchArray(name, Type, length, fill) {
+  let array = scratch.get(name);
+  if (!array || array.length < length || array.constructor !== Type) {
+    array = new Type(length);
+    scratch.set(name, array);
+  }
+  const view = array.length === length ? array : array.subarray(0, length);
+  view.fill(fill);
+  return view;
+}
+
 /**
  * Bakes the light field for a trail. `soak` is how far sky light reaches down
  * through rock and `reach` how far it fades in sideways through air, both in
@@ -73,17 +89,17 @@ export function bakeLightField(trail, { soak, reach, open = 0.35 }, unit = LIGHT
     unit *= 2;
   }
   const size = width * height;
-  const solid = new Uint8Array(size);
+  const solid = scratchArray("solid", Uint8Array, size, 0);
   // The terrain as it is, before gaps and pockets are filled, for shadows.
   const rock = new Uint8Array(size);
-  const dist = new Float32Array(size).fill(Infinity);
-  const tops = new Float64Array(width).fill(Infinity);
+  const dist = scratchArray("a", Float32Array, size, Infinity);
+  const tops = scratchArray("tops", Float64Array, width, Infinity);
   // Below all the terrain is treated as more rock, so the ground doesn't end
   // in a lit band when the camera looks under it.
   const floorRow = Math.max(0, Math.ceil((bounds.bottom - y) / unit - 0.5));
   // Air with no back wall behind it, open to the sky behind the scene.
   const backWalls = backWallGeometry(trail);
-  const backOpen = new Uint8Array(size);
+  const backOpen = scratchArray("backOpen", Uint8Array, size, 0);
 
   for (let c = 0; c < width; c++) {
     const surfaces = terrainSurfacesAt(trail, x + (c + 0.5) * unit);
@@ -139,15 +155,16 @@ export function bakeLightField(trail, { soak, reach, open = 0.35 }, unit = LIGHT
 
   fillSmallPockets(solid, dist, width, Math.ceil(POCKET_AREA / (unit * unit)));
 
-  const view = skyView(solid, width, height);
-  const bounce = new Float32Array(size);
+  // `dist` is finished with: its slot and `view`'s are reused below.
+  const view = skyView(solid, width, height, scratchArray("b", Float32Array, size, 0));
+  const bounce = scratchArray("c", Float32Array, size, 0);
   for (let i = 0; i < size; i++)
     if (!solid[i]) bounce[i] = backOpen[i] ? 1 : Math.min(1, view[i] / open);
   spreadThroughAir(bounce, solid, width, height, unit / BOUNCE_REACH);
   const light = new Float32Array(size);
-  const near = new Float32Array(size).fill(Infinity),
-    nearLight = new Float32Array(size),
-    soaked = new Float32Array(size);
+  const near = scratchArray("a", Float32Array, size, Infinity),
+    nearLight = scratchArray("b", Float32Array, size, 0),
+    soaked = scratchArray("d", Float32Array, size, 0);
   const sideFade = unit / reach;
   for (let i = 0; i < size; i++) {
     if (solid[i]) continue;
@@ -190,7 +207,8 @@ export function bakeLightField(trail, { soak, reach, open = 0.35 }, unit = LIGHT
 
   // Deep in rock: the sky light from straight above, through every block in
   // the column, or soaked in from the nearest face, whichever is brighter.
-  const deep = new Float32Array(size);
+  // `bounce` is finished with, so `deep` takes its slot.
+  const deep = scratchArray("c", Float32Array, size, 0);
   for (let r = 0; r < height; r++) {
     const wy = y + (r + 0.5) * unit;
     for (let c = 0, i = r * width; c < width; c++, i++) {
@@ -221,10 +239,9 @@ export function bakeLightField(trail, { soak, reach, open = 0.35 }, unit = LIGHT
 // swept across the grid once: steep rays row by row from the top, shallow
 // ones column by column from the side they come from, sampling the texel the
 // ray passed through before with linear interpolation. Off the grid is sky.
-function skyView(solid, width, height) {
-  const view = new Float32Array(width * height);
-  let previous = new Float32Array(Math.max(width, height)),
-    current = new Float32Array(previous.length);
+function skyView(solid, width, height, view = new Float32Array(width * height)) {
+  let previous = scratchArray("rayA", Float32Array, Math.max(width, height), 1),
+    current = scratchArray("rayB", Float32Array, previous.length, 1);
   for (const angle of SKY_RAYS) {
     const slope = Math.tan(angle);
     if (Math.abs(slope) <= 1) {
@@ -314,7 +331,7 @@ function spreadThroughAir(values, solid, width, height, loss) {
 
 // A box blur of `radius` texels, rows then columns, in place.
 function boxBlur(values, width, height, radius) {
-  const line = new Float32Array(Math.max(width, height));
+  const line = scratchArray("line", Float32Array, Math.max(width, height), 0);
   const scale = 1 / (radius * 2 + 1);
   const blurLine = (start, stride, length) => {
     for (let k = 0, i = start; k < length; k++, i += stride) line[k] = values[i];
@@ -348,8 +365,8 @@ function markOpenBehind(backOpen, compiled, worldX, y, unit, width, height, c) {
 
 function fillSmallPockets(solid, dist, width, limit) {
   const size = solid.length;
-  const seen = new Uint8Array(size);
-  const stack = new Int32Array(size);
+  const seen = scratchArray("seen", Uint8Array, size, 0);
+  const stack = scratchArray("stack", Int32Array, size, 0);
   const pocket = [];
   let top = 0;
   const visit = (j) => {

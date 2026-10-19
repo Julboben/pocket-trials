@@ -4,25 +4,55 @@ import { $, timeText, runTimeText, deltaText } from "../state.js";
 import { MEDALS, normalizeAuthor } from "../trail-schema.js";
 import { keyTextNodes, keyTextWords } from "./key-text.js";
 
-export function createOverlay() {
+/**
+ * @param {{ onDismiss?: () => void }} [hooks] onDismiss: the results were
+ *   closed by the browser (a second Escape, or a phone's back gesture) rather
+ *   than by the game; without it they are simply shown again.
+ */
+export function createOverlay({ onDismiss } = {}) {
   const dialog = /** @type {HTMLDialogElement} */ ($("overlay"));
   const toasts = /** @type {HTMLElement} */ (document.querySelector(".toast-stack"));
   const toastHome = /** @type {HTMLElement} */ (toasts.parentElement);
   const toastNext = toasts.nextSibling;
   // Escape opens the menu (handled by the game), never just the dialog.
   dialog.addEventListener("cancel", (event) => event.preventDefault());
+  // Browsers honour that once; a close request after it closes the dialog
+  // anyway, which would leave the game on its results with nothing on screen.
+  let wantOpen = false;
+  dialog.addEventListener("close", () => {
+    if (!wantOpen) return;
+    if (onDismiss) { wantOpen = false; onDismiss(); return; }
+    requestAnimationFrame(() => { if (wantOpen && !dialog.open) dialog.showModal(); });
+  });
 
   /** The modal sits in the top layer; toasts move in with it to stay visible. */
   function openDialog() {
+    wantOpen = true;
     if (!dialog.open) dialog.showModal();
     dialog.append(toasts);
     raiseAchievement();
   }
 
   function closeDialog() {
+    wantOpen = false;
     if (dialog.open) dialog.close();
     if (toasts.parentElement !== toastHome) toastHome.insertBefore(toasts, toastNext);
   }
+
+  // A phone turned sideways (see .turn-upright) shows its screen as a modal
+  // dialog, so it sits on the top layer above the results and any popover.
+  // The game pauses the ride on the same media query.
+  const turnUpright = /** @type {HTMLDialogElement} */ ($("turn-upright"));
+  const sideways = window.matchMedia("(orientation: landscape) and (pointer: coarse) and (max-height: 500px)");
+  function syncSideways() {
+    if (sideways.matches) { if (!turnUpright.open) turnUpright.showModal(); }
+    else if (turnUpright.open) turnUpright.close();
+  }
+  // Escape or a back gesture can't dismiss it: only turning the phone back does.
+  turnUpright.addEventListener("cancel", (event) => event.preventDefault());
+  turnUpright.addEventListener("close", () => requestAnimationFrame(syncSideways));
+  sideways.addEventListener("change", syncSideways);
+  syncSideways();
 
 
   /** @type {{ gold: number, silver: number, bronze: number } | null} */

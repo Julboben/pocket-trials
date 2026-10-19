@@ -138,6 +138,13 @@ const SCENERY_SHADOWS = {
 };
 /** Seconds the scene takes to slow to a stop behind the results. */
 const WIN_SETTLE = 0.7;
+// Ground shadows: one colour, each sample with its own alpha.
+const SHADOW_COLOR = "rgb(31,53,39)";
+// Rain and snow: how many particles the view's size scales up to, and the
+// lower ceiling on touch screens and with reduced scenery, where fill rate is
+// the tighter budget.
+const PARTICLE_SCALE_MAX = 2.2,
+  PARTICLE_SCALE_LIGHT = 1.1;
 const GHOST_ALPHA = 0.38;
 // World units around the hair root that the ghost's hair and cape can reach.
 const GHOST_HAIR_REACH = 56;
@@ -287,6 +294,25 @@ export function createRenderer(canvas) {
     ghostHairLayer = null;
   // What props react to this frame; see drawProp.
   let propScene = { time: 0, riderX: null, riderY: null, weather: resolveWeather(), landing: null };
+  // The sun's place and strength for this frame (see sunLight), worked out
+  // once in draw() for every shadow and the lighting.
+  let frameSun = sunLight({ width: W });
+  // The fog's colour this frame, and its gradient, kept while the fog and
+  // colour are unchanged (see drawFog).
+  let frameFogColor = "";
+  let fogGradient = null,
+    fogGradientKey = "";
+  // The interaction nearest the rider, worked out once per frame (see nearestSpot).
+  let spotScene = null,
+    spot = null;
+  // The device pixel ratio the canvas was last sized for, and the media query
+  // that fires when it changes (see resize).
+  let lastPixelRatio = 0,
+    pixelRatioQuery = null,
+    pixelRatioChanged = null;
+  // Touch screens get fewer rain drops and snowflakes (see drawRain).
+  const coarsePointer =
+    typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
   // The last hard landing, { x, y, time, strength }, which shakes the snow off
   // nearby snowy pines.
   let landing = null;
@@ -325,10 +351,29 @@ export function createRenderer(canvas) {
   // Until when (scene clock, ms) the missing apples are pointed out.
   let appleHintUntil = 0;
 
+  // The canvas is laid out in CSS pixels, so a change of device pixel ratio
+  // (a window dragged to another screen, the browser zoomed) changes nothing
+  // the ResizeObserver sees. A media query for the current ratio fires once
+  // when it changes; it is made again for the new ratio on each resize.
+  function watchPixelRatio() {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    pixelRatioQuery?.removeEventListener("change", onPixelRatioChange);
+    pixelRatioQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+    pixelRatioQuery.addEventListener("change", onPixelRatioChange);
+  }
+
+  function onPixelRatioChange() {
+    resize();
+    pixelRatioChanged?.();
+  }
+
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    watchPixelRatio();
     const rect = canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
+    const ratioChanged = dpr !== lastPixelRatio;
+    lastPixelRatio = dpr;
     const worldScale = clamp(rect.width / 760, 1, 1.45);
     const targetWidth = Math.max(320, rect.width / worldScale);
     const targetHeight = Math.max(340, rect.height / worldScale);
@@ -342,10 +387,17 @@ export function createRenderer(canvas) {
       ),
     );
     // Setting a size, even the same one, reallocates and clears the canvas.
-    if (canvas.width !== deviceWidth) canvas.width = deviceWidth;
-    if (canvas.height !== deviceHeight) canvas.height = deviceHeight;
+    if (canvas.width !== deviceWidth || ratioChanged) canvas.width = deviceWidth;
+    if (canvas.height !== deviceHeight || ratioChanged) canvas.height = deviceHeight;
     W = Math.ceil(deviceWidth / pixelScale) * ART_PIXEL;
     H = Math.ceil(deviceHeight / pixelScale) * ART_PIXEL;
+    // The scratch layers only grow as they are used (see fitLayer); one left
+    // over from a much larger view is given back.
+    for (const layer of [xrayMask, xrayRider, glowLayer, glowMask, ghostHairLayer]) {
+      if (!layer) continue;
+      if (layer.canvas.width > deviceWidth * 2) layer.canvas.width = deviceWidth;
+      if (layer.canvas.height > deviceHeight * 2) layer.canvas.height = deviceHeight;
+    }
   }
 
   /**
@@ -368,7 +420,53 @@ export function createRenderer(canvas) {
     popups.length = 0;
     landing = null;
     appleHintUntil = 0;
+    spotScene = null;
+    bucketProps();
     lighting.prepare(trail);
+  }
+
+  // The trail's props sorted once into the lists each pass walks, so a frame
+  // doesn't sift every prop half a dozen times. Made again if the trail's
+  // props are swapped out from under the renderer.
+  let buckets = null;
+  function bucketProps() {
+    const props = trail?.props || [];
+    if (buckets?.props === props) return buckets;
+    const layer = () => ({ all: [], wet: [], dry: [] });
+    buckets = {
+      props,
+      // Drawn props by layer, and by whether they are water props; squirrels
+      // come last, so one climbs up the front of its tree's trunk.
+      layers: { back: layer(), front: layer() },
+      shadowed: [],
+      startled: [],
+      corgis: [],
+      vultures: [],
+      passable: [],
+      painted: [],
+      glowing: [],
+      interactive: [],
+    };
+    for (const squirrels of [false, true])
+      for (const prop of props) {
+        if ((prop.type === "squirrel") !== squirrels) continue;
+        const drawn = buckets.layers[prop.layer];
+        if (drawn && !PAINTED_PROPS.has(prop.type)) {
+          drawn.all.push(prop);
+          (WATER_PROPS.has(prop.type) ? drawn.wet : drawn.dry).push(prop);
+        }
+      }
+    for (const prop of props) {
+      if (SCENERY_SHADOWS[prop.type]) buckets.shadowed.push(prop);
+      if (STARTLE[prop.type]) buckets.startled.push(prop);
+      if (prop.type === "corgi") buckets.corgis.push(prop);
+      if (prop.type === "vulture") buckets.vultures.push(prop);
+      if (PASS_PROPS.has(prop.type)) buckets.passable.push(prop);
+      if (PAINTED_PROPS.has(prop.type)) buckets.painted.push(prop);
+      if (GLOW_REACH[prop.type]) buckets.glowing.push(prop);
+      if (INTERACTIONS[prop.type]) buckets.interactive.push(prop);
+    }
+    return buckets;
   }
 
   /** A hard landing at x, y, `strength` 0…1, for the props to react to. */
@@ -392,21 +490,25 @@ export function createRenderer(canvas) {
     x <= cameraX + W + margin &&
     (y === null || (y + margin >= cameraY && y - rise <= cameraY + H));
 
+  // One colour for every sample, each with its own alpha: a number is far
+  // cheaper to set than a colour string is to build and parse. The rects are
+  // snapped to the art grid as pixelRect would.
   function drawShadowBlob(samples, centerX, width, alpha, thickness) {
+    ctx.fillStyle = SHADOW_COLOR;
     for (const sample of samples) {
       const along = (sample.x - centerX) / width;
       if (Math.abs(along) > 1) continue;
       const envelope = Math.sqrt(Math.max(0, 1 - along * along));
       const height = Math.max(2, thickness * envelope);
-      pixelRect(
-        sample.x - 1,
-        sample.y - height + 1,
+      ctx.globalAlpha = alpha * (0.45 + 0.55 * envelope);
+      ctx.fillRect(
+        Math.round((sample.x - 1) / 2) * 2,
+        Math.round((sample.y - height + 1) / 2) * 2,
         2,
-        height,
-        "rgba(31,53,39," + alpha * (0.45 + 0.55 * envelope) + ")",
-        2,
+        Math.max(2, Math.round(height / 2) * 2),
       );
     }
+    ctx.globalAlpha = 1;
   }
 
 
@@ -439,16 +541,10 @@ export function createRenderer(canvas) {
 
   function drawSceneryShadows(ride, now, full) {
     if (!full) return;
-    const light = sunLight({
-      width: W,
-      cameraX,
-      cameraY,
-      weather: trail.weather,
-      timeOfDay: trail.timeOfDay,
-    });
-    for (const prop of trail.props || []) {
+    const light = frameSun;
+    for (const prop of bucketProps().shadowed) {
       const spec = SCENERY_SHADOWS[prop.type];
-      if (!spec || !inView(prop.x, 80)) continue;
+      if (!inView(prop.x, 80)) continue;
       const ground = terrainAt(trail, prop.x);
       if (!ground.solid && !Number.isFinite(prop.y)) continue;
       drawSceneryShadow(
@@ -476,9 +572,9 @@ export function createRenderer(canvas) {
       flights.clear();
       flightRide = ride;
     }
-    for (const prop of trail.props || []) {
+    for (const prop of bucketProps().startled) {
       const reach = STARTLE[prop.type];
-      if (!reach || flights.has(prop)) continue;
+      if (flights.has(prop)) continue;
       let x = prop.x,
         y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y,
         from;
@@ -499,8 +595,7 @@ export function createRenderer(canvas) {
       corgis.clear();
       corgiRide = ride;
     }
-    for (const prop of trail.props || []) {
-      if (prop.type !== "corgi") continue;
+    for (const prop of bucketProps().corgis) {
       const y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
       const state = corgiStep(corgis.get(prop) ?? corgiStart(prop.flip ? -1 : 1), {
         time: propScene.time,
@@ -547,14 +642,21 @@ export function createRenderer(canvas) {
     },
   };
 
-  /** The interaction nearest the rider and in reach, with its prop, or null. */
+  /**
+   * The interaction nearest the rider and in reach, with its prop, or null.
+   * Worked out once per frame (`propScene` is new each frame), and again
+   * after an interaction, which changes what is ready.
+   */
   function nearestSpot() {
+    if (spotScene === propScene) return spot;
     const spots = [];
-    for (const prop of trail?.props || []) {
-      const spot = INTERACTIONS[prop.type]?.find(prop);
-      if (spot) spots.push({ ...spot, prop });
+    for (const prop of bucketProps().interactive) {
+      const found = INTERACTIONS[prop.type].find(prop);
+      if (found) spots.push({ ...found, prop });
     }
-    return nearestInteraction(spots, propScene.riderX, propScene.riderY);
+    spot = nearestInteraction(spots, propScene.riderX, propScene.riderY);
+    spotScene = propScene;
+    return spot;
   }
 
   /**
@@ -562,8 +664,10 @@ export function createRenderer(canvas) {
    * @returns {import("./interactions.js").InteractionResult | null}
    */
   function interact() {
-    const spot = nearestSpot();
-    return spot ? { type: spot.prop.type, ...INTERACTIONS[spot.prop.type].act(spot.prop) } : null;
+    const found = nearestSpot();
+    if (!found) return null;
+    spotScene = null;
+    return { type: found.prop.type, ...INTERACTIONS[found.prop.type].act(found.prop) };
   }
 
   // The interact key in a small key cap over whatever it would act on.
@@ -603,8 +707,7 @@ export function createRenderer(canvas) {
     const time = propScene.time;
     const taken = { [-1]: 0, 1: 0 };
     for (const swoop of swoops.values()) taken[swoop.side]++;
-    for (const prop of trail.props || []) {
-      if (prop.type !== "vulture") continue;
+    for (const prop of bucketProps().vultures) {
       const swoop = swoops.get(prop);
       if (swoop) {
         // Until it is nearly down, it steers for the rider as they slide.
@@ -639,14 +742,16 @@ export function createRenderer(canvas) {
   function watchHalfway(ride, focus, now) {
     if (passRide !== ride) {
       passes.clear();
+      // Coins dropped into honesty boxes belong to the ride too.
+      payments.clear();
       passRide = ride;
       passFromX = null;
     }
     const fromX = passFromX;
     passFromX = ride.ragdoll ? null : focus.x;
     if (!ride.started || ride.ragdoll || fromX === null || fromX === focus.x) return;
-    for (const prop of trail.props || []) {
-      if (!PASS_PROPS.has(prop.type) || passes.has(prop)) continue;
+    for (const prop of bucketProps().passable) {
+      if (passes.has(prop)) continue;
       if ((fromX - prop.x) * (focus.x - prop.x) > 0) continue;
       const y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
       if (!Number.isFinite(y) || Math.abs(focus.y - y) > HALFWAY_REACH) continue;
@@ -656,8 +761,8 @@ export function createRenderer(canvas) {
 
   // Graffiti, painted onto the rock just after the terrain is drawn.
   function drawWallPaint() {
-    for (const prop of trail.props || []) {
-      if (!PAINTED_PROPS.has(prop.type) || !inView(prop.x, 70)) continue;
+    for (const prop of bucketProps().painted) {
+      if (!inView(prop.x, 70)) continue;
       const y = paintedPropY(trail, prop);
       if (y === null) continue;
       const [, top, , bottom] = propRotation(prop) ? graffitiTurnedBounds(prop.type) : paintedBounds(prop.type);
@@ -673,10 +778,10 @@ export function createRenderer(canvas) {
   // into a layer with those cut out of it first (see drawGlowsBehind).
   function drawPropGlows(ride, look, state, full) {
     const behind = [];
-    for (const prop of trail.props || []) {
+    for (const prop of bucketProps().glowing) {
       const rotation = propRotation(prop);
-      const reach = GLOW_REACH[prop.type] && GLOW_REACH[prop.type] + (rotation ? PROP_RISE[prop.type] ?? 90 : 0);
-      if (!reach || !inView(prop.x, reach)) continue;
+      const reach = GLOW_REACH[prop.type] + (rotation ? PROP_RISE[prop.type] ?? 90 : 0);
+      if (!inView(prop.x, reach)) continue;
       const ground = terrainAt(trail, prop.x);
       if (!ground.solid && !Number.isFinite(prop.y)) continue;
       const y = Number.isFinite(prop.y) ? prop.y : ground.y;
@@ -723,27 +828,60 @@ export function createRenderer(canvas) {
         { dark, trail, prop, fit, emissive: true, rotation, lit, rider: { x: propScene.riderX, y: propScene.riderY } },
       ];
       if (prop.layer === "front") gameArt.drawPropGlow(...glow);
-      else behind.push(glow);
+      else
+        behind.push({
+          glow,
+          // The box the glow can reach, in world units: the one inView checked.
+          left: prop.x - reach,
+          right: prop.x + reach,
+          top: y - rise - reach,
+          bottom: y + hang + reach,
+        });
     }
     if (behind.length) drawGlowsBehind(behind, ride, look, state, full);
   }
 
   // Draws back-layer glows into a scratch layer, cuts out everything in
   // front of them (the terrain, front props, the bike and rider), and lays
-  // what is left over the scene.
+  // what is left over the scene. All of it is confined to the box the glows
+  // can reach, as drawXray is, rather than the whole view.
   function drawGlowsBehind(glows, ride, look, state, full) {
-    const { width, height } = canvas;
+    const area = {
+      left: Math.min(...glows.map((item) => item.left)),
+      right: Math.max(...glows.map((item) => item.right)),
+      top: Math.min(...glows.map((item) => item.top)),
+      bottom: Math.max(...glows.map((item) => item.bottom)),
+    };
     const transform = ctx.getTransform();
+    const x0 = Math.max(0, Math.floor(transform.a * area.left + transform.e));
+    const y0 = Math.max(0, Math.floor(transform.d * area.top + transform.f));
+    const x1 = Math.min(canvas.width, Math.ceil(transform.a * area.right + transform.e));
+    const y1 = Math.min(canvas.height, Math.ceil(transform.d * area.bottom + transform.f));
+    if (x1 <= x0 || y1 <= y0) return;
+    const width = x1 - x0,
+      height = y1 - y0;
     glowLayer ??= xrayCanvas(width, height);
     glowMask ??= xrayCanvas(width, height);
     for (const layer of [glowLayer, glowMask]) {
       fitLayer(layer, width, height);
-      layer.context.setTransform(transform);
+      layer.context.setTransform(transform.a, 0, 0, transform.d, transform.e - x0, transform.f - y0);
       layer.context.imageSmoothingEnabled = false;
     }
-    for (const glow of glows) glowLayer.art.drawPropGlow(...glow);
-    terrainRenderer.draw(glowMask.context, ride.trail, cameraX, cameraY, W, H, propScene.time);
-    drawProps("front", full, glowMask.art);
+    for (const item of glows) glowLayer.art.drawPropGlow(...item.glow);
+    // The world the box covers, on the art grid, for the terrain's chunks.
+    const viewX = Math.floor((x0 - transform.e) / transform.a / ART_PIXEL) * ART_PIXEL,
+      viewY = Math.floor((y0 - transform.f) / transform.d / ART_PIXEL) * ART_PIXEL;
+    terrainRenderer.draw(
+      glowMask.context,
+      ride.trail,
+      viewX,
+      viewY,
+      Math.ceil(width / transform.a) + ART_PIXEL,
+      Math.ceil(height / transform.d) + ART_PIXEL,
+      propScene.time,
+      propScene.weather,
+    );
+    drawProps("front", full, glowMask.art, area);
     if (hair) hair.draw(glowMask.tools.pixelPath, currentHairRoot(ride, false, flipVisual, look));
     glowMask.art.drawBike(bikeDrawing(ride, look, flipVisual, state));
     if (ride.ragdoll) glowMask.art.drawRagdoll(ride.ragdoll, look);
@@ -754,7 +892,7 @@ export function createRenderer(canvas) {
     context.globalCompositeOperation = "source-over";
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.drawImage(glowLayer.canvas, 0, 0, width, height, 0, 0, width, height);
+    ctx.drawImage(glowLayer.canvas, 0, 0, width, height, x0, y0, width, height);
     ctx.restore();
   }
 
@@ -764,10 +902,9 @@ export function createRenderer(canvas) {
   // one climbs up the front of its tree's trunk.
   function drawProps(layer, full, art = gameArt, area = null, wet = null) {
     let drawn = 0;
-    const props = trail.props || [];
-    for (const squirrels of [false, true])
+    const drawnLayer = bucketProps().layers[layer];
+    const props = wet === null ? drawnLayer.all : wet ? drawnLayer.wet : drawnLayer.dry;
     for (const prop of props) {
-      if ((prop.type === "squirrel") !== squirrels) continue;
       const rotation = propRotation(prop);
       // A rotated prop can reach as far as its longest side in any direction.
       const reach = Math.max(
@@ -775,7 +912,7 @@ export function createRenderer(canvas) {
         rotation ? Math.max(PROP_RISE[prop.type] ?? 90, PROP_HANG[prop.type] ?? 0) : 0,
       );
       const swoop = swoops.get(prop);
-      if (swoop && prop.layer === layer && (wet === null || wet === false)) {
+      if (swoop) {
         const at = vultureSwoop(swoop.from, swoop.to, (frameNow - swoop.start) / 1000, swoop.duration, propScene.riderX);
         if (!inView(at.x, 40, at.y + 20, 50) || (area && (at.x < area.left - 40 || at.x > area.right + 40))) continue;
         art.drawProp(prop.type, at.x, at.y, 1, 0, () => 0, "", null, false, { ...propScene, swoop: at });
@@ -783,9 +920,6 @@ export function createRenderer(canvas) {
         continue;
       }
       if (
-        prop.layer !== layer ||
-        (wet !== null && wet !== WATER_PROPS.has(prop.type)) ||
-        PAINTED_PROPS.has(prop.type) ||
         (!full && (prop.type === "tree" || prop.type === "pine" || prop.type === "snow-pine")) ||
         (HAZE_PROPS.has(prop.type) && (reducedMotion || !full || area)) ||
         !inView(prop.x, reach) ||
@@ -1055,13 +1189,7 @@ export function createRenderer(canvas) {
     const { mx, my } = geometry;
     const ground = terrainAt(ride.trail, mx, my);
     if (ground.solid) {
-      const light = sunLight({
-        width: W,
-        cameraX,
-        cameraY,
-        weather: trail.weather,
-        timeOfDay: trail.timeOfDay,
-      });
+      const light = frameSun;
       const heightAboveGround = Math.max(0, ground.y - my - RADIUS);
       const shadowAlpha = clamp(0.22 - heightAboveGround / 700, 0.035, 0.22);
       const shadowWidth = clamp(35 - heightAboveGround * 0.07, 13, 35);
@@ -1244,22 +1372,30 @@ export function createRenderer(canvas) {
    * the rider included.
    */
   function drawFog(fog, focus, facing) {
-    const thickness = fog ** 1.3;
-    const outer = 0.97 * fog ** 1.6;
-    const inner = 0.3 * thickness;
-    // At full fog the view closes in to about 5 m (WHEELBASE is ~1.45 m).
-    const near = 40 + (1 - fog) * 260;
-    const far = 170 + (1 - fog) ** 1.5 * 500;
     const x = focus.x + facing * 25 * fog;
-    const color = fogColor(trail);
-    const gradient = ctx.createRadialGradient(x, focus.y, near, x, focus.y, far);
-    for (let step = 0; step <= 4; step++) {
-      const t = step / 4;
-      const eased = t * t * (3 - 2 * t);
-      gradient.addColorStop(t, withAlpha(color, inner + (outer - inner) * eased));
+    // The gradient is built round the origin and moved to the rider, so it
+    // is only made again when the fog or its colour changes.
+    const key = `${fog}|${frameFogColor}`;
+    if (key !== fogGradientKey) {
+      const thickness = fog ** 1.3;
+      const outer = 0.97 * fog ** 1.6;
+      const inner = 0.3 * thickness;
+      // At full fog the view closes in to about 5 m (WHEELBASE is ~1.45 m).
+      const near = 40 + (1 - fog) * 260;
+      const far = 170 + (1 - fog) ** 1.5 * 500;
+      fogGradient = ctx.createRadialGradient(0, 0, near, 0, 0, far);
+      for (let step = 0; step <= 4; step++) {
+        const t = step / 4;
+        const eased = t * t * (3 - 2 * t);
+        fogGradient.addColorStop(t, withAlpha(frameFogColor, inner + (outer - inner) * eased));
+      }
+      fogGradientKey = key;
     }
-    ctx.fillStyle = gradient;
-    ctx.fillRect(cameraX, cameraY, W, H);
+    ctx.save();
+    ctx.translate(x, focus.y);
+    ctx.fillStyle = fogGradient;
+    ctx.fillRect(cameraX - x, cameraY - focus.y, W, H);
+    ctx.restore();
   }
 
   function withAlpha(hex, alpha) {
@@ -1269,7 +1405,7 @@ export function createRenderer(canvas) {
 
   function fogHaze(fog) {
     ctx.globalAlpha = 0.3 * fog;
-    ctx.fillStyle = fogColor(trail);
+    ctx.fillStyle = frameFogColor;
     ctx.fillRect(0, 0, W, H);
     ctx.globalAlpha = 1;
   }
@@ -1318,17 +1454,25 @@ export function createRenderer(canvas) {
     if (!cache || cache.geometry !== geometry)
       weatherGround.set(
         trail,
-        (cache = { geometry, water: waterBodies(trail), paths: new Map() }),
+        (cache = { geometry, water: waterBodies(trail), paths: new Map(), slant: NaN, top: NaN, columns: null }),
       );
     const slant = Math.round(drift * 100) / 100;
     const top = Math.floor((cameraY - WEATHER_ABOVE) / WEATHER_BAND) * WEATHER_BAND;
-    const key = `${slant}|${top}`;
-    let columns = cache.paths.get(key);
-    if (!columns) {
-      // A slider being dragged changes the slant, and the camera the band;
-      // keep just the latest few.
-      if (cache.paths.size >= 8) cache.paths.delete(cache.paths.keys().next().value);
-      cache.paths.set(key, (columns = new Map()));
+    // Nearly every call is for the same slant and band as the last.
+    let columns;
+    if (cache.slant === slant && cache.top === top) columns = cache.columns;
+    else {
+      const key = `${slant}|${top}`;
+      columns = cache.paths.get(key);
+      if (!columns) {
+        // A slider being dragged changes the slant, and the camera the band;
+        // keep just the latest few.
+        if (cache.paths.size >= 8) cache.paths.delete(cache.paths.keys().next().value);
+        cache.paths.set(key, (columns = new Map()));
+      }
+      cache.slant = slant;
+      cache.top = top;
+      cache.columns = columns;
     }
     const column = Math.round((x - slant * y) / WEATHER_COLUMN);
     let hit = columns.get(column);
@@ -1355,8 +1499,13 @@ export function createRenderer(canvas) {
 
   // `drift` is how far the drops are blown sideways per unit they fall
   // (negative to the left), from the wind.
-  function drawRain(intensity, time, drift) {
-    const scale = clamp((W * H) / (760 * 430), 0.6, 2.2);
+  // How many drops or flakes the view's size calls for, relative to a phone's.
+  function particleScale(full) {
+    return clamp((W * H) / (760 * 430), 0.6, coarsePointer || !full ? PARTICLE_SCALE_LIGHT : PARTICLE_SCALE_MAX);
+  }
+
+  function drawRain(intensity, time, drift, full) {
+    const scale = particleScale(full);
     // Above about 0.6 the rain builds to a downpour: more, longer, faster
     // drops under a darker sky.
     const storm = Math.max(0, (intensity - 0.6) / 0.4) ** 1.5;
@@ -1485,13 +1634,39 @@ export function createRenderer(canvas) {
     const share = want - Math.floor(want) || 1;
     const speed = 150 + strength * 230;
     // The open air's floor at a world x: the first surface from above the
-    // view, smoothed a little so a low gust flows over the ground rather than
-    // stepping with it.
+    // view, smoothed over the columns either side so a low gust flows over
+    // the ground rather than stepping with it. The paths are cast a column
+    // (WEATHER_COLUMN) at a time, so the floor is worked out once per column
+    // a gust crosses and kept for the rest of that gust.
+    const groundAt = (x) => weatherGroundAt(x, cameraY, 0).y;
+    const floors = new Map();
     const floorAt = (x) => {
-      const hits = [-12, 0, 12].map((dx) => weatherGroundAt(x + dx, cameraY, 0).y).filter(Number.isFinite);
-      return hits.length ? hits.reduce((sum, y) => sum + y, 0) / hits.length : Infinity;
+      const column = Math.round(x / WEATHER_COLUMN);
+      let floor = floors.get(column);
+      if (floor !== undefined) return floor;
+      const at = column * WEATHER_COLUMN;
+      const a = groundAt(at - 12),
+        b = groundAt(at),
+        c = groundAt(at + 12);
+      let sum = 0,
+        hits = 0;
+      if (a !== Infinity) {
+        sum += a;
+        hits++;
+      }
+      if (b !== Infinity) {
+        sum += b;
+        hits++;
+      }
+      if (c !== Infinity) {
+        sum += c;
+        hits++;
+      }
+      floor = hits ? sum / hits : Infinity;
+      floors.set(column, floor);
+      return floor;
     };
-    const open = (x, y) => y < weatherGroundAt(x, cameraY, 0).y;
+    const open = (x, y) => y < groundAt(x);
     const first = Math.floor((cameraX - GUST_STRETCH) / GUST_STRETCH);
     const last = Math.floor((cameraX + W + GUST_STRETCH) / GUST_STRETCH);
     for (let stretch = first; stretch <= last; stretch++)
@@ -1521,6 +1696,7 @@ export function createRenderer(canvas) {
         // Skip gusts nowhere near the view.
         const headX = startX + dir * headAlong;
         if (headX < cameraX - 200 || headX > cameraX + W + 200) continue;
+        floors.clear();
         // A point of the gust, `back` world units behind its head.
         const at = (back) => {
           const along = Math.max(0, headAlong - back);
@@ -1543,16 +1719,17 @@ export function createRenderer(canvas) {
         // Fading in at the start of its life and out at the end, and along its tail.
         const life01 = age / life;
         const fade = Math.min(1, life01 * 5, (1 - life01) * 4) * (0.55 - rain * 0.22);
-        let previous = null;
+        let previousLeft = NaN,
+          previousTop = NaN;
         for (let back = 0; back < length; back += ART_PIXEL) {
           const [x, y] = at(back);
           // Only in open air: not in the ground, a cave or under an overhang.
           if (!open(x, y + ART_PIXEL)) continue;
           const left = Math.round((x - cameraX) / ART_PIXEL) * ART_PIXEL;
           const top = Math.round((y - cameraY) / ART_PIXEL) * ART_PIXEL;
-          const key = left + "," + top;
-          if (key === previous) continue;
-          previous = key;
+          if (left === previousLeft && top === previousTop) continue;
+          previousLeft = left;
+          previousTop = top;
           // Snow breaks the streak into flakes being whirled along.
           if (snow && (back / ART_PIXEL) % 3 !== 0) continue;
           // A pale streak with a faint shaded underside, so it reads against a
@@ -1569,8 +1746,8 @@ export function createRenderer(canvas) {
     ctx.globalAlpha = 1;
   }
 
-  function drawSnow(intensity, time, drift) {
-    const scale = clamp((W * H) / (760 * 430), 0.6, 2.2);
+  function drawSnow(intensity, time, drift, full) {
+    const scale = particleScale(full);
     const storm = Math.max(0, (intensity - 0.6) / 0.4) ** 1.5;
     const count = Math.max(1, Math.round(scale * (150 * intensity ** 1.15 + 520 * storm)));
     const seconds = reducedMotion ? 0 : time;
@@ -1622,7 +1799,7 @@ export function createRenderer(canvas) {
     ctx.globalAlpha = 1;
   }
 
-  function drawWeather(weather) {
+  function drawWeather(weather, full) {
     const rainIntensity = clamp(Number(trail.weather?.rain) || 0, 0, 1);
     const snow = clamp(Number(trail.weather?.snow) || 0, 0, 1);
     const fog = fogAmount(trail.weather);
@@ -1633,8 +1810,8 @@ export function createRenderer(canvas) {
     if (fog) fogHaze(fog);
     // Gusts behind the rain and snow; all three are blown by the same wind.
     drawWindSwirls(wind, weather.time, windSign(air), rainIntensity, snow);
-    if (rainIntensity) drawRain(rainIntensity, weather.time, windSign(air) * rainSlant(air.wind));
-    if (snow) drawSnow(snow, weather.time, windSign(air) * snowDrift(air.wind));
+    if (rainIntensity) drawRain(rainIntensity, weather.time, windSign(air) * rainSlant(air.wind), full);
+    if (snow) drawSnow(snow, weather.time, windSign(air) * snowDrift(air.wind), full);
     if (weather.flash > 0) {
       // The lighting pass lights the scene up; this adds the glare on top.
       ctx.fillStyle = `rgba(225, 239, 237, ${weather.flash * 0.14})`;
@@ -1846,6 +2023,10 @@ export function createRenderer(canvas) {
     cameraX = Math.round(view.x * worldToDevice) / worldToDevice;
     cameraY = Math.round(view.y * worldToDevice) / worldToDevice;
     riderOnScreen = { x: (focus.x - cameraX) / W, y: (focus.y - cameraY) / H };
+    // Worked out once for everything this frame draws by the sun or in the fog.
+    frameSun = sunLight({ width: W, cameraX, cameraY, weather: trail.weather, timeOfDay: trail.timeOfDay });
+    const fog = fogAmount(trail.weather);
+    if (fog) frameFogColor = fogColor(trail);
 
     ctx.setTransform(worldToDevice, 0, 0, worldToDevice, 0, 0);
     ctx.imageSmoothingEnabled = false;
@@ -1865,7 +2046,7 @@ export function createRenderer(canvas) {
     wheelSquish = effects.tyreSquish;
     backWallRenderer.draw(ctx, trail, cameraX, cameraY, W, H);
     drawProps("back", full);
-    terrainRenderer.draw(ctx, ride.trail, cameraX, cameraY, W, H, propScene.time);
+    terrainRenderer.draw(ctx, ride.trail, cameraX, cameraY, W, H, propScene.time, propScene.weather);
     drawGlassCracks(ride.trail);
     drawWallPaint();
     drawSkidMarks(effects.skidMarks);
@@ -1875,7 +2056,6 @@ export function createRenderer(canvas) {
     drawSpikes(ride);
     drawApples(ride);
     drawNisseInRide(ride);
-    const fog = fogAmount(trail.weather);
     if (fog) drawFog(fog, focus, ride.facing);
     drawGhost(ghost, ghostLook ?? look, animationDt);
     hair = updateHair(hair, ride, look, ride.status === "won" ? 0 : animationDt);
@@ -1902,6 +2082,7 @@ export function createRenderer(canvas) {
       flash: effects.weather.flash,
       time: propScene.time,
       flip: flipVisual,
+      sun: frameSun,
     });
     drawPropGlows(ride, look, ride.ragdoll ? "ragdoll" : state, full);
     drawInteractHint();
@@ -1909,7 +2090,7 @@ export function createRenderer(canvas) {
     drawAppleHints(ride);
     effects.prune();
     ctx.restore();
-    drawWeather(effects.weather);
+    drawWeather(effects.weather, full);
   }
 
   /**
@@ -1949,6 +2130,14 @@ export function createRenderer(canvas) {
 
   return {
     resize,
+    /**
+     * Called after the canvas has been sized again for a new device pixel
+     * ratio (see resize), so whatever was on it can be drawn again.
+     * @param {(() => void) | null} listener
+     */
+    onPixelRatioChange(listener) {
+      pixelRatioChanged = listener;
+    },
     setViewport,
     settleHair,
     reset,

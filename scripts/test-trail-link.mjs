@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { deflateRawSync } from 'node:zlib';
 import { normalizeTrail } from '../js/trail-schema.js';
 import { trailHash } from '../js/trail-hash.js';
-import { decodeTrailLink, encodeTrailLink, readSharedTrail, trailLinkFromHash, trailShareUrl } from '../js/trail-link.js';
+import { MAX_JSON_BYTES, decodeTrailLink, encodeTrailLink, readSharedTrail, trailLinkFromHash, trailShareUrl } from '../js/trail-link.js';
 import { loadCatalogTrails } from './lib/trails.mjs';
 
 const rejects = (promise, pattern) => assert.rejects(promise, error => pattern.test(error.message));
@@ -41,6 +41,9 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bon
   // A small link that inflates to more than a megabyte.
   const bomb = deflateRawSync(Buffer.alloc(4 << 20, 32)).toString('base64url');
   await rejects(decodeTrailLink(`1.${bomb}`), /too big/);
+  // A trail too big to ever open again is refused before it is packed.
+  assert.equal(MAX_JSON_BYTES, 1 << 20);
+  await rejects(encodeTrailLink({ name: 'Huge', description: 'x'.repeat(MAX_JSON_BYTES) }), /too big/);
   // A trail that decodes but doesn't validate.
   const broken = await encodeTrailLink({ name: 'Broken', terrainBlocks: [] });
   await rejects(readSharedTrail(`#trail=${broken}`), /./);

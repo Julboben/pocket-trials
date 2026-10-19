@@ -31,7 +31,7 @@
     --color-text: #f6f3e8;
     --color-text-soft: #aeb7b3;
     --color-text-muted: #91a7a8;
-    --color-text-faint: #7f9494;
+    --color-text-faint: #93a8a8;
 
     /* Accent: the orange call to action, and the ink that sits on it */
     --color-accent: #ff8952;
@@ -48,6 +48,11 @@
     --color-green-surface-hover: #34564c;
     --color-green-border: #718f7f;
     --color-green-text-muted: #a9bbb4;
+    /* The trail editor row and the continue card's quieter edge */
+    --color-green-row: #1f3a33;
+    --color-green-row-hover: #29493f;
+    --color-green-row-border: #4f7a63;
+    --color-green-border-dim: #587268;
 
     /* Gold: bonus trails and achievements */
     --color-gold: #f0c45a;
@@ -57,7 +62,11 @@
     /* Medals */
     --color-medal-gold: #f1c75b;
     --color-medal-silver: #c9d2d0;
-    --color-medal-bronze: #c98553;
+    --color-medal-bronze: #d9955f;
+    /* The ink on a filled medal badge */
+    --color-medal-gold-ink: #3d2c07;
+    --color-medal-silver-ink: #27322f;
+    --color-medal-bronze-ink: #2f1a0c;
     /* Gamepad face buttons; A and Y use green and gold. */
     --color-pad-b: #e6866f;
     --color-pad-x: #7fb2d9;
@@ -68,6 +77,8 @@
     --color-danger: #e5484d;
     --color-danger-text: #f0a08c;
     --color-danger-border: #75463f;
+    --color-danger-surface: #342a2a;
+    --color-danger-surface-hover: #60362f;
     /* Editor validation and toasts: error, warning, info */
     --color-error: #ec7044;
     --color-error-surface: #3a2320;
@@ -84,6 +95,43 @@
     --color-row-hover: #2a4047;
     --color-input: #142126;
     --color-option: #252d2e;
+    --color-option-checked: #3a3b36;
+    --color-option-track: #101516;
+    /* Translucent panels on the menu scenery, and the note by a form */
+    --color-panel: #15232899;
+    --color-note: #1f2d30;
+    --color-modal-border: #4b5553;
+    --color-kbd-border: #607074;
+    --color-preview-border: #52645e;
+    --color-avatar-border: #ffffff4a;
+    --color-icon-button-hover: #293132;
+    --color-icon-button-hover-border: #465152;
+    /* Dark veils under the results, the pause screen and the menu's confirm */
+    --color-dim: #09100dc2;
+    --color-dim-soft: #09100d99;
+    --color-dim-menu: #0d1b20b3;
+    /* A shade pressed into a pad button's face or a colour chip */
+    --color-shade: #0000002e;
+
+    /* Laid over the trail: the HUD pills, the game's buttons and the toasts */
+    --color-hud: #17201edb;
+    --color-hud-border: #ffffff24;
+    --color-hud-divider: #ffffff1a;
+    --color-hud-icon: #d8ebcb;
+    --color-hud-text-soft: #f4f2e9a6;
+    --color-hud-button: #182321d9;
+    --color-hud-button-phone: #101b1aee;
+    --color-hud-button-border-phone: #ffffff52;
+    --color-scene-text: #f7f0dc;
+    --color-toast: #17201eee;
+    --color-toast-border: #fff4;
+    --color-debug: #101b1acc;
+    --color-debug-text: #b8f5c8;
+    /* The guide arc drawn on the How to play art, read from script */
+    --color-guide: #d96842;
+    /* What's new labels */
+    --color-heads-up: #ffd166;
+    --color-improved: #9cc7e0;
 
     /* Rider avatars */
     --color-male-bg: #dce4d8;
@@ -98,6 +146,7 @@
     --shadow-pixel: 3px 3px 0 var(--color-shadow);
     --shadow-pixel-small: 2px 2px 0 var(--color-shadow);
     --shadow-modal: 8px 8px 0 #0d1b2070;
+    --shadow-hud: 0 4px 16px #16221c30;
     --shadow-shell: 0 18px 55px #0006;
     /* Text laid over the trail, so it stays readable on a bright sky. */
     --shadow-text-scene: 2px 2px 0 #172820aa;

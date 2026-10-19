@@ -1,5 +1,6 @@
 // Copy, cut and paste, including between trails.
-import { moveBlock } from "../terrain-geometry.js";
+import { moveBlock, normalizeBlock } from "../terrain-geometry.js";
+import { normalizeTrail } from "../trail-schema.js";
 import {
   blocks,
   boundaryEntries,
@@ -113,17 +114,51 @@ function clipboardPayload({ blockIndices, objects }) {
   return payload;
 }
 
+/**
+ * The clipboard's payload, normalized as a trail file would be, so a hand-made
+ * or damaged payload can't put malformed blocks or objects in the trail.
+ * Null when the text isn't ours at all; throws when it is but can't be read.
+ */
 function readClipboard(text) {
+  let data;
   try {
-    const data = JSON.parse(text);
-    if (data?.format !== CLIPBOARD_FORMAT) return null;
-    if (!data.centre?.every?.(Number.isFinite)) return null;
-    const lists = ["blocks", ...Object.values(CLIPBOARD_LISTS)];
-    if (!lists.every((list) => Array.isArray(data[list]))) return null;
-    return data;
+    data = JSON.parse(text);
   } catch {
     return null;
   }
+  if (data?.format !== CLIPBOARD_FORMAT) return null;
+  if (!data.centre?.every?.(Number.isFinite) || data.centre.length !== 2)
+    throw new Error("no centre");
+  const lists = ["blocks", ...Object.values(CLIPBOARD_LISTS)];
+  if (!lists.every((list) => Array.isArray(data[list]))) throw new Error("no lists");
+  for (const list of lists)
+    if (!data[list].every((item) => item && typeof item === "object")) throw new Error("bad item");
+  const blocks = data.blocks.map((block) => normalizeBlock(block));
+  // The objects go through the same normalizers as a trail's, on a trail
+  // made of them; each keeps the floor it was copied from, which the
+  // normalizers don't know about.
+  const objects = normalizeTrail({
+    name: "clipboard",
+    terrainBlocks: blocks,
+    apples: data.apples,
+    props: data.props,
+    spikes: data.spikes,
+    water: data.water,
+  });
+  const withFloors = (list) =>
+    objects[list].map((object, index) => {
+      const floorY = data[list][index]?.floorY;
+      return Number.isFinite(floorY) ? { ...object, floorY } : object;
+    });
+  return {
+    format: CLIPBOARD_FORMAT,
+    centre: [Number(data.centre[0]), Number(data.centre[1])],
+    blocks,
+    apples: withFloors("apples"),
+    props: withFloors("props"),
+    spikes: withFloors("spikes"),
+    water: withFloors("water"),
+  };
 }
 
 /** Under the cursor when it's over the canvas, else the middle of the view. */
@@ -234,7 +269,14 @@ export function bindClipboard() {
 
   document.addEventListener("paste", (event) => {
     if (!clipboardIsOurs()) return;
-    const data = readClipboard(event.clipboardData?.getData("text/plain") || "");
+    let data;
+    try {
+      data = readClipboard(event.clipboardData?.getData("text/plain") || "");
+    } catch (_) {
+      event.preventDefault();
+      showStatus("warning", "Clipboard data is not a trail selection.");
+      return;
+    }
     if (!data) return;
     event.preventDefault();
     if (refuseEdit()) return;

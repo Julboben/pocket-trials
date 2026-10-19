@@ -10,8 +10,8 @@ import {
 } from '../storage.js';
 import { DEFAULT_LOOK, itemsForSlot, keepIdentity, lookKey, randomLook, sameLook, starterLook } from '../cosmetics.js';
 import { createCustomizer, createIdentityPicker, drawLook } from './customizer.js';
-import { ONLINE_LEADERBOARD_EVENT, isOnlineBoardLoading, isOnlineTrail, fetchWorldGhost, settledWorldGhost, refreshOnlineBoard, submitOnlineRun } from '../online-leaderboard.js';
-import { registerRider, loginRider, accountErrorText, passkeysSupported, queueSaveSync, fetchCloudSave } from '../account.js';
+import { ONLINE_LEADERBOARD_EVENT, boardStatus, isOnlineBoardLoading, isOnlineTrail, fetchWorldGhost, settledWorldGhost, refreshOnlineBoard, submitOnlineRun, dropPendingRuns } from '../online-leaderboard.js';
+import { registerRider, loginRider, deleteRider, accountErrorText, passkeysSupported, queueSaveSync, fetchCloudSave } from '../account.js';
 import { isSandbox } from '../local-store.js';
 import { NAME_HINT, disallowedNameChars } from '../rider-name.js';
 import { RIDE_VERSION } from '../ride.js';
@@ -61,7 +61,16 @@ export function loadStoredState() {
  *   onPreferences: () => void
  * }} hooks
  */
-export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartCustom, onClose, riderOnScreen, onPreferences, onWatchReplay, onRiderChange }) {
+export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartCustom, onClose, onBack, riderOnScreen, onPreferences, onWatchReplay, onRiderChange }) {
+  /**
+   * The best time shown on a trail's card or in the trail picker: the world's
+   * if the board has been fetched, else this device's. Asks for the world
+   * board in the background (throttled), so the lists fill in as it arrives.
+   */
+  function topTime(key) {
+    refreshOnlineBoard(key);
+    return readLeaderboard(key)[0]?.time ?? null;
+  }
   let pendingSaveSlot = 0;
   $('app-version').textContent = 'v' + VERSION;
   let deleteArmedSlot = -1, deleteArmTimer = 0, leaderboardTrail = 0;
@@ -327,7 +336,10 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     const genderText = document.createElement('span');
     genderText.className = 'sr-only';
     genderText.textContent = ', ' + gender;
-    $('garage-rider').replaceChildren(session.saveGame.name, genderText, genderMark);
+    const name = document.createElement('span');
+    name.className = 'garage-rider-name';
+    name.textContent = session.saveGame.name;
+    $('garage-rider').replaceChildren(name, genderText, genderMark);
     garageOwns = lookOwner(session.saveGame);
     // Opens on the tab the rider was last on.
     garage.setLook(session.look);
@@ -395,19 +407,30 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
       button.textContent = '×';
       button.setAttribute('aria-label', 'Delete save slot ' + (Number(button.dataset.slot) + 1));
     });
+    document.querySelectorAll('.delete-online.armed').forEach(button => {
+      button.classList.remove('armed');
+      button.textContent = 'DELETE ONLINE';
+      button.setAttribute('aria-label', 'Delete ' + button.dataset.name + ' from the world board, for good');
+    });
   }
 
-  function deleteSlot(index, button) {
-    if (deleteArmedSlot !== index) {
-      disarmDelete();
-      deleteArmedSlot = index;
-      button.textContent = 'SURE?';
-      button.classList.add('armed');
-      button.setAttribute('aria-label', 'Press again to delete save slot ' + (index + 1));
-      deleteArmTimer = setTimeout(disarmDelete, 3000);
-      return;
-    }
+  /**
+   * Whether `button` has been pressed twice in a row for slot `index`: the
+   * first press only arms it, for three seconds, so a stray tap deletes nothing.
+   */
+  function armedFor(index, button, armedText, armedLabel) {
+    if (deleteArmedSlot === index && button.classList.contains('armed')) return true;
     disarmDelete();
+    deleteArmedSlot = index;
+    button.textContent = armedText;
+    button.classList.add('armed');
+    button.setAttribute('aria-label', armedLabel);
+    deleteArmTimer = setTimeout(disarmDelete, 3000);
+    return false;
+  }
+
+  /** Frees a slot on this device and moves on to another rider if it was the active one. */
+  function removeSlot(index) {
     deleteSave(index, trails.length);
     session.saveSlots[index] = null;
     if (index === session.activeSaveSlot) {
@@ -415,6 +438,37 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
       selectSaveSlot(fallback >= 0 ? fallback : index); // also refreshes the dashboard
     } else updateDashboard();
     requestAnimationFrame(() => selectControl($('save-slots').children[index]?.querySelector('.save-slot')));
+  }
+
+  function deleteSlot(index, button) {
+    if (!armedFor(index, button, 'SURE?', 'Press again to delete save slot ' + (index + 1))) return;
+    disarmDelete();
+    removeSlot(index);
+  }
+
+  /**
+   * Deletes an online rider for good: on the server (name, cloud save,
+   * passkeys and world-board runs) and then from this device. The rider
+   * confirms with their passkey; deleting the slot alone keeps the account.
+   */
+  async function deleteOnlineRider(index, button) {
+    const save = session.saveSlots[index];
+    if (!save?.token || accountBusy) return;
+    if (!armedFor(index, button, 'SURE? FOR GOOD', 'Press again to delete ' + save.name + ' from the world board, for good')) return;
+    disarmDelete();
+    setAccountBusy(true);
+    setStatus('riders-status', 'Confirm with ' + save.name + '’s passkey…');
+    try {
+      await deleteRider(save.token);
+      dropPendingRuns(save.playerId);
+      removeSlot(index);
+      setStatus('riders-status', save.name + ' is deleted from the world board. The name is free again.');
+    } catch (error) {
+      setStatus('riders-status', accountErrorText(error), true);
+    } finally {
+      setAccountBusy(false);
+      buildSaveSlots();
+    }
   }
 
   function buildSaveSlots() {
@@ -427,15 +481,42 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
       const active = save && index === session.activeSaveSlot ? ' · ACTIVE' : '';
       const mode = save ? (save.token ? ' · ONLINE' : save.online ? ' · SIGNED OUT' : ' · OFFLINE') : '';
       const gender = save?.look.gender === 'female' ? 'female' : 'male';
-      button.innerHTML = save
-        ? '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + active + mode + '</span>'
-          // The rider's gender before their name, in the creator's symbols.
-          + '<span class="save-slot-name"><span class="save-gender" data-gender="' + gender + '" data-icon="' + gender + '" aria-hidden="true"></span>'
-          + '<strong>' + save.name + '<span class="sr-only">, ' + gender + '</span></strong></span><small>'
-          + (save.unlocked + 1) + ' / ' + trails.length + ' trails · ' + trails[save.trail].name + '</small></span>'
-        : '<span class="save-avatar empty"><span data-icon="plus" aria-hidden="true"></span></span>'
-          + '<span class="save-slot-copy"><span class="save-label">SLOT ' + (index + 1) + '</span><strong>NEW RIDER</strong><small>Start a fresh career in this slot</small></span>';
-      if (save) button.prepend(riderAvatar(save.look));
+      const copy = document.createElement('span');
+      copy.className = 'save-slot-copy';
+      const label = document.createElement('span');
+      label.className = 'save-label';
+      label.textContent = 'SLOT ' + (index + 1) + active + mode;
+      const title = document.createElement('strong');
+      const detail = document.createElement('small');
+      if (save) {
+        // The rider's gender before their name, in the creator's symbols.
+        const nameLine = document.createElement('span');
+        nameLine.className = 'save-slot-name';
+        const genderMark = document.createElement('span');
+        genderMark.className = 'save-gender';
+        genderMark.dataset.gender = gender;
+        genderMark.dataset.icon = gender;
+        genderMark.setAttribute('aria-hidden', 'true');
+        const spoken = document.createElement('span');
+        spoken.className = 'sr-only';
+        spoken.textContent = ', ' + gender;
+        title.append(save.name, spoken);
+        nameLine.append(genderMark, title);
+        detail.textContent = (save.unlocked + 1) + ' / ' + trails.length + ' trails · ' + trails[save.trail].name;
+        copy.append(label, nameLine, detail);
+        button.append(riderAvatar(save.look), copy);
+      } else {
+        const avatar = document.createElement('span');
+        avatar.className = 'save-avatar empty';
+        const plus = document.createElement('span');
+        plus.dataset.icon = 'plus';
+        plus.setAttribute('aria-hidden', 'true');
+        avatar.append(plus);
+        title.textContent = 'NEW RIDER';
+        detail.textContent = 'Start a fresh career in this slot';
+        copy.append(label, title, detail);
+        button.append(avatar, copy);
+      }
       button.addEventListener('click', () => {
         if (save) { selectSaveSlot(index); showView('home'); return; }
         creatorFromRiders = true;
@@ -453,6 +534,19 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
         link.addEventListener('click', () => (save.online ? logIn('riders-status') : goOnline(index)));
         row.classList.add('has-link');
         row.append(link);
+      }
+      if (save?.token && onlineAvailable) {
+        // × only frees the slot; this removes the rider from the server too.
+        const erase = document.createElement('button');
+        erase.className = 'link-save delete-online';
+        erase.type = 'button';
+        erase.textContent = 'DELETE ONLINE';
+        erase.dataset.name = save.name;
+        erase.disabled = accountBusy;
+        erase.setAttribute('aria-label', 'Delete ' + save.name + ' from the world board, for good');
+        erase.addEventListener('click', () => deleteOnlineRider(index, erase));
+        row.classList.add('has-link');
+        row.append(erase);
       }
       if (save) {
         const remove = document.createElement('button');
@@ -478,6 +572,9 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     updateDashboard();
     showView('home');
   }
+
+  /** The guide arc on the How to play art, in the UI's colour (--color-guide in css/tokens.css). */
+  const guideColor = () => getComputedStyle(document.documentElement).getPropertyValue('--color-guide').trim();
 
   // Each card shows its move where it really happens on the official trails.
   const HOW_TO_SCENES = {
@@ -518,7 +615,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
         const x = ((ride.rear.x + ride.front.x) / 2 - view.x) * scale;
         const y = ((ride.rear.y + ride.front.y) / 2 - view.y + 12) * scale;
         context.save();
-        context.strokeStyle = '#d96842'; context.lineWidth = 2 * scale; context.setLineDash([5 * scale, 4 * scale]);
+        context.strokeStyle = guideColor(); context.lineWidth = 2 * scale; context.setLineDash([5 * scale, 4 * scale]);
         context.beginPath();
         if (ride.facing > 0) context.arc(x, y, 47 * scale, Math.PI * 1.1, Math.PI * 1.82);
         else context.arc(x, y, 47 * scale, Math.PI * 1.18, Math.PI * 1.9);
@@ -527,6 +624,15 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
       });
     });
   }
+
+  // The game art keeps sprite caches per context, so each canvas gets one
+  // set for its lifetime instead of a fresh one on every redraw.
+  const gameArts = new WeakMap();
+  const gameArtFor = context => {
+    let art = gameArts.get(context);
+    if (!art) gameArts.set(context, (art = createGameArt(context)));
+    return art;
+  };
 
   function drawBackground() {
     const backgroundCanvas = $('menu-background');
@@ -538,7 +644,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     const backgroundContext = backgroundCanvas.getContext('2d');
     backgroundContext.setTransform(dpr, 0, 0, dpr, 0, 0);
     backgroundContext.imageSmoothingEnabled = false;
-    createGameArt(backgroundContext).drawBackground({
+    gameArtFor(backgroundContext).drawBackground({
       width: bounds.width, height: bounds.height,
       palette: trails[session.saveGame?.trail || 0],
       cameraX: 260, cameraY: 0,
@@ -627,10 +733,42 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     });
   }
 
+  // --- History ---------------------------------------------------------------
+  // Each view, and the menu itself over a paused ride, gets a history entry,
+  // so a phone's back gesture goes back a view instead of leaving the game.
+  // View-to-view moves replace the entry, so at most two are ever added.
+  // The URL never changes: a share link's hash was already replaced by main.js.
+  let fromHistory = false;
+  const historyTag = view => ({ hjulben: view });
+  function pushView(view) {
+    if (fromHistory || typeof history.pushState !== 'function') return;
+    const current = history.state?.hjulben;
+    if (current && current !== 'menu') history.replaceState(historyTag(view), '');
+    else history.pushState(historyTag(view), '');
+  }
+  function markMenuOpen() {
+    if (!canResume() || typeof history.pushState !== 'function') return;
+    if (history.state?.hjulben) history.replaceState(historyTag('menu'), '');
+    else history.pushState(historyTag('menu'), '');
+  }
+  window.addEventListener('popstate', () => {
+    // Mid-ride, a phone's back gesture opens the menu, as Escape does.
+    if (!isOpen()) { if (session.gameLoopStarted) onBack?.(); return; }
+    fromHistory = true;
+    try {
+      if (closeTrailPicker(true)) return;
+      if ($('menu-home').hidden) goBack();
+      else onClose();
+    } finally {
+      fromHistory = false;
+    }
+  });
+
   function showView(view) {
     disarmDelete();
     setTrailPicker(false);
     setLookConfirm(false);
+    if (view !== 'home') pushView(view);
     $('menu-home').hidden = view !== 'home';
     $('menu-riders-view').hidden = view !== 'riders';
     $('menu-trail-view').hidden = view !== 'trails';
@@ -657,6 +795,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
 
   function open() {
     $('menu-screen').hidden = false;
+    markMenuOpen();
     // Catches up with a cloud look that arrived while riding.
     if (session.saveGame) session.look = riderLook();
     syncWhatsNew();
@@ -771,7 +910,9 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   }
 
   /** Coda as the game draws him in the woods, for his line in the credits. */
+  let codaCanvas = null;
   function codaPortrait() {
+    if (codaCanvas) return codaCanvas;
     const canvasElement = document.createElement('canvas');
     canvasElement.className = 'credits-coda';
     canvasElement.width = 72;
@@ -779,7 +920,8 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     canvasElement.setAttribute('aria-hidden', 'true');
     const context = canvasElement.getContext('2d');
     context.imageSmoothingEnabled = false;
-    createGameArt(context).drawProp('corgi', 36, 40);
+    gameArtFor(context).drawProp('corgi', 36, 40);
+    codaCanvas = canvasElement;
     return canvasElement;
   }
 
@@ -1017,7 +1159,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
           key,
           number: `B${String(index + 1).padStart(2, '0')}`,
           status: open ? 'BONUS TRAIL' : hint,
-          best: session.saveGame ? readBest(session.activeSaveSlot, key, trails.length) : readLeaderboard(key)[0]?.time ?? null,
+          best: session.saveGame ? readBest(session.activeSaveSlot, key, trails.length) : topTime(key),
           locked: !open,
           kind: 'bonus',
           nisse: nisseFound(entry),
@@ -1032,7 +1174,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
         key: trailKey(entry),
         number: `C${String(index + 1).padStart(2, '0')}`,
         status: entry.storage === 'browser' ? 'CUSTOM · SAVED IN BROWSER' : 'CUSTOM TRAIL',
-        best: readLeaderboard(trailKey(entry))[0]?.time ?? null,
+        best: topTime(trailKey(entry)),
         kind: 'custom',
         nisse: nisseFound(entry),
         onSelect: () => startCustom(index)
@@ -1043,6 +1185,8 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
 
   /** Trail keys whose world-best replay is on its way, so the board redraws once. */
   const awaitingWorld = new Set();
+  /** True while the board on show is this device's runs because the world board couldn't be reached. */
+  let boardFailed = false;
 
   /** Whether the player may open a trail, and so watch runs on it. */
   function canWatch(entry) {
@@ -1073,9 +1217,12 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
       row.append(rankLabel, empty);
       return row;
     }
+    // This device's runs carry the save's id. World runs only carry a name,
+    // which is reserved for an online rider, so it is only trusted for one.
     const mine = Boolean(session.saveGame && (
       (run.saveId && run.saveId === session.saveGame.createdAt) ||
-      (run.name && run.name === session.saveGame.name)
+      (run.playerId && run.playerId === session.saveGame.playerId) ||
+      (run.name && session.saveGame.token && run.name === session.saveGame.name)
     ));
     row.classList.toggle('mine', mine);
     const avatar = riderAvatar(run.look);
@@ -1089,7 +1236,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     const copy = document.createElement('span');
     copy.className = 'leaderboard-copy';
     const name = document.createElement('strong');
-    name.textContent = runnerName(run.name) + (mine ? ' · YOU' : '');
+    name.textContent = runnerName(run.name);
     const spoken = document.createElement('span');
     spoken.className = 'sr-only';
     spoken.textContent = ', ' + gender;
@@ -1100,6 +1247,13 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     const nameLine = document.createElement('span');
     nameLine.className = 'save-slot-name';
     nameLine.append(genderMark, name);
+    if (mine) {
+      // Outside the name, so a long name is cut short and the tag stays whole.
+      const you = document.createElement('span');
+      you.className = 'leaderboard-you';
+      you.textContent = '· YOU';
+      nameLine.append(you);
+    }
     copy.append(nameLine, detail);
     const time = document.createElement('span');
     time.className = 'leaderboard-time';
@@ -1144,6 +1298,9 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
       return leaderboardRow(run, index + 1, loading, entry, run && watchable ? replayFor(run, key) : null);
     });
     $('leaderboard-list').replaceChildren(...rows);
+    // An unreachable world board falls back to this device's runs, and says so.
+    boardFailed = !loading && isOnlineTrail(key) && boardStatus(key) === 'failed';
+    $('leaderboard-offline').hidden = !boardFailed;
     // The world best can be watched too, once its replay has arrived.
     if (watchable && isOnlineTrail(key) && settledWorldGhost(key) === undefined && !awaitingWorld.has(key)) {
       awaitingWorld.add(key);
@@ -1167,6 +1324,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     $('leaderboard-picker').hidden = !open;
     $('leaderboard-list').hidden = open;
     $('menu-leaderboard-view').querySelector('.leaderboard-help').hidden = open;
+    $('leaderboard-offline').hidden = open || !boardFailed;
     $('leaderboard-trail-pick').setAttribute('aria-expanded', String(open));
   }
 
@@ -1205,7 +1363,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
       name.textContent = entry.name.toUpperCase();
       const best = document.createElement('span');
       best.className = 'trail-best';
-      const top = readLeaderboard(trailKey(entry))[0]?.time;
+      const top = topTime(trailKey(entry));
       best.textContent = top == null ? '—' : runTimeText(top);
       button.append(number, name, best);
       if (index === leaderboardTrail) {
@@ -1239,7 +1397,11 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     $('new-save-name').classList.remove('invalid');
     setStatus('save-status', '');
     setStatus('save-login-status', '');
-    setSaveMode(saveMode);
+    // Someone's first rider on this device starts offline, so a passkey
+    // prompt doesn't stand between them and their first ride; Riders can take
+    // it online later. Later riders default to online.
+    const firstRider = session.saveSlots.every(save => !save);
+    setSaveMode(firstRider ? 'offline' : saveMode);
     // The skin tone starts random too; the player can pick another.
     const skins = itemsForSlot('skin');
     const identity = { gender: DEFAULT_LOOK.gender, skin: skins[Math.floor(Math.random() * skins.length)].id };
@@ -1252,17 +1414,17 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
 
   // --- Online riders ---------------------------------------------------------
 
+  /** A live region, so only its text changes: hiding it would mute it (.account-status:empty hides an empty one). */
   function setStatus(id, text, isError = false) {
     const status = $(id);
     status.textContent = text;
-    status.hidden = !text;
     status.classList.toggle('error', isError);
   }
 
   function setAccountBusy(busy) {
     accountBusy = busy;
     for (const id of ['create-save', 'save-login-button', 'riders-login-button']) $(id).disabled = busy;
-    document.querySelectorAll('.link-save').forEach(button => { button.disabled = busy; });
+    document.querySelectorAll('.link-save, .delete-online').forEach(button => { button.disabled = busy; });
   }
 
   function setSaveMode(mode) {
@@ -1292,7 +1454,12 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
       const look = creator.look();
       const { token, player } = await registerRider(name, look);
       const save = createSave(pendingSaveSlot, look, trails.length, player.name, { playerId: player.id, token });
-      if (!save) { showView('riders'); return; }
+      if (!save) {
+        // The passkey exists now, so the rider is not lost: it logs in like any other.
+        showView('riders');
+        setStatus('riders-status', `Rider “${player.name}” created, but slot ${pendingSaveSlot + 1} is taken. Log in with the passkey to use it.`, true);
+        return;
+      }
       session.unlockedTrail = 0; session.savedTrail = 0;
       useNewSave(pendingSaveSlot, save);
       startTrail(0);
@@ -1445,7 +1612,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   /** Gamepad navigation while the menu is open. */
   function handlePad(action) {
     if (scrollsWithArrows() && (action === 'nav-up' || action === 'nav-down')) {
-      $('menu-scroll').scrollBy({ top: action === 'nav-up' ? -160 : 160, behavior: 'smooth' });
+      $('menu-scroll').scrollBy({ top: action === 'nav-up' ? -160 : 160, behavior: reducedMotion ? 'auto' : 'smooth' });
       return;
     }
     if (action === 'nav-up' || action === 'nav-left') {
@@ -1469,7 +1636,11 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   $('menu-how-to').addEventListener('click', () => showView('how'));
   $('menu-whats-new').addEventListener('click', showChangelog);
   $('show-credits').addEventListener('click', () => showCredits('settings'));
-  $('menu-editor').addEventListener('click', () => { window.location.href = './editor.html'; });
+  $('menu-editor').addEventListener('click', () => {
+    // Leaving the page ends a paused ride, so a resumable one asks first.
+    if (canResume() && !window.confirm('Leave this ride and open the trail editor? Your progress on the trail is lost.')) return;
+    window.location.href = './editor.html';
+  });
   $('menu-settings').addEventListener('click', () => { syncSettings(); showView('settings'); });
   document.querySelectorAll('#menu-settings-view [role="tab"]').forEach(tab => {
     tab.addEventListener('click', () => showSettingsTab(tab));
@@ -1535,6 +1706,9 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   // Escape is handled by the game; other close requests (such as a phone's
   // back gesture) mean Keep Editing too.
   lookConfirm.addEventListener('cancel', event => { event.preventDefault(); closeLookConfirm(); });
+  // Browsers honour that once; a second request closes the dialog anyway, so
+  // the selection goes back to Save as if Keep Editing had been pressed.
+  lookConfirm.addEventListener('close', () => { if (!$('menu-look-view').hidden) selectControl($('save-look')); });
   $('riders-login').hidden = !onlineAvailable;
   if (onlineAvailable) {
     $('menu-first-ride').querySelector('small').textContent = 'New rider, or log in with your passkey';
@@ -1608,15 +1782,16 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     onPreferences();
   });
   $('setting-volume').addEventListener('change', () => { savePreferences(session.preferences); sounds.menuMove(); });
+  const coarsePointer = window.matchMedia('(pointer: coarse)');
   // Phone vibration: desktop browsers have navigator.vibrate too, but no motor to run.
-  $('setting-haptics-group').hidden = !('vibrate' in navigator) || !window.matchMedia('(pointer: coarse)').matches;
+  $('setting-haptics-group').hidden = !('vibrate' in navigator) || !coarsePointer.matches;
 
   let resetArmed = false, resetTimer = 0;
   $('reset-settings').addEventListener('click', event => {
     const button = event.currentTarget;
     if (!resetArmed) {
       resetArmed = true;
-      button.textContent = 'CLICK AGAIN TO RESET';
+      button.textContent = coarsePointer.matches ? 'TAP AGAIN TO RESET' : 'CLICK AGAIN TO RESET';
       resetTimer = setTimeout(() => { resetArmed = false; button.textContent = 'RESET ALL SETTINGS'; }, 2500);
       return;
     }

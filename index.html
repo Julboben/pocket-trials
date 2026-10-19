@@ -1,12 +1,5 @@
-<html
-    data-type="html"
-    data-identifier="4154825f-50c6-4a6f-97bb-8b1ab631f51b"
-    data-title="Hjulben"
-    data-version="1"
-    width="600"
-    height="740"
-    lang="en"
->
+<!doctype html>
+<html lang="en">
     <head>
         <meta charset="UTF-8" />
         <meta
@@ -14,6 +7,7 @@
             content="width=device-width, initial-scale=1, viewport-fit=cover"
         />
         <meta name="theme-color" content="#111c20" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta
             name="description"
             content="A pixel-art motorcycle trials game. Balance, collect every apple and reach the flag."
@@ -326,6 +320,11 @@
                     id="menu-background"
                     aria-hidden="true"
                 ></canvas>
+                <!-- A new release has installed; shown on the dashboard only, never mid-ride. -->
+                <div class="update-toast" id="update-toast" role="status" hidden>
+                    <span>Update ready</span>
+                    <button type="button" class="update-reload" id="update-reload">RELOAD</button>
+                </div>
                 <div class="menu-scroll" id="menu-scroll">
                     <div class="menu-dashboard">
                         <div class="menu-hero">
@@ -567,7 +566,6 @@
                                 class="account-status"
                                 id="riders-status"
                                 role="status"
-                                hidden
                             ></p>
                             <div class="account-login" id="riders-login">
                                 <small
@@ -706,6 +704,15 @@
                                 id="leaderboard-list"
                                 aria-label="Fastest runs"
                             ></ol>
+                            <p
+                                class="load-game-help leaderboard-offline"
+                                id="leaderboard-offline"
+                                role="status"
+                                hidden
+                            >
+                                Couldn't reach the world board · showing this
+                                device's runs
+                            </p>
                             <p class="load-game-help leaderboard-help">
                                 Each rider's best time. Official and bonus
                                 trails show the online board; custom trails and
@@ -755,7 +762,6 @@
                                     class="account-status"
                                     id="save-login-status"
                                     role="status"
-                                    hidden
                                 ></p>
                                 <p class="save-warning" id="save-warning">
                                     Each slot keeps its own progression and best
@@ -835,7 +841,6 @@
                                 class="account-status"
                                 id="save-status"
                                 role="status"
-                                hidden
                             ></p>
                         </div>
 
@@ -1444,11 +1449,13 @@
                     <span id="achievement-popover-blurb"></span>
                 </span>
             </div>
-            <div class="turn-upright" aria-live="polite">
+            <!-- A modal dialog, so it sits on the top layer over the results
+                 and any popover; overlay.js opens it while the phone is sideways. -->
+            <dialog class="turn-upright" id="turn-upright" aria-live="polite" aria-label="Turn your phone upright">
                 <span class="turn-upright-icon" data-icon="phone" aria-hidden="true"></span>
                 <strong>Turn your phone upright</strong>
                 <small>Hjulben is played in portrait, with the controls under the trail.</small>
-            </div>
+            </dialog>
         </main>
         <script type="module" src="./js/main.js"></script>
         <noscript>Hjulben needs JavaScript.</noscript>

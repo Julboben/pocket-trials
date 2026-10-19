@@ -2,6 +2,9 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 const SESSION_DAYS = 180;
+// A session used this close to expiring gets a fresh token with the reply,
+// so a rider who keeps playing is never signed out.
+const RENEW_WITHIN_DAYS = 30;
 const CHALLENGE_SECONDS = 300;
 
 export class HttpError extends Error {
@@ -70,12 +73,20 @@ export function unsign(token, type) {
 export const sessionToken = playerId => sign({ type: 'session', player: playerId }, SESSION_DAYS * 86400);
 export const challengeToken = payload => sign(payload, CHALLENGE_SECONDS);
 
-/** The signed-in player's id, from `Authorization: Bearer <token>`. */
-export function requirePlayer(req) {
+/** The signed-in session, from `Authorization: Bearer <token>`: its player id and expiry. */
+export function requireSession(req) {
   const header = req.headers.get('authorization') ?? '';
   const payload = header.startsWith('Bearer ') ? unsign(header.slice(7), 'session') : null;
   if (!payload) throw new HttpError(401, 'not signed in');
-  return payload.player;
+  return { player: payload.player, exp: payload.exp };
+}
+
+/** The signed-in player's id, from `Authorization: Bearer <token>`. */
+export const requirePlayer = req => requireSession(req).player;
+
+/** A fresh token for a session that is about to expire, or null while it has time left. */
+export function renewedToken(session) {
+  return session.exp - Date.now() / 1000 < RENEW_WITHIN_DAYS * 86400 ? sessionToken(session.player) : null;
 }
 
 /**
