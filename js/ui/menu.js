@@ -10,7 +10,7 @@ import {
 } from '../storage.js';
 import { DEFAULT_LOOK, itemsForSlot, keepIdentity, lookKey, randomLook, sameLook, starterLook } from '../cosmetics.js';
 import { createCustomizer, createIdentityPicker, drawLook } from './customizer.js';
-import { ONLINE_LEADERBOARD_EVENT, boardStatus, isOnlineBoardLoading, isOnlineTrail, fetchWorldGhost, settledWorldGhost, refreshOnlineBoard, submitOnlineRun, dropPendingRuns } from '../online-leaderboard.js';
+import { ONLINE_LEADERBOARD_EVENT, boardStatus, isOnlineBoardLoading, isOnlineTrail, fetchWorldGhost, settledWorldGhost, refreshOnlineBoard, queuePendingRun, flushPendingRuns, dropPendingRuns } from '../online-leaderboard.js';
 import { registerRider, loginRider, deleteRider, accountErrorText, passkeysSupported, queueSaveSync, fetchCloudSave } from '../account.js';
 import { isSandbox } from '../local-store.js';
 import { NAME_HINT, disallowedNameChars } from '../rider-name.js';
@@ -746,6 +746,15 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     if (current && current !== 'menu') history.replaceState(historyTag(view), '');
     else history.pushState(historyTag(view), '');
   }
+  /**
+   * A ride started from the dashboard gets a history entry of its own, so a
+   * phone's back gesture reaches the game (which opens the menu) rather
+   * than leaving the page with the ride.
+   */
+  function markRideStarted() {
+    if (typeof history.pushState !== 'function' || history.state?.hjulben) return;
+    history.pushState(historyTag('ride'), '');
+  }
   function markMenuOpen() {
     if (!canResume() || typeof history.pushState !== 'function') return;
     if (history.state?.hjulben) history.replaceState(historyTag('menu'), '');
@@ -812,10 +821,13 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   async function refreshCloudSave() {
     const slot = session.activeSaveSlot;
     const token = session.saveGame?.token;
+    const playerId = session.saveGame?.playerId;
     if (!token) return;
-    const cloud = await fetchCloudSave(token);
-    // The rider may have switched slots, signed out, or left the menu meanwhile.
-    if (!cloud || session.activeSaveSlot !== slot || session.saveGame?.token !== token) return;
+    const cloud = await fetchCloudSave(token, playerId);
+    // The rider may have switched slots, signed out, or left the menu
+    // meanwhile. (The token itself may have been renewed by this very fetch,
+    // so it is the rider that is compared, not the token.)
+    if (!cloud || session.activeSaveSlot !== slot || session.saveGame?.playerId !== playerId || !session.saveGame?.token) return;
     if ('signedOut' in cloud) {
       clearSaveToken(slot, trails.length);
       session.saveSlots = loadSaveSlots(trails.length);
@@ -1510,17 +1522,23 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
       queueSaveSync(linked);
       buildSaveSlots();
       setStatus('riders-status', `${linked.name} is online. Sending best runs…`);
-      let sent = 0;
+      // The best runs go through the waiting queue: the server takes only so
+      // many a minute, and whatever it can't take now is sent later.
+      let queued = 0;
       for (const entry of [...officialTrailEntries, ...bonusTrailEntries]) {
         const key = trailKey(entry);
         const ghost = readGhost(key);
         // Ghosts are shared by every save on this device, so only send the
-        // one that set this save's best time.
-        if (!ghost || ghost.physics !== RIDE_VERSION || ghost.time !== linked.bestTimes[key]) continue;
-        const result = await submitOnlineRun(key, { look: linked.look, token, run: { inputs: ghost.inputs, seed: ghost.seed, physics: ghost.physics } });
-        if (result && 'rank' in result) sent++;
+        // one that set this save's best time, and never one the game ran in
+        // slow motion for.
+        if (!ghost || ghost.physics !== RIDE_VERSION || ghost.slow || ghost.time !== linked.bestTimes[key]) continue;
+        if (queuePendingRun(key, { look: linked.look, playerId: linked.playerId, time: ghost.time, run: { inputs: ghost.inputs, seed: ghost.seed, physics: ghost.physics } })) queued++;
       }
-      setStatus('riders-status', `${linked.name} is online.` + (sent ? ` ${sent} best ${sent === 1 ? 'run is' : 'runs are'} on the world leaderboard.` : ''));
+      const sent = await flushPendingRuns(id => session.saveSlots.find(save => save?.playerId === id)?.token ?? null);
+      const waiting = queued - sent;
+      setStatus('riders-status', `${linked.name} is online.`
+        + (sent ? ` ${sent} best ${sent === 1 ? 'run is' : 'runs are'} on the world leaderboard.` : '')
+        + (waiting > 0 ? ` ${waiting} more ${waiting === 1 ? 'is' : 'are'} sent shortly.` : ''));
     } catch (error) {
       setStatus('riders-status', error.message === 'name taken'
         ? `“${save.name}” is already taken online. If it’s yours, log in below; otherwise create a new online rider.`
@@ -1808,5 +1826,5 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     if ($('menu-home').hidden) { goBack(); return true; }
     return false;
   };
-  return { open, close, isOpen, showTrailsStatus, updateDashboard, drawBackground, syncSettings, handlePad, showView, showCredits, canResume, back, refreshCloudSave };
+  return { open, close, isOpen, showTrailsStatus, updateDashboard, drawBackground, syncSettings, handlePad, showView, showCredits, canResume, back, refreshCloudSave, markRideStarted };
 }

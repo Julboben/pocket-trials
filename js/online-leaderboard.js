@@ -3,7 +3,7 @@
 import { isSandbox, store } from './local-store.js';
 import { cleanRiderName as cleanName } from './rider-name.js';
 import { legacyRider, lookOf } from './cosmetics.js';
-import { noteRenewal } from './account.js';
+import { noteRenewal, SIGNED_OUT_EVENT } from './account.js';
 
 const API = '/api/leaderboard';
 const REFRESH_MS = 30_000;
@@ -151,7 +151,8 @@ export function fetchWorldGhost(trail) {
  * @param {string} trail
  * @param {{ look: import('./cosmetics.js').Look, token: string, playerId?: string, run: RunInputs }} submission
  *   `look` is shown with the run; `rider` is still sent for servers from before looks.
- * @returns {Promise<Standing | { signedOut: true } | { rejected: true, reason: string } | { failed: true } | null>}
+ * @returns {Promise<Standing | { signedOut: true } | { rejected: true, reason: string } | { failed: true, retryAfter?: number } | null>}
+ *   `retryAfter` (seconds) comes with a rate limit, which lifts by itself.
  */
 export async function submitOnlineRun(trail, { look, token, playerId, run }) {
   // Sandbox riders are throwaway, so they never reach the shared board.
@@ -168,6 +169,7 @@ export async function submitOnlineRun(trail, { look, token, playerId, run }) {
       const { error } = await res.json().catch(() => ({ error: '' }));
       return { rejected: true, reason: String(error || 'rejected') };
     }
+    if (res.status === 429) return { failed: true, retryAfter: 60 };
     if (!res.ok) return { failed: true };
     const data = await res.json();
     noteRenewal(playerId ?? null, data);
@@ -198,19 +200,39 @@ function readPendingRuns() {
   }
 }
 
+/** @returns {boolean} whether the list was stored */
 function writePendingRuns(list) {
   try {
     if (list.length) store().setItem(PENDING_RUNS_KEY, JSON.stringify(list));
     else store().removeItem(PENDING_RUNS_KEY);
-  } catch (_) {}
+    return true;
+  } catch (_) {
+    return false;
+  }
 }
 
-/** Keeps a run to send later. A rider's older run on the same trail makes way for it. */
-export function queuePendingRun(trail, { look, playerId, run }) {
-  if (typeof window === 'undefined' || isSandbox() || !isOnlineTrail(trail) || !playerId) return;
-  const list = readPendingRuns().filter(item => !(item.trail === trail && item.playerId === playerId));
-  list.push({ trail, playerId, look, run, at: Date.now() });
-  writePendingRuns(list.slice(-MAX_PENDING_RUNS));
+/**
+ * Keeps a run to send later. A rider has one waiting run per trail, the
+ * fastest: a slower one never replaces it, since the board only keeps bests.
+ * @param {{ look: object, playerId: string, run: RunInputs, time: number }} entry
+ * @returns {{ at: number | null } | null} the stored run's stamp (null when a
+ *   faster run was already waiting), or null when storage refused it
+ */
+export function queuePendingRun(trail, { look, playerId, run, time }) {
+  if (typeof window === 'undefined' || isSandbox() || !isOnlineTrail(trail) || !playerId) return null;
+  const list = readPendingRuns();
+  const waiting = list.find(item => item.trail === trail && item.playerId === playerId);
+  if (waiting && Number.isFinite(waiting.time) && waiting.time <= time) return { at: null };
+  // Each stored run's stamp is its own, even within the same millisecond.
+  const at = Math.max(Date.now(), ...list.map(item => (Number(item.at) || 0) + 1));
+  const kept = list.filter(item => item !== waiting);
+  kept.push({ trail, playerId, look, run, time, at });
+  return writePendingRuns(kept.slice(-MAX_PENDING_RUNS)) ? { at } : null;
+}
+
+/** Forgets one waiting run, once the server has answered for it. */
+export function dropPendingRun(trail, playerId, at) {
+  writePendingRuns(readPendingRuns().filter(item => !(item.trail === trail && item.playerId === playerId && item.at === at)));
 }
 
 export const pendingRunCount = () => readPendingRuns().length;
@@ -221,26 +243,38 @@ export function dropPendingRuns(playerId) {
 }
 
 let flushing = null;
+let retryTimer = 0;
 
 /**
  * Sends every waiting run whose rider is signed in, one at a time.
- * `tokenFor` gives a rider's current session token, or null.
+ * `tokenFor` gives a rider's current session token, or null. A rate limit
+ * pauses the rest until it lifts, and a refused session signs its rider out
+ * (SIGNED_OUT_EVENT) while their runs wait for the next login.
  * @param {(playerId: string) => string | null} tokenFor
  * @returns {Promise<number>} how many runs the server took
  */
 export function flushPendingRuns(tokenFor) {
   if (flushing) return flushing;
+  clearTimeout(retryTimer);
   flushing = (async () => {
     let sent = 0;
+    const refused = new Set();
     for (const item of readPendingRuns()) {
       const token = tokenFor(item.playerId);
-      if (!token) continue;
+      if (!token || refused.has(item.playerId)) continue;
       const result = await submitOnlineRun(item.trail, { look: item.look, token, playerId: item.playerId, run: item.run });
-      // Still unreachable: the rest can wait too. A signed-out rider's runs
-      // wait for their next login. Anything else is settled, taken or refused.
-      if (result && 'failed' in result) break;
-      if (result && 'signedOut' in result) continue;
-      writePendingRuns(readPendingRuns().filter(other => !(other.trail === item.trail && other.playerId === item.playerId && other.at === item.at)));
+      if (result && 'failed' in result) {
+        // Still unreachable: the rest can wait too. A rate limit lifts by itself.
+        if (result.retryAfter) retryTimer = setTimeout(() => { flushPendingRuns(tokenFor); }, result.retryAfter * 1000);
+        break;
+      }
+      if (result && 'signedOut' in result) {
+        refused.add(item.playerId);
+        window.dispatchEvent(new CustomEvent(SIGNED_OUT_EVENT, { detail: { playerId: item.playerId } }));
+        continue;
+      }
+      // Settled: taken, or refused for good.
+      dropPendingRun(item.trail, item.playerId, item.at);
       if (result && 'rank' in result) sent++;
     }
     return sent;

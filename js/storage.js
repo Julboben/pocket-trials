@@ -460,7 +460,9 @@ const GHOST_KEY_PREFIX = 'hjulben-ghost-v1:';
 /**
  * The fastest finished run on a trail, as encoded inputs for ghost playback.
  * Ghosts saved since looks existed also carry the rider's `look` (see lookOf).
- * @returns {{ time: number, splits: number[], startStep: number, seed: number, inputs: number[][], physics: number, look?: object, rider?: string } | null}
+ * `slow` marks a run the game ran in slow motion for: fine as a ghost, never
+ * sent to the world board.
+ * @returns {{ time: number, splits: number[], startStep: number, seed: number, inputs: number[][], physics: number, look?: object, rider?: string, slow?: boolean } | null}
  */
 export function readGhost(trailKey) {
   const ghost = readJson(GHOST_KEY_PREFIX + trailKey, null);

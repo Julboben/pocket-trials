@@ -104,10 +104,15 @@ export function loadTrailData(index) {
   // Edits made on a version the file has moved past (a git pull, say) can't
   // go on top of the file; they are kept as a draft, in Versions, instead.
   if (autosave.base && autosave.base !== editor.version.baseHash) {
-    addDraft(entry.id, autosave.trail, autosave.base);
-    clearAutosave(entry.id);
-    editor.version.rescuedAt = autosave.at;
-    return trail;
+    // The autosave only goes once the draft is safely written; with storage
+    // full it stays, and the edits open on top of the file instead so they
+    // are at least on screen, with the warning saying so.
+    if (addDraft(entry.id, autosave.trail, autosave.base) !== null) {
+      clearAutosave(entry.id);
+      editor.version.rescuedAt = autosave.at;
+      return trail;
+    }
+    editor.version.rescueFailedAt = autosave.at;
   }
   try {
     const restored = normalizeTrail(autosave.trail, index);
@@ -154,6 +159,13 @@ export function announceVersion() {
     showStatus(
       "warning",
       `${savedName(currentEntry())} has changed since your ${editor.version.shadowedDraftAt ? "draft" : "unsaved edits"} (${formatDraftTime(at)}), so it opened instead. The ${editor.version.shadowedDraftAt ? "draft is" : "edits are kept as a draft"} in Versions.`,
+    );
+    return;
+  }
+  if (editor.version?.rescueFailedAt) {
+    showStatus(
+      "error",
+      `${savedName(currentEntry())} has changed since your unsaved edits (${formatDraftTime(editor.version.rescueFailedAt)}), and browser storage is too full to keep them as a draft. They are opened on top of the new file: check them, then save a draft or export.`,
     );
     return;
   }

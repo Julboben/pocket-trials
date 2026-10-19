@@ -155,14 +155,15 @@ export function bakeLightField(trail, { soak, reach, open = 0.35 }, unit = LIGHT
 
   fillSmallPockets(solid, dist, width, Math.ceil(POCKET_AREA / (unit * unit)));
 
-  // `dist` is finished with: its slot and `view`'s are reused below.
+  // `view` is finished with once `bounce` is seeded, so its slot is reused below.
   const view = skyView(solid, width, height, scratchArray("b", Float32Array, size, 0));
   const bounce = scratchArray("c", Float32Array, size, 0);
   for (let i = 0; i < size; i++)
     if (!solid[i]) bounce[i] = backOpen[i] ? 1 : Math.min(1, view[i] / open);
   spreadThroughAir(bounce, solid, width, height, unit / BOUNCE_REACH);
   const light = new Float32Array(size);
-  const near = scratchArray("a", Float32Array, size, Infinity),
+  // `dist` (slot "a") is still read in the loop below, so `near` gets its own slot.
+  const near = scratchArray("near", Float32Array, size, Infinity),
     nearLight = scratchArray("b", Float32Array, size, 0),
     soaked = scratchArray("d", Float32Array, size, 0);
   const sideFade = unit / reach;

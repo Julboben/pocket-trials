@@ -242,17 +242,24 @@ async function putSave(req) {
   const body = await readBody(req, 32_000);
   const sent = sanitizeSave(body.save);
   const sql = await db();
-  const [player] = await sql`select look, rider, save from players where id = ${playerId}`;
-  if (!player) throw new HttpError(401, 'not signed in');
-  const save = mergeSaves(player.save, sent);
-  save.look = playerLook(save, player);
-  save.rider = legacyRider(save.look);
-  const rows = await sql`
-    update players set save = ${JSON.stringify(save)}::jsonb, rider = ${save.rider},
-      look = ${JSON.stringify(save.look)}::jsonb, save_updated_at = now()
-    where id = ${playerId} returning id`;
-  if (!rows.length) throw new HttpError(401, 'not signed in');
-  return json({ ok: true, save, token: renewedToken(session) });
+  // Read, merge and write without a transaction (the HTTP driver has none):
+  // the write only lands if the row is still what was read, else it merges
+  // again on the fresh row, so two devices uploading at once can't undo each
+  // other.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const [player] = await sql`select look, rider, save, save_updated_at from players where id = ${playerId}`;
+    if (!player) throw new HttpError(401, 'not signed in');
+    const save = mergeSaves(player.save, sent);
+    save.look = playerLook(save, player);
+    save.rider = legacyRider(save.look);
+    const rows = await sql`
+      update players set save = ${JSON.stringify(save)}::jsonb, rider = ${save.rider},
+        look = ${JSON.stringify(save.look)}::jsonb, save_updated_at = now()
+      where id = ${playerId} and save_updated_at is not distinct from ${player.save_updated_at}
+      returning id`;
+    if (rows.length) return json({ ok: true, save, token: renewedToken(session) });
+  }
+  throw new HttpError(409, 'save changed, try again');
 }
 
 /** The cloud save and look of a signed-in rider, so another device can catch up without logging in again. */

@@ -16,7 +16,7 @@ import {
 } from './storage.js';
 import { bikeBroken, createFeatTracker, editorProgress, eggAchievements, eventAchievements, finishAchievements, interactAchievements, newlyEarned, statGains } from './achievements.js';
 import { createLimWatcher, installConsoleCheats } from './easter-eggs.js';
-import { submitOnlineRun, fetchWorldGhost, refreshOnlineBoard, cachedOnlineBoard, queuePendingRun, flushPendingRuns } from './online-leaderboard.js';
+import { submitOnlineRun, fetchWorldGhost, refreshOnlineBoard, cachedOnlineBoard, queuePendingRun, dropPendingRun, flushPendingRuns } from './online-leaderboard.js';
 import { queueSaveSync, SIGNED_OUT_EVENT, SESSION_RENEWED_EVENT } from './account.js';
 import { createInput, keyLabel } from './input.js';
 import { createHaptics } from './haptics.js';
@@ -75,8 +75,9 @@ export function startGame({ shared = null } = {}) {
     riderOnScreen: () => renderer.riderOnScreen(),
     onWatchReplay: watchReplay,
     onPreferences: applyPreferences,
-    // Editor achievements wait for a rider, so a new or newly picked one gets them.
-    onRiderChange: () => claimEditorFeats()
+    // Editor achievements wait for a rider, so a new or newly picked one gets
+    // them, and a rider just logged in sends the runs that waited for them.
+    onRiderChange: () => { claimEditorFeats(); flushPendingRuns(tokenFor); }
   });
 
   const params = new URLSearchParams(window.location.search);
@@ -698,6 +699,7 @@ export function startGame({ shared = null } = {}) {
     endReplay();
     menu.close();
     setMenuOpen(false);
+    menu.markRideStarted();
     openingTrail = true;
     load();
     setState('running');
@@ -812,9 +814,13 @@ export function startGame({ shared = null } = {}) {
     }
     const storedGhost = readGhost(key);
     const inputs = encodeInputs(recorded);
+    // A device too slow for the fixed step drops time (see frame()), which
+    // plays in slow motion: more time to react per simulated second. Such a
+    // run counts here, but is never posted to the world board, now or later.
+    const slowMotion = passedTime > 0 && simulatedTime / passedTime < SLOW_MOTION_RATIO;
     lastRun = { time, startStep, seed: ride.seed, inputs, physics: RIDE_VERSION, look: session.look };
     if (!storedGhost || storedGhost.physics !== RIDE_VERSION || time < storedGhost.time) {
-      saveGhost(key, { time, splits: ride.splits.slice(), startStep, seed: ride.seed, inputs, physics: RIDE_VERSION, look: session.look });
+      saveGhost(key, { time, splits: ride.splits.slice(), startStep, seed: ride.seed, inputs, physics: RIDE_VERSION, look: session.look, ...(slowMotion ? { slow: true } : {}) });
     }
     earn(finishedRunAchievements(ride, previousBest, worldBest), {}, before);
     const medals = session.trail.medals;
@@ -824,10 +830,13 @@ export function startGame({ shared = null } = {}) {
     creditsAfterResults = official && last && Boolean(saveGame) && previousBest === null;
     // Only a run the player actually rode, at full speed, is sent to the
     // world board. Offline saves stay local-only. The server replays the
-    // inputs to time the run.
-    const slowMotion = passedTime > 0 && simulatedTime / passedTime < SLOW_MOTION_RATIO;
+    // inputs to time the run. The run is kept as waiting before it is sent,
+    // so closing the tab mid-upload, or a refused session, doesn't lose it;
+    // the server's answer settles it.
     const run = { inputs, seed: ride.seed, physics: RIDE_VERSION };
-    const submission = ranked && session.state === 'running' && saveGame?.token && !slowMotion
+    const eligible = ranked && session.state === 'running' && Boolean(saveGame?.token) && !slowMotion;
+    const queued = eligible ? queuePendingRun(key, { look: session.look, playerId: saveGame.playerId, run, time }) : null;
+    const submission = eligible
       ? submitOnlineRun(key, { look: session.look, token: saveGame.token, playerId: saveGame.playerId, run })
       : null;
     if (ranked && saveGame?.token && slowMotion) {
@@ -845,6 +854,9 @@ export function startGame({ shared = null } = {}) {
       const slot = session.activeSaveSlot;
       const shown = overlay.currentResults();
       submission.then(result => {
+        // Settled, one way or the other; a signed-out rider's run waits for their login.
+        const settled = result && ('rank' in result || 'rejected' in result);
+        if (settled && queued?.at) dropPendingRun(key, saveGame.playerId, queued.at);
         if (result && 'signedOut' in result) {
           signOut(saveGame.playerId);
         } else if (result && 'rejected' in result) {
@@ -852,9 +864,9 @@ export function startGame({ shared = null } = {}) {
           if (result.reason === 'run does not finish') egg('rejected-run');
           else overlay.toast(result.reason === 'bad inputs' ? 'Too long for the world board · Runs over ten minutes stay on this device' : 'The world board didn’t take the run · Reload to get the latest version', 6000);
         } else if (result && 'failed' in result) {
-          // Offline or a server hiccup: kept and sent when the server can be reached.
-          queuePendingRun(key, { look: session.look, playerId: saveGame.playerId, run });
-          overlay.toast('Couldn’t reach the world board · The run is kept and posted later', 5000);
+          // Offline or a server hiccup: the waiting run goes when the server can be reached.
+          overlay.toast(queued ? 'Couldn’t reach the world board · The run is kept and posted later'
+            : 'Couldn’t reach the world board, and the browser’s storage is too full to keep the run', 6000);
         }
         const standing = result && 'rank' in result ? result : null;
         // Riders who have already moved on still hear how the run placed.

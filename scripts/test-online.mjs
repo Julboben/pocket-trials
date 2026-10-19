@@ -388,6 +388,7 @@ const run = (replay = firstTrailRun) => ({ inputs: replay.inputs, seed: replay.s
   assert.equal(last, 429, 'a player is limited to a few submissions a minute');
   await sql`delete from rate_limits`;
   assert.equal((await call(leaderboard, '/api/leaderboard', { body: { trail: firstKey, run: run() }, token: julianToken })).status, 200, 'the limit lifts with the window');
+  last = 200;
   for (let count = 0; count < 25 && last !== 429; count++) {
     ({ status: last } = await api('register-options', { body: { name: 'someone' + count } }));
   }
