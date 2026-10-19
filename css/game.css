@@ -3062,6 +3062,16 @@ h2 {
     font-weight: var(--weight-heavy);
     letter-spacing: 1px;
     vertical-align: 1px;
+    display: inline-block;
+    animation: whats-new-pulse 1.2s ease-in-out infinite alternate;
+}
+@keyframes whats-new-pulse {
+    from {
+        transform: scale(1);
+    }
+    to {
+        transform: scale(1.15);
+    }
 }
 /* Credits: the text rolls up through a frame that fades out at both ends,
    over the menu's trail. With reduced motion it is a plain list to scroll. */
