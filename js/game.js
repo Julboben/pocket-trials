@@ -718,9 +718,10 @@ export function startGame({ shared = null } = {}) {
     else if (action === 'pause') { if (state === 'running' || state === 'paused') togglePause(); }
     else if (action === 'menu') { sounds.menuBack(); showMainMenu(); }
     else if (action === 'flip') { if (state === 'running' && !replay) flipDirection(); }
-    else if (action === 'lights') toggleHeadlight();
+    // The rider is off the bike after a crash, so the lamp and interacting only work mid-ride.
+    else if (action === 'lights') { if (state === 'running') toggleHeadlight(); }
     else if (action === 'fullscreen') toggleFullscreen();
-    else if (action === 'interact') { if (state === 'running' || state === 'ragdoll') interact(); }
+    else if (action === 'interact') { if (state === 'running') interact(); }
     else if (action === 'confirm' || action === 'cancel') {
       if (state === 'paused') resumeGame();
       else if (state === 'won' && action === 'confirm') { if (replay) rideAfterReplay(); else $('primary').click(); }
@@ -1191,7 +1192,7 @@ export function startGame({ shared = null } = {}) {
   // Focus the game first: hiding the focused button would blur it and auto-pause.
   $('pause-overlay').addEventListener('click', resumeGame);
   $('crash-retry').addEventListener('click', () => { focusGame(); if (replay) rideAfterReplay(); else startFresh(); });
-  $('headlight').addEventListener('click', () => { toggleHeadlight(); focusGame(); });
+  $('headlight').addEventListener('click', () => { handlePress('lights'); focusGame(); });
   $('sound-control').addEventListener('click', () => { toggleSound(); focusGame(); });
   // A click rather than a data-action: the touch buttons only work mid-ride,
   // and restart is wanted most after a crash.

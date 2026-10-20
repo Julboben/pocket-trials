@@ -1458,8 +1458,7 @@ h2 {
 }
 #left-control.held,
 #right-control.held,
-#flip-control.held,
-#flip-control:active {
+#flip-control.held {
     --face: var(--color-surface-raised);
 }
 #down-control.held {
@@ -1471,7 +1470,6 @@ h2 {
 #left-control.held,
 #right-control.held,
 #flip-control.held,
-#flip-control:active,
 #down-control.held,
 #up-control.held {
     transform: translate(2px, 2px);

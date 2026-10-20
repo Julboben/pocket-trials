@@ -2085,7 +2085,8 @@ export function createRenderer(canvas) {
       sun: frameSun,
     });
     drawPropGlows(ride, look, ride.ragdoll ? "ragdoll" : state, full);
-    drawInteractHint();
+    // Thrown off the bike, the rider can't interact, so there's no key to show.
+    if (!ride.ragdoll) drawInteractHint();
     drawPopups(animationDt);
     drawAppleHints(ride);
     effects.prune();

@@ -41,9 +41,17 @@ const STICK_DEADZONE = .25;
  */
 export function createInput({ element, buttons, indicators = [], isActive, onPress }) {
   const keys = new Set();
+  /** Keys down on a held action off the ride: they press its button in but do nothing. */
+  const shownKeys = new Set();
+  /** Pointers holding an action, which only start while the ride is on. */
   const pointers = new Map();
+  /** Every pointer down on a button, so it presses in even when it does nothing. */
+  const touching = new Map();
   const pad = {
-    held: new Set(), lean: 0, previous: /** @type {boolean[]} */ ([]), connected: false, stickX: 0, stickY: 0,
+    held: new Set(), lean: 0,
+    // What the pad's buttons map to, held or not, so the on-screen buttons
+    // press in with them even when the press does nothing.
+    shown: new Set(), previous: /** @type {boolean[]} */ ([]), connected: false, stickX: 0, stickY: 0,
     // Which pad was read, and whether it is what the player is using: a key or
     // a touch hands over to that, so a pad lying idle never rumbles.
     index: -1, inUse: false,
@@ -76,13 +84,18 @@ export function createInput({ element, buttons, indicators = [], isActive, onPre
 
   function clear() {
     keys.clear();
+    shownKeys.clear();
     pointers.clear();
+    touching.clear();
     paint();
   }
 
   function paint() {
-    for (const button of buttons) button.classList.toggle('held', held(button.dataset.action || ''));
-    for (const button of indicators) button.classList.toggle('held', held(button.dataset.shows || ''));
+    const touched = new Set(touching.values());
+    const shownActions = new Set([...shownKeys].map(code => codeActions.get(code)));
+    const down = action => held(action) || pad.shown.has(action) || shownActions.has(action);
+    for (const button of buttons) button.classList.toggle('held', touched.has(button) || down(button.dataset.action || ''));
+    for (const button of indicators) button.classList.toggle('held', down(button.dataset.shows || ''));
   }
 
   /** Routes the next key press to `callback` (used by key remapping). */
@@ -99,7 +112,7 @@ export function createInput({ element, buttons, indicators = [], isActive, onPre
     }
     // On macOS a key released while Cmd is down never reports its release,
     // so Cmd lets go of everything rather than leave a key stuck.
-    if (event.code === 'MetaLeft' || event.code === 'MetaRight') { keys.clear(); paint(); return false; }
+    if (event.code === 'MetaLeft' || event.code === 'MetaRight') { keys.clear(); shownKeys.clear(); paint(); return false; }
     const action = codeActions.get(event.code);
     if (!action) return false;
     pad.inUse = false;
@@ -110,29 +123,35 @@ export function createInput({ element, buttons, indicators = [], isActive, onPre
       paint();
       return true;
     }
-    if (!isActive()) return true;
-    keys.add(event.code);
+    (isActive() ? keys : shownKeys).add(event.code);
     paint();
     return true;
   }
 
   function keyUp(event) {
-    if (keys.delete(event.code)) paint();
+    const wasShown = shownKeys.delete(event.code);
+    if (keys.delete(event.code) || wasShown) paint();
   }
 
   for (const button of buttons) {
+    // A button always presses in, like a real pad's, but only acts mid-ride.
     button.addEventListener('pointerdown', event => {
-      if (!isActive()) return;
       event.preventDefault();
       pad.inUse = false;
       element.focus({ preventScroll: true });
-      const action = button.dataset.action || '';
-      if (PRESS_ACTIONS.includes(action)) { onPress(action, 'pointer'); return; }
       button.setPointerCapture(event.pointerId);
-      pointers.set(event.pointerId, action);
+      touching.set(event.pointerId, button);
+      const action = button.dataset.action || '';
+      if (isActive()) {
+        if (PRESS_ACTIONS.includes(action)) onPress(action, 'pointer');
+        else pointers.set(event.pointerId, action);
+      }
       paint();
     });
-    const release = event => { pointers.delete(event.pointerId); paint(); };
+    const release = event => {
+      const wasDown = touching.delete(event.pointerId);
+      if (pointers.delete(event.pointerId) || wasDown) paint();
+    };
     button.addEventListener('pointerup', release);
     button.addEventListener('pointercancel', release);
     button.addEventListener('lostpointercapture', release);
@@ -148,6 +167,7 @@ export function createInput({ element, buttons, indicators = [], isActive, onPre
     const gamepad = typeof navigator.getGamepads === 'function'
       ? [...navigator.getGamepads()].find(candidate => candidate?.connected) : null;
     pad.held.clear();
+    pad.shown.clear();
     pad.lean = 0;
     pad.connected = Boolean(gamepad);
     if (!gamepad) { pad.previous = []; pad.index = -1; pad.inUse = false; return; }
@@ -161,18 +181,23 @@ export function createInput({ element, buttons, indicators = [], isActive, onPre
     const edge = index => pressed[index] && !previous[index];
     pad.previous = pressed;
     const active = isActive();
+    const stick = gamepad.axes[0] || 0;
+    const shows = { up: [PAD.rt, PAD.a], down: [PAD.lt, PAD.x], back: [PAD.left], forward: [PAD.right], flip: [PAD.b], lights: [PAD.up], restart: [PAD.y] };
+    for (const [action, indexes] of Object.entries(shows)) if (indexes.some(index => pressed[index])) pad.shown.add(action);
+    if (stick < -STICK_DEADZONE) pad.shown.add('back');
+    if (stick > STICK_DEADZONE) pad.shown.add('forward');
     if (active) {
       if (pressed[PAD.rt] || pressed[PAD.a]) pad.held.add('up');
       if (pressed[PAD.lt] || pressed[PAD.x]) pad.held.add('down');
       if (pressed[PAD.left]) pad.held.add('back');
       if (pressed[PAD.right]) pad.held.add('forward');
-      const stick = gamepad.axes[0] || 0;
       if (Math.abs(stick) > STICK_DEADZONE) pad.lean = clamp((stick - Math.sign(stick) * STICK_DEADZONE) / (1 - STICK_DEADZONE), -1, 1);
     }
     if (pressed[PAD.y]) pad.held.add('restart');
     if (edge(PAD.b)) onPress(active ? 'flip' : 'cancel', 'pad');
-    if (active && edge(PAD.up)) onPress('lights', 'pad');
-    if (active && edge(PAD.down)) onPress('interact', 'pad');
+    // The game decides when these do anything, the same for keys and touch.
+    if (edge(PAD.up)) onPress('lights', 'pad');
+    if (edge(PAD.down)) onPress('interact', 'pad');
     if (edge(PAD.y)) onPress('restart', 'pad');
     if (edge(PAD.start)) onPress('pause', 'pad');
     if (edge(PAD.select)) onPress('menu', 'pad');
