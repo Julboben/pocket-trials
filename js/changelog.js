@@ -16,10 +16,6 @@ export const RELEASES = [
       {
         "type": "improved",
         "text": "The results card, trail descriptions and tool hints have clearer wording, and several typos have been fixed."
-      },
-      {
-        "type": "fixed",
-        "text": "Rabbits now behave and replay more reliably."
       }
     ]
   },
