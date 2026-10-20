@@ -1,5 +1,6 @@
 // @ts-check
-// A wild rabbit: grey-brown with a white scut. It hops about near its anchor,
+// A wild rabbit: grey-brown with a white scut, or on snow a mountain hare in
+// its white winter coat with black ear tips. It hops about near its anchor,
 // a few short hops at a time, and between hops sits, nibbles the grass or sits
 // up on its haunches to look about. When the rider comes close it freezes for
 // a moment, then bounds off away from them in long leaps and is gone.
@@ -21,6 +22,7 @@
 
 import { CORGI_STEP, corgiGround, corgiReach, drawGrid } from "./corgi-props.js";
 import { desertNoise } from "./desert-props.js";
+import { SNOW } from "./mountain-props.js";
 
 /** Snaps a value onto the 2-unit art grid. */
 const snap = (value) => Math.round(value / 2) * 2;
@@ -153,8 +155,8 @@ export function rabbitFlee(fit, from, dir, age) {
 // ---------------------------------------------------------------------------
 
 // Grey-brown agouti fur from the game's wood browns, a white scut and chest,
-// and pink-tan inner ears.
-const KEYS = {
+// and pink-tan inner ears. X and Y are the ear tips, far and near.
+const BROWN = {
   D: "#4d3f2f",
   B: "#66543f",
   L: "#856d4f",
@@ -164,6 +166,23 @@ const KEYS = {
   H: "#fffdf4",
   E: "#c39664",
   K: "#182321",
+  X: "#4d3f2f",
+  Y: "#66543f",
+};
+// The mountain hare's winter coat, in the snow's own colours so it blends in,
+// shaded blue-grey on the left and inside its ears, with the black ear tips
+// it keeps all year.
+const WHITE = {
+  ...BROWN,
+  D: SNOW.deep,
+  B: SNOW.base,
+  L: SNOW.light,
+  T: SNOW.light,
+  W: SNOW.light,
+  w: SNOW.shade,
+  E: SNOW.shade,
+  X: "#182321",
+  Y: "#3a403d",
 };
 
 // Each pose: its rows, one 2-unit pixel per character, and the top left they
@@ -174,7 +193,7 @@ const POSES = {
     x: -14,
     y: -30,
     rows: [
-      "....DB.......",
+      "....XY.......",
       "....DBE......",
       ".....DBE.....",
       ".....DBE.....",
@@ -196,7 +215,7 @@ const POSES = {
     x: -14,
     y: -22,
     rows: [
-      "...DB........",
+      "...XY........",
       "...DBE.......",
       "....DBE......",
       "..DBBBBE.....",
@@ -214,7 +233,7 @@ const POSES = {
     x: -14,
     y: -34,
     rows: [
-      "......DB.....",
+      "......XY.....",
       "......DBE....",
       "......DBE....",
       "......DBE....",
@@ -238,7 +257,7 @@ const POSES = {
     x: -14,
     y: -24,
     rows: [
-      "...DB.........",
+      "...XY.........",
       "....DBE.......",
       ".....DBE......",
       "......DBE.....",
@@ -257,7 +276,7 @@ const POSES = {
     x: -16,
     y: -22,
     rows: [
-      "..........DB....",
+      "..........XY....",
       "..........DBE...",
       "...........DBE..",
       "...........DBLT.",
@@ -280,9 +299,10 @@ export const RABBIT_HEIGHT = 34;
 /**
  * A wild rabbit facing right in `pose` (see rabbitIdle), its feet at y = 0
  * and its body centred on x = 0: about 26 long and 30 tall to the ear tips
- * sitting, next to a 66-tall rider. Uses pixelRect only.
+ * sitting, next to a 66-tall rider. `snowy` gives it the mountain hare's white
+ * winter coat. Uses pixelRect only.
  */
-export function drawRabbit(tools, pose = "sit") {
+export function drawRabbit(tools, pose = "sit", snowy = false) {
   const art = POSES[pose] ?? POSES.sit;
-  drawGrid(tools, art.x, art.y, art.rows, KEYS);
+  drawGrid(tools, art.x, art.y, art.rows, snowy ? WHITE : BROWN);
 }

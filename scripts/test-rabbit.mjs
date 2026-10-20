@@ -1,10 +1,11 @@
-// Rabbits: the ground they hop along, hopping about their anchor, and
-// bounding off when startled.
+// Rabbits: the ground they hop along, their white coat on snow, hopping
+// about their anchor, and bounding off when startled.
 import assert from 'node:assert/strict';
 import { normalizeTrail, validateTrail } from '../js/trail-schema.js';
 import { rectangle } from './lib/terrain-fixtures.mjs';
 import { propSpan, propWallFit, rabbitPropAt } from '../js/drawing.js';
 import { corgiGround } from '../js/corgi-props.js';
+import { SNOW } from '../js/mountain-props.js';
 import {
   RABBIT_BOUND,
   RABBIT_BOUND_HEIGHT,
@@ -15,6 +16,7 @@ import {
   RABBIT_SPELL,
   RABBIT_STEP,
   RABBIT_WANDER,
+  drawRabbit,
   rabbitFlee,
   rabbitIdle,
   rabbitPhase,
@@ -38,6 +40,24 @@ const flat = { left: Array(RABBIT_RANGE / RABBIT_STEP + 1).fill(0), right: Array
   assert.ok(fit.right.length * RABBIT_STEP <= 100 + RABBIT_STEP, 'the wall stops it');
   const [rise] = propSpan('rabbit', fit);
   assert.ok(rise >= 30 + RABBIT_BOUND_HEIGHT, 'culling covers a bound');
+}
+
+// On snow it wears the mountain hare's white coat.
+{
+  const rabbit = prop('rabbit', 900);
+  assert.equal(propWallFit(trail([rabbit]), rabbit).material, 'grass');
+  const snowy = normalizeTrail({
+    name: 'test', finish: { x: 2800, y: null }, apples: [], spikes: [],
+    terrainBlocks: [rectangle(0, 320, 3000, 620, 'snow', 'ground')],
+    start: { x: 120, y: null, facing: 1 }, props: [rabbit],
+  });
+  assert.equal(propWallFit(snowy, rabbit).material, 'snow');
+  const colours = (snow) => {
+    const seen = new Set();
+    drawRabbit({ pixelRect: (x, y, w, h, colour) => seen.add(colour) }, 'sit', snow);
+    return seen;
+  };
+  assert.ok(colours(true).has(SNOW.base) && !colours(false).has(SNOW.base), 'white on snow, brown elsewhere');
 }
 
 // At time 0 it sits still at its anchor, facing the way it was placed.
