@@ -1,5 +1,13 @@
 # Hjulben
 
+[![Play Hjulben at h.julben.dk](https://img.shields.io/badge/play-h.julben.dk-ff8952?style=for-the-badge&labelColor=111c20)](https://h.julben.dk)
+
+**Play it in your browser at [h.julben.dk](https://h.julben.dk).**
+
+<p align="center">
+  <a href="https://h.julben.dk"><img src="design/readme-preview.png" alt="Hjulben on a phone: the rider at the start of Windfall, under an apple tree, with the on-screen controls below" width="300"></a>
+</p>
+
 Hjulben is a small side-scrolling motorcycle trials game inspired by the physics-driven handling of **Elasto Mania**. Build momentum over rolling terrain, shift the rider's weight, control wheelies and stoppies, collect every apple, and reach the finish flag without putting the rider's helmet into the ground.
 
 The current version is a dependency-free browser prototype built with native JavaScript modules, Canvas rendering, and custom Verlet-style bike physics.
