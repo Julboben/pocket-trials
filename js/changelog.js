@@ -2,6 +2,28 @@
 /** @type {{ version: string, date: string, changes: { type: 'new' | 'improved' | 'fixed', text: string }[] }[]} */
 export const RELEASES = [
   {
+    "version": "0.4.2",
+    "date": "2026-10-20",
+    "changes": [
+      {
+        "type": "new",
+        "text": "Editor: A new rabbit prop is available to place on your trails."
+      },
+      {
+        "type": "improved",
+        "text": "The on-screen controls now animate more smoothly."
+      },
+      {
+        "type": "improved",
+        "text": "The results card, trail descriptions and tool hints have clearer wording, and several typos have been fixed."
+      },
+      {
+        "type": "fixed",
+        "text": "Rabbits now behave and replay more reliably."
+      }
+    ]
+  },
+  {
     "version": "0.4.1",
     "date": "2026-10-19",
     "changes": [

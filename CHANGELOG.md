@@ -2,6 +2,18 @@
 
 Player-facing release notes. The game shows them under **What's new**, and each GitHub Release uses its section.
 
+## 0.4.2 — 2026-10-20
+
+### New
+- Editor: A new rabbit prop is available to place on your trails.
+
+### Improved
+- The on-screen controls now animate more smoothly.
+- The results card, trail descriptions and tool hints have clearer wording, and several typos have been fixed.
+
+### Fixed
+- Rabbits now behave and replay more reliably.
+
 ## 0.4.1 — 2026-10-19
 
 ### New
