@@ -555,6 +555,7 @@ export function validateTrail(trail) {
         "bird",
         "squirrel",
         "corgi",
+        "rabbit",
         "graffiti",
         "crane",
         "scaffolding",

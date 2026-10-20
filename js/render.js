@@ -20,6 +20,7 @@ import {
   propRotation,
   propSpan,
   propWallFit,
+  rabbitPropAt,
   sunLight,
   sunShadowOffset,
   waterPropAt,
@@ -82,6 +83,7 @@ import {
   corgiStart,
   corgiStep,
 } from "./corgi-props.js";
+import { RABBIT_FLEE, RABBIT_RANGE } from "./rabbit-props.js";
 import { crackLines, glassPane } from "./glass.js";
 
 const GLASS_CRACK_COLOR = "#f6fffde6";
@@ -216,6 +218,7 @@ const PROP_REACH = {
   dragonfly: 80,
   squirrel: SQUIRREL_RANGE + 40,
   corgi: CORGI_RANGE + 40,
+  rabbit: RABBIT_RANGE + 40,
   tumbleweed: TUMBLEWEED_RUN + 30,
   vulture: VULTURE_ORBIT.x + 40,
   "heat-haze": HAZE_HALF + 10,
@@ -232,9 +235,10 @@ const PROP_REACH = {
   farmhouse: 150,
   "wind-turbine": TURBINE.blade + 8,
 };
-// Perched birds and ducks take off, roosting bats scatter, fish dart off and
-// squirrels run for a tree when the rider comes within `x` and `y` of them;
-// they are gone `flight` seconds later (a squirrel as soon as it has hidden).
+// Perched birds and ducks take off, roosting bats scatter, fish dart off,
+// rabbits bound away and squirrels run for a tree when the rider comes within
+// `x` and `y` of them; they are gone `flight` seconds later (a squirrel as
+// soon as it has hidden).
 const STARTLE = {
   bird: { x: 110, y: 140, flight: 2.5 },
   bats: { x: 160, y: 200, flight: 2.2 },
@@ -243,6 +247,7 @@ const STARTLE = {
   frog: { x: 110, y: 120, flight: Infinity },
   fish: { x: 90, y: 70, flight: FISH_DART },
   squirrel: { x: 140, y: 120, flight: SQUIRREL_HIDE_MAX },
+  rabbit: { x: 130, y: 110, flight: RABBIT_FLEE },
 };
 // Heat haze shimmers the scene behind it, so it stays out of the x-ray mask,
 // and it is left out with reduced motion and in the lighter graphics mode.
@@ -564,8 +569,8 @@ export function createRenderer(canvas) {
     }
   }
 
-  // Perched birds, ducks, roosting bats, fish and squirrels take off, away
-  // from the rider (a squirrel to its tree), once the rider comes close.
+  // Perched birds, ducks, roosting bats, fish, rabbits and squirrels take off,
+  // away from the rider (a squirrel to its tree), once the rider comes close.
   // Purely visual: nothing here feeds back into the simulation.
   function startleProps(ride, focus, now) {
     if (flightRide !== ride) {
@@ -583,6 +588,8 @@ export function createRenderer(canvas) {
         // A fish darts off from wherever it has swum to.
         ({ x, y, swim: from } = waterPropAt(trail, prop, propScene.time));
       }
+      // A rabbit bounds off from wherever it has hopped to.
+      if (prop.type === "rabbit") ({ x, y, from } = rabbitPropAt(trail, prop, propScene.time));
       if (Math.abs(focus.x - x) < reach.x && Math.abs(focus.y - y) < reach.y)
         flights.set(prop, { start: now, dir: x >= focus.x ? 1 : -1, from });
     }

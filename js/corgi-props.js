@@ -309,13 +309,22 @@ const KEYS = {
   Y: COLLAR.tag,
 };
 
-/** Draws an art grid, one 2-unit pixel per character, its top left at (x, y). */
-function drawGrid({ pixelRect }, x, y, rows) {
+/**
+ * Draws an art grid, one 2-unit pixel per character, its top left at (x, y).
+ * `keys` maps a character to its colour (the corgi's by default); anything
+ * else is left clear. The rabbit draws with it too.
+ * @param {{ pixelRect: Function }} tools
+ * @param {number} x
+ * @param {number} y
+ * @param {string[]} rows
+ * @param {Record<string, string>} [keys]
+ */
+export function drawGrid({ pixelRect }, x, y, rows, keys = KEYS) {
   rows.forEach((row, r) => {
     for (let c = 0; c < row.length; ) {
       let end = c + 1;
       while (end < row.length && row[end] === row[c]) end++;
-      const color = KEYS[row[c]];
+      const color = keys[row[c]];
       if (color) pixelRect(x + c * 2, y + r * 2, (end - c) * 2, 2, color, 2);
       c = end;
     }

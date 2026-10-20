@@ -362,6 +362,18 @@ import {
   corgiStart,
   drawCorgi,
 } from "./corgi-props.js";
+import {
+  RABBIT_BOUND_HEIGHT,
+  RABBIT_BOUNDS,
+  RABBIT_HEIGHT,
+  RABBIT_RANGE,
+  RABBIT_STEP,
+  RABBIT_STEP_UP,
+  drawRabbit,
+  rabbitFlee,
+  rabbitIdle,
+  rabbitPhase,
+} from "./rabbit-props.js";
 
 const GROUND_ALIGNED_PROP_SPANS = {
   bush: [-28, 28],
@@ -1323,7 +1335,7 @@ export const canFlip = (type) =>
 // that wander, fly or shimmer, and the ski lift, whose chair hangs plumb, and
 // moss, which lies along whatever surface it finds. Other wall props and
 // graffiti turn about their anchor.
-const UNROTATABLE_PROPS = new Set(["squirrel", "corgi", "tumbleweed", "vulture", "bird", "heat-haze", "ski-lift", "smoke", "moss"]);
+const UNROTATABLE_PROPS = new Set(["squirrel", "corgi", "rabbit", "tumbleweed", "vulture", "bird", "heat-haze", "ski-lift", "smoke", "moss"]);
 export const canRotate = (type) =>
   !CAVE_FITTED_PROPS.has(type) &&
   !WATER_PROPS.has(type) &&
@@ -1359,6 +1371,7 @@ export function propWallFit(trail, prop) {
   if (WATER_PROPS.has(prop.type)) return waterFit(trail, prop);
   if (prop.type === "squirrel") return squirrelFit(trail, prop);
   if (prop.type === "corgi") return corgiFit(trail, prop);
+  if (prop.type === "rabbit") return rabbitFit(trail, prop);
   if (prop.type === "tumbleweed") return tumbleweedFit(trail, prop);
   // A vulture with no y of its own circles high over the ground.
   if (prop.type === "vulture") return { centre: Number.isFinite(prop.y) ? 0 : -VULTURE_HEIGHT };
@@ -1641,21 +1654,39 @@ function traceGround(trail, x, y, dir, step, range, stepUp) {
   return path;
 }
 
-const corgiFits = new WeakMap();
+const walkFits = new WeakMap();
 
 /**
- * The ground Coda the corgi can trot along, `left` and `right` of his anchor
- * (see corgi-props.js). Cached per prop until it or the terrain changes.
+ * The ground an animal can walk along `left` and `right` of its anchor, one
+ * offset every `step` up to `range`, a wall or a drop (see traceGround), and
+ * the `material` it stands on at its anchor. Cached per prop until it or the
+ * terrain changes.
  */
-function corgiFit(trail, prop) {
+function walkFit(trail, prop, step, range, stepUp) {
   const geometry = terrainGeometry(trail);
-  const cached = corgiFits.get(prop);
+  const cached = walkFits.get(prop);
   if (cached && cached.x === prop.x && cached.y === prop.y && cached.geometry === geometry) return cached.fit;
   const y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
-  const trace = (dir) => traceGround(trail, prop.x, y, dir, CORGI_STEP, CORGI_RANGE, CORGI_STEP_UP);
-  const fit = { left: trace(-1), right: trace(1) };
-  corgiFits.set(prop, { x: prop.x, y: prop.y, geometry, fit });
+  const trace = (dir) => traceGround(trail, prop.x, y, dir, step, range, stepUp);
+  const fit = { left: trace(-1), right: trace(1), material: terrainAt(trail, prop.x, y - stepUp).material };
+  walkFits.set(prop, { x: prop.x, y: prop.y, geometry, fit });
   return fit;
+}
+
+/** The ground Coda the corgi can trot along (see corgi-props.js). */
+const corgiFit = (trail, prop) => walkFit(trail, prop, CORGI_STEP, CORGI_RANGE, CORGI_STEP_UP);
+/** The ground a rabbit can hop along (see rabbit-props.js). */
+const rabbitFit = (trail, prop) => walkFit(trail, prop, RABBIT_STEP, RABBIT_RANGE, RABBIT_STEP_UP);
+
+/**
+ * Where a rabbit has hopped to at `time`, for startling it: its world `x` and
+ * `y`, and its offset `from` its anchor, where its flight starts.
+ */
+export function rabbitPropAt(trail, prop, time) {
+  const fit = propWallFit(trail, prop);
+  const y = Number.isFinite(prop.y) ? prop.y : terrainAt(trail, prop.x).y;
+  const at = rabbitIdle(time, rabbitPhase(prop.x), fit, prop.flip ? -1 : 1);
+  return { x: prop.x + at.dx, y: y + at.dy, from: at.dx };
 }
 
 // Trees a squirrel hides in, with how far above the base the leaves start to
@@ -1763,6 +1794,12 @@ export function propSpan(type, fit) {
   if (type === "corgi") {
     const ground = [...(fit?.left ?? [0]), ...(fit?.right ?? [0])];
     return [Math.max(0, -Math.min(...ground)) - CORGI_BOUNDS[1] + 8, Math.max(0, ...ground) + 4];
+  }
+  if (type === "rabbit") {
+    const ground = [...(fit?.left ?? [0]), ...(fit?.right ?? [0])];
+    // Room for it sat up, as tall as it gets, at the top of a bound.
+    const top = RABBIT_HEIGHT + RABBIT_BOUND_HEIGHT + 4;
+    return [Math.max(0, -Math.min(...ground)) + top, Math.max(0, ...ground) + 4];
   }
   if (type === "tumbleweed") {
     const path = fit?.path ?? [0];
@@ -4162,6 +4199,7 @@ const PROP_EXTENTS = {
   bird: [-12, -20, 12],
   squirrel: [-16, -32, 14],
   corgi: [CORGI_BOUNDS[0] - 2, CORGI_BOUNDS[1] - 4, CORGI_BOUNDS[2] + 2],
+  rabbit: [RABBIT_BOUNDS[0] - 2, RABBIT_BOUNDS[1] - 4, RABBIT_BOUNDS[2] + 2],
   graffiti: [GRAFFITI_BOUNDS[0], GRAFFITI_BOUNDS[1], GRAFFITI_BOUNDS[2]],
   ivy: [-24, -IVY.max - 10, 24],
   "hanging-roots": [-16, -CEILING_REACH - 4, 16],
@@ -6065,6 +6103,23 @@ export function createGameArt(ctx) {
       ctx.translate(pose.dx, 0);
       ctx.scale(pose.dir, 1);
       drawCorgi({ pixelRect }, pose, (lx) => corgiGround(wall, pose.dx + lx * pose.dir));
+    } else if (type === "rabbit") {
+      // Hops about, and bounds off once startled, in world directions,
+      // whichever way it was placed facing. On snow it is a white hare.
+      if (mirrored) ctx.scale(-1, 1);
+      const snap = (value) => Math.round(value / ART_PIXEL) * ART_PIXEL;
+      const flight = scene.flight;
+      const hop = flight
+        ? rabbitFlee(wall, flight.from ?? 0, flight.dir, flight.age)
+        : { ...rabbitIdle(scene.time || 0, rabbitPhase(x), wall, mirrored ? -1 : 1), alpha: 1, hidden: false };
+      if (hop.hidden) {
+        ctx.restore();
+        return;
+      }
+      ctx.globalAlpha *= hop.alpha;
+      ctx.translate(snap(hop.dx), snap(hop.dy));
+      ctx.scale(hop.dir, 1);
+      drawRabbit({ pixelRect }, hop.pose, wall?.material === "snow");
     } else if (type === "water-tower") {
       drawCanopy(type);
       // Legs and ladder run down from the platform to the ground.

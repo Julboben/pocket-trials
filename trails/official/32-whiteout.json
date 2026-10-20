@@ -516,6 +516,12 @@
       "y": null,
       "type": "pine-small",
       "layer": "back"
+    },
+    {
+      "x": 1084.3347908263058,
+      "y": 358.392138152143,
+      "type": "rabbit",
+      "layer": "back"
     }
   ],
   "spikes": [],

@@ -19,6 +19,7 @@ A plan for the props to add to each level theme. How to build them, and how to m
 
 - [x] **Squirrel**: nibbles a nut, and runs up the nearest tree to hide in the crown when the bike comes close.
 - [x] **Coda (corgi)**: a tri-colour Pembroke who potters about, sits and sniffs, and runs over to greet the rider with a woof; `E` makes him sit and pant.
+- [x] **Rabbit**: hops about near its spot, nibbling the grass and sitting up to look around, and bounds off when the bike comes close. On snow it is a white mountain hare.
 - [x] **Tent**: glows from the lantern inside after dark.
 - [x] **Fireplace**: a ring of stones round burning logs, sparks and smoke, lighting up the ground.
 - [x] **Grass**: sways in the wind and bends flat as the bike brushes through.

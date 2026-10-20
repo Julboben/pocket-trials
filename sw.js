@@ -5,7 +5,7 @@
 // installed (skipWaiting + claim); main.js then offers a reload, so a running
 // page keeps its own release until the player asks. Trail files and anything
 // else are network-first, and kept so the game also starts offline.
-const CACHE = 'hjulben-6c34c876';
+const CACHE = 'hjulben-32b65f7a';
 const CORE = [
   './',
   './css/editor.css',
@@ -96,6 +96,7 @@ const CORE = [
   './js/physics.js',
   './js/player-shape.js',
   './js/prison-props.js',
+  './js/rabbit-props.js',
   './js/ragdoll.js',
   './js/render.js',
   './js/replay-codec.js',
