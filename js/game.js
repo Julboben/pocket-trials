@@ -866,8 +866,8 @@ export function startGame({ shared = null } = {}) {
           else overlay.toast(result.reason === 'bad inputs' ? 'Too long for the world board · Runs over ten minutes stay on this device' : 'The world board didn’t take the run · Reload to get the latest version', 6000);
         } else if (result && 'failed' in result) {
           // Offline or a server hiccup: the waiting run goes when the server can be reached.
-          overlay.toast(queued ? 'Couldn’t reach the world board · The run is kept and posted later'
-            : 'Couldn’t reach the world board, and the browser’s storage is too full to keep the run', 6000);
+          overlay.toast(queued ? 'Couldn’t reach the world board · Run saved to post later'
+            : 'Couldn’t reach the world board, and browser storage is too full to keep the run', 6000);
         }
         const standing = result && 'rank' in result ? result : null;
         // Riders who have already moved on still hear how the run placed.
@@ -1166,7 +1166,7 @@ export function startGame({ shared = null } = {}) {
   window.addEventListener(STORAGE_FAILED_EVENT, () => {
     if (storageWarned) return;
     storageWarned = true;
-    overlay.toast('Couldn’t save: the browser’s storage is full · Progress is lost on reload until space is freed', Infinity);
+    overlay.toast('Couldn’t save: browser storage is full · Progress will be lost on reload until space is freed', Infinity);
   });
 
   $('primary').addEventListener('click', () => {

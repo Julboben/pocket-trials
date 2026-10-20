@@ -1,7 +1,7 @@
 {
   "name": "Hjulben",
   "short_name": "Hjulben",
-  "description": "A pixel-art motorcycle trials game. Balance, collect every apple and reach the flag.",
+  "description": "A pixel-art motorcycle trials game. Keep your balance, collect every apple, and reach the finish.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "fullscreen",

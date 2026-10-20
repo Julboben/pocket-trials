@@ -299,7 +299,7 @@ export const ACHIEVEMENTS = /** @type {readonly Achievement[]} */ (Object.freeze
   },
   {
     id: 'test-pilot', group: 'trail-maker', name: 'Test Pilot', icon: 'play',
-    blurb: 'Finish a play-test of a trail in the editor.', editor: 'playtest'
+    blurb: 'Finish a playtest of a trail in the editor.', editor: 'playtest'
   },
   {
     id: 'show-and-tell', group: 'trail-maker', name: 'Show and Tell', icon: 'share',

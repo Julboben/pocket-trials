@@ -39,7 +39,7 @@ Player-facing release notes. The game shows them under **What's new**, and each 
 ## 0.3.5 — 2026-10-13
 
 ### New
-- After you finish a run, the results card now shows your world rank once the run has been timed by the server. When you're offline or signed out, it shows a clearly labeled local rank instead.
+- After you finish a run, the results card now shows your world rank once the run has been timed by the server. When you're offline or signed out, it shows a clearly labelled local rank instead.
 - The results card also shows your gap to the next rider ahead of you, or your margin if you're in the lead.
 
 ### Improved
@@ -57,7 +57,7 @@ Player-facing release notes. The game shows them under **What's new**, and each 
 ## 0.3.3 — 2026-10-13
 
 ### New
-- One new official trail have arrived: A Hill to Die On / 04.
+- A new official trail has arrived: A Hill to Die On / 04.
 - You can now watch replays of your runs.
 - Trails now show a medal target to aim for.
 
@@ -66,8 +66,8 @@ Player-facing release notes. The game shows them under **What's new**, and each 
 - Resizing the window is smoother.
 
 ### Fixed
-- Apples that are still to be collected shows at the finish.
-- Play Again on the last trail now work as expected.
+- Uncollected apples now show at the finish.
+- Play Again on the last trail now works as expected.
 
 ## 0.3.2 — 2026-10-12
 

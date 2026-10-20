@@ -462,7 +462,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
       await deleteRider(save.token);
       dropPendingRuns(save.playerId);
       removeSlot(index);
-      setStatus('riders-status', save.name + ' is deleted from the world board. The name is free again.');
+      setStatus('riders-status', save.name + ' has been deleted from the world board. The name is free again.');
     } catch (error) {
       setStatus('riders-status', accountErrorText(error), true);
     } finally {
@@ -1448,7 +1448,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     $('save-mode').hidden = !onlineAvailable;
     $('save-login').hidden = !onlineAvailable;
     $('save-mode-help').textContent = online
-      ? 'Your name is yours alone on the world leaderboard. You sign in with a passkey (fingerprint, face or device PIN), and your progress is backed up.'
+      ? 'Your name is yours alone on the world leaderboard. Sign in with a passkey (fingerprint, face or device PIN) to back up your progress.'
       : 'Stays in this browser only: no world leaderboard, and clearing site data deletes it. You can take it online later from Riders.';
     $('create-save').textContent = online ? 'Create Passkey & Ride' : 'Create Save & Ride';
   }
@@ -1469,7 +1469,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
       if (!save) {
         // The passkey exists now, so the rider is not lost: it logs in like any other.
         showView('riders');
-        setStatus('riders-status', `Rider “${player.name}” created, but slot ${pendingSaveSlot + 1} is taken. Log in with the passkey to use it.`, true);
+        setStatus('riders-status', `Rider “${player.name}” was created, but slot ${pendingSaveSlot + 1} is full. Log in with your passkey to use it.`, true);
         return;
       }
       session.unlockedTrail = 0; session.savedTrail = 0;
@@ -1538,7 +1538,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
       const waiting = queued - sent;
       setStatus('riders-status', `${linked.name} is online.`
         + (sent ? ` ${sent} best ${sent === 1 ? 'run is' : 'runs are'} on the world leaderboard.` : '')
-        + (waiting > 0 ? ` ${waiting} more ${waiting === 1 ? 'is' : 'are'} sent shortly.` : ''));
+        + (waiting > 0 ? ` ${waiting} more will be sent shortly.` : ''));
     } catch (error) {
       setStatus('riders-status', error.message === 'name taken'
         ? `“${save.name}” is already taken online. If it’s yours, log in below; otherwise create a new online rider.`
@@ -1656,7 +1656,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   $('show-credits').addEventListener('click', () => showCredits('settings'));
   $('menu-editor').addEventListener('click', () => {
     // Leaving the page ends a paused ride, so a resumable one asks first.
-    if (canResume() && !window.confirm('Leave this ride and open the trail editor? Your progress on the trail is lost.')) return;
+    if (canResume() && !window.confirm('Leave this ride and open the trail editor? Your current run will be lost.')) return;
     window.location.href = './editor.html';
   });
   $('menu-settings').addEventListener('click', () => { syncSettings(); showView('settings'); });

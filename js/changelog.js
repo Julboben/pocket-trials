@@ -91,7 +91,7 @@ export const RELEASES = [
     "changes": [
       {
         "type": "new",
-        "text": "After you finish a run, the results card now shows your world rank once the run has been timed by the server. When you're offline or signed out, it shows a clearly labeled local rank instead."
+        "text": "After you finish a run, the results card now shows your world rank once the run has been timed by the server. When you're offline or signed out, it shows a clearly labelled local rank instead."
       },
       {
         "type": "new",
@@ -127,7 +127,7 @@ export const RELEASES = [
     "changes": [
       {
         "type": "new",
-        "text": "One new official trail have arrived: A Hill to Die On / 04."
+        "text": "A new official trail has arrived: A Hill to Die On / 04."
       },
       {
         "type": "new",
@@ -147,11 +147,11 @@ export const RELEASES = [
       },
       {
         "type": "fixed",
-        "text": "Apples that are still to be collected shows at the finish."
+        "text": "Uncollected apples now show at the finish."
       },
       {
         "type": "fixed",
-        "text": "Play Again on the last trail now work as expected."
+        "text": "Play Again on the last trail now works as expected."
       }
     ]
   },

@@ -55,6 +55,6 @@ export function commitWater(shape) {
 /** What a body of this depth does to a rider, for the inspector and tool panel. */
 export function waterDepthHint(depth) {
   return deepWater(depth)
-    ? `Deep: deeper than ${WATER_WIPEOUT_DEPTH}, so riding in wipes the rider out, who floats.`
+    ? `Deep: deeper than ${WATER_WIPEOUT_DEPTH}, so riding in wipes the rider out and leaves them floating.`
     : `Shallow: up to ${WATER_WIPEOUT_DEPTH} deep, a ford the bike can ride through, slowed down.`;
 }

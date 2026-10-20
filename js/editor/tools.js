@@ -66,7 +66,7 @@ export const TOOL_INFO = {
   },
   cut: {
     title: "Cut",
-    hint: "Drag an outline over a block to remove that shape from it. Hold Alt for a rectangle, Cmd/Ctrl for a circle and Shift to snap to the grid. Inside solid it makes a cave, across an edge it opens an entrance, and all the way through it splits it into separate blocks. It only cuts blocks on the chosen layer: the selected block, or else the topmost one it touches. Escape cancels.",
+    hint: "Drag an outline over a block to remove that shape from it. Hold Alt for a rectangle, Cmd/Ctrl for a circle and Shift to snap to the grid. Inside solid terrain it makes a cave, across an edge it opens an entrance, and all the way through it splits the block in two. It only cuts blocks on the chosen layer: the selected block, or else the topmost one it touches. The tool stays active; Esc returns to Select.",
     fields: [LAYER_FIELD],
   },
   apple: {
@@ -106,7 +106,7 @@ export const TOOL_INFO = {
   },
   water: {
     title: "Water",
-    hint: `Drag a rectangle to fill it with water, or click to drop a body of the size below with its surface where you click. Water fills the open air inside the rectangle and terrain stays dry, so a rectangle drawn over a pit fills the pit. Up to ${WATER_WIPEOUT_DEPTH} deep is a ford the bike rides through, slowed down; deeper water wipes the rider out, who floats. Hold Shift to snap to the grid. Select a body to resize it with its handles or set its width and depth. The tool stays active; Esc returns to Select.`,
+    hint: `Drag a rectangle to fill it with water, or click to drop a body of the size below with its surface where you click. Water fills the open air inside the rectangle and terrain stays dry, so a rectangle drawn over a pit fills the pit. Up to ${WATER_WIPEOUT_DEPTH} deep is a ford the bike rides through, slowed down; deeper water wipes the rider out and leaves them floating. Hold Shift to snap to the grid. Select a body to resize it with its handles or set its width and depth. The tool stays active; Esc returns to Select.`,
     fields: [
       {
         key: "width",
