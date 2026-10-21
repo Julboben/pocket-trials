@@ -1,11 +1,16 @@
 import { store } from './local-store.js';
 import { canonical, trailHash } from './trail-hash.js';
+import { DEV_SERVER_HEADER, DEV_SERVER_WRITABLE } from './dev-server.js';
 export { terrainMaterials } from './materials.js';
 
-async function loadJson(url, description) {
+async function fetchJson(url, description) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Could not load ${description}: ${response.status}`);
-  return response.json();
+  return { response, body: await response.json() };
+}
+
+async function loadJson(url, description) {
+  return (await fetchJson(url, description)).body;
 }
 
 function checkCatalog(catalog) {
@@ -13,7 +18,8 @@ function checkCatalog(catalog) {
   return catalog.trails;
 }
 
-// Local-only: generated next to the custom trail files and absent on deployments.
+// Generated next to the git-ignored custom trail files, so only the dev
+// server has it; static hosting is never asked.
 async function loadCustomCatalog() {
   try {
     const response = await fetch(new URL('../trails/custom-catalog.json', import.meta.url));
@@ -23,13 +29,21 @@ async function loadCustomCatalog() {
   }
 }
 
+/**
+ * Every trail with its file loaded, and the dev server's mark on the catalog
+ * (see js/dev-server.js), null from static hosting.
+ */
 async function loadTrailEntries() {
-  const catalog = await loadJson(new URL('../trails/catalog.json', import.meta.url), 'trail catalog');
-  const entries = [...checkCatalog(catalog), ...await loadCustomCatalog()];
-  return Promise.all(entries.map(async entry => ({
-    ...entry,
-    trail: await loadJson(new URL(`../trails/${entry.file}`, import.meta.url), `trail ${entry.file}`)
-  })));
+  const { response, body: catalog } = await fetchJson(new URL('../trails/catalog.json', import.meta.url), 'trail catalog');
+  const devServer = response.headers.get(DEV_SERVER_HEADER);
+  const entries = [...checkCatalog(catalog), ...(devServer ? await loadCustomCatalog() : [])];
+  return {
+    devServer,
+    entries: await Promise.all(entries.map(async entry => ({
+      ...entry,
+      trail: await loadJson(new URL(`../trails/${entry.file}`, import.meta.url), `trail ${entry.file}`)
+    })))
+  };
 }
 
 function showLoadError(error) {
@@ -54,9 +68,9 @@ function showLoadError(error) {
   retry.focus();
 }
 
-let loadedEntries;
+let loadedEntries, devServerMark;
 try {
-  loadedEntries = await loadTrailEntries();
+  ({ entries: loadedEntries, devServer: devServerMark } = await loadTrailEntries());
 } catch (error) {
   showLoadError(error);
   throw error;
@@ -206,16 +220,8 @@ export function deleteBrowserTrail(key) {
   removeTrailEntry(`browser:${key}`);
 }
 
-let devServerCheck = null;
-
-// Only the local dev server answers this endpoint; static hosting returns 404.
-export function detectDevServer() {
-  devServerCheck ||= fetch(new URL('../api/dev', import.meta.url), { cache: 'no-store' })
-    .then(response => response.ok ? response.json() : null)
-    .then(body => Boolean(body?.writable))
-    .catch(() => false);
-  return devServerCheck;
-}
+/** Whether the page runs on the dev server and may save trail files through it. */
+export const devServerWritable = devServerMark === DEV_SERVER_WRITABLE;
 
 async function devRequest(method, file, body) {
   const response = await fetch(new URL(`../api/trails/${file}`, import.meta.url), {

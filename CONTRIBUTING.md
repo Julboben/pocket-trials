@@ -93,6 +93,8 @@ For a trail the bot can't finish, add a human run. With the game running from `n
 
 Run `npm run check` (syntax), `npm run typecheck` (JSDoc types in `// @ts-check` files), and `npm test` before pushing. After `npm ci`, `npm run test:online` tests the online API against an in-memory Postgres (PGlite) using a software passkey. It covers sign-up, unique names, login, cloud saves, and rejection of tampered runs. CI runs all of these.
 
+`scripts/test-console.mjs` (part of `npm test`) opens the game and the editor in headless Chrome, served like static hosting, and fails on any failed request, uncaught exception, or console warning or error from the page or its service worker: in production the console should show nothing but the easter-egg hints. It needs Chrome (`CHROME_PATH` if it is somewhere unusual) and is skipped without one; CI has it. The dev server marks what it serves with the header in `js/dev-server.js`, which is how the game and the editor know they may ask for the custom trail catalog and save trail files; a request that only the dev server can answer must be behind that mark, or this test fails.
+
 When changing physics values, validate at least these cases:
 
 1. Starting from rest on a moderate hill
