@@ -61,7 +61,7 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bon
   const realFetch = globalThis.fetch;
   globalThis.fetch = /** @type {any} */ (async url => {
     const path = fileURLToPath(url);
-    return existsSync(path) ? { ok: true, json: async () => JSON.parse(readFileSync(path, 'utf8')) } : { ok: false, status: 404 };
+    return existsSync(path) ? { ok: true, headers: new Headers(), json: async () => JSON.parse(readFileSync(path, 'utf8')) } : { ok: false, status: 404 };
   });
   const { customTrailEntries, saveBrowserTrail, saveSharedTrail } = await import('../js/trails.js');
   globalThis.fetch = realFetch;

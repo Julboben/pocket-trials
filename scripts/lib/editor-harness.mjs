@@ -78,11 +78,13 @@ class Element {
 }
 
 const byId = new Map();
+const byClass = new Map(); // class name -> elements, for querySelector('.name')
 const contexts = new Map();
 
 /** Parses ids and data-tool values out of the editor markup. */
 export function buildDom(html) {
   byId.clear();
+  byClass.clear();
   contexts.clear();
   registry.clear();
   const dom = installGlobals();
@@ -105,6 +107,10 @@ export function buildDom(html) {
       registry.set(id, element);
       byId.set(id, element);
     }
+    for (const name of (/class="([^"]+)"/.exec(attributes)?.[1] || '').split(/\s+/).filter(Boolean)) {
+      if (!byClass.has(name)) byClass.set(name, []);
+      byClass.get(name).push(element);
+    }
   }
   // Every tool button, so querySelectorAll('[data-tool]') resolves.
   for (const match of html.matchAll(/data-tool="([^"]+)"/g)) {
@@ -118,6 +124,7 @@ export function buildDom(html) {
 function selectAll(selector) {
   if (selector === '[data-tool]') return [...byId.entries()].filter(([id]) => id.startsWith('tool:')).map(([, element]) => element);
   if (selector.startsWith('#')) return byId.get(selector.slice(1)) ? [byId.get(selector.slice(1))] : [];
+  if (selector.startsWith('.')) return byClass.get(selector.slice(1)) || [];
   return [];
 }
 

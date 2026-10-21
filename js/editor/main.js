@@ -8,7 +8,7 @@ import {
   trailToModule,
   validateTrail,
 } from "../trail-schema.js";
-import { detectDevServer, reportEditorFeat, terrainMaterials, trailEntries } from "../trails.js";
+import { devServerWritable, reportEditorFeat, terrainMaterials, trailEntries } from "../trails.js";
 import { DISCORD_LINK_LENGTH, MAX_JSON_BYTES, trailShareUrl } from "../trail-link.js";
 import { bindAutosave } from "./autosave.js";
 import { bindClipboard } from "./clipboard.js";
@@ -302,11 +302,9 @@ updateTrailControls();
 
 resize();
 
-// The save controls depend on the dev server, so reveal once that is known.
-detectDevServer().then((available) => {
-  editor.devServer = available;
-  updateTrailControls();
-  render();
-  document.querySelector(".editor-shell").removeAttribute("data-booting");
-  announceVersion();
-});
+// The save controls depend on the dev server.
+editor.devServer = devServerWritable;
+updateTrailControls();
+render();
+document.querySelector(".editor-shell").removeAttribute("data-booting");
+announceVersion();

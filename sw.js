@@ -5,7 +5,7 @@
 // installed (skipWaiting + claim); main.js then offers a reload, so a running
 // page keeps its own release until the player asks. Trail files and anything
 // else are network-first, and kept so the game also starts offline.
-const CACHE = 'hjulben-5f439d52';
+const CACHE = 'hjulben-ca644c8e';
 const CORE = [
   './',
   './css/editor.css',
@@ -38,6 +38,7 @@ const CORE = [
   './js/debug-hud.js',
   './js/desert-props.js',
   './js/det-math.js',
+  './js/dev-server.js',
   './js/drawing.js',
   './js/dungeon-props.js',
   './js/easter-eggs.js',
@@ -160,13 +161,8 @@ self.addEventListener('install', event => {
       await Promise.allSettled(
         catalog.trails.map(entry => cache.add(fresh('./trails/' + entry.file))),
       );
-      // Only exists locally, next to the git-ignored custom trails.
-      const custom = await fetch('./trails/custom-catalog.json').catch(() => null);
-      if (custom?.ok) {
-        await cache.put('./trails/custom-catalog.json', custom.clone());
-        const { trails } = await custom.json();
-        await Promise.allSettled(trails.map(entry => cache.add(fresh('./trails/' + entry.file))));
-      }
+      // Custom trails only exist on the dev server, where everything is
+      // network-first anyway (see LOCAL), so they are not kept.
     } catch (error) {
       console.warn('[sw] could not precache the trail catalog:', error);
     }

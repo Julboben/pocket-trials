@@ -1,7 +1,7 @@
 // The game loop and state machine: loads trails, steps the ride at a fixed
 // rate, turns ride events into sound, effects and UI, and saves results.
 import { STEP, MAX_STEPS_PER_FRAME, clamp } from './config.js';
-import { trails, officialTrailEntries, bonusTrailEntries, customTrailEntries, readPlaytestTrail, reportEditorFeat, takeEditorFeats, EDITOR_FEATS_KEY, PLAYTEST_EXIT_MESSAGE, detectDevServer } from './trails.js';
+import { trails, officialTrailEntries, bonusTrailEntries, customTrailEntries, readPlaytestTrail, reportEditorFeat, takeEditorFeats, EDITOR_FEATS_KEY, PLAYTEST_EXIT_MESSAGE, devServerWritable } from './trails.js';
 import { createAudio, skidAmount } from './audio.js';
 import { createPhysicsDebugger } from './physics-debug.js';
 import { createFpsMeter } from './fps-meter.js';
@@ -164,9 +164,6 @@ export function startGame({ shared = null } = {}) {
   let replay = null;
   /** The last finished run, for Watch Replay on the results. */
   let lastRun = null;
-  // Run from the local dev server, finished runs can be saved for the replay bot.
-  let devServer = false;
-  detectDevServer().then(available => { devServer = available; });
   // Set when this run ended the career, until its results' Roll Credits button is used.
   let creditsAfterResults = false;
   let wakeLock = null;
@@ -736,7 +733,8 @@ export function startGame({ shared = null } = {}) {
   // run finishes, which also covers play tests.
   function showSaveReference() {
     const button = $('save-reference');
-    button.hidden = !devServer || !lastRun || !['official', 'playtest'].includes(session.trailSource);
+    // Run from the local dev server, finished runs can be saved for the replay bot.
+    button.hidden = !devServerWritable || !lastRun ||!['official', 'playtest'].includes(session.trailSource);
     button.disabled = false;
   }
 

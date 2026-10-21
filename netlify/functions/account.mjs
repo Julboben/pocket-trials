@@ -245,9 +245,10 @@ async function putSave(req) {
   // Read, merge and write without a transaction (the HTTP driver has none):
   // the write only lands if the row is still what was read, else it merges
   // again on the fresh row, so two devices uploading at once can't undo each
-  // other.
+  // other. The stamp is read as text: Postgres keeps microseconds, which a
+  // JavaScript Date would round off, and then the row would never match.
   for (let attempt = 0; attempt < 5; attempt++) {
-    const [player] = await sql`select look, rider, save, save_updated_at from players where id = ${playerId}`;
+    const [player] = await sql`select look, rider, save, save_updated_at::text as save_stamp from players where id = ${playerId}`;
     if (!player) throw new HttpError(401, 'not signed in');
     const save = mergeSaves(player.save, sent);
     save.look = playerLook(save, player);
@@ -255,7 +256,7 @@ async function putSave(req) {
     const rows = await sql`
       update players set save = ${JSON.stringify(save)}::jsonb, rider = ${save.rider},
         look = ${JSON.stringify(save.look)}::jsonb, save_updated_at = now()
-      where id = ${playerId} and save_updated_at is not distinct from ${player.save_updated_at}
+      where id = ${playerId} and save_updated_at is not distinct from ${player.save_stamp}::timestamptz
       returning id`;
     if (rows.length) return json({ ok: true, save, token: renewedToken(session) });
   }

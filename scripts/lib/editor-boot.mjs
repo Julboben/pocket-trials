@@ -22,11 +22,10 @@ canvas.getContext = () => context;
 dom.element('canvas-wrap');
 dom.element('trail-picker');
 
-globalThis.fetch = async url => (String(url).includes('custom-catalog.json')
-  ? { ok: false, status: 404, json: async () => ({}) }
-  : String(url).includes('catalog.json')
-  ? { ok: true, json: async () => ({ schemaVersion: 1, trails: [{ id: 't1', file: 'custom/t1.json', name: 'Test' }] }) }
-  : { ok: true, json: async () => trail });
+// Static hosting's answers: no dev-server header, so no custom catalog is asked for.
+globalThis.fetch = async url => (String(url).includes('catalog.json')
+  ? { ok: true, headers: new Headers(), json: async () => ({ schemaVersion: 1, trails: [{ id: 't1', file: 'custom/t1.json', name: 'Test' }] }) }
+  : { ok: true, headers: new Headers(), json: async () => trail });
 
 // Window listeners are recorded so keyboard shortcuts can be driven.
 const windowListeners = new Map();

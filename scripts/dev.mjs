@@ -2,10 +2,12 @@ import http from 'node:http';
 import { mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DEV_SERVER_HEADER, DEV_SERVER_READ_ONLY, DEV_SERVER_WRITABLE } from '../js/dev-server.js';
 import { RIDE_VERSION, simulateRun } from '../js/ride.js';
 import { decodeInputs } from '../js/replay-codec.js';
 import { validRows } from '../netlify/lib/verify-run.mjs';
 import { generateTrailCatalog } from './generate-trail-catalog.mjs';
+import { contentType } from './lib/mime-types.mjs';
 import { loadCatalogTrails } from './lib/trails.mjs';
 import './watch-trails.mjs';
 
@@ -15,23 +17,6 @@ const humanRunsRoot = path.join(projectRoot, 'tests', 'replays', 'human');
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT) || 8080;
 const TRAIL_FILE = /^(official|bonus|custom)\/([a-z0-9][a-z0-9_-]*)\.json$/i;
-const MIME_TYPES = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.mjs': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.webmanifest': 'application/manifest+json; charset=utf-8',
-  '.md': 'text/markdown; charset=utf-8',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon',
-  '.woff2': 'font/woff2',
-  '.wav': 'audio/wav',
-  '.mp3': 'audio/mpeg',
-  '.ogg': 'audio/ogg'
-};
 
 const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
 
@@ -131,7 +116,10 @@ async function handleReferenceRun(request, response) {
   return sendJson(response, 200, { trail: entry.id, name: entry.trail.name, time: ride.elapsed, replaced: previous !== undefined, previousTime: previous ?? null });
 }
 
-async function serveStatic(request, response, pathname) {
+/** Tells the game it runs on the dev server, and whether the trail API below accepts its writes. */
+const devServerHeader = hostname => ({ [DEV_SERVER_HEADER]: LOCAL_HOSTS.includes(hostname) ? DEV_SERVER_WRITABLE : DEV_SERVER_READ_ONLY });
+
+async function serveStatic(request, response, pathname, hostname) {
   let filePath = path.normalize(path.join(projectRoot, decodeURIComponent(pathname)));
   const relative = path.relative(projectRoot, filePath);
   if (relative.startsWith('..') || path.isAbsolute(relative) || relative.split(path.sep).some(part => part.startsWith('.') && part.length > 1)) {
@@ -140,7 +128,7 @@ async function serveStatic(request, response, pathname) {
   try {
     if ((await stat(filePath)).isDirectory()) filePath = path.join(filePath, 'index.html');
     const content = await readFile(filePath);
-    response.writeHead(200, { 'Content-Type': MIME_TYPES[path.extname(filePath).toLowerCase()] || 'application/octet-stream', 'Cache-Control': 'no-store' });
+    response.writeHead(200, { 'Content-Type': contentType(filePath), 'Cache-Control': 'no-store', ...devServerHeader(hostname) });
     response.end(request.method === 'HEAD' ? undefined : content);
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
@@ -164,14 +152,13 @@ const server = http.createServer(async (request, response) => {
       if ((request.method === 'POST' || request.method === 'PUT') && !isJson(request.headers['content-type']))
         return sendJson(response, 415, { error: 'The trail API only accepts application/json.' });
     }
-    if (pathname === '/api/dev') return sendJson(response, 200, { writable: true });
     // No online board here. An empty answer, rather than a 404, keeps the console
     // clean; the client can't parse it, so it quietly uses the local board.
     if (pathname === '/api/leaderboard') { response.writeHead(204, { 'Cache-Control': 'no-store' }); return response.end(); }
     if (pathname.startsWith('/api/trails/')) return await handleTrailRequest(request, response, pathname.slice('/api/trails/'.length));
     if (pathname === '/api/reference-runs') return await handleReferenceRun(request, response);
     if (request.method !== 'GET' && request.method !== 'HEAD') return sendJson(response, 405, { error: 'Method not allowed.' });
-    await serveStatic(request, response, pathname);
+    await serveStatic(request, response, pathname, hostname);
   } catch (error) {
     console.error(error);
     if (!response.headersSent) sendJson(response, 500, { error: error.message });

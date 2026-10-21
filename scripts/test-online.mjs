@@ -357,6 +357,10 @@ const run = (replay = firstTrailRun) => ({ inputs: replay.inputs, seed: replay.s
   assert.deepEqual(merged.body.save.stats, { flips: 3, crashes: 4 }, 'stats keep the higher');
   assert.equal(merged.body.token, null, 'a fresh session is not renewed');
   assert.deepEqual((await api('save', { method: 'GET', token: julianToken })).body.save, merged.body.save);
+  // Postgres stamps saves to the microsecond (PGlite only to the millisecond),
+  // and a save after one must still go through.
+  await sql`update players set save_updated_at = now() + interval '123 microseconds'`;
+  assert.equal((await api('save', { method: 'PUT', body: { save: stale }, token: julianToken })).status, 200, 'a save stamped to the microsecond is not a conflict');
 
   // The look changed last wins, whichever device sends it.
   const older = { ...save, look: { ...look, hair: 'ponytail' }, lookUpdatedAt: 1000 };
