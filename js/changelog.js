@@ -2,6 +2,16 @@
 /** @type {{ version: string, date: string, changes: { type: 'new' | 'improved' | 'fixed', text: string }[] }[]} */
 export const RELEASES = [
   {
+    "version": "0.4.3",
+    "date": "2026-10-21",
+    "changes": [
+      {
+        "type": "fixed",
+        "text": "Cloud saves no longer fail after your first upload, so your progress now syncs correctly every time."
+      }
+    ]
+  },
+  {
     "version": "0.4.2",
     "date": "2026-10-20",
     "changes": [
