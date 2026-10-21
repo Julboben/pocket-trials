@@ -5,6 +5,10 @@
 // by the page or its service worker. In production the console should hold
 // only the easter-egg hints.
 //
+// The pages load from a hostname that is not local, so the service worker
+// behaves as in production (sw.js keeps localhost network-first), and a
+// return visit is checked to come from its cache.
+//
 //   node scripts/test-console.mjs
 //
 // Needs Chrome, at CHROME_PATH or where macOS or Linux installs it. Without
@@ -19,6 +23,8 @@ import { contentType } from './lib/mime-types.mjs';
 import { repoRoot } from './lib/trails.mjs';
 
 const PAGES = ['index.html', 'editor.html'];
+// Mapped to the test server; reserved for testing, so it never resolves elsewhere.
+const HOST = 'hjulben.test';
 // The API routes production has (netlify/functions); any other /api/ request
 // would be a 404 there too.
 const PRODUCTION_API = [/^\/api\/account\/[a-z-]+$/, /^\/api\/leaderboard$/];
@@ -31,10 +37,15 @@ const chromePath = [
   '/usr/bin/google-chrome',
 ].find(candidate => candidate && existsSync(candidate));
 
-/** Static hosting: the repo's files as they are, and nothing else. */
-function startStaticServer() {
+/**
+ * Static hosting: the repo's files as they are, and nothing else. Every
+ * request is passed to `onRequest` with the status it got, whether the page
+ * or the service worker asked, so none can go unseen.
+ */
+function startStaticServer(onRequest) {
   const server = http.createServer(async (request, response) => {
     const { pathname } = new URL(request.url, 'http://localhost');
+    response.on('finish', () => onRequest(pathname, response.statusCode));
     if (pathname.startsWith('/api/')) {
       // Production answers these from functions; an empty reply stands in.
       const status = PRODUCTION_API.some(route => route.test(pathname)) ? 204 : 404;
@@ -63,11 +74,14 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
  * A connection to Chrome's DevTools protocol, attached to every page and
  * worker it opens. `onAttached` names the domains to enable on each.
  */
-async function launchChrome(chromePath, onAttached) {
+async function launchChrome(chromePath, origin, onAttached) {
   const userDataDir = mkdtempSync(path.join(tmpdir(), 'hjulben-console-'));
   const flags = [
     '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${userDataDir}`,
     '--no-first-run', '--no-default-browser-check', '--mute-audio', '--window-size=1200,800',
+    // The test host resolves to the server, and counts as secure like the
+    // HTTPS site, or the service worker would not register at all.
+    `--host-resolver-rules=MAP ${HOST} 127.0.0.1`, `--unsafely-treat-insecure-origin-as-secure=${origin}`,
   ];
   if (process.getuid?.() === 0) flags.push('--no-sandbox');
   const chrome = spawn(chromePath, [...flags, 'about:blank'], { stdio: 'ignore' });
@@ -135,13 +149,17 @@ if (!chromePath) {
 }
 
 const problems = [];
-const server = await startStaticServer();
-const base = `http://127.0.0.1:${server.address().port}/`;
-const requests = new Map(); // requestId -> url, for failures reported without one
+let served = []; // what reached the server during the current visit
+const server = await startStaticServer((pathname, status) => {
+  served.push(pathname);
+  if (status >= 400) problems.push(`${status} ${pathname}`);
+});
+const base = `http://${HOST}:${server.address().port}/`;
+const requests = new Map(); // requestId -> url, for failures that report none
 const sessions = new Map(); // sessionId -> 'page' | 'service worker', for the report
 const sessionOf = new Map(); // targetId -> sessionId
 
-const chrome = await launchChrome(chromePath, (sessionId, { type, targetId }) => {
+const chrome = await launchChrome(chromePath, new URL(base).origin, (sessionId, { type, targetId }) => {
   if (type !== 'page' && type !== 'service_worker') return [];
   sessions.set(sessionId, type === 'page' ? 'page' : 'service worker');
   sessionOf.set(targetId, sessionId);
@@ -150,10 +168,9 @@ const chrome = await launchChrome(chromePath, (sessionId, { type, targetId }) =>
 const where = sessionId => sessions.get(sessionId) ?? 'page';
 const describe = args => args.map(arg => arg.value ?? arg.description ?? arg.type).join(' ');
 chrome.on(({ method, params, sessionId }) => {
+  // A 4xx or 5xx is reported by the server; here only requests that never got an answer.
   if (method === 'Network.requestWillBeSent') requests.set(params.requestId, params.request.url);
-  else if (method === 'Network.responseReceived' && params.response.status >= 400) {
-    problems.push(`${where(sessionId)}: ${params.response.status} ${new URL(params.response.url).pathname}`);
-  } else if (method === 'Network.loadingFailed' && !params.canceled) {
+  else if (method === 'Network.loadingFailed' && !params.canceled) {
     problems.push(`${where(sessionId)}: request failed (${params.errorText}) ${requests.get(params.requestId) ?? ''}`);
   } else if (method === 'Runtime.exceptionThrown') {
     const { exception, text } = params.exceptionDetails;
@@ -193,6 +210,7 @@ async function booted(label) {
 }
 
 async function open(file, label) {
+  served = [];
   await chrome.send('Page.navigate', { url: base + file }, page);
   await booted(label);
 }
@@ -200,8 +218,16 @@ async function open(file, label) {
 await open(PAGES[0], PAGES[0]);
 // The service worker installs on the first visit: wait for it, then load
 // again so the page is served from its cache like a return visit.
-await evaluate(`navigator.serviceWorker.ready.then(() => new Promise(resolve => setTimeout(resolve, 2000)))`).catch(() => {});
+const controlled = await evaluate(`navigator.serviceWorker.ready.then(() => new Promise(resolve => setTimeout(resolve, 2000))).then(() => true)`).catch(() => false);
+if (!controlled) problems.push(`${PAGES[0]}: the service worker did not install`);
 await open(PAGES[0], `${PAGES[0]} (cached)`);
+// Production serves the game's own files from the cache; any that still
+// reach the server mean the return visit tested the network instead.
+const uncached = served.filter(pathname => pathname.startsWith('/js/') || pathname.startsWith('/css/'));
+if (uncached.length) {
+  const more = uncached.length > 3 ? ` and ${uncached.length - 3} more` : '';
+  problems.push(`${PAGES[0]} (cached): fetched from the server, not the cache: ${uncached.slice(0, 3).join(', ')}${more}`);
+}
 for (const file of PAGES.slice(1)) await open(file, file);
 // A moment for anything still in flight to land.
 await sleep(1000);
