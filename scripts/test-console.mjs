@@ -115,10 +115,16 @@ async function launchChrome(chromePath, onAttached) {
   return {
     send,
     on: listener => listeners.push(listener),
-    close() {
+    /** Stops Chrome, then removes its profile: Chrome writes to it until it has exited. */
+    async close() {
       ws.close();
-      chrome.kill();
-      rmSync(userDataDir, { recursive: true, force: true });
+      if (chrome.exitCode === null && chrome.signalCode === null) {
+        const exited = new Promise(resolve => chrome.once('exit', resolve));
+        chrome.kill();
+        await exited;
+      }
+      // Leftovers in the temporary directory are no reason to fail the test.
+      rmSync(userDataDir, { recursive: true, force: true, maxRetries: 3 });
     },
   };
 }
@@ -159,7 +165,7 @@ chrome.on(({ method, params, sessionId }) => {
   }
 });
 
-const timer = setTimeout(() => { console.error('Console test timed out.'); chrome.close(); process.exit(1); }, TOTAL_TIMEOUT_MS);
+const timer = setTimeout(async () => { console.error('Console test timed out.'); await chrome.close(); process.exit(1); }, TOTAL_TIMEOUT_MS);
 
 // The pages are driven in a tab of their own, kept active: only the active
 // tab gets animation frames, and the game finishes booting on one.
@@ -201,7 +207,7 @@ for (const file of PAGES.slice(1)) await open(file, file);
 await sleep(1000);
 
 clearTimeout(timer);
-chrome.close();
+await chrome.close();
 server.close();
 
 if (problems.length) {
