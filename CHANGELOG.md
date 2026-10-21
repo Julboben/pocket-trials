@@ -2,6 +2,11 @@
 
 Player-facing release notes. The game shows them under **What's new**, and each GitHub Release uses its section.
 
+## 0.4.3 — 2026-10-21
+
+### Fixed
+- Cloud saves no longer fail after your first upload, so your progress now syncs correctly every time.
+
 ## 0.4.2 — 2026-10-20
 
 ### New
