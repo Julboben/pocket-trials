@@ -123,6 +123,7 @@ Blocks are drawn and collide in list order, and later blocks win where they over
 Authoring guidelines:
 
 - **Ground**: one wide block whose top edge is the route and whose bottom sits well below it. Keep the opening section relatively flat so both wheels spawn safely, and keep terrain beyond the finish.
+- **Ends**: close each end with terrain that fits the setting, such as a bank, a rock wall or a rise in the fields, so the rider can't ride out. Then let the ground carry on well beyond it, further than the camera can see from anywhere the rider can reach. An edge where the terrain stops looks unfinished unless it's meant, like a cliff or a floating island.
 - **Slopes**: broad curved edges ride well. Spans of `140–190` units per hill are forgiving; short spans with large height changes create abrupt geometry.
 - **Gaps**: a break between two blocks. The walls either side are solid, so a rider who falls in can hit the cliff face. Start around `80–100` units wide for introductory jumps; wider gaps need a clear launch ramp and a landing below the takeoff height.
 - **Ledges and islands**: a separate block above the ground. Leave at least one wheel diameter between it and the ground, and more when the rider is expected to pass underneath.
@@ -165,7 +166,7 @@ The editor's **Start** tool places an explicit start position. Select the start 
 finish: { x: 1800, y: null }
 ```
 
-Like the start, the finish is a point. It is a flower at (`x`, `y`), floating 22 units above that point; `y: null` means it stands on the surface below. Place it with the editor's **Finish** tool, or select it and drag it. The run ends when the bike or rider touches the flower, from any side, once every apple is collected. The finish may be left or right of the start.
+Like the start, the finish is a point. It is a flower at (`x`, `y`), floating 22 units above that point; `y: null` means it stands on the surface below. The flower floats, so don't leave it sitting on the ground: give `y` a number that lifts it clear, about 40 units above the surface, so the flower hangs about 60 up like a ground-anchored apple. It can also hang higher in the air, like any apple, where reaching it is part of the challenge. Place it with the editor's **Finish** tool, or select it and drag it. The run ends when the bike or rider touches the flower, from any side, once every apple is collected. The finish may be left or right of the start.
 
 ## Terrain materials
 
@@ -229,7 +230,7 @@ A trail can hide one nisse, a small Danish gnome, as an optional collectible:
 nisse: { x: 1840, y: null },
 ```
 
-`x` and `y` are where its feet stand; `y: null` stands it on the topmost surface at `x`. A trail without a nisse leaves the field out. The rider takes it by touching it, like an apple, but it never counts towards the apples: the finish opens without it, nothing points to it, and it doesn't change the trail's hash, so adding, moving or removing it keeps best times, ghosts and leaderboards. Finding it is remembered per trail in the rider's save, shown on the trail's card, and earns achievements. Put it off the main line, where it takes a skill the player already has to reach (see `TRAILS_GUIDE.md`). In the editor, set the Apple tool's **Place** to **Nisse**; placing it again moves it.
+`x` and `y` are where its feet stand; `y: null` stands it on the topmost surface at `x`. A trail without a nisse leaves the field out. The rider takes it by touching it, like an apple, but it never counts towards the apples: the finish opens without it, nothing points to it, and it doesn't change the trail's hash, so adding, moving or removing it keeps best times, ghosts and leaderboards. Finding it is remembered per trail in the rider's save, shown on the trail's card, and earns achievements. Put it off the main line, where it takes a skill the player already has to reach (see `TRAILS_GUIDE.md`). Most trails don't have one: it is a collectible with achievements, so keep it a find. Don't add one by default, only when the trail has a hiding place worth the detour. In the editor, set the Apple tool's **Place** to **Nisse**; placing it again moves it.
 
 ## Props
 
@@ -243,7 +244,9 @@ props: [
 
 Available prop types are `tree`, `pine`, `sapling`, `pine-small`, `bush`, `fence`, `rock`, `boulder`, `pebbles`, `flowers`, `stump`, `cactus`, `cactus-small`, the desert props `skull`, `tumbleweed`, `car-wreck`, `water-tower`, `windmill`, `heat-haze` and `vulture`, the mountain props `cairn`, `ski-lift`, `icicles`, `snow-pine`, `hut` and `snowman`, `crystal`, `sign`, `smoke`, the woodland props `squirrel`, `tent`, `fireplace` and `grass`, `corgi` (Coda), `rabbit`, the wall props `vines`, `roots`, `moss` and `ivy`, the farm props `crates`, `apple` (a small decorative apple to hang in trees or fill crates and the wheelbarrow; it is not collected), `ladder`, `wheelbarrow`, `scarecrow`, `beehive` and `tyre`, the street props `cone`, `barrier`, `dumpster`, `lamp`, `bird`, `bench` (a Copenhagen bench) and `christiania-bike`, the building-site props `crane` and `scaffolding`, the cave props `hanging-roots`, `stalactites`, `drip`, `lantern`, `bats`, `mushrooms`, `minecart` and `beams`, the water props `lily`, `reeds`, `seaweed`, `fish`, `duck`, `frog`, `boat`, `bubbles` and `dragonfly`, the trials-event props `tyre-wall`, `hay-bales`, `course-tape`, `banner`, `spectators`, `pit-board`, `petrol-can`, `marshal-start`, `marshal-finish` and `camera-tower`, the trail hints `warning-triangle`, `warning-bang`, `warning-skull`, `arrow-sign` and `halfway-flag`, the prison props `prison-fence`, `watchtower`, `jail-cell`, `escape-tunnel`, `ball-and-chain`, `wanted-poster` and `tally-marks`, the spider props `spiderweb`, `cobweb`, `spider` and `cocoon`, the dungeon props `dungeon-bars`, `portcullis`, `torch`, `hanging-chains`, `gibbet` and `skeleton`, the Danish props `flagpole` (Dannebrog), `mill` (a windmill), `farmhouse`, `mailbox`, `stall` (a self-serve roadside stall) and `wind-turbine`, `graffiti`, and the sprayed tutorial drawings `tutorial-gas`, `tutorial-brake`, `tutorial-lean`, `tutorial-lean-forward`, `tutorial-rotate`, `tutorial-flip`, `tutorial-light`, `tutorial-restart` and `tutorial-ledge`. `y: null` anchors a prop to the topmost surface at `x`; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front`: `back`-layer props are drawn behind the terrain as well as the gameplay, while `front`-layer props are drawn in front of the gameplay.
 
-A `sign` prop carries an optional `text` string that is drawn on its board with the game's pixel font. Text wraps onto up to 4 lines of 10 characters; supported characters are `A`–`Z`, `0`–`9`, space, and `→` `←` `↑` `↓` `/` `.` `!` `+` `-` `:` `×` `'`. Lowercase is drawn as uppercase, anything else draws as `#`, and text that doesn't fit is cut off. In the editor's text field, typing `>`, `<` or `^` enters `→`, `←` or `↑`.
+Dress nature generously and set pieces sparingly. Trees, bushes, grass, flowers and rocks can fill a trail as much as the setting calls for, so it doesn't look bare, as long as they stay clear of the riding line. Pick only a few landmarks and characters (`farmhouse`, `mill`, `wind-turbine`, `flagpole`, `hut`, `scarecrow` and the like) to make the trail its own; each belongs to one trail, or a few at most. Coda (`corgi`) is an easter egg who already has his trail. See rules 10 and 11 in `TRAILS_GUIDE.md`.
+
+A `sign` prop carries an optional `text` string that is drawn on its board with the game's pixel font. Use signs sparingly, if at all: the player should work out what to do from the trail itself. Text wraps onto up to 4 lines of 10 characters; supported characters are `A`–`Z`, `0`–`9`, space, and `→` `←` `↑` `↓` `/` `.` `!` `+` `-` `:` `×` `'`. Lowercase is drawn as uppercase, anything else draws as `#`, and text that doesn't fit is cut off. In the editor's text field, typing `>`, `<` or `^` enters `→`, `←` or `↑`.
 
 A `banner` and a `pit-board` take `text` too. A blank banner shows one of the made-up sponsors (Knobbly Tyres, Äpple Oil or Hjulben Racing), picked by its position; typing a sponsor's name shows that sponsor's banner, and any other text (up to 16 characters) is printed on a plain blue banner. A pit board shows its text (up to 4 characters) or, when blank, a position from `P1` to `P9`. Neither can be flipped, nor can the `halfway-flag`, so their text always reads the right way round. A `stall` takes `text` for its hand-painted sign, up to 2 lines of 9 characters with the banner's characters; blank, it reads `KARTOFLER 20 KR`. A stall can be flipped, and its sign still reads the right way round.
 
@@ -404,7 +407,7 @@ Sign text wraps at word boundaries onto up to 4 lines of 10 characters, and the 
 ## Other fields
 
 - The fall line, where the bike is considered lost, is not set by the trail: it is worked out as 200 units below the lowest solid terrain, so it follows the trail however deep it goes. It also sets how low the camera can look.
-- `description`: design notes for the trail. It is not shown during gameplay; the editor lists it as **Notes**.
+- `description`: design notes for the trail, up to 2000 characters; anything longer is cut off when the trail loads. It is not shown during gameplay; the editor lists it as **Notes**.
 - `author`: optional credit for whoever made the trail, up to 40 characters on one line. The trail menu, the Hall of Fame and the results screen show it as "BY …" / "TRAIL BY …". It does not change the trail's hash, so adding or editing credit keeps its times. The editor remembers the last author you typed and fills it in on new trails.
 - `preview`: optional `{ x, y }`, the middle of the trail's thumbnail in the trail list, in whole world units. The thumbnail shows 576 × 192 world units around it, at the same zoom on every trail. The editor sets it with **Edit preview** in the Trail tab. Without it the game picks the trail's most eventful stretch between the start and the finish. Like `author`, it does not change the trail's hash, so framing the thumbnail keeps its times.
 
@@ -427,8 +430,9 @@ What opens a locked bonus trail is not part of the trail file. Every unlock rule
 3. Cut gaps one at a time, beginning around `80–100` units wide.
 4. Add ledges, caves, and loops; test tops, undersides, walls, and corners in both directions.
 5. Place apples only after the route is stable.
-6. Add props, materials, and weather last so they do not hide gameplay problems.
-7. Test at low speed, full speed, and after imperfect landings—not only with an ideal run.
+6. Make reaching the finish take some effort where it suits the trail, such as a climb, a last jump or a ledge, rather than ending on easy ground.
+7. Add props, materials, and weather last so they do not hide gameplay problems. Dress nature generously, use only a few distinctive set pieces, and keep the terrain's edges out of sight.
+8. Test at low speed, full speed, and after imperfect landings—not only with an ideal run.
 
 Each step can be checked with the playtest script below as you go: probe a jump while you shape it, solve the trail once the apples are in, and use `--without` to prove each apple needs the skill it is meant to test.
 

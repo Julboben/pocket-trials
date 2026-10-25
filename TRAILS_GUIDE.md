@@ -21,14 +21,18 @@ Every trail is closed off at both ends, so the rider can't ride out of it, and e
 1. **One new riding element per trail.** Everything else on the route should be something the player has already ridden.
 2. **Meet it safely first.** The first time a hazard appears there is a way around it, a floor under it, or plenty of room. Only after that does it sit on the main route.
 3. **Never make the trail harder to see and harder to ride at once.** Night, fog, heavy rain, blizzards and storms only come in on trails whose riding element is mild.
-4. **Teach with the world.** Signs (`SLOW`, `!`, `→`), warning props and apple placement show the line. An apple floating over a gap tells the player to jump.
+4. **Teach with the world, not with words.** Apple placement, the shape of the ground and the odd warning prop show the line: an apple floating over a gap tells the player to jump. Use signs sparingly, if at all. The player should work out what to do, and a trail that spells it out takes that away.
 5. **Gold times rise through the career.** They can dip on a world's first trail, which is a breather.
 6. **Stage every finale as a trials event.** The last trail of each world (5, 10, 15, 20, 25, 30 and 35) is the final test for that world, so it looks like a motocross competition:
    - **Spectators** (`spectators`) where the rider passes close, such as at the start, beside the hardest section and near the finish. They cheer as the rider goes by and duck from a crash.
    - **Marshals** (`marshal-start` at the start, `marshal-finish` waving the checkered flag at the finish).
    - **Course dressing** from the trials-event props: `tyre-wall`, `hay-bales`, `course-tape`, `banner`, `pit-board`, `petrol-can` and `camera-tower`, chosen to fit the world. The Woods might use hay bales and course tape, the City banners and tyre walls, and the Underground lanterns and tape.
    - The props are decoration only and never change the line, so they go on the `back` layer, clear of the route. Keep spectators for the finales where you can, so they mark a world's last test.
-7. **Hide the nisse off the line.** A trail can hide one optional nisse (see `TRAIL_FORMAT.md`). Put it where a player only goes on purpose, using a skill the career has already taught: behind the start, reached by turning around; on a ledge that takes a wheelie or a well-timed hop; above a low ceiling or under an overhang; at the end of a side branch; or past the finish, so you have to turn back for it. Never on the route itself, and never behind a skill the player hasn't met yet.
+7. **Hide the nisse off the line.** A trail can hide one optional nisse (see `TRAIL_FORMAT.md`). Put it where a player only goes on purpose, using a skill the career has already taught: behind the start, reached by turning around; on a ledge that takes a wheelie or a well-timed hop; above a low ceiling or under an overhang; at the end of a side branch; or past the finish, so you have to turn back for it. Never on the route itself, and never behind a skill the player hasn't met yet. Most trails don't have one: the nisse is a collectible with its own achievements, so it should stay a find. Don't add one by default. Add one only when the trail has a hiding place that is worth the detour.
+8. **Make reaching the finish part of the challenge.** Don't let a trail fizzle out on easy ground after its last hard section. Now and then the flower should take some effort too: a steep climb that needs the speed you bring, a last jump, or a ledge. Then the run isn't over until it's over. The flower always floats: give the finish a `y` that lifts it clear of the ground, or puts it up in the air like an apple (see `TRAIL_FORMAT.md`), rather than `y: null`, which stands it on the ground.
+9. **Hide the terrain's edges.** A trail looks unfinished if you can see where its terrain ends, at the start, the finish or the bottom. Close each end with terrain that makes sense in the setting, such as a bank, a wall of rock or a rise in the fields. Then let the ground carry on beyond it, further than the camera can see from anywhere the rider can get to. Only show an edge when it's meant, like a cliff or a floating island.
+10. **Dress nature generously, set pieces sparingly.** A trail shouldn't look bare. Use as many trees, bushes, grass, flowers, rocks and stumps as the setting calls for, so a field looks like a field and a wood like a wood, as long as they stay clear of the riding line. The props to be sparing with are the ones a player remembers: landmarks such as the `farmhouse`, `mill`, `wind-turbine`, `flagpole` and `hut`, and characters such as the `scarecrow` or a `stall`. Pick a few of those that make this trail its own, rather than everything that fits the world. A landmark goes on one trail, or a few at most, or it starts to feel repetitive. Easter eggs appear once in the whole game: Coda (`corgi`) already lives on Windmill Hill, so don't add him to other trails.
+11. **Make each trail feel distinct.** Each trail should be remembered for one thing: a shape of terrain, a hazard, a view, a time of day or a landmark of its own. Don't reuse another trail's layout, set piece or dressing with the numbers changed. Before building, ask what this trail is the one with.
 
 ---
 
@@ -96,3 +100,28 @@ What building Windfall showed, measured in the physics:
 3. **Replays and medals.** Every official trail needs a replay from `node scripts/record-replays.mjs` and a passing `npm test`. Set gold times from the replay bot's times.
 4. **Playtest from the command line while building.** `node scripts/playtest.mjs <trail>` solves the trail with the replay bot and shows where it is tight; `--without` checks that the trail's new element is really needed. See [Playtesting from the command line](TRAIL_FORMAT.md#playtesting-from-the-command-line).
 5. **Playtest with new players.** Note where a first-time player crashes most. If more than one crash point is something the career hasn't taught yet, the trail brings in too much.
+
+---
+
+## Asking an AI to build a trail
+
+An AI that can run commands in this repository (Claude Code, for example) can build a trail and playtest it with `scripts/playtest.mjs` as it goes. Start a fresh session, fill in the idea in the prompt below, and ride the result before doing anything else with it. The prompt is written from what earlier attempts got wrong: a nisse on every trail, signs explaining the route, the same landmarks everywhere, a finish standing on easy ground, visible terrain edges, a design brief cut off at the length limit, and jumps kept timid because they weren't measured.
+
+```
+Build a new custom trail for Hjulben: [THE IDEA, e.g. "a farmland trail with floating islands you have to jump to"].
+
+[THE SETTING AND RIDING: the world it belongs to, the riding elements to use, how hard it is and roughly how long a good run takes, e.g. "Farmland, medium-hard, about 1–2 minutes for a good rider. Several floating islands at different heights: a kicker launch up to one, a drop from one island onto the next, one you reach by turning around for a run-up, and an island transfer where you have to control your height. At least one apple in the Elasto Mania spirit: tricky to get to, and meant to be found rather than ridden past."]
+
+Save it only as a custom trail in trails/custom/, with a fitting file name. Don't touch official or bonus trails: I'll ride it myself first.
+
+How to work:
+1. Read CLAUDE.md, TRAIL_AUTHORING_CONTEXT.md and TRAILS_GUIDE.md first, and follow the rules for each trail.
+2. Before any geometry, decide what this trail is the one with, and write a short design brief: the route as sections, each apple's place and the skill it tests, the intended apple order, and how a player recovers after a miss. Missing a jump should cost time, not the run, where that suits the trail. Put the brief in the trail's "description", within its 2000 characters.
+3. Build it section by section. Measure every jump with `scripts/playtest.mjs --probe ... --script` while you shape it, so takeoff speed, distance and landing come from measurements, not guesses, and dare to go close to what the bike can do.
+4. Playtest the whole trail with `--order` set to your intended apple order, and iterate until the bot finishes. Most stretches should be forgiving (above about 60%); a hard stretch should be hard on purpose, not by accident. Use `--without` to check that each apple meant to need a skill really needs it.
+5. Make reaching the finish take some effort, and float the flower clear of the ground. Close both ends with terrain that fits the setting, with ground carrying on beyond so no edge shows.
+6. Dress it last: plenty of natural props for the setting, only a few landmarks or characters that make this trail its own, signs only if really needed, and no nisse unless there is a hiding place worth the detour. Keep the riding line clear, then validate and playtest once more.
+7. Set medals from the bot's time (gold a little above it, silver about 1.3× gold, bronze about 1.75× gold) and run `npm run trails` so it appears in the game.
+
+When you're done, tell me: the file name, what the trail is the one with, the final playtest summary (the time, and each stretch's forgiveness and tight spots), anything the bot couldn't do or you're unsure of, and what I should look out for when I ride it. If you learned something about building trails that the docs should say, suggest it.
+```
