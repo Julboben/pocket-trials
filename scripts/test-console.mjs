@@ -13,14 +13,7 @@
 //
 // Needs Chrome, at CHROME_PATH or where macOS or Linux installs it. Without
 // it the test is skipped; CI has it.
-import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
-import { readFile, stat } from 'node:fs/promises';
-import http from 'node:http';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { contentType } from './lib/mime-types.mjs';
-import { repoRoot } from './lib/trails.mjs';
+import { chromePath, launchChrome, sleep, startStaticServer } from './lib/chrome.mjs';
 
 const PAGES = ['index.html', 'editor.html'];
 // Mapped to the test server; reserved for testing, so it never resolves elsewhere.
@@ -31,118 +24,6 @@ const PRODUCTION_API = [/^\/api\/account\/[a-z-]+$/, /^\/api\/leaderboard$/];
 const BOOT_TIMEOUT_MS = 20_000;
 const TOTAL_TIMEOUT_MS = 120_000;
 
-const chromePath = [
-  process.env.CHROME_PATH,
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-  '/usr/bin/google-chrome',
-].find(candidate => candidate && existsSync(candidate));
-
-/**
- * Static hosting: the repo's files as they are, and nothing else. Every
- * request is passed to `onRequest` with the status it got, whether the page
- * or the service worker asked, so none can go unseen.
- */
-function startStaticServer(onRequest) {
-  const server = http.createServer(async (request, response) => {
-    const { pathname } = new URL(request.url, 'http://localhost');
-    response.on('finish', () => onRequest(pathname, response.statusCode));
-    if (pathname.startsWith('/api/')) {
-      // Production answers these from functions; an empty reply stands in.
-      const status = PRODUCTION_API.some(route => route.test(pathname)) ? 204 : 404;
-      response.writeHead(status, { 'Cache-Control': 'no-store' });
-      return response.end();
-    }
-    let filePath = path.normalize(path.join(repoRoot, decodeURIComponent(pathname)));
-    if (!filePath.startsWith(repoRoot)) { response.writeHead(403); return response.end(); }
-    try {
-      if ((await stat(filePath)).isDirectory()) filePath = path.join(filePath, 'index.html');
-      const content = await readFile(filePath);
-      response.writeHead(200, { 'Content-Type': contentType(filePath), 'Cache-Control': 'no-store' });
-      response.end(content);
-    } catch (error) {
-      if (error.code !== 'ENOENT') throw error;
-      response.writeHead(404, { 'Cache-Control': 'no-store' });
-      response.end();
-    }
-  });
-  return new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve(server)));
-}
-
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-/**
- * A connection to Chrome's DevTools protocol, attached to every page and
- * worker it opens. `onAttached` names the domains to enable on each.
- */
-async function launchChrome(chromePath, origin, onAttached) {
-  const userDataDir = mkdtempSync(path.join(tmpdir(), 'hjulben-console-'));
-  const flags = [
-    '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${userDataDir}`,
-    '--no-first-run', '--no-default-browser-check', '--mute-audio', '--window-size=1200,800',
-    // The test host resolves to the server, and counts as secure like the
-    // HTTPS site, or the service worker would not register at all.
-    `--host-resolver-rules=MAP ${HOST} 127.0.0.1`, `--unsafely-treat-insecure-origin-as-secure=${origin}`,
-  ];
-  if (process.getuid?.() === 0) flags.push('--no-sandbox');
-  const chrome = spawn(chromePath, [...flags, 'about:blank'], { stdio: 'ignore' });
-  // Chrome writes the port it picked here once it listens.
-  const portFile = path.join(userDataDir, 'DevToolsActivePort');
-  let endpoint = null;
-  for (let i = 0; i < 100 && !endpoint; i++) {
-    await sleep(100);
-    try {
-      const [port, wsPath] = (await readFile(portFile, 'utf8')).trim().split('\n');
-      endpoint = `ws://127.0.0.1:${port}${wsPath}`;
-    } catch (_) { /* not up yet */ }
-  }
-  if (!endpoint) throw new Error('Chrome did not start');
-  const ws = new WebSocket(endpoint);
-  await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = () => reject(new Error('Could not connect to Chrome')); });
-  let nextId = 0;
-  const pending = new Map();
-  const listeners = [];
-  ws.onmessage = ({ data }) => {
-    const message = JSON.parse(data);
-    if (message.id && pending.has(message.id)) {
-      pending.get(message.id)(message);
-      pending.delete(message.id);
-    } else if (message.method) {
-      for (const listener of listeners) listener(message);
-    }
-  };
-  const send = (method, params = {}, sessionId) => new Promise((resolve, reject) => {
-    const id = ++nextId;
-    pending.set(id, message => (message.error ? reject(new Error(`${method}: ${message.error.message}`)) : resolve(message.result)));
-    ws.send(JSON.stringify({ id, method, params, sessionId }));
-  });
-  listeners.push(message => {
-    if (message.method !== 'Target.attachedToTarget') return;
-    const { sessionId, targetInfo } = message.params;
-    for (const method of onAttached(sessionId, targetInfo)) send(method, {}, sessionId).catch(() => {});
-  });
-  // Pages and workers are attached as they appear. They are not held until
-  // the listeners are on (waitForDebuggerOnStart): Chrome then stalls a
-  // navigation served by the service worker. So a worker's first requests
-  // may go unseen; its warnings and everything after are caught, and the
-  // page's listeners are confirmed on before it is navigated (see open).
-  await send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: false, flatten: true });
-  return {
-    send,
-    on: listener => listeners.push(listener),
-    /** Stops Chrome, then removes its profile: Chrome writes to it until it has exited. */
-    async close() {
-      ws.close();
-      if (chrome.exitCode === null && chrome.signalCode === null) {
-        const exited = new Promise(resolve => chrome.once('exit', resolve));
-        chrome.kill();
-        await exited;
-      }
-      // Leftovers in the temporary directory are no reason to fail the test.
-      rmSync(userDataDir, { recursive: true, force: true, maxRetries: 3 });
-    },
-  };
-}
-
 if (!chromePath) {
   console.log('Console test skipped: Chrome not found (set CHROME_PATH).');
   process.exit(0);
@@ -150,20 +31,34 @@ if (!chromePath) {
 
 const problems = [];
 let served = []; // what reached the server during the current visit
-const server = await startStaticServer((pathname, status) => {
-  served.push(pathname);
-  if (status >= 400) problems.push(`${status} ${pathname}`);
+const server = await startStaticServer({
+  onRequest(pathname, status) {
+    served.push(pathname);
+    if (status >= 400) problems.push(`${status} ${pathname}`);
+  },
+  handle(pathname, response) {
+    if (!pathname.startsWith('/api/')) return false;
+    // Production answers these from functions; an empty reply stands in.
+    const status = PRODUCTION_API.some(route => route.test(pathname)) ? 204 : 404;
+    response.writeHead(status, { 'Cache-Control': 'no-store' });
+    response.end();
+    return true;
+  },
 });
 const base = `http://${HOST}:${server.address().port}/`;
 const requests = new Map(); // requestId -> url, for failures that report none
 const sessions = new Map(); // sessionId -> 'page' | 'service worker', for the report
-const sessionOf = new Map(); // targetId -> sessionId
+const origin = new URL(base).origin;
 
-const chrome = await launchChrome(chromePath, new URL(base).origin, (sessionId, { type, targetId }) => {
-  if (type !== 'page' && type !== 'service_worker') return [];
-  sessions.set(sessionId, type === 'page' ? 'page' : 'service worker');
-  sessionOf.set(targetId, sessionId);
-  return ['Network.enable', 'Runtime.enable', 'Log.enable'];
+const chrome = await launchChrome(chromePath, {
+  // The test host resolves to the server, and counts as secure like the
+  // HTTPS site, or the service worker would not register at all.
+  flags: [`--host-resolver-rules=MAP ${HOST} 127.0.0.1`, `--unsafely-treat-insecure-origin-as-secure=${origin}`],
+  onAttached(sessionId, { type }) {
+    if (type !== 'page' && type !== 'service_worker') return [];
+    sessions.set(sessionId, type === 'page' ? 'page' : 'service worker');
+    return ['Network.enable', 'Runtime.enable', 'Log.enable'];
+  },
 });
 const where = sessionId => sessions.get(sessionId) ?? 'page';
 const describe = args => args.map(arg => arg.value ?? arg.description ?? arg.type).join(' ');
@@ -186,18 +81,9 @@ const timer = setTimeout(async () => { console.error('Console test timed out.');
 
 // The pages are driven in a tab of their own, kept active: only the active
 // tab gets animation frames, and the game finishes booting on one.
-const { targetId } = await chrome.send('Target.createTarget', { url: 'about:blank' });
-await chrome.send('Target.activateTarget', { targetId });
-let page = null;
-for (let i = 0; i < 50 && !page; i++) {
-  await sleep(100);
-  page = sessionOf.get(targetId);
-}
-if (!page) throw new Error('Chrome did not open the page');
+const { session: page, evaluate } = await chrome.openTab();
 // Enabling twice is harmless; awaiting it means nothing the page does is missed.
 await Promise.all(['Network.enable', 'Runtime.enable', 'Log.enable'].map(method => chrome.send(method, {}, page)));
-
-const evaluate = async expression => (await chrome.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }, page)).result.value;
 
 /** Resolves once the page has drawn its first screen (both pages clear `data-booting` then). */
 async function booted(label) {

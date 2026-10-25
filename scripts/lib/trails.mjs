@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { basename, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -16,5 +17,24 @@ export function loadCatalogTrails(source = 'official') {
     .filter(entry => entry.source === source)
     .map(entry => ({ ...entry, trail: readJson('trails/' + entry.file) }));
 }
+
+/**
+ * A trail named on the command line: a path to a JSON file, or part of the id
+ * of a trail in the catalogs. `file` is its absolute path.
+ */
+export function loadTrailArgument(name) {
+  const path = resolve(name);
+  if (existsSync(path) && name.endsWith('.json')) {
+    return { id: basename(path, '.json'), file: path, trail: JSON.parse(readFileSync(path, 'utf8')) };
+  }
+  for (const source of ['official', 'bonus', 'custom']) {
+    const entry = loadCatalogTrails(source).find(candidate => candidate.id.includes(name));
+    if (entry) return { ...entry, file: root + 'trails/' + entry.file };
+  }
+  throw new Error(`no trail file or catalog trail matches "${name}"`);
+}
+
+/** Where scripts/playtest.mjs saves its run of a trail, and scripts/render-trail.mjs reads it. */
+export const playtestRunPath = (id, variant = '') => root + '.playtest/' + id.replace(/[^\w.-]+/g, '_') + variant + '.json';
 
 export const repoRoot = root;

@@ -12,7 +12,7 @@ Create new trails as a single JSON file each, following the format below.
 - Coordinates use the Canvas convention: `x` increases to the right and `y` increases **downward**, so a smaller `y` means higher terrain.
 - Only use material names defined in `js/materials.js`.
 - Output plain JSON (no comments, no trailing commas). The file will be saved in `trails/custom/`.
-- You cannot playtest. Keep gaps, slopes and jumps conservative (start gaps around 80–100 units wide) and treat medal times as rough estimates.
+- Playtest as you build. If you can run commands in this repository, `node scripts/playtest.mjs <trail file>` solves the trail with the replay bot and reports every jump, turn, hang and crash, how forgiving each stretch is, and the bot's time; `--probe` measures a single jump or section, and `--without` checks that an apple really needs a skill (see "Playtesting from the command line" in the spec). Use it to design close to what the bike can do instead of guessing. If you can't run commands, keep gaps, slopes and jumps conservative (start gaps around 80–100 units wide) and treat medal times as rough estimates.
 
 ## Contents
 
@@ -157,6 +157,7 @@ Blocks are drawn and collide in list order, and later blocks win where they over
 Authoring guidelines:
 
 - **Ground**: one wide block whose top edge is the route and whose bottom sits well below it. Keep the opening section relatively flat so both wheels spawn safely, and keep terrain beyond the finish.
+- **Ends**: close each end with terrain that fits the setting, such as a bank, a rock wall or a rise in the fields, so the rider can't ride out. Then let the ground carry on well beyond it, further than the camera can see from anywhere the rider can reach. An edge where the terrain stops looks unfinished unless it's meant, like a cliff or a floating island.
 - **Slopes**: broad curved edges ride well. Spans of `140–190` units per hill are forgiving; short spans with large height changes create abrupt geometry.
 - **Gaps**: a break between two blocks. The walls either side are solid, so a rider who falls in can hit the cliff face. Start around `80–100` units wide for introductory jumps; wider gaps need a clear launch ramp and a landing below the takeoff height.
 - **Ledges and islands**: a separate block above the ground. Leave at least one wheel diameter between it and the ground, and more when the rider is expected to pass underneath.
@@ -199,7 +200,7 @@ The editor's **Start** tool places an explicit start position. Select the start 
 finish: { x: 1800, y: null }
 ```
 
-Like the start, the finish is a point. It is a flower at (`x`, `y`), floating 22 units above that point; `y: null` means it stands on the surface below. Place it with the editor's **Finish** tool, or select it and drag it. The run ends when the bike or rider touches the flower, from any side, once every apple is collected. The finish may be left or right of the start.
+Like the start, the finish is a point. It is a flower at (`x`, `y`), floating 22 units above that point; `y: null` means it stands on the surface below. The flower floats, so don't leave it sitting on the ground: give `y` a number that lifts it clear, about 40 units above the surface, so the flower hangs about 60 up like a ground-anchored apple. It can also hang higher in the air, like any apple, where reaching it is part of the challenge. Place it with the editor's **Finish** tool, or select it and drag it. The run ends when the bike or rider touches the flower, from any side, once every apple is collected. The finish may be left or right of the start.
 
 ## Terrain materials
 
@@ -263,7 +264,7 @@ A trail can hide one nisse, a small Danish gnome, as an optional collectible:
 nisse: { x: 1840, y: null },
 ```
 
-`x` and `y` are where its feet stand; `y: null` stands it on the topmost surface at `x`. A trail without a nisse leaves the field out. The rider takes it by touching it, like an apple, but it never counts towards the apples: the finish opens without it, nothing points to it, and it doesn't change the trail's hash, so adding, moving or removing it keeps best times, ghosts and leaderboards. Finding it is remembered per trail in the rider's save, shown on the trail's card, and earns achievements. Put it off the main line, where it takes a skill the player already has to reach (see `TRAILS_GUIDE.md`). In the editor, set the Apple tool's **Place** to **Nisse**; placing it again moves it.
+`x` and `y` are where its feet stand; `y: null` stands it on the topmost surface at `x`. A trail without a nisse leaves the field out. The rider takes it by touching it, like an apple, but it never counts towards the apples: the finish opens without it, nothing points to it, and it doesn't change the trail's hash, so adding, moving or removing it keeps best times, ghosts and leaderboards. Finding it is remembered per trail in the rider's save, shown on the trail's card, and earns achievements. Put it off the main line, where it takes a skill the player already has to reach (see `TRAILS_GUIDE.md`). Most trails don't have one: it is a collectible with achievements, so keep it a find. Don't add one by default, only when the trail has a hiding place worth the detour. In the editor, set the Apple tool's **Place** to **Nisse**; placing it again moves it.
 
 ## Props
 
@@ -277,7 +278,9 @@ props: [
 
 Available prop types are `tree`, `pine`, `sapling`, `pine-small`, `bush`, `fence`, `rock`, `boulder`, `pebbles`, `flowers`, `stump`, `cactus`, `cactus-small`, the desert props `skull`, `tumbleweed`, `car-wreck`, `water-tower`, `windmill`, `heat-haze` and `vulture`, the mountain props `cairn`, `ski-lift`, `icicles`, `snow-pine`, `hut` and `snowman`, `crystal`, `sign`, `smoke`, the woodland props `squirrel`, `tent`, `fireplace` and `grass`, `corgi` (Coda), `rabbit`, the wall props `vines`, `roots`, `moss` and `ivy`, the farm props `crates`, `apple` (a small decorative apple to hang in trees or fill crates and the wheelbarrow; it is not collected), `ladder`, `wheelbarrow`, `scarecrow`, `beehive` and `tyre`, the street props `cone`, `barrier`, `dumpster`, `lamp`, `bird`, `bench` (a Copenhagen bench) and `christiania-bike`, the building-site props `crane` and `scaffolding`, the cave props `hanging-roots`, `stalactites`, `drip`, `lantern`, `bats`, `mushrooms`, `minecart` and `beams`, the water props `lily`, `reeds`, `seaweed`, `fish`, `duck`, `frog`, `boat`, `bubbles` and `dragonfly`, the trials-event props `tyre-wall`, `hay-bales`, `course-tape`, `banner`, `spectators`, `pit-board`, `petrol-can`, `marshal-start`, `marshal-finish` and `camera-tower`, the trail hints `warning-triangle`, `warning-bang`, `warning-skull`, `arrow-sign` and `halfway-flag`, the prison props `prison-fence`, `watchtower`, `jail-cell`, `escape-tunnel`, `ball-and-chain`, `wanted-poster` and `tally-marks`, the spider props `spiderweb`, `cobweb`, `spider` and `cocoon`, the dungeon props `dungeon-bars`, `portcullis`, `torch`, `hanging-chains`, `gibbet` and `skeleton`, the Danish props `flagpole` (Dannebrog), `mill` (a windmill), `farmhouse`, `mailbox`, `stall` (a self-serve roadside stall) and `wind-turbine`, `graffiti`, and the sprayed tutorial drawings `tutorial-gas`, `tutorial-brake`, `tutorial-lean`, `tutorial-lean-forward`, `tutorial-rotate`, `tutorial-flip`, `tutorial-light`, `tutorial-restart` and `tutorial-ledge`. `y: null` anchors a prop to the topmost surface at `x`; a numeric `y` places its ground/contact origin explicitly. `layer` may be `back` or `front`: `back`-layer props are drawn behind the terrain as well as the gameplay, while `front`-layer props are drawn in front of the gameplay.
 
-A `sign` prop carries an optional `text` string that is drawn on its board with the game's pixel font. Text wraps onto up to 4 lines of 10 characters; supported characters are `A`–`Z`, `0`–`9`, space, and `→` `←` `↑` `↓` `/` `.` `!` `+` `-` `:` `×` `'`. Lowercase is drawn as uppercase, anything else draws as `#`, and text that doesn't fit is cut off. In the editor's text field, typing `>`, `<` or `^` enters `→`, `←` or `↑`.
+Dress nature generously and set pieces sparingly. Trees, bushes, grass, flowers and rocks can fill a trail as much as the setting calls for, so it doesn't look bare, as long as they stay clear of the riding line. Pick only a few landmarks and characters (`farmhouse`, `mill`, `wind-turbine`, `flagpole`, `hut`, `scarecrow` and the like) to make the trail its own; each belongs to one trail, or a few at most. Coda (`corgi`) is an easter egg who already has his trail. See rules 10 and 11 in `TRAILS_GUIDE.md`.
+
+A `sign` prop carries an optional `text` string that is drawn on its board with the game's pixel font. Use signs sparingly, if at all: the player should work out what to do from the trail itself. Text wraps onto up to 4 lines of 10 characters; supported characters are `A`–`Z`, `0`–`9`, space, and `→` `←` `↑` `↓` `/` `.` `!` `+` `-` `:` `×` `'`. Lowercase is drawn as uppercase, anything else draws as `#`, and text that doesn't fit is cut off. In the editor's text field, typing `>`, `<` or `^` enters `→`, `←` or `↑`.
 
 A `banner` and a `pit-board` take `text` too. A blank banner shows one of the made-up sponsors (Knobbly Tyres, Äpple Oil or Hjulben Racing), picked by its position; typing a sponsor's name shows that sponsor's banner, and any other text (up to 16 characters) is printed on a plain blue banner. A pit board shows its text (up to 4 characters) or, when blank, a position from `P1` to `P9`. Neither can be flipped, nor can the `halfway-flag`, so their text always reads the right way round. A `stall` takes `text` for its hand-painted sign, up to 2 lines of 9 characters with the banner's characters; blank, it reads `KARTOFLER 20 KR`. A stall can be flipped, and its sign still reads the right way round.
 
@@ -438,7 +441,7 @@ Sign text wraps at word boundaries onto up to 4 lines of 10 characters, and the 
 ## Other fields
 
 - The fall line, where the bike is considered lost, is not set by the trail: it is worked out as 200 units below the lowest solid terrain, so it follows the trail however deep it goes. It also sets how low the camera can look.
-- `description`: design notes for the trail. It is not shown during gameplay; the editor lists it as **Notes**.
+- `description`: design notes for the trail, up to 2000 characters; anything longer is cut off when the trail loads. It is not shown during gameplay; the editor lists it as **Notes**.
 - `author`: optional credit for whoever made the trail, up to 40 characters on one line. The trail menu, the Hall of Fame and the results screen show it as "BY …" / "TRAIL BY …". It does not change the trail's hash, so adding or editing credit keeps its times. The editor remembers the last author you typed and fills it in on new trails.
 - `preview`: optional `{ x, y }`, the middle of the trail's thumbnail in the trail list, in whole world units. The thumbnail shows 576 × 192 world units around it, at the same zoom on every trail. The editor sets it with **Edit preview** in the Trail tab. Without it the game picks the trail's most eventful stretch between the start and the finish. Like `author`, it does not change the trail's hash, so framing the thumbnail keeps its times.
 
@@ -461,8 +464,67 @@ What opens a locked bonus trail is not part of the trail file. Every unlock rule
 3. Cut gaps one at a time, beginning around `80–100` units wide.
 4. Add ledges, caves, and loops; test tops, undersides, walls, and corners in both directions.
 5. Place apples only after the route is stable.
-6. Add props, materials, and weather last so they do not hide gameplay problems.
-7. Test at low speed, full speed, and after imperfect landings—not only with an ideal run.
+6. Make reaching the finish take some effort where it suits the trail, such as a climb, a last jump or a ledge, rather than ending on easy ground.
+7. Add props, materials, and weather last so they do not hide gameplay problems. Dress nature generously, use only a few distinctive set pieces, and keep the terrain's edges out of sight.
+8. Test at low speed, full speed, and after imperfect landings—not only with an ideal run.
+
+Each step can be checked with the playtest script below as you go: probe a jump while you shape it, solve the trail once the apples are in, and use `--without` to prove each apple needs the skill it is meant to test. Render it as you go too, and look at the images: see [Seeing a trail from the command line](#seeing-a-trail-from-the-command-line).
+
+## Playtesting from the command line
+
+`scripts/playtest.mjs` (also `npm run playtest --`) rides a trail with the replay bot, so a trail can be tried without opening the game. It is how an AI writing trails can find out whether a jump clears, a ledge can be reached, or an apple needs the skill it was meant to teach, instead of guessing and keeping everything conservative. It runs the same simulation as the game, so what it finds holds in the game.
+
+```sh
+node scripts/playtest.mjs trails/custom/my-trail.json            # check, then solve the whole trail
+node scripts/playtest.mjs trails/custom/my-trail.json --check    # validation and a survey only, instantly
+node scripts/playtest.mjs trails/custom/my-trail.json --without turn
+node scripts/playtest.mjs trails/custom/my-trail.json --probe 1200,ground,1,300 --script "gas 1; gas back 0.3; coast fwd 0.8"
+node scripts/playtest.mjs trails/custom/my-trail.json --probe 1200,ground,1,0 --goal apple:3
+```
+
+A trail can also be named by part of its catalog id, such as `12` or `kicker`. Progress goes to stderr and the report to stdout.
+
+**Solving the trail.** It validates the trail, lists the apples with their height above the surface below, then solves it one stretch at a time: from the start to whichever apple the bot takes first, from there to the next, and so on to the finish. For each stretch it reports:
+
+- the time, and whether the greedy bot or the explorer (which plans turn-arounds and run-ups) solved it
+- the jumps (the longest with its takeoff, landing and height), flips, turns on the ground and in the air, time spent hanging from one wheel under a ledge, top speed, time crawling, and the hardest landing
+- the route, as the bike's position once a second
+- **forgiveness:** the share of reruns that still reach the goal when the timing of one second of the run is off by up to 50 ms, and the tight spots, where few did and what went wrong. The bot rides with perfect timing; this shows where a person would struggle. A spot where nothing survives needs frame-perfect riding.
+
+The bot takes the apples nearest first. When a trail is meant to be ridden in another order, give it with `--order 2,1,3` (apples left out are taken nearest first afterwards), or the bot may ride past an apple it can't come back for. A stretch the bot can't solve is reported with the apples still to take, where the greedy bot got stuck and how close the explorer got. That means the trail may be impossible there, or need a longer search (`--minutes`, default 2 per stretch). At the end it gives the bot's total time, which is not optimised: treat it as an upper bound for gold. The official trails' silver is about 1.3× gold and bronze about 1.75×.
+
+The run is saved in `.playtest/` (git-ignored) and tried first next time, so after an edit only the stretches it broke are searched again; `--fresh` searches from scratch. The saved file's `inputs` can be given to `scripts/record-replays.mjs` as a human run.
+
+**Proving a skill is needed.** `--without SKILL` solves the trail with a skill taken away: `turn` (no turning around), `air-turn` (no turning in the air), `lean-back`, `lean-forward` or `brake`, or several separated by commas. If an apple meant to teach turning around is still reached `--without turn`, the trail has a way round the lesson. Searching for a route that doesn't exist uses up the whole budget, so this takes a while.
+
+**Probing one spot.** `--probe X,Y,FACING,SPEED` places the bike at `X`, at height `Y` (`ground` to stand on the surface), facing `1` (right) or `-1` (left), already moving at `SPEED` units per second. Then either:
+
+- `--script "..."` rides a fixed set of inputs and prints a trace (time, position, velocity, angle, whether the bike is on the ground, in a wheelie, hanging or in the air, and events such as landings, apples and crashes) every `--every` seconds (default 0.1). Each part of the script is what to hold and for how long: `gas`, `brake` or neither (`coast`), plus a lean of `fwd` or `back` (optionally `half`) relative to the way the bike faces, then the seconds. `turn` turns around. This is the way to measure a jump: how far and high a kicker throws the bike at a given speed, whether it clears a gap, how it lands.
+- `--goal apple:N`, `--goal reach:X,Y` or `--goal finish` lets the bot find its own way there, and prints the inputs it used in the script format.
+
+Two things worth knowing when writing scripts: lean turns the bike hard, so hold it in taps of 0.1–0.2 s as the bot does (held for most of a second it flips the bike over), and gas from a standstill lifts the front, so tap `fwd` now and then to keep it down. On flat ground the bike reaches about 400–500 units per second.
+
+`--json FILE` also writes the whole report as JSON.
+
+## Seeing a trail from the command line
+
+`scripts/render-trail.mjs` (also `npm run render --`) draws a trail to PNG images with the game's own renderer, in headless Chrome, so a trail can be looked at without opening the game. An AI that can read images can use it to judge what it has built: whether the islands read as islands, the dressing fills the scene without blocking the line, the finish stands out, and no edge of the terrain shows.
+
+```sh
+node scripts/render-trail.mjs trails/custom/my-trail.json            # an overview and the sections
+node scripts/render-trail.mjs trails/custom/my-trail.json --route    # the sections marked up too
+node scripts/render-trail.mjs trails/custom/my-trail.json --props    # every prop labelled
+node scripts/render-trail.mjs trails/custom/my-trail.json --view 1200,100,900,500
+```
+
+The images go to `.playtest/renders/<trail>/` (git-ignored, `--out` to change it), and the script lists each one with the area it shows and the apples, start, finish and tight spots in it, so you can open just the one you need.
+
+- `overview.png` is the whole trail, marked up: a coordinate ruler and grid, the apples by number, the start (`S`, with its direction), the finish (`F`) and the nisse (`N`). After `scripts/playtest.mjs`, it also shows the bot's route from the last playtest, coloured from blue (slow) to red (fast) and dashed in the air, with its turns (`T`) and tight spots: `!` where jittered reruns started, with how many of them got through, and `×` with the cause where most of them failed. If the trail has changed since, so that the saved run crashes, the script says so: playtest again.
+- `section-NN_xLEFT-RIGHT.png` are views of about the size the game shows on a desktop screen (880 × 500 units, taller where the route climbs), following the route from left to right, or the terrain's top before there is a playtest. They are drawn clean, as the game draws them, with only a ruler around them, so you can judge the look. `--route` marks them up like the overview.
+- `--props` labels every prop in the sections with its index in the trail's `props` list and its type (purple for the front layer), so a tree in a jump's path or a bush hiding an apple can be found in the file and moved.
+- `--view X,Y,WIDTH,HEIGHT` draws a single view with its top left at `X,Y`, for a close look at one spot.
+
+`--scale` sets the sections' sharpness in device pixels per art pixel (default 3, which makes a section about 1300 pixels wide). The bike is not in the picture, so dark caves look as dark as they are without its headlight. It needs Chrome, at `CHROME_PATH` or where macOS or Linux installs it.
 
 ## Visual editor
 
@@ -755,7 +817,8 @@ export function normalizeTrail(input, index = 0) {
     normalizeTerrainBlocks(input?.terrainBlocks) || [];
   const start = trail.start || fallback.start;
   trail.start = {
-    x: Number(start.x) || 90,
+    // 0 is a valid start, so only a missing or broken x falls back.
+    x: typeof start.x === "number" && Number.isFinite(start.x) ? start.x : Number(start.x) || 90,
     y: optionalY(start.y),
     facing: Number(start.facing) < 0 ? -1 : 1,
   };
