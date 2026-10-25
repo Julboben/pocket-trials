@@ -7,9 +7,11 @@
 import { createRide } from '../../js/ride.js';
 import { drawScene } from '../../js/scene-preview.js';
 import { terrainGeometry } from '../../js/terrain.js';
+import { surfaceY } from '../../js/trail-preview.js';
 
 const MARGIN = { left: 46, top: 22, bottom: 22, right: 8 };
 const FONT = 'bold 12px ui-monospace, Menlo, monospace';
+const PROP_FONT = 'bold 11px ui-monospace, Menlo, monospace';
 // Route colours run from blue (standing still) to red (this fast or more).
 const FAST = 550;
 // How far a failure may be from where its rerun started to be joined to it.
@@ -30,9 +32,9 @@ window.hjulbenSetTrail = next => {
 /**
  * Draws one view and returns it as a PNG data URL.
  * @param {{ view: { x: number, y: number, width: number, height: number }, scale: number, maxWidth: number,
- *   overlay: boolean, run: any, title: string }} job
+ *   overlay: boolean, props: boolean, run: any, title: string }} job
  */
-window.hjulbenRender = ({ view, scale, maxWidth, overlay, run, title }) => {
+window.hjulbenRender = ({ view, scale, maxWidth, overlay, props, run, title }) => {
   const scene = document.createElement('canvas');
   const camera = drawScene(scene, {
     trail, ride, width: view.width, height: view.height, scale,
@@ -61,12 +63,15 @@ window.hjulbenRender = ({ view, scale, maxWidth, overlay, run, title }) => {
     if (run) drawRun(ctx, run, toX, toY);
     drawMarkers(ctx, toX, toY);
   }
+  if (props) drawProps(ctx, view, toX, toY);
   ctx.restore();
   ctx.font = FONT;
   ctx.fillStyle = '#e8e2d0';
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
-  const legend = overlay
+  const legend = props
+    ? 'props: index in the props list, type, (front) for the front layer'
+    : overlay
     ? 'S start · F finish · N nisse · route: blue slow → red fast, dashed = air · T turn · ! tight spot → × fails'
     : 'clean view: as the game draws it';
   ctx.fillText(`${title} · ${legend}`, MARGIN.left, out.height - MARGIN.bottom / 2);
@@ -140,6 +145,40 @@ function drawRun(ctx, run, toX, toY) {
   if (run.crash) {
     cross(ctx, toX(run.crash.x), toY(run.crash.y));
     badge(ctx, toX(run.crash.x), toY(run.crash.y) + 18, `crash: ${run.crash.cause}`, '#e5484d', '#fff');
+  }
+}
+
+/**
+ * Each prop in view, labelled with its index in `trail.props` and its type,
+ * so one that is out of place can be found in the file. A dot marks where it
+ * stands; labels that would overlap are stacked upwards, joined to their dot.
+ */
+function drawProps(ctx, view, toX, toY) {
+  ctx.font = PROP_FONT;
+  const placed = [];
+  const visible = trail.props
+    .map((prop, index) => ({ prop, index, y: Number.isFinite(prop.y) ? prop.y : surfaceY(trail, prop.x) }))
+    .filter(({ prop, y }) => y !== null && prop.x >= view.x && prop.x <= view.x + view.width && y >= view.y && y <= view.y + view.height)
+    .sort((a, b) => a.prop.x - b.prop.x);
+  for (const { prop, index, y } of visible) {
+    const x = toX(prop.x), top = toY(y);
+    const text = `${index} ${prop.type}${prop.layer === 'front' ? ' (front)' : ''}`;
+    const width = ctx.measureText(text).width + 6;
+    let labelY = top - 14;
+    const overlaps = at => placed.some(rect => Math.abs(rect.x - x) < (rect.width + width) / 2 && Math.abs(rect.y - at) < 15);
+    for (let tries = 0; tries < 12 && overlaps(labelY); tries++) labelY -= 15;
+    placed.push({ x, y: labelY, width });
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.lineWidth = 1;
+    line(ctx, x, top, x, labelY + 7);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x - 2, top - 2, 5, 5);
+    ctx.fillStyle = prop.layer === 'front' ? 'rgba(120, 60, 150, 0.9)' : 'rgba(17, 28, 32, 0.85)';
+    ctx.fillRect(Math.round(x - width / 2), Math.round(labelY - 7), Math.round(width), 14);
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, labelY + 1);
   }
 }
 

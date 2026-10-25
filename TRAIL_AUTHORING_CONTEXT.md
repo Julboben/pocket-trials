@@ -513,13 +513,15 @@ Two things worth knowing when writing scripts: lean turns the bike hard, so hold
 ```sh
 node scripts/render-trail.mjs trails/custom/my-trail.json            # an overview and the sections
 node scripts/render-trail.mjs trails/custom/my-trail.json --route    # the sections marked up too
+node scripts/render-trail.mjs trails/custom/my-trail.json --props    # every prop labelled
 node scripts/render-trail.mjs trails/custom/my-trail.json --view 1200,100,900,500
 ```
 
 The images go to `.playtest/renders/<trail>/` (git-ignored, `--out` to change it), and the script lists each one with the area it shows and the apples, start, finish and tight spots in it, so you can open just the one you need.
 
 - `overview.png` is the whole trail, marked up: a coordinate ruler and grid, the apples by number, the start (`S`, with its direction), the finish (`F`) and the nisse (`N`). After `scripts/playtest.mjs`, it also shows the bot's route from the last playtest, coloured from blue (slow) to red (fast) and dashed in the air, with its turns (`T`) and tight spots: `!` where jittered reruns started, with how many of them got through, and `×` with the cause where most of them failed. If the trail has changed since, so that the saved run crashes, the script says so: playtest again.
-- `section-NN.png` are views of about the size the game shows on a desktop screen (880 × 500 units, taller where the route climbs), following the route from left to right, or the terrain's top before there is a playtest. They are drawn clean, as the game draws them, with only a ruler around them, so you can judge the look. `--route` marks them up like the overview.
+- `section-NN_xLEFT-RIGHT.png` are views of about the size the game shows on a desktop screen (880 × 500 units, taller where the route climbs), following the route from left to right, or the terrain's top before there is a playtest. They are drawn clean, as the game draws them, with only a ruler around them, so you can judge the look. `--route` marks them up like the overview.
+- `--props` labels every prop in the sections with its index in the trail's `props` list and its type (purple for the front layer), so a tree in a jump's path or a bush hiding an apple can be found in the file and moved.
 - `--view X,Y,WIDTH,HEIGHT` draws a single view with its top left at `X,Y`, for a close look at one spot.
 
 `--scale` sets the sections' sharpness in device pixels per art pixel (default 3, which makes a section about 1300 pixels wide). The bike is not in the picture, so dark caves look as dark as they are without its headlight. It needs Chrome, at `CHROME_PATH` or where macOS or Linux installs it.

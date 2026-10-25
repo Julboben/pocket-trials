@@ -5,6 +5,7 @@
 //   node scripts/render-trail.mjs trails/custom/my-trail.json   an overview and the sections
 //   node scripts/render-trail.mjs 12                            a catalog trail whose id contains "12"
 //   node scripts/render-trail.mjs <trail> --route               mark up the sections too
+//   node scripts/render-trail.mjs <trail> --props               label every prop with its index and type
 //   node scripts/render-trail.mjs <trail> --view 1200,100,900,500   one view: x,y of its top left, width, height
 //
 // Options:
@@ -19,8 +20,10 @@
 // most failed). The sections are views at about the size the game shows,
 // following the route (or the terrain's top before a playtest), drawn clean
 // as the game does with only a ruler around them, unless --route marks them up
-// too. The files are listed with what each shows, so the right one can be
-// opened. Needs Chrome, at CHROME_PATH or where macOS or Linux installs it.
+// too. --props labels each prop in the sections with its index in the trail's
+// `props` list and its type, so a prop that is out of place can be found in the
+// file. The files are listed with what each shows, and a section's name holds
+// the x range it covers, so the right one can be opened. Needs Chrome, at CHROME_PATH or where macOS or Linux installs it.
 import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { STEP } from '../js/config.js';
 import { bikeSpeed, createRide, stepRide } from '../js/ride.js';
@@ -38,7 +41,7 @@ const option = name => {
 const VALUED = ['--scale', '--out', '--view'];
 const target = args.find((arg, index) => !arg.startsWith('--') && !VALUED.includes(args[index - 1]));
 if (!target) {
-  console.log('Usage: node scripts/render-trail.mjs <trail file or catalog id> [--route] [--view X,Y,WIDTH,HEIGHT] [--scale N] [--out DIR]');
+  console.log('Usage: node scripts/render-trail.mjs <trail file or catalog id> [--route] [--props] [--view X,Y,WIDTH,HEIGHT] [--scale N] [--out DIR]');
   process.exit(1);
 }
 if (!chromePath) {
@@ -141,7 +144,7 @@ function planViews() {
       sections.push({ x: Math.round(x), y: Math.round(y), width: SECTION.width, height: SECTION.height, overlay: args.includes('--route'), scale: SCALE });
     }
   }
-  sections.forEach((view, index) => { view.name = `section-${String(index + 1).padStart(2, '0')}`; });
+  sections.forEach((view, index) => { view.name = `section-${String(index + 1).padStart(2, '0')}_x${view.x}-${view.x + view.width}`; });
   return [overview, ...sections];
 }
 
@@ -192,7 +195,7 @@ try {
     const title = `${view.name} · x ${view.x} to ${view.x + view.width}, y ${Math.round(view.y)} to ${Math.round(view.y + view.height)}`;
     const job = {
       view, scale: view.scale, maxWidth: view.name === 'overview' ? OVERVIEW_WIDTH : view.width * SCALE / 2,
-      overlay: view.overlay, run, title,
+      overlay: view.overlay, props: args.includes('--props') && view.name !== 'overview', run, title,
     };
     const url = await evaluate(`hjulbenRender(${JSON.stringify(job)})`);
     writeFileSync(outDir + view.name + '.png', Buffer.from(url.slice(url.indexOf(',') + 1), 'base64'));

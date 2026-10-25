@@ -30,7 +30,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { STEP } from '../js/config.js';
 import { bikeSpeed, createRide, seededRandom, stepRide } from '../js/ride.js';
 import { decodeInputs, encodeInputs } from '../js/replay-codec.js';
-import { normalizeTrail, validateTrail } from '../js/trail-schema.js';
+import { DESCRIPTION_MAX_LENGTH, normalizeTrail, validateTrail } from '../js/trail-schema.js';
 import { terrainAt } from '../js/terrain.js';
 import { hangsBelowWheel } from '../js/vehicle-physics.js';
 import { cloneRide, exploreTrail, recordTrail } from './lib/replay-bot.mjs';
@@ -78,6 +78,8 @@ const at = point => `${Math.round(point.x)},${Math.round(point.y)}`;
 const seconds = steps => (steps * STEP).toFixed(2);
 
 const entry = loadTrailArgument(target);
+// Normalizing cuts an overlong description, so it's measured before.
+const descriptionLength = typeof entry.trail.description === 'string' ? entry.trail.description.length : 0;
 entry.trail = normalizeTrail(entry.trail);
 const { trail } = entry;
 const report = { trail: entry.id, file: entry.file, without };
@@ -86,6 +88,9 @@ const report = { trail: entry.id, file: entry.file, without };
 
 function survey() {
   const messages = validateTrail(trail).filter(message => message.type !== 'ok');
+  if (descriptionLength > DESCRIPTION_MAX_LENGTH) {
+    messages.push({ type: 'warning', text: `The description is ${descriptionLength} characters, and everything past ${DESCRIPTION_MAX_LENGTH} is cut off when the trail loads. Shorten it.` });
+  }
   report.validation = messages.map(({ type, text }) => ({ type, text }));
   out(`Trail: ${trail.name} (${entry.file.replace(repoRoot, '')})`);
   if (!messages.length) out('Validation: ok');
