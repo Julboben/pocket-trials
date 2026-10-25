@@ -33,7 +33,7 @@ Create new trails as a single JSON file each, following the format below.
 - Coordinates use the Canvas convention: \`x\` increases to the right and \`y\` increases **downward**, so a smaller \`y\` means higher terrain.
 - Only use material names defined in \`js/materials.js\`.
 - Output plain JSON (no comments, no trailing commas). The file will be saved in \`trails/custom/\`.
-- You cannot playtest. Keep gaps, slopes and jumps conservative (start gaps around 80–100 units wide) and treat medal times as rough estimates.
+- Playtest as you build. If you can run commands in this repository, \`node scripts/playtest.mjs <trail file>\` solves the trail with the replay bot and reports every jump, turn, hang and crash, how forgiving each stretch is, and the bot's time; \`--probe\` measures a single jump or section, and \`--without\` checks that an apple really needs a skill (see "Playtesting from the command line" in the spec). Use it to design close to what the bike can do instead of guessing. If you can't run commands, keep gaps, slopes and jumps conservative (start gaps around 80–100 units wide) and treat medal times as rough estimates.
 
 ## Contents
 

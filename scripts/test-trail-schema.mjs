@@ -60,6 +60,9 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bon
   assert.equal(trail.spikes.length, 1);
   assert.ok(Number.isFinite(trail.spikes[0].y));
   assert.equal(trail.start.facing, 1);
+  assert.equal(trail.start.x, 90, 'a missing start x falls back');
+  // Low Bridge and Sinkhole start at x 0, which once fell back to 90 too.
+  assert.equal(normalizeTrail({ start: { x: 0, y: null, facing: 1 } }).start.x, 0);
 }
 
 // Apples: a missing or unreadable height means "over the ground", never NaN,

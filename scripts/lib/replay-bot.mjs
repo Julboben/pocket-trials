@@ -48,13 +48,13 @@ function score(ride, goalTarget, crashedAt) {
   return value;
 }
 
-function evaluate(ride, facing, candidate, horizon) {
+function evaluate(ride, facing, candidate, horizon, constrain) {
   const probe = cloneRide(ride);
   const goalTarget = target(ride);
   const input = { facing, ...candidate };
   let crashedAt = null;
   for (let step = 0; step < horizon; step++) {
-    stepRide(probe, input);
+    stepRide(probe, constrain ? constrain(probe, input) : input);
     if (probe.status === 'crashed') { crashedAt = step; break; }
     if (probe.status === 'won') break;
     if (probe.collected > ride.collected) break;
@@ -63,10 +63,12 @@ function evaluate(ride, facing, candidate, horizon) {
 }
 
 /**
- * @param {{ start?: any, done?: (ride: any) => boolean, minutes?: number }} [options]
- *   where to start (a ride), when the goal is reached (default: the finish) and the search budget
+ * @param {{ start?: any, done?: (ride: any) => boolean, minutes?: number, constrain?: (ride: any, input: any) => any }} [options]
+ *   where to start (a ride), when the goal is reached (default: the finish), the search budget, and
+ *   an optional rule that changes each input before it is ridden (scripts/playtest.mjs uses it to
+ *   take a skill away, such as turning around)
  */
-export function recordTrail(entry, { start, done = ride => ride.status === 'won', minutes = MAX_MINUTES } = {}) {
+export function recordTrail(entry, { start, done = ride => ride.status === 'won', minutes = MAX_MINUTES, constrain = null } = {}) {
   const trail = entry.trail;
   let ride = start ? cloneRide(start) : createRide(trail);
   const inputs = [];
@@ -97,7 +99,7 @@ export function recordTrail(entry, { start, done = ride => ride.status === 'won'
     for (const [index, candidate] of CANDIDATES.entries()) {
       if (frame.banned.has(index)) continue;
       // A candidate is safe if holding it survives at least one horizon.
-      const results = HORIZONS.map(horizon => evaluate(ride, facing, candidate, horizon));
+      const results = HORIZONS.map(horizon => evaluate(ride, facing, candidate, horizon, constrain));
       const safe = results.filter(result => !result.crashed);
       if (!safe.length) continue;
       const value = Math.max(...safe.map(result => result.value));
@@ -118,8 +120,9 @@ export function recordTrail(entry, { start, done = ride => ride.status === 'won'
     frame.chosen = best.index;
     const input = { facing, ...best.candidate };
     for (let step = 0; step < DECISION_STEPS && ride.status === 'running'; step++) {
-      stepRide(ride, input);
-      inputs.push(input);
+      const ridden = constrain ? constrain(ride, input) : input;
+      stepRide(ride, ridden);
+      inputs.push(ridden);
     }
     if (ride.status === 'crashed') {
       backtracks++;
@@ -327,12 +330,15 @@ function inputsOf(node) {
 
 /**
  * @param {object[][]} [references] per-step inputs of runs to follow
- * @param {{ start?: any, done?: (ride: any) => boolean, minutes?: number, at?: number, polish?: boolean }} [options]
- *   as for recordTrail, plus how far into the references `start` is, and whether to look for a
- *   quicker route after the first one or stop there
+ * @param {{ start?: any, done?: (ride: any) => boolean, minutes?: number, at?: number, polish?: boolean,
+ *   constrain?: (ride: any, input: any) => any, stats?: object }} [options]
+ *   as for recordTrail, plus how far into the references `start` is, whether to look for a
+ *   quicker route after the first one or stop there, and an object to fill in with how far the
+ *   search got (the most apples taken and the place closest to the next one)
  * @returns the inputs from `start`, and where in its reference the route ended if it did following one
  */
-export function exploreTrail(entry, references = [], { start: from, done = ride => ride.status === 'won', minutes = MAX_MINUTES, at: startAt = 0, polish = true } = {}) {
+export function exploreTrail(entry, references = [], { start: from, done = ride => ride.status === 'won', minutes = MAX_MINUTES, at: startAt = 0, polish = true, constrain = null, stats = null } = {}) {
+  const constrained = (ride, input) => constrain ? constrain(ride, input) : input;
   references = references.map(inputs => inputs.concat(Array(GUIDE_TAIL).fill(inputs[inputs.length - 1])));
   const random = seededGenerator(1);
   const start = from ? cloneRide(from) : createRide(entry.trail);
@@ -410,7 +416,7 @@ export function exploreTrail(entry, references = [], { start: from, done = ride 
       let at = Math.max(0, cell.guide.at + shift);
       for (let decision = 0; decision < decisions && ride.status === 'running' && at < reference.length; decision++) {
         for (let count = 0; count < DECISION_STEPS && ride.status === 'running' && at < reference.length; count++) {
-          const next = reference[at++];
+          const next = constrained(ride, reference[at++]);
           stepRide(ride, next);
           steps++;
           // Nodes already stored in a cell are shared, so only extend this decision's own.
@@ -430,7 +436,8 @@ export function exploreTrail(entry, references = [], { start: from, done = ride 
       let fresh = false;
       for (let move = 0; move < decisions && !ended && ridden < STRETCH_MAX; move++) {
         // Patches in a reference are mostly short holds; longer moves are for finding a way without one.
-        for (const next of reference && random() < .5 ? holdMove(ride, input, random) : pickMove(ride, input, random)) {
+        for (const planned of reference && random() < .5 ? holdMove(ride, input, random) : pickMove(ride, input, random)) {
+          const next = constrained(ride, planned);
           stepRide(ride, next);
           steps++;
           ridden++;
@@ -455,6 +462,13 @@ export function exploreTrail(entry, references = [], { start: from, done = ride 
         + ` at ${closestCell ? `${((closestCell.ride.rear.x + closestCell.ride.front.x) / 2).toFixed(0)},${((closestCell.ride.rear.y + closestCell.ride.front.y) / 2).toFixed(0)}` : '-'}`
         + `${references.length ? `, ${(Math.max(0, front) * 100).toFixed(0)}% along` : ''}${best ? `, best ${(best.steps * STEP).toFixed(2)}s` : ''}\n`);
     }
+  }
+  if (stats) {
+    const at = closestCell?.ride;
+    Object.assign(stats, {
+      iterations, places: list.length, apples: mostApples,
+      closest: at ? { x: (at.rear.x + at.front.x) / 2, y: (at.rear.y + at.front.y) / 2, distance: closest } : null
+    });
   }
   return best ? { inputs: inputsOf(best.node), backtracks: 0, done: true, at: best.at } : null;
 }

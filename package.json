@@ -18,6 +18,7 @@
     "context:check": "node scripts/generate-authoring-context.mjs --check",
     "dev": "node scripts/dev.mjs",
     "replays": "node scripts/record-replays.mjs",
+    "playtest": "node scripts/playtest.mjs",
     "check": "node scripts/check-syntax.mjs",
     "tokens:check": "node scripts/check-tokens.mjs",
     "typecheck": "npx -y -p typescript@5 tsc -p jsconfig.json",

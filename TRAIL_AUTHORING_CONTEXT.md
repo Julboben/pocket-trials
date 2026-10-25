@@ -12,7 +12,7 @@ Create new trails as a single JSON file each, following the format below.
 - Coordinates use the Canvas convention: `x` increases to the right and `y` increases **downward**, so a smaller `y` means higher terrain.
 - Only use material names defined in `js/materials.js`.
 - Output plain JSON (no comments, no trailing commas). The file will be saved in `trails/custom/`.
-- You cannot playtest. Keep gaps, slopes and jumps conservative (start gaps around 80–100 units wide) and treat medal times as rough estimates.
+- Playtest as you build. If you can run commands in this repository, `node scripts/playtest.mjs <trail file>` solves the trail with the replay bot and reports every jump, turn, hang and crash, how forgiving each stretch is, and the bot's time; `--probe` measures a single jump or section, and `--without` checks that an apple really needs a skill (see "Playtesting from the command line" in the spec). Use it to design close to what the bike can do instead of guessing. If you can't run commands, keep gaps, slopes and jumps conservative (start gaps around 80–100 units wide) and treat medal times as rough estimates.
 
 ## Contents
 
@@ -464,6 +464,44 @@ What opens a locked bonus trail is not part of the trail file. Every unlock rule
 6. Add props, materials, and weather last so they do not hide gameplay problems.
 7. Test at low speed, full speed, and after imperfect landings—not only with an ideal run.
 
+Each step can be checked with the playtest script below as you go: probe a jump while you shape it, solve the trail once the apples are in, and use `--without` to prove each apple needs the skill it is meant to test.
+
+## Playtesting from the command line
+
+`scripts/playtest.mjs` (also `npm run playtest --`) rides a trail with the replay bot, so a trail can be tried without opening the game. It is how an AI writing trails can find out whether a jump clears, a ledge can be reached, or an apple needs the skill it was meant to teach, instead of guessing and keeping everything conservative. It runs the same simulation as the game, so what it finds holds in the game.
+
+```sh
+node scripts/playtest.mjs trails/custom/my-trail.json            # check, then solve the whole trail
+node scripts/playtest.mjs trails/custom/my-trail.json --check    # validation and a survey only, instantly
+node scripts/playtest.mjs trails/custom/my-trail.json --without turn
+node scripts/playtest.mjs trails/custom/my-trail.json --probe 1200,ground,1,300 --script "gas 1; gas back 0.3; coast fwd 0.8"
+node scripts/playtest.mjs trails/custom/my-trail.json --probe 1200,ground,1,0 --goal apple:3
+```
+
+A trail can also be named by part of its catalog id, such as `12` or `kicker`. Progress goes to stderr and the report to stdout.
+
+**Solving the trail.** It validates the trail, lists the apples with their height above the surface below, then solves it one stretch at a time: from the start to whichever apple the bot takes first, from there to the next, and so on to the finish. For each stretch it reports:
+
+- the time, and whether the greedy bot or the explorer (which plans turn-arounds and run-ups) solved it
+- the jumps (the longest with its takeoff, landing and height), flips, turns on the ground and in the air, time spent hanging from one wheel under a ledge, top speed, time crawling, and the hardest landing
+- the route, as the bike's position once a second
+- **forgiveness:** the share of reruns that still reach the goal when the timing of one second of the run is off by up to 50 ms, and the tight spots, where few did and what went wrong. The bot rides with perfect timing; this shows where a person would struggle. A spot where nothing survives needs frame-perfect riding.
+
+The bot takes the apples nearest first. When a trail is meant to be ridden in another order, give it with `--order 2,1,3` (apples left out are taken nearest first afterwards), or the bot may ride past an apple it can't come back for. A stretch the bot can't solve is reported with the apples still to take, where the greedy bot got stuck and how close the explorer got. That means the trail may be impossible there, or need a longer search (`--minutes`, default 2 per stretch). At the end it gives the bot's total time, which is not optimised: treat it as an upper bound for gold. The official trails' silver is about 1.3× gold and bronze about 1.75×.
+
+The run is saved in `.playtest/` (git-ignored) and tried first next time, so after an edit only the stretches it broke are searched again; `--fresh` searches from scratch. The saved file's `inputs` can be given to `scripts/record-replays.mjs` as a human run.
+
+**Proving a skill is needed.** `--without SKILL` solves the trail with a skill taken away: `turn` (no turning around), `air-turn` (no turning in the air), `lean-back`, `lean-forward` or `brake`, or several separated by commas. If an apple meant to teach turning around is still reached `--without turn`, the trail has a way round the lesson. Searching for a route that doesn't exist uses up the whole budget, so this takes a while.
+
+**Probing one spot.** `--probe X,Y,FACING,SPEED` places the bike at `X`, at height `Y` (`ground` to stand on the surface), facing `1` (right) or `-1` (left), already moving at `SPEED` units per second. Then either:
+
+- `--script "..."` rides a fixed set of inputs and prints a trace (time, position, velocity, angle, whether the bike is on the ground, in a wheelie, hanging or in the air, and events such as landings, apples and crashes) every `--every` seconds (default 0.1). Each part of the script is what to hold and for how long: `gas`, `brake` or neither (`coast`), plus a lean of `fwd` or `back` (optionally `half`) relative to the way the bike faces, then the seconds. `turn` turns around. This is the way to measure a jump: how far and high a kicker throws the bike at a given speed, whether it clears a gap, how it lands.
+- `--goal apple:N`, `--goal reach:X,Y` or `--goal finish` lets the bot find its own way there, and prints the inputs it used in the script format.
+
+Two things worth knowing when writing scripts: lean turns the bike hard, so hold it in taps of 0.1–0.2 s as the bot does (held for most of a second it flips the bike over), and gas from a standstill lifts the front, so tap `fwd` now and then to keep it down. On flat ground the bike reaches about 400–500 units per second.
+
+`--json FILE` also writes the whole report as JSON.
+
 ## Visual editor
 
 Open `editor.html` or choose **Trail Editor** from the game dashboard. The **Block** tool draws a new block, and the **Cut** tool carves caves, entrances, and gaps out of existing blocks. Drag a block's points and curve handles to reshape it, or drag inside its filled body to move it whole. Double-click an edge to add a point. The inspector edits a block's material, whether an edge is straight or curved, and whether a point is a corner or smooth.
@@ -755,7 +793,8 @@ export function normalizeTrail(input, index = 0) {
     normalizeTerrainBlocks(input?.terrainBlocks) || [];
   const start = trail.start || fallback.start;
   trail.start = {
-    x: Number(start.x) || 90,
+    // 0 is a valid start, so only a missing or broken x falls back.
+    x: typeof start.x === "number" && Number.isFinite(start.x) ? start.x : Number(start.x) || 90,
     y: optionalY(start.y),
     facing: Number(start.facing) < 0 ? -1 : 1,
   };

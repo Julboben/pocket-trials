@@ -261,7 +261,8 @@ export function normalizeTrail(input, index = 0) {
     normalizeTerrainBlocks(input?.terrainBlocks) || [];
   const start = trail.start || fallback.start;
   trail.start = {
-    x: Number(start.x) || 90,
+    // 0 is a valid start, so only a missing or broken x falls back.
+    x: typeof start.x === "number" && Number.isFinite(start.x) ? start.x : Number(start.x) || 90,
     y: optionalY(start.y),
     facing: Number(start.facing) < 0 ? -1 : 1,
   };

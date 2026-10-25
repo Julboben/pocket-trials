@@ -509,7 +509,7 @@ function noseUpTilt({ rear, front, chassis }, facing) {
 // A bike hooked by one wheel over a ledge hangs below it like a pendulum. The
 // rider's weight swings it freely there, as in Elasto Mania; the limits below
 // are for a bike balanced above its wheel.
-function hangsBelowWheel({ rear, front, bikePoints }) {
+export function hangsBelowWheel({ rear, front, bikePoints }) {
   if (rear.grounded === front.grounded) return false;
   const pivot = rear.grounded ? rear : front;
   if (!pivot.contact) return false;

@@ -94,4 +94,5 @@ What building Windfall showed, measured in the physics:
 1. **Build in world order.** Finish each world before starting the next, so the difficulty is tuned against what the player has already ridden.
 2. **Best times reset.** Best times and leaderboards are keyed by trail id plus a hash of the trail (`trailKey` in `js/state.js`), so rebuilt trails start from zero.
 3. **Replays and medals.** Every official trail needs a replay from `node scripts/record-replays.mjs` and a passing `npm test`. Set gold times from the replay bot's times.
-4. **Playtest with new players.** Note where a first-time player crashes most. If more than one crash point is something the career hasn't taught yet, the trail brings in too much.
+4. **Playtest from the command line while building.** `node scripts/playtest.mjs <trail>` solves the trail with the replay bot and shows where it is tight; `--without` checks that the trail's new element is really needed. See [Playtesting from the command line](TRAIL_FORMAT.md#playtesting-from-the-command-line).
+5. **Playtest with new players.** Note where a first-time player crashes most. If more than one crash point is something the career hasn't taught yet, the trail brings in too much.
