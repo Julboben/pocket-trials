@@ -178,6 +178,18 @@ Let a back wall reach into the rock around the cave, so no gap shows at its edge
 
 In the editor, pick **Back wall** as the **Layer** of the Block tool to draw back walls, and of the Cut tool to cut into back walls without touching the terrain. The inspector's **Layer** switches a selected block between terrain and back wall, and **Fill caves with back walls** adds a back wall in the exact shape of each cave (`inner` boundary) in the selection. Caves formed by separate blocks have no `inner` boundary, so draw their back wall with the Block tool. Back walls show with a dashed outline, and clicking a cave picks its back wall before the terrain around it.
 
+#### Building scenery from terrain
+
+Back walls aren't only for caves. Anything the rider should pass in front of can be a back wall: a row of apartment buildings behind a street, a barn, a bridge, a church, a factory. Back walls are drawn a little darker than the terrain, which sets them behind the riding line, and in daylight they stay lit like the open air around them. Build them like the terrain, out of blocks of the materials:
+
+- **A building:** a `brick`, `stone` or `concrete` back wall for the facade, with a roof edge, chimneys and an upper storey as further back-wall blocks on top.
+- **Windows:** cut each window out of the facade as a cave (an `inner` boundary, or the Cut tool), then fill the hole with a `glass` back wall of the same shape. The glass shows what lies behind it, the sky and the city in the backdrop, so it reads as a window. Don't lay glass over a facade without cutting the hole first, or the wall shows through the pane.
+- **Details:** sills, balconies, cornices, awnings, shopfronts, doors and flower boxes are small blocks too (`wood`, `stone`, `concrete`), and props such as `flowers` can stand on them. Detail drawn this way can be as rich as the setting calls for.
+- **Rideable buildings** are ordinary terrain: the rider rides on their roofs and against their walls. In this side view the whole block is the building's front, so give it windows and details the same way. A window cut into terrain and filled with `glass` terrain is solid glass the rider can land on and break (see Terrain materials).
+
+Draw what you need with terrain rather than looking for a prop that doesn't exist, as long as it makes sense in the setting. `scripts/render-trail.mjs` shows how it looks.
+
+
 Validation reports blocks that enclose no area, cross themselves, or are buried under other blocks, and objects that are left over open air.
 
 ## Start: `start`
