@@ -105,7 +105,7 @@ What building Windfall showed, measured in the physics:
 
 ## Asking an AI to build a trail
 
-An AI that can run commands in this repository (Claude Code, for example) can build a trail and playtest it with `scripts/playtest.mjs` as it goes. Start a fresh session, fill in the idea in the prompt below, and ride the result before doing anything else with it. The prompt is written from what earlier attempts got wrong: a nisse on every trail, signs explaining the route, the same landmarks everywhere, a finish standing on easy ground, visible terrain edges, a design brief cut off at the length limit, and jumps kept timid because they weren't measured.
+An AI that can run commands in this repository (Claude Code, for example) can build a trail, playtest it with `scripts/playtest.mjs` and look at it with `scripts/render-trail.mjs` as it goes. Start a fresh session, fill in the idea in the prompt below, and ride the result before doing anything else with it. The prompt is written from what earlier attempts got wrong: a nisse on every trail, signs explaining the route, the same landmarks everywhere, a finish standing on easy ground, visible terrain edges, a design brief cut off at the length limit, and jumps kept timid because they weren't measured.
 
 ```
 Build a new custom trail for Hjulben: [THE IDEA, e.g. "a farmland trail with floating islands you have to jump to"].
@@ -119,9 +119,10 @@ How to work:
 2. Before any geometry, decide what this trail is the one with, and write a short design brief: the route as sections, each apple's place and the skill it tests, the intended apple order, and how a player recovers after a miss. Missing a jump should cost time, not the run, where that suits the trail. Put the brief in the trail's "description", within its 2000 characters.
 3. Build it section by section. Measure every jump with `scripts/playtest.mjs --probe ... --script` while you shape it, so takeoff speed, distance and landing come from measurements, not guesses, and dare to go close to what the bike can do.
 4. Playtest the whole trail with `--order` set to your intended apple order, and iterate until the bot finishes. Most stretches should be forgiving (above about 60%); a hard stretch should be hard on purpose, not by accident. Use `--without` to check that each apple meant to need a skill really needs it.
-5. Make reaching the finish take some effort, and float the flower clear of the ground. Close both ends with terrain that fits the setting, with ground carrying on beyond so no edge shows.
-6. Dress it last: plenty of natural props for the setting, only a few landmarks or characters that make this trail its own, signs only if really needed, and no nisse unless there is a hiding place worth the detour. Keep the riding line clear, then validate and playtest once more.
-7. Set medals from the bot's time (gold a little above it, silver about 1.3× gold, bronze about 1.75× gold) and run `npm run trails` so it appears in the game.
+5. Look at it. Render it with `scripts/render-trail.mjs` and read the images: the overview with the bot's route and tight spots, and each section as the game draws it. Fix what looks wrong, unclear or bare, and render again.
+6. Make reaching the finish take some effort, and float the flower clear of the ground. Close both ends with terrain that fits the setting, with ground carrying on beyond so no edge shows.
+7. Dress it last: plenty of natural props for the setting, only a few landmarks or characters that make this trail its own, signs only if really needed, and no nisse unless there is a hiding place worth the detour. Keep the riding line clear, then validate, playtest and render once more, and look at every section.
+8. Set medals from the bot's time (gold a little above it, silver about 1.3× gold, bronze about 1.75× gold) and run `npm run trails` so it appears in the game.
 
 When you're done, tell me: the file name, what the trail is the one with, the final playtest summary (the time, and each stretch's forgiveness and tight spots), anything the bot couldn't do or you're unsure of, and what I should look out for when I ride it. If you learned something about building trails that the docs should say, suggest it.
 ```

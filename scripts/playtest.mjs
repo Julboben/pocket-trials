@@ -27,7 +27,6 @@
 // edit only the stretches it broke are searched again. Progress goes to
 // stderr and the report to stdout.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { basename, resolve } from 'node:path';
 import { STEP } from '../js/config.js';
 import { bikeSpeed, createRide, seededRandom, stepRide } from '../js/ride.js';
 import { decodeInputs, encodeInputs } from '../js/replay-codec.js';
@@ -35,7 +34,7 @@ import { normalizeTrail, validateTrail } from '../js/trail-schema.js';
 import { terrainAt } from '../js/terrain.js';
 import { hangsBelowWheel } from '../js/vehicle-physics.js';
 import { cloneRide, exploreTrail, recordTrail } from './lib/replay-bot.mjs';
-import { loadCatalogTrails, repoRoot } from './lib/trails.mjs';
+import { loadTrailArgument, playtestRunPath, repoRoot } from './lib/trails.mjs';
 
 // The bot reports its progress with console.log; keep stdout for the report.
 console.log = (...args) => console.error(...args);
@@ -78,20 +77,7 @@ const mid = ride => ({ x: (ride.rear.x + ride.front.x) / 2, y: (ride.rear.y + ri
 const at = point => `${Math.round(point.x)},${Math.round(point.y)}`;
 const seconds = steps => (steps * STEP).toFixed(2);
 
-// A file path, or part of the id of a trail in the catalogs.
-function loadEntry(name) {
-  const path = resolve(name);
-  if (existsSync(path) && name.endsWith('.json')) {
-    return { id: basename(path, '.json'), file: path, trail: JSON.parse(readFileSync(path, 'utf8')) };
-  }
-  for (const source of ['official', 'bonus', 'custom']) {
-    const entry = loadCatalogTrails(source).find(candidate => candidate.id.includes(name));
-    if (entry) return { ...entry, file: repoRoot + 'trails/' + entry.file };
-  }
-  throw new Error(`no trail file or catalog trail matches "${name}"`);
-}
-
-const entry = loadEntry(target);
+const entry = loadTrailArgument(target);
 entry.trail = normalizeTrail(entry.trail);
 const { trail } = entry;
 const report = { trail: entry.id, file: entry.file, without };
@@ -263,10 +249,12 @@ function forgiveness(start, inputs, done, seed) {
       const { ride: after, stats } = measure(ride, rest, done);
       if (stats.reached) { reached++; continue; }
       const where = stats.crash || { cause: 'stalled', ...mid(after) };
-      const key = `${where.cause} near ${Math.round(where.x / 50) * 50},${Math.round(where.y / 50) * 50}`;
-      failures.set(key, (failures.get(key) || 0) + 1);
+      const near = { cause: where.cause, x: Math.round(where.x / 50) * 50, y: Math.round(where.y / 50) * 50 };
+      const key = `${near.cause} near ${near.x},${near.y}`;
+      failures.set(key, { ...near, count: (failures.get(key)?.count || 0) + 1 });
     }
-    windows.push({ at: mid(ride), reached, failure: [...failures].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null });
+    const worst = [...failures].sort((a, b) => b[1].count - a[1].count)[0];
+    windows.push({ at: mid(ride), reached, failure: worst?.[0] ?? null, failedAt: worst?.[1] ?? null });
     for (let step = from; step < Math.min(from + window, inputs.length); step++) stepRide(ride, inputs[step]);
   }
   const reached = windows.reduce((sum, entry) => sum + entry.reached, 0);
@@ -282,7 +270,7 @@ function describeForgiveness({ share, windows }) {
 // --- Solving ----------------------------------------------------------------
 
 const cacheDir = repoRoot + '.playtest/';
-const cachePath = cacheDir + entry.id.replace(/[^\w.-]+/g, '_') + (without.length ? `.without-${without.join('-')}` : '') + '.json';
+const cachePath = playtestRunPath(entry.id, without.length ? `.without-${without.join('-')}` : '');
 let cache = null;
 if (!args.includes('--fresh') && existsSync(cachePath)) {
   try { cache = JSON.parse(readFileSync(cachePath, 'utf8')); } catch { cache = null; }
@@ -372,6 +360,11 @@ function solveTrail() {
   writeFileSync(cachePath, JSON.stringify({
     trail: entry.id,
     stretches: stretches.filter(stretch => !stretch.failed).map(stretch => stretch.inputs),
+    order: order.map(index => index + 1),
+    // Where reruns mostly failed, for scripts/render-trail.mjs to mark.
+    tightSpots: stretches.flatMap(stretch => (stretch.forgiveness?.windows || [])
+      .filter(entry => entry.reached <= TRIALS / 2)
+      .map(({ at: from, reached, failedAt }) => ({ from: { x: Math.round(from.x), y: Math.round(from.y) }, reached, trials: TRIALS, failedAt }))),
     // The whole run in the replay format's encoding, usable as a human run for scripts/record-replays.mjs.
     inputs: finished ? encodeInputs(fullRun) : undefined
   }) + '\n');

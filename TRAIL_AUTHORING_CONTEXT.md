@@ -468,7 +468,7 @@ What opens a locked bonus trail is not part of the trail file. Every unlock rule
 7. Add props, materials, and weather last so they do not hide gameplay problems. Dress nature generously, use only a few distinctive set pieces, and keep the terrain's edges out of sight.
 8. Test at low speed, full speed, and after imperfect landings—not only with an ideal run.
 
-Each step can be checked with the playtest script below as you go: probe a jump while you shape it, solve the trail once the apples are in, and use `--without` to prove each apple needs the skill it is meant to test.
+Each step can be checked with the playtest script below as you go: probe a jump while you shape it, solve the trail once the apples are in, and use `--without` to prove each apple needs the skill it is meant to test. Render it as you go too, and look at the images: see [Seeing a trail from the command line](#seeing-a-trail-from-the-command-line).
 
 ## Playtesting from the command line
 
@@ -505,6 +505,24 @@ The run is saved in `.playtest/` (git-ignored) and tried first next time, so aft
 Two things worth knowing when writing scripts: lean turns the bike hard, so hold it in taps of 0.1–0.2 s as the bot does (held for most of a second it flips the bike over), and gas from a standstill lifts the front, so tap `fwd` now and then to keep it down. On flat ground the bike reaches about 400–500 units per second.
 
 `--json FILE` also writes the whole report as JSON.
+
+## Seeing a trail from the command line
+
+`scripts/render-trail.mjs` (also `npm run render --`) draws a trail to PNG images with the game's own renderer, in headless Chrome, so a trail can be looked at without opening the game. An AI that can read images can use it to judge what it has built: whether the islands read as islands, the dressing fills the scene without blocking the line, the finish stands out, and no edge of the terrain shows.
+
+```sh
+node scripts/render-trail.mjs trails/custom/my-trail.json            # an overview and the sections
+node scripts/render-trail.mjs trails/custom/my-trail.json --route    # the sections marked up too
+node scripts/render-trail.mjs trails/custom/my-trail.json --view 1200,100,900,500
+```
+
+The images go to `.playtest/renders/<trail>/` (git-ignored, `--out` to change it), and the script lists each one with the area it shows and the apples, start, finish and tight spots in it, so you can open just the one you need.
+
+- `overview.png` is the whole trail, marked up: a coordinate ruler and grid, the apples by number, the start (`S`, with its direction), the finish (`F`) and the nisse (`N`). After `scripts/playtest.mjs`, it also shows the bot's route from the last playtest, coloured from blue (slow) to red (fast) and dashed in the air, with its turns (`T`) and tight spots: `!` where jittered reruns started, with how many of them got through, and `×` with the cause where most of them failed. If the trail has changed since, so that the saved run crashes, the script says so: playtest again.
+- `section-NN.png` are views of about the size the game shows on a desktop screen (880 × 500 units, taller where the route climbs), following the route from left to right, or the terrain's top before there is a playtest. They are drawn clean, as the game draws them, with only a ruler around them, so you can judge the look. `--route` marks them up like the overview.
+- `--view X,Y,WIDTH,HEIGHT` draws a single view with its top left at `X,Y`, for a close look at one spot.
+
+`--scale` sets the sections' sharpness in device pixels per art pixel (default 3, which makes a section about 1300 pixels wide). The bike is not in the picture, so dark caves look as dark as they are without its headlight. It needs Chrome, at `CHROME_PATH` or where macOS or Linux installs it.
 
 ## Visual editor
 
