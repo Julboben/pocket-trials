@@ -42,7 +42,7 @@ export const WEATHER_KEYS = [...WEATHER_LEVELS, "windDirection"];
  * and the author fine-tunes from there. The wind direction is left as it is.
  */
 export const WEATHER_PRESETS = [
-  { id: "clear", name: "Clear", weather: { sun: 1, clouds: 0.05, fog: 0, rain: 0, snow: 0, lightning: 0, wind: 0.15 } },
+  { id: "clear", name: "Clear", weather: { sun: 0.8, clouds: 0.05, fog: 0, rain: 0, snow: 0, lightning: 0, wind: 0.15 } },
   { id: "breezy", name: "Breezy", weather: { sun: 0.8, clouds: 0.3, fog: 0, rain: 0, snow: 0, lightning: 0, wind: 0.45 } },
   { id: "overcast", name: "Overcast", weather: { sun: 0.3, clouds: 0.85, fog: 0.15, rain: 0, snow: 0, lightning: 0, wind: 0.3 } },
   { id: "drizzle", name: "Drizzle", weather: { sun: 0.35, clouds: 0.7, fog: 0.1, rain: 0.25, snow: 0, lightning: 0, wind: 0.25 } },

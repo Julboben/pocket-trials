@@ -73,7 +73,7 @@ Play online at [h.julben.dk](https://h.julben.dk). To run it locally, start a st
 npm run dev
 ```
 
-This starts a small dependency-free Node server at `http://127.0.0.1:8080` (override with `PORT=…`). It generates `trails/catalog.json` (official and bonus) and the git-ignored `trails/custom-catalog.json` (custom), regenerates them when a trail JSON file changes, and lets the editor save trails straight into `trails/official/`, `trails/bonus/` and `trails/custom/`. It never reloads the page on its own, so a running game is not interrupted; refresh manually after changing code.
+This starts a small dependency-free Node server at `http://127.0.0.1:8080` (override with `PORT=…`). It generates `trails/catalog.json` (official and bonus) and the git-ignored `trails/custom-catalog.json` (custom), regenerates them when a trail JSON file changes, and lets the editor save trails straight into `trails/official/`, `trails/bonus/` and `trails/custom/`. It never reloads the page on its own, so a running game is not interrupted; refresh manually after changing code. The "Update ready" prompt a release shows players is left out on `localhost`, where every reload already gets the latest code; use a non-local address to see it.
 
 A local server is required because the game uses native JavaScript modules and fetches trail JSON, which browsers block on `file://`. Any static server also works for playing, for example on a static host, but only `npm run dev` enables saving trail files from the editor.
 

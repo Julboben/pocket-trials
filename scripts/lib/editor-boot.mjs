@@ -722,6 +722,20 @@ fire('pointerup');
   editorState.cameraX = cameraX;
 }
 
+// Beside the sun's level, the glare it gives, which clouds temper.
+{
+  const { syncInspector } = await import('../../js/editor/inspector.js');
+  const weather = editorState.trail.weather;
+  editorState.trail.weather = { ...weather, sun: 1, clouds: 0 };
+  syncInspector();
+  report.sunClear = document.getElementById('weather-sun-value').textContent;
+  editorState.trail.weather = { ...weather, sun: 1, clouds: 1 };
+  syncInspector();
+  report.sunCloudy = document.getElementById('weather-sun-value').textContent;
+  editorState.trail.weather = weather;
+  syncInspector();
+}
+
 // The import and export box is filled as its dialog opens and kept current
 // while it is open. Closed, it is left alone: filling it is slow on a large trail.
 {

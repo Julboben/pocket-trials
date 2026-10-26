@@ -394,10 +394,14 @@ function splitPoints(ax, ay, bx, by, others) {
 // Containment and column spans
 // ---------------------------------------------------------------------------
 
-/** Is this point inside the union of every block's solids? */
-export function terrainSolidAt(compiled, x, y) {
+/**
+ * Is this point inside the union of every block's solids? With `counts`, only
+ * bodies it accepts are counted, such as those that aren't see-through.
+ * @param {(body: TerrainBody) => boolean} [counts]
+ */
+export function terrainSolidAt(compiled, x, y, counts) {
   for (const body of compiled.columns.get(Math.floor(x / COLUMN_WIDTH)) || []) {
-    if (insideBody(body, x, y)) return true;
+    if ((!counts || counts(body)) && insideBody(body, x, y)) return true;
   }
   return false;
 }

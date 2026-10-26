@@ -35,8 +35,13 @@ if ('serviceWorker' in navigator && window.isSecureContext && !embedded) {
   // A worker taking over a page that already had one means a new release.
   // The first install claims the page too, but there is nothing to reload for.
   const hadController = Boolean(navigator.serviceWorker.controller);
+  // On the dev server (npm run dev) the worker fetches every file from the
+  // network first (see LOCAL in sw.js), so a reload always runs the latest
+  // code and nothing goes stale. Every change there regenerates sw.js, which
+  // would otherwise ask for a reload each time.
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!hadController || ready) return;
+    if (!hadController || ready || local) return;
     ready = true;
     offerUpdate();
   });

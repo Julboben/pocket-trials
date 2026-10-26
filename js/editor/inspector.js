@@ -16,6 +16,7 @@ import {
 } from "../trail-schema.js";
 import { store } from "../local-store.js";
 import { WEATHER_LEVELS, WEATHER_PRESETS, resolveWeather } from "../weather.js";
+import { glareStrength } from "../lighting.js";
 import { startWindsock } from "./windsock.js";
 import { TIME_MARKS, clockTime, hourName, normalizeHour } from "../time-of-day.js";
 import {
@@ -478,6 +479,19 @@ function putOnGround() {
 function showWeatherValue(key) {
   const value = Number($(`weather-${key}`).value) || 0;
   $(`weather-${key}-value`).textContent = `${Math.round(value * 100)}%`;
+  showSunGlare();
+}
+
+/**
+ * Beside the sun's level, the glare the game gives it: a strong sun glares
+ * and casts rays, which the level alone doesn't tell, as clouds, fog, rain
+ * and the time of day all temper it.
+ */
+function showSunGlare() {
+  const sun = Number($("weather-sun").value) || 0;
+  const glare = glareStrength({ timeOfDay: editor.trail.timeOfDay, weather: resolveWeather(editor.trail.weather) });
+  const word = glare >= 0.9 ? "full glare" : glare >= 0.5 ? "strong glare" : glare > 0.05 ? "some glare" : "no glare";
+  $("weather-sun-value").textContent = `${Math.round(sun * 100)}% · ${word}`;
 }
 
 /**
@@ -518,6 +532,7 @@ function syncTimeOfDay() {
 
 function showTimeOfDay(hour) {
   $("time-of-day-value").textContent = `${clockTime(hour)} · ${hourName(hour)}`;
+  showSunGlare();
 }
 
 /** Changes the trail's weather as one undoable step. */

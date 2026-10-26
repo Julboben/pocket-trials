@@ -20,6 +20,8 @@ import {
 import { bakeLightField, lightFieldAt, lightReach } from "./light-field.js";
 import { dayBlend, normalizeHour } from "./time-of-day.js";
 import { backWallGeometry, terrainAt, terrainGeometry } from "./terrain.js";
+import { terrainSolidAt } from "./terrain-runtime.js";
+import { isSeeThrough } from "./materials.js";
 import { LANTERN_CENTRE } from "./cave-props.js";
 import { CRANE_LIGHTS, LAMP_HEAD } from "./city-props.js";
 import { HUT_WINDOW_CENTRE } from "./mountain-props.js";
@@ -86,6 +88,33 @@ const DARK_ROOM = "rgb(64,72,98)";
 // rays, growing to full at SUN_GLARE + SUN_GLARE_RANGE.
 const SUN_GLARE = 0.6,
   SUN_GLARE_RANGE = 0.3;
+// The sun's disc is about this wide (see drawBackground), and this many points
+// across it are checked for terrain in front of it: one in the middle and two
+// rings, so the glare fades smoothly as the sun slides behind a roof.
+const SUN_DISC_RADIUS = 36;
+const SUN_SAMPLES = [[0, 0]];
+for (const [ring, count] of [[0.5, 8], [1, 12]])
+  for (let index = 0; index < count; index++) {
+    const angle = (index / count) * Math.PI * 2;
+    SUN_SAMPLES.push([Math.cos(angle) * ring * SUN_DISC_RADIUS, Math.sin(angle) * ring * SUN_DISC_RADIUS]);
+  }
+// Glass lets the sun through, so a sun seen through a window still glares.
+const opaque = (body) => !isSeeThrough(body.material);
+
+/**
+ * How much of the sun's disc, at (x, y) in the world, no terrain or back wall
+ * hides: the sky and its sun are drawn behind everything, so a building in
+ * front of the sun hides it, and its glare with it.
+ */
+export function sunVisible(trail, x, y) {
+  const layers = [terrainGeometry(trail), backWallGeometry(trail)].filter(Boolean);
+  if (!layers.length) return 1;
+  let open = 0;
+  for (const [dx, dy] of SUN_SAMPLES)
+    if (!layers.some((compiled) => terrainSolidAt(compiled, x + dx, y + dy, opaque))) open++;
+  return open / SUN_SAMPLES.length;
+}
+
 // Sun rays: [angle offset from straight at the view's centre, beam half-width,
 // length as a fraction of the view's diagonal, brightness].
 const SUN_RAYS = [
@@ -681,7 +710,8 @@ export function createLighting() {
   // The glare of a strong sun: a halo round it and slow rays fanning down
   // across the view, kept out of caves and rock by the baked shade. It fades
   // when the sun's place in the world is dark, as when the view is deep in a
-  // cave. Screened on top so it only ever brightens. The rays are only drawn
+  // cave, and as terrain or a back wall in front of the sun hides it.
+  // Screened on top so it only ever brightens. The rays are only drawn
   // again when the sun has moved a pixel on screen or their sway has moved
   // on (about every third frame), and the shade is only cut out again when
   // the view has moved; otherwise the kept canvas is laid over the scene.
@@ -690,7 +720,7 @@ export function createLighting() {
     const sx = cameraX + sun.x,
       sy = cameraY + sun.y;
     const seen = entry.field ? Math.max(0, lightFieldAt(entry.field, sx, sy) * 2 - 1) : 1;
-    const glare = entry.glare * seen;
+    const glare = entry.glare * seen * (seen > 0 ? sunVisible(trail, sx, sy) : 0);
     if (glare <= 0.01) return;
     if (!raysCanvas) {
       raysCanvas = createCanvas(cols, rows);

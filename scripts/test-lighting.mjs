@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { rectangle, blockTrail } from './lib/terrain-fixtures.mjs';
 
 const { bakeLightField, lightFieldAt, lightReach } = await import('../js/light-field.js');
-const { glareStrength } = await import('../js/lighting.js');
+const { glareStrength, sunVisible } = await import('../js/lighting.js');
 
 let failures = 0;
 const backWall = (left, top, right, bottom) => ({ ...rectangle(left, top, right, bottom, 'concrete', `back-${left}`), layer: 'back' });
@@ -92,6 +92,24 @@ check('rain puts the glare out', sky(12, { sun: 1, clouds: 0.15, rain: 1 }) === 
 check('the moon never glares', [21, 22, 0, 3, 4].every((hour) => sky(hour, { sun: 1, clouds: 0 }) === 0));
 const clear = (hour) => sky(hour, { sun: 1, clouds: 0 });
 check('the glare fades in after dawn and out by dusk', clear(5) === 0 && clear(6) < clear(7) && clear(7) <= clear(12) && clear(19) < clear(12) && clear(20) === 0);
+
+// The sky and its sun are drawn behind everything, so terrain or a back wall
+// in front of the sun hides it, and its glare fades with how much is hidden.
+// Glass lets it through.
+{
+  const city = blockTrail([
+    rectangle(0, 300, 2000, 900, 'grass', 'ground'),
+    rectangle(0, -200, 300, 300, 'brick', 'tower'),
+    backWall(600, -200, 900, 300),
+    { ...rectangle(1200, -200, 1500, 300, 'glass', 'window'), layer: 'back' },
+  ]);
+  check('a sun in open sky is seen whole', sunVisible(city, 1800, 0) === 1);
+  check('a sun behind terrain is hidden', sunVisible(city, 150, 0) === 0);
+  check('and behind a back wall', sunVisible(city, 750, 0) === 0);
+  const edge = sunVisible(city, 300, 0);
+  check('a sun half behind a wall is partly seen', edge > 0.3 && edge < 0.7, edge);
+  check('a sun behind glass is seen', sunVisible(city, 1350, 0) === 1);
+}
 
 // Lights stop at the terrain: a ray into the ground goes only skin deep,
 // one through open air goes its full length, and a light set slightly into
