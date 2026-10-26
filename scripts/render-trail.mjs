@@ -31,7 +31,9 @@
 // the game's camera keeps the rider about two thirds of the way down the
 // screen, so it shows only so much above them. --camera renders what the
 // player sees instead, with the game's own camera following the playtest's
-// route, every few seconds, for a laptop-sized window. The overview darkens
+// route, every few seconds, for a laptop-sized window, with the bike where
+// the run has it and its lights, so night and caves look as they do in the
+// game. The overview darkens
 // whatever that camera never shows, so a landmark too tall to be seen stands
 // out. Places where scripts/playtest.mjs found a trap are marked TRAP. Needs
 // Chrome, at CHROME_PATH or where macOS or Linux installs it.
@@ -112,13 +114,13 @@ function loadRun() {
     camera.follow(focus, { facing: ride.facing, loose: Boolean(ride.ragdoll), ...CAMERA_VIEW, dt: STEP, fallY });
     const view = { x: Math.round(camera.x), y: Math.round(camera.y), ...CAMERA_VIEW };
     if (index % 12 === 0) seen.push(view);
-    if (index % every === 0) frames.push({ ...view, time: index * STEP });
+    if (index % every === 0) frames.push({ ...view, time: index * STEP, step: index + 1 });
   }
   const round = point => ({ ...point, x: Math.round(point.x), y: Math.round(point.y) });
   return {
     points: points.map(round), turns: turns.map(round), crash: crash && round(crash),
     tightSpots: saved.tightSpots || [], traps: saved.traps || [], status: ride.status, seconds: inputs.length * STEP,
-    seen, frames,
+    seen, frames, stretches: saved.stretches,
   };
 }
 
@@ -223,6 +225,8 @@ try {
   }
   if (!ready) throw new Error(`the render page did not load${problems.length ? `: ${problems.join('; ')}` : ''}`);
   await evaluate(`hjulbenSetTrail(${JSON.stringify(trail)})`);
+  // Camera frames show the bike where the run has it, lights and all.
+  if (args.includes('--camera')) await evaluate(`hjulbenSetRun(${JSON.stringify(run.stretches)})`);
   mkdirSync(outDir, { recursive: true });
   // Images from an earlier render would be mistaken for this one's.
   const stale = args.includes('--camera') ? (file => file.startsWith('camera-')) : (file => !file.startsWith('camera-'));
@@ -235,7 +239,7 @@ try {
     const title = `${view.name} · x ${view.x} to ${view.x + view.width}, y ${Math.round(view.y)} to ${Math.round(view.y + view.height)}`;
     const job = {
       view, scale: view.scale, maxWidth: view.name === 'overview' ? OVERVIEW_WIDTH : view.width * SCALE / 2,
-      overlay: view.overlay, props: args.includes('--props') && view.name !== 'overview', run, title,
+      overlay: view.overlay, props: args.includes('--props') && view.name !== 'overview', run, title, step: view.step,
       // The overview darkens what the game's camera never shows.
       unseen: view.name === 'overview',
     };

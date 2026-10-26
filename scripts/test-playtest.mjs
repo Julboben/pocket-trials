@@ -52,6 +52,7 @@ try {
   assert.match(check, /Validation: ok/);
   assert.match(check, /1: 900,\d+, 60 above the surface below it/, 'apples are listed with their height');
   assert.doesNotMatch(check, /Solving/, '--check does not solve');
+  assert.match(check, /Size: 3 blocks \(0 back walls\), \d+ KB of JSON; the largest official or bonus trail has \d+ blocks/, 'the size is weighed against the shipped trails');
 
   // An overlong description is cut off when a trail loads, so it is reported.
   writeFileSync(file, JSON.stringify({ ...trail, description: 'x'.repeat(2100) }));
@@ -82,6 +83,10 @@ try {
   for (const input of decodeInputs(saved.inputs)) if (replay.status === 'running') stepRide(replay, input);
   assert.equal(replay.status, 'won', 'the saved run replays to the finish');
   assert.match(run('playtest.mjs', '--trials', '0'), /saved run from the last playtest/, 'the saved run is tried first');
+  assert.match(solved, /Medals: at most gold \d+, silver \d+, bronze \d+/, 'medals are suggested from the bot\'s time');
+  writeFileSync(file, JSON.stringify({ ...trail, medals: { gold: 999, silver: 1000, bronze: 1001 } }));
+  assert.match(run('playtest.mjs', '--trials', '0'), /gold of 999 s is more than 5% over the bot's time/, 'a gold that is too easy is flagged');
+  writeFileSync(file, JSON.stringify(trail));
 
   // Without turning around, the finish behind the start can't be reached.
   const unturned = run('playtest.mjs', '--fresh', '--without', 'turn', '--minutes', '0.05', '--trials', '0');

@@ -6,6 +6,7 @@ import {
   validateTrail,
 } from "../trail-schema.js";
 import {
+  browserTrailSaved,
   customFileFor,
   deleteBrowserTrail,
   deleteTrailFile,
@@ -449,8 +450,17 @@ function confirmOverwrite(entry) {
   });
 }
 
+/** Throws when the browser couldn't keep the last trail saved in it. */
+async function browserSaved() {
+  if (!(await browserTrailSaved())) throw new Error("browser storage is full or blocked");
+}
+
 async function persist(entry, data) {
-  if (entry.storage === "browser") return saveBrowserTrail(data, entry.key);
+  if (entry.storage === "browser") {
+    const saved = saveBrowserTrail(data, entry.key);
+    await browserSaved();
+    return saved;
+  }
   // A renamed custom trail moves to a file named after it. Official and bonus
   // files keep their names: the online leaderboard knows them by it.
   const file = entry.source === "custom" ? customFileFor(entry, data.name) : entry.file;
@@ -533,6 +543,7 @@ export async function createCustomTrail(data) {
     const entry = editor.devServer
       ? await saveTrailFile(uniqueCustomFile(data.name), data)
       : saveBrowserTrail(data);
+    if (!editor.devServer) await browserSaved();
     selectEntry(trailEntries.indexOf(entry));
   } catch (error) {
     showStatus("error", `Could not create the trail: ${error.message}`);
@@ -547,8 +558,10 @@ export async function deleteTrail() {
   )
     return;
   try {
-    if (entry.storage === "browser") deleteBrowserTrail(entry.key);
-    else await deleteTrailFile(entry.file);
+    if (entry.storage === "browser") {
+      deleteBrowserTrail(entry.key);
+      await browserSaved();
+    } else await deleteTrailFile(entry.file);
     clearDrafts(entry.id);
     // The trail is gone, so there is nothing to autosave on the way out.
     editor.version = null;

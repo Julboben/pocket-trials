@@ -3,8 +3,10 @@
 // whoever is building the trail: a coordinate ruler, the apples, start,
 // finish and nisse, the replay bot's route coloured by speed, and the spots
 // where its reruns failed. Runs in headless Chrome; the script calls
-// `hjulbenSetTrail` once and then `hjulbenRender` for each view.
-import { createRide } from '../../js/ride.js';
+// `hjulbenSetTrail` once, `hjulbenSetRun` for camera frames, and then
+// `hjulbenRender` for each view.
+import { decodeInputs } from '../../js/replay-codec.js';
+import { createRide, stepRide } from '../../js/ride.js';
 import { drawScene } from '../../js/scene-preview.js';
 import { terrainGeometry } from '../../js/terrain.js';
 import { surfaceY } from '../../js/trail-preview.js';
@@ -29,15 +31,32 @@ window.hjulbenSetTrail = next => {
   return true;
 };
 
+// The playtest's run, ridden on as camera frames ask for later moments of it,
+// so a frame shows the bike where it is then, with its lights.
+let replay = null;
+
+window.hjulbenSetRun = stretches => {
+  replay = { inputs: stretches.flatMap(decodeInputs), ride: createRide(trail), step: 0 };
+  return true;
+};
+
+/** The run's ride after `step` steps, or the parked ride without a bike. */
+function rideAt(step) {
+  if (!replay || !Number.isFinite(step)) return ride;
+  if (step < replay.step) Object.assign(replay, { ride: createRide(trail), step: 0 });
+  while (replay.step < step && replay.ride.status === 'running') stepRide(replay.ride, replay.inputs[replay.step++]);
+  return replay.ride;
+}
+
 /**
  * Draws one view and returns it as a PNG data URL.
  * @param {{ view: { x: number, y: number, width: number, height: number }, scale: number, maxWidth: number,
  *   overlay: boolean, props: boolean, run: any, title: string }} job
  */
-window.hjulbenRender = ({ view, scale, maxWidth, overlay, props, run, title, unseen }) => {
+window.hjulbenRender = ({ view, scale, maxWidth, overlay, props, run, title, unseen, step }) => {
   const scene = document.createElement('canvas');
   const camera = drawScene(scene, {
-    trail, ride, width: view.width, height: view.height, scale,
+    trail, ride: rideAt(step), width: view.width, height: view.height, scale,
     focus: { x: view.x + view.width / 2, y: view.y + view.height / 2 }, anchor: [0.5, 0.5],
   });
   // Device pixels per world unit in the image, scaled down to fit maxWidth.

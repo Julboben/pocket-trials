@@ -37,7 +37,8 @@ import { DESCRIPTION_MAX_LENGTH, normalizeTrail, validateTrail } from '../js/tra
 import { terrainAt } from '../js/terrain.js';
 import { hangsBelowWheel } from '../js/vehicle-physics.js';
 import { cloneRide, exploreTrail, recordTrail } from './lib/replay-bot.mjs';
-import { loadTrailArgument, playtestRunPath, repoRoot } from './lib/trails.mjs';
+import { MAX_JSON_BYTES } from '../js/trail-link.js';
+import { loadCatalogTrails, loadTrailArgument, playtestRunPath, repoRoot } from './lib/trails.mjs';
 
 // The bot reports its progress with console.log; keep stdout for the report.
 console.log = (...args) => console.error(...args);
@@ -100,6 +101,23 @@ const report = { trail: entry.id, file: entry.file, without };
 // --- Validation and survey ---------------------------------------------------
 
 /**
+ * How heavy the trail is, next to the largest shipped trails, so detail can
+ * be weighed (rule 14 in TRAILS_GUIDE.md): every block makes a trail larger
+ * to load, share and edit.
+ */
+function describeSize() {
+  const size = data => ({ blocks: (data.terrainBlocks || []).length, bytes: JSON.stringify(data).length });
+  const own = size(entry.trail);
+  const back = (entry.trail.terrainBlocks || []).filter(block => block.layer === 'back').length;
+  const shipped = [...loadCatalogTrails('official'), ...loadCatalogTrails('bonus')].map(other => size(other.trail));
+  const most = shipped.reduce((top, other) => ({ blocks: Math.max(top.blocks, other.blocks), bytes: Math.max(top.bytes, other.bytes) }), { blocks: 0, bytes: 0 });
+  const kb = bytes => bytes >= 1e6 ? `${(bytes / 1e6).toFixed(1)} MB` : `${Math.round(bytes / 1e3)} KB`;
+  let text = `Size: ${own.blocks} blocks (${back} back walls), ${kb(own.bytes)} of JSON; the largest official or bonus trail has ${most.blocks} blocks and ${kb(most.bytes)}.`;
+  if (own.bytes > MAX_JSON_BYTES) text += ' Too large to share as a link, which holds at most 1 MiB: keep detail to where the camera is.';
+  return text;
+}
+
+/**
  * Validation messages as lines, the same message about several items of one
  * kind (blocks, apples...) on one line with the items listed: a trail with
  * hundreds of identical warnings would otherwise bury everything after them.
@@ -137,6 +155,7 @@ function survey() {
   const facing = trail.start.facing < 0 ? 'left' : 'right';
   const round = Math.round;
   out(`Terrain: x ${round(Math.min(...xs))} to ${round(Math.max(...xs))}, y ${round(Math.min(...ys))} to ${round(Math.max(...ys))} (smaller y is higher)`);
+  out(describeSize());
   out(`Start: ${at(mid(ride))} facing ${facing}. Finish flower: ${at(ride.flower)}`);
   out(`Apples (${ride.apples.length}):`);
   ride.apples.forEach((apple, index) => {
@@ -494,7 +513,11 @@ function solveTrail() {
   out();
   if (finished) {
     out(`Result: the bot finished in ${elapsed.toFixed(2)} s. Its route is not optimised, so treat this as an upper bound for gold.`);
-    out('Official trails use silver about 1.3x and bronze about 1.75x the gold time.');
+    // Gold at most 5% over the bot, silver and bronze as the official trails have them.
+    const gold = Math.round(elapsed * 1.05), silver = Math.round(gold * 1.3), bronze = Math.round(gold * 1.75);
+    out(`Medals: at most gold ${gold}, silver ${silver}, bronze ${bronze} (gold up to 5% over the bot, silver 1.3x and bronze 1.75x gold).`);
+    const set = trail.medals?.gold;
+    if (Number.isFinite(set) && set > gold) out(`  The trail's gold of ${set} s is more than 5% over the bot's time, so it is too easy to get: lower it.`);
   } else out(`Result: NOT finished; the bot took ${ride.collected} of ${total} apples.`);
   const traps = stretches.flatMap(stretch => stretch.forgiveness?.traps || []);
   if (traps.length) out(`TRAPS: ${traps.length} place${traps.length === 1 ? '' : 's'} where a miss leaves the rider with no way back and no crash (${traps.map(at).join(', ')}). Give each a way back to the line, or make it end the run (see TRAILS_GUIDE.md).`);

@@ -8,8 +8,11 @@
 //   ?sandbox=off    leave it and go back to your real data
 // Closing the tab throws the sandbox away too.
 const SANDBOX_FLAG = 'hjulben-sandbox';
-/** The editor's drafts database in the sandbox (see editor/draft-store.js). */
-export const SANDBOX_DATABASE = 'hjulben-editor-sandbox';
+// The IndexedDB databases kept for the page (see text-store.js), which the
+// sandbox keeps apart from the real ones.
+const DATABASES = ['hjulben-editor', 'hjulben-trails'];
+/** The database the sandbox keeps in place of `name`. */
+export const sandboxDatabase = name => `${name}-sandbox`;
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 let chosen = null;
@@ -21,9 +24,10 @@ function pick() {
     const param = new URLSearchParams(location.search).get('sandbox');
     if (param === 'off' || param === 'reset') sessionStorage.clear();
     if (param !== null && param !== 'off') {
-      // The editor keeps the sandbox's drafts in IndexedDB, which outlives
+      // The sandbox's drafts and trails are kept in IndexedDB, which outlives
       // the tab, so a new sandbox starts without the last one's.
-      if (param === 'reset' || !sessionStorage.getItem(SANDBOX_FLAG)) globalThis.indexedDB?.deleteDatabase(SANDBOX_DATABASE);
+      if (param === 'reset' || !sessionStorage.getItem(SANDBOX_FLAG))
+        for (const name of DATABASES) globalThis.indexedDB?.deleteDatabase(sandboxDatabase(name));
       sessionStorage.setItem(SANDBOX_FLAG, '1');
     }
     if (!sessionStorage.getItem(SANDBOX_FLAG)) return localStorage;
@@ -33,6 +37,9 @@ function pick() {
     return localStorage;
   }
 }
+
+/** Fired on window when a write to storage failed (usually because it is full), with `{ key }`. */
+export const STORAGE_FAILED_EVENT = 'hjulben:storage-failed';
 
 /** @returns {Storage} */
 export function store() {

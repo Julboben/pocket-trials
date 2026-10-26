@@ -148,7 +148,7 @@ The inspector on the right edits the current selection. The editor supports:
 Where **Publish** writes depends on how the editor is served:
 
 - Under `npm run dev`, official, bonus and file-based custom trails are written directly to their JSON file, and new trails are created in `trails/custom/`. For an official or bonus trail the menu item reads **Overwrite official file…** or **Overwrite bonus file…** and asks for confirmation first.
-- On any other server, official and file-based trails are read-only. **New** and **Duplicate** create custom trails stored in the browser (localStorage), which then appear under **Custom Trails** in the game. Players can also add trails with **Import trail** in the game's trail menu.
+- On any other server, official and file-based trails are read-only. **New** and **Duplicate** create custom trails stored in the browser (IndexedDB, compressed, so even very large trails fit), which then appear under **Custom Trails** in the game. Players can also add trails with **Import trail** in the game's trail menu.
 
 Editor drafts do not overwrite trail files. Official trails live in `trails/official/`, bonus trails in `trails/bonus/`, and locally authored trails belong in `trails/custom/`. Both use the exact JSON format produced by **Export JSON**. Source classification comes from the generated catalog and folder—not from a user-editable property inside the trail. See [`TRAIL_FORMAT.md`](./TRAIL_FORMAT.md) for the full schema and design guidelines.
 

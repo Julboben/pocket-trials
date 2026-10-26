@@ -2,7 +2,7 @@
 
 All trails use the same JSON schema. Shipped career trails live in `trails/official/`, shipped bonus trails in `trails/bonus/`, and locally authored standalone trails in `trails/custom/`. The editor's JSON export can be placed directly in `trails/custom/`.
 
-`npm run dev` watches all three folders and regenerates `trails/catalog.json` (official and bonus) and the local, git-ignored `trails/custom-catalog.json` whenever a JSON file changes. The browser loads both catalogs through `js/trails.js`, so new files appear after the next page refresh. Trails saved or imported in the browser outside dev mode are kept in localStorage and listed alongside the file-based custom trails.
+`npm run dev` watches all three folders and regenerates `trails/catalog.json` (official and bonus) and the local, git-ignored `trails/custom-catalog.json` whenever a JSON file changes. The browser loads both catalogs through `js/trails.js`, so new files appear after the next page refresh. Trails saved or imported in the browser outside dev mode are kept in the browser (IndexedDB) and listed alongside the file-based custom trails.
 
 A trail cannot declare itself official inside its JSON. The generated catalog assigns source from the containing folder: official trails participate in career progression and official best times; bonus trails are handpicked extras, often made by another rider, that keep save best times, medals and the online board but sit outside career progression; custom trails are clearly labeled, stay on the device and never alter career progress. Promoting a custom trail to a bonus trail is a matter of moving its file to `trails/bonus/`. Its times start over under the new `bonus:<file>` id, and the file name must then stay put, because the online board knows the trail by it.
 
@@ -462,7 +462,7 @@ node scripts/playtest.mjs trails/custom/my-trail.json --probe 1200,ground,1,0 --
 
 A trail can also be named by part of its catalog id, such as `12` or `kicker`. Progress goes to stderr and the report to stdout.
 
-**Solving the trail.** It validates the trail (the same message about several blocks or other items is one line, listing them), lists the apples with their height above the surface below, then solves it one stretch at a time: from the start to whichever apple the bot takes first, from there to the next, and so on to the finish. For each stretch it reports:
+**Solving the trail.** It validates the trail (the same message about several blocks or other items is one line, listing them), gives its size in blocks and kilobytes next to the largest official or bonus trail (and says when it is too large to share as a link), lists the apples with their height above the surface below, then solves it one stretch at a time: from the start to whichever apple the bot takes first, from there to the next, and so on to the finish. For each stretch it reports:
 
 - the time, and whether the greedy bot or the explorer (which plans turn-arounds and run-ups) solved it
 - the jumps (the longest with its takeoff, landing and height), flips, turns on the ground and in the air, time spent hanging from one wheel under a ledge, top speed, time crawling, and the hardest landing
@@ -470,7 +470,7 @@ A trail can also be named by part of its catalog id, such as `12` or `kicker`. P
 - **forgiveness:** the share of reruns that still reach the goal when the timing of one second of the run is off by up to 50 ms, and the tight spots, where few did and what went wrong. The bot rides with perfect timing; this shows where a person would struggle. A spot where nothing survives needs frame-perfect riding.
 - **traps:** places where a miss leaves the rider with no way back to the line and no crash, so a player can only restart by hand, such as a pit between two buildings with a floor. Besides the jittered reruns, each jump's run-up is ridden again a moment before takeoff at 60% and 80% of the bot's speed, as a player who comes in too slowly would. Wherever a miss leaves the bike at rest off the line, the bot gets a short search to get back to any point of the stretch's line, ahead or behind; where it can't, that's a trap, listed with the stretch and summed up at the end. Fix every one: give it a way back, or make the miss end the run (see "Every miss ends in a way back or a crash" in `TRAILS_GUIDE.md`).
 
-The bot takes the apples nearest first. When a trail is meant to be ridden in another order, give it with `--order 2,1,3` (apples left out are taken nearest first afterwards), or the bot may ride past an apple it can't come back for. A stretch the bot can't solve is reported with the apples still to take, where the greedy bot got stuck and how close the explorer got. That means the trail may be impossible there, or need a longer search (`--minutes`, default 2 per stretch). At the end it gives the bot's total time, which is not optimised: treat it as an upper bound for gold. The official trails' silver is about 1.3× gold and bronze about 1.75×.
+The bot takes the apples nearest first. When a trail is meant to be ridden in another order, give it with `--order 2,1,3` (apples left out are taken nearest first afterwards), or the bot may ride past an apple it can't come back for. A stretch the bot can't solve is reported with the apples still to take, where the greedy bot got stuck and how close the explorer got. That means the trail may be impossible there, or need a longer search (`--minutes`, default 2 per stretch). At the end it gives the bot's total time, which is not optimised: treat it as an upper bound for gold, and set gold at most about 5% above it. The official trails' silver is about 1.3× gold and bronze about 1.75×.
 
 The run is saved in `.playtest/` (git-ignored) and tried first next time, so after an edit only the stretches it broke are searched again; `--fresh` searches from scratch. The saved file's `inputs` can be given to `scripts/record-replays.mjs` as a human run.
 
@@ -481,9 +481,43 @@ The run is saved in `.playtest/` (git-ignored) and tried first next time, so aft
 - `--script "..."` rides a fixed set of inputs and prints a trace (time, position, velocity, angle, whether the bike is on the ground, in a wheelie, hanging or in the air, and events such as landings, apples and crashes) every `--every` seconds (default 0.1). Each part of the script is what to hold and for how long: `gas`, `brake` or neither (`coast`), plus a lean of `fwd` or `back` (optionally `half`) relative to the way the bike faces, then the seconds. `turn` turns around. This is the way to measure a jump: how far and high a kicker throws the bike at a given speed, whether it clears a gap, how it lands.
 - `--goal apple:N`, `--goal reach:X,Y` or `--goal finish` lets the bot find its own way there, and prints the inputs it used in the script format.
 
-Two things worth knowing when writing scripts: lean turns the bike hard, so hold it in taps of 0.1–0.2 s as the bot does (held for most of a second it flips the bike over), and gas from a standstill lifts the front, so tap `fwd` now and then to keep it down. On flat ground the bike reaches about 400–500 units per second.
+Two things worth knowing when writing scripts: lean turns the bike hard, so hold it in taps of 0.1–0.2 s as the bot does (held for most of a second it flips the bike over), and gas from a standstill lifts the front, so tap `fwd` now and then to keep it down. How fast the bike gets going on flat ground, and its top speed, are in the table below.
 
 `--json FILE` also writes the whole report as JSON.
+
+### What the bike can do
+
+Measured on small test pieces with the game's own simulation by `scripts/measure-limits.mjs`, so a trail can be designed near the limits from the start; then measure each jump of your own with `--probe`. The rider holds the gas and keeps the bike in line with the ground under it (level in the air), as a steady player would; a skilled one gets a little more out of it. Distances are in world units, with `y` growing downward.
+
+<!-- limits:start (written by scripts/measure-limits.mjs) -->
+**Speed on flat ground**, from a standstill with the gas held:
+
+| Reaches 200 | Reaches 300 | Reaches 400 | After 2 s | Top speed |
+|---|---|---|---|---|
+| 0.8 s | 1.5 s | 2.3 s | 368 units/s, 415 units on | 778 units/s |
+
+**Kickers:** a 40-unit kicker, its lip at the end of flat ground that carries on level beyond it. Each cell is how far past the lip the bike lands, and how high it rises above the lip, at that approach speed:
+
+| Kicker | 200 units/s | 300 units/s | 400 units/s | 500 units/s |
+|---|---|---|---|---|
+| 15° | 228 on, 0 up | 261 on, 0 up | 321 on, 2 up | 403 on, 7 up |
+| 25° | 195 on, 0 up | 247 on, 5 up | 331 on, 16 up | 464 on, 36 up |
+| 35° | 171 on, 5 up | 223 on, 17 up | 309 on, 37 up | 429 on, 63 up |
+
+**Climbs:** a 300-unit-tall slope is climbed up to 45° from a standstill at its foot, and up to 50° with a run-up at 400 units/s (tried in steps of 5°). Steeper, the bike flips over backwards or stalls.
+
+**Steps:** a sheer step is ridden up to 20 units tall from a crawl, 20 units tall at 200 units/s, 20 units tall at 400 units/s, lifting the front just before it (tried in steps of 10). Taller than that, the rider's head hits the step: give it a ramp or a kicker.
+<!-- limits:end -->
+
+### A ledge to hang from
+
+Hanging is the trick the `tutorial-ledge` prop shows: the front wheel hooks over the lip of a wall too tall to ride up or jump onto, the bike hangs below it, and gas with a lean forward pulls it up and over. It only happens where nothing easier works, so build for it:
+
+- **A wall too tall to jump onto.** Below about 120 units a kicker throws the bike straight on top, with no hang. A sheer wall over about 20 units can't be ridden up (see the table above).
+- **A kicker that brings the front wheel to the lip** at the top of its arc. As measured with the bot: a 160-unit wall with a 50-unit kicker (80 units long) 160 units before it gets a hang of about 0.4 s at the lip and then over; the same wall with a 40-unit kicker 120 before it can't be reached at all, and a 120-unit wall is jumped straight onto. Shape your own with `--probe` and the bot.
+- **No way round,** or the bot (and the player) takes it.
+
+Prove it with the playtest: the stretch reports `hanging from one wheel: N s (at X,Y)` for every hang of 0.2 s or more. A hang at the lip that the stretch can't do without means the trail asks for it; `hanging from one wheel: 0.00 s` means it doesn't, whatever the brief says.
 
 ## Seeing a trail from the command line
 
@@ -503,9 +537,9 @@ The images go to `.playtest/renders/<trail>/` (git-ignored, `--out` to change it
 - `section-NN_xLEFT-RIGHT.png` are views of about the size the game shows on a desktop screen (880 × 500 units, taller where the route climbs), following the route from left to right, or the terrain's top before there is a playtest. They are drawn clean, as the game draws them, with only a ruler around them, so you can judge the look. `--route` marks them up like the overview.
 - `--props` labels every prop in the sections with its index in the trail's `props` list and its type (purple for the front layer), so a tree in a jump's path or a bush hiding an apple can be found in the file and moved.
 - `--view X,Y,WIDTH,HEIGHT` draws a single view with its top left at `X,Y`, for a close look at one spot.
-- `--camera` draws what the player sees instead: `camera-NN_tSECONDSs.png`, framed by the game's own camera following the last playtest's route, every 3 seconds (`--camera-every S` to change it), for a laptop-sized window of about 1000 × 620 units. The sections show everything near the route; the game keeps the rider about two thirds of the way down the screen, so it shows only about 400 units above them (a phone in landscape about 230). Look at these to check that the landmarks and set pieces are seen as you meant.
+- `--camera` draws what the player sees instead: `camera-NN_tSECONDSs.png`, framed by the game's own camera following the last playtest's route, every 3 seconds (`--camera-every S` to change it), for a laptop-sized window of about 1000 × 620 units, with the bike where the run has it then, its lights on as in the game. The sections show everything near the route; the game keeps the rider about two thirds of the way down the screen, so it shows only about 400 units above them (a phone in landscape about 230). Look at these to check that the landmarks and set pieces are seen as you meant.
 
-`--scale` sets the sections' sharpness in device pixels per art pixel (default 3, which makes a section about 1300 pixels wide). The bike is not in the picture, so dark caves look as dark as they are without its headlight. It needs Chrome, at `CHROME_PATH` or where macOS or Linux installs it.
+`--scale` sets the sections' sharpness in device pixels per art pixel (default 3, which makes a section about 1300 pixels wide). The bike is only in the `--camera` frames: elsewhere dark caves and night scenes look as dark as they are without its headlight, and the camera frames show what its light reaches. It needs Chrome, at `CHROME_PATH` or where macOS or Linux installs it.
 
 ## Visual editor
 

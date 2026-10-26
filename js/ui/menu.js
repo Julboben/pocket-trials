@@ -1,6 +1,6 @@
 // Main menu: savegames, trail select, leaderboard, achievements, settings and how-to-play.
 import { clamp } from '../config.js';
-import { trails, officialTrailEntries, bonusTrailEntries, customTrailEntries, saveBrowserTrail } from '../trails.js';
+import { trails, officialTrailEntries, bonusTrailEntries, customTrailEntries, saveBrowserTrail, browserTrailSaved } from '../trails.js';
 import { createGameArt } from '../drawing.js';
 import { drawScene, drawTrailPreview, posedRide, findClimb, findJump, finishScene } from '../scene-preview.js';
 import {
@@ -1749,7 +1749,10 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
       saveBrowserTrail(trail);
       updateDashboard();
       showView('trails');
-      setImportStatus(`Imported “${trail.name}”. It is saved in this browser under Custom Trails.`);
+      const kept = await browserTrailSaved();
+      setImportStatus(kept
+        ? `Imported “${trail.name}”. It is saved in this browser under Custom Trails.`
+        : `Imported “${trail.name}” for now, but browser storage is full or blocked, so it will be gone after a reload.`, !kept);
     } catch (error) {
       setImportStatus(`Could not import ${file.name}: ${error.message}`, true);
     }

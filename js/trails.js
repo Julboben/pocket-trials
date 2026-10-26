@@ -1,4 +1,5 @@
-import { store } from './local-store.js';
+import { STORAGE_FAILED_EVENT, store } from './local-store.js';
+import { createTextStore } from './text-store.js';
 import { canonical, trailHash } from './trail-hash.js';
 import { DEV_SERVER_HEADER, DEV_SERVER_WRITABLE } from './dev-server.js';
 export { terrainMaterials } from './materials.js';
@@ -76,7 +77,32 @@ try {
   throw error;
 }
 
+// Trails saved in the browser, each its own record ({ key, trail, shared,
+// order }) in a text store, compressed: one large trail filled localStorage,
+// where they were kept together under this key before.
 const BROWSER_TRAILS_KEY = 'hjulben-browser-trails-v1';
+const TRAIL_RECORD = 'trail:';
+const library = createTextStore({
+  name: 'hjulben-trails',
+  adopt(local) {
+    let stored;
+    try {
+      stored = JSON.parse(local.getItem(BROWSER_TRAILS_KEY) || 'null');
+    } catch (_) {
+      return [];
+    }
+    if (!Array.isArray(stored)) return [];
+    const items = stored.filter(item => item?.key && typeof item.trail?.name === 'string');
+    return [{ from: BROWSER_TRAILS_KEY, entries: items.map((item, order) => [TRAIL_RECORD + item.key, JSON.stringify({ ...item, order })]) }];
+  },
+});
+await library.open();
+// The game tells the player its storage is full (see game.js).
+library.onFailure(key => globalThis.window?.dispatchEvent(new CustomEvent(STORAGE_FAILED_EVENT, { detail: { key } })));
+// The last save's write, for whoever has to know it reached the database.
+let browserWrite = Promise.resolve(true);
+/** Whether the last trail saved in the browser was stored, once its write is done. */
+export const browserTrailSaved = () => browserWrite;
 
 // The editor hands the trail being edited to the game (index.html?playtest=1),
 // which it shows in a frame, as JSON on its own window: nothing is stored, so
@@ -129,17 +155,16 @@ export function takeEditorFeats() {
   return feats;
 }
 
+/** The trails saved in the browser, in the order they were first saved. */
 function readBrowserLibrary() {
-  try {
-    const stored = JSON.parse(store().getItem(BROWSER_TRAILS_KEY) || '[]');
-    return Array.isArray(stored) ? stored.filter(item => item?.key && typeof item.trail?.name === 'string') : [];
-  } catch (_) {
-    return [];
+  const items = [];
+  for (const record of library.keys(TRAIL_RECORD)) {
+    try {
+      const item = JSON.parse(library.read(record) || 'null');
+      if (item?.key && typeof item.trail?.name === 'string') items.push(item);
+    } catch (_) {}
   }
-}
-
-function writeBrowserLibrary(library) {
-  store().setItem(BROWSER_TRAILS_KEY, JSON.stringify(library));
+  return items.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
 function browserEntry({ key, trail, shared = false }) {
@@ -177,19 +202,19 @@ export function registerTrailEntry(entry) {
 
 /** @param {{ shared?: boolean }} [options] `shared`: it came from someone's share link */
 export function saveBrowserTrail(trail, key = null, { shared = false } = {}) {
-  const library = readBrowserLibrary();
+  const saved = readBrowserLibrary();
   let storageKey = key;
   if (!storageKey) {
     const base = slugify(trail.name);
-    const taken = new Set(library.map(item => item.key));
+    const taken = new Set(saved.map(item => item.key));
     storageKey = base;
     for (let suffix = 2; taken.has(storageKey); suffix++) storageKey = `${base}-${suffix}`;
   }
-  const index = library.findIndex(item => item.key === storageKey);
-  // Stays a shared trail when the editor saves it again.
-  const stored = { key: storageKey, trail: JSON.parse(JSON.stringify(trail)), ...(shared || library[index]?.shared ? { shared: true } : {}) };
-  if (index >= 0) library[index] = stored; else library.push(stored);
-  writeBrowserLibrary(library);
+  const before = saved.find(item => item.key === storageKey);
+  // Stays a shared trail when the editor saves it again, and keeps its place.
+  const order = before?.order ?? Math.max(-1, ...saved.map(item => item.order ?? 0)) + 1;
+  const stored = { key: storageKey, trail: JSON.parse(JSON.stringify(trail)), ...(shared || before?.shared ? { shared: true } : {}), order };
+  browserWrite = library.write(TRAIL_RECORD + storageKey, JSON.stringify(stored));
   return registerTrailEntry(browserEntry(stored));
 }
 
@@ -220,7 +245,7 @@ export function removeTrailEntry(id) {
 }
 
 export function deleteBrowserTrail(key) {
-  writeBrowserLibrary(readBrowserLibrary().filter(item => item.key !== key));
+  browserWrite = library.remove(TRAIL_RECORD + key);
   removeTrailEntry(`browser:${key}`);
 }
 
