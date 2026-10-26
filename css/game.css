@@ -378,6 +378,17 @@ canvas {
         right: calc(10px + env(safe-area-inset-right, 0px));
     }
 }
+/* Over the results, the menu button moves into their dialog on the top layer
+   (see overlay.js), pinned to the game's corner where it always is. */
+.overlay > .game-actions {
+    position: fixed;
+    top: calc(var(--game-top, 0px) + 14px);
+    right: calc(var(--game-right, 0px) + 14px);
+    @media (max-width: 760px) {
+        top: calc(var(--game-top, 0px) + 10px + env(safe-area-inset-top, 0px));
+        right: calc(var(--game-right, 0px) + 10px + env(safe-area-inset-right, 0px));
+    }
+}
 .fps-meter {
     position: absolute;
     z-index: 4;
@@ -1752,41 +1763,6 @@ h2 {
     }
     @media (max-width: 760px) {
         position: fixed;
-    }
-}
-/* "Update ready · Reload" on the dashboard, once a new release has installed. */
-.update-toast {
-    position: absolute;
-    z-index: 3;
-    left: 50%;
-    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 8px 8px 14px;
-    border: 1px solid var(--color-toast-border);
-    border-radius: var(--radius-pixel);
-    background: var(--color-toast);
-    box-shadow: var(--shadow-pixel);
-    color: var(--color-text);
-    font-size: var(--text-md);
-    font-weight: var(--weight-heavy);
-    letter-spacing: 0.5px;
-    white-space: nowrap;
-}
-.update-reload {
-    padding: 6px 12px;
-    border: 1px solid var(--color-accent);
-    border-radius: var(--radius-pixel);
-    background: var(--color-accent);
-    color: var(--color-accent-ink);
-    font-size: var(--text-sm);
-    font-weight: var(--weight-heavy);
-    letter-spacing: 1px;
-    cursor: pointer;
-    &:hover {
-        background: var(--color-accent-hover);
     }
 }
 .menu-scroll {

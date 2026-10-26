@@ -1105,6 +1105,32 @@
                 </section>
             </div>
         </dialog>
+        <!-- A new release has taken over the page; update-prompt.js opens it
+             and it can't be dismissed, unless reloading would lose edits. -->
+        <dialog
+            class="shortcuts confirm-dialog"
+            id="update-dialog"
+            role="alertdialog"
+            closedby="none"
+            aria-labelledby="update-title"
+            aria-describedby="update-text"
+        >
+            <div class="shortcuts-head">
+                <strong id="update-title">UPDATE READY</strong>
+            </div>
+            <p class="confirm-text" id="update-text">
+                A new version of the editor is installed. Reload to keep
+                editing; your trail is kept.
+            </p>
+            <p class="confirm-text" id="update-later-note" hidden>
+                The browser couldn’t store your latest edits, so reloading would
+                lose them. Export the trail first, then reload.
+            </p>
+            <div class="data-actions confirm-actions">
+                <button type="button" id="update-later" hidden>LATER</button>
+                <button type="button" class="primary-action" id="update-reload">RELOAD</button>
+            </div>
+        </dialog>
         <script type="module" src="./js/editor/main.js"></script>
     </body>
 </html>

@@ -2,6 +2,7 @@
 import { store } from "../local-store.js";
 import { validateTrail } from "../trail-schema.js";
 import { PLAYTEST_EXIT_MESSAGE, PLAYTEST_TRAIL_GLOBAL, PLAYTEST_TRAIL_KEY } from "../trails.js";
+import { offerUpdate } from "../update-prompt.js";
 import { $, canvas } from "./dom.js";
 import { cancelPendingShape, endPointer } from "./input.js";
 import { editor } from "./state.js";
@@ -41,6 +42,8 @@ export function closePlaytest() {
   $("playtest").hidden = true;
   playtestFrame.src = "about:blank";
   canvas.focus({ preventScroll: true });
+  // A release that came in during the play test asks now.
+  offerUpdate();
 }
 
 export function bindPlaytest() {

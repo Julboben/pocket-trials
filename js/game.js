@@ -22,6 +22,8 @@ import { createInput, keyLabel } from './input.js';
 import { createHaptics } from './haptics.js';
 import { createCamera } from './camera.js';
 import { createEffects } from './effects.js';
+import { createFireworks } from './fireworks.js';
+import { offerUpdate, reloadNow, setUpdatePrompt, updatePromptOpen } from './update-prompt.js';
 import { createRenderer } from './render.js';
 import { createDebugHud } from './debug-hud.js';
 import { riderPalette } from './drawing.js';
@@ -45,6 +47,8 @@ export function startGame({ shared = null } = {}) {
   const renderer = createRenderer(/** @type {HTMLCanvasElement} */ ($('canvas')));
   const camera = createCamera();
   const effects = createEffects();
+  // Looked up when a rocket goes up, as the sounds are made further down.
+  const fireworks = createFireworks({ onLaunch: (x, flight) => sounds.fireworkLaunch(x, flight), onBurst: x => sounds.fireworkBurst(x) });
   // Results closed by the browser (a second Escape, a phone's back gesture)
   // go to the menu, where the ride can be picked up again.
   const overlay = createOverlay({ onDismiss: () => { if (session.state === 'won' && !menu.isOpen()) showMainMenu(); } });
@@ -124,7 +128,10 @@ export function startGame({ shared = null } = {}) {
         console.log('[Hjulben] Run JSON:\n' + run);
         navigator.clipboard?.writeText(run).then(() => console.log('[Hjulben] Copied the run.'), () => {});
         return run;
-      }
+      },
+      // The fireworks for a new world record, which the dev server's empty
+      // board never sets off.
+      celebrate() { celebrateRecord(); }
     };
     // In the editor's play test, the same tools also answer from the editor
     // page's console, so there is no frame to pick.
@@ -578,8 +585,8 @@ export function startGame({ shared = null } = {}) {
     // Focused, so Enter rides the trail, as it continues from the results.
     $('crash-retry').focus({ preventScroll: true });
     const { restart } = promptKeys();
-    overlay.toast(restart ? ['Replay finished · Press ', { key: restart }, ' to watch again'] : 'Replay finished · Tap Restart to watch again', Infinity);
-    overlay.announce('Replay finished. ' + (restart ? 'Press ' + restart : 'Select Restart') + ' to watch it again, or select Ride This Trail.');
+    overlay.toast(restart ? ['Replay finished · Press ', { key: restart }, ' to ride this trail'] : 'Replay finished', Infinity);
+    overlay.announce('Replay finished. ' + (restart ? 'Press ' + restart + ' or select' : 'Select') + ' Ride This Trail to ride it yourself.');
   }
 
   /**
@@ -620,7 +627,7 @@ export function startGame({ shared = null } = {}) {
     // ride (the menu, losing focus) lets go of them, so a key released while
     // the game wasn't listening can't stay stuck.
     input.paint();
-    if (next !== 'won') overlay.hide();
+    if (next !== 'won') { overlay.hide(); fireworks.stop(); }
     $('crash-retry').hidden = next !== 'ragdoll';
     $('crash-retry').textContent = replay ? 'Ride This Trail' : 'Retry';
     overlay.showPause(next === 'paused', pauseHint());
@@ -630,7 +637,8 @@ export function startGame({ shared = null } = {}) {
   const focusGame = () => game.focus({ preventScroll: true });
 
   function startFresh() {
-    if (replay) { restartReplay(); return; }
+    // Retry means riding: during or after a replay it starts the rider's own run.
+    if (replay) { rideAfterReplay(); return; }
     if (session.trailSource === 'playtest') loadPlaytestTrail();
     else if (session.trailSource === 'bonus') loadBonusTrail(session.bonusTrailIndex);
     else if (session.trailSource === 'custom') loadCustomTrail(session.customTrailIndex);
@@ -660,10 +668,12 @@ export function startGame({ shared = null } = {}) {
     input.clear();
     haptics.stop();
     overlay.hide();
+    fireworks.stop();
     $('crash-retry').hidden = true;
     holdWakeLock(false);
     setMenuOpen(true);
     menu.open();
+    offerUpdate();
     // A good moment to send runs that couldn't be posted when they were ridden.
     flushPendingRuns(tokenFor).then(sent => { if (sent) overlay.toast(sent === 1 ? 'Posted a waiting run to the world board' : `Posted ${sent} waiting runs to the world board`, 4000); });
   }
@@ -705,6 +715,11 @@ export function startGame({ shared = null } = {}) {
   }
 
   function handlePress(action) {
+    // A new release waits for its reload; a pad can only confirm it.
+    if (updatePromptOpen()) {
+      if (action === 'confirm') reloadNow();
+      return;
+    }
     if (menu.isOpen()) {
       if (action === 'menu' || action === 'pause') closeMainMenu();
       else menu.handlePad(action);
@@ -721,7 +736,7 @@ export function startGame({ shared = null } = {}) {
     else if (action === 'interact') { if (state === 'running') interact(); }
     else if (action === 'confirm' || action === 'cancel') {
       if (state === 'paused') resumeGame();
-      else if (state === 'won' && action === 'confirm') { if (replay) rideAfterReplay(); else $('primary').click(); }
+      else if (state === 'won' && action === 'confirm') { if (replay) startFresh(); else $('primary').click(); }
       else if (state === 'ragdoll' && action === 'confirm') startFresh();
     }
   }
@@ -869,13 +884,24 @@ export function startGame({ shared = null } = {}) {
         }
         const standing = result && 'rank' in result ? result : null;
         // Riders who have already moved on still hear how the run placed.
-        if (!overlay.showWorldStanding(shown, standing) && standing) {
+        const onResults = overlay.showWorldStanding(shown, standing);
+        if (!onResults && standing) {
           overlay.toast(`WORLD RANK #${standing.rank} OF ${standing.total}`, 4000);
         }
+        // A new world record gets a show, but only over its own results,
+        // not over the next ride.
+        if (onResults && standing?.rank === 1 && standing.improved) celebrateRecord();
       });
     }
     setState('won');
     haptics.play('cheer');
+  }
+
+  /** Fireworks over the trail, for a run the world board has just put first. */
+  function celebrateRecord() {
+    fireworks.play();
+    // The scene stops being drawn once the finish has settled; this wakes it.
+    redraw = true;
   }
 
   function handleEvent(ride, event) {
@@ -1073,7 +1099,7 @@ export function startGame({ shared = null } = {}) {
       const stepping = session.state === 'running' || session.state === 'ragdoll';
       const alpha = stepping ? accumulator / STEP : 1;
       overlay.setTimer(ride.elapsed);
-      const still = session.state === 'paused' || (session.state === 'won' && renderer.settled());
+      const still = session.state === 'paused' || (session.state === 'won' && renderer.settled() && !fireworks.active());
       if (!still || redraw) {
         redraw = false;
         const restore = interpolateRide(ride, alpha);
@@ -1082,7 +1108,7 @@ export function startGame({ shared = null } = {}) {
         const restoreGhost = ghostRide ? interpolateRide(ghostRide, ghostRide.status === 'won' ? 1 : alpha) : null;
         renderer.draw({
           ride, ghost: ghostRide, camera, effects, look: replay?.look ?? session.look, ghostLook: ghost?.look, state: session.state,
-          full: session.preferences.scenery === 'full', dt, debug: debugEnabled
+          full: session.preferences.scenery === 'full', dt, debug: debugEnabled, fireworks
         });
         restoreGhost?.();
         restore();
@@ -1189,7 +1215,7 @@ export function startGame({ shared = null } = {}) {
   });
   // Focus the game first: hiding the focused button would blur it and auto-pause.
   $('pause-overlay').addEventListener('click', resumeGame);
-  $('crash-retry').addEventListener('click', () => { focusGame(); if (replay) rideAfterReplay(); else startFresh(); });
+  $('crash-retry').addEventListener('click', () => { focusGame(); startFresh(); });
   $('headlight').addEventListener('click', () => { handlePress('lights'); focusGame(); });
   $('sound-control').addEventListener('click', () => { toggleSound(); focusGame(); });
   // A click rather than a data-action: the touch buttons only work mid-ride,
@@ -1253,6 +1279,8 @@ export function startGame({ shared = null } = {}) {
   applyPreferences();
   handleFullscreenChange();
   resize();
+  // A new release asks for its reload on the menu only, never mid-ride.
+  setUpdatePrompt({ canShow: () => menu.isOpen() });
   if (playtestTrail) {
     $('menu').setAttribute('aria-label', 'Back to the editor');
     startSelectedTrail(loadPlaytestTrail, false);

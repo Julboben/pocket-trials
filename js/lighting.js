@@ -556,7 +556,7 @@ export function createLighting() {
     return lit;
   }
 
-  function shadeScene(ctx, entry, { ride, look = null, flash = 0, time = 0, flip = 1 }, left, top) {
+  function shadeScene(ctx, entry, { ride, look = null, flash = 0, time = 0, flip = 1, lights: extra = [] }, left, top) {
     const { field } = entry;
 
     context.globalCompositeOperation = "source-over";
@@ -572,7 +572,8 @@ export function createLighting() {
       context.globalAlpha = 1;
     }
 
-    const lights = [...entry.props];
+    // `extra`: passing lights, like fireworks bursting over the trail.
+    const lights = [...entry.props, ...extra];
     bikeLights(ride, flip, look, lights, entry);
     return composeLights(ctx, lights, { left, top, field, cover: entry.cover, time });
   }

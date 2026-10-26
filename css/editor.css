@@ -289,6 +289,8 @@ html[data-sandbox] body::after {
 .confirm-text { margin: 0 0 12px; color: var(--color-text-soft); font-size: var(--text-sm); line-height: 1.6; }
 .confirm-text code { color: var(--color-text); font: inherit; font-weight: var(--weight-heavy); }
 .confirm-actions { grid-template-columns: 1fr 1fr; }
+/* The update prompt's Later only shows when reloading would lose edits. */
+.confirm-actions:has(> [hidden]) { grid-template-columns: 1fr; }
 .rename-input { width: 100%; font-size: var(--text-sm); }
 .danger-solid { border-color: var(--color-error); background: var(--color-error); color: var(--color-accent-ink); }
 .danger-solid:hover { background: #f58b64; }

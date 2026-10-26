@@ -735,6 +735,124 @@ export function createAudio(getSnapshot) {
     },
     win() {
       [523, 659, 784, 1047].forEach((note, index) => playTone(note, .18, 'square', .055, index * .1, note));
+    },
+    /**
+     * A firework going up: the soft puff of the lift charge, then the rush of
+     * the rocket through the air for as long as it climbs, a hiss that dulls
+     * and fades as it gets further away, roughened by the fizz of its fuel.
+     * @param {number} x where it goes up across the view, 0 … 1
+     * @param {number} flight how long (s) it climbs before it bursts
+     */
+    fireworkLaunch(x = .5, flight = 1.5) {
+      if (!audio || !enabled) return;
+      const { context, master, noiseBuffer } = audio;
+      const start = context.currentTime;
+      const pan = context.createStereoPanner();
+      pan.pan.value = clamp((x - .5) * 1.6, -.8, .8);
+      pan.connect(master);
+      const grain = (at, length, peak, type, frequency) => {
+        const source = context.createBufferSource();
+        const filter = context.createBiquadFilter();
+        const gain = context.createGain();
+        source.buffer = noiseBuffer;
+        filter.type = type; filter.frequency.value = frequency;
+        gain.gain.setValueAtTime(.0001, at);
+        gain.gain.exponentialRampToValueAtTime(peak, at + .003);
+        gain.gain.exponentialRampToValueAtTime(.0001, at + length);
+        source.connect(filter); filter.connect(gain); gain.connect(pan);
+        source.start(at, Math.random() * .9); source.stop(at + length + .02);
+      };
+      grain(start, .1, .07, 'lowpass', 450);
+
+      // The rush: loud and bright as it leaves, duller and fainter as it climbs.
+      const rush = context.createBufferSource();
+      const band = context.createBiquadFilter();
+      const gain = context.createGain();
+      rush.buffer = noiseBuffer; rush.loop = true;
+      band.type = 'bandpass'; band.Q.value = .8;
+      band.frequency.setValueAtTime(3200 + Math.random() * 800, start);
+      band.frequency.exponentialRampToValueAtTime(1300, start + flight);
+      gain.gain.setValueAtTime(.0001, start);
+      gain.gain.exponentialRampToValueAtTime(.06, start + .06);
+      gain.gain.exponentialRampToValueAtTime(.025, start + flight * .4);
+      gain.gain.exponentialRampToValueAtTime(.0001, start + flight);
+      rush.connect(band); band.connect(gain); gain.connect(pan);
+      rush.start(start, Math.random() * .5); rush.stop(start + flight + .02);
+
+      // The fizz on top: grains packed close at first, sparser and fainter later.
+      for (let at = .02; at < flight * .8; at += .008 + Math.random() * .018 * (1 + at * 2)) {
+        const away = 1 - at / flight;
+        grain(start + at, .01 + Math.random() * .02, (.012 + Math.random() * .02) * away, 'highpass', 2500 + Math.random() * 2500);
+      }
+    },
+    /**
+     * A firework bursting: a sharp report with no note to it, bouncing back
+     * off the land and the buildings as a few duller echoes, under a rolling
+     * tail like far thunder, then the stars crackling as they burn out.
+     * @param {number} x where it bursts across the view, 0 … 1
+     */
+    fireworkBurst(x = .5) {
+      if (!audio || !enabled) return;
+      const { context, master, noiseBuffer, brownBuffer, echo } = audio;
+      const start = context.currentTime;
+      const out = context.createGain();
+      const pan = context.createStereoPanner();
+      const wet = context.createGain();
+      pan.pan.value = clamp((x - .5) * 1.6, -.8, .8);
+      wet.gain.value = .9;
+      out.connect(pan); pan.connect(master); pan.connect(wet); wet.connect(echo);
+
+      // A report: broadband noise that snaps on and closes down. The echoes
+      // are the same, later, quieter and darker.
+      const report = (at, peak, bright, length) => {
+        const source = context.createBufferSource();
+        const filter = context.createBiquadFilter();
+        const gain = context.createGain();
+        source.buffer = noiseBuffer;
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(bright, at);
+        filter.frequency.exponentialRampToValueAtTime(Math.max(120, bright / 12), at + length);
+        gain.gain.setValueAtTime(.0001, at);
+        gain.gain.exponentialRampToValueAtTime(peak, at + .002);
+        gain.gain.exponentialRampToValueAtTime(peak * .25, at + .03);
+        gain.gain.exponentialRampToValueAtTime(.0001, at + length);
+        source.connect(filter); filter.connect(gain); gain.connect(out);
+        source.start(at, Math.random() * .5); source.stop(at + length + .02);
+      };
+      report(start, .2 + Math.random() * .05, 5200, .35);
+      let at = start;
+      for (let bounce = 1; bounce <= 3; bounce++) {
+        at += .09 + Math.random() * .16;
+        report(at, .07 / bounce, 1800 / bounce, .3);
+      }
+
+      // The roll: deep noise dying away slowly, the air still ringing.
+      const roll = context.createBufferSource();
+      const rollFilter = context.createBiquadFilter();
+      const rollGain = context.createGain();
+      roll.buffer = brownBuffer;
+      rollFilter.type = 'lowpass'; rollFilter.frequency.value = 380;
+      rollGain.gain.setValueAtTime(.0001, start);
+      rollGain.gain.exponentialRampToValueAtTime(.07, start + .03);
+      rollGain.gain.exponentialRampToValueAtTime(.0001, start + 1.8);
+      roll.connect(rollFilter); rollFilter.connect(rollGain); rollGain.connect(out);
+      roll.start(start, Math.random() * 4); roll.stop(start + 1.85);
+
+      // The crackle: tiny bright snaps, scattered as the stars fall.
+      const snaps = 10 + Math.floor(Math.random() * 18);
+      for (let snap = 0; snap < snaps; snap++) {
+        const at = start + .35 + Math.random() * Math.random() * 1.1;
+        const source = context.createBufferSource();
+        const high = context.createBiquadFilter();
+        const gain = context.createGain();
+        source.buffer = noiseBuffer;
+        high.type = 'highpass'; high.frequency.value = 2500 + Math.random() * 3000;
+        gain.gain.setValueAtTime(.0001, at);
+        gain.gain.exponentialRampToValueAtTime(.015 + Math.random() * .03, at + .002);
+        gain.gain.exponentialRampToValueAtTime(.0001, at + .015 + Math.random() * .02);
+        source.connect(high); high.connect(gain); gain.connect(out);
+        source.start(at, Math.random() * .9); source.stop(at + .05);
+      }
     }
   };
 }

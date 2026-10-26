@@ -1,5 +1,7 @@
 // Trail editor entry point: sets up the initial state, wires the page's
 // controls, and draws the first frame.
+// First, so it listens for a new release while the trails load.
+import { setUpdatePrompt } from "../update-prompt.js";
 import { store } from "../local-store.js";
 import {
   cloneTrail,
@@ -10,16 +12,16 @@ import {
 } from "../trail-schema.js";
 import { devServerWritable, reportEditorFeat, terrainMaterials, trailEntries } from "../trails.js";
 import { DISCORD_LINK_LENGTH, MAX_JSON_BYTES, trailShareUrl } from "../trail-link.js";
-import { bindAutosave } from "./autosave.js";
+import { autosaveFailing, autosaveNow, bindAutosave } from "./autosave.js";
 import { bindClipboard } from "./clipboard.js";
 import { $, canvas, wrap } from "./dom.js";
-import { openDraftStore } from "./draft-store.js";
+import { openDraftStore, whenWritten } from "./draft-store.js";
 import { pushHistory, redo, undo, updateHistoryButtons } from "./history.js";
 import { bindInput } from "./input.js";
 import { bindInspector, rememberedAuthor, renameTrail, syncInspector } from "./inspector.js";
 import { bindMenu } from "./menu.js";
 import { pickerSelect } from "./picker.js";
-import { bindPlaytest } from "./playtest.js";
+import { bindPlaytest, playtestOpen } from "./playtest.js";
 import { GAME_ART_KEY, render } from "./render.js";
 import { editor } from "./state.js";
 import { refuse, refuseEdit, showStatus } from "./status.js";
@@ -312,3 +314,15 @@ updateTrailControls();
 render();
 document.querySelector(".editor-shell").removeAttribute("data-booting");
 announceVersion();
+
+// A new release asks for its reload once any play test is over, and keeps the
+// trail first. Edits the browser can't store would be lost, so then the
+// reload can wait while they are exported.
+setUpdatePrompt({
+  canShow: () => !playtestOpen(),
+  beforeReload: async () => {
+    autosaveNow();
+    await whenWritten();
+  },
+  canPostpone: autosaveFailing,
+});
