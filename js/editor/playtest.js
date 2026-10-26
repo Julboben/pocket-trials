@@ -1,11 +1,11 @@
 // The in-editor play test overlay.
 import { store } from "../local-store.js";
 import { validateTrail } from "../trail-schema.js";
-import { PLAYTEST_EXIT_MESSAGE, PLAYTEST_TRAIL_KEY } from "../trails.js";
+import { PLAYTEST_EXIT_MESSAGE, PLAYTEST_TRAIL_GLOBAL, PLAYTEST_TRAIL_KEY } from "../trails.js";
 import { $, canvas } from "./dom.js";
 import { cancelPendingShape, endPointer } from "./input.js";
 import { editor } from "./state.js";
-import { refuse, showStatus } from "./status.js";
+import { refuse } from "./status.js";
 
 const playtestFrame = /** @type {HTMLIFrameElement} */ ($("playtest-frame"));
 
@@ -24,12 +24,7 @@ export function openPlaytest(spawn = null) {
     (message) => message.type === "error",
   );
   if (errors.length && !refuse("play testing", errors)) return;
-  try {
-    store().setItem(PLAYTEST_TRAIL_KEY, JSON.stringify(trail));
-  } catch (error) {
-    showStatus("error", `Could not start the play test: ${error.message}`);
-    return;
-  }
+  window[PLAYTEST_TRAIL_GLOBAL] = JSON.stringify(trail);
   cancelPendingShape();
   endPointer();
   editor.spaceHeld = false;
@@ -49,6 +44,10 @@ export function closePlaytest() {
 }
 
 export function bindPlaytest() {
+  // Play tests used to hand the trail over in storage; a copy may be left there.
+  try {
+    store().removeItem(PLAYTEST_TRAIL_KEY);
+  } catch (_) {}
   playtestFrame.addEventListener("load", () => {
     if (playtestOpen()) playtestFrame.focus();
   });

@@ -95,6 +95,8 @@ Run `npm run check` (syntax), `npm run typecheck` (JSDoc types in `// @ts-check`
 
 `scripts/test-console.mjs` (part of `npm test`) opens the game and the editor in headless Chrome, served like static hosting, and fails on any failed request, uncaught exception, or console warning or error from the page or its service worker: in production the console should show nothing but the easter-egg hints. The pages load from a non-local hostname, so the service worker caches as it does in production, and the test checks that a return visit is served from that cache. It needs Chrome (`CHROME_PATH` if it is somewhere unusual) and is skipped without one; CI has it. The dev server marks what it serves with the header in `js/dev-server.js`, which is how the game and the editor know they may ask for the custom trail catalog and save trail files; a request that only the dev server can answer must be behind that mark, or this test fails.
 
+The editor keeps drafts and autosaves in IndexedDB, gzip-compressed (`js/editor/draft-store.js`): localStorage holds only about 5 MB per site, which one large trail with a few drafts fills. They are read into memory when the editor opens, so reading them stays synchronous, and written in the background. `scripts/test-editor-storage.mjs` (part of `npm test`, skipped without Chrome) checks this in headless Chrome, along with the move of older drafts from localStorage and the play test, which takes its trail from the editor's window rather than from storage.
+
 When changing physics values, validate at least these cases:
 
 1. Starting from rest on a moderate hill

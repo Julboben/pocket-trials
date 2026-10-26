@@ -13,6 +13,7 @@ import { DISCORD_LINK_LENGTH, MAX_JSON_BYTES, trailShareUrl } from "../trail-lin
 import { bindAutosave } from "./autosave.js";
 import { bindClipboard } from "./clipboard.js";
 import { $, canvas, wrap } from "./dom.js";
+import { openDraftStore } from "./draft-store.js";
 import { pushHistory, redo, undo, updateHistoryButtons } from "./history.js";
 import { bindInput } from "./input.js";
 import { bindInspector, rememberedAuthor, renameTrail, syncInspector } from "./inspector.js";
@@ -51,6 +52,9 @@ import {
 
 editor.trailIndex = storedTrailIndex();
 
+// Drafts and autosaves are read into memory first, so opening a trail can
+// pick them up at once.
+await openDraftStore();
 editor.trail = loadTrailData(editor.trailIndex);
 
 editor.gameArt = (() => {

@@ -78,14 +78,18 @@ try {
 
 const BROWSER_TRAILS_KEY = 'hjulben-browser-trails-v1';
 
-// The editor hands the trail being edited to the game (index.html?playtest=1) through this key.
+// The editor hands the trail being edited to the game (index.html?playtest=1),
+// which it shows in a frame, as JSON on its own window: nothing is stored, so
+// a large trail can't fill the browser's storage. The key held it before.
+export const PLAYTEST_TRAIL_GLOBAL = 'hjulbenPlaytestTrail';
 export const PLAYTEST_TRAIL_KEY = 'hjulben-playtest-v1';
 export const PLAYTEST_EXIT_MESSAGE = 'hjulben-playtest-exit';
 
 export function readPlaytestTrail() {
   if (new URLSearchParams(window.location.search).get('playtest') !== '1') return null;
   try {
-    const trail = JSON.parse(store().getItem(PLAYTEST_TRAIL_KEY) || 'null');
+    const json = window.parent !== window ? window.parent[PLAYTEST_TRAIL_GLOBAL] : null;
+    const trail = typeof json === 'string' ? JSON.parse(json) : null;
     return typeof trail?.name === 'string' ? trail : null;
   } catch (_) {
     return null;

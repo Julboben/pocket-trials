@@ -5,7 +5,7 @@
 // installed (skipWaiting + claim); main.js then offers a reload, so a running
 // page keeps its own release until the player asks. Trail files and anything
 // else are network-first, and kept so the game also starts offline.
-const CACHE = 'hjulben-b351baf3';
+const CACHE = 'hjulben-05552c96';
 const CORE = [
   './',
   './css/editor.css',
@@ -46,6 +46,7 @@ const CORE = [
   './js/editor/blocks.js',
   './js/editor/clipboard.js',
   './js/editor/dom.js',
+  './js/editor/draft-store.js',
   './js/editor/drafts.js',
   './js/editor/history.js',
   './js/editor/hit-test.js',

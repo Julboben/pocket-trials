@@ -2,7 +2,9 @@
 // or switching trails doesn't lose work. Loading picks it up again; see
 // loadTrailData.
 import { trailEntries } from "../trails.js";
+import { onStoreFailure } from "./draft-store.js";
 import { clearAutosave, writeAutosave } from "./drafts.js";
+import { flushInspector } from "./inspector.js";
 import { editor } from "./state.js";
 import { showStatus } from "./status.js";
 
@@ -13,27 +15,38 @@ let timer = null;
 let written = null;
 // The last write failed, so the edits exist only in this tab until one works.
 let failing = false;
+// The trail as JSON from the inspector, which builds it on every change
+// anyway, and the trail it was made from: building it again here would cost
+// as much as the inspector's on a large trail.
+let latest = { trail: null, json: "" };
 
-/** Store the trail now if it differs from the version opened, else forget it. */
-export function autosaveNow() {
+/**
+ * Store the trail now if it differs from the version opened, else forget it.
+ * `urgent` as the page is hidden or closed: see draft-store.js.
+ */
+export function autosaveNow(urgent = false) {
   clearTimeout(timer);
   timer = null;
   const entry = trailEntries[editor.trailIndex];
   if (!entry || !editor.trail || !editor.version) return;
-  const json = JSON.stringify(editor.trail, null, 2);
-  const key = `${entry.id}\n${json}`;
-  if (key === written) return;
+  flushInspector();
+  const json = latest.trail === editor.trail ? latest.json : JSON.stringify(editor.trail, null, 2);
+  if (written?.id === entry.id && written.json === json) return;
   if (json === editor.version.base) {
     clearAutosave(entry.id);
     written = null;
     failing = false;
     return;
   }
-  if (writeAutosave(entry.id, editor.trail, editor.version.baseHash)) {
-    written = key;
+  if (writeAutosave(entry.id, editor.trail, editor.version.baseHash, urgent)) {
+    written = { id: entry.id, json };
     failing = false;
     return;
   }
+  autosaveFailed();
+}
+
+function autosaveFailed() {
   written = null;
   // Said every time it fails, not just the first: storage that fills up
   // later would otherwise lose edits in silence.
@@ -47,23 +60,30 @@ export function autosaveNow() {
 /** Are there edits that autosave could not keep? */
 export const autosaveFailing = () => failing && Boolean(editor.version?.edited);
 
-/** Autosave once editing pauses. */
-export function scheduleAutosave() {
+/** Autosave once editing pauses; `json` is the trail as the inspector shows it. */
+export function scheduleAutosave(json) {
+  latest = { trail: editor.trail, json };
   clearTimeout(timer);
   timer = setTimeout(autosaveNow, AUTOSAVE_DELAY);
 }
 
 export function bindAutosave() {
+  // Writes reach the database after the editor has moved on, so a failure is
+  // reported when it happens.
+  onStoreFailure((key) => {
+    if (key.startsWith("hjulben-editor-autosave-")) autosaveFailed();
+    else showStatus("error", "Could not save the draft: browser storage is full or blocked. Export the trail to keep it.");
+  });
   // pagehide fires on refresh and close; visibilitychange covers mobile, where
   // a backgrounded tab can be killed without either.
-  window.addEventListener("pagehide", autosaveNow);
+  window.addEventListener("pagehide", () => autosaveNow(true));
   // Edits the browser could not keep would be lost with the tab, so leaving
   // asks first.
   window.addEventListener("beforeunload", (event) => {
-    autosaveNow();
+    autosaveNow(true);
     if (autosaveFailing()) event.preventDefault();
   });
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") autosaveNow();
+    if (document.visibilityState === "hidden") autosaveNow(true);
   });
 }

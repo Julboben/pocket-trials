@@ -285,7 +285,7 @@ function syncDetails() {
   $("trail-json").value = json;
   updateVersionChip(json);
   renderObjects();
-  scheduleAutosave();
+  scheduleAutosave(json);
   const messages = validateTrail(editor.trail);
   $("validation-list").replaceChildren(
     ...messages.map((message) => {
