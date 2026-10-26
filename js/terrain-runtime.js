@@ -82,6 +82,71 @@ export function compileTerrain(trail) {
   return compiled;
 }
 
+/**
+ * The compiled terrain after some blocks changed in place, as the editor
+ * changes them: the same result as compiling every block again, but only the
+ * changed blocks are rebuilt and only bodies they overlap, before or after the
+ * change, are classified again. A body's surface depends only on the bodies
+ * overlapping it, so every other body is reused as it was.
+ *
+ * `changed` maps block indices to their blocks as they are now, and
+ * `blockCount` is how many blocks there are. Null when a change can't be
+ * applied in place, so everything has to be compiled again: a different block
+ * count, or a block that gains or loses a body (so later bodies would change
+ * their order).
+ *
+ * The result carries `update`, the world x ranges that changed, so a renderer
+ * that drew `previous` can redraw only those.
+ *
+ * @param {ReturnType<typeof compileTerrain>} previous
+ * @param {number} blockCount
+ * @param {Map<number, object>} changed
+ */
+export function recompileTerrain(previous, blockCount, changed) {
+  if (!previous || previous.blockCount !== blockCount) return null;
+  const position = new Map(previous.bodies.map((body, index) => [body.blockIndex, index]));
+  const bodies = previous.bodies.slice();
+  const regions = [];
+  const rebuilt = new Set();
+  for (const [blockIndex, block] of changed) {
+    const at = position.get(blockIndex);
+    const body = buildBody(block, blockIndex);
+    if ((at === undefined) !== !body) return null;
+    if (!body) continue;
+    regions.push(bodies[at].bounds, body.bounds);
+    body.order = bodies[at].order;
+    bodies[at] = body;
+    rebuilt.add(body);
+  }
+  const bounds = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };
+  for (const body of bodies) {
+    bounds.left = Math.min(bounds.left, body.bounds.left);
+    bounds.right = Math.max(bounds.right, body.bounds.right);
+    bounds.top = Math.min(bounds.top, body.bounds.top);
+    bounds.bottom = Math.max(bounds.bottom, body.bounds.bottom);
+  }
+  const compiled = { version: TERRAIN_COMPILER_VERSION, bodies, bounds, blockCount, columns: indexColumns(bodies) };
+  // Every body that overlaps a changed block, where it was or where it is,
+  // may have gained or lost surface; a copy of it is classified again, so
+  // the previous result stays as it was.
+  const touched = new Set(rebuilt);
+  for (const region of regions)
+    for (const body of bodiesNear(compiled, region.left, region.right, region.top, region.bottom)) touched.add(body);
+  for (const body of touched) {
+    if (rebuilt.has(body)) continue;
+    const copy = { ...body };
+    bodies[copy.order] = copy;
+    rebuilt.add(copy);
+  }
+  compiled.columns = indexColumns(bodies);
+  classifyEdges(compiled, [...rebuilt].sort((a, b) => a.order - b.order));
+  // Only the newest result keeps its predecessor, so a run of edits never
+  // holds on to every version before it.
+  if (previous.update) previous.update = null;
+  compiled.update = { from: previous, ranges: regions.map(region => [region.left, region.right]) };
+  return compiled;
+}
+
 function finiteRing(points) {
   return points.filter(point => Number.isFinite(point[0]) && Number.isFinite(point[1]));
 }
@@ -244,8 +309,8 @@ function insideBody(body, x, y) {
  * same way, only the earlier body keeps it, so a surface is never collided
  * twice.
  */
-function classifyEdges(compiled) {
-  for (const body of compiled.bodies) {
+function classifyEdges(compiled, bodies = compiled.bodies) {
+  for (const body of bodies) {
     const others = bodiesNear(compiled, body.bounds.left, body.bounds.right, body.bounds.top, body.bounds.bottom)
       .filter(other => other !== body);
     const live = [];

@@ -953,7 +953,9 @@ export function createTerrainRenderer({ backWalls = false } = {}) {
     const previous = currentGeometry;
     currentGeometry = geometry;
     signKey = "";
-    invalidateColumns(changedColumns(previous, geometry));
+    // An edit rebuilt in place says where it changed; anything else is
+    // compared body by body.
+    invalidateColumns(geometry.update?.from === previous ? geometry.update.ranges : changedColumns(previous, geometry));
   }
 
   /** Forget the chunks covering any of the given world x ranges, with rim margin. */

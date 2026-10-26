@@ -8,24 +8,12 @@ import {
   render,
   renderView,
   syncTerrain,
+  terrainBox,
 } from "./render.js";
-import { regionBounds } from "../terrain-geometry.js";
 import { clampZoom, editor } from "./state.js";
 
 /** The box round every block of the trail, or null without any. */
-export function trailBounds() {
-  const blocks = editor.trail?.terrainBlocks || [];
-  if (!blocks.length) return null;
-  const box = { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity };
-  for (const block of blocks) {
-    const bounds = regionBounds(block);
-    box.left = Math.min(box.left, bounds.left);
-    box.right = Math.max(box.right, bounds.right);
-    box.top = Math.min(box.top, bounds.top);
-    box.bottom = Math.max(box.bottom, bounds.bottom);
-  }
-  return Number.isFinite(box.left) ? box : null;
-}
+export const trailBounds = () => terrainBox();
 
 // How far past the trail the view can be panned, in world units at zoom 1:
 // generous, so there is room to build on, but the trail can't be lost

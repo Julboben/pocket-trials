@@ -25,7 +25,7 @@ globalThis.ImageData ??= class { constructor(data, width, height) { Object.assig
 
 const { createTerrainRenderer, rasterizeTerrainChunk } = await import('../js/terrain-render.js');
 const { normalizeTrail } = await import('../js/trail-schema.js');
-const { terrainGeometry, invalidateTerrain, terrainAt } = await import('../js/terrain.js');
+const { terrainGeometry, invalidateTerrain, terrainAt, updateTerrain } = await import('../js/terrain.js');
 const { terrainSolidAt } = await import('../js/terrain-runtime.js');
 const { terrainMaterials } = await import('../js/materials.js');
 const { cutBlock } = await import('../js/terrain-geometry.js');
@@ -201,6 +201,17 @@ const drawCalls = (renderer, trail, x, y, w, h) => {
   invalidateTerrain(trail);
   const moved = drawCalls(renderer, trail, 0, 0, 900, 600).filter(name => name === 'putImageData').length;
   check('an edit in view rebuilds its chunks', moved > 0);
+
+  // The same, for edits rebuilt in place as the editor makes them (updateTerrain).
+  drawCalls(renderer, trail, 0, 0, 900, 600);
+  for (const node of trail.terrainBlocks[1].outer.nodes) node.x += 30;
+  updateTerrain(trail, new Set([trail.terrainBlocks[1]]));
+  const farInPlace = drawCalls(renderer, trail, 0, 0, 900, 600).filter(name => name === 'putImageData').length;
+  check('an edit far away, rebuilt in place, leaves visible chunks cached', farInPlace === 0, `(${farInPlace} rebuilt)`);
+  for (const node of trail.terrainBlocks[0].outer.nodes) node.y += 40;
+  updateTerrain(trail, new Set([trail.terrainBlocks[0]]));
+  const nearInPlace = drawCalls(renderer, trail, 0, 0, 900, 600).filter(name => name === 'putImageData').length;
+  check('an edit in view, rebuilt in place, rebuilds its chunks', nearInPlace > 0);
 }
 {
   const blocks = normalizeTrail(blockTrail([rectangle(0, 300, 800, 600)]));

@@ -1,8 +1,9 @@
 import {
-  compileTerrain, terrainContacts, terrainSweep, terrainSurfaceBelow, terrainSurfaces,
+  compileTerrain, recompileTerrain, terrainContacts, terrainSweep, terrainSurfaceBelow, terrainSurfaces,
   terrainShadowSamples, terrainRaycast,
 } from './terrain-runtime.js';
 import { isBackWall, trailTerrainBlocks, trailBackWalls } from './trail-schema.js';
+import { normalizeBlock } from './terrain-geometry.js';
 
 const geometryCache = new WeakMap();
 const backWallCache = new WeakMap();
@@ -15,6 +16,29 @@ const backWallCache = new WeakMap();
 export function invalidateTerrain(trail) {
   geometryCache.delete(trail);
   backWallCache.delete(trail);
+}
+
+/**
+ * Bring a trail's compiled terrain up to date after some of its blocks were
+ * edited in place (`changed`, the blocks themselves), rebuilding only what
+ * they touch: see recompileTerrain. Anything else, such as blocks added,
+ * removed or reordered, has to call invalidateTerrain instead.
+ * @param {object} trail
+ * @param {Set<object>} changed
+ */
+export function updateTerrain(trail, changed) {
+  if ([...changed].some(isBackWall)) backWallCache.delete(trail);
+  const previous = geometryCache.get(trail);
+  if (!previous) return;
+  const front = (trail.terrainBlocks || []).filter((block) => !isBackWall(block));
+  const edits = new Map();
+  front.forEach((block, index) => {
+    if (changed.has(block)) edits.set(index, normalizeBlock(block));
+  });
+  if (!edits.size && front.length === previous.blockCount) return;
+  const compiled = recompileTerrain(previous, front.length, edits);
+  if (compiled) geometryCache.set(trail, compiled);
+  else geometryCache.delete(trail);
 }
 
 /**

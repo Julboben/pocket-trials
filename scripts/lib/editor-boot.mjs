@@ -4,7 +4,7 @@
 // It runs as its own process because trails.js caches the trail catalog at
 // import time: two boots in one process would silently share a trail, so the
 // parent starts one child per trail shape.
-import { buildDom, createContextStub, installGlobals } from './editor-harness.mjs';
+import { buildDom, createContextStub, installGlobals, runFrames } from './editor-harness.mjs';
 import { loadTrailShape } from './editor-fixture.mjs';
 
 const kind = process.env.TSC_ENV_TRAIL || 'blocks';
@@ -55,6 +55,7 @@ const world = (x, y) => ({ clientX: x - cameraX, clientY: y - cameraY });
 const key = (keyName, extra = {}) => {
   document.activeElement = canvas;
   for (const handler of windowListeners.get('keydown') || []) handler({ key: keyName, code: '', preventDefault() {}, ...extra });
+  runFrames();
 };
 // Mid-drag the JSON waits for the pointer to pause, so it is flushed first.
 const { flushInspector } = await import('../../js/editor/inspector.js');
@@ -692,6 +693,34 @@ report.closed = context.calls.some(call => call[0] === 'closePath');
 report.strokeHasArgs = context.calls.some(call => call[0] === 'stroke' && call.length > 1);
 report.calls = context.calls.length;
 fire('pointerup');
+
+// A trackpad sends more pan events than the screen shows frames: they are
+// drawn once, in the next frame.
+{
+  context.calls.length = 0;
+  for (let step = 0; step < 3; step++)
+    for (const handler of canvas.listeners.get('wheel')) handler({ deltaX: 5, deltaY: 0, deltaMode: 0, preventDefault() {} });
+  report.panDeferred = !context.calls.some(call => call[0] === 'setTransform');
+  runFrames();
+  report.panRedraws = context.calls.filter(call => call[0] === 'setTransform').length;
+}
+
+// Blocks out of view are not drawn (game art is off here, so each block in
+// view is filled with the even-odd rule).
+{
+  const { renderView } = await import('../../js/editor/render.js');
+  const fills = () => {
+    context.calls.length = 0;
+    renderView();
+    runFrames();
+    return context.calls.filter(call => call[0] === 'fill' && call[1] === 'evenodd').length;
+  };
+  report.blockFillsInView = fills();
+  const cameraX = editorState.cameraX;
+  editorState.cameraX += 100_000;
+  report.blockFillsOutOfView = fills();
+  editorState.cameraX = cameraX;
+}
 
 // The import and export box is filled as its dialog opens and kept current
 // while it is open. Closed, it is left alone: filling it is slow on a large trail.

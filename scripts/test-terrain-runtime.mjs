@@ -5,6 +5,9 @@ import {
   terrainSolidAt, terrainShadowSamples, terrainSurfaces, terrainRaycast,
 } from "../js/terrain-runtime.js";
 import { rectangleBlock, cutBlock, normalizeBlock, setBoundaryEdge } from "../js/terrain-geometry.js";
+import { terrainGeometry, updateTerrain } from "../js/terrain.js";
+import { normalizeTrail, trailTerrainBlocks } from "../js/trail-schema.js";
+import { loadCatalogTrails } from "./lib/trails.mjs";
 
 let failures = 0;
 const check = (label, condition) => {
@@ -178,6 +181,53 @@ const R = 12;
   check("a query in the tunnel finds its floor", terrainSurfaceBelow(compiled, 400, 900)?.y === 1000);
   check("the tunnel floor collides", terrainContacts(compiled, 400, 990, R)[0]?.ny < -0.9);
   check("the tunnel roof collides", terrainContacts(compiled, 400, 810, R)[0]?.ny > 0.9);
+}
+
+// The editor changes blocks in place and rebuilds only what they touch
+// (updateTerrain): the result must be exactly what compiling every block
+// again gives, on every trail, through a run of edits.
+{
+  // Everything a query, the physics or the renderer reads, without identities.
+  const shape = compiled => compiled && JSON.stringify({
+    bounds: compiled.bounds,
+    blockCount: compiled.blockCount,
+    bodies: compiled.bodies.map(body => ({
+      blockId: body.blockId, blockIndex: body.blockIndex, order: body.order, material: body.material,
+      rings: body.rings, bounds: body.bounds, edges: [...body.edges], sides: [...body.sides],
+      buckets: body.buckets, live: [...body.live], liveBuckets: body.liveBuckets,
+    })),
+    columns: [...compiled.columns].sort((a, b) => a[0] - b[0]).map(([column, list]) => [column, list.map(body => body.order)]),
+  });
+  let seed = 7;
+  const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const trails = ['official', 'bonus', 'custom'].flatMap(source => loadCatalogTrails(source));
+  let edits = 0, mismatches = 0, incremental = 0;
+  for (const entry of trails) {
+    const edited = normalizeTrail(entry.trail);
+    const front = edited.terrainBlocks.filter(block => block.layer !== 'back');
+    if (front.length < 2) continue;
+    terrainGeometry(edited);
+    for (let step = 0; step < 4; step++) {
+      // Move a block, stretch one of its points, or change its material.
+      const block = front[Math.floor(random() * front.length)];
+      const kind = step % 3;
+      if (kind === 0) for (const boundary of [block.outer, ...block.inner]) for (const node of boundary.nodes) { node.x += 37; node.y -= 23; }
+      else if (kind === 1) { block.outer.nodes[0].x -= 55; block.outer.nodes[0].y += 15; }
+      else block.material = block.material === 'stone' ? 'brick' : 'stone';
+      updateTerrain(edited, new Set([block]));
+      const updated = terrainGeometry(edited);
+      if (updated.update) incremental++;
+      // Compiled apart from the trail's cache, which keeps the run of edits going.
+      const full = compileTerrain({ terrainBlocks: trailTerrainBlocks(edited) });
+      edits++;
+      if (shape(updated) !== shape(full)) {
+        mismatches++;
+        console.log(`  ${entry.id}: block ${edited.terrainBlocks.indexOf(block) + 1} after edit ${step + 1} differs from a full compile`);
+      }
+    }
+  }
+  check(`an edit rebuilt in place matches a full compile (${edits} edits on ${trails.length} trails)`, edits > 0 && mismatches === 0);
+  check('and edits are rebuilt in place, not compiled again', incremental === edits);
 }
 
 console.log(failures ? `\n${failures} failing` : "\nTerrain runtime tests passed.");
