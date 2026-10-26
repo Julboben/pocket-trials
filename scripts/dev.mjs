@@ -17,6 +17,9 @@ const humanRunsRoot = path.join(projectRoot, 'tests', 'replays', 'human');
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT) || 8080;
 const TRAIL_FILE = /^(official|bonus|custom)\/([a-z0-9][a-z0-9_-]*)\.json$/i;
+// Only guards against a runaway request: the server is local, and a trail
+// built from thousands of blocks can be several megabytes of JSON.
+const MAX_BODY_BYTES = 50_000_000;
 
 const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
 
@@ -37,15 +40,27 @@ function sendJson(response, status, body) {
   response.end(JSON.stringify(body));
 }
 
+class TooLarge extends Error {}
+
 async function readBody(request) {
   const chunks = [];
   let size = 0;
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > 2_000_000) throw new Error('Trail file is too large.');
+    if (size > MAX_BODY_BYTES) throw new TooLarge(`It is over ${MAX_BODY_BYTES / 1e6} MB, the most the dev server accepts.`);
     chunks.push(chunk);
   }
   return Buffer.concat(chunks).toString('utf8');
+}
+
+/** The request's JSON, or an error that says whether it was too large or not JSON. */
+async function readJson(request, what) {
+  const text = await readBody(request).catch(error => { if (error instanceof TooLarge) throw new Error(`The ${what} is too large: ${error.message}`); throw error; });
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new Error(`Invalid ${what} JSON: ${error.message}`);
+  }
 }
 
 /**
@@ -72,7 +87,7 @@ async function handleTrailRequest(request, response, file) {
 
   if (request.method === 'PUT') {
     let trail;
-    try { trail = JSON.parse(await readBody(request)); } catch (error) { return sendJson(response, 400, { error: `Invalid trail JSON: ${error.message}` }); }
+    try { trail = await readJson(request, 'trail'); } catch (error) { return sendJson(response, 400, { error: error.message }); }
     if (!trail || typeof trail.name !== 'string' || !trail.name.trim()) return sendJson(response, 400, { error: 'The trail needs a name.' });
     await writeFile(target, `${JSON.stringify(trail, null, 2)}\n`);
     const catalog = await rebuildCatalog();
@@ -97,7 +112,7 @@ async function handleTrailRequest(request, response, file) {
 async function handleReferenceRun(request, response) {
   if (request.method !== 'POST') return sendJson(response, 405, { error: 'Use POST to save a reference run.' });
   let run;
-  try { run = JSON.parse(await readBody(request)); } catch (error) { return sendJson(response, 400, { error: `Invalid run JSON: ${error.message}` }); }
+  try { run = await readJson(request, 'run'); } catch (error) { return sendJson(response, 400, { error: error.message }); }
   // Checked before decoding: a run's counts can ask for far more steps than its size suggests.
   if (!validRows(run?.inputs)) return sendJson(response, 400, { error: 'The run\'s inputs are malformed or longer than ten minutes.' });
   if (run.physics !== RIDE_VERSION) return sendJson(response, 409, { error: 'The run was ridden with older physics. Reload the game and ride it again.' });

@@ -58,9 +58,12 @@ const key = (keyName, extra = {}) => {
 };
 // Mid-drag the JSON waits for the pointer to pause, so it is flushed first.
 const { flushInspector } = await import('../../js/editor/inspector.js');
+// The trail as the editor holds it. The JSON box is only filled while its
+// dialog is open, so it is not read here.
+const { editor: editorState } = await import('../../js/editor/state.js');
 const current = () => {
   flushInspector();
-  return JSON.parse(document.getElementById('trail-json').value);
+  return JSON.parse(JSON.stringify(editorState.trail));
 };
 const toolButton = name => [...document.querySelectorAll('[data-tool]')].find(button => button.dataset.tool === name);
 const drag = (from, to, extra = {}) => {
@@ -664,7 +667,7 @@ if (kind === 'covered') {
   process.exit(0);
 }
 
-const report = { loaded: JSON.parse(document.getElementById('trail-json').value), errors: [] };
+const report = { loaded: current(), errors: [] };
 
 // A drag, so the editor actually renders rather than returning early. Game art
 // is on by default: the terrain comes from the game's rasteriser.
@@ -689,6 +692,28 @@ report.closed = context.calls.some(call => call[0] === 'closePath');
 report.strokeHasArgs = context.calls.some(call => call[0] === 'stroke' && call.length > 1);
 report.calls = context.calls.length;
 fire('pointerup');
+
+// The import and export box is filled as its dialog opens and kept current
+// while it is open. Closed, it is left alone: filling it is slow on a large trail.
+{
+  const { syncInspector } = await import('../../js/editor/inspector.js');
+  const dialog = document.getElementById('data-dialog');
+  dialog.showModal = () => { dialog.open = true; };
+  const box = document.getElementById('trail-json');
+  box.value = '';
+  document.getElementById('open-data').click();
+  report.jsonFilled = box.value !== '' && JSON.stringify(JSON.parse(box.value)) === JSON.stringify(current());
+  const name = editorState.trail.name;
+  editorState.trail.name = 'Renamed while open';
+  syncInspector();
+  report.jsonFollowsOpen = JSON.parse(box.value).name === 'Renamed while open';
+  dialog.open = false;
+  editorState.trail.name = 'Renamed while closed';
+  syncInspector();
+  report.jsonLeftClosed = JSON.parse(box.value).name === 'Renamed while open';
+  editorState.trail.name = name;
+  syncInspector();
+}
 
 const run = (label, gesture) => {
   try { gesture(); }
@@ -733,7 +758,7 @@ run('pinch', () => { fire('wheel', { deltaX: 0, deltaY: -10, deltaMode: 0, ctrlK
 // trail whose finish sits past the end of its terrain.
 if (process.env.TSC_ENV_TRAIL === 'badgoal') {
   const button = document.getElementById('play-test');
-  const before = document.getElementById('trail-json').value.length;
+  const before = JSON.stringify(current());
   button.click();
   const toast = document.getElementById('editor-toast');
   report.refusalText = toast.textContent;
@@ -744,7 +769,7 @@ if (process.env.TSC_ENV_TRAIL === 'badgoal') {
   report.refusalCounted = /\b1 validation error\b/.test(report.refusalText);
   report.buttonFlash = button.textContent;
   report.playtestClosed = document.getElementById('playtest').hidden === true;
-  report.jsonUnchanged = document.getElementById('trail-json').value.length === before;
+  report.jsonUnchanged = JSON.stringify(current()) === before;
 }
 
 process.stdout.write(JSON.stringify(report));

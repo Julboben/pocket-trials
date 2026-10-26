@@ -1,5 +1,6 @@
 // The header's "more" menu, the import/export dialog, and the validation badge.
 import { $ } from "./dom.js";
+import { fillTrailJson } from "./inspector.js";
 
 function items() {
   return [...$("more-menu").querySelectorAll("[role=menuitem]")].filter(
@@ -97,7 +98,10 @@ export function bindMenu() {
     if (event.key === "Escape" && menuOpen()) closeMenu();
   });
 
-  $("open-data").addEventListener("click", () => dialog.showModal());
+  $("open-data").addEventListener("click", () => {
+    fillTrailJson();
+    dialog.showModal();
+  });
   $("data-errors-show").addEventListener("click", showValidation);
   dialog.addEventListener("click", (event) => {
     if (event.target === dialog) dialog.close();

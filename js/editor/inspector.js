@@ -282,7 +282,9 @@ function syncDetails() {
   clearTimeout(pendingDetails);
   pendingDetails = null;
   const json = JSON.stringify(editor.trail, null, 2);
-  $("trail-json").value = json;
+  // Filling the box is slow on a large trail (a 5 MB one takes over 0.1 s,
+  // hidden or not), so it is only kept up to date while its dialog is open.
+  if (/** @type {HTMLDialogElement} */ ($("data-dialog")).open) $("trail-json").value = json;
   updateVersionChip(json);
   renderObjects();
   scheduleAutosave(json);
@@ -334,6 +336,12 @@ function syncSelectionIssues(messages) {
       return item;
     }),
   );
+}
+
+/** Fill the import and export box with the trail, as its dialog opens. */
+export function fillTrailJson() {
+  flushInspector();
+  $("trail-json").value = JSON.stringify(editor.trail, null, 2);
 }
 
 /** Finish any JSON and validation a live drag left waiting. */

@@ -77,6 +77,9 @@ const reported = (report, label) => {
     reported(report, label);
   }
   check('a block trail raises no errors at all', report.errors.length === 0);
+  check('the JSON box is filled as its dialog opens', report.jsonFilled);
+  check('and follows edits while it is open', report.jsonFollowsOpen);
+  check('but is left alone while it is closed', report.jsonLeftClosed);
 }
 
 // ---------------------------------------------------------------------------
