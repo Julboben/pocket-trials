@@ -13,13 +13,19 @@ import { decodeInputs } from '../js/replay-codec.js';
 import { normalizeTrail } from '../js/trail-schema.js';
 import { chromePath } from './lib/chrome.mjs';
 import { playtestRunPath, repoRoot } from './lib/trails.mjs';
-import { rectangle } from './lib/terrain-fixtures.mjs';
+import { polygonBlock, rectangle } from './lib/terrain-fixtures.mjs';
 
 const dir = mkdtempSync(path.join(tmpdir(), 'hjulben-playtest-'));
 // The id the scripts give the fixture, from its file name; its saved run goes in .playtest/.
 const ID = 'test-playtest-fixture';
 const file = path.join(dir, `${ID}.json`);
 const run = (script, ...args) => execFileSync(process.execPath, [`scripts/${script}`, file, ...args], {
+  cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+});
+// A second fixture, with its own saved run, for traps.
+const PIT_ID = 'test-playtest-pit';
+const pitFile = path.join(dir, `${PIT_ID}.json`);
+const runPit = (...args) => execFileSync(process.execPath, ['scripts/playtest.mjs', pitFile, ...args], {
   cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
 });
 
@@ -82,6 +88,30 @@ try {
   assert.match(unturned, /Stretch 2: FAILED to reach the finish/);
   assert.match(unturned, /Result: NOT finished; the bot took 1 of 1 apples/);
 
+  // A jump over a deep pit with a floor: a rider who misses lands on the floor,
+  // can't climb out and doesn't crash, which is a trap. Spikes on the floor
+  // make the same miss end the run, so it isn't.
+  const pit = {
+    ...trail,
+    terrainBlocks: [
+      rectangle(-300, 0, 0, 900, 'grass', 'west-wall'),
+      polygonBlock([[-300, 300], [520, 300], [600, 270], [600, 900], [-300, 900]], 'grass', 'takeoff'),
+      rectangle(600, 560, 940, 900, 'stone', 'pit-floor'),
+      rectangle(940, 300, 1800, 900, 'grass', 'landing'),
+      rectangle(1800, 0, 2100, 900, 'grass', 'east-wall'),
+    ],
+    start: { x: 100, y: null, facing: 1 },
+    finish: { x: 1500, y: 250 },
+    apples: [{ x: 1100, y: null }],
+    props: [],
+  };
+  writeFileSync(pitFile, JSON.stringify(pit));
+  const trapped = runPit('--fresh', '--minutes', '0.5');
+  assert.match(trapped, /TRAPS: a miss leaves the rider at \d+,5\d\d, with no way back/, 'a pit a miss can\'t leave is a trap');
+  assert.match(trapped, /^TRAPS: 1 place/m, 'and it is summed up at the end');
+  writeFileSync(pitFile, JSON.stringify({ ...pit, spikes: [640, 700, 760, 820, 880].map(x => ({ x, y: 540, radius: 20 })) }));
+  assert.doesNotMatch(runPit('--fresh', '--minutes', '0.5'), /TRAP/, 'spikes on its floor make it a crash, not a trap');
+
   // A scripted probe prints a trace and rides where the script says.
   const scripted = run('playtest.mjs', '--probe', '400,ground,1,0', '--script', 'gas 0.5; gas fwd 0.1; gas 0.5; turn; brake 0.3', '--every', '0.5');
   assert.match(scripted, /Probe: bike at 400,\d+, facing right/);
@@ -107,9 +137,17 @@ try {
     assert.ok(images.every(isPng));
     execFileSync(process.execPath, ['scripts/render-trail.mjs', file, '--out', out, '--view', '300,0,880,500', '--props', '--route'], { cwd: repoRoot });
     assert.ok(existsSync(out + 'view-300_0_880x500.png') && isPng('view-300_0_880x500.png'), '--view draws one view');
+    // --camera frames the route as the game's camera does, every few seconds.
+    const framed = execFileSync(process.execPath, ['scripts/render-trail.mjs', file, '--out', out, '--camera', '--camera-every', '1'], { cwd: repoRoot, encoding: 'utf8' });
+    const frames = readdirSync(out).filter(name => /^camera-\d\d_t\d+s\.png$/.test(name));
+    assert.ok(frames.length >= 3 && frames.every(isPng), `--camera draws a frame a second (${frames.length})`);
+    assert.match(framed, /camera-01_t0s\.png: x -?\d+ to -?\d+, y -?\d+ to -?\d+;.*\bstart\b/, 'the first frame shows the start');
+    assert.ok(images.includes('overview.png') && readdirSync(out).includes('overview.png'), 'and leaves the other images alone');
     console.log('Playtest and render tests passed.');
   }
 } finally {
   rmSync(dir, { recursive: true, force: true });
   rmSync(playtestRunPath(ID), { force: true });
+  rmSync(playtestRunPath(PIT_ID), { force: true });
+  rmSync(playtestRunPath(ID, '.without-turn'), { force: true });
 }

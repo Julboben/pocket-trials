@@ -22,6 +22,9 @@
 // can't solve is reported with how close it got. Every solved stretch is
 // ridden again with its input timing jittered, as a rough measure of how
 // forgiving the line is: the bot rides with perfect timing, people don't.
+// Those reruns, and each jump's run-up ridden again too slowly, also find
+// traps: places where a miss leaves the rider with no way back to the line
+// and no crash, so a player can only restart by hand.
 //
 // Runs are saved in .playtest/ and tried first next time, so after a small
 // edit only the stretches it broke are searched again. Progress goes to
@@ -252,12 +255,17 @@ function runsOf(inputs) {
  * of reruns that still reach the goal, and for each second how many did and
  * where the others most often crashed or stalled.
  */
-function forgiveness(start, inputs, done, seed) {
+function forgiveness(start, inputs, done, seed, focus = null) {
   const random = seededRandom(seed);
   const window = Math.round(WINDOW / STEP);
   const runs = runsOf(inputs);
   const windows = [];
   const ride = cloneRide(start);
+  // Where the stretch's own line runs, and where reruns stalled, for traps.
+  const route = [];
+  const stalls = [];
+  // The run-up to each jump, where it is ridden again too slowly (see below).
+  const runUps = new Map(jumpRunUps(start, inputs).map(step => [step, null]));
   for (let from = 0; from < inputs.length; from += window) {
     // Where each run starts, and so where the input changes, in steps from the window's start.
     const local = [];
@@ -283,6 +291,7 @@ function forgiveness(start, inputs, done, seed) {
       rest.push(...Array(Math.round(1 / STEP)).fill(rest[rest.length - 1]));
       const { ride: after, stats } = measure(ride, rest, done);
       if (stats.reached) { reached++; continue; }
+      if (!stats.crash) stalls.push(after);
       const where = stats.crash || { cause: 'stalled', ...mid(after) };
       const near = { cause: where.cause, x: Math.round(where.x / 50) * 50, y: Math.round(where.y / 50) * 50 };
       const key = `${near.cause} near ${near.x},${near.y}`;
@@ -290,16 +299,111 @@ function forgiveness(start, inputs, done, seed) {
     }
     const worst = [...failures].sort((a, b) => b[1].count - a[1].count)[0];
     windows.push({ at: mid(ride), reached, failure: worst?.[0] ?? null, failedAt: worst?.[1] ?? null });
-    for (let step = from; step < Math.min(from + window, inputs.length); step++) stepRide(ride, inputs[step]);
+    for (let step = from; step < Math.min(from + window, inputs.length); step++) {
+      if (runUps.has(step)) runUps.set(step, cloneRide(ride));
+      stepRide(ride, inputs[step]);
+      if (step % 6 === 0) route.push(mid(ride));
+    }
+  }
+  // Timing isn't the only way to miss: a player who comes in too slowly
+  // falls short. Each jump's run-up is ridden again from a moment before
+  // takeoff at a fraction of the speed, with the same inputs, and where that
+  // leaves the rider is checked for a trap like any stalled rerun.
+  for (const [step, before] of runUps) {
+    for (const share of SLOW_RUN_UPS) {
+      const slow = cloneRide(before);
+      slowDown(slow, share);
+      const rest = inputs.slice(step, step + Math.round(RUN_UP_RIDE / STEP));
+      const { ride: after, stats } = measure(slow, rest, done);
+      if (!stats.reached && !stats.crash) stalls.push(after);
+    }
   }
   const reached = windows.reduce((sum, entry) => sum + entry.reached, 0);
-  return { share: reached / (windows.length * TRIALS), windows };
+  return { share: reached / (windows.length * TRIALS), windows, traps: findTraps(stalls, route, start, done, focus) };
 }
 
-function describeForgiveness({ share, windows }) {
+// How fast the slow run-ups come in, as a share of the bot's speed; how long
+// before takeoff they start; how long they are ridden; and the shortest time
+// in the air that counts as a jump.
+const SLOW_RUN_UPS = [0.6, 0.8];
+const RUN_UP = Math.round(0.4 / STEP);
+const RUN_UP_RIDE = 3;
+const JUMP_AIR = Math.round(0.3 / STEP);
+const MAX_RUN_UPS = 6;
+
+/** The steps a moment before each jump of the run takes off, at most MAX_RUN_UPS. */
+function jumpRunUps(start, inputs) {
+  const ride = cloneRide(start);
+  const takeoffs = [];
+  let air = 0;
+  inputs.forEach((input, step) => {
+    stepRide(ride, input);
+    if (airborne(ride)) air++;
+    else {
+      if (air >= JUMP_AIR) takeoffs.push(step - air);
+      air = 0;
+    }
+  });
+  return takeoffs.map(step => Math.max(0, step - RUN_UP)).slice(0, MAX_RUN_UPS);
+}
+
+/** Slows the bike to `share` of its speed, wheels' spin included. */
+function slowDown(ride, share) {
+  for (const point of ride.vehicle.bikePoints) {
+    point.ox = point.x - (point.x - point.ox) * share;
+    point.oy = point.y - (point.y - point.oy) * share;
+    if (Number.isFinite(point.angularVelocity)) point.angularVelocity *= share;
+  }
+}
+
+// Traps: a rerun that neither reaches the goal nor crashes may have left the
+// rider where they can neither ride on nor crash, such as a pit between two
+// buildings, and a player has to restart by hand. Each place reruns stalled
+// at is ridden on, coasting, until the bike crashes or comes to rest; from a
+// rest, the bot gets a short search to get back to any point of the
+// stretch's line, ahead or behind, or to the goal. A place it can't get out
+// of is a trap.
+const TRAP_SETTLE = Math.round(3 / STEP);
+const TRAP_REST = Math.round(0.5 / STEP);
+const TRAP_NEAR = 120;
+const TRAP_CHECKS = 3;
+const TRAP_MINUTES = 0.25;
+const ROUTE_REACH = 30;
+
+function findTraps(stalls, route, start, done, focus) {
+  const onLine = ({ x, y }) => route.some(point => Math.abs(point.x - x) < ROUTE_REACH && Math.abs(point.y - y) < ROUTE_REACH);
+  const rests = [];
+  for (const stalled of stalls) {
+    if (rests.length >= TRAP_CHECKS) break;
+    const settled = cloneRide(stalled);
+    let still = 0;
+    for (let step = 0; step < TRAP_SETTLE && settled.status === 'running' && still < TRAP_REST; step++) {
+      stepRide(settled, { facing: settled.facing });
+      still = !airborne(settled) && Math.abs(bikeSpeed(settled)) < 25 ? still + 1 : 0;
+    }
+    if (settled.status !== 'running' || still < TRAP_REST) continue;
+    const place = mid(settled);
+    // Come to rest on the line itself: nothing to get out of.
+    if (onLine(place)) continue;
+    if (rests.some(rest => Math.hypot(rest.place.x - place.x, rest.place.y - place.y) < TRAP_NEAR)) continue;
+    rests.push({ ride: settled, place });
+  }
+  const back = probe => done(probe) || onLine(mid(probe));
+  return rests.filter(({ ride }) => {
+    // The bot heads for the nearest apple not taken, so, as in solve, it
+    // searches on a copy where only the stretch's apple is left.
+    const from = cloneRide(ride);
+    if (focus !== null) from.apples.forEach((apple, index) => { apple.taken = index !== focus; });
+    if (recordTrail(entry, { start: from, done: back, minutes: TRAP_MINUTES * 0.4, constrain }).done) return false;
+    return !exploreTrail(entry, [], { start: from, done: back, minutes: TRAP_MINUTES * 0.6, polish: false, constrain });
+  }).map(({ place }) => ({ x: Math.round(place.x), y: Math.round(place.y) }));
+}
+
+function describeForgiveness({ share, windows, traps }) {
   const tight = windows.filter(entry => entry.reached <= TRIALS / 2).sort((a, b) => a.reached - b.reached).slice(0, 4);
   return `forgiveness: ${Math.round(share * 100)}% of reruns reach the goal with ${WINDOW} s of the timing off by up to ${Math.round(JITTER * STEP * 1000)} ms`
-    + (tight.length ? `; tight spots: ${tight.map(entry => `from ${at(entry.at)} ${entry.reached}/${TRIALS} (${entry.failure})`).join(', ')}` : '');
+    + (tight.length ? `; tight spots: ${tight.map(entry => `from ${at(entry.at)} ${entry.reached}/${TRIALS} (${entry.failure})`).join(', ')}` : '')
+    + (traps.length ? `\n  TRAPS: a miss leaves the rider at ${traps.map(at).join(', ')}, with no way back to the line and no crash` : '');
 }
 
 // --- Solving ----------------------------------------------------------------
@@ -379,7 +483,7 @@ function solveTrail() {
     const reached = last ? `the finish at ${at(after.flower)}` : taken.join(' and ');
     out(`Stretch ${stretch + 1}: ${at(mid(ride))} to ${reached} in ${seconds(inputs.length)} s (${found.method})`);
     for (const line of describeStats(stats)) out(`  ${line}`);
-    const forgiving = TRIALS ? forgiveness(ride, inputs, done, stretch + 1) : null;
+    const forgiving = TRIALS ? forgiveness(ride, inputs, done, stretch + 1, focus) : null;
     if (forgiving) out(`  ${describeForgiveness(forgiving)}`);
     stretches.push({ from: mid(ride), reached, seconds: inputs.length * STEP, method: found.method, stats, forgiveness: forgiving, inputs: encodeInputs(inputs) });
     fullRun.push(...inputs);
@@ -392,6 +496,9 @@ function solveTrail() {
     out(`Result: the bot finished in ${elapsed.toFixed(2)} s. Its route is not optimised, so treat this as an upper bound for gold.`);
     out('Official trails use silver about 1.3x and bronze about 1.75x the gold time.');
   } else out(`Result: NOT finished; the bot took ${ride.collected} of ${total} apples.`);
+  const traps = stretches.flatMap(stretch => stretch.forgiveness?.traps || []);
+  if (traps.length) out(`TRAPS: ${traps.length} place${traps.length === 1 ? '' : 's'} where a miss leaves the rider with no way back and no crash (${traps.map(at).join(', ')}). Give each a way back to the line, or make it end the run (see TRAILS_GUIDE.md).`);
+  report.traps = traps;
   report.finished = finished;
   report.seconds = finished ? elapsed : null;
   report.stretches = stretches;
@@ -404,6 +511,8 @@ function solveTrail() {
     tightSpots: stretches.flatMap(stretch => (stretch.forgiveness?.windows || [])
       .filter(entry => entry.reached <= TRIALS / 2)
       .map(({ at: from, reached, failedAt }) => ({ from: { x: Math.round(from.x), y: Math.round(from.y) }, reached, trials: TRIALS, failedAt }))),
+    // Where a miss strands the rider, for scripts/render-trail.mjs to mark.
+    traps,
     // The whole run in the replay format's encoding, usable as a human run for scripts/record-replays.mjs.
     inputs: finished ? encodeInputs(fullRun) : undefined
   }) + '\n');
