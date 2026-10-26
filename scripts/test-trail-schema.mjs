@@ -142,12 +142,14 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bon
       rectangle(400, 0, 900, 300, 'brick', 'wall'),
       ...blocks,
     ] });
-    return validateTrail(trail).filter(message => message.text.includes('completely buried')).map(message => message.text);
+    return validateTrail(trail).filter(message => /^Block \d+ is (completely )?buried/.test(message.text)).map(message => message.text);
   };
   assert.deepEqual(buried([rectangle(500, 100, 540, 108, 'stone', 'sill')]), [], 'a stone sill on a brick wall shows');
-  assert.deepEqual(buried([rectangle(500, 100, 540, 108, 'brick', 'patch')]), ['Block 3 is completely buried inside other terrain, so it has no effect.'],
-    'a brick block inside a brick wall changes nothing');
-  assert.equal(buried([rectangle(500, 100, 540, 108, 'stone', 'sill'), rectangle(490, 90, 550, 120, 'wood', 'cover')]).length, 1,
+  assert.deepEqual(buried([rectangle(500, 100, 540, 108, 'brick', 'patch')]),
+    ['Block 3 is buried inside terrain of the same material (brick), so it is never ridden or seen; only its outline shows in the editor. Give it another material to make it show, or delete it.'],
+    'a brick block inside a brick wall changes nothing, and the warning says why');
+  assert.deepEqual(buried([rectangle(500, 100, 540, 108, 'stone', 'sill'), rectangle(490, 90, 550, 120, 'wood', 'cover')]),
+    ['Block 3 is completely buried inside other terrain and covered by blocks drawn over it, so it has no effect.'],
     'a block covered by a later block is hidden');
   assert.deepEqual(buried([rectangle(495, 100, 545, 108, 'stone', 'sill'), rectangle(500, 100, 540, 108, 'wood', 'cover')]), [],
     'a block only partly covered still shows around the cover');

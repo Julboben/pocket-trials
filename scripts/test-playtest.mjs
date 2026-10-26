@@ -50,6 +50,14 @@ try {
   // An overlong description is cut off when a trail loads, so it is reported.
   writeFileSync(file, JSON.stringify({ ...trail, description: 'x'.repeat(2100) }));
   assert.match(run('playtest.mjs', '--check'), /WARNING: The description is 2100 characters/);
+
+  // The same warning about several blocks is one line, listing them.
+  writeFileSync(file, JSON.stringify({ ...trail, terrainBlocks: [
+    ...trail.terrainBlocks, rectangle(500, 400, 540, 410, 'grass', 'patch-a'), rectangle(600, 400, 640, 410, 'grass', 'patch-b'),
+  ] }));
+  const grouped = run('playtest.mjs', '--check');
+  assert.match(grouped, /WARNING x2: Block N is buried inside terrain of the same material \(grass\).* \(blocks 4, 5\)/, 'repeated warnings are grouped');
+  assert.doesNotMatch(grouped, /WARNING: Block 4/, 'and not listed one by one');
   writeFileSync(file, JSON.stringify(trail));
 
   // The bot solves the trail one apple at a time, turning around on the way back.

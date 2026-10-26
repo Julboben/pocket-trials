@@ -96,6 +96,26 @@ const report = { trail: entry.id, file: entry.file, without };
 
 // --- Validation and survey ---------------------------------------------------
 
+/**
+ * Validation messages as lines, the same message about several items of one
+ * kind (blocks, apples...) on one line with the items listed: a trail with
+ * hundreds of identical warnings would otherwise bury everything after them.
+ */
+function groupMessages(messages) {
+  const groups = new Map();
+  for (const { type, text } of messages) {
+    const item = /^(\w+) (\d+)\b/.exec(text);
+    const key = `${type}\n${item ? text.replace(item[0], `${item[1]} N`) : text}`;
+    if (!groups.has(key)) groups.set(key, { type, text, kind: item?.[1], numbers: [] });
+    if (item) groups.get(key).numbers.push(item[2]);
+  }
+  return [...groups.values()].map(({ type, text, kind, numbers }) => {
+    if (numbers.length < 2) return `${type.toUpperCase()}: ${text}`;
+    const shown = numbers.slice(0, 30).join(', ') + (numbers.length > 30 ? ` and ${numbers.length - 30} more` : '');
+    return `${type.toUpperCase()} x${numbers.length}: ${text.replace(`${kind} ${numbers[0]}`, `${kind} N`)} (${kind.toLowerCase()}s ${shown})`;
+  });
+}
+
 function survey() {
   const messages = validateTrail(trail).filter(message => message.type !== 'ok');
   if (descriptionLength > DESCRIPTION_MAX_LENGTH) {
@@ -104,7 +124,7 @@ function survey() {
   report.validation = messages.map(({ type, text }) => ({ type, text }));
   out(`Trail: ${trail.name} (${entry.file.replace(repoRoot, '')})`);
   if (!messages.length) out('Validation: ok');
-  for (const { type, text } of messages) out(`  ${type.toUpperCase()}: ${text}`);
+  for (const line of groupMessages(messages)) out(`  ${line}`);
   const ride = createRide(trail);
   const xs = [], ys = [];
   for (const block of trail.terrainBlocks) {

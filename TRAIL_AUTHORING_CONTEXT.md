@@ -184,13 +184,13 @@ Back walls aren't only for caves. Anything the rider should pass in front of can
 
 - **A building:** a `brick`, `stone` or `concrete` back wall for the facade, with a roof edge, chimneys and an upper storey as further back-wall blocks on top.
 - **Windows:** cut each window out of the facade as a cave (an `inner` boundary, or the Cut tool), then fill the hole with a `glass` back wall of the same shape. The glass shows what lies behind it, the sky and the city in the backdrop, so it reads as a window. Don't lay glass over a facade without cutting the hole first, or the wall shows through the pane.
-- **Details:** sills, balconies, cornices, awnings, shopfronts, doors and flower boxes are small blocks too (`wood`, `stone`, `concrete`), and props such as `flowers` can stand on them. Detail drawn this way can be as rich as the setting calls for.
+- **Details:** sills, balconies, cornices, awnings, shopfronts, doors and flower boxes are small blocks too (`wood`, `stone`, `concrete`), and props such as `flowers` can stand on them. Detail drawn this way can be as rich as the setting calls for. A detail laid over a wall shows because it is drawn after the wall in a material of its own: one in the wall's own material, a `stone` sill on a `stone` facade, is invisible, and validation says so.
 - **Rideable buildings** are ordinary terrain: the rider rides on their roofs and against their walls. In this side view the whole block is the building's front, so give it windows and details the same way. A window cut into terrain and filled with `glass` terrain is solid glass the rider can land on and break (see Terrain materials).
 
 Draw what you need with terrain rather than looking for a prop that doesn't exist, as long as it makes sense in the setting. `scripts/render-trail.mjs` shows how it looks.
 
 
-Validation reports blocks that enclose no area, cross themselves, or are buried under other blocks, and objects that are left over open air.
+Validation reports blocks that enclose no area, cross themselves, or are buried under other blocks so that they have no effect, and objects that are left over open air. A block inside others still shows where it is drawn last in a material different from the one under it, so it is only reported when it is never seen either: inside terrain of its own material, or covered by blocks drawn after it.
 
 ## Start: `start`
 
@@ -496,7 +496,7 @@ node scripts/playtest.mjs trails/custom/my-trail.json --probe 1200,ground,1,0 --
 
 A trail can also be named by part of its catalog id, such as `12` or `kicker`. Progress goes to stderr and the report to stdout.
 
-**Solving the trail.** It validates the trail, lists the apples with their height above the surface below, then solves it one stretch at a time: from the start to whichever apple the bot takes first, from there to the next, and so on to the finish. For each stretch it reports:
+**Solving the trail.** It validates the trail (the same message about several blocks or other items is one line, listing them), lists the apples with their height above the surface below, then solves it one stretch at a time: from the start to whichever apple the bot takes first, from there to the next, and so on to the finish. For each stretch it reports:
 
 - the time, and whether the greedy bot or the explorer (which plans turn-arounds and run-ups) solved it
 - the jumps (the longest with its takeoff, landing and height), flips, turns on the ground and in the air, time spent hanging from one wheel under a ledge, top speed, time crawling, and the hardest landing
@@ -963,10 +963,12 @@ const BURIED_MAX_SAMPLES = 20000;
  * reported.
  * @param {object[]} blocks the trail's blocks, back walls left out, in drawing order
  * @param {Set<number>} exposed indices of blocks with some surface left
- * @returns {Set<number>}
+ * @returns {Map<number, "material" | "covered">} each one, and whether it is
+ *   hidden (at least in part) by being the same material as the block under
+ *   it, which another material would fix, or only by blocks drawn over it
  */
 function buriedBlocks(blocks, exposed) {
-  const lost = new Set();
+  const lost = new Map();
   const buried = blocks.map((_, index) => index).filter((index) => !exposed.has(index));
   if (!buried.length) return lost;
   const bounds = blocks.map((block) => regionBounds(block));
@@ -986,7 +988,7 @@ function buriedBlocks(blocks, exposed) {
     const own = ringsOf(index);
     const area = (box.right - box.left) * (box.bottom - box.top);
     const step = ART_PIXEL * Math.max(1, Math.ceil(Math.sqrt(area / (ART_PIXEL * ART_PIXEL) / BURIED_MAX_SAMPLES)));
-    let seen = false;
+    let seen = false, sameMaterial = false;
     for (let y = (Math.floor(box.top / step) + 0.5) * step; y < box.bottom && !seen; y += step) {
       for (let x = (Math.floor(box.left / step) + 0.5) * step; x < box.right && !seen; x += step) {
         if (!pointInRings(own, x, y)) continue;
@@ -999,10 +1001,12 @@ function buriedBlocks(blocks, exposed) {
           else if (other > below) below = other;
           if (above) break;
         }
-        if (!above && (below < 0 || blocks[below].material !== blocks[index].material)) seen = true;
+        if (above) continue;
+        if (below < 0 || blocks[below].material !== blocks[index].material) seen = true;
+        else sameMaterial = true;
       }
     }
-    if (!seen) lost.add(index);
+    if (!seen) lost.set(index, sameMaterial ? "material" : "covered");
   }
   return lost;
 }
@@ -1049,11 +1053,14 @@ export function validateTrail(trail) {
     );
     const lost = buriedBlocks(blocks, exposed);
     blocks.forEach((block, index) => {
-      if (lost.has(index))
-        warning(
-          `Block ${number[index]} is completely buried inside other terrain, so it has no effect.`,
-          { type: "block", index: number[index] - 1 },
-        );
+      const reason = lost.get(index);
+      if (!reason) return;
+      warning(
+        reason === "material"
+          ? `Block ${number[index]} is buried inside terrain of the same material (${block.material}), so it is never ridden or seen; only its outline shows in the editor. Give it another material to make it show, or delete it.`
+          : `Block ${number[index]} is completely buried inside other terrain and covered by blocks drawn over it, so it has no effect.`,
+        { type: "block", index: number[index] - 1 },
+      );
     });
     const edges = compiled.bodies.reduce(
       (total, body) => total + body.edgeCount,

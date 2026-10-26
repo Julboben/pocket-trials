@@ -395,10 +395,12 @@ const BURIED_MAX_SAMPLES = 20000;
  * reported.
  * @param {object[]} blocks the trail's blocks, back walls left out, in drawing order
  * @param {Set<number>} exposed indices of blocks with some surface left
- * @returns {Set<number>}
+ * @returns {Map<number, "material" | "covered">} each one, and whether it is
+ *   hidden (at least in part) by being the same material as the block under
+ *   it, which another material would fix, or only by blocks drawn over it
  */
 function buriedBlocks(blocks, exposed) {
-  const lost = new Set();
+  const lost = new Map();
   const buried = blocks.map((_, index) => index).filter((index) => !exposed.has(index));
   if (!buried.length) return lost;
   const bounds = blocks.map((block) => regionBounds(block));
@@ -418,7 +420,7 @@ function buriedBlocks(blocks, exposed) {
     const own = ringsOf(index);
     const area = (box.right - box.left) * (box.bottom - box.top);
     const step = ART_PIXEL * Math.max(1, Math.ceil(Math.sqrt(area / (ART_PIXEL * ART_PIXEL) / BURIED_MAX_SAMPLES)));
-    let seen = false;
+    let seen = false, sameMaterial = false;
     for (let y = (Math.floor(box.top / step) + 0.5) * step; y < box.bottom && !seen; y += step) {
       for (let x = (Math.floor(box.left / step) + 0.5) * step; x < box.right && !seen; x += step) {
         if (!pointInRings(own, x, y)) continue;
@@ -431,10 +433,12 @@ function buriedBlocks(blocks, exposed) {
           else if (other > below) below = other;
           if (above) break;
         }
-        if (!above && (below < 0 || blocks[below].material !== blocks[index].material)) seen = true;
+        if (above) continue;
+        if (below < 0 || blocks[below].material !== blocks[index].material) seen = true;
+        else sameMaterial = true;
       }
     }
-    if (!seen) lost.add(index);
+    if (!seen) lost.set(index, sameMaterial ? "material" : "covered");
   }
   return lost;
 }
@@ -481,11 +485,14 @@ export function validateTrail(trail) {
     );
     const lost = buriedBlocks(blocks, exposed);
     blocks.forEach((block, index) => {
-      if (lost.has(index))
-        warning(
-          `Block ${number[index]} is completely buried inside other terrain, so it has no effect.`,
-          { type: "block", index: number[index] - 1 },
-        );
+      const reason = lost.get(index);
+      if (!reason) return;
+      warning(
+        reason === "material"
+          ? `Block ${number[index]} is buried inside terrain of the same material (${block.material}), so it is never ridden or seen; only its outline shows in the editor. Give it another material to make it show, or delete it.`
+          : `Block ${number[index]} is completely buried inside other terrain and covered by blocks drawn over it, so it has no effect.`,
+        { type: "block", index: number[index] - 1 },
+      );
     });
     const edges = compiled.bodies.reduce(
       (total, body) => total + body.edgeCount,
