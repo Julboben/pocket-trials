@@ -75,6 +75,16 @@ const constrain = without.length ? (ride, input) => without.reduce((next, skill)
 const airborne = ride => !ride.rear.grounded && !ride.front.grounded;
 const mid = ride => ({ x: (ride.rear.x + ride.front.x) / 2, y: (ride.rear.y + ride.front.y) / 2 });
 const at = point => `${Math.round(point.x)},${Math.round(point.y)}`;
+
+// An apple taken on the way into a crash is no place to ride on from, so a
+// stretch only ends at one if some input keeps the rider up for a moment after.
+const SURVIVE_STEPS = Math.round(.5 / STEP);
+const SURVIVE_INPUTS = [{}, { accelerating: true }, { braking: true }, { leanInput: -1 }, { leanInput: 1 }];
+const survives = ride => ride.status !== 'crashed' && SURVIVE_INPUTS.some(input => {
+  const probe = cloneRide(ride);
+  for (let step = 0; step < SURVIVE_STEPS && probe.status === 'running'; step++) stepRide(probe, { facing: probe.facing, ...input });
+  return probe.status !== 'crashed';
+});
 const seconds = steps => (steps * STEP).toFixed(2);
 
 const entry = loadTrailArgument(target);
@@ -324,7 +334,8 @@ function solveTrail() {
     const last = ride.collected === total;
     const collected = ride.collected;
     const focus = last ? null : order.find(index => !ride.apples[index].taken) ?? null;
-    const done = last ? probe => probe.status === 'won' : focus !== null ? probe => probe.apples[focus].taken : probe => probe.collected > collected;
+    const done = last ? probe => probe.status === 'won'
+      : focus !== null ? probe => probe.apples[focus].taken && survives(probe) : probe => probe.collected > collected && survives(probe);
     const goal = last ? 'the finish' : focus !== null ? `apple ${focus + 1}` : 'any apple';
     process.stderr.write(`stretch ${stretch + 1}: searching from ${at(mid(ride))} to ${goal}\n`);
     const found = solve(ride, done, cache?.stretches?.[stretch], focus);
@@ -341,15 +352,18 @@ function solveTrail() {
       break;
     }
     const { ride: after, stats } = measure(ride, found.inputs, done);
+    // The bot plans in chunks and can overshoot the goal by a few steps; the
+    // next stretch starts at the goal, so the run keeps only the steps to it.
+    const inputs = found.inputs.slice(0, stats.steps);
     const taken = stats.apples.map(({ index }) => `apple ${index + 1} at ${at(after.apples[index])}`);
     const reached = last ? `the finish at ${at(after.flower)}` : taken.join(' and ');
-    out(`Stretch ${stretch + 1}: ${at(mid(ride))} to ${reached} in ${seconds(found.inputs.length)} s (${found.method})`);
+    out(`Stretch ${stretch + 1}: ${at(mid(ride))} to ${reached} in ${seconds(inputs.length)} s (${found.method})`);
     for (const line of describeStats(stats)) out(`  ${line}`);
-    const forgiving = TRIALS ? forgiveness(ride, found.inputs, done, stretch + 1) : null;
+    const forgiving = TRIALS ? forgiveness(ride, inputs, done, stretch + 1) : null;
     if (forgiving) out(`  ${describeForgiveness(forgiving)}`);
-    stretches.push({ from: mid(ride), reached, seconds: found.inputs.length * STEP, method: found.method, stats, forgiveness: forgiving, inputs: encodeInputs(found.inputs) });
-    fullRun.push(...found.inputs);
-    elapsed += found.inputs.length * STEP;
+    stretches.push({ from: mid(ride), reached, seconds: inputs.length * STEP, method: found.method, stats, forgiveness: forgiving, inputs: encodeInputs(inputs) });
+    fullRun.push(...inputs);
+    elapsed += inputs.length * STEP;
     ride = after;
   }
   const finished = ride.status === 'won';
@@ -418,7 +432,7 @@ function goalOf(text, ride) {
   if (!apple) ride.apples.push(goal);
   ride.collected = ride.apples.length - 1;
   const index = ride.apples.indexOf(goal);
-  return { name: apple ? `apple ${apple[1]}` : `${goal.x},${goal.y}`, done: probe => probe.apples[index].taken };
+  return { name: apple ? `apple ${apple[1]}` : `${goal.x},${goal.y}`, done: probe => probe.apples[index].taken && survives(probe) };
 }
 
 function probe() {

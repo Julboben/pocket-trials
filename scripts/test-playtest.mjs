@@ -8,6 +8,9 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { createRide, stepRide } from '../js/ride.js';
+import { decodeInputs } from '../js/replay-codec.js';
+import { normalizeTrail } from '../js/trail-schema.js';
 import { chromePath } from './lib/chrome.mjs';
 import { playtestRunPath, repoRoot } from './lib/trails.mjs';
 import { rectangle } from './lib/terrain-fixtures.mjs';
@@ -59,6 +62,11 @@ try {
   const saved = JSON.parse(readFileSync(playtestRunPath(ID), 'utf8'));
   assert.equal(saved.stretches.length, 2, 'the run is saved stretch by stretch');
   assert.ok(saved.inputs, 'a finished run is saved whole as well');
+  // The bot can overshoot an apple; the saved run must still ride as the
+  // stretches were solved, from the start without a stop.
+  const replay = createRide(normalizeTrail(trail));
+  for (const input of decodeInputs(saved.inputs)) if (replay.status === 'running') stepRide(replay, input);
+  assert.equal(replay.status, 'won', 'the saved run replays to the finish');
   assert.match(run('playtest.mjs', '--trials', '0'), /saved run from the last playtest/, 'the saved run is tried first');
 
   // Without turning around, the finish behind the start can't be reached.

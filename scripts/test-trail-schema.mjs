@@ -133,6 +133,34 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bon
   assert.ok(!warnings(blank).some(text => text.includes('may be slow')));
 }
 
+// A buried block is reported only when it changes nothing: blocks drawn on a
+// wall as decoration show, so they are not.
+{
+  const buried = blocks => {
+    const trail = normalizeTrail({ ...createBlankTrail(), terrainBlocks: [
+      rectangle(-200, 300, 1800, 700, 'grass', 'ground'),
+      rectangle(400, 0, 900, 300, 'brick', 'wall'),
+      ...blocks,
+    ] });
+    return validateTrail(trail).filter(message => message.text.includes('completely buried')).map(message => message.text);
+  };
+  assert.deepEqual(buried([rectangle(500, 100, 540, 108, 'stone', 'sill')]), [], 'a stone sill on a brick wall shows');
+  assert.deepEqual(buried([rectangle(500, 100, 540, 108, 'brick', 'patch')]), ['Block 3 is completely buried inside other terrain, so it has no effect.'],
+    'a brick block inside a brick wall changes nothing');
+  assert.equal(buried([rectangle(500, 100, 540, 108, 'stone', 'sill'), rectangle(490, 90, 550, 120, 'wood', 'cover')]).length, 1,
+    'a block covered by a later block is hidden');
+  assert.deepEqual(buried([rectangle(495, 100, 545, 108, 'stone', 'sill'), rectangle(500, 100, 540, 108, 'wood', 'cover')]), [],
+    'a block only partly covered still shows around the cover');
+  const under = normalizeTrail({ ...createBlankTrail(), terrainBlocks: [
+    rectangle(-200, 300, 1800, 700, 'grass', 'ground'),
+    rectangle(500, 100, 540, 108, 'stone', 'sill'),
+    rectangle(400, 0, 900, 300, 'brick', 'wall'),
+  ] });
+  assert.ok(validateTrail(under).some(message => message.text.startsWith('Block 2 is completely buried')), 'a block under a later wall is hidden');
+  assert.deepEqual(buried([rectangle(500, 100, 540, 108, 'brick', 'patch'), rectangle(530, 90, 560, 120, 'glass', 'pane')]), [],
+    'glass shows what it covers and can break, so a block it touches is kept');
+}
+
 // Medals.
 {
   assert.equal(normalizeMedals({ gold: 10 }), null);

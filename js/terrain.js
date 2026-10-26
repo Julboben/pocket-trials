@@ -35,6 +35,15 @@ export function terrainGeometry(trail) {
   return compiled;
 }
 
+/**
+ * Let `copy` reuse `trail`'s compiled terrain. Only for a copy whose geometry
+ * is the same, such as a ride's trail copied with the same panes broken.
+ */
+export function shareTerrainGeometry(trail, copy) {
+  const compiled = geometryCache.get(trail);
+  if (compiled) geometryCache.set(copy, compiled);
+}
+
 /** How far below the lowest terrain the bike is considered lost. */
 export const FALL_MARGIN = 200;
 const NO_TERRAIN_FALL_Y = 620;

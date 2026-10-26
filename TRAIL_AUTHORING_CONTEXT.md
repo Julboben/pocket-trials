@@ -574,6 +574,7 @@ import {
   SIGN_LINE_CHARACTERS,
   SIGN_MAX_LINES,
   BACKDROPS,
+  ART_PIXEL,
 } from "./drawing.js";
 import { RADIUS, WHEELBASE } from "./config.js";
 import { WATER_SIZE, normalizeWater, waterAt, waterBodies, waterColumns } from "./water.js";
@@ -583,11 +584,14 @@ import { BANNER_MAX } from "./event-props.js";
 import { FINISH_FLOWER_LIFT, bikeTouchesFlower } from "./finish.js";
 import { WEATHER_DEFAULTS, WEATHER_LEVELS, WIND_DIRECTIONS, resolveWeather } from "./weather.js";
 import { DEFAULT_HOUR, HOURS, normalizeHour } from "./time-of-day.js";
+import { isSeeThrough } from "./materials.js";
 import {
   normalizeBlocks as normalizeTerrainBlocks,
   validateBlocks as validateTerrainBlocks,
   pointInRegion,
+  pointInRings,
   regionBounds,
+  regionRings,
 } from "./terrain-geometry.js";
 /** Blocks for a brand new trail: one rectangular slab to build on. */
 export function createBlankTerrainBlocks(material = "grass") {
@@ -945,6 +949,64 @@ function insideTerrain(blocks, x, y) {
   );
 }
 
+// Most blocks are far smaller than this; a larger one is sampled more coarsely.
+const BURIED_MAX_SAMPLES = 20000;
+
+/**
+ * The blocks that change nothing: buried, so the bike never touches them, and
+ * never seen. Where blocks overlap, the game draws the material of the last
+ * one, so a block inside another still shows (a stone sill on a brick wall)
+ * unless a later block covers it or the block under it has the same material.
+ * It is sampled at the centres of the game's art pixels, where the terrain is
+ * drawn. Glass shows what is behind it and can break mid-ride, uncovering
+ * what it buries, so a block that see-through terrain touches is never
+ * reported.
+ * @param {object[]} blocks the trail's blocks, back walls left out, in drawing order
+ * @param {Set<number>} exposed indices of blocks with some surface left
+ * @returns {Set<number>}
+ */
+function buriedBlocks(blocks, exposed) {
+  const lost = new Set();
+  const buried = blocks.map((_, index) => index).filter((index) => !exposed.has(index));
+  if (!buried.length) return lost;
+  const bounds = blocks.map((block) => regionBounds(block));
+  const rings = new Map();
+  const ringsOf = (index) => {
+    if (!rings.has(index)) rings.set(index, regionRings(blocks[index]));
+    return rings.get(index);
+  };
+  const overlaps = (a, b, margin = 0) =>
+    a.left <= b.right + margin && b.left <= a.right + margin && a.top <= b.bottom + margin && b.top <= a.bottom + margin;
+  for (const index of buried) {
+    const box = bounds[index];
+    const near = [];
+    for (let other = 0; other < blocks.length; other++)
+      if (other !== index && overlaps(box, bounds[other], 1)) near.push(other);
+    if (near.some((other) => isSeeThrough(blocks[other].material))) continue;
+    const own = ringsOf(index);
+    const area = (box.right - box.left) * (box.bottom - box.top);
+    const step = ART_PIXEL * Math.max(1, Math.ceil(Math.sqrt(area / (ART_PIXEL * ART_PIXEL) / BURIED_MAX_SAMPLES)));
+    let seen = false;
+    for (let y = (Math.floor(box.top / step) + 0.5) * step; y < box.bottom && !seen; y += step) {
+      for (let x = (Math.floor(box.left / step) + 0.5) * step; x < box.right && !seen; x += step) {
+        if (!pointInRings(own, x, y)) continue;
+        // On top here, and over a different material (or nothing) it shows.
+        let above = false, below = -1;
+        for (const other of near) {
+          const b = bounds[other];
+          if (x < b.left || x > b.right || y < b.top || y > b.bottom || !pointInRings(ringsOf(other), x, y)) continue;
+          if (other > index) above = true;
+          else if (other > below) below = other;
+          if (above) break;
+        }
+        if (!above && (below < 0 || blocks[below].material !== blocks[index].material)) seen = true;
+      }
+    }
+    if (!seen) lost.add(index);
+  }
+  return lost;
+}
+
 /**
  * The start's wheel centres: at the start's height when it has one, else each
  * on the ground under it, as the bike is set down.
@@ -985,8 +1047,9 @@ export function validateTrail(trail) {
         .filter((body) => body.liveCount > 0)
         .map((body) => body.blockIndex),
     );
+    const lost = buriedBlocks(blocks, exposed);
     blocks.forEach((block, index) => {
-      if (!exposed.has(index))
+      if (lost.has(index))
         warning(
           `Block ${number[index]} is completely buried inside other terrain, so it has no effect.`,
           { type: "block", index: number[index] - 1 },
