@@ -7,7 +7,6 @@ import {
   cloneTrail,
   createBlankTrail,
   normalizeTrail,
-  trailToModule,
   validateTrail,
 } from "../trail-schema.js";
 import { devServerWritable, reportEditorFeat, terrainMaterials, trailEntries } from "../trails.js";
@@ -219,18 +218,6 @@ $("export-json").addEventListener("click", () => {
     `${editor.trail.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.json`,
     JSON.stringify(editor.trail, null, 2) + "\n",
     "application/json",
-  );
-});
-
-$("export-js").addEventListener("click", () => {
-  const errors = validateTrail(editor.trail).filter(
-    (message) => message.type === "error",
-  );
-  if (errors.length && !refuse("exporting", errors)) return;
-  download(
-    `${editor.trail.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.js`,
-    trailToModule(editor.trail),
-    "text/javascript",
   );
 });
 

@@ -54,7 +54,7 @@ export function updateValidationBadge(messages) {
   $("data-errors-text").textContent = errors
     ? `${plural(errors, "ERROR")} · fix ${errors === 1 ? "it" : "them"} before exporting`
     : "";
-  for (const id of ["export-json", "export-js", "share-trail"]) $(id).classList.toggle("blocked", errors > 0);
+  for (const id of ["export-json", "share-trail"]) $(id).classList.toggle("blocked", errors > 0);
   $("more-toggle").setAttribute(
     "aria-label",
     summary.length ? `More actions (${summary.join(", ").toLowerCase()})` : "More actions",

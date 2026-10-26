@@ -1425,10 +1425,6 @@ export function validateTrail(trail) {
     messages.push({ type: "ok", text: "Trail data is valid." });
   return messages;
 }
-
-export function trailToModule(trail) {
-  return `export default ${JSON.stringify(trail, null, 2)};\n`;
-}
 ```
 
 ---
