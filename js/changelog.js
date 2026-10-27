@@ -2,6 +2,48 @@
 /** @type {{ version: string, date: string, changes: { type: 'new' | 'improved' | 'fixed', text: string }[] }[]} */
 export const RELEASES = [
   {
+    "version": "0.5.0",
+    "date": "2026-10-27",
+    "changes": [
+      {
+        "type": "new",
+        "text": "High Orchard joins the career as trail 5."
+      },
+      {
+        "type": "new",
+        "text": "Fireworks and a new pop-up overlay have been added."
+      },
+      {
+        "type": "improved",
+        "text": "Trails are now tracked by name rather than by their place in the order, so leaderboards, best times, nisse finds and unlocks stay with a trail even if it moves, and trails you have already ridden stay open."
+      },
+      {
+        "type": "improved",
+        "text": "The sun glare looks better."
+      },
+      {
+        "type": "improved",
+        "text": "Editor: Drafts are now saved in your browser's database, and autosave is more reliable, including when you close the page."
+      },
+      {
+        "type": "improved",
+        "text": "Editor: The editor runs faster, with a few smaller improvements to the menu and inspector."
+      },
+      {
+        "type": "improved",
+        "text": "Editor: Playtest shows your trail's size, tells you when it is too large to share as a link, and suggests medals."
+      },
+      {
+        "type": "fixed",
+        "text": "Editor: Playtesting a trail now starts it in the right place when the trail starts at the far left."
+      },
+      {
+        "type": "fixed",
+        "text": "Editor: A block moved from the back walls into the terrain is no longer still drawn in the back walls."
+      }
+    ]
+  },
+  {
     "version": "0.4.3",
     "date": "2026-10-21",
     "changes": [
