@@ -3,7 +3,7 @@
 // images but can't open the game.
 //
 //   node scripts/render-trail.mjs trails/custom/my-trail.json   an overview and the sections
-//   node scripts/render-trail.mjs 12                            a catalog trail whose id contains "12"
+//   node scripts/render-trail.mjs 12                            a catalog trail whose id or file name contains "12"
 //   node scripts/render-trail.mjs <trail> --route               mark up the sections too
 //   node scripts/render-trail.mjs <trail> --props               label every prop with its index and type
 //   node scripts/render-trail.mjs <trail> --view 1200,100,900,500   one view: x,y of its top left, width, height

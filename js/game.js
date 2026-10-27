@@ -435,6 +435,8 @@ export function startGame({ shared = null } = {}) {
     if (!saveGame || session.trailSource !== 'official') return;
     session.savedTrail = session.trailIndex;
     saveGame.trail = session.trailIndex;
+    // The open trails are worked out from the finished ones (unlockedOf in
+    // state.js); the place is still saved for a client from before that.
     saveGame.unlocked = session.unlockedTrail;
     session.saveSlots[session.activeSaveSlot] = saveGame;
     persistProgress(session.activeSaveSlot, session.trailIndex, session.unlockedTrail, trails.length);

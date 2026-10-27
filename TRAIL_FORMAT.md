@@ -420,6 +420,7 @@ Sign text wraps at word boundaries onto up to 4 lines of 10 characters, and the 
 
 - The fall line, where the bike is considered lost, is not set by the trail: it is worked out as 200 units below the lowest solid terrain, so it follows the trail however deep it goes. It also sets how low the camera can look.
 - `description`: design notes for the trail, up to 2000 characters; anything longer is cut off when the trail loads. It is not shown during gameplay; the editor lists it as **Notes**.
+- `lesson`, `alsoNew` and `world`: optional notes for the career's overview, `TRAILS.md`, which is generated from them: what the trail teaches (one or two sentences, such as "Braking. A downhill run to a fence, with a `SLOW` sign before a drop."), what is new to look at in it, and the world it belongs to, one of those in `trails/worlds.json`. Up to 400 characters each, not shown in the game and not part of the trail's hash, so changing them keeps its leaderboard.
 - `author`: optional credit for whoever made the trail, up to 40 characters on one line. The trail menu, the Hall of Fame and the results screen show it as "BY …" / "TRAIL BY …". It does not change the trail's hash, so adding or editing credit keeps its times. The editor remembers the last author you typed and fills it in on new trails.
 - `preview`: optional `{ x, y }`, the middle of the trail's thumbnail in the trail list, in whole world units. The thumbnail shows 576 × 192 world units around it, at the same zoom on every trail. The editor sets it with **Edit preview** in the Trail tab. Without it the game picks the trail's most eventful stretch between the start and the finish. Like `author`, it does not change the trail's hash, so framing the thumbnail keeps its times.
 
@@ -433,7 +434,7 @@ These optional target times are in seconds. The results screen and trail cards a
 
 ## Unlocking bonus trails
 
-What opens a locked bonus trail is not part of the trail file. Every unlock rule, for bonus trails and rider items alike, is in `js/unlocks.js`, keyed by the trail's catalog id (for example `'trail:bonus:01-the-bonny-tyler': { golds: 2 }`). A rule can ask for official trails finished (`trails`), gold medals won on official trails (`golds`), a finished trail (`trail`) or an earned achievement (`achievement`), and every part given must be met. A bonus trail without a rule is open to everyone, even without a savegame, while a locked one is shown with a hint such as "WIN 2 GOLD MEDALS TO UNLOCK". An `unlock` field left in an older trail file is dropped during normalization.
+What opens a locked bonus trail is not part of the trail file. Every unlock rule, for bonus trails and rider items alike, is in `js/unlocks.js`, keyed by the trail's catalog id (for example `'trail:bonus:the-bonny-tyler': { golds: 2 }`). A rule can ask for official trails finished (`trails`), gold medals won on official trails (`golds`), a finished trail (`trail`) or an earned achievement (`achievement`), and every part given must be met. A bonus trail without a rule is open to everyone, even without a savegame, while a locked one is shown with a hint such as "WIN 2 GOLD MEDALS TO UNLOCK". An `unlock` field left in an older trail file is dropped during normalization.
 
 ## Recommended authoring workflow
 
@@ -460,7 +461,7 @@ node scripts/playtest.mjs trails/custom/my-trail.json --probe 1200,ground,1,300 
 node scripts/playtest.mjs trails/custom/my-trail.json --probe 1200,ground,1,0 --goal apple:3
 ```
 
-A trail can also be named by part of its catalog id, such as `12` or `kicker`. Progress goes to stderr and the report to stdout.
+A trail can also be named by part of its catalog id or file name, such as `12` or `kicker`. Progress goes to stderr and the report to stdout.
 
 **Solving the trail.** It validates the trail (the same message about several blocks or other items is one line, listing them), gives its size in blocks and kilobytes next to the largest official or bonus trail (and says when it is too large to share as a link), lists the apples with their height above the surface below, then solves it one stretch at a time: from the start to whichever apple the bot takes first, from there to the next, and so on to the finish. For each stretch it reports:
 

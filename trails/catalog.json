@@ -2,235 +2,241 @@
   "schemaVersion": 1,
   "trails": [
     {
-      "id": "official:01-the-orchard",
+      "id": "official:the-orchard",
       "source": "official",
       "file": "official/01-the-orchard.json",
       "name": "The Orchard"
     },
     {
-      "id": "official:02-apple-valley",
+      "id": "official:apple-valley",
       "source": "official",
       "file": "official/02-apple-valley.json",
       "name": "Apple Valley"
     },
     {
-      "id": "official:03-windfall",
+      "id": "official:windfall",
       "source": "official",
       "file": "official/03-windfall.json",
       "name": "Windfall"
     },
     {
-      "id": "official:04-hay-lane",
+      "id": "official:hay-lane",
       "source": "official",
       "file": "official/04-hay-lane.json",
       "name": "Hay Lane"
     },
     {
-      "id": "official:05-windmill-hill",
+      "id": "official:high-orchard",
       "source": "official",
-      "file": "official/05-windmill-hill.json",
+      "file": "official/05-high-orchard.json",
+      "name": "High Orchard"
+    },
+    {
+      "id": "official:windmill-hill",
+      "source": "official",
+      "file": "official/06-windmill-hill.json",
       "name": "Windmill Hill"
     },
     {
-      "id": "official:06-splinter-ridge",
+      "id": "official:splinter-ridge",
       "source": "official",
-      "file": "official/06-splinter-ridge.json",
+      "file": "official/07-splinter-ridge.json",
       "name": "Splinter Ridge"
     },
     {
-      "id": "official:07-kickback",
+      "id": "official:kickback",
       "source": "official",
-      "file": "official/07-kickback.json",
+      "file": "official/08-kickback.json",
       "name": "Kickback"
     },
     {
-      "id": "official:08-stoppie-slope",
+      "id": "official:stoppie-slope",
       "source": "official",
-      "file": "official/08-stoppie-slope.json",
+      "file": "official/09-stoppie-slope.json",
       "name": "Stoppie Slope"
     },
     {
-      "id": "official:09-stump-drops",
+      "id": "official:stump-drops",
       "source": "official",
-      "file": "official/09-stump-drops.json",
+      "file": "official/10-stump-drops.json",
       "name": "Stump Drops"
     },
     {
-      "id": "official:10-switchback",
+      "id": "official:switchback",
       "source": "official",
-      "file": "official/10-switchback.json",
+      "file": "official/11-switchback.json",
       "name": "Switchback"
     },
     {
-      "id": "official:11-dune-hopper",
+      "id": "official:dune-hopper",
       "source": "official",
-      "file": "official/11-dune-hopper.json",
+      "file": "official/12-dune-hopper.json",
       "name": "Dune Hopper"
     },
     {
-      "id": "official:12-kicker-canyon",
+      "id": "official:kicker-canyon",
       "source": "official",
-      "file": "official/12-kicker-canyon.json",
+      "file": "official/13-kicker-canyon.json",
       "name": "Kicker Canyon"
     },
     {
-      "id": "official:13-sandpit",
+      "id": "official:sandpit",
       "source": "official",
-      "file": "official/13-sandpit.json",
+      "file": "official/14-sandpit.json",
       "name": "Sandpit"
     },
     {
-      "id": "official:14-mind-the-gap",
+      "id": "official:mind-the-gap",
       "source": "official",
-      "file": "official/14-mind-the-gap.json",
+      "file": "official/15-mind-the-gap.json",
       "name": "Mind the Gap"
     },
     {
-      "id": "official:15-mirage",
+      "id": "official:mirage",
       "source": "official",
-      "file": "official/15-mirage.json",
+      "file": "official/16-mirage.json",
       "name": "Mirage"
     },
     {
-      "id": "official:16-wet-feet",
+      "id": "official:wet-feet",
       "source": "official",
-      "file": "official/16-wet-feet.json",
+      "file": "official/17-wet-feet.json",
       "name": "Wet Feet"
     },
     {
-      "id": "official:17-deep-end",
+      "id": "official:deep-end",
       "source": "official",
-      "file": "official/17-deep-end.json",
+      "file": "official/18-deep-end.json",
       "name": "Deep End"
     },
     {
-      "id": "official:18-jetty-jump",
+      "id": "official:jetty-jump",
       "source": "official",
-      "file": "official/18-jetty-jump.json",
+      "file": "official/19-jetty-jump.json",
       "name": "Jetty Jump"
     },
     {
-      "id": "official:19-boomerang",
+      "id": "official:boomerang",
       "source": "official",
-      "file": "official/19-boomerang.json",
+      "file": "official/20-boomerang.json",
       "name": "Boomerang"
     },
     {
-      "id": "official:20-out-and-back",
+      "id": "official:out-and-back",
       "source": "official",
-      "file": "official/20-out-and-back.json",
+      "file": "official/21-out-and-back.json",
       "name": "Out and Back"
     },
     {
-      "id": "official:21-low-bridge",
+      "id": "official:low-bridge",
       "source": "official",
-      "file": "official/21-low-bridge.json",
+      "file": "official/22-low-bridge.json",
       "name": "Low Bridge"
     },
     {
-      "id": "official:22-lantern-mine",
+      "id": "official:lantern-mine",
       "source": "official",
-      "file": "official/22-lantern-mine.json",
+      "file": "official/23-lantern-mine.json",
       "name": "Lantern Mine"
     },
     {
-      "id": "official:23-sinkhole",
+      "id": "official:sinkhole",
       "source": "official",
-      "file": "official/23-sinkhole.json",
+      "file": "official/24-sinkhole.json",
       "name": "Sinkhole"
     },
     {
-      "id": "official:24-the-shaft",
+      "id": "official:the-shaft",
       "source": "official",
-      "file": "official/24-the-shaft.json",
+      "file": "official/25-the-shaft.json",
       "name": "The Shaft"
     },
     {
-      "id": "official:25-the-ring",
+      "id": "official:the-ring",
       "source": "official",
-      "file": "official/25-the-ring.json",
+      "file": "official/26-the-ring.json",
       "name": "The Ring"
     },
     {
-      "id": "official:26-kerbside",
+      "id": "official:kerbside",
       "source": "official",
-      "file": "official/26-kerbside.json",
+      "file": "official/27-kerbside.json",
       "name": "Kerbside"
     },
     {
-      "id": "official:27-killer-street",
+      "id": "official:killer-street",
       "source": "official",
-      "file": "official/27-killer-street.json",
+      "file": "official/28-killer-street.json",
       "name": "Killer Street"
     },
     {
-      "id": "official:28-spin-cycle",
+      "id": "official:spin-cycle",
       "source": "official",
-      "file": "official/28-spin-cycle.json",
+      "file": "official/29-spin-cycle.json",
       "name": "Spin Cycle"
     },
     {
-      "id": "official:29-night-shift",
+      "id": "official:night-shift",
       "source": "official",
-      "file": "official/29-night-shift.json",
+      "file": "official/30-night-shift.json",
       "name": "Night Shift"
     },
     {
-      "id": "official:30-brake-point",
+      "id": "official:brake-point",
       "source": "official",
-      "file": "official/30-brake-point.json",
+      "file": "official/31-brake-point.json",
       "name": "Brake Point"
     },
     {
-      "id": "official:30-rooftops",
+      "id": "official:rooftops",
       "source": "official",
-      "file": "official/30-rooftops.json",
+      "file": "official/32-rooftops.json",
       "name": "Rooftops"
     },
     {
-      "id": "official:31-long-way-up",
+      "id": "official:long-way-up",
       "source": "official",
-      "file": "official/31-long-way-up.json",
+      "file": "official/33-long-way-up.json",
       "name": "Long Way Up"
     },
     {
-      "id": "official:32-whiteout",
+      "id": "official:whiteout",
       "source": "official",
-      "file": "official/32-whiteout.json",
+      "file": "official/34-whiteout.json",
       "name": "Whiteout"
     },
     {
-      "id": "official:33-big-air",
+      "id": "official:big-air",
       "source": "official",
-      "file": "official/33-big-air.json",
+      "file": "official/35-big-air.json",
       "name": "Big Air"
     },
     {
-      "id": "official:34-thunderhead",
+      "id": "official:thunderhead",
       "source": "official",
-      "file": "official/34-thunderhead.json",
+      "file": "official/36-thunderhead.json",
       "name": "Thunderhead"
     },
     {
-      "id": "official:35-elastic-summit",
+      "id": "official:elastic-summit",
       "source": "official",
-      "file": "official/35-elastic-summit.json",
+      "file": "official/37-elastic-summit.json",
       "name": "Elastic Summit"
     },
     {
-      "id": "official:41-high-hopes",
+      "id": "official:high-hopes",
       "source": "official",
-      "file": "official/41-high-hopes.json",
+      "file": "official/43-high-hopes.json",
       "name": "High Hopes"
     },
     {
-      "id": "bonus:01-the-bonny-tyler",
+      "id": "bonus:the-bonny-tyler",
       "source": "bonus",
       "file": "bonus/01-the-bonny-tyler.json",
       "name": "THE BONNY TYLER"
     },
     {
-      "id": "bonus:02-the-mining-cave",
+      "id": "bonus:the-mining-cave",
       "source": "bonus",
       "file": "bonus/02-the-mining-cave.json",
       "name": "The Mining Cave"

@@ -1,0 +1,32 @@
+{
+  "worlds": [
+    {
+      "name": "First Rides",
+      "about": "Grass, `hills` backdrop, the orchard and the farm around it, noon, clear skies. Teaches the controls."
+    },
+    {
+      "name": "The Woods",
+      "about": "Dirt, `forest` backdrop, cut wood, morning to evening. Teaches balance."
+    },
+    {
+      "name": "The Desert",
+      "about": "Sand, `desert` backdrop, bright noon with sun glare. Teaches air."
+    },
+    {
+      "name": "Lakeland",
+      "about": "Grass and dirt, `hills` and `mountains` backdrops, morning, rain. Teaches water, and turning around in the air."
+    },
+    {
+      "name": "Underground",
+      "about": "Rock, back walls, darkness. Teaches tight spaces."
+    },
+    {
+      "name": "The City",
+      "about": "Brick, `city` backdrop, evening to night. Teaches hazards."
+    },
+    {
+      "name": "The Mountains",
+      "about": "Snow and rock, `mountains` backdrop, worsening weather. The final tests."
+    }
+  ]
+}

@@ -203,6 +203,9 @@ export const AUTHOR_MAX_LENGTH = 40;
 export const NAME_MAX_LENGTH = 60;
 export const LABEL_MAX_LENGTH = 80;
 export const DESCRIPTION_MAX_LENGTH = 2000;
+/** A trail's notes for the career's overview, and how long each may be. */
+export const OVERVIEW_KEYS = ["lesson", "alsoNew", "world"];
+export const OVERVIEW_MAX_LENGTH = 400;
 // Past these the editor and the game slow down, so the author is warned.
 export const PROP_WARNING_COUNT = 300;
 export const APPLE_WARNING_COUNT = 200;
@@ -251,6 +254,14 @@ export function normalizeTrail(input, index = 0) {
     typeof trail.description === "string"
       ? trail.description.slice(0, DESCRIPTION_MAX_LENGTH)
       : "";
+  // Notes for the career's overview (TRAILS.md): what the trail teaches, what
+  // is new to look at, and the world it belongs to. Optional, not part of the
+  // ride, and left out when empty.
+  for (const key of OVERVIEW_KEYS) {
+    const text = typeof trail[key] === "string" ? trail[key].trim().slice(0, OVERVIEW_MAX_LENGTH) : "";
+    if (text) trail[key] = text;
+    else delete trail[key];
+  }
   // The finish is a point, like the start. A null y means it stands on the
   // surface below, which is what a plain ground finish wants; a number pins it
   // in the air.

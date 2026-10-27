@@ -21,8 +21,8 @@ Create new trails as a single JSON file each, following the format below.
 3. `js/materials.js`: Valid terrain materials
 4. `trails/custom/README.md`: Where custom trail files go and how they are loaded
 5. `trails/official/01-the-orchard.json`: Example trail: easy
-6. `trails/official/12-kicker-canyon.json`: Example trail: medium
-7. `trails/official/31-long-way-up.json`: Example trail: advanced
+6. `trails/official/13-kicker-canyon.json`: Example trail: medium
+7. `trails/official/33-long-way-up.json`: Example trail: advanced
 8. `trails/bonus/01-the-bonny-tyler.json`: Example trail: hard
 
 ---
@@ -454,6 +454,7 @@ Sign text wraps at word boundaries onto up to 4 lines of 10 characters, and the 
 
 - The fall line, where the bike is considered lost, is not set by the trail: it is worked out as 200 units below the lowest solid terrain, so it follows the trail however deep it goes. It also sets how low the camera can look.
 - `description`: design notes for the trail, up to 2000 characters; anything longer is cut off when the trail loads. It is not shown during gameplay; the editor lists it as **Notes**.
+- `lesson`, `alsoNew` and `world`: optional notes for the career's overview, `TRAILS.md`, which is generated from them: what the trail teaches (one or two sentences, such as "Braking. A downhill run to a fence, with a `SLOW` sign before a drop."), what is new to look at in it, and the world it belongs to, one of those in `trails/worlds.json`. Up to 400 characters each, not shown in the game and not part of the trail's hash, so changing them keeps its leaderboard.
 - `author`: optional credit for whoever made the trail, up to 40 characters on one line. The trail menu, the Hall of Fame and the results screen show it as "BY …" / "TRAIL BY …". It does not change the trail's hash, so adding or editing credit keeps its times. The editor remembers the last author you typed and fills it in on new trails.
 - `preview`: optional `{ x, y }`, the middle of the trail's thumbnail in the trail list, in whole world units. The thumbnail shows 576 × 192 world units around it, at the same zoom on every trail. The editor sets it with **Edit preview** in the Trail tab. Without it the game picks the trail's most eventful stretch between the start and the finish. Like `author`, it does not change the trail's hash, so framing the thumbnail keeps its times.
 
@@ -467,7 +468,7 @@ These optional target times are in seconds. The results screen and trail cards a
 
 ## Unlocking bonus trails
 
-What opens a locked bonus trail is not part of the trail file. Every unlock rule, for bonus trails and rider items alike, is in `js/unlocks.js`, keyed by the trail's catalog id (for example `'trail:bonus:01-the-bonny-tyler': { golds: 2 }`). A rule can ask for official trails finished (`trails`), gold medals won on official trails (`golds`), a finished trail (`trail`) or an earned achievement (`achievement`), and every part given must be met. A bonus trail without a rule is open to everyone, even without a savegame, while a locked one is shown with a hint such as "WIN 2 GOLD MEDALS TO UNLOCK". An `unlock` field left in an older trail file is dropped during normalization.
+What opens a locked bonus trail is not part of the trail file. Every unlock rule, for bonus trails and rider items alike, is in `js/unlocks.js`, keyed by the trail's catalog id (for example `'trail:bonus:the-bonny-tyler': { golds: 2 }`). A rule can ask for official trails finished (`trails`), gold medals won on official trails (`golds`), a finished trail (`trail`) or an earned achievement (`achievement`), and every part given must be met. A bonus trail without a rule is open to everyone, even without a savegame, while a locked one is shown with a hint such as "WIN 2 GOLD MEDALS TO UNLOCK". An `unlock` field left in an older trail file is dropped during normalization.
 
 ## Recommended authoring workflow
 
@@ -494,7 +495,7 @@ node scripts/playtest.mjs trails/custom/my-trail.json --probe 1200,ground,1,300 
 node scripts/playtest.mjs trails/custom/my-trail.json --probe 1200,ground,1,0 --goal apple:3
 ```
 
-A trail can also be named by part of its catalog id, such as `12` or `kicker`. Progress goes to stderr and the report to stdout.
+A trail can also be named by part of its catalog id or file name, such as `12` or `kicker`. Progress goes to stderr and the report to stdout.
 
 **Solving the trail.** It validates the trail (the same message about several blocks or other items is one line, listing them), gives its size in blocks and kilobytes next to the largest official or bonus trail (and says when it is too large to share as a link), lists the apples with their height above the surface below, then solves it one stretch at a time: from the start to whichever apple the bot takes first, from there to the next, and so on to the finish. For each stretch it reports:
 
@@ -808,6 +809,9 @@ export const AUTHOR_MAX_LENGTH = 40;
 export const NAME_MAX_LENGTH = 60;
 export const LABEL_MAX_LENGTH = 80;
 export const DESCRIPTION_MAX_LENGTH = 2000;
+/** A trail's notes for the career's overview, and how long each may be. */
+export const OVERVIEW_KEYS = ["lesson", "alsoNew", "world"];
+export const OVERVIEW_MAX_LENGTH = 400;
 // Past these the editor and the game slow down, so the author is warned.
 export const PROP_WARNING_COUNT = 300;
 export const APPLE_WARNING_COUNT = 200;
@@ -856,6 +860,14 @@ export function normalizeTrail(input, index = 0) {
     typeof trail.description === "string"
       ? trail.description.slice(0, DESCRIPTION_MAX_LENGTH)
       : "";
+  // Notes for the career's overview (TRAILS.md): what the trail teaches, what
+  // is new to look at, and the world it belongs to. Optional, not part of the
+  // ride, and left out when empty.
+  for (const key of OVERVIEW_KEYS) {
+    const text = typeof trail[key] === "string" ? trail[key].trim().slice(0, OVERVIEW_MAX_LENGTH) : "";
+    if (text) trail[key] = text;
+    else delete trail[key];
+  }
   // The finish is a point, like the start. A null y means it stands on the
   // surface below, which is what a plain ground finish wants; a number pins it
   // in the air.
@@ -1582,6 +1594,9 @@ Example trail: easy.
     "y": 290.1897147270387
   },
   "description": "Learn the rhythm: build speed on gentle rollers, lean forward on climbs, and settle the bike before each landing.",
+  "lesson": "Gas, lean and gentle rollers.",
+  "alsoNew": "Farm props, collecting apples.",
+  "world": "First Rides",
   "start": {
     "x": 271.93445286745373,
     "y": 303.45703530867854,
@@ -2448,7 +2463,7 @@ Example trail: easy.
 
 ---
 
-## `trails/official/12-kicker-canyon.json`
+## `trails/official/13-kicker-canyon.json`
 
 Example trail: medium.
 
@@ -2461,6 +2476,9 @@ Example trail: medium.
     "y": 131.62977237070947
   },
   "description": "Commit to the jumps. Build speed before each lip, stay calm in the air, and line both wheels up with the far-side slope.",
+  "lesson": "Kickers, ramps that throw you up, onto downhill landings.",
+  "alsoNew": "Boulders, crystals.",
+  "world": "The Desert",
   "start": {
     "x": 126.00276453217202,
     "y": 262.99729187990346,
@@ -4336,7 +4354,7 @@ Example trail: medium.
 
 ---
 
-## `trails/official/31-long-way-up.json`
+## `trails/official/33-long-way-up.json`
 
 Example trail: advanced.
 
@@ -4349,6 +4367,9 @@ Example trail: advanced.
     "y": -504.8164131254289
   },
   "description": "Link everything together across a long climb: preserve momentum, control wheelies, and recover your balance without losing speed.",
+  "lesson": "Endurance. An 800+ unit climb where you must not lose momentum.",
+  "alsoNew": "Light snow (`snow` ≈ 0.3), cairns.",
+  "world": "The Mountains",
   "start": {
     "x": 90,
     "y": null,

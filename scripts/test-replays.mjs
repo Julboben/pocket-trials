@@ -5,7 +5,7 @@ import { createRide, stepRide, riderCollisionPoints, simulateRun } from '../js/r
 import { createRagdoll, stepRagdoll, HELMET_KNOCK_MAX, HELMET_RADIUS } from '../js/ragdoll.js';
 import { decodeInputs, encodeInputs } from '../js/replay-codec.js';
 import { terrainCollisionsAt, terrainAt } from '../js/terrain.js';
-import { loadCatalogTrails, readJson, repoRoot } from './lib/trails.mjs';
+import { loadCatalogTrails, readJson, replayFile, repoRoot } from './lib/trails.mjs';
 import { polygonBlock, rectangle } from './lib/terrain-fixtures.mjs';
 
 const FINISH_TOLERANCE = .05;
@@ -19,11 +19,11 @@ const deepestPenetration = (trail, points, radius) => Math.max(0, ...points.flat
 
 // Recorded runs through every official trail must reproduce their outcome.
 const entries = loadCatalogTrails('official');
-const expectedFixtures = new Set(entries.map(entry => entry.file.split('/').pop()));
+const expectedFixtures = new Set(entries.map(replayFile));
 const staleFixtures = readdirSync(repoRoot + 'tests/replays').filter(file => file.endsWith('.json') && !expectedFixtures.has(file));
 assert.deepEqual(staleFixtures, [], `replay fixtures without an official trail: ${staleFixtures.join(', ')}; run node scripts/record-replays.mjs`);
 for (const entry of entries) {
-  const path = 'tests/replays/' + entry.file.split('/').pop();
+  const path = 'tests/replays/' + replayFile(entry);
   assert.ok(existsSync(repoRoot + path), `missing replay fixture ${path}; run node scripts/record-replays.mjs`);
   const replay = readJson(path);
   assert.equal(replay.trail, entry.id);
@@ -224,7 +224,7 @@ for (const entry of entries) {
 // caught on the bike can't drag the rest along. This crash used to launch the
 // rider upwards at over 200 px/s.
 {
-  const entry = entries.find(candidate => candidate.id === 'official:30-brake-point');
+  const entry = entries.find(candidate => candidate.id === 'official:brake-point');
   let seed = 2 * 31 + 7 + 6000;
   const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const ride = createRide(entry.trail, { seed: 2 });

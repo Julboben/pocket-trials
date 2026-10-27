@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { writeTrailsOverview } from './generate-trails-overview.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const trailsRoot = path.join(projectRoot, 'trails');
@@ -15,10 +16,23 @@ export const CUSTOM_CATALOG = 'custom-catalog.json';
  * whole catalog: one broken file must not take every other trail with it.
  * Returns the warnings, one per skipped file.
  */
+/**
+ * A trail's id: its folder and its file name, without the number an official
+ * or bonus file starts with. The number only sets the order, so a trail moved
+ * to another place keeps its id, and with it its leaderboard, best times,
+ * nisse finds and unlocks. Custom trails keep the whole name: they are
+ * known by their content (see trailKey in js/state.js).
+ */
+export function catalogId(source, name) {
+  const bare = source === 'custom' ? name : name.replace(/^\d+-/, '');
+  return `${source}:${bare}`;
+}
+
 export async function generateTrailCatalog() {
   const catalog = { schemaVersion: 1, trails: [] };
   const customCatalog = { schemaVersion: 1, trails: [] };
   const warnings = [];
+  const ids = new Map();
   for (const source of sources) {
     const directory = path.join(trailsRoot, source);
     await mkdir(directory, { recursive: true });
@@ -36,8 +50,15 @@ export async function generateTrailCatalog() {
         warnings.push(`Skipped trails/${relativePath}: it needs a string name.`);
         continue;
       }
+      const id = catalogId(source, file.replace(/\.json$/i, ''));
+      // Two files can't share an id, such as 04-hill.json and 09-hill.json.
+      if (ids.has(id)) {
+        warnings.push(`Skipped trails/${relativePath}: trails/${ids.get(id)} has the same name, and so the same id (${id}). Rename one of them.`);
+        continue;
+      }
+      ids.set(id, relativePath);
       (source === 'custom' ? customCatalog : catalog).trails.push({
-        id: `${source}:${file.replace(/\.json$/i, '')}`,
+        id,
         source,
         file: relativePath,
         name: trail.name
@@ -46,8 +67,14 @@ export async function generateTrailCatalog() {
   }
   await writeFile(path.join(trailsRoot, 'catalog.json'), `${JSON.stringify(catalog, null, 2)}\n`);
   await writeFile(path.join(trailsRoot, CUSTOM_CATALOG), `${JSON.stringify(customCatalog, null, 2)}\n`);
+  // The career's overview follows the catalog (see generate-trails-overview.mjs).
+  try {
+    for (const warning of writeTrailsOverview()) warnings.push(`TRAILS.md: ${warning}`);
+  } catch (error) {
+    warnings.push(`TRAILS.md could not be written: ${error.message}`);
+  }
   for (const warning of warnings) console.warn(warning);
-  console.log(`Generated trails/catalog.json with ${catalog.trails.length} trails and trails/${CUSTOM_CATALOG} with ${customCatalog.trails.length}.`);
+  console.log(`Generated trails/catalog.json with ${catalog.trails.length} trails, trails/${CUSTOM_CATALOG} with ${customCatalog.trails.length}, and TRAILS.md.`);
   return warnings;
 }
 

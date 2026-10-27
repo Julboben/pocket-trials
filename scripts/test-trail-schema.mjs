@@ -4,7 +4,7 @@ import { rectangle } from './lib/terrain-fixtures.mjs';
 import {
   SPIKE_RADIUS, createBlankTrail, normalizeTrail, normalizeSpike, validateTrail, medalFor, normalizeMedals,
   trailTerrainBlocks, trailBackWalls, AUTHOR_MAX_LENGTH, NAME_MAX_LENGTH, LABEL_MAX_LENGTH, DESCRIPTION_MAX_LENGTH,
-  PROP_WARNING_COUNT, APPLE_WARNING_COUNT, SPIKE_WARNING_COUNT, normalizeRotation
+  PROP_WARNING_COUNT, APPLE_WARNING_COUNT, SPIKE_WARNING_COUNT, normalizeRotation, OVERVIEW_MAX_LENGTH
 } from '../js/trail-schema.js';
 import { RADIUS, WHEELBASE } from '../js/config.js';
 import { trailHash } from '../js/trail-hash.js';
@@ -133,6 +133,17 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bon
   assert.ok(!warnings(blank).some(text => text.includes('may be slow')));
 }
 
+// The overview's notes (lesson, alsoNew, world) are kept as trimmed text,
+// dropped when empty or not text, and never change the trail's hash.
+{
+  const base = normalizeTrail(createBlankTrail());
+  const noted = normalizeTrail({ ...base, lesson: '  Braking.  ', alsoNew: '', world: 42 });
+  assert.equal(noted.lesson, 'Braking.');
+  assert.ok(!('alsoNew' in noted) && !('world' in noted), 'empty or non-text notes are dropped');
+  assert.equal(normalizeTrail({ ...base, lesson: 'x'.repeat(500) }).lesson.length, OVERVIEW_MAX_LENGTH);
+  assert.equal(trailHash(noted), trailHash(base), 'notes are not part of the ride');
+}
+
 // A buried block is reported only when it changes nothing: blocks drawn on a
 // wall as decoration show, so they are not.
 {
@@ -220,9 +231,9 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bon
   assert.equal(trailHash(credited), trailHash(blank), 'credit does not change the trail hash');
   assert.equal(normalizeTrail({ ...blank, description: 7 }).description, '');
 }
-assert.ok(!isOnlineTrail('official:01-the-orchard'), 'an official id without its hash stays offline');
+assert.ok(!isOnlineTrail('official:the-orchard'), 'an official id without its hash stays offline');
 assert.ok(!isOnlineTrail('trail:0123abcd'), 'custom trails stay offline');
-assert.ok(isOnlineTrail('bonus:01-the-bonny-tyler@0123abcd'), 'bonus trails go online');
+assert.ok(isOnlineTrail('bonus:the-bonny-tyler@0123abcd'), 'bonus trails go online');
 assert.ok(!isOnlineTrail('custom:caves@0123abcd'), 'custom file trails stay offline');
 
 // Unlock rules live in js/unlocks.js now, so one left in an older trail file is dropped.

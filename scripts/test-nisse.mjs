@@ -84,9 +84,9 @@ const base = (extra = {}) => ({
 // Finds in a save: official and bonus trails by id, custom ones by hash; only
 // the first two go to the cloud. Merging keeps both devices' finds.
 {
-  const finds = { 'official:05-windmill-hill': 10, 'trail:0a1b2c3d': 20, 'bonus:x@deadbeef': 5, junk: 3, 'official:x': -1 };
-  assert.deepEqual(cleanNisseFinds(finds), { 'official:05-windmill-hill': 10, 'trail:0a1b2c3d': 20 });
-  assert.deepEqual(cleanNisseFinds(finds, true), { 'official:05-windmill-hill': 10 });
+  const finds = { 'official:windmill-hill': 10, 'trail:0a1b2c3d': 20, 'bonus:x@deadbeef': 5, junk: 3, 'official:x': -1 };
+  assert.deepEqual(cleanNisseFinds(finds), { 'official:windmill-hill': 10, 'trail:0a1b2c3d': 20 });
+  assert.deepEqual(cleanNisseFinds(finds, true), { 'official:windmill-hill': 10 });
   assert.deepEqual(mergeNisseFinds({ 'official:a': 30 }, { 'official:a': 10, 'bonus:b': 40 }), { 'official:a': 10, 'bonus:b': 40 });
 }
 

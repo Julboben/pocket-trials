@@ -2,7 +2,7 @@
 // be tried while it's being built, by a person or an AI that can't ride it.
 //
 //   node scripts/playtest.mjs trails/custom/my-trail.json   check, then solve one apple at a time
-//   node scripts/playtest.mjs 12                             a catalog trail whose id contains "12"
+//   node scripts/playtest.mjs 12                             a catalog trail whose id or file name contains "12"
 //   node scripts/playtest.mjs <trail> --check                validation and a survey only, instantly
 //   node scripts/playtest.mjs <trail> --without turn         solve without turning around (see SKILLS)
 //   node scripts/playtest.mjs <trail> --probe 1200,ground,1,300 --script "gas 1; gas fwd 0.4; coast 1"

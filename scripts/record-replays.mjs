@@ -2,7 +2,7 @@
 // regression tests have real full-trail runs to replay.
 //
 //   node scripts/record-replays.mjs            record trails whose replay is stale
-//   node scripts/record-replays.mjs 03         only trails whose id contains "03"
+//   node scripts/record-replays.mjs 03         only trails whose id or file name contains "03"
 //   node scripts/record-replays.mjs --force    re-record even replays that still work (human runs are still used)
 //   node scripts/record-replays.mjs --explore  skip the greedy bot and go straight to the explorer
 //   REPLAY_MAX_MINUTES=5 node scripts/...      search budget per trail (default 20)
@@ -15,7 +15,7 @@
 //
 // A trail the bot can't figure out can be taught with a human run: save the
 // ghost (localStorage `hjulben-ghost-v1:<trail id>@<hash>`) or the output of
-// `hjulbenGame.dumpRun()` as tests/replays/human/<trail file>.json. A human
+// `hjulbenGame.dumpRun()` as tests/replays/human/<trail name>.json (the file name without its number). A human
 // run that still finishes becomes the replay as is. One that stopped
 // finishing, like an old replay broken by a physics change, is repaired
 // where it breaks (see repairRun), and failing that guides the explorer.
@@ -38,7 +38,7 @@ import { fileURLToPath } from 'node:url';
 import { simulateRun } from '../js/ride.js';
 import { decodeInputs, encodeInputs } from '../js/replay-codec.js';
 import { MAX_MINUTES, exploreTrail, recordTrail, repairRun } from './lib/replay-bot.mjs';
-import { loadCatalogTrails, repoRoot } from './lib/trails.mjs';
+import { loadCatalogTrails, replayFile, repoRoot } from './lib/trails.mjs';
 
 const OUT_DIR = repoRoot + 'tests/replays/';
 const HUMAN_DIR = OUT_DIR + 'human/';
@@ -111,7 +111,7 @@ function furthest(entry, references) {
 
 // Whether a trail's replay can be kept, and what it has to go on if not.
 function plan(entry) {
-  const file = entry.file.split('/').pop();
+  const file = replayFile(entry);
   const path = OUT_DIR + file;
   const hash = trailHash(entry.trail);
   const references = referencesFor(file, path);
@@ -182,7 +182,7 @@ if (onlyTrail) {
   record(entry, plan(entry));
 } else {
   // Drop replays left behind when an official trail is renamed or removed.
-  const expected = new Set(officialTrails.map(entry => entry.file.split('/').pop()));
+  const expected = new Set(officialTrails.map(replayFile));
   for (const file of readdirSync(OUT_DIR)) {
     if (!file.endsWith('.json') || expected.has(file)) continue;
     unlinkSync(OUT_DIR + file);
@@ -191,7 +191,7 @@ if (onlyTrail) {
   let kept = 0;
   const queue = [];
   for (const entry of officialTrails) {
-    if (!entry.id.includes(filter)) continue;
+    if (!entry.id.includes(filter) && !entry.file.includes(filter)) continue;
     const planned = plan(entry);
     if (planned.reuse) { record(entry, planned); kept++; } else queue.push({ entry, planned });
   }

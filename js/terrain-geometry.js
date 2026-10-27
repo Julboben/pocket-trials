@@ -290,7 +290,15 @@ function normalizeNode(raw, fallbackId) {
   // incoming handle belongs to the previous node's edge and must survive, or a
   // curve could never arrive at a corner. Curvature itself is always derived
   // from the handles, so `edge` is a hint that normalization reconciles.
-  if (node.edge === 'straight') { node.out = null; node.mode = 'corner'; }
+  // A straight edge out drops the outgoing handle. The point is only a corner
+  // if no handle is left: one that still has its incoming handle keeps its
+  // mode, or a second pass would change what the first decided (a smooth
+  // point that lost its outgoing handle becomes independent below, and must
+  // stay so). The mode is part of the trail's hash, so it has to settle.
+  if (node.edge === 'straight') {
+    node.out = null;
+    if (!node.in) node.mode = 'corner';
+  }
   if (!node.out) node.edge = 'straight';
   if (!node.in && !node.out) node.mode = 'corner';
   else if (node.mode === 'smooth' && !(node.in && node.out)) node.mode = 'independent';

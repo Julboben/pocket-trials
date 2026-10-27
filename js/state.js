@@ -128,6 +128,26 @@ export function currentTrailEntry() {
  */
 
 /**
+ * The furthest official trail a save has open, by its place in the career.
+ * Worked out from the trails it has finished, by id, rather than kept as a
+ * place: a trail is open once the one before it is finished, and stays open
+ * once finished itself, so moving or adding trails never locks a player out
+ * of one they have ridden. A trail counts as finished under any version of
+ * it, as in progressOf.
+ */
+export function unlockedOf(save) {
+  // ?debug=1 opens every trail, to try any of them while building the career;
+  // only the trails open, nothing counts as finished.
+  if (new URLSearchParams(globalThis.location?.search ?? '').get('debug') === '1') return officialTrailEntries.length - 1;
+  const keys = Object.keys(save?.bestTimes || {});
+  let open = 0;
+  officialTrailEntries.forEach((entry, index) => {
+    if (keys.some(key => key.startsWith(entry.id + '@'))) open = Math.max(open, Math.min(index + 1, officialTrailEntries.length - 1));
+  });
+  return open;
+}
+
+/**
  * What a save has done, for unlocks and achievements: official trails
  * finished and gold medals won on them, which trails it has finished, its
  * lifetime stats and the achievements it has earned. A shipped trail counts
@@ -140,11 +160,7 @@ export function currentTrailEntry() {
 export function progressOf(save) {
   if (!save) return null;
   const keys = Object.keys(save.bestTimes || {});
-  const officialIndex = new Map(officialTrailEntries.map((entry, index) => [entry.id, index]));
-  const unlocked = save.unlocked || 0;
-  // Reaching the next official trail means this one was finished.
-  const finished = trailId => (officialIndex.get(trailId) ?? Infinity) < unlocked
-    || keys.some(key => key.startsWith(trailId + '@'));
+  const finished = trailId => keys.some(key => key.startsWith(trailId + '@'));
   let trails = 0, golds = 0;
   for (const entry of officialTrailEntries) {
     if (finished(entry.id)) trails++;

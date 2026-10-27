@@ -20,7 +20,8 @@ export function loadCatalogTrails(source = 'official') {
 
 /**
  * A trail named on the command line: a path to a JSON file, or part of the id
- * of a trail in the catalogs. `file` is its absolute path.
+ * or file name of a trail in the catalogs, such as `12` or `kicker`. `file` is
+ * its absolute path.
  */
 export function loadTrailArgument(name) {
   const path = resolve(name);
@@ -28,11 +29,19 @@ export function loadTrailArgument(name) {
     return { id: basename(path, '.json'), file: path, trail: JSON.parse(readFileSync(path, 'utf8')) };
   }
   for (const source of ['official', 'bonus', 'custom']) {
-    const entry = loadCatalogTrails(source).find(candidate => candidate.id.includes(name));
+    // The file name too: it holds the trail's number, which the id doesn't.
+    const entry = loadCatalogTrails(source).find(candidate => candidate.id.includes(name) || candidate.file.includes(name));
     if (entry) return { ...entry, file: root + 'trails/' + entry.file };
   }
   throw new Error(`no trail file or catalog trail matches "${name}"`);
 }
+
+/**
+ * The file of a trail's replay in tests/replays/ (and of a human run in
+ * tests/replays/human/): named by its id, without its folder, so a trail
+ * moved to another place keeps its replay.
+ */
+export const replayFile = entry => entry.id.slice(entry.id.indexOf(':') + 1) + '.json';
 
 /** Where scripts/playtest.mjs saves its run of a trail, and scripts/render-trail.mjs reads it. */
 export const playtestRunPath = (id, variant = '') => root + '.playtest/' + id.replace(/[^\w.-]+/g, '_') + variant + '.json';

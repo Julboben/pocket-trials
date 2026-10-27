@@ -102,7 +102,7 @@ Gamepads use the standard mapping: `RT` or `A` for gas, `LT` or `X` for brake, t
 
 The career starts with gentle rollers that teach throttle rhythm and balance, then builds through turning around, steep climbs, committed jumps, hard braking, caves, water and weather to long technical trails that combine everything. Bonus trails sit outside the career.
 
-How the career is designed, and the rules every trail follows, are in [`TRAILS_GUIDE.md`](./TRAILS_GUIDE.md). The trails still to build are in [`TRAILS_PLAN.md`](./TRAILS_PLAN.md).
+How the career is designed, and the rules every trail follows, are in [`TRAILS_GUIDE.md`](./TRAILS_GUIDE.md). The career as it stands, trail by trail with what each teaches, is in [`TRAILS.md`](./TRAILS.md), which is generated from the trail files.
 
 Each trail requires collecting every apple before the finish gate will open. Completing a trail unlocks the next one. Selecting a trail starts it immediately, and its number and name remain visible as a lower-left course marker.
 

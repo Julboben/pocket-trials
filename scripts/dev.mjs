@@ -6,9 +6,9 @@ import { DEV_SERVER_HEADER, DEV_SERVER_READ_ONLY, DEV_SERVER_WRITABLE } from '..
 import { RIDE_VERSION, simulateRun } from '../js/ride.js';
 import { decodeInputs } from '../js/replay-codec.js';
 import { validRows } from '../netlify/lib/verify-run.mjs';
-import { generateTrailCatalog } from './generate-trail-catalog.mjs';
+import { catalogId, generateTrailCatalog } from './generate-trail-catalog.mjs';
 import { contentType } from './lib/mime-types.mjs';
-import { loadCatalogTrails } from './lib/trails.mjs';
+import { loadCatalogTrails, replayFile } from './lib/trails.mjs';
 import './watch-trails.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -83,7 +83,7 @@ async function handleTrailRequest(request, response, file) {
   if (!match) return sendJson(response, 400, { error: 'Trail files must be official/<name>.json, bonus/<name>.json or custom/<name>.json using letters, numbers, - and _.' });
   const [, source, name] = match;
   const target = path.join(trailsRoot, source, `${name}.json`);
-  const entry = { id: `${source}:${name}`, source, file: `${source}/${name}.json` };
+  const entry = { id: catalogId(source, name), source, file: `${source}/${name}.json` };
 
   if (request.method === 'PUT') {
     let trail;
@@ -120,7 +120,7 @@ async function handleReferenceRun(request, response) {
   const seed = Number.isFinite(run.seed) ? run.seed : 1;
   const entry = loadCatalogTrails('official').find(candidate => simulateRun(candidate.trail, inputs, { seed }).ride.status === 'won');
   if (!entry) return sendJson(response, 422, { error: 'The run doesn\'t finish any saved official trail. Save the trail first.' });
-  const file = entry.file.split('/').pop();
+  const file = replayFile(entry);
   const target = path.join(humanRunsRoot, file);
   const previous = await readFile(target, 'utf8').then(text => JSON.parse(text).time ?? null, () => undefined);
   const { ride } = simulateRun(entry.trail, inputs, { seed });
