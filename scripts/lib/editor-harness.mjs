@@ -58,6 +58,7 @@ class Element {
   }
   dispatch(type, event = {}) {
     for (const handler of this.listeners.get(type) || []) handler({ target: this, preventDefault() {}, stopPropagation() {}, ...event });
+    runFrames();
   }
   setPointerCapture() {}
   releasePointerCapture() {}
@@ -180,6 +181,19 @@ export function createContextStub() {
 const registry = new Map();
 
 /** Installs the globals the editor module expects, and returns a teardown. */
+// Animation frames run after each event, as a browser draws one before the
+// next event could be seen. A frame asked for while they run waits for the
+// next event, so an animation that keeps asking can't loop forever.
+const frames = new Map();
+let lastFrame = 0;
+
+/** Run the animation frames asked for so far. */
+export function runFrames() {
+  const due = [...frames];
+  frames.clear();
+  for (const [, callback] of due) callback(0);
+}
+
 export function installGlobals() {
   const saved = new Map();
   const ids = registry;
@@ -219,8 +233,11 @@ export function installGlobals() {
   set('navigator', { userAgent: 'node' });
   set('ResizeObserver', class { observe() {} disconnect() {} unobserve() {} });
   set('WheelEvent', { DOM_DELTA_LINE: 1 });
-  set('requestAnimationFrame', () => 0);
-  set('cancelAnimationFrame', () => {});
+  set('requestAnimationFrame', callback => {
+    frames.set(++lastFrame, callback);
+    return lastFrame;
+  });
+  set('cancelAnimationFrame', id => frames.delete(id));
   set('OffscreenCanvas', undefined);
   set('ImageData', class { constructor(data, width, height) { Object.assign(this, { data, width, height }); } });
   set('Image', class { set src(value) {} });

@@ -10,8 +10,9 @@ import { FINISH_FLOWER_RADIUS } from "../finish.js";
 import { NISSE_GROUND_LIFT, drawNisse } from "../nisse.js";
 import { SPIKE_TIP } from "../spike.js";
 import { store } from "../local-store.js";
-import { fallLine, invalidateTerrain, terrainGeometry } from "../terrain.js";
+import { fallLine, invalidateTerrain, terrainGeometry, updateTerrain } from "../terrain.js";
 import { terrainColumnSpans } from "../terrain-runtime.js";
+import { regionBounds } from "../terrain-geometry.js";
 import { finishFlower, finishHeight, surfaceBelow } from "../trail-schema.js";
 import { terrainMaterials } from "../trails.js";
 import { normalizeWater, waterColumns } from "../water.js";
@@ -40,57 +41,146 @@ export const GAME_ART_KEY = "hjulben-editor-game-art-v1";
 /**
  * The editor edits blocks in place while dragging, so the compiled terrain the
  * renderer, surface queries and validation share has to be told. A cheap
- * fingerprint of everything that shapes the terrain is compared each time it
- * is needed, and the trail is invalidated only when it has really changed.
+ * fingerprint of each block is compared each time it is needed, and only the
+ * blocks that really changed are rebuilt (see updateTerrain).
  */
 let terrainFingerprint = null;
 let terrainTrail = null;
+// Each block's fingerprint, and the block it was taken of, by index.
+let blockPrints = [];
+let printedBlocks = [];
+// Small numbers for the few strings a block holds (materials, layers, edge
+// and node modes), so they mix as quickly as a coordinate.
+const stringCodes = new Map();
+const code = (value) => {
+  let known = stringCodes.get(value);
+  if (known === undefined) stringCodes.set(value, (known = stringCodes.size + 1));
+  return known;
+};
+
+function blockPrint(block) {
+  let hash = 0x811c9dc5;
+  const mix = (value) => {
+    hash = Math.imul(hash ^ value, 0x01000193) >>> 0;
+  };
+  const point = (value) => mix(Math.round(value * 64) | 0);
+  mix(code(String(block.material)));
+  mix(code(block.layer || ""));
+  for (const boundary of [block.outer, ...block.inner]) {
+    mix(boundary.nodes.length);
+    for (const node of boundary.nodes) {
+      point(node.x);
+      point(node.y);
+      if (node.in) {
+        point(node.in[0]);
+        point(node.in[1]);
+      } else mix(1);
+      if (node.out) {
+        point(node.out[0]);
+        point(node.out[1]);
+      } else mix(2);
+      mix(code(node.edge || ""));
+      mix(code(node.mode || ""));
+    }
+  }
+  return hash;
+}
 
 export function syncTerrain() {
   // A redraw that only moved the view can't have changed the terrain.
   if (viewOnly && terrainTrail === editor.trail && terrainFingerprint !== null)
     return;
-  let hash = 0x811c9dc5;
-  const mix = (value) => {
-    hash = Math.imul(hash ^ (Math.round(value * 64) | 0), 0x01000193) >>> 0;
-  };
-  const text = (value) => {
-    for (let index = 0; index < value.length; index++)
-      mix(value.charCodeAt(index));
-  };
-  for (const block of blocks()) {
-    text(String(block.material));
-    text(block.layer || "");
-    for (const boundary of [block.outer, ...block.inner]) {
-      mix(boundary.nodes.length);
-      for (const node of boundary.nodes) {
-        mix(node.x);
-        mix(node.y);
-        if (node.in) {
-          mix(node.in[0]);
-          mix(node.in[1]);
-        }
-        if (node.out) {
-          mix(node.out[0]);
-          mix(node.out[1]);
-        }
-        text(node.edge || "");
-        text(node.mode || "");
-      }
+  const list = blocks();
+  const prints = list.map(blockPrint);
+  // Undo and loading swap in another trail object, whose terrain is not an edit.
+  const sameTrail = terrainTrail === editor.trail && terrainFingerprint !== null;
+  terrainTrail = editor.trail;
+  const changed = [];
+  if (sameTrail && list.length === printedBlocks.length) {
+    list.forEach((block, index) => {
+      if (prints[index] !== blockPrints[index] || block !== printedBlocks[index]) changed.push(index);
+    });
+    if (!changed.length) return;
+    // Blocks changed in place: only they are rebuilt, and only objects
+    // standing where they were or are now can have lost their floor.
+    const before = changed.map((index) => boxes[index]);
+    for (const index of changed) boxes[index] = regionBounds(list[index]);
+    const near = [...before, ...changed.map((index) => boxes[index])];
+    const anchored = groundAnchoredObjects((x) => near.some((box) => x >= box.left && x <= box.right));
+    remember(list, prints);
+    measureAll();
+    updateTerrain(editor.trail, new Set(changed.map((index) => list[index])));
+    keepCoveredObjectsInPlace(anchored);
+    return;
+  }
+  // Blocks added, removed or reordered, or another trail: everything again.
+  const fingerprint = prints.join(",");
+  if (fingerprint === terrainFingerprint && list.length === printedBlocks.length) {
+    remember(list, prints);
+    return;
+  }
+  // Read while the compiled terrain is still the one on screen.
+  const anchored = sameTrail ? groundAnchoredObjects() : [];
+  remember(list, prints);
+  terrainFingerprint = fingerprint;
+  measureBlocks();
+  invalidateTerrain(editor.trail);
+  keepCoveredObjectsInPlace(anchored);
+}
+
+function remember(list, prints) {
+  printedBlocks = list.slice();
+  blockPrints = prints;
+  terrainFingerprint = prints.join(",");
+}
+
+// The box round each block, by index, and round all of them: a redraw only
+// draws the blocks in view, and panning clamps to the trail without measuring
+// thousands of blocks for every step. Measured again whenever the terrain
+// changes (see syncTerrain).
+let boxes = [];
+let allBox = null;
+
+function measureBlocks() {
+  boxes = blocks().map((block) => regionBounds(block));
+  measureAll();
+}
+
+function measureAll() {
+  allBox = null;
+  for (const box of boxes) {
+    if (!allBox) allBox = { ...box };
+    else {
+      allBox.left = Math.min(allBox.left, box.left);
+      allBox.right = Math.max(allBox.right, box.right);
+      allBox.top = Math.min(allBox.top, box.top);
+      allBox.bottom = Math.max(allBox.bottom, box.bottom);
     }
   }
-  const fingerprint = `${hash}:${blocks().length}`;
-  // Undo and loading swap in another trail object, whose terrain is not an edit.
-  const sameTrail = terrainTrail === editor.trail;
-  terrainTrail = editor.trail;
-  if (fingerprint !== terrainFingerprint) {
-    // Read while the compiled terrain is still the one on screen.
-    const anchored =
-      terrainFingerprint !== null && sameTrail ? groundAnchoredObjects() : [];
-    terrainFingerprint = fingerprint;
-    invalidateTerrain(editor.trail);
-    keepCoveredObjectsInPlace(anchored);
-  }
+}
+
+/** The box round every block, or null without any. */
+export function terrainBox() {
+  if (terrainTrail !== editor.trail || terrainFingerprint === null) syncTerrain();
+  return allBox && { ...allBox };
+}
+
+/** Whether block `index` reaches into the part of the world on screen. */
+function blockInView(index, view) {
+  const box = boxes[index];
+  return !box || (box.right >= view.left && box.left <= view.right && box.bottom >= view.top && box.top <= view.bottom);
+}
+
+/** The world on screen, a handle's width larger all round. */
+function viewBox() {
+  const { width, height } = viewportSize();
+  const margin = 12 / editor.zoom;
+  return {
+    left: editor.cameraX - margin,
+    top: editor.cameraY - margin,
+    right: editor.cameraX + width / editor.zoom + margin,
+    bottom: editor.cameraY + height / editor.zoom + margin,
+  };
 }
 
 /**
@@ -98,10 +188,11 @@ export function syncTerrain() {
  * apples) stand on the topmost surface at their x. Each is listed with the
  * floor it stands on now and a way to pin its height.
  */
-function groundAnchoredObjects() {
+function groundAnchoredObjects(near = () => true) {
   const trail = editor.trail;
   const found = [];
   const add = (x, pin) => {
+    if (!near(x)) return;
     const floor = surfaceBelow(trail, x, null);
     if (floor) found.push({ x, floor: floor.y, pin });
   };
@@ -174,7 +265,9 @@ function showGameArt() {
 
 function drawBlocks() {
   const gameArt = showGameArt();
+  const view = viewBox();
   for (const [blockIndex, block] of blocks().entries()) {
+    if (!blockInView(blockIndex, view)) continue;
     const material = terrainMaterials[block.material] || terrainMaterials.grass;
     const back = isBackWall(block);
     // With game art showing, the blocks are already drawn exactly as they
@@ -245,8 +338,9 @@ function drawPendingShape(shape) {
  */
 function drawBackWalls() {
   if (!showGameArt()) {
-    for (const block of blocks()) {
-      if (!isBackWall(block)) continue;
+    const view = viewBox();
+    for (const [blockIndex, block] of blocks().entries()) {
+      if (!isBackWall(block) || !blockInView(blockIndex, view)) continue;
       const material = terrainMaterials[block.material] || terrainMaterials.grass;
       traceBlock(block);
       ctx.fillStyle = material.fill;
@@ -505,7 +599,10 @@ function drawHandles() {
     ctx.fill();
     ctx.stroke();
   };
+  const view = viewBox();
   for (const [blockIndex, block] of blocks().entries()) {
+    // The selected block's curve handles can reach past its box.
+    if (blockIndex !== editor.selection?.blockIndex && !blockInView(blockIndex, view)) continue;
     boundaryEntries(block).forEach(({ boundary, hole }, boundaryIndex) => {
       boundary.nodes.forEach((node, index) => {
         drawHandle(
@@ -563,22 +660,34 @@ function drawHandles() {
 }
 
 let viewOnly = false;
+let viewFrame = null;
 
 /**
  * Redraw after only the view or a preview changed (panning, zooming, hovering,
  * box-selecting), skipping the check for terrain edits. Anything that edits the
  * trail must call render().
+ *
+ * A trackpad sends more pan and zoom events than the screen shows frames, so
+ * the redraw waits for the next frame and draws once for all of them.
  */
 export function renderView() {
-  viewOnly = true;
-  try {
-    render();
-  } finally {
-    viewOnly = false;
-  }
+  viewFrame ??= requestAnimationFrame(() => {
+    viewFrame = null;
+    viewOnly = true;
+    try {
+      render();
+    } finally {
+      viewOnly = false;
+    }
+  });
 }
 
 export function render() {
+  // A full redraw now covers any view change waiting for the next frame.
+  if (viewFrame !== null && !viewOnly) {
+    cancelAnimationFrame(viewFrame);
+    viewFrame = null;
+  }
   // The inspector only has something to show for a selection.
   const inspector = $("inspector");
   const open = Boolean(editor.selection);

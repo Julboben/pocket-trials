@@ -1,24 +1,26 @@
 // Trail editor entry point: sets up the initial state, wires the page's
 // controls, and draws the first frame.
+// First, so it listens for a new release while the trails load.
+import { setUpdatePrompt } from "../update-prompt.js";
 import { store } from "../local-store.js";
 import {
   cloneTrail,
   createBlankTrail,
   normalizeTrail,
-  trailToModule,
   validateTrail,
 } from "../trail-schema.js";
 import { devServerWritable, reportEditorFeat, terrainMaterials, trailEntries } from "../trails.js";
 import { DISCORD_LINK_LENGTH, MAX_JSON_BYTES, trailShareUrl } from "../trail-link.js";
-import { bindAutosave } from "./autosave.js";
+import { autosaveFailing, autosaveNow, bindAutosave } from "./autosave.js";
 import { bindClipboard } from "./clipboard.js";
 import { $, canvas, wrap } from "./dom.js";
+import { openDraftStore, whenWritten } from "./draft-store.js";
 import { pushHistory, redo, undo, updateHistoryButtons } from "./history.js";
 import { bindInput } from "./input.js";
 import { bindInspector, rememberedAuthor, renameTrail, syncInspector } from "./inspector.js";
 import { bindMenu } from "./menu.js";
 import { pickerSelect } from "./picker.js";
-import { bindPlaytest } from "./playtest.js";
+import { bindPlaytest, playtestOpen } from "./playtest.js";
 import { GAME_ART_KEY, render } from "./render.js";
 import { editor } from "./state.js";
 import { refuse, refuseEdit, showStatus } from "./status.js";
@@ -51,6 +53,9 @@ import {
 
 editor.trailIndex = storedTrailIndex();
 
+// Drafts and autosaves are read into memory first, so opening a trail can
+// pick them up at once.
+await openDraftStore();
 editor.trail = loadTrailData(editor.trailIndex);
 
 editor.gameArt = (() => {
@@ -216,18 +221,6 @@ $("export-json").addEventListener("click", () => {
   );
 });
 
-$("export-js").addEventListener("click", () => {
-  const errors = validateTrail(editor.trail).filter(
-    (message) => message.type === "error",
-  );
-  if (errors.length && !refuse("exporting", errors)) return;
-  download(
-    `${editor.trail.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.js`,
-    trailToModule(editor.trail),
-    "text/javascript",
-  );
-});
-
 // The whole trail rides in the link's hash, so sharing needs no server.
 $("share-trail").addEventListener("click", async () => {
   const errors = validateTrail(editor.trail).filter(
@@ -308,3 +301,15 @@ updateTrailControls();
 render();
 document.querySelector(".editor-shell").removeAttribute("data-booting");
 announceVersion();
+
+// A new release asks for its reload once any play test is over, and keeps the
+// trail first. Edits the browser can't store would be lost, so then the
+// reload can wait while they are exported.
+setUpdatePrompt({
+  canShow: () => !playtestOpen(),
+  beforeReload: async () => {
+    autosaveNow();
+    await whenWritten();
+  },
+  canPostpone: autosaveFailing,
+});

@@ -2,10 +2,11 @@
 // worker filled when it installed: CACHE changes with their content, so every
 // release installs a fresh copy of all of them and a page never mixes files
 // from two releases. A new worker takes over the open pages as soon as it has
-// installed (skipWaiting + claim); main.js then offers a reload, so a running
-// page keeps its own release until the player asks. Trail files and anything
+// installed (skipWaiting + claim). A page already running then asks for a
+// reload it can't skip (see update-prompt.js): files it loads after that come
+// from the new release, so it can't safely keep running the old one. Trail files and anything
 // else are network-first, and kept so the game also starts offline.
-const CACHE = 'hjulben-7bb3adf8';
+const CACHE = 'hjulben-8bc9d29b';
 const CORE = [
   './',
   './css/editor.css',
@@ -46,6 +47,7 @@ const CORE = [
   './js/editor/blocks.js',
   './js/editor/clipboard.js',
   './js/editor/dom.js',
+  './js/editor/draft-store.js',
   './js/editor/drafts.js',
   './js/editor/history.js',
   './js/editor/hit-test.js',
@@ -77,6 +79,7 @@ const CORE = [
   './js/event-props.js',
   './js/finish.js',
   './js/fire.js',
+  './js/fireworks.js',
   './js/forest-props.js',
   './js/fps-meter.js',
   './js/game.js',
@@ -113,6 +116,7 @@ const CORE = [
   './js/terrain-render.js',
   './js/terrain-runtime.js',
   './js/terrain.js',
+  './js/text-store.js',
   './js/time-of-day.js',
   './js/trail-hash.js',
   './js/trail-link.js',
@@ -126,6 +130,7 @@ const CORE = [
   './js/ui/menu.js',
   './js/ui/overlay.js',
   './js/unlocks.js',
+  './js/update-prompt.js',
   './js/vehicle-physics.js',
   './js/version.js',
   './js/water-props.js',

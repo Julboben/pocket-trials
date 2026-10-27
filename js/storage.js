@@ -1,5 +1,5 @@
 import { clamp } from './config.js';
-import { store } from './local-store.js';
+import { STORAGE_FAILED_EVENT, store } from './local-store.js';
 import { cachedOnlineBoard } from './online-leaderboard.js';
 import { RIDE_VERSION } from './ride.js';
 import { cleanRiderName } from './rider-name.js';
@@ -15,8 +15,7 @@ const SEEN_VERSION_KEY = 'hjulben-seen-version-v1';
 const SEEN_HOW_TO_KEY = 'hjulben-seen-how-to-v1';
 const SLOT_COUNT = 3;
 export const LEADERBOARD_SIZE = 10;
-/** Fired on window when a write to storage failed (usually because it is full), with `{ key }`. */
-export const STORAGE_FAILED_EVENT = 'hjulben:storage-failed';
+export { STORAGE_FAILED_EVENT };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

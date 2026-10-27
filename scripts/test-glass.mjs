@@ -3,6 +3,7 @@ import { RADIUS, STEP, GRAVITY, GLASS_WEIGHT_IMPACT } from '../js/config.js';
 import { createRide, stepRide } from '../js/ride.js';
 import { terrainGeometry } from '../js/terrain.js';
 import { glassStrength, paneSize } from '../js/glass.js';
+import { cloneRide } from './lib/replay-bot.mjs';
 import { blockTrail, polygonBlock, rectangle } from './lib/terrain-fixtures.mjs';
 
 const PANE_TOP = 300;
@@ -109,6 +110,15 @@ const wheelsBelowPane = current => current.rear.y > PANE_TOP + 20 && current.fro
   assert.equal(again.shatters[0].step, shatter.step, 'glass breaks on the same step every time');
   assert.equal(again.ride.rear.x, over.ride.rear.x);
   assert.equal(again.ride.rear.y, over.ride.rear.y);
+
+  // The replay bot tries many copies of one ride: a pane a copy breaks stays
+  // whole for the ride it was copied from.
+  const before = createRide(trail, { start: { x: 400, y: PANE_TOP - RADIUS - dropFor(strength * 1.15), facing: 1 } });
+  const copy = cloneRide(before);
+  for (let step = 0; step < 2.5 / STEP; step++) stepRide(copy, {});
+  assert.equal(copy.trail.brokenBlocks.size, 1, 'the copy broke the pane');
+  assert.equal(before.trail.brokenBlocks.size, 0, 'the ride it was copied from keeps its pane');
+  assert.ok(terrainGeometry(before.trail).bodies.some(body => body.blockId === 'pane'), 'and still collides with it');
 }
 
 // Landings that don't break a pane crack it, and a cracked pane is weaker:

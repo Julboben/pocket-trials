@@ -16,6 +16,7 @@ import {
 } from "../trail-schema.js";
 import { store } from "../local-store.js";
 import { WEATHER_LEVELS, WEATHER_PRESETS, resolveWeather } from "../weather.js";
+import { glareStrength } from "../lighting.js";
 import { startWindsock } from "./windsock.js";
 import { TIME_MARKS, clockTime, hourName, normalizeHour } from "../time-of-day.js";
 import {
@@ -282,10 +283,12 @@ function syncDetails() {
   clearTimeout(pendingDetails);
   pendingDetails = null;
   const json = JSON.stringify(editor.trail, null, 2);
-  $("trail-json").value = json;
+  // Filling the box is slow on a large trail (a 5 MB one takes over 0.1 s,
+  // hidden or not), so it is only kept up to date while its dialog is open.
+  if (/** @type {HTMLDialogElement} */ ($("data-dialog")).open) $("trail-json").value = json;
   updateVersionChip(json);
   renderObjects();
-  scheduleAutosave();
+  scheduleAutosave(json);
   const messages = validateTrail(editor.trail);
   $("validation-list").replaceChildren(
     ...messages.map((message) => {
@@ -334,6 +337,12 @@ function syncSelectionIssues(messages) {
       return item;
     }),
   );
+}
+
+/** Fill the import and export box with the trail, as its dialog opens. */
+export function fillTrailJson() {
+  flushInspector();
+  $("trail-json").value = JSON.stringify(editor.trail, null, 2);
 }
 
 /** Finish any JSON and validation a live drag left waiting. */
@@ -470,6 +479,19 @@ function putOnGround() {
 function showWeatherValue(key) {
   const value = Number($(`weather-${key}`).value) || 0;
   $(`weather-${key}-value`).textContent = `${Math.round(value * 100)}%`;
+  showSunGlare();
+}
+
+/**
+ * Beside the sun's level, the glare the game gives it: a strong sun glares
+ * and casts rays, which the level alone doesn't tell, as clouds, fog, rain
+ * and the time of day all temper it.
+ */
+function showSunGlare() {
+  const sun = Number($("weather-sun").value) || 0;
+  const glare = glareStrength({ timeOfDay: editor.trail.timeOfDay, weather: resolveWeather(editor.trail.weather) });
+  const word = glare >= 0.9 ? "full glare" : glare >= 0.5 ? "strong glare" : glare > 0.05 ? "some glare" : "no glare";
+  $("weather-sun-value").textContent = `${Math.round(sun * 100)}% · ${word}`;
 }
 
 /**
@@ -510,6 +532,7 @@ function syncTimeOfDay() {
 
 function showTimeOfDay(hour) {
   $("time-of-day-value").textContent = `${clockTime(hour)} · ${hourName(hour)}`;
+  showSunGlare();
 }
 
 /** Changes the trail's weather as one undoable step. */

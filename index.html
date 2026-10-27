@@ -320,11 +320,6 @@
                     id="menu-background"
                     aria-hidden="true"
                 ></canvas>
-                <!-- A new release has installed; shown on the dashboard only, never mid-ride. -->
-                <div class="update-toast" id="update-toast" role="status" hidden>
-                    <span>Update ready</span>
-                    <button type="button" class="update-reload" id="update-reload">RELOAD</button>
-                </div>
                 <div class="menu-scroll" id="menu-scroll">
                     <div class="menu-dashboard">
                         <div class="menu-hero">
@@ -1457,6 +1452,29 @@
                 <small>Hjulben plays in portrait mode, with the controls below the trail.</small>
             </dialog>
         </main>
+        <!-- A new release has taken over the page; update-prompt.js opens it on
+             the menu and it can't be dismissed. Outside the game, so its keys
+             don't reach the menu behind it. -->
+        <dialog
+            class="menu-confirm"
+            id="update-dialog"
+            role="alertdialog"
+            closedby="none"
+            aria-labelledby="update-title"
+            aria-describedby="update-text"
+        >
+            <div class="modal">
+                <span class="modal-badge">UPDATE</span>
+                <h2 id="update-title">Update ready</h2>
+                <p id="update-text">
+                    A new version of Hjulben is installed. Reload to keep
+                    playing; your progress is saved.
+                </p>
+                <button type="button" class="primary" id="update-reload">
+                    Reload
+                </button>
+            </div>
+        </dialog>
         <script type="module" src="./js/main.js"></script>
         <noscript>Hjulben needs JavaScript.</noscript>
     </body>

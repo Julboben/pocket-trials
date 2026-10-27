@@ -4,7 +4,7 @@
 // It runs as its own process because trails.js caches the trail catalog at
 // import time: two boots in one process would silently share a trail, so the
 // parent starts one child per trail shape.
-import { buildDom, createContextStub, installGlobals } from './editor-harness.mjs';
+import { buildDom, createContextStub, installGlobals, runFrames } from './editor-harness.mjs';
 import { loadTrailShape } from './editor-fixture.mjs';
 
 const kind = process.env.TSC_ENV_TRAIL || 'blocks';
@@ -55,12 +55,16 @@ const world = (x, y) => ({ clientX: x - cameraX, clientY: y - cameraY });
 const key = (keyName, extra = {}) => {
   document.activeElement = canvas;
   for (const handler of windowListeners.get('keydown') || []) handler({ key: keyName, code: '', preventDefault() {}, ...extra });
+  runFrames();
 };
 // Mid-drag the JSON waits for the pointer to pause, so it is flushed first.
 const { flushInspector } = await import('../../js/editor/inspector.js');
+// The trail as the editor holds it. The JSON box is only filled while its
+// dialog is open, so it is not read here.
+const { editor: editorState } = await import('../../js/editor/state.js');
 const current = () => {
   flushInspector();
-  return JSON.parse(document.getElementById('trail-json').value);
+  return JSON.parse(JSON.stringify(editorState.trail));
 };
 const toolButton = name => [...document.querySelectorAll('[data-tool]')].find(button => button.dataset.tool === name);
 const drag = (from, to, extra = {}) => {
@@ -664,7 +668,7 @@ if (kind === 'covered') {
   process.exit(0);
 }
 
-const report = { loaded: JSON.parse(document.getElementById('trail-json').value), errors: [] };
+const report = { loaded: current(), errors: [] };
 
 // A drag, so the editor actually renders rather than returning early. Game art
 // is on by default: the terrain comes from the game's rasteriser.
@@ -689,6 +693,70 @@ report.closed = context.calls.some(call => call[0] === 'closePath');
 report.strokeHasArgs = context.calls.some(call => call[0] === 'stroke' && call.length > 1);
 report.calls = context.calls.length;
 fire('pointerup');
+
+// A trackpad sends more pan events than the screen shows frames: they are
+// drawn once, in the next frame.
+{
+  context.calls.length = 0;
+  for (let step = 0; step < 3; step++)
+    for (const handler of canvas.listeners.get('wheel')) handler({ deltaX: 5, deltaY: 0, deltaMode: 0, preventDefault() {} });
+  report.panDeferred = !context.calls.some(call => call[0] === 'setTransform');
+  runFrames();
+  report.panRedraws = context.calls.filter(call => call[0] === 'setTransform').length;
+}
+
+// Blocks out of view are not drawn (game art is off here, so each block in
+// view is filled with the even-odd rule).
+{
+  const { renderView } = await import('../../js/editor/render.js');
+  const fills = () => {
+    context.calls.length = 0;
+    renderView();
+    runFrames();
+    return context.calls.filter(call => call[0] === 'fill' && call[1] === 'evenodd').length;
+  };
+  report.blockFillsInView = fills();
+  const cameraX = editorState.cameraX;
+  editorState.cameraX += 100_000;
+  report.blockFillsOutOfView = fills();
+  editorState.cameraX = cameraX;
+}
+
+// Beside the sun's level, the glare it gives, which clouds temper.
+{
+  const { syncInspector } = await import('../../js/editor/inspector.js');
+  const weather = editorState.trail.weather;
+  editorState.trail.weather = { ...weather, sun: 1, clouds: 0 };
+  syncInspector();
+  report.sunClear = document.getElementById('weather-sun-value').textContent;
+  editorState.trail.weather = { ...weather, sun: 1, clouds: 1 };
+  syncInspector();
+  report.sunCloudy = document.getElementById('weather-sun-value').textContent;
+  editorState.trail.weather = weather;
+  syncInspector();
+}
+
+// The import and export box is filled as its dialog opens and kept current
+// while it is open. Closed, it is left alone: filling it is slow on a large trail.
+{
+  const { syncInspector } = await import('../../js/editor/inspector.js');
+  const dialog = document.getElementById('data-dialog');
+  dialog.showModal = () => { dialog.open = true; };
+  const box = document.getElementById('trail-json');
+  box.value = '';
+  document.getElementById('open-data').click();
+  report.jsonFilled = box.value !== '' && JSON.stringify(JSON.parse(box.value)) === JSON.stringify(current());
+  const name = editorState.trail.name;
+  editorState.trail.name = 'Renamed while open';
+  syncInspector();
+  report.jsonFollowsOpen = JSON.parse(box.value).name === 'Renamed while open';
+  dialog.open = false;
+  editorState.trail.name = 'Renamed while closed';
+  syncInspector();
+  report.jsonLeftClosed = JSON.parse(box.value).name === 'Renamed while open';
+  editorState.trail.name = name;
+  syncInspector();
+}
 
 const run = (label, gesture) => {
   try { gesture(); }
@@ -733,7 +801,7 @@ run('pinch', () => { fire('wheel', { deltaX: 0, deltaY: -10, deltaMode: 0, ctrlK
 // trail whose finish sits past the end of its terrain.
 if (process.env.TSC_ENV_TRAIL === 'badgoal') {
   const button = document.getElementById('play-test');
-  const before = document.getElementById('trail-json').value.length;
+  const before = JSON.stringify(current());
   button.click();
   const toast = document.getElementById('editor-toast');
   report.refusalText = toast.textContent;
@@ -744,7 +812,7 @@ if (process.env.TSC_ENV_TRAIL === 'badgoal') {
   report.refusalCounted = /\b1 validation error\b/.test(report.refusalText);
   report.buttonFlash = button.textContent;
   report.playtestClosed = document.getElementById('playtest').hidden === true;
-  report.jsonUnchanged = document.getElementById('trail-json').value.length === before;
+  report.jsonUnchanged = JSON.stringify(current()) === before;
 }
 
 process.stdout.write(JSON.stringify(report));

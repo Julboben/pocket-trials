@@ -2,7 +2,7 @@
 // be tried while it's being built, by a person or an AI that can't ride it.
 //
 //   node scripts/playtest.mjs trails/custom/my-trail.json   check, then solve one apple at a time
-//   node scripts/playtest.mjs 12                             a catalog trail whose id contains "12"
+//   node scripts/playtest.mjs 12                             a catalog trail whose id or file name contains "12"
 //   node scripts/playtest.mjs <trail> --check                validation and a survey only, instantly
 //   node scripts/playtest.mjs <trail> --without turn         solve without turning around (see SKILLS)
 //   node scripts/playtest.mjs <trail> --probe 1200,ground,1,300 --script "gas 1; gas fwd 0.4; coast 1"
@@ -22,6 +22,9 @@
 // can't solve is reported with how close it got. Every solved stretch is
 // ridden again with its input timing jittered, as a rough measure of how
 // forgiving the line is: the bot rides with perfect timing, people don't.
+// Those reruns, and each jump's run-up ridden again too slowly, also find
+// traps: places where a miss leaves the rider with no way back to the line
+// and no crash, so a player can only restart by hand.
 //
 // Runs are saved in .playtest/ and tried first next time, so after a small
 // edit only the stretches it broke are searched again. Progress goes to
@@ -34,7 +37,8 @@ import { DESCRIPTION_MAX_LENGTH, normalizeTrail, validateTrail } from '../js/tra
 import { terrainAt } from '../js/terrain.js';
 import { hangsBelowWheel } from '../js/vehicle-physics.js';
 import { cloneRide, exploreTrail, recordTrail } from './lib/replay-bot.mjs';
-import { loadTrailArgument, playtestRunPath, repoRoot } from './lib/trails.mjs';
+import { MAX_JSON_BYTES } from '../js/trail-link.js';
+import { loadCatalogTrails, loadTrailArgument, playtestRunPath, repoRoot } from './lib/trails.mjs';
 
 // The bot reports its progress with console.log; keep stdout for the report.
 console.log = (...args) => console.error(...args);
@@ -75,6 +79,16 @@ const constrain = without.length ? (ride, input) => without.reduce((next, skill)
 const airborne = ride => !ride.rear.grounded && !ride.front.grounded;
 const mid = ride => ({ x: (ride.rear.x + ride.front.x) / 2, y: (ride.rear.y + ride.front.y) / 2 });
 const at = point => `${Math.round(point.x)},${Math.round(point.y)}`;
+
+// An apple taken on the way into a crash is no place to ride on from, so a
+// stretch only ends at one if some input keeps the rider up for a moment after.
+const SURVIVE_STEPS = Math.round(.5 / STEP);
+const SURVIVE_INPUTS = [{}, { accelerating: true }, { braking: true }, { leanInput: -1 }, { leanInput: 1 }];
+const survives = ride => ride.status !== 'crashed' && SURVIVE_INPUTS.some(input => {
+  const probe = cloneRide(ride);
+  for (let step = 0; step < SURVIVE_STEPS && probe.status === 'running'; step++) stepRide(probe, { facing: probe.facing, ...input });
+  return probe.status !== 'crashed';
+});
 const seconds = steps => (steps * STEP).toFixed(2);
 
 const entry = loadTrailArgument(target);
@@ -86,6 +100,43 @@ const report = { trail: entry.id, file: entry.file, without };
 
 // --- Validation and survey ---------------------------------------------------
 
+/**
+ * How heavy the trail is, next to the largest shipped trails, so detail can
+ * be weighed (rule 14 in TRAILS_GUIDE.md): every block makes a trail larger
+ * to load, share and edit.
+ */
+function describeSize() {
+  const size = data => ({ blocks: (data.terrainBlocks || []).length, bytes: JSON.stringify(data).length });
+  const own = size(entry.trail);
+  const back = (entry.trail.terrainBlocks || []).filter(block => block.layer === 'back').length;
+  const shipped = [...loadCatalogTrails('official'), ...loadCatalogTrails('bonus')].map(other => size(other.trail));
+  const most = shipped.reduce((top, other) => ({ blocks: Math.max(top.blocks, other.blocks), bytes: Math.max(top.bytes, other.bytes) }), { blocks: 0, bytes: 0 });
+  const kb = bytes => bytes >= 1e6 ? `${(bytes / 1e6).toFixed(1)} MB` : `${Math.round(bytes / 1e3)} KB`;
+  let text = `Size: ${own.blocks} blocks (${back} back walls), ${kb(own.bytes)} of JSON; the largest official or bonus trail has ${most.blocks} blocks and ${kb(most.bytes)}.`;
+  if (own.bytes > MAX_JSON_BYTES) text += ' Too large to share as a link, which holds at most 1 MiB: keep detail to where the camera is.';
+  return text;
+}
+
+/**
+ * Validation messages as lines, the same message about several items of one
+ * kind (blocks, apples...) on one line with the items listed: a trail with
+ * hundreds of identical warnings would otherwise bury everything after them.
+ */
+function groupMessages(messages) {
+  const groups = new Map();
+  for (const { type, text } of messages) {
+    const item = /^(\w+) (\d+)\b/.exec(text);
+    const key = `${type}\n${item ? text.replace(item[0], `${item[1]} N`) : text}`;
+    if (!groups.has(key)) groups.set(key, { type, text, kind: item?.[1], numbers: [] });
+    if (item) groups.get(key).numbers.push(item[2]);
+  }
+  return [...groups.values()].map(({ type, text, kind, numbers }) => {
+    if (numbers.length < 2) return `${type.toUpperCase()}: ${text}`;
+    const shown = numbers.slice(0, 30).join(', ') + (numbers.length > 30 ? ` and ${numbers.length - 30} more` : '');
+    return `${type.toUpperCase()} x${numbers.length}: ${text.replace(`${kind} ${numbers[0]}`, `${kind} N`)} (${kind.toLowerCase()}s ${shown})`;
+  });
+}
+
 function survey() {
   const messages = validateTrail(trail).filter(message => message.type !== 'ok');
   if (descriptionLength > DESCRIPTION_MAX_LENGTH) {
@@ -94,7 +145,7 @@ function survey() {
   report.validation = messages.map(({ type, text }) => ({ type, text }));
   out(`Trail: ${trail.name} (${entry.file.replace(repoRoot, '')})`);
   if (!messages.length) out('Validation: ok');
-  for (const { type, text } of messages) out(`  ${type.toUpperCase()}: ${text}`);
+  for (const line of groupMessages(messages)) out(`  ${line}`);
   const ride = createRide(trail);
   const xs = [], ys = [];
   for (const block of trail.terrainBlocks) {
@@ -104,6 +155,7 @@ function survey() {
   const facing = trail.start.facing < 0 ? 'left' : 'right';
   const round = Math.round;
   out(`Terrain: x ${round(Math.min(...xs))} to ${round(Math.max(...xs))}, y ${round(Math.min(...ys))} to ${round(Math.max(...ys))} (smaller y is higher)`);
+  out(describeSize());
   out(`Start: ${at(mid(ride))} facing ${facing}. Finish flower: ${at(ride.flower)}`);
   out(`Apples (${ride.apples.length}):`);
   ride.apples.forEach((apple, index) => {
@@ -222,12 +274,17 @@ function runsOf(inputs) {
  * of reruns that still reach the goal, and for each second how many did and
  * where the others most often crashed or stalled.
  */
-function forgiveness(start, inputs, done, seed) {
+function forgiveness(start, inputs, done, seed, focus = null) {
   const random = seededRandom(seed);
   const window = Math.round(WINDOW / STEP);
   const runs = runsOf(inputs);
   const windows = [];
   const ride = cloneRide(start);
+  // Where the stretch's own line runs, and where reruns stalled, for traps.
+  const route = [];
+  const stalls = [];
+  // The run-up to each jump, where it is ridden again too slowly (see below).
+  const runUps = new Map(jumpRunUps(start, inputs).map(step => [step, null]));
   for (let from = 0; from < inputs.length; from += window) {
     // Where each run starts, and so where the input changes, in steps from the window's start.
     const local = [];
@@ -253,6 +310,7 @@ function forgiveness(start, inputs, done, seed) {
       rest.push(...Array(Math.round(1 / STEP)).fill(rest[rest.length - 1]));
       const { ride: after, stats } = measure(ride, rest, done);
       if (stats.reached) { reached++; continue; }
+      if (!stats.crash) stalls.push(after);
       const where = stats.crash || { cause: 'stalled', ...mid(after) };
       const near = { cause: where.cause, x: Math.round(where.x / 50) * 50, y: Math.round(where.y / 50) * 50 };
       const key = `${near.cause} near ${near.x},${near.y}`;
@@ -260,16 +318,111 @@ function forgiveness(start, inputs, done, seed) {
     }
     const worst = [...failures].sort((a, b) => b[1].count - a[1].count)[0];
     windows.push({ at: mid(ride), reached, failure: worst?.[0] ?? null, failedAt: worst?.[1] ?? null });
-    for (let step = from; step < Math.min(from + window, inputs.length); step++) stepRide(ride, inputs[step]);
+    for (let step = from; step < Math.min(from + window, inputs.length); step++) {
+      if (runUps.has(step)) runUps.set(step, cloneRide(ride));
+      stepRide(ride, inputs[step]);
+      if (step % 6 === 0) route.push(mid(ride));
+    }
+  }
+  // Timing isn't the only way to miss: a player who comes in too slowly
+  // falls short. Each jump's run-up is ridden again from a moment before
+  // takeoff at a fraction of the speed, with the same inputs, and where that
+  // leaves the rider is checked for a trap like any stalled rerun.
+  for (const [step, before] of runUps) {
+    for (const share of SLOW_RUN_UPS) {
+      const slow = cloneRide(before);
+      slowDown(slow, share);
+      const rest = inputs.slice(step, step + Math.round(RUN_UP_RIDE / STEP));
+      const { ride: after, stats } = measure(slow, rest, done);
+      if (!stats.reached && !stats.crash) stalls.push(after);
+    }
   }
   const reached = windows.reduce((sum, entry) => sum + entry.reached, 0);
-  return { share: reached / (windows.length * TRIALS), windows };
+  return { share: reached / (windows.length * TRIALS), windows, traps: findTraps(stalls, route, start, done, focus) };
 }
 
-function describeForgiveness({ share, windows }) {
+// How fast the slow run-ups come in, as a share of the bot's speed; how long
+// before takeoff they start; how long they are ridden; and the shortest time
+// in the air that counts as a jump.
+const SLOW_RUN_UPS = [0.6, 0.8];
+const RUN_UP = Math.round(0.4 / STEP);
+const RUN_UP_RIDE = 3;
+const JUMP_AIR = Math.round(0.3 / STEP);
+const MAX_RUN_UPS = 6;
+
+/** The steps a moment before each jump of the run takes off, at most MAX_RUN_UPS. */
+function jumpRunUps(start, inputs) {
+  const ride = cloneRide(start);
+  const takeoffs = [];
+  let air = 0;
+  inputs.forEach((input, step) => {
+    stepRide(ride, input);
+    if (airborne(ride)) air++;
+    else {
+      if (air >= JUMP_AIR) takeoffs.push(step - air);
+      air = 0;
+    }
+  });
+  return takeoffs.map(step => Math.max(0, step - RUN_UP)).slice(0, MAX_RUN_UPS);
+}
+
+/** Slows the bike to `share` of its speed, wheels' spin included. */
+function slowDown(ride, share) {
+  for (const point of ride.vehicle.bikePoints) {
+    point.ox = point.x - (point.x - point.ox) * share;
+    point.oy = point.y - (point.y - point.oy) * share;
+    if (Number.isFinite(point.angularVelocity)) point.angularVelocity *= share;
+  }
+}
+
+// Traps: a rerun that neither reaches the goal nor crashes may have left the
+// rider where they can neither ride on nor crash, such as a pit between two
+// buildings, and a player has to restart by hand. Each place reruns stalled
+// at is ridden on, coasting, until the bike crashes or comes to rest; from a
+// rest, the bot gets a short search to get back to any point of the
+// stretch's line, ahead or behind, or to the goal. A place it can't get out
+// of is a trap.
+const TRAP_SETTLE = Math.round(3 / STEP);
+const TRAP_REST = Math.round(0.5 / STEP);
+const TRAP_NEAR = 120;
+const TRAP_CHECKS = 3;
+const TRAP_MINUTES = 0.25;
+const ROUTE_REACH = 30;
+
+function findTraps(stalls, route, start, done, focus) {
+  const onLine = ({ x, y }) => route.some(point => Math.abs(point.x - x) < ROUTE_REACH && Math.abs(point.y - y) < ROUTE_REACH);
+  const rests = [];
+  for (const stalled of stalls) {
+    if (rests.length >= TRAP_CHECKS) break;
+    const settled = cloneRide(stalled);
+    let still = 0;
+    for (let step = 0; step < TRAP_SETTLE && settled.status === 'running' && still < TRAP_REST; step++) {
+      stepRide(settled, { facing: settled.facing });
+      still = !airborne(settled) && Math.abs(bikeSpeed(settled)) < 25 ? still + 1 : 0;
+    }
+    if (settled.status !== 'running' || still < TRAP_REST) continue;
+    const place = mid(settled);
+    // Come to rest on the line itself: nothing to get out of.
+    if (onLine(place)) continue;
+    if (rests.some(rest => Math.hypot(rest.place.x - place.x, rest.place.y - place.y) < TRAP_NEAR)) continue;
+    rests.push({ ride: settled, place });
+  }
+  const back = probe => done(probe) || onLine(mid(probe));
+  return rests.filter(({ ride }) => {
+    // The bot heads for the nearest apple not taken, so, as in solve, it
+    // searches on a copy where only the stretch's apple is left.
+    const from = cloneRide(ride);
+    if (focus !== null) from.apples.forEach((apple, index) => { apple.taken = index !== focus; });
+    if (recordTrail(entry, { start: from, done: back, minutes: TRAP_MINUTES * 0.4, constrain }).done) return false;
+    return !exploreTrail(entry, [], { start: from, done: back, minutes: TRAP_MINUTES * 0.6, polish: false, constrain });
+  }).map(({ place }) => ({ x: Math.round(place.x), y: Math.round(place.y) }));
+}
+
+function describeForgiveness({ share, windows, traps }) {
   const tight = windows.filter(entry => entry.reached <= TRIALS / 2).sort((a, b) => a.reached - b.reached).slice(0, 4);
   return `forgiveness: ${Math.round(share * 100)}% of reruns reach the goal with ${WINDOW} s of the timing off by up to ${Math.round(JITTER * STEP * 1000)} ms`
-    + (tight.length ? `; tight spots: ${tight.map(entry => `from ${at(entry.at)} ${entry.reached}/${TRIALS} (${entry.failure})`).join(', ')}` : '');
+    + (tight.length ? `; tight spots: ${tight.map(entry => `from ${at(entry.at)} ${entry.reached}/${TRIALS} (${entry.failure})`).join(', ')}` : '')
+    + (traps.length ? `\n  TRAPS: a miss leaves the rider at ${traps.map(at).join(', ')}, with no way back to the line and no crash` : '');
 }
 
 // --- Solving ----------------------------------------------------------------
@@ -324,7 +477,8 @@ function solveTrail() {
     const last = ride.collected === total;
     const collected = ride.collected;
     const focus = last ? null : order.find(index => !ride.apples[index].taken) ?? null;
-    const done = last ? probe => probe.status === 'won' : focus !== null ? probe => probe.apples[focus].taken : probe => probe.collected > collected;
+    const done = last ? probe => probe.status === 'won'
+      : focus !== null ? probe => probe.apples[focus].taken && survives(probe) : probe => probe.collected > collected && survives(probe);
     const goal = last ? 'the finish' : focus !== null ? `apple ${focus + 1}` : 'any apple';
     process.stderr.write(`stretch ${stretch + 1}: searching from ${at(mid(ride))} to ${goal}\n`);
     const found = solve(ride, done, cache?.stretches?.[stretch], focus);
@@ -341,23 +495,33 @@ function solveTrail() {
       break;
     }
     const { ride: after, stats } = measure(ride, found.inputs, done);
+    // The bot plans in chunks and can overshoot the goal by a few steps; the
+    // next stretch starts at the goal, so the run keeps only the steps to it.
+    const inputs = found.inputs.slice(0, stats.steps);
     const taken = stats.apples.map(({ index }) => `apple ${index + 1} at ${at(after.apples[index])}`);
     const reached = last ? `the finish at ${at(after.flower)}` : taken.join(' and ');
-    out(`Stretch ${stretch + 1}: ${at(mid(ride))} to ${reached} in ${seconds(found.inputs.length)} s (${found.method})`);
+    out(`Stretch ${stretch + 1}: ${at(mid(ride))} to ${reached} in ${seconds(inputs.length)} s (${found.method})`);
     for (const line of describeStats(stats)) out(`  ${line}`);
-    const forgiving = TRIALS ? forgiveness(ride, found.inputs, done, stretch + 1) : null;
+    const forgiving = TRIALS ? forgiveness(ride, inputs, done, stretch + 1, focus) : null;
     if (forgiving) out(`  ${describeForgiveness(forgiving)}`);
-    stretches.push({ from: mid(ride), reached, seconds: found.inputs.length * STEP, method: found.method, stats, forgiveness: forgiving, inputs: encodeInputs(found.inputs) });
-    fullRun.push(...found.inputs);
-    elapsed += found.inputs.length * STEP;
+    stretches.push({ from: mid(ride), reached, seconds: inputs.length * STEP, method: found.method, stats, forgiveness: forgiving, inputs: encodeInputs(inputs) });
+    fullRun.push(...inputs);
+    elapsed += inputs.length * STEP;
     ride = after;
   }
   const finished = ride.status === 'won';
   out();
   if (finished) {
     out(`Result: the bot finished in ${elapsed.toFixed(2)} s. Its route is not optimised, so treat this as an upper bound for gold.`);
-    out('Official trails use silver about 1.3x and bronze about 1.75x the gold time.');
+    // Gold at most 5% over the bot, silver and bronze as the official trails have them.
+    const gold = Math.round(elapsed * 1.05), silver = Math.round(gold * 1.3), bronze = Math.round(gold * 1.75);
+    out(`Medals: at most gold ${gold}, silver ${silver}, bronze ${bronze} (gold up to 5% over the bot, silver 1.3x and bronze 1.75x gold).`);
+    const set = trail.medals?.gold;
+    if (Number.isFinite(set) && set > gold) out(`  The trail's gold of ${set} s is more than 5% over the bot's time, so it is too easy to get: lower it.`);
   } else out(`Result: NOT finished; the bot took ${ride.collected} of ${total} apples.`);
+  const traps = stretches.flatMap(stretch => stretch.forgiveness?.traps || []);
+  if (traps.length) out(`TRAPS: ${traps.length} place${traps.length === 1 ? '' : 's'} where a miss leaves the rider with no way back and no crash (${traps.map(at).join(', ')}). Give each a way back to the line, or make it end the run (see TRAILS_GUIDE.md).`);
+  report.traps = traps;
   report.finished = finished;
   report.seconds = finished ? elapsed : null;
   report.stretches = stretches;
@@ -370,6 +534,8 @@ function solveTrail() {
     tightSpots: stretches.flatMap(stretch => (stretch.forgiveness?.windows || [])
       .filter(entry => entry.reached <= TRIALS / 2)
       .map(({ at: from, reached, failedAt }) => ({ from: { x: Math.round(from.x), y: Math.round(from.y) }, reached, trials: TRIALS, failedAt }))),
+    // Where a miss strands the rider, for scripts/render-trail.mjs to mark.
+    traps,
     // The whole run in the replay format's encoding, usable as a human run for scripts/record-replays.mjs.
     inputs: finished ? encodeInputs(fullRun) : undefined
   }) + '\n');
@@ -418,7 +584,7 @@ function goalOf(text, ride) {
   if (!apple) ride.apples.push(goal);
   ride.collected = ride.apples.length - 1;
   const index = ride.apples.indexOf(goal);
-  return { name: apple ? `apple ${apple[1]}` : `${goal.x},${goal.y}`, done: probe => probe.apples[index].taken };
+  return { name: apple ? `apple ${apple[1]}` : `${goal.x},${goal.y}`, done: probe => probe.apples[index].taken && survives(probe) };
 }
 
 function probe() {

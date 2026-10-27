@@ -9,6 +9,7 @@ import {
   updateShapePoints,
 } from "./blocks.js";
 import { isCurvedEdge } from "../terrain-geometry.js";
+import { updatePromptOpen } from "../update-prompt.js";
 import { typingInField } from "./clipboard.js";
 import { $, canvas } from "./dom.js";
 import { pushHistory, redo, restore, snapshot, undo } from "./history.js";
@@ -888,6 +889,8 @@ export function bindInput() {
   shortcuts.addEventListener("close", () => canvas.focus({ preventScroll: true }));
 
   window.addEventListener("keydown", (event) => {
+    // The reload for a new release comes first; the trail is kept for it.
+    if (updatePromptOpen()) return;
     // Cmd/Ctrl+P opens the quick pick in place of printing, which the editor has no use for.
     if ((event.metaKey || event.ctrlKey) && event.code === "KeyP" && !event.shiftKey && !event.altKey) {
       event.preventDefault();

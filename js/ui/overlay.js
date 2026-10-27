@@ -14,6 +14,10 @@ export function createOverlay({ onDismiss } = {}) {
   const toasts = /** @type {HTMLElement} */ (document.querySelector(".toast-stack"));
   const toastHome = /** @type {HTMLElement} */ (toasts.parentElement);
   const toastNext = toasts.nextSibling;
+  // The menu button, which stays usable over the results as over the pause screen.
+  const actions = /** @type {HTMLElement} */ (document.querySelector(".game-actions"));
+  const actionsHome = /** @type {HTMLElement} */ (actions.parentElement);
+  const actionsNext = actions.nextSibling;
   // Escape opens the menu (handled by the game), never just the dialog.
   dialog.addEventListener("cancel", (event) => event.preventDefault());
   // Browsers honour that once; a close request after it closes the dialog
@@ -25,11 +29,16 @@ export function createOverlay({ onDismiss } = {}) {
     requestAnimationFrame(() => { if (wantOpen && !dialog.open) dialog.showModal(); });
   });
 
-  /** The modal sits in the top layer; toasts move in with it to stay visible. */
+  /**
+   * The modal sits in the top layer and makes the rest of the page inert;
+   * toasts move in with it to stay visible, and the menu button to stay
+   * usable, pinned to the game's corner (see .overlay > .game-actions).
+   */
   function openDialog() {
     wantOpen = true;
     if (!dialog.open) dialog.showModal();
-    dialog.append(toasts);
+    pinToGame(dialog);
+    dialog.append(toasts, actions);
     raiseAchievement();
   }
 
@@ -37,7 +46,16 @@ export function createOverlay({ onDismiss } = {}) {
     wantOpen = false;
     if (dialog.open) dialog.close();
     if (toasts.parentElement !== toastHome) toastHome.insertBefore(toasts, toastNext);
+    if (actions.parentElement !== actionsHome) actionsHome.insertBefore(actions, actionsNext);
   }
+
+  /** The top layer is the whole window, so what sits on it is pinned to the game's corner. */
+  function pinToGame(/** @type {HTMLElement} */ element) {
+    const game = $("game").getBoundingClientRect();
+    element.style.setProperty("--game-top", game.top + "px");
+    element.style.setProperty("--game-right", window.innerWidth - game.right + "px");
+  }
+  window.addEventListener("resize", () => { if (dialog.open) pinToGame(dialog); });
 
   // A phone turned sideways (see .turn-upright) shows its screen as a modal
   // dialog, so it sits on the top layer above the results and any popover.
@@ -191,12 +209,7 @@ export function createOverlay({ onDismiss } = {}) {
     announce((earned.opens === "garage" ? "New gear: " : "Achievement earned: ") + earned.name + ". " + keyTextWords(earned.blurb));
   }
 
-  /** The top layer is the whole window, so the card is pinned to the game's corner. */
-  function placeAchievement() {
-    const game = $("game").getBoundingClientRect();
-    popover.style.setProperty("--game-top", game.top + "px");
-    popover.style.setProperty("--game-right", window.innerWidth - game.right + "px");
-  }
+  const placeAchievement = () => pinToGame(popover);
 
   /** A modal opened after the card goes above it on the top layer; this lifts the card back up. */
   function raiseAchievement() {

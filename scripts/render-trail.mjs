@@ -3,14 +3,16 @@
 // images but can't open the game.
 //
 //   node scripts/render-trail.mjs trails/custom/my-trail.json   an overview and the sections
-//   node scripts/render-trail.mjs 12                            a catalog trail whose id contains "12"
+//   node scripts/render-trail.mjs 12                            a catalog trail whose id or file name contains "12"
 //   node scripts/render-trail.mjs <trail> --route               mark up the sections too
 //   node scripts/render-trail.mjs <trail> --props               label every prop with its index and type
 //   node scripts/render-trail.mjs <trail> --view 1200,100,900,500   one view: x,y of its top left, width, height
+//   node scripts/render-trail.mjs <trail> --camera              what the player sees, every few seconds of the route
 //
 // Options:
 //   --scale N      device pixels per art pixel in the sections (default 3; a section is then about 1300 px wide)
 //   --out DIR      where to write the images (default .playtest/renders/<trail>/)
+//   --camera-every S   seconds between --camera frames (default 3)
 //
 // The overview shows the whole trail, marked up: a coordinate ruler and grid,
 // the apples by number, the start (S), the finish (F) and the nisse (N). When
@@ -23,10 +25,25 @@
 // too. --props labels each prop in the sections with its index in the trail's
 // `props` list and its type, so a prop that is out of place can be found in the
 // file. The files are listed with what each shows, and a section's name holds
-// the x range it covers, so the right one can be opened. Needs Chrome, at CHROME_PATH or where macOS or Linux installs it.
+// the x range it covers, so the right one can be opened.
+//
+// The sections show everything near the route, more than a player ever sees:
+// the game's camera keeps the rider about two thirds of the way down the
+// screen, so it shows only so much above them. --camera renders what the
+// player sees instead, with the game's own camera following the playtest's
+// route, every few seconds, for a laptop-sized window, with the bike where
+// the run has it and its lights, so night and caves look as they do in the
+// game. The overview darkens
+// whatever that camera never shows, so a landmark too tall to be seen stands
+// out. Places where scripts/playtest.mjs found a trap are marked TRAP. Needs
+// Chrome, at CHROME_PATH or where macOS or Linux installs it.
 import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { STEP } from '../js/config.js';
+import { createCamera } from '../js/camera.js';
 import { bikeSpeed, createRide, stepRide } from '../js/ride.js';
+import { ragdollCenter } from '../js/ragdoll.js';
+import { fallLine } from '../js/terrain.js';
+import { vehicleMetrics } from '../js/vehicle-physics.js';
 import { decodeInputs } from '../js/replay-codec.js';
 import { normalizeTrail } from '../js/trail-schema.js';
 import { surfaceProfile } from '../js/trail-preview.js';
@@ -38,10 +55,10 @@ const option = name => {
   const at = args.indexOf(name);
   return at >= 0 ? args[at + 1] : undefined;
 };
-const VALUED = ['--scale', '--out', '--view'];
+const VALUED = ['--scale', '--out', '--view', '--camera-every'];
 const target = args.find((arg, index) => !arg.startsWith('--') && !VALUED.includes(args[index - 1]));
 if (!target) {
-  console.log('Usage: node scripts/render-trail.mjs <trail file or catalog id> [--route] [--props] [--view X,Y,WIDTH,HEIGHT] [--scale N] [--out DIR]');
+  console.log('Usage: node scripts/render-trail.mjs <trail file or catalog id> [--route] [--props] [--view X,Y,WIDTH,HEIGHT] [--camera] [--camera-every S] [--scale N] [--out DIR]');
   process.exit(1);
 }
 if (!chromePath) {
@@ -51,6 +68,10 @@ if (!chromePath) {
 
 // About the view the game shows on a desktop screen, in world units.
 const SECTION = { width: 880, height: 500 };
+// The game's view in a 1440 × 900 laptop window, in world units (see resize
+// in js/render.js). A phone in landscape shows less, about 760 × 350.
+const CAMERA_VIEW = { width: 1000, height: 620 };
+const CAMERA_EVERY = Number(option('--camera-every')) || 3;
 const OVERLAP = 80;
 // The tallest a section gets before it is split into rows.
 const TALLEST = 760;
@@ -75,6 +96,12 @@ function loadRun() {
   const ride = createRide(trail);
   const points = [], turns = [];
   const mid = () => ({ x: (ride.rear.x + ride.front.x) / 2, y: (ride.rear.y + ride.front.y) / 2 });
+  // The game's camera, following the ride as it does in the game: what it
+  // shows every tenth of a second (`seen`), and a frame every few seconds.
+  const camera = createCamera();
+  const fallY = fallLine(trail);
+  const seen = [], frames = [];
+  const every = Math.round(CAMERA_EVERY / STEP);
   let crash = null;
   for (let index = 0; index < inputs.length && ride.status === 'running'; index++) {
     const input = inputs[index];
@@ -83,11 +110,17 @@ function loadRun() {
     if (index % 3 === 0 || ride.status !== 'running') {
       points.push({ ...mid(), speed: Math.abs(bikeSpeed(ride)), air: !ride.rear.grounded && !ride.front.grounded });
     }
+    const focus = ride.ragdoll ? ragdollCenter(ride.ragdoll) : vehicleMetrics(ride.vehicle).center;
+    camera.follow(focus, { facing: ride.facing, loose: Boolean(ride.ragdoll), ...CAMERA_VIEW, dt: STEP, fallY });
+    const view = { x: Math.round(camera.x), y: Math.round(camera.y), ...CAMERA_VIEW };
+    if (index % 12 === 0) seen.push(view);
+    if (index % every === 0) frames.push({ ...view, time: index * STEP, step: index + 1 });
   }
   const round = point => ({ ...point, x: Math.round(point.x), y: Math.round(point.y) });
   return {
     points: points.map(round), turns: turns.map(round), crash: crash && round(crash),
-    tightSpots: saved.tightSpots || [], status: ride.status, seconds: inputs.length * STEP,
+    tightSpots: saved.tightSpots || [], traps: saved.traps || [], status: ride.status, seconds: inputs.length * STEP,
+    seen, frames, stretches: saved.stretches,
   };
 }
 
@@ -153,6 +186,14 @@ if (option('--view')) {
   const [x, y, width, height] = option('--view').split(',').map(Number);
   if (![x, y, width, height].every(Number.isFinite)) throw new Error('--view takes X,Y,WIDTH,HEIGHT');
   views = [{ name: `view-${x}_${y}_${width}x${height}`, x, y, width, height, overlay: args.includes('--route'), scale: SCALE }];
+} else if (args.includes('--camera')) {
+  if (!run) {
+    console.error('--camera follows the route of the last playtest: run scripts/playtest.mjs on the trail first.');
+    process.exit(1);
+  }
+  views = run.frames.map((frame, index) => ({
+    ...frame, name: `camera-${String(index + 1).padStart(2, '0')}_t${frame.time.toFixed(0)}s`, overlay: args.includes('--route'), scale: SCALE,
+  }));
 } else views = planViews();
 
 // --- Drawing ----------------------------------------------------------------
@@ -184,18 +225,23 @@ try {
   }
   if (!ready) throw new Error(`the render page did not load${problems.length ? `: ${problems.join('; ')}` : ''}`);
   await evaluate(`hjulbenSetTrail(${JSON.stringify(trail)})`);
+  // Camera frames show the bike where the run has it, lights and all.
+  if (args.includes('--camera')) await evaluate(`hjulbenSetRun(${JSON.stringify(run.stretches)})`);
   mkdirSync(outDir, { recursive: true });
   // Images from an earlier render would be mistaken for this one's.
-  if (!option('--view')) for (const file of readdirSync(outDir)) if (file.endsWith('.png')) unlinkSync(outDir + file);
+  const stale = args.includes('--camera') ? (file => file.startsWith('camera-')) : (file => !file.startsWith('camera-'));
+  if (!option('--view')) for (const file of readdirSync(outDir)) if (file.endsWith('.png') && stale(file)) unlinkSync(outDir + file);
   console.log(`${trail.name}: ${views.length} image${views.length === 1 ? '' : 's'} in ${outDir.replace(repoRoot, '')}`);
   if (run) {
-    console.log(`Route from the last playtest (${run.seconds.toFixed(1)} s, ${run.status === 'won' ? 'finished' : run.status === 'crashed' ? 'CRASHED: the trail has changed since; playtest again' : 'not finished'}), ${run.tightSpots.length} tight spots.`);
+    console.log(`Route from the last playtest (${run.seconds.toFixed(1)} s, ${run.status === 'won' ? 'finished' : run.status === 'crashed' ? 'CRASHED: the trail has changed since; playtest again' : 'not finished'}), ${run.tightSpots.length} tight spots${run.traps.length ? `, ${run.traps.length} trap${run.traps.length === 1 ? '' : 's'}` : ''}.`);
   } else console.log('No playtest yet: run scripts/playtest.mjs first to draw the route and tight spots.');
   for (const view of views) {
     const title = `${view.name} · x ${view.x} to ${view.x + view.width}, y ${Math.round(view.y)} to ${Math.round(view.y + view.height)}`;
     const job = {
       view, scale: view.scale, maxWidth: view.name === 'overview' ? OVERVIEW_WIDTH : view.width * SCALE / 2,
-      overlay: view.overlay, props: args.includes('--props') && view.name !== 'overview', run, title,
+      overlay: view.overlay, props: args.includes('--props') && view.name !== 'overview', run, title, step: view.step,
+      // The overview darkens what the game's camera never shows.
+      unseen: view.name === 'overview',
     };
     const url = await evaluate(`hjulbenRender(${JSON.stringify(job)})`);
     writeFileSync(outDir + view.name + '.png', Buffer.from(url.slice(url.indexOf(',') + 1), 'base64'));
@@ -205,6 +251,7 @@ try {
       within({ x: trail.start.x, y: createRide(trail).rear.y }) && 'start',
       within(createRide(trail).flower) && 'finish',
       run?.tightSpots.some(spot => within(spot.from)) && 'tight spots',
+      run?.traps.some(within) && 'TRAPS',
     ].filter(Boolean);
     console.log(`  ${view.name}.png: x ${view.x} to ${view.x + view.width}, y ${Math.round(view.y)} to ${Math.round(view.y + view.height)}${has.length ? `; ${has.join(', ')}` : ''}`);
   }

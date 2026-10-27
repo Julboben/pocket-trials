@@ -181,7 +181,7 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
 
 {
   // The Pocket Classic takes Career Rider; Total Eclipse, The Bonny Tyler.
-  const curlsTrail = 'bonus:01-the-bonny-tyler';
+  const curlsTrail = 'bonus:the-bonny-tyler';
   assert.deepEqual(lookUnlock('bike', 'classic'), { achievement: 'career-rider' });
   assert.deepEqual(lookUnlock('hair', 'big-curls'), { trail: curlsTrail });
   assert.equal(lookUnlock('helmet', 'mx'), null, 'the motocross helmet is everyone\'s');
@@ -200,11 +200,11 @@ const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
 
   // Each chapter's gear comes with its last trail: the cowboy hat with the desert's.
   assert.ok(!fresh('helmet', 'cowboy'));
-  assert.ok(ownsWith(progress(0, ['official:15-mirage']))('helmet', 'cowboy'));
-  assert.ok(ownsWith(progress(0, ['official:30-rooftops']))('bike', 'scrambler'));
+  assert.ok(ownsWith(progress(0, ['official:mirage']))('helmet', 'cowboy'));
+  assert.ok(ownsWith(progress(0, ['official:rooftops']))('bike', 'scrambler'));
 
   // What a step of progress won, for the game's New Gear card.
-  const won = newlyUnlockedItems(progress(0), progress(0, ['official:15-mirage'], ['career-rider']));
+  const won = newlyUnlockedItems(progress(0), progress(0, ['official:mirage'], ['career-rider']));
   assert.deepEqual(won.map(item => `${item.slot}:${item.id}`).sort(), ['bike:classic', 'helmet:bike', 'helmet:cowboy', 'outfit:western']);
   assert.deepEqual(newlyUnlockedItems(progress(0), progress(0)), [], 'nothing new, nothing announced');
   assert.deepEqual(gearCard(lookItem('helmet', 'cowboy')), { name: 'Cowboy hat', blurb: 'Rides out of the desert at sundown.', icon: 'helmet' });

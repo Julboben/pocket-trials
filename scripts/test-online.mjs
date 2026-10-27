@@ -13,7 +13,7 @@ import leaderboard from '../netlify/functions/leaderboard.mjs';
 import { trailHash } from '../js/trail-hash.js';
 import { RIDE_VERSION } from '../js/ride.js';
 import { DEFAULT_LOOK, legacyLook } from '../js/cosmetics.js';
-import { loadCatalogTrails, readJson } from './lib/trails.mjs';
+import { loadCatalogTrails, readJson, replayFile } from './lib/trails.mjs';
 
 process.env.AUTH_SECRET = randomBytes(32).toString('hex');
 delete process.env.RP_ID;
@@ -38,7 +38,7 @@ const keyOf = id => {
   assert.ok(trails.has(id), `unknown official trail ${id}`);
   return `${id}@${trailHash(trails.get(id))}`;
 };
-const fixture = entry => readJson(`tests/replays/${entry.file.split('/').pop()}`);
+const fixture = entry => readJson(`tests/replays/${replayFile(entry)}`);
 
 // --- HTTP helpers -------------------------------------------------------------
 

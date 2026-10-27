@@ -6,6 +6,7 @@ import {
   SIGN_LINE_CHARACTERS,
   SIGN_MAX_LINES,
   BACKDROPS,
+  ART_PIXEL,
 } from "./drawing.js";
 import { RADIUS, WHEELBASE } from "./config.js";
 import { WATER_SIZE, normalizeWater, waterAt, waterBodies, waterColumns } from "./water.js";
@@ -15,11 +16,14 @@ import { BANNER_MAX } from "./event-props.js";
 import { FINISH_FLOWER_LIFT, bikeTouchesFlower } from "./finish.js";
 import { WEATHER_DEFAULTS, WEATHER_LEVELS, WIND_DIRECTIONS, resolveWeather } from "./weather.js";
 import { DEFAULT_HOUR, HOURS, normalizeHour } from "./time-of-day.js";
+import { isSeeThrough } from "./materials.js";
 import {
   normalizeBlocks as normalizeTerrainBlocks,
   validateBlocks as validateTerrainBlocks,
   pointInRegion,
+  pointInRings,
   regionBounds,
+  regionRings,
 } from "./terrain-geometry.js";
 /** Blocks for a brand new trail: one rectangular slab to build on. */
 export function createBlankTerrainBlocks(material = "grass") {
@@ -199,6 +203,9 @@ export const AUTHOR_MAX_LENGTH = 40;
 export const NAME_MAX_LENGTH = 60;
 export const LABEL_MAX_LENGTH = 80;
 export const DESCRIPTION_MAX_LENGTH = 2000;
+/** A trail's notes for the career's overview, and how long each may be. */
+export const OVERVIEW_KEYS = ["lesson", "alsoNew", "world"];
+export const OVERVIEW_MAX_LENGTH = 400;
 // Past these the editor and the game slow down, so the author is warned.
 export const PROP_WARNING_COUNT = 300;
 export const APPLE_WARNING_COUNT = 200;
@@ -247,6 +254,14 @@ export function normalizeTrail(input, index = 0) {
     typeof trail.description === "string"
       ? trail.description.slice(0, DESCRIPTION_MAX_LENGTH)
       : "";
+  // Notes for the career's overview (TRAILS.md): what the trail teaches, what
+  // is new to look at, and the world it belongs to. Optional, not part of the
+  // ride, and left out when empty.
+  for (const key of OVERVIEW_KEYS) {
+    const text = typeof trail[key] === "string" ? trail[key].trim().slice(0, OVERVIEW_MAX_LENGTH) : "";
+    if (text) trail[key] = text;
+    else delete trail[key];
+  }
   // The finish is a point, like the start. A null y means it stands on the
   // surface below, which is what a plain ground finish wants; a number pins it
   // in the air.
@@ -377,6 +392,68 @@ function insideTerrain(blocks, x, y) {
   );
 }
 
+// Most blocks are far smaller than this; a larger one is sampled more coarsely.
+const BURIED_MAX_SAMPLES = 20000;
+
+/**
+ * The blocks that change nothing: buried, so the bike never touches them, and
+ * never seen. Where blocks overlap, the game draws the material of the last
+ * one, so a block inside another still shows (a stone sill on a brick wall)
+ * unless a later block covers it or the block under it has the same material.
+ * It is sampled at the centres of the game's art pixels, where the terrain is
+ * drawn. Glass shows what is behind it and can break mid-ride, uncovering
+ * what it buries, so a block that see-through terrain touches is never
+ * reported.
+ * @param {object[]} blocks the trail's blocks, back walls left out, in drawing order
+ * @param {Set<number>} exposed indices of blocks with some surface left
+ * @returns {Map<number, "material" | "covered">} each one, and whether it is
+ *   hidden (at least in part) by being the same material as the block under
+ *   it, which another material would fix, or only by blocks drawn over it
+ */
+function buriedBlocks(blocks, exposed) {
+  const lost = new Map();
+  const buried = blocks.map((_, index) => index).filter((index) => !exposed.has(index));
+  if (!buried.length) return lost;
+  const bounds = blocks.map((block) => regionBounds(block));
+  const rings = new Map();
+  const ringsOf = (index) => {
+    if (!rings.has(index)) rings.set(index, regionRings(blocks[index]));
+    return rings.get(index);
+  };
+  const overlaps = (a, b, margin = 0) =>
+    a.left <= b.right + margin && b.left <= a.right + margin && a.top <= b.bottom + margin && b.top <= a.bottom + margin;
+  for (const index of buried) {
+    const box = bounds[index];
+    const near = [];
+    for (let other = 0; other < blocks.length; other++)
+      if (other !== index && overlaps(box, bounds[other], 1)) near.push(other);
+    if (near.some((other) => isSeeThrough(blocks[other].material))) continue;
+    const own = ringsOf(index);
+    const area = (box.right - box.left) * (box.bottom - box.top);
+    const step = ART_PIXEL * Math.max(1, Math.ceil(Math.sqrt(area / (ART_PIXEL * ART_PIXEL) / BURIED_MAX_SAMPLES)));
+    let seen = false, sameMaterial = false;
+    for (let y = (Math.floor(box.top / step) + 0.5) * step; y < box.bottom && !seen; y += step) {
+      for (let x = (Math.floor(box.left / step) + 0.5) * step; x < box.right && !seen; x += step) {
+        if (!pointInRings(own, x, y)) continue;
+        // On top here, and over a different material (or nothing) it shows.
+        let above = false, below = -1;
+        for (const other of near) {
+          const b = bounds[other];
+          if (x < b.left || x > b.right || y < b.top || y > b.bottom || !pointInRings(ringsOf(other), x, y)) continue;
+          if (other > index) above = true;
+          else if (other > below) below = other;
+          if (above) break;
+        }
+        if (above) continue;
+        if (below < 0 || blocks[below].material !== blocks[index].material) seen = true;
+        else sameMaterial = true;
+      }
+    }
+    if (!seen) lost.set(index, sameMaterial ? "material" : "covered");
+  }
+  return lost;
+}
+
 /**
  * The start's wheel centres: at the start's height when it has one, else each
  * on the ground under it, as the bike is set down.
@@ -417,12 +494,16 @@ export function validateTrail(trail) {
         .filter((body) => body.liveCount > 0)
         .map((body) => body.blockIndex),
     );
+    const lost = buriedBlocks(blocks, exposed);
     blocks.forEach((block, index) => {
-      if (!exposed.has(index))
-        warning(
-          `Block ${number[index]} is completely buried inside other terrain, so it has no effect.`,
-          { type: "block", index: number[index] - 1 },
-        );
+      const reason = lost.get(index);
+      if (!reason) return;
+      warning(
+        reason === "material"
+          ? `Block ${number[index]} is buried inside terrain of the same material (${block.material}), so it is never ridden or seen; only its outline shows in the editor. Give it another material to make it show, or delete it.`
+          : `Block ${number[index]} is completely buried inside other terrain and covered by blocks drawn over it, so it has no effect.`,
+        { type: "block", index: number[index] - 1 },
+      );
     });
     const edges = compiled.bodies.reduce(
       (total, body) => total + body.edgeCount,
@@ -793,8 +874,4 @@ export function validateTrail(trail) {
   if (!messages.length)
     messages.push({ type: "ok", text: "Trail data is valid." });
   return messages;
-}
-
-export function trailToModule(trail) {
-  return `export default ${JSON.stringify(trail, null, 2)};\n`;
 }

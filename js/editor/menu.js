@@ -1,5 +1,6 @@
 // The header's "more" menu, the import/export dialog, and the validation badge.
 import { $ } from "./dom.js";
+import { fillTrailJson } from "./inspector.js";
 
 function items() {
   return [...$("more-menu").querySelectorAll("[role=menuitem]")].filter(
@@ -53,7 +54,7 @@ export function updateValidationBadge(messages) {
   $("data-errors-text").textContent = errors
     ? `${plural(errors, "ERROR")} · fix ${errors === 1 ? "it" : "them"} before exporting`
     : "";
-  for (const id of ["export-json", "export-js", "share-trail"]) $(id).classList.toggle("blocked", errors > 0);
+  for (const id of ["export-json", "share-trail"]) $(id).classList.toggle("blocked", errors > 0);
   $("more-toggle").setAttribute(
     "aria-label",
     summary.length ? `More actions (${summary.join(", ").toLowerCase()})` : "More actions",
@@ -97,7 +98,10 @@ export function bindMenu() {
     if (event.key === "Escape" && menuOpen()) closeMenu();
   });
 
-  $("open-data").addEventListener("click", () => dialog.showModal());
+  $("open-data").addEventListener("click", () => {
+    fillTrailJson();
+    dialog.showModal();
+  });
   $("data-errors-show").addEventListener("click", showValidation);
   dialog.addEventListener("click", (event) => {
     if (event.target === dialog) dialog.close();

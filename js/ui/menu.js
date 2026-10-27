@@ -1,6 +1,6 @@
 // Main menu: savegames, trail select, leaderboard, achievements, settings and how-to-play.
 import { clamp } from '../config.js';
-import { trails, officialTrailEntries, bonusTrailEntries, customTrailEntries, saveBrowserTrail } from '../trails.js';
+import { trails, officialTrailEntries, bonusTrailEntries, customTrailEntries, saveBrowserTrail, browserTrailSaved } from '../trails.js';
 import { createGameArt } from '../drawing.js';
 import { drawScene, drawTrailPreview, posedRide, findClimb, findJump, finishScene } from '../scene-preview.js';
 import {
@@ -25,7 +25,7 @@ import { RELEASES } from '../changelog.js';
 import { ACHIEVEMENTS, ACHIEVEMENT_GROUPS, statProgressText } from '../achievements.js';
 import {
   $, session, reducedMotion, DEFAULT_BINDINGS, DEFAULT_PREFERENCES, sanitizePreferences,
-  leaderboardTrails, trailKey, nisseKey, trailMarker, runTimeText, bonusUnlock, lookOwner, riderLook, lookItemHint, progressOf
+  leaderboardTrails, trailKey, nisseKey, trailMarker, runTimeText, bonusUnlock, lookOwner, riderLook, lookItemHint, progressOf, unlockedOf
 } from '../state.js';
 
 // Runs made without a savegame have no name.
@@ -45,7 +45,7 @@ export function loadStoredState() {
       saveActiveSlot(firstOccupied);
     }
   }
-  session.unlockedTrail = session.saveGame?.unlocked || 0;
+  session.unlockedTrail = unlockedOf(session.saveGame);
   session.savedTrail = session.saveGame?.trail || 0;
   session.look = riderLook();
 }
@@ -392,7 +392,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     session.activeSaveSlot = clamp(index, 0, session.saveSlots.length - 1);
     saveActiveSlot(session.activeSaveSlot);
     session.saveGame = session.saveSlots[session.activeSaveSlot];
-    session.unlockedTrail = session.saveGame?.unlocked || 0;
+    session.unlockedTrail = unlockedOf(session.saveGame);
     session.savedTrail = session.saveGame?.trail || 0;
     session.look = riderLook();
     updateDashboard();
@@ -502,7 +502,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
         spoken.textContent = ', ' + gender;
         title.append(save.name, spoken);
         nameLine.append(genderMark, title);
-        detail.textContent = (save.unlocked + 1) + ' / ' + trails.length + ' trails · ' + trails[save.trail].name;
+        detail.textContent = (unlockedOf(save) + 1) + ' / ' + trails.length + ' trails · ' + trails[save.trail].name;
         copy.append(label, nameLine, detail);
         button.append(riderAvatar(save.look), copy);
       } else {
@@ -841,7 +841,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     if (!result.changed) return;
     session.saveSlots[slot] = result.save;
     session.saveGame = result.save;
-    session.unlockedTrail = result.save.unlocked;
+    session.unlockedTrail = unlockedOf(result.save);
     // Mid-ride the rider keeps their look until they are back in the menu.
     if (!isOpen()) return;
     session.look = riderLook();
@@ -1409,11 +1409,10 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     $('new-save-name').classList.remove('invalid');
     setStatus('save-status', '');
     setStatus('save-login-status', '');
-    // Someone's first rider on this device starts offline, so a passkey
-    // prompt doesn't stand between them and their first ride; Riders can take
-    // it online later. Later riders default to online.
-    const firstRider = session.saveSlots.every(save => !save);
-    setSaveMode(firstRider ? 'offline' : saveMode);
+    // A new rider starts online, on the world leaderboard with their progress
+    // backed up; setSaveMode falls back to offline where passkeys aren't
+    // available.
+    setSaveMode('online');
     // The skin tone starts random too; the player can pick another.
     const skins = itemsForSlot('skin');
     const identity = { gender: DEFAULT_LOOK.gender, skin: skins[Math.floor(Math.random() * skins.length)].id };
@@ -1749,7 +1748,10 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
       saveBrowserTrail(trail);
       updateDashboard();
       showView('trails');
-      setImportStatus(`Imported “${trail.name}”. It is saved in this browser under Custom Trails.`);
+      const kept = await browserTrailSaved();
+      setImportStatus(kept
+        ? `Imported “${trail.name}”. It is saved in this browser under Custom Trails.`
+        : `Imported “${trail.name}” for now, but browser storage is full or blocked, so it will be gone after a reload.`, !kept);
     } catch (error) {
       setImportStatus(`Could not import ${file.name}: ${error.message}`, true);
     }

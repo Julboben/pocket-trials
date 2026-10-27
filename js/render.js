@@ -1983,6 +1983,7 @@ export function createRenderer(canvas) {
     full,
     dt,
     debug,
+    fireworks = null,
   }) {
     const paused = state === "paused";
     wonFor = state === "won" ? wonFor + dt : 0;
@@ -2051,6 +2052,12 @@ export function createRenderer(canvas) {
     effects.update(animationDt);
     wheelDirt = effects.wheelDirt;
     wheelSquish = effects.tyreSquish;
+    // Fireworks go off in the sky behind the land and the buildings. They
+    // keep the real clock, as the scene's own slows to a stop at the finish.
+    if (fireworks?.active()) {
+      fireworks.update(paused ? 0 : dt, { x: cameraX, y: cameraY, width: W, height: H });
+      fireworks.draw(ctx);
+    }
     backWallRenderer.draw(ctx, trail, cameraX, cameraY, W, H);
     drawProps("back", full);
     terrainRenderer.draw(ctx, ride.trail, cameraX, cameraY, W, H, propScene.time, propScene.weather);
@@ -2090,6 +2097,7 @@ export function createRenderer(canvas) {
       time: propScene.time,
       flip: flipVisual,
       sun: frameSun,
+      lights: fireworks?.lights(),
     });
     drawPropGlows(ride, look, ride.ragdoll ? "ragdoll" : state, full);
     // Thrown off the bike, the rider can't interact, so there's no key to show.

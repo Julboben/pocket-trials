@@ -8,15 +8,24 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { createRide, stepRide } from '../js/ride.js';
+import { decodeInputs } from '../js/replay-codec.js';
+import { normalizeTrail } from '../js/trail-schema.js';
 import { chromePath } from './lib/chrome.mjs';
 import { playtestRunPath, repoRoot } from './lib/trails.mjs';
-import { rectangle } from './lib/terrain-fixtures.mjs';
+import { polygonBlock, rectangle } from './lib/terrain-fixtures.mjs';
 
 const dir = mkdtempSync(path.join(tmpdir(), 'hjulben-playtest-'));
 // The id the scripts give the fixture, from its file name; its saved run goes in .playtest/.
 const ID = 'test-playtest-fixture';
 const file = path.join(dir, `${ID}.json`);
 const run = (script, ...args) => execFileSync(process.execPath, [`scripts/${script}`, file, ...args], {
+  cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+});
+// A second fixture, with its own saved run, for traps.
+const PIT_ID = 'test-playtest-pit';
+const pitFile = path.join(dir, `${PIT_ID}.json`);
+const runPit = (...args) => execFileSync(process.execPath, ['scripts/playtest.mjs', pitFile, ...args], {
   cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
 });
 
@@ -43,10 +52,19 @@ try {
   assert.match(check, /Validation: ok/);
   assert.match(check, /1: 900,\d+, 60 above the surface below it/, 'apples are listed with their height');
   assert.doesNotMatch(check, /Solving/, '--check does not solve');
+  assert.match(check, /Size: 3 blocks \(0 back walls\), \d+ KB of JSON; the largest official or bonus trail has \d+ blocks/, 'the size is weighed against the shipped trails');
 
   // An overlong description is cut off when a trail loads, so it is reported.
   writeFileSync(file, JSON.stringify({ ...trail, description: 'x'.repeat(2100) }));
   assert.match(run('playtest.mjs', '--check'), /WARNING: The description is 2100 characters/);
+
+  // The same warning about several blocks is one line, listing them.
+  writeFileSync(file, JSON.stringify({ ...trail, terrainBlocks: [
+    ...trail.terrainBlocks, rectangle(500, 400, 540, 410, 'grass', 'patch-a'), rectangle(600, 400, 640, 410, 'grass', 'patch-b'),
+  ] }));
+  const grouped = run('playtest.mjs', '--check');
+  assert.match(grouped, /WARNING x2: Block N is buried inside terrain of the same material \(grass\).* \(blocks 4, 5\)/, 'repeated warnings are grouped');
+  assert.doesNotMatch(grouped, /WARNING: Block 4/, 'and not listed one by one');
   writeFileSync(file, JSON.stringify(trail));
 
   // The bot solves the trail one apple at a time, turning around on the way back.
@@ -59,12 +77,45 @@ try {
   const saved = JSON.parse(readFileSync(playtestRunPath(ID), 'utf8'));
   assert.equal(saved.stretches.length, 2, 'the run is saved stretch by stretch');
   assert.ok(saved.inputs, 'a finished run is saved whole as well');
+  // The bot can overshoot an apple; the saved run must still ride as the
+  // stretches were solved, from the start without a stop.
+  const replay = createRide(normalizeTrail(trail));
+  for (const input of decodeInputs(saved.inputs)) if (replay.status === 'running') stepRide(replay, input);
+  assert.equal(replay.status, 'won', 'the saved run replays to the finish');
   assert.match(run('playtest.mjs', '--trials', '0'), /saved run from the last playtest/, 'the saved run is tried first');
+  assert.match(solved, /Medals: at most gold \d+, silver \d+, bronze \d+/, 'medals are suggested from the bot\'s time');
+  writeFileSync(file, JSON.stringify({ ...trail, medals: { gold: 999, silver: 1000, bronze: 1001 } }));
+  assert.match(run('playtest.mjs', '--trials', '0'), /gold of 999 s is more than 5% over the bot's time/, 'a gold that is too easy is flagged');
+  writeFileSync(file, JSON.stringify(trail));
 
   // Without turning around, the finish behind the start can't be reached.
   const unturned = run('playtest.mjs', '--fresh', '--without', 'turn', '--minutes', '0.05', '--trials', '0');
   assert.match(unturned, /Stretch 2: FAILED to reach the finish/);
   assert.match(unturned, /Result: NOT finished; the bot took 1 of 1 apples/);
+
+  // A jump over a deep pit with a floor: a rider who misses lands on the floor,
+  // can't climb out and doesn't crash, which is a trap. Spikes on the floor
+  // make the same miss end the run, so it isn't.
+  const pit = {
+    ...trail,
+    terrainBlocks: [
+      rectangle(-300, 0, 0, 900, 'grass', 'west-wall'),
+      polygonBlock([[-300, 300], [520, 300], [600, 270], [600, 900], [-300, 900]], 'grass', 'takeoff'),
+      rectangle(600, 560, 940, 900, 'stone', 'pit-floor'),
+      rectangle(940, 300, 1800, 900, 'grass', 'landing'),
+      rectangle(1800, 0, 2100, 900, 'grass', 'east-wall'),
+    ],
+    start: { x: 100, y: null, facing: 1 },
+    finish: { x: 1500, y: 250 },
+    apples: [{ x: 1100, y: null }],
+    props: [],
+  };
+  writeFileSync(pitFile, JSON.stringify(pit));
+  const trapped = runPit('--fresh', '--minutes', '0.5');
+  assert.match(trapped, /TRAPS: a miss leaves the rider at \d+,5\d\d, with no way back/, 'a pit a miss can\'t leave is a trap');
+  assert.match(trapped, /^TRAPS: 1 place/m, 'and it is summed up at the end');
+  writeFileSync(pitFile, JSON.stringify({ ...pit, spikes: [640, 700, 760, 820, 880].map(x => ({ x, y: 540, radius: 20 })) }));
+  assert.doesNotMatch(runPit('--fresh', '--minutes', '0.5'), /TRAP/, 'spikes on its floor make it a crash, not a trap');
 
   // A scripted probe prints a trace and rides where the script says.
   const scripted = run('playtest.mjs', '--probe', '400,ground,1,0', '--script', 'gas 0.5; gas fwd 0.1; gas 0.5; turn; brake 0.3', '--every', '0.5');
@@ -91,9 +142,17 @@ try {
     assert.ok(images.every(isPng));
     execFileSync(process.execPath, ['scripts/render-trail.mjs', file, '--out', out, '--view', '300,0,880,500', '--props', '--route'], { cwd: repoRoot });
     assert.ok(existsSync(out + 'view-300_0_880x500.png') && isPng('view-300_0_880x500.png'), '--view draws one view');
+    // --camera frames the route as the game's camera does, every few seconds.
+    const framed = execFileSync(process.execPath, ['scripts/render-trail.mjs', file, '--out', out, '--camera', '--camera-every', '1'], { cwd: repoRoot, encoding: 'utf8' });
+    const frames = readdirSync(out).filter(name => /^camera-\d\d_t\d+s\.png$/.test(name));
+    assert.ok(frames.length >= 3 && frames.every(isPng), `--camera draws a frame a second (${frames.length})`);
+    assert.match(framed, /camera-01_t0s\.png: x -?\d+ to -?\d+, y -?\d+ to -?\d+;.*\bstart\b/, 'the first frame shows the start');
+    assert.ok(images.includes('overview.png') && readdirSync(out).includes('overview.png'), 'and leaves the other images alone');
     console.log('Playtest and render tests passed.');
   }
 } finally {
   rmSync(dir, { recursive: true, force: true });
   rmSync(playtestRunPath(ID), { force: true });
+  rmSync(playtestRunPath(PIT_ID), { force: true });
+  rmSync(playtestRunPath(ID, '.without-turn'), { force: true });
 }

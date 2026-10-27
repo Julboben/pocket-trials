@@ -15,15 +15,15 @@ import { STEP } from '../js/config.js';
 import { createRide, stepRide } from '../js/ride.js';
 import { decodeInputs } from '../js/replay-codec.js';
 import { cloneRide, exploreTrail, recordTrail } from './lib/replay-bot.mjs';
-import { loadCatalogTrails, repoRoot } from './lib/trails.mjs';
+import { loadCatalogTrails, replayFile, repoRoot } from './lib/trails.mjs';
 
 const MINUTES = Number(process.env.PROBE_MINUTES) || 4;
 const args = process.argv.slice(2);
 const filter = args.find(arg => !arg.startsWith('--')) || '';
 const segmentArg = args.indexOf('--segment');
-const entry = loadCatalogTrails('official').find(candidate => candidate.id.includes(filter));
+const entry = loadCatalogTrails('official').find(candidate => candidate.id.includes(filter) || candidate.file.includes(filter));
 if (!filter || !entry) throw new Error(`no official trail matches "${filter}"`);
-const human = JSON.parse(readFileSync(repoRoot + 'tests/replays/human/' + entry.file.split('/').pop(), 'utf8'));
+const human = JSON.parse(readFileSync(repoRoot + 'tests/replays/human/' + replayFile(entry), 'utf8'));
 const inputs = decodeInputs(human.inputs);
 
 // Where the human run was when it had taken each number of apples.

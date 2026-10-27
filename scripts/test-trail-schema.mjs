@@ -4,7 +4,7 @@ import { rectangle } from './lib/terrain-fixtures.mjs';
 import {
   SPIKE_RADIUS, createBlankTrail, normalizeTrail, normalizeSpike, validateTrail, medalFor, normalizeMedals,
   trailTerrainBlocks, trailBackWalls, AUTHOR_MAX_LENGTH, NAME_MAX_LENGTH, LABEL_MAX_LENGTH, DESCRIPTION_MAX_LENGTH,
-  PROP_WARNING_COUNT, APPLE_WARNING_COUNT, SPIKE_WARNING_COUNT, normalizeRotation
+  PROP_WARNING_COUNT, APPLE_WARNING_COUNT, SPIKE_WARNING_COUNT, normalizeRotation, OVERVIEW_MAX_LENGTH
 } from '../js/trail-schema.js';
 import { RADIUS, WHEELBASE } from '../js/config.js';
 import { trailHash } from '../js/trail-hash.js';
@@ -133,6 +133,47 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bon
   assert.ok(!warnings(blank).some(text => text.includes('may be slow')));
 }
 
+// The overview's notes (lesson, alsoNew, world) are kept as trimmed text,
+// dropped when empty or not text, and never change the trail's hash.
+{
+  const base = normalizeTrail(createBlankTrail());
+  const noted = normalizeTrail({ ...base, lesson: '  Braking.  ', alsoNew: '', world: 42 });
+  assert.equal(noted.lesson, 'Braking.');
+  assert.ok(!('alsoNew' in noted) && !('world' in noted), 'empty or non-text notes are dropped');
+  assert.equal(normalizeTrail({ ...base, lesson: 'x'.repeat(500) }).lesson.length, OVERVIEW_MAX_LENGTH);
+  assert.equal(trailHash(noted), trailHash(base), 'notes are not part of the ride');
+}
+
+// A buried block is reported only when it changes nothing: blocks drawn on a
+// wall as decoration show, so they are not.
+{
+  const buried = blocks => {
+    const trail = normalizeTrail({ ...createBlankTrail(), terrainBlocks: [
+      rectangle(-200, 300, 1800, 700, 'grass', 'ground'),
+      rectangle(400, 0, 900, 300, 'brick', 'wall'),
+      ...blocks,
+    ] });
+    return validateTrail(trail).filter(message => /^Block \d+ is (completely )?buried/.test(message.text)).map(message => message.text);
+  };
+  assert.deepEqual(buried([rectangle(500, 100, 540, 108, 'stone', 'sill')]), [], 'a stone sill on a brick wall shows');
+  assert.deepEqual(buried([rectangle(500, 100, 540, 108, 'brick', 'patch')]),
+    ['Block 3 is buried inside terrain of the same material (brick), so it is never ridden or seen; only its outline shows in the editor. Give it another material to make it show, or delete it.'],
+    'a brick block inside a brick wall changes nothing, and the warning says why');
+  assert.deepEqual(buried([rectangle(500, 100, 540, 108, 'stone', 'sill'), rectangle(490, 90, 550, 120, 'wood', 'cover')]),
+    ['Block 3 is completely buried inside other terrain and covered by blocks drawn over it, so it has no effect.'],
+    'a block covered by a later block is hidden');
+  assert.deepEqual(buried([rectangle(495, 100, 545, 108, 'stone', 'sill'), rectangle(500, 100, 540, 108, 'wood', 'cover')]), [],
+    'a block only partly covered still shows around the cover');
+  const under = normalizeTrail({ ...createBlankTrail(), terrainBlocks: [
+    rectangle(-200, 300, 1800, 700, 'grass', 'ground'),
+    rectangle(500, 100, 540, 108, 'stone', 'sill'),
+    rectangle(400, 0, 900, 300, 'brick', 'wall'),
+  ] });
+  assert.ok(validateTrail(under).some(message => message.text.startsWith('Block 2 is completely buried')), 'a block under a later wall is hidden');
+  assert.deepEqual(buried([rectangle(500, 100, 540, 108, 'brick', 'patch'), rectangle(530, 90, 560, 120, 'glass', 'pane')]), [],
+    'glass shows what it covers and can break, so a block it touches is kept');
+}
+
 // Medals.
 {
   assert.equal(normalizeMedals({ gold: 10 }), null);
@@ -190,9 +231,9 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bon
   assert.equal(trailHash(credited), trailHash(blank), 'credit does not change the trail hash');
   assert.equal(normalizeTrail({ ...blank, description: 7 }).description, '');
 }
-assert.ok(!isOnlineTrail('official:01-the-orchard'), 'an official id without its hash stays offline');
+assert.ok(!isOnlineTrail('official:the-orchard'), 'an official id without its hash stays offline');
 assert.ok(!isOnlineTrail('trail:0123abcd'), 'custom trails stay offline');
-assert.ok(isOnlineTrail('bonus:01-the-bonny-tyler@0123abcd'), 'bonus trails go online');
+assert.ok(isOnlineTrail('bonus:the-bonny-tyler@0123abcd'), 'bonus trails go online');
 assert.ok(!isOnlineTrail('custom:caves@0123abcd'), 'custom file trails stay offline');
 
 // Unlock rules live in js/unlocks.js now, so one left in an older trail file is dropped.

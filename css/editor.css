@@ -193,7 +193,7 @@ button:disabled:hover { background: var(--color-surface); }
 .data-dialog { width: min(640px, calc(100vw - 32px)); }
 .data-label { margin-bottom: 6px; display: block; color: var(--color-text-muted); font-size: var(--text-xs); font-weight: var(--weight-heavy); letter-spacing: .5px; }
 .data-dialog textarea { width: 100%; height: min(360px, 50vh); padding: 8px; resize: vertical; font-size: var(--text-sm); }
-.data-actions { margin-top: 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.data-actions { margin-top: 10px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
 .data-actions button { min-height: 36px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: var(--text-xs); }
 .play-action { border-color: var(--color-green); background: var(--color-green); color: var(--color-green-ink); }
 .play-action:hover { background: #d8ecbf; }
@@ -289,6 +289,8 @@ html[data-sandbox] body::after {
 .confirm-text { margin: 0 0 12px; color: var(--color-text-soft); font-size: var(--text-sm); line-height: 1.6; }
 .confirm-text code { color: var(--color-text); font: inherit; font-weight: var(--weight-heavy); }
 .confirm-actions { grid-template-columns: 1fr 1fr; }
+/* The update prompt's Later only shows when reloading would lose edits. */
+.confirm-actions:has(> [hidden]) { grid-template-columns: 1fr; }
 .rename-input { width: 100%; font-size: var(--text-sm); }
 .danger-solid { border-color: var(--color-error); background: var(--color-error); color: var(--color-accent-ink); }
 .danger-solid:hover { background: #f58b64; }

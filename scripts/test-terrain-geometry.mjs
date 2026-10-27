@@ -352,5 +352,21 @@ check("the island is still its own solid", pointInRegion(withIsland.blocks[0], 5
   check("a cut flush with an edge opens a notch", flush.changed && flush.blocks.length === 1 && near(regionArea(flush.blocks[0]), 8000));
 }
 
+// A point settles in one pass, whatever its handles, edge and mode: the mode
+// is part of the trail's hash, so a second normalization must not change it.
+// A smooth point whose edge out is straight once came back independent, then
+// a corner.
+{
+  const unsettled = [];
+  for (const hasIn of [false, true]) for (const hasOut of [false, true])
+    for (const edge of ['straight', 'curve']) for (const mode of ['corner', 'smooth', 'independent']) {
+      const node = { x: 100, y: 0, edge, mode, in: hasIn ? [80, -20] : null, out: hasOut ? [120, 20] : null };
+      const once = normalizeBlock({ material: 'grass', outer: { nodes: [{ x: 0, y: 0 }, node, { x: 100, y: 100 }, { x: 0, y: 100 }] }, inner: [] });
+      const twice = normalizeBlock(once);
+      if (JSON.stringify(twice.outer.nodes) !== JSON.stringify(once.outer.nodes)) unsettled.push(`${mode}, edge ${edge}, ${hasIn ? 'in' : 'no in'}, ${hasOut ? 'out' : 'no out'}`);
+    }
+  check(`a point settles in one normalization${unsettled.length ? ` (not: ${unsettled.join('; ')})` : ''}`, unsettled.length === 0);
+}
+
 console.log(failures ? `\n${failures} failing` : "\nTerrain geometry tests passed.");
 process.exit(failures ? 1 : 0);

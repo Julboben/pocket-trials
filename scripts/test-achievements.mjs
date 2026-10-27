@@ -54,9 +54,9 @@ const trailIds = new Set(catalog.trails.map(entry => entry.id));
       else assert.ok(Number.isInteger(value) && value > 0, `${key}.${part} is a positive count`);
     }
   }
-  assert.deepEqual(trailUnlock('bonus:01-the-bonny-tyler'), { golds: 2 });
-  assert.deepEqual(trailUnlock('bonus:02-the-mining-cave'), { golds: 4 });
-  assert.equal(trailUnlock('official:01-the-orchard'), null, 'official trails follow the career instead');
+  assert.deepEqual(trailUnlock('bonus:the-bonny-tyler'), { golds: 2 });
+  assert.deepEqual(trailUnlock('bonus:the-mining-cave'), { golds: 4 });
+  assert.equal(trailUnlock('official:the-orchard'), null, 'official trails follow the career instead');
   assert.equal(lookUnlock('bike', 'elasto'), null);
 }
 
@@ -72,7 +72,7 @@ const trailIds = new Set(catalog.trails.map(entry => entry.id));
   assert.equal(unlockStatus({ trails: 3, golds: 2 }, progress({ trails: 5, golds: 1 })).open, false, 'every part must be met');
   assert.equal(unlockStatus({ trails: 1, golds: 2 }, null).hint, 'FINISH 1 TRAIL & WIN 2 GOLD MEDALS TO UNLOCK');
 
-  const trailRule = { trail: 'bonus:01-the-bonny-tyler' };
+  const trailRule = { trail: 'bonus:the-bonny-tyler' };
   assert.equal(unlockStatus(trailRule, progress()).open, false);
   assert.equal(unlockStatus(trailRule, progress({ finished: [trailRule.trail] })).open, true);
   assert.equal(unlockStatus(trailRule, null).hint, 'FINISH A TRAIL TO UNLOCK');

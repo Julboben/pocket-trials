@@ -3,8 +3,10 @@
 // whoever is building the trail: a coordinate ruler, the apples, start,
 // finish and nisse, the replay bot's route coloured by speed, and the spots
 // where its reruns failed. Runs in headless Chrome; the script calls
-// `hjulbenSetTrail` once and then `hjulbenRender` for each view.
-import { createRide } from '../../js/ride.js';
+// `hjulbenSetTrail` once, `hjulbenSetRun` for camera frames, and then
+// `hjulbenRender` for each view.
+import { decodeInputs } from '../../js/replay-codec.js';
+import { createRide, stepRide } from '../../js/ride.js';
 import { drawScene } from '../../js/scene-preview.js';
 import { terrainGeometry } from '../../js/terrain.js';
 import { surfaceY } from '../../js/trail-preview.js';
@@ -29,15 +31,32 @@ window.hjulbenSetTrail = next => {
   return true;
 };
 
+// The playtest's run, ridden on as camera frames ask for later moments of it,
+// so a frame shows the bike where it is then, with its lights.
+let replay = null;
+
+window.hjulbenSetRun = stretches => {
+  replay = { inputs: stretches.flatMap(decodeInputs), ride: createRide(trail), step: 0 };
+  return true;
+};
+
+/** The run's ride after `step` steps, or the parked ride without a bike. */
+function rideAt(step) {
+  if (!replay || !Number.isFinite(step)) return ride;
+  if (step < replay.step) Object.assign(replay, { ride: createRide(trail), step: 0 });
+  while (replay.step < step && replay.ride.status === 'running') stepRide(replay.ride, replay.inputs[replay.step++]);
+  return replay.ride;
+}
+
 /**
  * Draws one view and returns it as a PNG data URL.
  * @param {{ view: { x: number, y: number, width: number, height: number }, scale: number, maxWidth: number,
  *   overlay: boolean, props: boolean, run: any, title: string }} job
  */
-window.hjulbenRender = ({ view, scale, maxWidth, overlay, props, run, title }) => {
+window.hjulbenRender = ({ view, scale, maxWidth, overlay, props, run, title, unseen, step }) => {
   const scene = document.createElement('canvas');
   const camera = drawScene(scene, {
-    trail, ride, width: view.width, height: view.height, scale,
+    trail, ride: rideAt(step), width: view.width, height: view.height, scale,
     focus: { x: view.x + view.width / 2, y: view.y + view.height / 2 }, anchor: [0.5, 0.5],
   });
   // Device pixels per world unit in the image, scaled down to fit maxWidth.
@@ -60,6 +79,7 @@ window.hjulbenRender = ({ view, scale, maxWidth, overlay, props, run, title }) =
   ctx.rect(MARGIN.left, MARGIN.top, width, height);
   ctx.clip();
   if (overlay) {
+    if (run && unseen) drawUnseen(ctx, run.seen, toX, toY, width, height);
     if (run) drawRun(ctx, run, toX, toY);
     drawMarkers(ctx, toX, toY);
   }
@@ -72,7 +92,7 @@ window.hjulbenRender = ({ view, scale, maxWidth, overlay, props, run, title }) =
   const legend = props
     ? 'props: index in the props list, type, (front) for the front layer'
     : overlay
-    ? 'S start · F finish · N nisse · route: blue slow → red fast, dashed = air · T turn · ! tight spot → × fails'
+    ? `S start · F finish · N nisse · route: blue slow → red fast, dashed = air · T turn · ! tight spot → × fails${run?.traps.length ? ' · TRAP: a miss strands the rider' : ''}${unseen && run ? ' · darker: never on screen' : ''}`
     : 'clean view: as the game draws it';
   ctx.fillText(`${title} · ${legend}`, MARGIN.left, out.height - MARGIN.bottom / 2);
   return out.toDataURL('image/png');
@@ -103,6 +123,26 @@ function line(ctx, x0, y0, x1, y1) {
   ctx.moveTo(x0 + .5, y0 + .5);
   ctx.lineTo(x1 + .5, y1 + .5);
   ctx.stroke();
+}
+
+/**
+ * Darkens everything the game's camera never shows along the route, so
+ * scenery no player will see, such as the top of a tall tower, stands out.
+ */
+function drawUnseen(ctx, seen, toX, toY, width, height) {
+  const mask = document.createElement('canvas');
+  mask.width = width;
+  mask.height = height;
+  const g = mask.getContext('2d');
+  g.fillStyle = 'rgba(0, 0, 0, 0.55)';
+  g.fillRect(0, 0, width, height);
+  g.globalCompositeOperation = 'destination-out';
+  g.fillStyle = '#000';
+  for (const view of seen) {
+    const left = toX(view.x) - MARGIN.left, top = toY(view.y) - MARGIN.top;
+    g.fillRect(left, top, toX(view.x + view.width) - MARGIN.left - left, toY(view.y + view.height) - MARGIN.top - top);
+  }
+  ctx.drawImage(mask, MARGIN.left, MARGIN.top);
 }
 
 function drawRun(ctx, run, toX, toY) {
@@ -141,6 +181,10 @@ function drawRun(ctx, run, toX, toY) {
     ctx.setLineDash([3, 3]);
     line(ctx, toX(spot.from.x), toY(spot.from.y) - 18, toX(x), toY(y));
     ctx.setLineDash([]);
+  }
+  for (const trap of run.traps) {
+    cross(ctx, toX(trap.x), toY(trap.y));
+    badge(ctx, toX(trap.x), toY(trap.y) + 18, 'TRAP', '#8e4ec6', '#fff');
   }
   if (run.crash) {
     cross(ctx, toX(run.crash.x), toY(run.crash.y));

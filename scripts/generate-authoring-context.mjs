@@ -8,15 +8,24 @@ import { join } from 'node:path';
 const root = join(import.meta.dirname, '..');
 const outputPath = join(root, 'TRAIL_AUTHORING_CONTEXT.md');
 
+// An example trail's file, found by its id: the number in the file name moves
+// when the career is reordered, the id doesn't.
+const catalog = JSON.parse(readFileSync(join(root, 'trails/catalog.json'), 'utf8'));
+const trailFile = id => {
+  const entry = catalog.trails.find(item => item.id === id);
+  if (!entry) throw new Error(`no trail ${id} in trails/catalog.json for the examples`);
+  return 'trails/' + entry.file;
+};
+
 const SOURCES = [
   ['TRAIL_FORMAT.md', 'markdown', 'Trail format specification'],
   ['js/trail-schema.js', 'js', 'Schema, normalization and validation rules (the code is authoritative if it disagrees with the spec)'],
   ['js/materials.js', 'js', 'Valid terrain materials'],
   ['trails/custom/README.md', 'markdown', 'Where custom trail files go and how they are loaded'],
-  ['trails/official/01-the-orchard.json', 'json', 'Example trail: easy'],
-  ['trails/official/12-kicker-canyon.json', 'json', 'Example trail: medium'],
-  ['trails/official/31-long-way-up.json', 'json', 'Example trail: advanced'],
-  ['trails/bonus/01-the-bonny-tyler.json', 'json', 'Example trail: hard'],
+  [trailFile('official:the-orchard'), 'json', 'Example trail: easy'],
+  [trailFile('official:kicker-canyon'), 'json', 'Example trail: medium'],
+  [trailFile('official:long-way-up'), 'json', 'Example trail: advanced'],
+  [trailFile('bonus:the-bonny-tyler'), 'json', 'Example trail: hard'],
 ];
 
 const header = `# Hjulben: trail authoring context

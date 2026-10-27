@@ -73,7 +73,7 @@ Play online at [h.julben.dk](https://h.julben.dk). To run it locally, start a st
 npm run dev
 ```
 
-This starts a small dependency-free Node server at `http://127.0.0.1:8080` (override with `PORT=…`). It generates `trails/catalog.json` (official and bonus) and the git-ignored `trails/custom-catalog.json` (custom), regenerates them when a trail JSON file changes, and lets the editor save trails straight into `trails/official/`, `trails/bonus/` and `trails/custom/`. It never reloads the page on its own, so a running game is not interrupted; refresh manually after changing code.
+This starts a small dependency-free Node server at `http://127.0.0.1:8080` (override with `PORT=…`). It generates `trails/catalog.json` (official and bonus) and the git-ignored `trails/custom-catalog.json` (custom), regenerates them when a trail JSON file changes, and lets the editor save trails straight into `trails/official/`, `trails/bonus/` and `trails/custom/`. It never reloads the page on its own, so a running game is not interrupted; refresh manually after changing code. The "Update ready" prompt a release shows players is left out on `localhost`, where every reload already gets the latest code; use a non-local address to see it.
 
 A local server is required because the game uses native JavaScript modules and fetches trail JSON, which browsers block on `file://`. Any static server also works for playing, for example on a static host, but only `npm run dev` enables saving trail files from the editor.
 
@@ -102,7 +102,7 @@ Gamepads use the standard mapping: `RT` or `A` for gas, `LT` or `X` for brake, t
 
 The career starts with gentle rollers that teach throttle rhythm and balance, then builds through turning around, steep climbs, committed jumps, hard braking, caves, water and weather to long technical trails that combine everything. Bonus trails sit outside the career.
 
-How the career is designed, and the rules every trail follows, are in [`TRAILS_GUIDE.md`](./TRAILS_GUIDE.md). The trails still to build are in [`TRAILS_PLAN.md`](./TRAILS_PLAN.md).
+How the career is designed, and the rules every trail follows, are in [`TRAILS_GUIDE.md`](./TRAILS_GUIDE.md). The career as it stands, trail by trail with what each teaches, is in [`TRAILS.md`](./TRAILS.md), which is generated from the trail files.
 
 Each trail requires collecting every apple before the finish gate will open. Completing a trail unlocks the next one. Selecting a trail starts it immediately, and its number and name remain visible as a lower-left course marker.
 
@@ -140,7 +140,7 @@ The inspector on the right edits the current selection. The editor supports:
 - Press `?` (or **Keyboard shortcuts** in the **⋯** menu) for a list of every shortcut.
 - Continuous trail validation, listed in the **⋯** menu, which shows a badge when there are errors or warnings
 - Browser-local draft history (**Save draft** in the header, `Cmd`/`Ctrl` + `S`): up to 12 timestamped drafts per trail. The editor opens the newest draft unless the trail was saved after it. The label next to the trail picker shows which version is open (original, published, or a draft) and whether it has edits since; click it to open **Versions**, where you can open any draft, delete drafts, or revert to the published trail (undoable). **Save draft** is greyed out until the trail changes from the open version, and **Publish** until it differs from the published trail. The inspector panel is hidden until something is selected.
-- Autosave: unsaved edits are kept in the browser a second after each change, and when the tab is closed, hidden or switched to another trail. Reopening the trail restores them on top of the version they were made to, with one undo step back to that version. The autosave is a single slot per trail, separate from the drafts, and is cleared when you save a draft or publish.
+- Autosave: unsaved edits are kept in the browser a second after each change, and when the tab is closed, hidden or switched to another trail. Reopening the trail restores them on top of the version they were made to, with one undo step back to that version. The autosave is a single slot per trail, separate from the drafts, and is cleared when you save a draft or publish. Drafts and autosaves are kept compressed in the browser's IndexedDB, so even very large trails fit.
 - JSON import, plus JSON and JavaScript module export (**Import / export** in the **⋯** menu, which warns when validation errors would block an export)
 - **Copy share link** in the **⋯** menu: copies a link that opens the trail in the game. The whole trail is packed into the link's hash (`index.html#trail=1.<data>`: the trail JSON, deflated and base64url-encoded, see `js/trail-link.js`), so it needs no server and works on any deployment. Opening the link rides the trail straight away and saves it under **Custom Trails** (opening it again reuses that copy). Small trails make links of a few hundred characters, but bigger ones run to several thousand, and the editor warns when a link is too long for a Discord message (2,000 characters). Because the hash never reaches the server, chat apps can't show the trail's name or a picture in their link preview.
 - **New** (+) and **Duplicate** next to the trail picker, plus **Publish** (`Cmd`/`Ctrl` + `Shift` + `S`) and **Delete** in the **⋯** menu
@@ -148,7 +148,7 @@ The inspector on the right edits the current selection. The editor supports:
 Where **Publish** writes depends on how the editor is served:
 
 - Under `npm run dev`, official, bonus and file-based custom trails are written directly to their JSON file, and new trails are created in `trails/custom/`. For an official or bonus trail the menu item reads **Overwrite official file…** or **Overwrite bonus file…** and asks for confirmation first.
-- On any other server, official and file-based trails are read-only. **New** and **Duplicate** create custom trails stored in the browser (localStorage), which then appear under **Custom Trails** in the game. Players can also add trails with **Import trail** in the game's trail menu.
+- On any other server, official and file-based trails are read-only. **New** and **Duplicate** create custom trails stored in the browser (IndexedDB, compressed, so even very large trails fit), which then appear under **Custom Trails** in the game. Players can also add trails with **Import trail** in the game's trail menu.
 
 Editor drafts do not overwrite trail files. Official trails live in `trails/official/`, bonus trails in `trails/bonus/`, and locally authored trails belong in `trails/custom/`. Both use the exact JSON format produced by **Export JSON**. Source classification comes from the generated catalog and folder—not from a user-editable property inside the trail. See [`TRAIL_FORMAT.md`](./TRAIL_FORMAT.md) for the full schema and design guidelines.
 

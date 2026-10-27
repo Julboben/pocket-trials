@@ -23,7 +23,7 @@ import {
   TAU,
 } from './config.js';
 import { hypot } from './det-math.js';
-import { breakTerrainBlock, terrainGeometry } from './terrain.js';
+import { breakTerrainBlock, shareTerrainGeometry, terrainGeometry } from './terrain.js';
 import { ringArea } from './terrain-geometry.js';
 import { trailTerrainBlocks } from './trail-schema.js';
 
@@ -48,6 +48,26 @@ export function rideTerrain(trail) {
     glassCracks: [],
     glassClock: 0,
   };
+}
+
+/**
+ * A copy of a ride's trail with its own record of broken and cracked glass, so
+ * a copied ride (the replay bot tries many) can break panes without breaking
+ * them for the ride it was copied from. The records are only ever added to or
+ * replaced, never changed in place, so shallow copies are enough.
+ * @param {import('./types.js').Trail} trail
+ * @returns {import('./types.js').Trail}
+ */
+export function copyRideTerrain(trail) {
+  if (!trail.brokenBlocks) return trail;
+  const copy = {
+    ...trail,
+    brokenBlocks: new Map(trail.brokenBlocks),
+    paneStrength: new Map(trail.paneStrength),
+    glassCracks: trail.glassCracks.slice(),
+  };
+  shareTerrainGeometry(trail, copy);
+  return copy;
 }
 
 /**

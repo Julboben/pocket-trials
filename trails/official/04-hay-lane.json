@@ -6,6 +6,9 @@
     "y": 370
   },
   "description": "Brake (hold back) before the drops. The SLOW signs mark each descent and the ! marks the lip. The small step on the first hill is a warm-up with a long, flat runout. The apple waiting at the foot of each drop is only caught by rolling off it slowly, so a rider who flies off sails over it. The last descent is long and fast: brake hard before the lip, roll down onto the landing for the apple, and stop before the tyre wall at the end of the lane.",
+  "lesson": "Braking. A downhill run to a fence, with a `SLOW` sign before a drop.",
+  "alsoNew": "Signs, tyre barriers.",
+  "world": "First Rides",
   "start": {
     "x": 90,
     "y": null,
