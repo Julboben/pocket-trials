@@ -2,6 +2,23 @@
 
 Player-facing release notes. The game shows them under **What's new**, and each GitHub Release uses its section.
 
+## 0.5.0 — 2026-10-27
+
+### New
+- High Orchard joins the career as trail 5.
+- Fireworks and a new pop-up overlay have been added.
+
+### Improved
+- Trails are now tracked by name rather than by their place in the order, so leaderboards, best times, nisse finds and unlocks stay with a trail even if it moves, and trails you have already ridden stay open.
+- The sun glare looks better.
+- Editor: Drafts are now saved in your browser's database, and autosave is more reliable, including when you close the page.
+- Editor: The editor runs faster, with a few smaller improvements to the menu and inspector.
+- Editor: Playtest shows your trail's size, tells you when it is too large to share as a link, and suggests medals.
+
+### Fixed
+- Editor: Playtesting a trail now starts it in the right place when the trail starts at the far left.
+- Editor: A block moved from the back walls into the terrain is no longer still drawn in the back walls.
+
 ## 0.4.3 — 2026-10-21
 
 ### Fixed
