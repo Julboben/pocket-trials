@@ -5,7 +5,7 @@ import {
   terrainSolidAt, terrainShadowSamples, terrainSurfaces, terrainRaycast,
 } from "../js/terrain-runtime.js";
 import { rectangleBlock, cutBlock, normalizeBlock, setBoundaryEdge } from "../js/terrain-geometry.js";
-import { terrainGeometry, updateTerrain } from "../js/terrain.js";
+import { backWallGeometry, terrainGeometry, updateTerrain } from "../js/terrain.js";
 import { normalizeTrail, trailTerrainBlocks } from "../js/trail-schema.js";
 import { loadCatalogTrails } from "./lib/trails.mjs";
 
@@ -228,6 +228,22 @@ const R = 12;
   }
   check(`an edit rebuilt in place matches a full compile (${edits} edits on ${trails.length} trails)`, edits > 0 && mismatches === 0);
   check('and edits are rebuilt in place, not compiled again', incremental === edits);
+}
+
+// A block moved between the terrain and the back walls, in place as the
+// editor's layer selector does, leaves the one and joins the other.
+{
+  const moving = normalizeTrail({ terrainBlocks: [rectangleBlock(-200, 500, 2000, 900), { ...rectangleBlock(400, 100, 700, 500), layer: "back" }] });
+  const block = moving.terrainBlocks[1];
+  const walls = () => backWallGeometry(moving)?.bodies.length ?? 0;
+  terrainGeometry(moving);
+  check("the back wall starts as a back wall", walls() === 1 && terrainGeometry(moving).bodies.length === 1);
+  delete block.layer;
+  updateTerrain(moving, new Set([block]));
+  check("moved into the terrain, it is no longer drawn as a back wall", walls() === 0 && terrainGeometry(moving).bodies.length === 2);
+  block.layer = "back";
+  updateTerrain(moving, new Set([block]));
+  check("and moved back, it is a back wall again", walls() === 1 && terrainGeometry(moving).bodies.length === 1);
 }
 
 console.log(failures ? `\n${failures} failing` : "\nTerrain runtime tests passed.");

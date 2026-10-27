@@ -54,6 +54,8 @@ export function startStaticServer({ onRequest = () => {}, handle = () => false }
  * @param {string} chromePath
  * @param {{ flags?: string[], onAttached?: (sessionId: string, targetInfo: any) => string[] }} [options]
  */
+const STARTUP_MS = 30_000;
+
 export async function launchChrome(chromePath, { flags = [], onAttached = () => [] } = {}) {
   const userDataDir = mkdtempSync(path.join(tmpdir(), 'hjulben-chrome-'));
   const allFlags = [
@@ -62,18 +64,27 @@ export async function launchChrome(chromePath, { flags = [], onAttached = () => 
     ...flags,
   ];
   if (process.getuid?.() === 0) allFlags.push('--no-sandbox');
-  const chrome = spawn(chromePath, [...allFlags, 'about:blank'], { stdio: 'ignore' });
-  // Chrome writes the port it picked here once it listens.
+  const chrome = spawn(chromePath, [...allFlags, 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
+  // The end of what Chrome says on stderr, to tell why it didn't start.
+  let said = '';
+  chrome.stderr.on('data', chunk => { said = (said + chunk).slice(-2000); });
+  // Chrome writes the port it picked here once it listens. A busy CI machine
+  // can take many seconds to start it, so it gets STARTUP_MS.
   const portFile = path.join(userDataDir, 'DevToolsActivePort');
   let endpoint = null;
-  for (let i = 0; i < 100 && !endpoint; i++) {
+  for (const started = Date.now(); !endpoint && Date.now() - started < STARTUP_MS;) {
     await sleep(100);
+    if (chrome.exitCode !== null || chrome.signalCode !== null) break;
     try {
       const [port, wsPath] = (await readFile(portFile, 'utf8')).trim().split('\n');
       endpoint = `ws://127.0.0.1:${port}${wsPath}`;
     } catch (_) { /* not up yet */ }
   }
-  if (!endpoint) throw new Error('Chrome did not start');
+  if (!endpoint) {
+    const ended = chrome.exitCode ?? chrome.signalCode;
+    chrome.kill();
+    throw new Error(`Chrome did not start${ended !== null ? ` (it exited: ${ended})` : ` within ${STARTUP_MS / 1000} s`}${said.trim() ? `:\n${said.trim()}` : ''}`);
+  }
   const ws = new WebSocket(endpoint);
   await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = () => reject(new Error('Could not connect to Chrome')); });
   let nextId = 0;

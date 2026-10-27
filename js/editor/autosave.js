@@ -31,7 +31,9 @@ export function autosaveNow(urgent = false) {
   if (!entry || !editor.trail || !editor.version) return;
   flushInspector();
   const json = latest.trail === editor.trail ? latest.json : JSON.stringify(editor.trail, null, 2);
-  if (written?.id === entry.id && written.json === json) return;
+  // A write as the page goes always runs: an earlier one with the same text
+  // may still be compressing, and is lost if the page goes first.
+  if (!urgent && written?.id === entry.id && written.json === json) return;
   if (json === editor.version.base) {
     clearAutosave(entry.id);
     written = null;

@@ -106,6 +106,13 @@ export function createTextStore({ name, adopt = () => [] }) {
         const request = indexedDB.open(isSandbox() ? sandboxDatabase(name) : name, 1);
         request.onupgradeneeded = () => request.result.createObjectStore(RECORDS);
         db = await done(request);
+        // Another tab deleting or upgrading the database waits for this
+        // connection to close, and would wait for ever otherwise; writes
+        // after that report a failure.
+        db.onversionchange = () => {
+          db.close();
+          db = null;
+        };
         const transaction = db.transaction(RECORDS);
         const keys = transaction.objectStore(RECORDS).getAllKeys();
         const values = transaction.objectStore(RECORDS).getAll();

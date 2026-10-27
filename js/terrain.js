@@ -27,10 +27,12 @@ export function invalidateTerrain(trail) {
  * @param {Set<object>} changed
  */
 export function updateTerrain(trail, changed) {
-  if ([...changed].some(isBackWall)) backWallCache.delete(trail);
   const previous = geometryCache.get(trail);
-  if (!previous) return;
   const front = (trail.terrainBlocks || []).filter((block) => !isBackWall(block));
+  // The back walls change with a back wall that changed, and with a block
+  // that left them for the terrain, which shows as one more terrain block.
+  if ([...changed].some(isBackWall) || !previous || front.length !== previous.blockCount) backWallCache.delete(trail);
+  if (!previous) return;
   const edits = new Map();
   front.forEach((block, index) => {
     if (changed.has(block)) edits.set(index, normalizeBlock(block));
