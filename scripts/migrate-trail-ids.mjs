@@ -3,6 +3,16 @@
 // catalogId in scripts/generate-trail-catalog.mjs). Run it once when that
 // change is deployed, then delete this script.
 //
+// DONE: it ran on the 0.5.0 database on 2026-10-27. Clean-up, once, from
+// 2026-11-27 (a month on, when nobody has found a time missing):
+//   1. Delete this script.
+//   2. Drop the backups taken before it ran, in Neon's SQL editor:
+//        drop table runs_backup_20261027;
+//        drop table players_backup_20261027;
+// Old keys turning up again in cloud saves (`official:05-…`), synced back
+// from browsers that played before 0.5.0, are expected and harmless: nothing
+// reads them, so they need no further runs of this script.
+//
 //   DATABASE_URL=... node scripts/migrate-trail-ids.mjs           what would change, nothing written
 //   DATABASE_URL=... node scripts/migrate-trail-ids.mjs --apply   change it
 //
