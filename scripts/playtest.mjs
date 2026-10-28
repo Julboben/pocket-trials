@@ -24,7 +24,8 @@
 // forgiving the line is: the bot rides with perfect timing, people don't.
 // Those reruns, and each jump's run-up ridden again too slowly, also find
 // traps: places where a miss leaves the rider with no way back to the line
-// and no crash, so a player can only restart by hand.
+// and no crash, so a player can only restart by hand. Last, it looks for
+// escapes: an end of the trail the rider can ride out of.
 //
 // Runs are saved in .playtest/ and tried first next time, so after a small
 // edit only the stretches it broke are searched again. Progress goes to
@@ -38,6 +39,7 @@ import { terrainAt } from '../js/terrain.js';
 import { hangsBelowWheel } from '../js/vehicle-physics.js';
 import { cloneRide, exploreTrail, recordTrail } from './lib/replay-bot.mjs';
 import { MAX_JSON_BYTES } from '../js/trail-link.js';
+import { trailHash } from '../js/trail-hash.js';
 import { loadCatalogTrails, loadTrailArgument, playtestRunPath, repoRoot } from './lib/trails.mjs';
 
 // The bot reports its progress with console.log; keep stdout for the report.
@@ -430,6 +432,8 @@ function describeForgiveness({ share, windows, traps }) {
 const cacheDir = repoRoot + '.playtest/';
 const cachePath = playtestRunPath(entry.id, without.length ? `.without-${without.join('-')}` : '');
 let cache = null;
+// The escape searches' answers, saved for the next playtest by findEscapes.
+const escapeCache = {};
 if (!args.includes('--fresh') && existsSync(cachePath)) {
   try { cache = JSON.parse(readFileSync(cachePath, 'utf8')); } catch { cache = null; }
 }
@@ -522,6 +526,14 @@ function solveTrail() {
   const traps = stretches.flatMap(stretch => stretch.forgiveness?.traps || []);
   if (traps.length) out(`TRAPS: ${traps.length} place${traps.length === 1 ? '' : 's'} where a miss leaves the rider with no way back and no crash (${traps.map(at).join(', ')}). Give each a way back to the line, or make it end the run (see TRAILS_GUIDE.md).`);
   report.traps = traps;
+  const escapes = TRIALS ? findEscapes(stretches.flatMap(stretch => stretch.stats?.route || [])) : [];
+  for (const { side, from, to, nisse, things } of escapes) {
+    const way = `the rider can ride out past the ${side} end, from ${at(from)} to ${at(to)}`;
+    if (nisse) out(`OPEN END: ${way}, to the nisse hidden out there at ${at(nisse)}. Fine if that is the way to it.`);
+    else if (things.length) out(`OPEN END: ${way}. Out there: ${things.join(', ')}. Fine if that is meant to be found; otherwise close the end (rule 9 in TRAILS_GUIDE.md).`);
+    else out(`ESCAPE: ${way}, onto plain ground beyond the closing, which is probably not meant. Close that end so nobody gets over it (rule 9 in TRAILS_GUIDE.md).`);
+  }
+  report.escapes = escapes;
   report.finished = finished;
   report.seconds = finished ? elapsed : null;
   report.stretches = stretches;
@@ -536,9 +548,79 @@ function solveTrail() {
       .map(({ at: from, reached, failedAt }) => ({ from: { x: Math.round(from.x), y: Math.round(from.y) }, reached, trials: TRIALS, failedAt }))),
     // Where a miss strands the rider, for scripts/render-trail.mjs to mark.
     traps,
+    escapes: escapeCache,
     // The whole run in the replay format's encoding, usable as a human run for scripts/record-replays.mjs.
     inputs: finished ? encodeInputs(fullRun) : undefined
   }) + '\n');
+}
+
+// --- Escaping the trail -----------------------------------------------------
+
+// Each end is closed off, with ground carrying on beyond the closing so no
+// edge shows (rule 9 in TRAILS_GUIDE.md). That ground is only scenery. From
+// the line's outermost point at each end, the bot looks for a way to the very
+// end of the terrain there, its last ESCAPE_END units: a rider who stands
+// there has ridden out along the ground beyond the closing, or climbed the
+// wall that ends the terrain, and either way has left the trail. An end the
+// line itself comes within ESCAPE_CLEAR of is left alone.
+const ESCAPE_CLEAR = 200;
+const ESCAPE_END = 150;
+const ESCAPE_MINUTES = 0.5;
+// Plain nature and wildlife, which dress the ground beyond a closing on
+// most trails. A prop type missing here counts as something placed out there
+// on purpose.
+const SCENERY = new Set(['tree', 'pine', 'sapling', 'pine-small', 'snow-pine', 'bush', 'grass', 'flowers', 'rock', 'boulder', 'pebbles', 'stump', 'cactus', 'cactus-small', 'vines', 'roots', 'moss', 'ivy', 'rabbit', 'squirrel', 'bird', 'vulture', 'tumbleweed']);
+
+function findEscapes(route) {
+  const ride = createRide(trail);
+  const points = [mid(ride), ride.flower, ...ride.apples, ...route];
+  const xs = trail.terrainBlocks.filter(block => block.layer !== 'back').flatMap(block => block.outer.nodes.map(node => node.x));
+  const terrain = { left: Math.min(...xs), right: Math.max(...xs) };
+  const west = points.reduce((a, b) => (b.x < a.x ? b : a)), east = points.reduce((a, b) => (b.x > a.x ? b : a));
+  const ends = [
+    { side: 'west', facing: -1, from: west, edge: Math.min(terrain.left + ESCAPE_END, west.x - ESCAPE_CLEAR), out: x => x < ends[0].edge, end: terrain.left },
+    { side: 'east', facing: 1, from: east, edge: Math.max(terrain.right - ESCAPE_END, east.x + ESCAPE_CLEAR), out: x => x > ends[1].edge, end: terrain.right },
+  ];
+  // A hard climb out can take the bot most of this, and on a trail closed at
+  // both ends it is spent in full. So the answer is saved with the ground it
+  // was found on: editing scenery, props or the nisse doesn't search again.
+  const minutes = Math.min(ESCAPE_MINUTES, MINUTES * 0.25);
+  const found = [];
+  for (const end of ends) {
+    if (!(end.side === 'west' ? end.edge > end.end : end.edge < end.end)) continue;
+    const key = `${trailHash(trail)}:${end.side}:${Math.round(end.from.x)}:${Math.round(end.edge)}`;
+    const saved = cache?.escapes?.[key];
+    // A way out found stays found; none found only counts for a search as long as this one.
+    const way = saved && (saved.way || saved.minutes >= minutes) ? saved.way : searchEscape(end, minutes);
+    escapeCache[key] = saved && !saved.way && saved.minutes >= minutes ? saved : { way, minutes };
+    if (!way) continue;
+    // What lies out there, past the line, says whether the end is meant to be
+    // open: a nisse hidden there, or things placed there, are worth riding out
+    // for; only plain nature beyond is likely ground that carries on to hide
+    // the edge.
+    const beyond = x => end.facing * (x - end.from.x) > ESCAPE_CLEAR;
+    const nisse = ride.nisse && beyond(ride.nisse.x) ? ride.nisse : null;
+    const things = [...new Set((trail.props || []).filter(prop => beyond(prop.x) && !SCENERY.has(prop.type)).map(prop => prop.type))];
+    found.push({ side: end.side, ...way, nisse, things });
+  }
+  return found;
+}
+
+/** The bot's way out past one end, as where it starts and where it gets to, or null. */
+function searchEscape(end, minutes) {
+  const start = createRide(trail, { start: { x: end.from.x, y: null, facing: end.facing } });
+  // A place out there to head for: the bot steers for apples, so one stands
+  // in for it, and getting anywhere past the edge counts.
+  const target = (end.edge + end.end) / 2;
+  const ground = terrainAt(trail, target, -1e5);
+  if (!ground || !Number.isFinite(ground.y)) return null;
+  goalOf(`reach:${Math.round(target)},${Math.round(ground.y - 60)}`, start);
+  const done = probe => probe.status === 'running' && end.out(mid(probe).x);
+  const greedy = recordTrail(entry, { start, done, minutes: minutes * 0.4, constrain });
+  const path = greedy.done ? greedy.inputs : exploreTrail(entry, [], { start, done, minutes: minutes * 0.6, polish: false, constrain })?.inputs;
+  if (!path) return null;
+  const { ride: after } = measure(start, path, done);
+  return { from: { x: Math.round(end.from.x), y: Math.round(end.from.y) }, to: { x: Math.round(mid(after).x), y: Math.round(mid(after).y) } };
 }
 
 // --- Probing one spot ---------------------------------------------------------

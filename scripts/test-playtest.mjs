@@ -74,6 +74,7 @@ try {
   assert.match(solved, /turns [1-9]/, 'the way back takes a turn');
   assert.match(solved, /forgiveness: \d+% of reruns/);
   assert.match(solved, /Result: the bot finished in [\d.]+ s/);
+  assert.doesNotMatch(solved, /ESCAPE/, 'walls the bike can\'t get over close the trail');
   const saved = JSON.parse(readFileSync(playtestRunPath(ID), 'utf8'));
   assert.equal(saved.stretches.length, 2, 'the run is saved stretch by stretch');
   assert.ok(saved.inputs, 'a finished run is saved whole as well');
@@ -116,6 +117,23 @@ try {
   assert.match(trapped, /^TRAPS: 1 place/m, 'and it is summed up at the end');
   writeFileSync(pitFile, JSON.stringify({ ...pit, spikes: [640, 700, 760, 820, 880].map(x => ({ x, y: 540, radius: 20 })) }));
   assert.doesNotMatch(runPit('--fresh', '--minutes', '0.5'), /TRAP/, 'spikes on its floor make it a crash, not a trap');
+
+  // An end closed by a gentle ramp onto the ground beyond it can be ridden
+  // out of: the rider escapes the trail.
+  const ramp = {
+    ...trail,
+    terrainBlocks: [
+      rectangle(-300, 0, 0, 700, 'grass', 'west-wall'),
+      polygonBlock([[-300, 320], [2000, 320], [2400, 220], [3600, 220], [3600, 700], [-300, 700]], 'grass', 'ground'),
+    ],
+  };
+  writeFileSync(pitFile, JSON.stringify(ramp));
+  assert.match(runPit('--fresh', '--minutes', '0.5', '--trials', '1'), /ESCAPE: the rider can ride out past the east end/, 'a ramp out of the trail is an escape');
+  // With a nisse hidden out there, the open end is the way to it, not a fault.
+  writeFileSync(pitFile, JSON.stringify({ ...ramp, nisse: { x: 3200, y: null } }));
+  const hidden = runPit('--minutes', '0.5', '--trials', '1');
+  assert.match(hidden, /OPEN END: the rider can ride out past the east end.*to the nisse hidden out there/, 'an end opening onto the nisse is reported as a choice');
+  assert.doesNotMatch(hidden, /ESCAPE/, 'and not as an escape');
 
   // A scripted probe prints a trace and rides where the script says.
   const scripted = run('playtest.mjs', '--probe', '400,ground,1,0', '--script', 'gas 0.5; gas fwd 0.1; gas 0.5; turn; brake 0.3', '--every', '0.5');
