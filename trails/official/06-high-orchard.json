@@ -5,9 +5,6 @@
     "y": -228
   },
   "description": "The Orchard finale, staged as a harvest trials day on a terraced hillside: the one where you climb. Five slopes, each taller and steeper than the last, take you from the cider barn up to the crag high above the orchard. 1) The barn yard and a long flat run-up to the first slope (15°, 70 up). Apple 1 on the first terrace among the harvest. 2) The second slope (22°, 100 up). Apple 2 on the second terrace. 3) The third slope (28°, 150 up) to the crowd and the camera tower. 4) The bank drops into a hollow (apple 3) at the foot of the big slope (34°, 290 up). Come down the bank with speed and lean forward, and it goes. Creep into the hollow and gas from a standstill, and the front comes up and the bike goes over. The lesson: roll back, up the bank, and come down it with speed. 5) The meadow at the top: the finish flower at its edge, the marshal and the crowd, the orchard below. 6) The crag (40°, 210 up, in rock) takes the meadow as its run-up. Apple 4 hangs by the lookout on top, the highest point of the trail, and only the climb reaches it. The tor behind it overhangs, so turn around (Space) or roll back, brake down the crag and ride back to the flower. Overshoot it and you roll down the big slope and climb it again. Recovery: a stall on any slope rolls the rider back to the terrace or hollow below, and nothing strands them; a bike that goes over backwards crashes. Skills: climbing (new), momentum and run-ups, turning around, braking. Ends: the cider barn behind the start, the overhanging tor at the top.",
-  "lesson": "Climbing for height. Five slopes, each taller and steeper than the last, from the cider barn up to a crag above the orchard. Stall, roll back and come down with speed for a longer run-up.",
-  "alsoNew": "A harvest trials day with a crowd, a marshal and a camera tower, on a terraced hillside.",
-  "world": "First Rides",
   "start": {
     "x": 60,
     "y": null,
@@ -2204,9 +2201,16 @@
     "windDirection": "left"
   },
   "timeOfDay": 17,
+  "lesson": "Climbing for height. Five slopes, each taller and steeper than the last, from the cider barn up to a crag above the orchard. Stall, roll back and come down with speed for a longer run-up.",
+  "alsoNew": "A harvest trials day with a crowd, a marshal and a camera tower, on a terraced hillside.",
+  "world": "First Rides",
   "medals": {
     "gold": 17.5,
     "silver": 23,
     "bronze": 30.5
+  },
+  "preview": {
+    "x": 2414,
+    "y": -100
   }
 }
