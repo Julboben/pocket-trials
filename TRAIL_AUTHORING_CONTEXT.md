@@ -1590,9 +1590,6 @@ Example trail: easy.
     "y": 290.1897147270387
   },
   "description": "Learn the rhythm: build speed on gentle rollers, lean forward on climbs, and settle the bike before each landing.",
-  "lesson": "Gas, lean and gentle rollers.",
-  "alsoNew": "Farm props, collecting apples.",
-  "world": "First Rides",
   "start": {
     "x": 271.93445286745373,
     "y": 303.45703530867854,
@@ -2449,10 +2446,17 @@ Example trail: easy.
     "windDirection": "left"
   },
   "timeOfDay": 12,
+  "lesson": "Gas, lean and gentle rollers.",
+  "alsoNew": "Farm props, collecting apples.",
+  "world": "First Rides",
   "medals": {
     "gold": 11,
     "silver": 14.5,
     "bronze": 19
+  },
+  "preview": {
+    "x": 787,
+    "y": 230
   }
 }
 ```

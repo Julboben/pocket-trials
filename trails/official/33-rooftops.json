@@ -589,10 +589,6 @@
     "windDirection": "left"
   },
   "timeOfDay": 0,
-  "checkpoint": {
-    "x": 1600,
-    "y": null
-  },
   "backdrop": "city",
   "medals": {
     "gold": 19,

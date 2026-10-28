@@ -127,6 +127,8 @@ Build a new custom trail for Hjulben: [THE IDEA, e.g. "a farmland trail with flo
 
 [THE SETTING AND RIDING: the world it belongs to, the riding elements to use, how hard it is and roughly how long a good run takes, e.g. "Farmland, medium-hard, about 1–2 minutes for a good rider. Several floating islands at different heights: a kicker launch up to one, a drop from one island onto the next, one you reach by turning around for a run-up, and an island transfer where you have to control your height. At least one apple in the Elasto Mania spirit: tricky to get to, and meant to be found rather than ridden past."]
 
+[ITS PLACE: "It will become official trail N, between X and Y" or "a custom trail, outside the career". For a place in the career, add: "Read X, Y and the trails before them in TRAILS.md. Use only what the player has learned by then, and don't repeat what X or Y teach."]
+
 Save it only as a custom trail in trails/custom/, with a fitting file name. Don't touch official or bonus trails: I'll ride it myself first.
 
 How to work:
