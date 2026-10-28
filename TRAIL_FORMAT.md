@@ -20,7 +20,6 @@ The world uses Canvas coordinates:
 ```js
 {
   name: 'Example Trail',
-  label: 'EXAMPLE TRAIL / 08',
   start: { x: 90, y: null, facing: 1 },
   finish: { x: 1800, y: null },
 

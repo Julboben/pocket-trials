@@ -99,11 +99,9 @@ export function createBlankTerrainBlocks(material = "grass") {
 
 export const cloneTrail = (trail) => JSON.parse(JSON.stringify(trail));
 
-export function createBlankTrail(index = 0) {
-  const number = String(index + 1).padStart(2, "0");
+export function createBlankTrail() {
   return {
     name: "New Trail",
-    label: `NEW TRAIL / ${number}`,
     finish: { x: 1200, y: null },
     description: "",
     start: { x: 90, y: null, facing: 1 },
@@ -198,10 +196,9 @@ export function normalizeSpike(spike, groundY = null) {
 }
 
 export const AUTHOR_MAX_LENGTH = 40;
-// The name is shown in the trail list and the label on the loading card, so
-// neither can run on for ever; the description is the trail's blurb.
+// The name is shown in the trail list, so it can't run on for ever; the
+// description is the trail's blurb.
 export const NAME_MAX_LENGTH = 60;
-export const LABEL_MAX_LENGTH = 80;
 export const DESCRIPTION_MAX_LENGTH = 2000;
 /** A trail's notes for the career's overview, and how long each may be. */
 export const OVERVIEW_KEYS = ["lesson", "alsoNew", "world"];
@@ -238,14 +235,12 @@ export function normalizeAuthor(author) {
 const optionalY = (y) =>
   y === null || y === undefined || !Number.isFinite(Number(y)) ? null : Number(y);
 
-export function normalizeTrail(input, index = 0) {
-  const fallback = createBlankTrail(index);
+export function normalizeTrail(input) {
+  const fallback = createBlankTrail();
   const trail = { ...fallback, ...cloneTrail(input || {}) };
   trail.name = String(trail.name || fallback.name).slice(0, NAME_MAX_LENGTH);
-  trail.label = String(
-    trail.label ||
-      `${trail.name.toUpperCase()} / ${String(index + 1).padStart(2, "0")}`,
-  ).slice(0, LABEL_MAX_LENGTH);
+  // Older files and share links carry a label, a numbered caption nothing shows.
+  delete trail.label;
   // Credits are optional; an empty author is not stored.
   const author = normalizeAuthor(trail.author);
   if (author) trail.author = author;

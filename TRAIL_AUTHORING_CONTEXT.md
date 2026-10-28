@@ -21,8 +21,8 @@ Create new trails as a single JSON file each, following the format below.
 3. `js/materials.js`: Valid terrain materials
 4. `trails/custom/README.md`: Where custom trail files go and how they are loaded
 5. `trails/official/01-the-orchard.json`: Example trail: easy
-6. `trails/official/13-kicker-canyon.json`: Example trail: medium
-7. `trails/official/33-long-way-up.json`: Example trail: advanced
+6. `trails/official/14-kicker-canyon.json`: Example trail: medium
+7. `trails/official/34-long-way-up.json`: Example trail: advanced
 8. `trails/bonus/01-the-bonny-tyler.json`: Example trail: hard
 
 ---
@@ -54,7 +54,6 @@ The world uses Canvas coordinates:
 ```js
 {
   name: 'Example Trail',
-  label: 'EXAMPLE TRAIL / 08',
   start: { x: 90, y: null, facing: 1 },
   finish: { x: 1800, y: null },
 
@@ -708,11 +707,9 @@ export function createBlankTerrainBlocks(material = "grass") {
 
 export const cloneTrail = (trail) => JSON.parse(JSON.stringify(trail));
 
-export function createBlankTrail(index = 0) {
-  const number = String(index + 1).padStart(2, "0");
+export function createBlankTrail() {
   return {
     name: "New Trail",
-    label: `NEW TRAIL / ${number}`,
     finish: { x: 1200, y: null },
     description: "",
     start: { x: 90, y: null, facing: 1 },
@@ -807,10 +804,9 @@ export function normalizeSpike(spike, groundY = null) {
 }
 
 export const AUTHOR_MAX_LENGTH = 40;
-// The name is shown in the trail list and the label on the loading card, so
-// neither can run on for ever; the description is the trail's blurb.
+// The name is shown in the trail list, so it can't run on for ever; the
+// description is the trail's blurb.
 export const NAME_MAX_LENGTH = 60;
-export const LABEL_MAX_LENGTH = 80;
 export const DESCRIPTION_MAX_LENGTH = 2000;
 /** A trail's notes for the career's overview, and how long each may be. */
 export const OVERVIEW_KEYS = ["lesson", "alsoNew", "world"];
@@ -847,14 +843,12 @@ export function normalizeAuthor(author) {
 const optionalY = (y) =>
   y === null || y === undefined || !Number.isFinite(Number(y)) ? null : Number(y);
 
-export function normalizeTrail(input, index = 0) {
-  const fallback = createBlankTrail(index);
+export function normalizeTrail(input) {
+  const fallback = createBlankTrail();
   const trail = { ...fallback, ...cloneTrail(input || {}) };
   trail.name = String(trail.name || fallback.name).slice(0, NAME_MAX_LENGTH);
-  trail.label = String(
-    trail.label ||
-      `${trail.name.toUpperCase()} / ${String(index + 1).padStart(2, "0")}`,
-  ).slice(0, LABEL_MAX_LENGTH);
+  // Older files and share links carry a label, a numbered caption nothing shows.
+  delete trail.label;
   // Credits are optional; an empty author is not stored.
   const author = normalizeAuthor(trail.author);
   if (author) trail.author = author;
@@ -1591,7 +1585,6 @@ Example trail: easy.
 ```json
 {
   "name": "The Orchard",
-  "label": "THE ORCHARD / 01",
   "finish": {
     "x": 2109.276035710421,
     "y": 290.1897147270387
@@ -2466,14 +2459,13 @@ Example trail: easy.
 
 ---
 
-## `trails/official/13-kicker-canyon.json`
+## `trails/official/14-kicker-canyon.json`
 
 Example trail: medium.
 
 ```json
 {
   "name": "Kicker Canyon",
-  "label": "KICKER CANYON / 12",
   "finish": {
     "x": 3244.3685535694976,
     "y": 131.62977237070947
@@ -4357,14 +4349,13 @@ Example trail: medium.
 
 ---
 
-## `trails/official/33-long-way-up.json`
+## `trails/official/34-long-way-up.json`
 
 Example trail: advanced.
 
 ```json
 {
   "name": "Long Way Up",
-  "label": "LONG WAY UP / 31",
   "finish": {
     "x": 3658.2026876591453,
     "y": -504.8164131254289
@@ -5861,7 +5852,6 @@ Example trail: hard.
 ```json
 {
   "name": "THE BONNY TYLER",
-  "label": "THE BONNY TYLER / 01",
   "finish": {
     "x": 3937.3001028728117,
     "y": -225.35628766109969

@@ -3,7 +3,7 @@ import { FALL_MARGIN, fallLine, terrainAt } from '../js/terrain.js';
 import { rectangle } from './lib/terrain-fixtures.mjs';
 import {
   SPIKE_RADIUS, createBlankTrail, normalizeTrail, normalizeSpike, validateTrail, medalFor, normalizeMedals,
-  trailTerrainBlocks, trailBackWalls, AUTHOR_MAX_LENGTH, NAME_MAX_LENGTH, LABEL_MAX_LENGTH, DESCRIPTION_MAX_LENGTH,
+  trailTerrainBlocks, trailBackWalls, AUTHOR_MAX_LENGTH, NAME_MAX_LENGTH, DESCRIPTION_MAX_LENGTH,
   PROP_WARNING_COUNT, APPLE_WARNING_COUNT, SPIKE_WARNING_COUNT, normalizeRotation, OVERVIEW_MAX_LENGTH
 } from '../js/trail-schema.js';
 import { RADIUS, WHEELBASE } from '../js/config.js';
@@ -41,13 +41,13 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bon
 // Import round-trip: export as JSON, parse, normalize — nothing is lost.
 {
   const original = normalizeTrail({
-    ...createBlankTrail(3),
+    ...createBlankTrail(),
     name: 'Round Trip',
     spikes: [{ x: 640, radius: 24, spin: -1 }],
     apples: [{ x: 500, y: null }, { x: 820, y: 180 }],
     medals: { gold: 20, silver: 30, bronze: 45 }
-  }, 3);
-  const imported = normalizeTrail(JSON.parse(JSON.stringify(original)), 3);
+  });
+  const imported = normalizeTrail(JSON.parse(JSON.stringify(original)));
   assert.deepEqual(imported, original);
   assert.deepEqual(errors(imported), []);
   assert.equal(trailHash(imported), trailHash(original));
@@ -105,16 +105,17 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bon
   assert.ok(!errors(sunk).some(text => text.includes('starts inside solid terrain')));
 }
 
-// Text is capped: a name, label or description can't run on for ever.
+// Text is capped: a name or description can't run on for ever.
 {
   const blank = normalizeTrail(createBlankTrail());
-  const long = normalizeTrail({ ...blank, name: 'n'.repeat(500), label: 'l'.repeat(500), description: 'd'.repeat(5000) });
+  const long = normalizeTrail({ ...blank, name: 'n'.repeat(500), description: 'd'.repeat(5000) });
   assert.equal(long.name.length, NAME_MAX_LENGTH);
-  assert.equal(long.label.length, LABEL_MAX_LENGTH);
   assert.equal(long.description.length, DESCRIPTION_MAX_LENGTH);
   assert.deepEqual(normalizeTrail(long), long, 'capped text normalizes idempotently');
-  assert.ok(normalizeTrail({ ...blank, name: 'n'.repeat(70), label: '' }).label.length <= LABEL_MAX_LENGTH, 'a label made from a long name fits');
 }
+
+// Older files and share links carry a label, which nothing shows; it is dropped.
+assert.equal(normalizeTrail({ ...createBlankTrail(), label: 'OLD TRAIL / 07' }).label, undefined);
 
 // Very many objects are a warning, not an error.
 {
@@ -190,8 +191,8 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bon
 
 // Content hashes identify a trail by its geometry, not its name or storage.
 {
-  const a = normalizeTrail(createBlankTrail(0));
-  const b = normalizeTrail({ ...a, name: 'Renamed', label: 'X' });
+  const a = normalizeTrail(createBlankTrail());
+  const b = normalizeTrail({ ...a, name: 'Renamed' });
   const c = normalizeTrail({ ...a, finish: { ...a.finish, x: a.finish.x - 10 } });
   assert.equal(trailHash(a), trailHash(b));
   assert.notEqual(trailHash(a), trailHash(c));
@@ -250,7 +251,7 @@ assert.ok(!isOnlineTrail('custom:caves@0123abcd'), 'custom file trails stay offl
 // deep the trail is built.
 {
   const deep = normalizeTrail({
-    ...createBlankTrail(0), finish: { x: 2800, y: null }, start: { x: 100, y: 3400, facing: 1 },
+    ...createBlankTrail(), finish: { x: 2800, y: null }, start: { x: 100, y: 3400, facing: 1 },
     terrainBlocks: [rectangle(0, 3440, 3000, 5000)],
   });
   assert.equal(fallLine(deep), 5000 + FALL_MARGIN);
@@ -272,7 +273,7 @@ assert.ok(!isOnlineTrail('custom:caves@0123abcd'), 'custom file trails stay offl
   assert.equal(normalizeRotation('15'), 15);
   assert.equal(normalizeRotation('tilted'), undefined);
   assert.equal(normalizeRotation(null), undefined);
-  const trail = normalizeTrail({ ...createBlankTrail(0), props: [
+  const trail = normalizeTrail({ ...createBlankTrail(), props: [
     { x: 100, y: null, type: 'crates', rotation: 30 },
     { x: 200, y: null, type: 'rock', rotation: 0 },
   ] });

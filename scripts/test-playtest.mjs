@@ -134,6 +134,15 @@ try {
   const hidden = runPit('--minutes', '0.5', '--trials', '1');
   assert.match(hidden, /OPEN END: the rider can ride out past the east end.*to the nisse hidden out there/, 'an end opening onto the nisse is reported as a choice');
   assert.doesNotMatch(hidden, /ESCAPE/, 'and not as an escape');
+  // A roof over the walled field runs out past both walls. Its top is the
+  // topmost ground at either end, but the rider is inside, below it.
+  writeFileSync(pitFile, JSON.stringify({
+    ...trail,
+    terrainBlocks: [...trail.terrainBlocks, rectangle(-300, -100, 2300, -50, 'stone', 'roof')],
+    start: { x: 400, y: 308, facing: 1 },
+    apples: [{ x: 900, y: 260 }],
+  }));
+  assert.doesNotMatch(runPit('--fresh', '--minutes', '0.5', '--trials', '1'), /ESCAPE|OPEN END/, 'the ground above a roof is no way out');
 
   // A scripted probe prints a trace and rides where the script says.
   const scripted = run('playtest.mjs', '--probe', '400,ground,1,0', '--script', 'gas 0.5; gas fwd 0.1; gas 0.5; turn; brake 0.3', '--every', '0.5');

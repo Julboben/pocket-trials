@@ -70,7 +70,7 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bon
   const linked = { ...base, name: 'Linked' };
   const copy = saveSharedTrail(linked);
   assert.equal(copy.shared, true);
-  assert.equal(saveSharedTrail({ ...linked, label: 'LINKED / 09' }), copy, 'the same link reuses its copy, whatever its default label');
+  assert.equal(saveSharedTrail({ ...linked }), copy, 'the same link reuses its copy');
   const count = customTrailEntries.length;
   const updated = saveSharedTrail({ ...linked, description: 'Now with more props.' });
   assert.equal(updated.id, copy.id, 'a newer link to the same trail updates its copy');

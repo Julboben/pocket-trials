@@ -31,7 +31,7 @@
 // edit only the stretches it broke are searched again. Progress goes to
 // stderr and the report to stdout.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { STEP } from '../js/config.js';
+import { RADIUS, STEP, WHEELBASE } from '../js/config.js';
 import { bikeSpeed, createRide, seededRandom, stepRide } from '../js/ride.js';
 import { decodeInputs, encodeInputs } from '../js/replay-codec.js';
 import { DESCRIPTION_MAX_LENGTH, normalizeTrail, validateTrail } from '../js/trail-schema.js';
@@ -608,12 +608,20 @@ function findEscapes(route) {
 
 /** The bot's way out past one end, as where it starts and where it gets to, or null. */
 function searchEscape(end, minutes) {
-  const start = createRide(trail, { start: { x: end.from.x, y: null, facing: end.facing } });
+  // The bike stands on the floor under the line, not on the topmost surface
+  // there, which in a cave is the outside of its roof.
+  const below = end.from.y - RADIUS * 3;
+  const floors = [-1, 1].map(side => terrainAt(trail, end.from.x + side * WHEELBASE / 2, below));
+  if (!floors.every(floor => floor.solid)) return null;
+  const start = createRide(trail, { start: { x: end.from.x, y: Math.min(...floors.map(floor => floor.y)) - RADIUS, facing: end.facing } });
   // A place out there to head for: the bot steers for apples, so one stands
-  // in for it, and getting anywhere past the edge counts.
+  // in for it, and getting anywhere past the edge counts. Ground near the
+  // line's height is the likely way out; failing that, the top of whatever
+  // ends the terrain.
   const target = (end.edge + end.end) / 2;
-  const ground = terrainAt(trail, target, -1e5);
-  if (!ground || !Number.isFinite(ground.y)) return null;
+  const level = terrainAt(trail, target, end.from.y - 400);
+  const ground = level.solid ? level : terrainAt(trail, target, -1e5);
+  if (!Number.isFinite(ground.y)) return null;
   goalOf(`reach:${Math.round(target)},${Math.round(ground.y - 60)}`, start);
   const done = probe => probe.status === 'running' && end.out(mid(probe).x);
   const greedy = recordTrail(entry, { start, done, minutes: minutes * 0.4, constrain });
