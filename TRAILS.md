@@ -8,7 +8,7 @@ Written by `scripts/generate-trails-overview.mjs` from the trail files, so don't
 
 *Grass, `hills` backdrop, the orchard and the farm around it, noon, clear skies. Teaches the controls.*
 
-- **01. The Orchard:** Gas, lean and gentle rollers. *Also new:* Farm props, collecting apples. (gold 11 s, bot 8.6 s)
+- **01. The Orchard:** Gas, lean and gentle rollers. *Also new:* Farm props, collecting apples. (gold 11 s, bot 8.3 s)
 
   > Learn the rhythm: build speed on gentle rollers, lean forward on climbs, and settle the bike before each landing.
 
@@ -32,7 +32,7 @@ Written by `scripts/generate-trails-overview.mjs` from the trail files, so don't
 
   > SKY LADDER. The one with the islands stacked into the sky: a short, easy climb from the meadow to the highest island, hopping from island to island, then turning back and hopping on up above the islands you came by. The career's first floating islands, with the meadow under every one of them. ROUTE AND APPLES: 1) A grassy kicker on the meadow throws you up onto island 0; apple 1 hangs over its near edge. 2) Island 0's curved lip throws you up onto island 1, and island 1's lip over the lip of the hill island. 3) The hill island: a ramp up to a crest with an apple tree, and behind the crest a hollow you can't see from below. Apple 2 floats in it: the one you go looking for. The rim beyond is steep: ride up it, roll back, turn (Space) and ride back over the crest. 4) Down the ramp at speed, the hill island's lip throws you high and back west, up onto the first upper island above island 1; apple 3 floats over its edge. 5) Two more hops up, each lip throwing you onto the next island's landing shoulder; apple 4 floats over the top island's edge by the potato stall. 6) The finish: a steep bank up to the summit, with the flower floating by the old apple tree and the rock. SKILLS: momentum (every lip wants a run-up, and the ramp gives the big hop its speed), small hops off kickers, turning around (once, on the hill island), big air (level the bike before each landing). New: taking off from one island and landing on another, higher or lower. No turning in the air. RECOVERY: there is ground under every island. Miss on the lower row and you land on the meadow: ride back to the start kicker, or to the west-facing kicker under the hill island, which throws you back onto island 1. Miss on the upper row and you drop onto a lower island and ride up again. Fly off the rim and you land on the meadow. The summit rock stops a rider who reaches the top still short of an apple. ENDS: the bank behind the start, the overhanging bank in the east, and the summit rock.
 
-- **07. Windmill Hill:** Steep climbs. Lean forward to keep the front down, and if you stall, roll back, turn and try again with a run-up. Combines momentum, turning and braking. *Also new:* Morning light, more clouds, the farmhouse. (gold 34 s, bot 35.1 s)
+- **07. Windmill Hill:** Steep climbs. Lean forward to keep the front down, and if you stall, roll back, turn and try again with a run-up. Combines momentum, turning and braking. *Also new:* Morning light, more clouds, the farmhouse. (gold 34 s, bot 65.5 s)
 
   > The steep hill has to be climbed three times. Lean forward so the front wheel stays down, and if you stall, roll back for a longer run-up. Beyond it, take the apple in the valley, turn (Space) and ride back over: the bump at the foot of the hill throws you up onto the ledge for the high apple. Turn once more and climb it again, then splash through the pond to the gate.
 
@@ -48,7 +48,7 @@ Written by `scripts/generate-trails-overview.mjs` from the trail files, so don't
 
 *Dirt, `forest` backdrop, cut wood, morning to evening. Teaches balance.*
 
-- **10. Splinter Ridge:** Steeper rollers and sharper crests. Ease off over the top, and lean forward when the front wheel gets light. *Also new:* Dirt, the forest backdrop, pines, cut stumps, roots and moss. (gold 16.5 s, bot 28.7 s)
+- **10. Splinter Ridge:** Steeper rollers and sharper crests. Ease off over the top, and lean forward when the front wheel gets light. *Also new:* Dirt, the forest backdrop, pines, cut stumps, roots and moss. (gold 16.5 s, bot 26.6 s)
 
   > Momentum is your friend. Carry speed through valleys, ease over crests, and lean forward when the front wheel gets light.
 
@@ -76,7 +76,7 @@ Written by `scripts/generate-trails-overview.mjs` from the trail files, so don't
 
   > First air. Each dune is taller than the last, and with speed its rounded crest lifts you off the ground. In the air, lean to level the bike: lean back if the nose drops, forward if it rises, and land with both wheels on the far slope. The apples float just past the crests, where the bike flies.
 
-- **16. Kicker Canyon:** Kickers, ramps that throw you up, onto downhill landings. *Also new:* Boulders, crystals. (gold 14.5 s, bot 20.1 s)
+- **16. Kicker Canyon:** Kickers, ramps that throw you up, onto downhill landings. *Also new:* Boulders, crystals. (gold 14.5 s, bot 27.9 s)
 
   > Commit to the jumps. Build speed before each lip, stay calm in the air, and line both wheels up with the far-side slope.
 
@@ -132,11 +132,11 @@ Written by `scripts/generate-trails-overview.mjs` from the trail files, so don't
 
   > Two levels. Ride off the edge of the sinkhole and drop into the cave below: land rear wheel first on the slope and roll away under the roof. Ride through the dark past the bats and the glowing mushrooms, then climb the long ramp up through the second opening and back into daylight. The finish is on the surface.
 
-- **28. The Shaft:** Start at the bottom of a cave shaft and climb out by switchbacking between ledges on alternate sides, up to a finish that floats high above. *Also new:* A start below ground, a floating finish. (gold 22 s, bot 38.6 s)
+- **28. The Shaft:** Start at the bottom of a cave shaft and climb out by switchbacking between ledges on alternate sides, up to a finish that floats high above. *Also new:* A start below ground, a floating finish. (gold 22 s, bot 39.6 s)
 
   > You start at the bottom of a mine shaft, and the only way out is up. Kick off the little ramp onto the first ledge, turn around (Space) and jump to the ledge on the other side, a little higher each time. Seven ledges take you to the rim, which juts out over the shaft. Ride left along the top and fly off the last kicker: the finish floats in the air above it.
 
-- **29. The Ring:** The first loop. Combines ceilings, darkness and climbing. *Also new:* A large cavern lit by lanterns. (gold 17 s, bot 36.2 s)
+- **29. The Ring:** The first loop. Combines ceilings, darkness and climbing. *Also new:* A large cavern lit by lanterns. (gold 17 s, bot 51.6 s)
 
   > The Underground finale. Crawl through the dark, low tunnel with your head down, then drop down the steep slope into the great lantern-lit cavern. Carry that speed into the loop: hold the throttle, keep the wheels on the rock and ride all the way round to collect the apple at the top. Then climb the rock steps on the far side, leaning forward on each face, and ride out through the exit tunnel.
 

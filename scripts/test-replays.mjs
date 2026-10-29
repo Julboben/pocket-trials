@@ -93,6 +93,22 @@ for (const entry of entries) {
   const gentle = createRide(slope(315));
   for (let step = 0; step < Math.round(60 / STEP); step++) stepRide(gentle, { facing: 1 });
   assert.equal(gentle.elapsed, 0, 'creeping for a minute does not');
+  // A start in the air drops the bike, and the drop is timed: the clock starts
+  // as it falls, not when it lands.
+  const air = createRide(flatTrail({ start: { x: 500, y: 100, facing: 1 } }));
+  let landed = false;
+  for (let step = 0; step < Math.round(3 / STEP) && !landed; step++) {
+    stepRide(air, { facing: 1 });
+    landed = air.rear.grounded || air.front.grounded;
+  }
+  assert.ok(landed && air.started && air.elapsed > 0.3, `dropping from a start in the air starts the clock before landing (${air.elapsed.toFixed(2)} s timed)`);
+}
+// A bike put down on its start, on every shipped trail, stays put long enough
+// that only the rider starts the clock.
+for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bonus')]) {
+  const ride = createRide(entry.trail);
+  for (let step = 0; step < Math.round(10 / STEP); step++) stepRide(ride, { facing: entry.trail.start.facing });
+  assert.equal(ride.elapsed, 0, `${entry.id}: the bike stays on its start until the rider moves it`);
 }
 
 // Rider probes are anchored to the chassis and sit above the wheels at rest.

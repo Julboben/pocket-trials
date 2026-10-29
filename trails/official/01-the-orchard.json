@@ -7,7 +7,7 @@
   "description": "Learn the rhythm: build speed on gentle rollers, lean forward on climbs, and settle the bike before each landing.",
   "start": {
     "x": 271.93445286745373,
-    "y": 303.45703530867854,
+    "y": null,
     "facing": 1
   },
   "terrainBlocks": [

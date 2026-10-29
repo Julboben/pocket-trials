@@ -7,7 +7,7 @@
   "description": "Technical rock climbing",
   "start": {
     "x": 80.80171785390098,
-    "y": 295.794571658295,
+    "y": 300.64,
     "facing": 1
   },
   "terrainBlocks": [
@@ -20,7 +20,16 @@
           {
             "id": "n1",
             "x": -60.9147,
-            "y": 320.263,
+            "y": 312.64,
+            "mode": "corner",
+            "in": null,
+            "out": null,
+            "edge": "straight"
+          },
+          {
+            "id": "n1-level",
+            "x": 120,
+            "y": 312.64,
             "mode": "corner",
             "in": null,
             "out": null,

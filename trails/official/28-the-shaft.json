@@ -10,7 +10,7 @@
   "world": "Underground",
   "start": {
     "x": 120,
-    "y": 987,
+    "y": 988,
     "facing": 1
   },
   "terrainBlocks": [

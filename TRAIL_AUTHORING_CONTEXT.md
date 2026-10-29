@@ -203,7 +203,9 @@ start: { x: 90, y: null, facing: 1 }
 - `y` is the wheel-axle height. Use `null` to place both wheels automatically on the topmost surface at `x`, or a number for an explicit airborne, ledge, or cave start.
 - `facing` is `1` for right and `-1` for left.
 
-The editor's **Start** tool places an explicit start position. Select the start marker to move it or change its facing in the inspector. A trail always has one start, so it cannot be deleted.
+Put the start on level ground: `y: null` on the top surface, or, on a ledge or in a cave, the floor's height minus 12 (the wheel's radius). A start a few units above the ground drops the bike as the run begins, and a slope under it rolls the bike away; either starts the clock before the rider has done anything. A start in the air is fine when it's meant: the clock starts as the bike drops, so the drop is part of everyone's time.
+
+The editor's **Start** tool places the start where you click, and snaps it onto the ground under its wheels when you click close to it; further away, it stays in the air. Select the start marker to move it (dragging snaps the same way) or change its facing in the inspector. A trail always has one start, so it cannot be deleted.
 
 ## Finish: `finish`
 
@@ -1594,7 +1596,7 @@ Example trail: easy.
   "description": "Learn the rhythm: build speed on gentle rollers, lean forward on climbs, and settle the bike before each landing.",
   "start": {
     "x": 271.93445286745373,
-    "y": 303.45703530867854,
+    "y": null,
     "facing": 1
   },
   "terrainBlocks": [
@@ -2482,7 +2484,7 @@ Example trail: medium.
   "world": "The Desert",
   "start": {
     "x": 126.00276453217202,
-    "y": 262.99729187990346,
+    "y": null,
     "facing": 1
   },
   "terrainBlocks": [
@@ -5865,7 +5867,7 @@ Example trail: hard.
   "description": "",
   "start": {
     "x": -3198.4140687454105,
-    "y": -291.0913534281511,
+    "y": null,
     "facing": 1
   },
   "terrainBlocks": [
@@ -8521,7 +8523,7 @@ Example trail: hard.
           {
             "id": "n26tt9",
             "x": -3343.3194,
-            "y": -195.5162,
+            "y": -203.5727,
             "mode": "corner",
             "in": null,
             "out": null,

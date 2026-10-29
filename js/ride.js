@@ -409,16 +409,20 @@ export function stepRide(ride, input = {}, hooks = {}) {
   return events;
 }
 
-// A bike creeps down a gentle slope at a few units a second, and jolts as it
-// is set down; one rolling away is faster than either, and has left its spot.
-const ROLL_AWAY_SPEED = 60;
-const ROLL_AWAY_DISTANCE = 10;
+// A bike resting on its start barely moves (a few units a second as the
+// suspension settles), and creeps down a gentle slope slower than this; one
+// rolling away or falling is faster, and has left its spot.
+const MOVING_AWAY_SPEED = 30;
+const MOVING_AWAY_DISTANCE = 10;
 
-/** Whether the bike has rolled off its start by itself, fast enough to gain on the clock. */
-function rollingAway(ride) {
-  const dx = (ride.rear.x + ride.front.x) / 2 - ride.spawn.x;
-  const dy = (ride.rear.y + ride.front.y) / 2 - ride.spawn.y;
-  return Math.abs(bikeSpeed(ride)) > ROLL_AWAY_SPEED && dx * dx + dy * dy > ROLL_AWAY_DISTANCE * ROLL_AWAY_DISTANCE;
+/** Whether the bike has moved off its start by itself, rolling or falling, fast enough to gain on the clock. */
+function movingAway(ride) {
+  const { rear, front } = ride;
+  const vx = (rear.x - rear.ox + (front.x - front.ox)) / (2 * STEP);
+  const vy = (rear.y - rear.oy + (front.y - front.oy)) / (2 * STEP);
+  const dx = (rear.x + front.x) / 2 - ride.spawn.x;
+  const dy = (rear.y + front.y) / 2 - ride.spawn.y;
+  return vx * vx + vy * vy > MOVING_AWAY_SPEED * MOVING_AWAY_SPEED && dx * dx + dy * dy > MOVING_AWAY_DISTANCE * MOVING_AWAY_DISTANCE;
 }
 
 /**
@@ -436,8 +440,9 @@ function advanceRide(ride, input, hooks, events) {
   const braking = running && Boolean(input.braking);
   // The clock starts on any input, lean included: rocking the rider back and
   // forth moves the bike, so a free lean would be a free head start. A bike
-  // that rolls away by itself, from a start on a steep slope, starts it too.
-  if (running && !ride.started && (accelerating || braking || leanInput || rollingAway(ride))) {
+  // that moves off by itself, rolling down a steep slope or dropping from a
+  // start in the air, starts it too.
+  if (running && !ride.started && (accelerating || braking || leanInput || movingAway(ride))) {
     ride.started = true;
     events.push({ type: "start" });
   }

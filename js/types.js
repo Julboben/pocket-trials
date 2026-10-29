@@ -128,7 +128,7 @@
  * @property {Spike[]} spikes
  * @property {Water[]} water
  * @property {'running' | 'crashed' | 'won'} status
- * @property {boolean} started whether the timer has started (on first input, or once the bike rolls away by itself)
+ * @property {boolean} started whether the timer has started (on first input, or once the bike rolls or drops off its start by itself)
  * @property {{ x: number, y: number }} spawn where the bike was set down, between its wheels
  * @property {number} time simulated seconds since spawn
  * @property {number} elapsed timer seconds

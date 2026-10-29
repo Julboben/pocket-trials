@@ -10,7 +10,7 @@
   "world": "The Woods",
   "start": {
     "x": 43.90625,
-    "y": 305,
+    "y": null,
     "facing": 1
   },
   "terrainBlocks": [

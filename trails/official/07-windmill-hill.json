@@ -10,7 +10,7 @@
   "world": "First Rides",
   "start": {
     "x": -48.000630672223,
-    "y": 322.6479109280723,
+    "y": null,
     "facing": 1
   },
   "terrainBlocks": [

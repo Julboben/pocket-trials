@@ -7,7 +7,7 @@
   "description": "",
   "start": {
     "x": -3198.4140687454105,
-    "y": -291.0913534281511,
+    "y": null,
     "facing": 1
   },
   "terrainBlocks": [
@@ -2663,7 +2663,7 @@
           {
             "id": "n26tt9",
             "x": -3343.3194,
-            "y": -195.5162,
+            "y": -203.5727,
             "mode": "corner",
             "in": null,
             "out": null,

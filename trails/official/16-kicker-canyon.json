@@ -10,7 +10,7 @@
   "world": "The Desert",
   "start": {
     "x": 126.00276453217202,
-    "y": 262.99729187990346,
+    "y": null,
     "facing": 1
   },
   "terrainBlocks": [
