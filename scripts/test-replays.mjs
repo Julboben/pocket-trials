@@ -37,7 +37,8 @@ for (const entry of entries) {
     stepRide(ride, input);
     const points = ride.vehicle.bikePoints;
     assert.ok(points.every(point => Number.isFinite(point.x + point.y + point.ox + point.oy)), `${entry.id}: state stays finite at step ${ride.steps}`);
-    worstPenetration = Math.max(worstPenetration, deepestPenetration(entry.trail, [ride.rear, ride.front], RADIUS));
+    // Against the ride's own terrain, which loses its glass panes as they break.
+    worstPenetration = Math.max(worstPenetration, deepestPenetration(ride.trail, [ride.rear, ride.front], RADIUS));
     if (ride.status !== 'running') break;
   }
   assert.ok(worstPenetration < RADIUS * .75, `${entry.id}: wheels never tunnel into terrain (deepest ${worstPenetration.toFixed(2)})`);
@@ -76,6 +77,22 @@ for (const entry of entries) {
   const events = stepRide(ride, { facing: 1, accelerating: true });
   assert.ok(events.some(event => event.type === 'start'));
   assert.ok(Math.abs(ride.elapsed - STEP) < 1e-9);
+}
+
+// A bike set down on a steep slope rolls away by itself, and that starts the
+// clock, or waiting would be a free head start. Creeping down a gentle slope
+// doesn't, however long the rider waits.
+{
+  // The ground falls `drop` over 3000 units: about 20° and 6°.
+  const slope = drop => flatTrail({ terrainBlocks: [polygonBlock([[-200, 300], [0, 300], [3000, 300 + drop], [3000, 700 + drop], [-200, 700 + drop]], 'grass', 'slope')], start: { x: 500, y: null, facing: 1 } });
+  const steep = createRide(slope(1092));
+  const events = [];
+  for (let step = 0; step < Math.round(3 / STEP); step++) events.push(...stepRide(steep, { facing: 1 }));
+  assert.ok(events.some(event => event.type === 'start'), 'rolling away starts the clock');
+  assert.ok(steep.elapsed > 1.5, `and soon: it runs while the bike rolls (${steep.elapsed.toFixed(2)} s of 3)`);
+  const gentle = createRide(slope(315));
+  for (let step = 0; step < Math.round(60 / STEP); step++) stepRide(gentle, { facing: 1 });
+  assert.equal(gentle.elapsed, 0, 'creeping for a minute does not');
 }
 
 // Rider probes are anchored to the chassis and sit above the wheels at rest.

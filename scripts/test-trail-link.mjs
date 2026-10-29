@@ -9,9 +9,14 @@ import { loadCatalogTrails } from './lib/trails.mjs';
 
 const rejects = (promise, pattern) => assert.rejects(promise, error => pattern.test(error.message));
 
-// Every shipped trail survives a link unchanged, down to its hash.
+// The shipped trails stand in for real ones: each survives a link unchanged,
+// down to its hash, or is refused as too big when its JSON won't fit.
 for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bonus')]) {
   const trail = normalizeTrail(entry.trail);
+  if (new TextEncoder().encode(JSON.stringify(trail)).length > MAX_JSON_BYTES) {
+    await rejects(encodeTrailLink(trail), /too big/);
+    continue;
+  }
   const packed = await encodeTrailLink(trail);
   assert.match(packed, /^1\.[A-Za-z0-9_-]+$/, `${entry.id} packs into URL-safe characters`);
   const opened = await readSharedTrail(`#trail=${packed}`);

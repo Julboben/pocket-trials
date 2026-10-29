@@ -274,16 +274,17 @@ function runsOf(inputs) {
  * person never quite matches the bot: for each second, `TRIALS` reruns move
  * every input change in it by up to JITTER steps either way. Returns the share
  * of reruns that still reach the goal, and for each second how many did and
- * where the others most often crashed or stalled.
+ * where the others most often crashed or stalled. `line` holds the earlier
+ * stretches' line, for traps, and gets this stretch's added to it.
  */
-function forgiveness(start, inputs, done, seed, focus = null) {
+function forgiveness(start, inputs, done, seed, focus = null, line = []) {
   const random = seededRandom(seed);
   const window = Math.round(WINDOW / STEP);
   const runs = runsOf(inputs);
   const windows = [];
   const ride = cloneRide(start);
   // Where the stretch's own line runs, and where reruns stalled, for traps.
-  const route = [];
+  const route = line;
   const stalls = [];
   // The run-up to each jump, where it is ridden again too slowly (see below).
   const runUps = new Map(jumpRunUps(start, inputs).map(step => [step, null]));
@@ -381,9 +382,16 @@ function slowDown(ride, share) {
 // rider where they can neither ride on nor crash, such as a pit between two
 // buildings, and a player has to restart by hand. Each place reruns stalled
 // at is ridden on, coasting, until the bike crashes or comes to rest; from a
-// rest, the bot gets a short search to get back to any point of the
-// stretch's line, ahead or behind, or to the goal. A place it can't get out
-// of is a trap.
+// rest, the bot gets a short search to get back to any point of the line
+// ridden so far, this stretch's or an earlier one's, ahead or behind, or to
+// the goal. A place it can't get out of is a trap. A miss that drops the
+// rider back onto an earlier stretch, such as off an upper row of islands
+// onto the lower one, costs time but leaves the route ahead.
+//
+// If this still reports false alarms on new trails (a trap the render shows
+// the rider can ride out of), make traps a warning the builder names in the
+// handover rather than one it must fix, and drop the "Fix every TRAP" rule
+// from CLAUDE.md and TRAIL_FORMAT.md.
 const TRAP_SETTLE = Math.round(3 / STEP);
 const TRAP_REST = Math.round(0.5 / STEP);
 const TRAP_NEAR = 120;
@@ -475,6 +483,8 @@ function solveTrail() {
     + `${MINUTES} min at most per stretch${without.length ? `, without: ${without.join(', ')}` : ''}.`);
   let ride = createRide(trail);
   const stretches = [];
+  // The line every stretch so far has taken, for traps.
+  const ridden = [];
   const fullRun = [];
   let elapsed = 0;
   for (let stretch = 0; ride.status !== 'won'; stretch++) {
@@ -506,7 +516,7 @@ function solveTrail() {
     const reached = last ? `the finish at ${at(after.flower)}` : taken.join(' and ');
     out(`Stretch ${stretch + 1}: ${at(mid(ride))} to ${reached} in ${seconds(inputs.length)} s (${found.method})`);
     for (const line of describeStats(stats)) out(`  ${line}`);
-    const forgiving = TRIALS ? forgiveness(ride, inputs, done, stretch + 1, focus) : null;
+    const forgiving = TRIALS ? forgiveness(ride, inputs, done, stretch + 1, focus, ridden) : null;
     if (forgiving) out(`  ${describeForgiveness(forgiving)}`);
     stretches.push({ from: mid(ride), reached, seconds: inputs.length * STEP, method: found.method, stats, forgiveness: forgiving, inputs: encodeInputs(inputs) });
     fullRun.push(...inputs);
@@ -687,14 +697,14 @@ function probe() {
     out('   t     x     y    vx    vy  angle  state   input');
     const probeRide = cloneRide(ride);
     const trace = [];
-    let peak = mid(probeRide);
+    let peak = mid(probeRide), peakAngle = null;
     for (let index = 0; index < inputs.length; index++) {
       const events = stepRide(probeRide, inputs[index]);
       const point = mid(probeRide);
-      if (point.y < peak.y) peak = point;
       const vx = (probeRide.rear.x - probeRide.rear.ox + probeRide.front.x - probeRide.front.ox) / 2 / STEP;
       const vy = (probeRide.rear.y - probeRide.rear.oy + probeRide.front.y - probeRide.front.oy) / 2 / STEP;
       const angle = Math.atan2(probeRide.front.y - probeRide.rear.y, probeRide.front.x - probeRide.rear.x) * 180 / Math.PI;
+      if (point.y < peak.y) { peak = point; peakAngle = angle; }
       const state = probeRide.status !== 'running' ? probeRide.status : airborne(probeRide) ? 'air'
         : hangsBelowWheel(probeRide.vehicle) ? 'hang' : probeRide.rear.grounded && probeRide.front.grounded ? 'ground' : 'wheelie';
       // Wheels brushing the ground in a wheelie aren't worth a line; real landings are.
@@ -709,7 +719,8 @@ function probe() {
       }
       if (probeRide.status !== 'running') break;
     }
-    out(`Highest point: ${at(peak)}. End: ${at(mid(probeRide))}, ${probeRide.status}.`);
+    // The angle at the top of a jump shows how much the lip spun the bike.
+    out(`Highest point: ${at(peak)}${peakAngle === null ? '' : `, angle ${peakAngle.toFixed(0)}°`}. End: ${at(mid(probeRide))}, ${probeRide.status}.`);
     report.probe = { start: mid(ride), trace };
     return;
   }

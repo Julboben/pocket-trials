@@ -392,6 +392,8 @@ export function updateTrailControls() {
       ? "Save to this browser's trail library, where the game plays it (Cmd/Ctrl+Shift+S)"
       : `Write trails/${entry?.file} (Cmd/Ctrl+Shift+S)`;
   $("delete-trail").hidden = !canDelete(entry);
+  // Official and bonus trails come with the game, so only custom ones are shared.
+  $("share-trail").hidden = shipped;
   // A trail that can't be saved can't be edited either: it can be looked at,
   // played, duplicated and exported. The fields stay visible but disabled, so
   // its settings can still be read.

@@ -65,7 +65,8 @@ What building Windfall showed, measured in the physics:
 | Turning around | Windfall | Windmill Hill | Out and Back |
 | Switchbacks (turning to climb behind you) | Windfall | Switchback | The Shaft, Elastic Summit |
 | Braking | Hay Lane | Stoppie Slope | Brake Point |
-| Climbing for height | High Orchard | High Orchard | Windmill Hill |
+| Climbing for height | Windmill Hill | High Orchard | Long Way Up |
+| Floating islands | Sky Ladder | Floating Fields | High Orchard |
 | Steep climbs | Windmill Hill | Kickback | Long Way Up |
 | Wheelies | Kickback | Switchback | The Shaft |
 | Drops and step-downs | Stump Drops | Switchback | Sinkhole |
@@ -84,15 +85,17 @@ What building Windfall showed, measured in the physics:
 
 ## Difficulty by world
 
-| World | First – last trail | Length | Widest open gap | Apples | Spikes | Gold |
-| --- | --- | --- | --- | --- | --- | --- |
-| First Rides | The Orchard – Windmill Hill | 2000–3800 | None | 3–4, one floating | 0 | 11–32 (out-and-back trails run longer) |
-| The Woods | Splinter Ridge – Switchback | 2800–3400 | None | 4–5 | 0 | 15–21 |
-| The Desert | Dune Hopper – Mirage | 3000–3600 | 100 | 4–6, some in the air | 0 | 16–23 |
-| Lakeland | Wet Feet – Out and Back | 3000–3800 | 100 | 4–6, some behind you | 0 | 18–26 |
-| Underground | Low Bridge – The Ring | 2400–3600 | 100 | 5–6 | 0 | 18–28 |
-| The City | Kerbside – Rooftops | 3200–4000 | 120 | 5–7 | 2–6 | 20–30 |
-| The Mountains | Long Way Up – Elastic Summit | 3500–5000 | 160 | 5–8 | 2–8 | 24–40 |
+What a world's trails aim for. Which trails are in each world, in order, is in [TRAILS.md](TRAILS.md). A world's last trail may run past these, as its big test.
+
+| World | Length | Widest open gap | Apples | Spikes | Gold |
+| --- | --- | --- | --- | --- | --- |
+| First Rides | 2000–3800 | None | 3–4, one floating | 0 | 11–32 (out-and-back trails run longer) |
+| The Woods | 2800–3400 | None | 4–5 | 0 | 15–21 |
+| The Desert | 3000–3600 | 100 | 4–6, some in the air | 0 | 16–23 |
+| Lakeland | 3000–3800 | 100 | 4–6, some behind you | 0 | 18–26 |
+| Underground | 2400–3600 | 100 | 5–6 | 0 | 18–28 |
+| The City | 3200–4000 | 120 | 5–7 | 2–6 | 20–30 |
+| The Mountains | 3500–5000 | 160 | 5–8 | 2–8 | 24–40 |
 
 ---
 
