@@ -64,7 +64,7 @@ Written by `scripts/generate-trails-overview.mjs` from the trail files, so don't
 
   > Drops and step-downs, from a 40 unit stump ledge to a 90 unit stone dike. Come to each lip slowly, lean back as the front wheel goes over so the bike lands rear wheel first, then let the front come down and ride away down the landing. The steps in the middle are a staircase: roll them one by one. Watch the squirrel at the start.
 
-- **14. Switchback:** Turn around again and again to climb to a tree house, zig-zagging up between ramps. Combines wheelies, steep descents, drops and turning around. *Also new:* Light rain, a tree house at the top. (gold 38 s, bot 33.4 s)
+- **14. Switchback:** Turn around again and again to climb to a tree house, zig-zagging up between ramps. Combines wheelies, steep descents, drops and turning around. *Also new:* Light rain, a tree house at the top. (gold 38 s, bot 55.2 s)
 
   > Drop in, then climb to the tree house the only way there is: back and forth across the hollow. Each ledge on the west wall is higher than the last, and the faces between them are too steep to climb from a standstill. Ride up the east ramp as high as you can, let the bike roll back, turn (Space) and drive down into the hollow; the speed carries you up and over the next lip. Lean forward on the faces so the wheelie doesn't flip you, and lean back when you ride down them again. Up top, ride the plank onto the tree house.
 
@@ -198,7 +198,7 @@ Written by `scripts/generate-trails-overview.mjs` from the trail files, so don't
 
 ## Not in a world yet
 
-- **42. High Hopes:** Steeper faces that lift the front and throw bigger air. Shift your weight early, then match the landing slope with small leans. (gold 18.5 s, bot 23.6 s)
+- **42. High Hopes:** Steeper faces that lift the front and throw bigger air. Shift your weight early, then match the landing slope with small leans. (gold 18.5 s, bot 35.4 s)
 
   > Steeper faces create wheelies and bigger airtime. Shift your weight early, then use small lean inputs to match the landing slope.
 

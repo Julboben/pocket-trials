@@ -203,7 +203,7 @@ start: { x: 90, y: null, facing: 1 }
 - `y` is the wheel-axle height. Use `null` to place both wheels automatically on the topmost surface at `x`, or a number for an explicit airborne, ledge, or cave start.
 - `facing` is `1` for right and `-1` for left.
 
-Put the start on level ground: `y: null` on the top surface, or, on a ledge or in a cave, the floor's height minus 12 (the wheel's radius). A start a few units above the ground drops the bike as the run begins, and a slope under it rolls the bike away; either starts the clock before the rider has done anything. A start in the air is fine when it's meant: the clock starts as the bike drops, so the drop is part of everyone's time.
+Put the start on level ground, unless the clock is meant to start at once: `y: null` on the top surface, or, on a ledge or in a cave, the floor's height minus 12 (the wheel's radius). Level means the ground under both wheels, 25 units either side of `x`, is at the same height; even a slope of a few units over the trail's first stretch makes the bike creep. A start a few units above the ground drops the bike as the run begins, and a slope under it rolls the bike away; either can start the clock before the rider has done anything. A start in the air, or on a steep slope, is fine when it's meant: the clock starts as the bike drops or rolls away, so it's part of everyone's time.
 
 The editor's **Start** tool places the start where you click, and snaps it onto the ground under its wheels when you click close to it; further away, it stays in the air. Select the start marker to move it (dragging snaps the same way) or change its facing in the inspector. A trail always has one start, so it cannot be deleted.
 

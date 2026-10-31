@@ -107,6 +107,10 @@ When changing physics values, validate at least these cases:
 6. Reversing direction and riding back through a trail
 7. Crossing the gap in Skybound
 
+A change to how the bike rides needs `RIDE_VERSION` in `js/ride.js` bumped, which starts fresh leaderboards, ghosts and best times on every trail, and every replay re-recorded. So changes that need one wait here, to go in together with the next one that does:
+
+- **Start the bike settled.** It is placed with its suspension uncompressed, so for its first half second it sinks and bounces under the rider's weight. The difference this makes to a run is at most one physics step (measured on The Orchard: pressing the gas at once, mid-bounce or after a wait all reach 400 units within 0.008 s of each other), but placing the bike with its suspension already at rest would make waiting worth exactly nothing, and stop the bounce. The clock's start (`movingAway` in `js/ride.js`) can then drop its distance rule, which is only there for the bounce, and its speed limit can go down to about 1 unit/s. Not to 0: a bike at rest is never exactly still in the simulation (it trembles at about 0.00003 units/s, and creeps on even a very slight slope: 0.05 to 0.13 units/s on the ones that were under Switchback's and High Hopes' starts). A bike that starts in the air is moving faster than that after its first step, so its clock starts at once and no part of the drop is free.
+
 ## Stylesheets
 
 The CSS is plain CSS served as written, with no preprocessor or build step. Each page loads three stylesheets in this order:
