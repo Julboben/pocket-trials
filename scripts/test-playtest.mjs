@@ -95,15 +95,17 @@ try {
   assert.match(unturned, /Result: NOT finished; the bot took 1 of 1 apples/);
 
   // A jump over a deep pit with a floor: a rider who misses lands on the floor,
-  // can't climb out and doesn't crash, which is a trap. Spikes on the floor
-  // make the same miss end the run, so it isn't.
+  // can't climb out and doesn't crash, which is a trap. The far side is a
+  // slope too steep to climb rather than a sheer wall, so a jump that falls
+  // short slides down it onto the floor instead of hitting it head first.
+  // Spikes on the floor make the same miss end the run, so it isn't.
   const pit = {
     ...trail,
     terrainBlocks: [
       rectangle(-300, 0, 0, 900, 'grass', 'west-wall'),
       polygonBlock([[-300, 300], [520, 300], [600, 270], [600, 900], [-300, 900]], 'grass', 'takeoff'),
-      rectangle(600, 560, 940, 900, 'stone', 'pit-floor'),
-      rectangle(940, 300, 1800, 900, 'grass', 'landing'),
+      rectangle(600, 560, 880, 900, 'stone', 'pit-floor'),
+      polygonBlock([[880, 560], [940, 300], [1800, 300], [1800, 900], [880, 900]], 'grass', 'landing'),
       rectangle(1800, 0, 2100, 900, 'grass', 'east-wall'),
     ],
     start: { x: 100, y: null, facing: 1 },

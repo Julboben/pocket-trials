@@ -169,7 +169,7 @@ start: { x: 90, y: null, facing: 1 }
 - `y` is the wheel-axle height. Use `null` to place both wheels automatically on the topmost surface at `x`, or a number for an explicit airborne, ledge, or cave start.
 - `facing` is `1` for right and `-1` for left.
 
-Put the start on level ground, unless the clock is meant to start at once: `y: null` on the top surface, or, on a ledge or in a cave, the floor's height minus 12 (the wheel's radius). Level means the ground under both wheels, 25 units either side of `x`, is at the same height; even a slope of a few units over the trail's first stretch makes the bike creep. A start a few units above the ground drops the bike as the run begins, and a slope under it rolls the bike away; either can start the clock before the rider has done anything. A start in the air, or on a steep slope, is fine when it's meant: the clock starts as the bike drops or rolls away, so it's part of everyone's time.
+Put the start on level ground, unless the clock is meant to start at once: `y: null` on the top surface, or, on a ledge or in a cave, the floor's height minus 12 (the wheel's radius). A bike standing on the ground there settles onto its suspension before the run and starts at rest; the clock starts on the rider's first input, or as soon as the bike moves by itself. Level means the ground under both wheels, 25 units either side of `x`, is at the same height: on a slope the bike rolls away, or on a gentle one creeps off its spot, and a start even a unit above the ground drops the bike, which starts the clock at once. A start in the air, or on a steep slope, is fine when it's meant: the clock starts as the bike drops or rolls away, so it's part of everyone's time.
 
 The editor's **Start** tool places the start where you click, and snaps it onto the ground under its wheels when you click close to it; further away, it stays in the air. Select the start marker to move it (dragging snaps the same way) or change its facing in the inspector. A trail always has one start, so it cannot be deleted.
 
@@ -497,15 +497,15 @@ Measured on small test pieces with the game's own simulation by `scripts/measure
 
 | Reaches 200 | Reaches 300 | Reaches 400 | After 2 s | Top speed |
 |---|---|---|---|---|
-| 0.8 s | 1.5 s | 2.3 s | 368 units/s, 415 units on | 778 units/s |
+| 0.8 s | 1.5 s | 2.3 s | 368 units/s, 417 units on | 778 units/s |
 
 **Kickers:** a 40-unit kicker, its lip at the end of flat ground that carries on level beyond it. Each cell is how far past the lip the bike lands, and how high it rises above the lip, at that approach speed:
 
 | Kicker | 200 units/s | 300 units/s | 400 units/s | 500 units/s |
 |---|---|---|---|---|
-| 15° | 228 on, 0 up | 261 on, 0 up | 321 on, 2 up | 403 on, 7 up |
-| 25° | 195 on, 0 up | 247 on, 5 up | 331 on, 16 up | 464 on, 36 up |
-| 35° | 171 on, 5 up | 223 on, 17 up | 309 on, 37 up | 429 on, 63 up |
+| 15° | 228 on, 0 up | 263 on, 0 up | 315 on, 1 up | 399 on, 7 up |
+| 25° | 196 on, 0 up | 246 on, 5 up | 334 on, 17 up | 452 on, 33 up |
+| 35° | 172 on, 5 up | 220 on, 16 up | 307 on, 36 up | 424 on, 64 up |
 
 **Climbs:** a 300-unit-tall slope is climbed up to 45° from a standstill at its foot, and up to 50° with a run-up at 400 units/s (tried in steps of 5°). Steeper, the bike flips over backwards or stalls.
 

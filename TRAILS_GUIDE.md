@@ -103,7 +103,6 @@ What a world's trails aim for. Which trails are in each world, in order, is in [
 
 The trails use only what the game supports today, so new riding elements run out at some point. These would open up further worlds:
 
-- [ ] **Grip per material:** today every material has the same wheel friction. Ice, mud and loose sand with their own grip would make a whole winter or swamp world.
 - [ ] **Checkpoints:** restart from the halfway flag. Needed for long trails of 5000+ units.
 - [ ] **Moving platforms and see-saws:** terrain that moves along a fixed path. It must stay deterministic for replays.
 - [ ] **Gates and switches:** touch a switch to open a wall elsewhere.

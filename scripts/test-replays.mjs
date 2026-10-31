@@ -102,6 +102,48 @@ for (const entry of entries) {
     landed = air.rear.grounded || air.front.grounded;
   }
   assert.ok(landed && air.started && air.elapsed > 0.3, `dropping from a start in the air starts the clock before landing (${air.elapsed.toFixed(2)} s timed)`);
+  const drop = createRide(flatTrail({ start: { x: 500, y: 100, facing: 1 } }));
+  stepRide(drop, { facing: 1 });
+  assert.ok(drop.started, 'from its first step: no part of the drop is free');
+}
+
+// A bike on the ground starts settled on its suspension and at rest, so it
+// doesn't bounce, and waiting for it to settle gains nothing.
+{
+  const ride = createRide(flatTrail());
+  assert.ok(ride.rear.compression > 3 && ride.front.compression > 2, `it starts sunk into its suspension (${ride.rear.compression.toFixed(1)}, ${ride.front.compression.toFixed(1)})`);
+  let fastest = 0;
+  for (let step = 0; step < 120; step++) {
+    stepRide(ride, { facing: 1 });
+    fastest = Math.max(fastest, Math.hypot(ride.rear.x - ride.rear.ox, ride.rear.y - ride.rear.oy, ride.front.x - ride.front.ox, ride.front.y - ride.front.oy) / STEP);
+  }
+  assert.ok(fastest < .1, `and stays still (${fastest.toFixed(3)} units/s at most)`);
+}
+
+// Gas held on the brakes revs the engine against them without moving the
+// bike, and letting the brakes go drops the clutch at high revs.
+{
+  const ride = createRide(flatTrail());
+  const x = ride.rear.x;
+  for (let step = 0; step < 60; step++) stepRide(ride, { facing: 1, accelerating: true, braking: true });
+  assert.ok(ride.vehicle.engine.rev > 60, `it revs (${ride.vehicle.engine.rev.toFixed(1)})`);
+  assert.ok(Math.abs(ride.rear.x - x) < 1, 'and the brakes hold the bike');
+  const launch = (revSteps) => {
+    const bike = createRide(flatTrail());
+    for (let step = 0; step < revSteps; step++) stepRide(bike, { facing: 1, accelerating: true, braking: true });
+    for (let step = 0; step < 60; step++) stepRide(bike, { facing: 1, accelerating: true });
+    return bike.rear.x;
+  };
+  assert.ok(launch(60) > launch(0) + 1, 'a revved launch pulls harder over its first half second');
+}
+
+// The finish is timed to the moment within its step that the bike reached the
+// flower, not to the step's end.
+{
+  const { ride } = simulateRun(flatTrail({ finish: { x: 600, y: null } }), hold(600, { accelerating: true }));
+  assert.equal(ride.status, 'won');
+  const whole = ride.elapsedSteps * STEP;
+  assert.ok(ride.elapsed > whole - STEP && ride.elapsed < whole - 1e-6, `a finish between steps (${ride.elapsed} s, the step ends at ${whole} s)`);
 }
 // A bike put down on its start, on every shipped trail, stays put long enough
 // that only the rider starts the clock.
