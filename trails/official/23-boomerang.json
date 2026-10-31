@@ -223,15 +223,6 @@
             "edge": "straight"
           },
           {
-            "id": "massif-1",
-            "x": 1139.8889,
-            "y": 108.1771,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
             "id": "massif-2",
             "x": 1139.8889,
             "y": -38.6465,

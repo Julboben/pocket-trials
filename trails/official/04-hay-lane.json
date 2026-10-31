@@ -315,15 +315,6 @@
             "edge": "straight"
           },
           {
-            "id": "g-19",
-            "x": 3460,
-            "y": 360,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
             "id": "nxpc",
             "x": 3500,
             "y": 320,

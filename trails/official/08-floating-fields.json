@@ -324,15 +324,6 @@
             "edge": "straight"
           },
           {
-            "id": "n2t",
-            "x": 880,
-            "y": 400,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
             "id": "n2u",
             "x": 906.7,
             "y": 438.5,
@@ -381,15 +372,6 @@
             "id": "n2z",
             "x": 2170,
             "y": 451.5,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n30",
-            "x": 2200,
-            "y": 425,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -540,15 +522,6 @@
             "edge": "straight"
           },
           {
-            "id": "n3h",
-            "x": 2840,
-            "y": 350,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
             "id": "n3i",
             "x": 2878,
             "y": 311.5,
@@ -678,15 +651,6 @@
             "id": "n3w",
             "x": 3690,
             "y": 289.9,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n3x",
-            "x": 3730,
-            "y": 331,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -828,15 +792,6 @@
             "edge": "straight"
           },
           {
-            "id": "n4d",
-            "x": 4860,
-            "y": 450,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
             "id": "n4e",
             "x": 4892.5,
             "y": 468.4,
@@ -912,15 +867,6 @@
             "id": "n4m",
             "x": 5756,
             "y": 433.1,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n4n",
-            "x": 5790,
-            "y": 405,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -1071,15 +1017,6 @@
             "edge": "straight"
           },
           {
-            "id": "n54",
-            "x": 6750,
-            "y": 47.5,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
             "id": "n55",
             "x": 6866.7,
             "y": 41.5,
@@ -1125,15 +1062,6 @@
             "edge": "straight"
           },
           {
-            "id": "n5a",
-            "x": 7500,
-            "y": 52.5,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
             "id": "n5b",
             "x": 7633.3,
             "y": 60.9,
@@ -1173,15 +1101,6 @@
             "id": "n5f",
             "x": 8166.7,
             "y": 64.8,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n5g",
-            "x": 8300,
-            "y": 60,
             "mode": "corner",
             "in": null,
             "out": null,

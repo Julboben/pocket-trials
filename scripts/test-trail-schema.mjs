@@ -282,4 +282,23 @@ assert.ok(!isOnlineTrail('custom:caves@0123abcd'), 'custom file trails stay offl
   assert.equal(trailHash(trail), trailHash({ ...trail, props: [] }), 'rotating props never changes the hash');
 }
 
+// A point on the straight line between its neighbours changes nothing but the
+// size, so it is warned about; a bend or a point with handles is not.
+{
+  const straight = text => /on the straight line between/.test(text);
+  const warnings = trail => validateTrail(normalizeTrail(trail)).filter(message => message.type === 'warning').map(message => message.text);
+  const ground = rectangle(-200, 320, 1600, 700, 'grass', 'ground');
+  const top = ground.outer.nodes.findIndex(node => node.y === 320);
+  const insert = node => {
+    const nodes = ground.outer.nodes.slice();
+    nodes.splice(top + 1, 0, node);
+    return { ...createBlankTrail(), terrainBlocks: [{ ...ground, outer: { ...ground.outer, nodes } }] };
+  };
+  const [a, b] = [ground.outer.nodes[top], ground.outer.nodes[(top + 1) % ground.outer.nodes.length]];
+  const middle = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  assert.ok(warnings(insert(middle)).some(text => text.startsWith('A point lies on the straight line')), 'a point on a straight run is warned about');
+  assert.ok(!warnings(insert({ ...middle, y: middle.y - 20 })).some(straight), 'a bend is not');
+  assert.ok(!warnings(insert({ ...middle, mode: 'smooth', in: [middle.x - 50, middle.y], out: [middle.x + 50, middle.y] })).some(straight), 'nor a point with handles');
+}
+
 console.log('Trail schema tests passed.');

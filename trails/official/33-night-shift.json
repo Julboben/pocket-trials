@@ -57,15 +57,6 @@
             "edge": "straight"
           },
           {
-            "id": "street-4",
-            "x": 150,
-            "y": 400,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
             "id": "street-5",
             "x": 500,
             "y": 400,

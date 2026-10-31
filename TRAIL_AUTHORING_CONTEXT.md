@@ -158,6 +158,7 @@ Authoring guidelines:
 - **Ground**: one wide block whose top edge is the route and whose bottom sits well below it. Keep the opening section relatively flat so both wheels spawn safely, and keep terrain beyond the finish.
 - **Ends**: close each end with terrain that fits the setting, such as a bank, a rock wall or a rise in the fields, so the rider can't ride out. Then let the ground carry on well beyond it, further than the camera can see from anywhere the rider can reach. An edge where the terrain stops looks unfinished unless it's meant, like a cliff or a floating island.
 - **Slopes**: broad curved edges ride well. Spans of `140–190` units per hill are forgiving; short spans with large height changes create abrupt geometry.
+- **Few points**: use as few points as the shape needs, since every point adds to the trail's size and to its share link. A straight run, level or sloped, is just its two ends; validation warns about points on a straight line. A bend is a `smooth` point with `in` and `out` handles, not a chain of short straight pieces sampled along a curve.
 - **Gaps**: a break between two blocks. The walls either side are solid, so a rider who falls in can hit the cliff face. Start around `80–100` units wide for introductory jumps; wider gaps need a clear launch ramp and a landing below the takeoff height.
 - **Ledges and islands**: a separate block above the ground. Leave at least one wheel diameter between it and the ground, and more when the rider is expected to pass underneath.
 - **Caves**: an `inner` boundary inside a block. The cave is open space with a solid roof and floor.
@@ -851,7 +852,8 @@ export function normalizeTrail(input) {
   const fallback = createBlankTrail();
   const trail = { ...fallback, ...cloneTrail(input || {}) };
   trail.name = String(trail.name || fallback.name).slice(0, NAME_MAX_LENGTH);
-  // Older files and share links carry a label, a numbered caption nothing shows.
+  // Older files and share links may carry a label: a numbered caption that
+  // nothing shows any more, so it is dropped.
   delete trail.label;
   // Credits are optional; an empty author is not stored.
   const author = normalizeAuthor(trail.author);
@@ -1073,6 +1075,37 @@ function startWheels(trail) {
   }));
 }
 
+// How far off the line between its neighbours a point may be and still count
+// as on it, in units: well under anything the bike or the eye can tell.
+const STRAIGHT_POINT_TOLERANCE = 0.01;
+
+/**
+ * The points of a block that lie on the straight line between their
+ * neighbours, with no curve handle on either side. They change nothing about
+ * the shape and only add to the trail's size. Each comes with its ring and
+ * index, so removing them in reverse order leaves the rest in place.
+ * @returns {Array<{ ring: { nodes: object[] }, index: number }>}
+ */
+export function straightLinePoints(block) {
+  const found = [];
+  for (const ring of [block?.outer, ...(block?.inner || [])]) {
+    const nodes = ring?.nodes || [];
+    if (nodes.length <= 3) continue;
+    nodes.forEach((node, index) => {
+      const before = nodes[(index + nodes.length - 1) % nodes.length];
+      const after = nodes[(index + 1) % nodes.length];
+      if (before.out || node.in || node.out || after.in) return;
+      const dx = after.x - before.x, dy = after.y - before.y;
+      const lengthSquared = dx * dx + dy * dy;
+      if (!lengthSquared) return;
+      const off = Math.abs((node.x - before.x) * dy - (node.y - before.y) * dx) / Math.sqrt(lengthSquared);
+      const along = ((node.x - before.x) * dx + (node.y - before.y) * dy) / lengthSquared;
+      if (off < STRAIGHT_POINT_TOLERANCE && along > 0 && along < 1) found.push({ ring, index });
+    });
+  }
+  return found;
+}
+
 export function validateTrail(trail) {
   const messages = [];
   // A target names the item a message is about, as the editor's selection
@@ -1121,6 +1154,22 @@ export function validateTrail(trail) {
         `The terrain is very detailed (${edges} edges after curves are flattened) and may be slow on older devices.`,
       );
   }
+
+  // Points on a straight line cost size and nothing else, which adds up in a
+  // trail drawn with many of them, so they are named once for the trail.
+  let straightPoints = 0;
+  const straightBlocks = [];
+  allBlocks.forEach((block, index) => {
+    const count = straightLinePoints(block).length;
+    if (!count) return;
+    straightPoints += count;
+    straightBlocks.push(index + 1);
+  });
+  if (straightPoints)
+    warning(
+      `${straightPoints === 1 ? "A point lies" : `${straightPoints} points lie`} on the straight line between ${straightPoints === 1 ? "its" : "their"} neighbours (block${straightBlocks.length === 1 ? "" : "s"} ${straightBlocks.join(", ")}), so ${straightPoints === 1 ? "it changes" : "they change"} nothing but the trail's size. Delete ${straightPoints === 1 ? "it" : "them"}: a straight run needs only its two ends.`,
+      { type: "block", index: straightBlocks[0] - 1 },
+    );
 
   if (!blocks.length) error("A trail needs terrain: add at least one block.");
   // The finish may sit on either side of the start, so it is checked against
@@ -4146,15 +4195,6 @@ Example trail: medium.
             "edge": "straight"
           },
           {
-            "id": "n6qho",
-            "x": 1748.0012,
-            "y": 1016.8552,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
             "id": "n6fo3",
             "x": 885.7464,
             "y": 1016.8552,
@@ -5923,15 +5963,6 @@ Example trail: hard.
             "edge": "straight"
           },
           {
-            "id": "n26tkj",
-            "x": -2784.5024,
-            "y": 96.6088,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
             "id": "n26tkk",
             "x": -2772.4786,
             "y": 96.6088,
@@ -6544,15 +6575,6 @@ Example trail: hard.
             "edge": "straight"
           },
           {
-            "id": "n26tmg",
-            "x": 732.2342,
-            "y": 473.0448,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
             "id": "n26tmh",
             "x": 758.6912,
             "y": 467.7447,
@@ -6580,24 +6602,6 @@ Example trail: hard.
             "edge": "straight"
           },
           {
-            "id": "n26tmk",
-            "x": 819.6747,
-            "y": 454.6248,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n26tml",
-            "x": 841.3312,
-            "y": 449.9763,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
             "id": "n26tmm",
             "x": 862.9877,
             "y": 445.3279,
@@ -6610,15 +6614,6 @@ Example trail: hard.
             "id": "n26tmn",
             "x": 882.5155,
             "y": 440.8641,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n26tmo",
-            "x": 899.9146,
-            "y": 435.0427,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -7246,15 +7241,6 @@ Example trail: hard.
             "edge": "straight"
           },
           {
-            "id": "n26tom",
-            "x": 1258.286,
-            "y": -141.0697,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
             "id": "n26ton",
             "x": 1255.092,
             "y": -142.6968,
@@ -7336,15 +7322,6 @@ Example trail: hard.
             "edge": "straight"
           },
           {
-            "id": "n26tow",
-            "x": 1214.5429,
-            "y": -163.0927,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
             "id": "n26tox",
             "x": 1211.6478,
             "y": -164.6115,
@@ -7357,15 +7334,6 @@ Example trail: hard.
             "id": "n26toy",
             "x": 1207.8038,
             "y": -166.6819,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n26toz",
-            "x": 1203.9036,
-            "y": -168.628,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -7489,27 +7457,9 @@ Example trail: hard.
             "edge": "straight"
           },
           {
-            "id": "n26tpd",
-            "x": 1153.006,
-            "y": -186.47,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
             "id": "n26tpe",
             "x": 1150.0226,
             "y": -187.3949,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n26tpf",
-            "x": 1146.947,
-            "y": -188.2215,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -8883,15 +8833,6 @@ Example trail: hard.
             "edge": "straight"
           },
           {
-            "id": "ns4ea",
-            "x": -49.8004,
-            "y": 603.6222,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
             "id": "ns4eb",
             "x": -32.3362,
             "y": 602.4818,
@@ -9058,15 +8999,6 @@ Example trail: hard.
             "id": "n12uhx",
             "x": 1158.9698,
             "y": 92.8202,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n12uhy",
-            "x": 1149.6838,
-            "y": 74.2373,
             "mode": "corner",
             "in": null,
             "out": null,
@@ -9382,15 +9314,6 @@ Example trail: hard.
             "id": "n12uix",
             "x": 304.3437,
             "y": 149.9023,
-            "mode": "corner",
-            "in": null,
-            "out": null,
-            "edge": "straight"
-          },
-          {
-            "id": "n12uiy",
-            "x": 308.2745,
-            "y": 138.6634,
             "mode": "corner",
             "in": null,
             "out": null,
