@@ -239,7 +239,8 @@ export function normalizeTrail(input) {
   const fallback = createBlankTrail();
   const trail = { ...fallback, ...cloneTrail(input || {}) };
   trail.name = String(trail.name || fallback.name).slice(0, NAME_MAX_LENGTH);
-  // Older files and share links carry a label, a numbered caption nothing shows.
+  // Older files and share links may carry a label: a numbered caption that
+  // nothing shows any more, so it is dropped.
   delete trail.label;
   // Credits are optional; an empty author is not stored.
   const author = normalizeAuthor(trail.author);

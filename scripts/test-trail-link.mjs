@@ -82,6 +82,12 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bon
   assert.equal(updated.trail.description, 'Now with more props.');
   assert.equal(customTrailEntries.length, count, 'without adding another');
 
+  // A trail of your own saved before trails lost their label still carries one.
+  const labelled = saveBrowserTrail({ ...base, name: 'Old own', label: 'Trail 3' });
+  const relinked = saveSharedTrail({ ...base, name: 'Old own' });
+  assert.equal(relinked.id, labelled.id, 'a link to your own trail finds it, even with an old label');
+  assert.ok(!relinked.shared, 'and it stays yours');
+
   const mine = saveBrowserTrail({ ...base, name: 'Mine', description: 'My edit.' });
   assert.equal(saveSharedTrail({ ...base, name: 'Mine', description: 'My edit.' }), mine, 'a link to your own trail finds it');
   const theirs = saveSharedTrail({ ...base, name: 'Mine', description: 'An older version.' });

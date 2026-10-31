@@ -229,7 +229,9 @@ export function saveBrowserTrail(trail, key = null, { shared = false } = {}) {
 export function saveSharedTrail(trail) {
   const hash = trailHash(trail);
   const copies = customTrailEntries.filter(entry => entry.storage === 'browser' && entry.name === trail.name && trailHash(entry.trail) === hash);
-  const same = copies.find(entry => canonical(entry.trail) === canonical(trail));
+  // Copies saved before trails lost their label may still carry one.
+  const content = value => canonical({ ...value, label: undefined });
+  const same = copies.find(entry => content(entry.trail) === content(trail));
   if (same) return same;
   const older = copies.find(entry => entry.shared);
   return saveBrowserTrail(trail, older?.key ?? null, { shared: true });

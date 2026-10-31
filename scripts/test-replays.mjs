@@ -323,10 +323,11 @@ for (const entry of [...loadCatalogTrails('official'), ...loadCatalogTrails('bon
   assert.ok(rising < 100, `tumbling bike doesn't fling the rider (rose at ${rising.toFixed(0)} px/s)`);
 }
 
-// Riding face-first into a beam knocks the helmet off; it tumbles away on its
-// own, comes to rest on the ground, and does so the same way every time.
+// Riding face-first into a beam at speed knocks the helmet off; it tumbles
+// away on its own, comes to rest on the ground, and does so the same way
+// every time.
 {
-  const trail = flatTrail({ terrainBlocks: [rectangle(0, 320, 3000, 620), rectangle(600, 100, 800, 270)] });
+  const trail = flatTrail({ terrainBlocks: [rectangle(0, 320, 3000, 620), rectangle(1200, 100, 1400, 270)] });
   const run = () => {
     const ride = createRide(trail, { seed: 3 });
     const knocks = [];
