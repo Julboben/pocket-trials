@@ -14,6 +14,7 @@ import { ONLINE_LEADERBOARD_EVENT, ONLINE_STANDINGS_EVENT, boardStatus, isOnline
 import { registerRider, loginRider, deleteRider, accountErrorText, passkeysSupported, queueSaveSync, fetchCloudSave, fetchNotifications } from '../account.js';
 import { NOTIFICATIONS_EVENT, lastNoticeId, markRead, notificationsFor, notify, setLastNoticeId, unreadCount } from '../notifications.js';
 import { isSandbox } from '../local-store.js';
+import { loadTheme, onThemeChange, setTheme } from '../theme.js';
 import { NAME_HINT, disallowedNameChars } from '../rider-name.js';
 import { RIDE_VERSION } from '../ride.js';
 import { normalizeAuthor, normalizeTrail, validateTrail, medalFor } from '../trail-schema.js';
@@ -32,6 +33,13 @@ import {
 
 // Runs made without a savegame have no name.
 const runnerName = name => name || 'RIDER';
+
+/** Shows a setting's switch: on for its on value, which the knob spells out. */
+export function showSwitch(button, value) {
+  const on = value === button.dataset.on;
+  button.setAttribute('aria-checked', String(on));
+  /** @type {HTMLElement} */ (button.firstElementChild).textContent = on ? 'on' : 'off';
+}
 
 /** Loads saves and preferences into the session. */
 export function loadStoredState() {
@@ -380,6 +388,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     name.className = 'garage-rider-name';
     name.textContent = session.saveGame.name;
     $('garage-rider').replaceChildren(name, genderText, genderMark);
+    $('garage-slot').textContent = 'SAVE SLOT ' + (session.activeSaveSlot + 1);
     garageOwns = lookOwner(session.saveGame);
     garageProgress = progressOf(session.saveGame);
     garageFresh = new Set(unseenGear(session.saveGame));
@@ -940,7 +949,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     if (seen !== VERSION && notificationsFor(null).find(item => item.key === 'version')?.title !== title) {
       notify({
         key: 'version', playerId: null, label: 'NEW VERSION', title,
-        text: 'See what’s new in the changelog.', icon: 'star', opens: { view: 'changelog' },
+        text: 'See what’s new in the changelog.', icon: 'update', opens: { view: 'changelog' },
       });
     }
   }
@@ -1313,7 +1322,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
       + ' of ' + ACHIEVEMENTS.length + ' achievements. Each rider earns their own.';
     const items = [];
     for (const group of ACHIEVEMENT_GROUPS) {
-      items.push(trailSection(group.title, group.blurb));
+      items.push(menuSection(group.title, group.blurb));
       for (const achievement of ACHIEVEMENTS) if (achievement.group === group.id) items.push(achievementRow(achievement, progress));
     }
     $('achievement-list').replaceChildren(...items);
@@ -1322,9 +1331,9 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   // Views with only a Back button, where the arrow keys scroll instead.
   const scrollsWithArrows = () => !$('menu-changelog-view').hidden || !$('menu-achievements-view').hidden;
 
-  function trailSection(title, description) {
-    const heading = document.createElement('div');
-    heading.className = 'trail-section-title';
+  function menuSection(title, description) {
+    const heading = document.createElement('h4');
+    heading.className = 'menu-section';
     const strong = document.createElement('strong');
     strong.textContent = title;
     const small = document.createElement('small');
@@ -1387,7 +1396,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   const nisseFound = entry => Boolean(session.saveGame) && hasNisse(session.activeSaveSlot, nisseKey(entry), trails.length);
 
   function buildTrailCards() {
-    const cards = [trailSection('OFFICIAL TRAILS', 'Career progression and official best times')];
+    const cards = [menuSection('OFFICIAL TRAILS', 'Career progression and official best times')];
     trails.forEach((trail, index) => {
       const locked = !session.saveGame || index > session.unlockedTrail;
       cards.push(trailCard({
@@ -1402,7 +1411,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
       }));
     });
     if (bonusTrailEntries.length) {
-      cards.push(trailSection('BONUS TRAILS', 'Extra trails outside career progression, with best times and world boards'));
+      cards.push(menuSection('BONUS TRAILS', 'Extra trails outside career progression, with best times and world boards'));
       bonusTrailEntries.forEach((entry, index) => {
         const key = trailKey(entry);
         const { open, hint } = bonusUnlock(entry);
@@ -1420,7 +1429,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
       });
     }
     if (customTrailEntries.length) {
-      cards.push(trailSection('CUSTOM TRAILS', 'Local trails outside career progression'));
+      cards.push(menuSection('CUSTOM TRAILS', 'Local trails outside career progression'));
       customTrailEntries.forEach((entry, index) => cards.push(trailCard({
         trail: entry.trail,
         key: trailKey(entry),
@@ -1642,7 +1651,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     leaderboardTrails().forEach((entry, index) => {
       if (entry.source !== section) {
         section = entry.source;
-        items.push(trailSection(...pickerSection(section)));
+        items.push(menuSection(...pickerSection(section)));
       }
       const button = document.createElement('button');
       button.type = 'button';
@@ -1914,20 +1923,28 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   // Gamepad buttons aren't remappable, so the diagram is drawn once.
   $('gamepad-diagram').append(...createGamepadDiagram());
 
-  /** Rumble is offered while a gamepad that can rumble is connected. */
-  function syncRumbleSetting() {
+  // Vibration is offered on a phone that can vibrate, and while a gamepad that
+  // can rumble is connected. Desktop browsers have navigator.vibrate too, but
+  // no motor to run.
+  const coarsePointer = window.matchMedia('(pointer: coarse)');
+  const phoneVibrates = 'vibrate' in navigator && coarsePointer.matches;
+  function syncVibrationSetting() {
     const pads = typeof navigator.getGamepads === 'function' ? [...navigator.getGamepads()] : [];
-    $('setting-rumble-group').hidden = !pads.some(canRumble);
+    $('setting-haptics-group').hidden = !phoneVibrates && !pads.some(canRumble);
   }
-  window.addEventListener('gamepadconnected', syncRumbleSetting);
-  window.addEventListener('gamepaddisconnected', syncRumbleSetting);
+  window.addEventListener('gamepadconnected', syncVibrationSetting);
+  window.addEventListener('gamepaddisconnected', syncVibrationSetting);
+  // Picked here, in the editor or, for System, by the device.
+  onThemeChange(syncSettings);
 
   function syncSettings() {
-    syncRumbleSetting();
-    document.querySelectorAll('[data-setting]').forEach(button => {
-      const value = button.dataset.setting === 'ghost' ? ghostMode() : session.preferences[button.dataset.setting];
+    syncVibrationSetting();
+    document.querySelectorAll('.setting-option[data-setting]').forEach(button => {
+      const { setting } = button.dataset;
+      const value = setting === 'ghost' ? ghostMode() : setting === 'theme' ? loadTheme() : session.preferences[setting];
       button.setAttribute('aria-pressed', String(value === button.dataset.value));
     });
+    document.querySelectorAll('.setting-switch[data-setting]').forEach(button => showSwitch(button, session.preferences[button.dataset.setting]));
     $('setting-volume').value = String(session.preferences.volume);
     $('setting-volume-value').textContent = String(session.preferences.volume);
     buildKeyBindings();
@@ -2099,8 +2116,13 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   });
   document.querySelectorAll('[data-setting]').forEach(button => {
     button.addEventListener('click', () => {
-      if (button.dataset.setting === 'ghost') setGhostMode(button.dataset.value);
-      else session.preferences[button.dataset.setting] = button.dataset.value;
+      const { setting } = button.dataset;
+      // The theme is kept apart from the preferences, as the editor shares it.
+      if (setting === 'theme') { setTheme(button.dataset.value); return; }
+      if (setting === 'ghost') setGhostMode(button.dataset.value);
+      else if (button.matches('.setting-switch')) {
+        session.preferences[setting] = session.preferences[setting] === button.dataset.on ? button.dataset.off : button.dataset.on;
+      } else session.preferences[setting] = button.dataset.value;
       persistPreferences();
       drawBackground();
     });
@@ -2111,9 +2133,6 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     onPreferences();
   });
   $('setting-volume').addEventListener('change', () => { savePreferences(session.preferences); sounds.menuMove(); });
-  const coarsePointer = window.matchMedia('(pointer: coarse)');
-  // Phone vibration: desktop browsers have navigator.vibrate too, but no motor to run.
-  $('setting-haptics-group').hidden = !('vibrate' in navigator) || !coarsePointer.matches;
 
   let resetArmed = false, resetTimer = 0;
   $('reset-settings').addEventListener('click', event => {
@@ -2129,6 +2148,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     button.textContent = 'RESET ALL SETTINGS';
     session.preferences = sanitizePreferences({});
     setGhostMode(session.preferences.ghost);
+    setTheme('system');
     persistPreferences();
     drawBackground();
   });

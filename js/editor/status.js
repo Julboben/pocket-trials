@@ -60,6 +60,15 @@ export function refuseEdit() {
 
 let toastTimer = null;
 
+/** How long a toast that isn't an error stays up, in milliseconds. */
+export const NOTICE_TIME = 3500;
+
+/** Whether the toast over the canvas is up and says `text`. */
+export function statusShowing(text) {
+  const toast = $("editor-toast");
+  return !toast.hidden && toast.textContent === text;
+}
+
 /** A short message over the canvas: what just happened, or why it didn't. */
 export function showStatus(type, text) {
   const toast = $("editor-toast");
@@ -71,6 +80,6 @@ export function showStatus(type, text) {
     () => {
       toast.hidden = true;
     },
-    type === "error" ? 7000 : 3500,
+    type === "error" ? 7000 : NOTICE_TIME,
   );
 }

@@ -40,7 +40,7 @@ It runs in the browser with no build step and no runtime dependencies, built wit
 - Layered foreground and background scenery
 - A full day cycle, set per trail by the hour, from night through dawn, morning, noon and evening to dusk, with the moon and stars at night
 - Pixel lighting at every time of day: ground stays bright by day and sinks into darkness at night, caves closed off by a back wall are dark at any hour while open hollows let the sky through, a headlight you can switch off that stays on the bike through flips and loops, lanterns, lamps, glowing mushrooms, and lightning light the way
-- Terrain-colored wheel spray, brake lights, and fading ground skid marks
+- Terrain-colored wheel spray, thick on sand and snow and barely any on hard ground, tyre tracks in sand and snow, brake lights, and fading ground skid marks
 - Procedural engine, braking, wheel-landing, aerial trick, collectible, crash, flip, finish, dashboard, and rain sound effects
 - Procedural chiptune music: a theme for the dashboard, and a mood for each world (a folk polka in the orchards, a shuffle in the woods, a darbuka beat in the desert, a drone underground, a funky groove in the city), with every trail growing its own tune from it; off by default, switched on under Settings
 - Collectibles, finish gates, timers, and best times
@@ -60,11 +60,11 @@ Playing needs a current browser:
 
 | Browser                    | Minimum version |
 | -------------------------- | --------------- |
-| Safari (macOS, iOS/iPadOS) | 16.5            |
-| Chrome, Edge               | 112             |
-| Firefox                    | 117             |
+| Safari (macOS, iOS/iPadOS) | 17.5            |
+| Chrome, Edge               | 123             |
+| Firefox                    | 120             |
 
-The floor is set by native CSS nesting in `css/game.css` (see [Stylesheets](CONTRIBUTING.md#stylesheets)). The game also relies on JavaScript modules, `structuredClone` and `dvh` units, which these versions all support. There is no fallback: an older browser silently drops the nested rules, which breaks the phone layout and button states. The trail editor also uses `:has()`, so it needs Firefox 121 or newer.
+The floor is set by the CSS `light-dark()` colours in `css/tokens.css`, which follow the light or dark theme (see [Design tokens](CONTRIBUTING.md#design-tokens)). The game also relies on native CSS nesting, JavaScript modules, `structuredClone` and `dvh` units, which these versions all support. There is no fallback: an older browser drops the colours, which leaves the game and the editor without their backgrounds. The trail editor also uses `:has()`, so it needs Firefox 121 or newer.
 
 Development needs Node.js 24 (the version CI uses) and npm. The game itself has no build step; npm packages are only used by the scripts and the Netlify functions.
 
@@ -161,11 +161,12 @@ Editor drafts do not overwrite trail files. Official trails live in `trails/offi
 
 The dashboard's Settings view includes:
 
-- Full or reduced scenery
+- Performance mode, which draws lighter scenery for slower devices
+- Theme: the light or dark page around the game on larger screens and in the trail editor, following the device unless picked (the editor's **⋯** menu has the same choice)
 - Visible or hidden on-screen controls
 - Sound on or off, music on or off, and master volume
 - Screen shake (off by default when the system prefers reduced motion)
-- Vibration on landings and crashes (on devices that support it)
+- Vibration on landings and crashes, on phones that can vibrate and controllers that can rumble
 - Ghost: your best run, the world's best (falls back to yours offline, and races whichever is faster), or off
 - Keyboard bindings
 - Fullscreen mode

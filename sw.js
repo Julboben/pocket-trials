@@ -6,7 +6,7 @@
 // reload it can't skip (see update-prompt.js): files it loads after that come
 // from the new release, so it can't safely keep running the old one. Trail files and anything
 // else are network-first, and kept so the game also starts offline.
-const CACHE = 'hjulben-7109f453';
+const CACHE = 'hjulben-9b7825bb';
 const CORE = [
   './',
   './css/editor.css',
@@ -123,6 +123,7 @@ const CORE = [
   './js/terrain-runtime.js',
   './js/terrain.js',
   './js/text-store.js',
+  './js/theme.js',
   './js/time-of-day.js',
   './js/trail-hash.js',
   './js/trail-link.js',
