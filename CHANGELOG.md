@@ -2,6 +2,25 @@
 
 Player-facing release notes. The game shows them under **What's new**, and each GitHub Release uses its section.
 
+## 0.6.7 — 2026-11-14
+
+### Heads up
+- The game now needs Safari 17.5, Chrome 123 or Firefox 120 or newer.
+- Controller rumble and phone vibration are now one Vibration setting. If your controller stopped rumbling, switch Vibration on in Settings.
+
+### New
+- Light and dark themes for the page around the game and the trail editor. They follow your device, or pick one in Settings.
+- A new bonus trail, Proving Ground I.
+- In the editor, Esc leaves for the game: once there's nothing left to back out of, press it twice.
+
+### Improved
+- The wheels throw up the ground they ride on: thick roosts on sand, floating powder on snow, clods of dirt. A head-first crash throws it up too, and tyres leave fading tracks in snow and sand.
+- On the Pocket Classic you can see the rider's far leg pedalling, and the bikes cough a puff of smoke when the kick-start catches.
+- Settings are quicker to read: on/off settings are switches, and a few have a short note on what they do. Reduced scenery is now called Performance mode; your choice is kept.
+- Tidier menus, with shorter headers and the icon beside each title. The Garage shows your rider's name and save slot, and its undo and redo buttons stay in place.
+- In the editor, the scale handles snap like dragging does, sit snugly around curved blocks, and stretching one side no longer shifts the other.
+- In the editor, the finish can float past either end of the terrain, for a last jump to reach it.
+
 ## 0.6.6 — 2026-11-13
 
 ### Heads up

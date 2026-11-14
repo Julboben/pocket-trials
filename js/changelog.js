@@ -2,6 +2,56 @@
 /** @type {{ version: string, date: string, changes: { type: 'new' | 'improved' | 'fixed', text: string }[] }[]} */
 export const RELEASES = [
   {
+    "version": "0.6.7",
+    "date": "2026-11-14",
+    "changes": [
+      {
+        "type": "heads-up",
+        "text": "The game now needs Safari 17.5, Chrome 123 or Firefox 120 or newer."
+      },
+      {
+        "type": "heads-up",
+        "text": "Controller rumble and phone vibration are now one Vibration setting. If your controller stopped rumbling, switch Vibration on in Settings."
+      },
+      {
+        "type": "new",
+        "text": "Light and dark themes for the page around the game and the trail editor. They follow your device, or pick one in Settings."
+      },
+      {
+        "type": "new",
+        "text": "A new bonus trail, Proving Ground I."
+      },
+      {
+        "type": "new",
+        "text": "In the editor, Esc leaves for the game: once there's nothing left to back out of, press it twice."
+      },
+      {
+        "type": "improved",
+        "text": "The wheels throw up the ground they ride on: thick roosts on sand, floating powder on snow, clods of dirt. A head-first crash throws it up too, and tyres leave fading tracks in snow and sand."
+      },
+      {
+        "type": "improved",
+        "text": "On the Pocket Classic you can see the rider's far leg pedalling, and the bikes cough a puff of smoke when the kick-start catches."
+      },
+      {
+        "type": "improved",
+        "text": "Settings are quicker to read: on/off settings are switches, and a few have a short note on what they do. Reduced scenery is now called Performance mode; your choice is kept."
+      },
+      {
+        "type": "improved",
+        "text": "Tidier menus, with shorter headers and the icon beside each title. The Garage shows your rider's name and save slot, and its undo and redo buttons stay in place."
+      },
+      {
+        "type": "improved",
+        "text": "In the editor, the scale handles snap like dragging does, sit snugly around curved blocks, and stretching one side no longer shifts the other."
+      },
+      {
+        "type": "improved",
+        "text": "In the editor, the finish can float past either end of the terrain, for a last jump to reach it."
+      }
+    ]
+  },
+  {
     "version": "0.6.6",
     "date": "2026-11-13",
     "changes": [
