@@ -6,34 +6,20 @@ Player-facing release notes. The game shows them under **What's new**, and each 
 
 ### Heads up
 - The game now needs Safari 17.5, Chrome 123 or Firefox 120 or newer.
-- Reduced scenery is now called Performance mode, a switch at the bottom of Display; your choice is kept.
-- Controller rumble and phone vibration are now one Vibration setting, on for new players. If your controller stopped rumbling, switch Vibration on in Settings.
+- Controller rumble and phone vibration are now one Vibration setting. If your controller stopped rumbling, switch Vibration on in Settings.
 
 ### New
-- Light and dark themes: the page around the game and the trail editor follow your device, or pick one in Settings.
+- Light and dark themes for the page around the game and the trail editor. They follow your device, or pick one in Settings.
 - A new bonus trail, Proving Ground I.
-- Editor: Esc leaves the editor. Once there is nothing left to back out of, press it twice.
+- In the editor, Esc leaves for the game: once there's nothing left to back out of, press it twice.
 
 ### Improved
-- Crashing head first throws up the ground you hit: a burst of snow or sand, clods of dirt, a few chips off hard ground.
-- Tyres leave tracks in snow and sand that slowly fade, broken where you jumped.
-- The wheels throw up the ground they ride on: thick roosts on sand, floating powder on snow, clods of dirt, and hardly anything on concrete, stone, brick, wood or glass.
-- On the Pocket Classic you can now see the rider's far leg pedalling.
-- The motorbikes cough a puff of smoke from the exhaust when the kick-start catches.
-- The General tab in Settings has its own icon, so it no longer repeats the gear above it.
-- On/off settings are switches you can flip by tapping anywhere on their row, which makes Settings shorter on phones.
-- Performance mode, Vibration and Ghost of best run have a short note in Settings saying what they do.
-- The Garage's undo and redo buttons are always there, greyed out until there is something to undo or redo.
-- Menu screens have shorter headers, with the icon next to the title, and every list uses the same section headings.
-- The Garage shows your rider's name and save slot under its title.
-- New versions have their own icon, two arrows round a tick, in the update dialog, the notification and the patch notes.
-- The notifications panel has a shorter header, without the label above its title.
-- Editor: Scale handles snap to the grid and line up with other things nearby, as dragging does.
-- Editor: The scale handles sit snugly around curved blocks, and stretching one side no longer shifts the other.
-- Editor: The finish can float in the air past either end of the terrain, to be reached with a last jump.
-
-### Fixed
-- In the Garage on phones, the die on the Random button is centred.
+- The wheels throw up the ground they ride on: thick roosts on sand, floating powder on snow, clods of dirt. A head-first crash throws it up too, and tyres leave fading tracks in snow and sand.
+- On the Pocket Classic you can see the rider's far leg pedalling, and the bikes cough a puff of smoke when the kick-start catches.
+- Settings are quicker to read: on/off settings are switches, and a few have a short note on what they do. Reduced scenery is now called Performance mode; your choice is kept.
+- Tidier menus, with shorter headers and the icon beside each title. The Garage shows your rider's name and save slot, and its undo and redo buttons stay in place.
+- In the editor, the scale handles snap like dragging does, sit snugly around curved blocks, and stretching one side no longer shifts the other.
+- In the editor, the finish can float past either end of the terrain, for a last jump to reach it.
 
 ## 0.6.6 — 2026-11-13
 
