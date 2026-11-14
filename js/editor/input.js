@@ -71,7 +71,7 @@ import {
   withWholeGroups,
 } from "./groups.js";
 import { clampZoom, editor } from "./state.js";
-import { NOTICE_TIME, refuseEdit, refuseReadOnly, showStatus } from "./status.js";
+import { NOTICE_TIME, refuseEdit, refuseReadOnly, showStatus, statusShowing } from "./status.js";
 import { PLACING_TOOLS, TOOL_KEYS, setTool, toolSettings } from "./tools.js";
 import { groupLabel, isGroupLocked, toolGroup } from "./locks.js";
 import { commitWater } from "./water.js";
@@ -178,8 +178,9 @@ let pressClient = null;
 // An Escape this soon after the one before is part of a run of presses.
 const ESCAPE_RUN = 500;
 let lastEscape = -Infinity;
-// When Escape last asked to leave the editor.
+// When Escape last asked to leave the editor, and what it asked.
 let leaveAsked = -Infinity;
+const LEAVE_QUESTION = "Press Esc again to leave the editor.";
 
 /** Back out one step: an unfinished shape, then the group, then the selection, then the tool. */
 function backOut() {
@@ -199,6 +200,7 @@ function backOut() {
  * another press while the question shows leaves the editor; the trail is
  * autosaved, so leaving loses nothing but the undo history. A press in a run
  * of them never asks, so pressing Escape a few times to deselect stays here.
+ * Once another message has taken the question's place, it asks again.
  */
 function escape() {
   const now = performance.now();
@@ -208,13 +210,13 @@ function escape() {
     leaveAsked = -Infinity;
     return;
   }
-  if (now - leaveAsked < NOTICE_TIME) {
+  if (now - leaveAsked < NOTICE_TIME && statusShowing(LEAVE_QUESTION)) {
     /** @type {HTMLAnchorElement} */ (document.querySelector(".back-game")).click();
     return;
   }
   if (inRun) return;
   leaveAsked = now;
-  showStatus("info", "Press Esc again to leave the editor.");
+  showStatus("info", LEAVE_QUESTION);
 }
 
 /** Has the pointer moved far enough from the press to start dragging? */
@@ -1228,7 +1230,8 @@ export function bindInput() {
     )
       return;
     if (event.key === "Escape") {
-      escape();
+      // A held key repeats, which would answer the question it just asked.
+      if (!event.repeat) escape();
       return;
     }
     if (TOOL_KEYS[event.code] && !event.shiftKey) {

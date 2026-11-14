@@ -222,6 +222,8 @@ const reported = (report, label) => {
   check('a run of Escapes deselects and stays in the editor', report.escapeRun[0] === null && report.escapeRun[1] === 0 && report.escapeRun[2] === false, `(${json(report.escapeRun)})`);
   check('Escape with nothing to back out of asks to leave', json(report.escapeAsks) === json([0, true]), `(${json(report.escapeAsks)})`);
   check('Escape after the question has gone asks again', report.escapeAsksAgain === 0);
+  check('a held Escape repeating does not leave the editor', report.escapeRepeatStays === 0);
+  check('Escape asks again once another message replaced the question', json(report.escapeAfterOtherMessage) === json([0, true]), `(${json(report.escapeAfterOtherMessage)})`);
   check('a second Escape while it asks leaves the editor', report.escapeLeaves === 1);
   check('stretching a curved block from one side keeps the other side still', Math.abs(report.bulgeLeft[1] - report.bulgeLeft[0]) < 0.01, `(${json(report.bulgeLeft)})`);
   check('N turns snapping off and on', report.offByKey && report.onByKey);

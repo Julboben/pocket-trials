@@ -826,6 +826,16 @@ if (kind === 'snap') {
   out.escapeAsks = [left, toast.hidden === false && toast.textContent.includes('Press Esc again')];
   escape(5000);
   out.escapeAsksAgain = left;
+  // Held down, Escape repeats, and a repeat doesn't answer the question.
+  now += 300;
+  key('Escape', { repeat: true });
+  out.escapeRepeatStays = left;
+  // Another message in the question's place takes the question back.
+  now += 300;
+  key('n', { code: 'KeyN' });
+  key('n', { code: 'KeyN' });
+  escape(300);
+  out.escapeAfterOtherMessage = [left, toast.textContent.includes('Press Esc again')];
   escape(300);
   out.escapeLeaves = left;
   // N turns snapping off, and on again.
