@@ -1,6 +1,10 @@
 /* Design tokens shared by the game (index.html) and the trail editor
    (editor.html). Change a colour or font here and both pages follow; keep
-   page stylesheets to var() references rather than new literals. */
+   page stylesheets to var() references rather than new literals.
+
+   Colours given as light-dark() follow the theme (see js/theme.js): the
+   device's own, unless one is picked in the settings. The game keeps its
+   dark look in both, so only the page around it and the editor use them. */
 
 /* Jersey 10 by Sarah Cadigan-Fried, SIL Open Font License (fonts/OFL.txt). */
 @font-face {
@@ -12,37 +16,39 @@
 }
 
 :root {
-    color-scheme: dark;
+    color-scheme: light dark;
 
     /* Base palette */
-    --color-page: #111c20;
-    --color-shell: #17262b;
-    --color-surface: #23353b;
+    --color-page: light-dark(#eae9d9, #111c20);
+    --color-shell: light-dark(#f4f2e6, #17262b);
+    --color-surface: light-dark(#e3e1d0, #23353b);
     --color-surface-raised: #2b3e45;
-    --color-surface-hover: #405962;
-    --color-border: #425257;
-    --color-shadow: #0d1b20;
+    --color-surface-hover: light-dark(#d5d3c0, #405962);
+    --color-border: light-dark(#c3c1ad, #425257);
+    --color-shadow: light-dark(#d2d0bc, #0d1b20);
     --color-modal: #17262b;
     /* The light paper behind trail previews and rider art. */
     --color-paper: #eae9d9;
 
     /* Text */
-    --color-text: #f6f3e8;
-    --color-text-soft: #aeb7b3;
-    --color-text-muted: #91a7a8;
-    --color-text-faint: #93a8a8;
+    --color-text: light-dark(#1f2b2e, #f6f3e8);
+    --color-text-soft: light-dark(#43504d, #aeb7b3);
+    --color-text-muted: light-dark(#5b6966, #91a7a8);
+    --color-text-faint: light-dark(#66736f, #93a8a8);
 
     /* Accent: the orange call to action, and the ink that sits on it */
     --color-accent: #ff8952;
     --color-accent-hover: #ff9a68;
     --color-accent-ink: #241710;
     --color-accent-ink-muted: #563021;
-    --color-focus: #ffad76;
+    --color-focus: light-dark(#c4531f, #ffad76);
+    /* The accent as text, deeper on a light page to stay readable */
+    --color-accent-text: light-dark(#b24a17, #ff8952);
 
     /* Green: secondary highlight, custom trails, the continue card */
-    --color-green: #c6dfa9;
-    --color-green-hover: #e1f3ca;
-    --color-green-ink: #243c31;
+    --color-green: light-dark(#4c7a5e, #c6dfa9);
+    --color-green-hover: light-dark(#5a8b6c, #e1f3ca);
+    --color-green-ink: light-dark(#f3f8ee, #243c31);
     --color-green-surface: #29433c;
     --color-green-surface-hover: #34564c;
     --color-green-border: #718f7f;
@@ -74,28 +80,34 @@
     --color-ahead: #9fd88a;
     --color-behind: #ff9f87;
     --color-danger: #e5484d;
-    --color-danger-text: #f0a08c;
-    --color-danger-border: #75463f;
+    --color-danger-text: light-dark(#a83c25, #f0a08c);
+    --color-danger-border: light-dark(#d9a596, #75463f);
     --color-danger-surface: #342a2a;
     --color-danger-surface-hover: #60362f;
     /* Editor validation and toasts: error, warning, info */
-    --color-error: #ec7044;
-    --color-error-surface: #3a2320;
-    --color-error-text: #f5c4b4;
-    --color-warning: #e8bb66;
-    --color-warning-ink: #2d2410;
-    --color-warning-surface: #2f2a1c;
-    --color-warning-text: #f1dca8;
-    --color-info: #83d1ce;
+    --color-error: light-dark(#c64a22, #ec7044);
+    --color-error-surface: light-dark(#f6ddd2, #3a2320);
+    --color-error-text: light-dark(#7e2a12, #f5c4b4);
+    --color-error-hover: light-dark(#d95a30, #f58b64);
+    --color-error-ink: light-dark(#fff8f0, #241710);
+    --color-warning: light-dark(#a87612, #e8bb66);
+    --color-warning-ink: light-dark(#fff8e6, #2d2410);
+    --color-warning-surface: light-dark(#f3e8cc, #2f2a1c);
+    --color-warning-text: light-dark(#5e4510, #f1dca8);
+    --color-info: light-dark(#2a7f7a, #83d1ce);
 
     /* Lists, inputs, option buttons, and other controls */
-    --color-row: #213338;
+    --color-row: light-dark(#ebe9da, #213338);
     --color-row-open: #1c2c30;
-    --color-row-hover: #2a4047;
-    --color-input: #142126;
+    --color-row-hover: light-dark(#e0decb, #2a4047);
+    --color-input: light-dark(#fbfaf3, #142126);
+    --color-input-hover: light-dark(#f0eee2, #1c2e34);
     --color-option: #252d2e;
     --color-option-checked: #3a3b36;
     --color-option-track: #101516;
+    /* The editor's panels laid over the trail: its toasts, and the softer help line and map */
+    --color-overlay: light-dark(#f4f2e6f2, #142126f2);
+    --color-overlay-soft: light-dark(#f4f2e6d9, #142126d9);
     /* Translucent panels on the menu scenery, and the note by a form */
     --color-panel: #15232899;
     --color-note: #1f2d30;
@@ -109,13 +121,20 @@
     --color-dim: #09100d66;
     --color-dim-soft: #09100d99;
     --color-dim-menu: #0d1b20b3;
+    /* The wash over the menu's scenery, deepest behind the menu on the left */
+    --color-scenery-veil: #102226b8;
+    --color-scenery-veil-mid: #1022269e;
+    --color-scenery-veil-edge: #10222678;
+    /* The badge that marks the dev sandbox */
+    --color-sandbox: #c2410c;
+    --color-sandbox-ink: #fff;
     /* A shade pressed into a pad button's face or a colour chip */
     --color-shade: #0000002e;
 
     /* Laid over the trail: the HUD pills, the game's buttons and the toasts */
     --color-hud: #17201edb;
     --color-hud-border: #ffffff24;
-    --color-hud-divider: #ffffff1a;
+    --color-hud-divider: light-dark(#0000001a, #ffffff1a);
     --color-hud-icon: #d8ebcb;
     --color-hud-text-soft: #f4f2e9a6;
     --color-hud-button: #182321d9;
@@ -139,6 +158,21 @@
     --color-gender-male: #6fa3e6;
     --color-gender-female: #ee8db0;
 
+    /* The editor's mini map, read from script */
+    --color-map-ground: #8a9d8f;
+    --color-map-back-wall: light-dark(#c9cfc0, #4d5f59);
+    --color-map-edge: light-dark(#3f5048, #eef3e6);
+    --color-map-water: #5fa8d3;
+    --color-map-apple: #e0523a;
+    --color-map-spike: light-dark(#33403c, #e7ecea);
+    --color-map-start: #8fd18b;
+    --color-map-finish: #f0a3c8;
+    /* Flag poles and the rings round problem dots */
+    --color-map-outline: #142126;
+    /* Everything off screen, and the frame round what is on it */
+    --color-map-dim: light-dark(#eae9d98c, #0e1a1e8c);
+    --color-map-frame: light-dark(#c4531f, #fff3be);
+
     /* Shape and elevation */
     --radius-pixel: 2px;
     --radius-round: 50%;
@@ -146,6 +180,7 @@
     --shadow-pixel-small: 2px 2px 0 var(--color-shadow);
     --shadow-modal: 8px 8px 0 #0d1b2070;
     --shadow-hud: 0 4px 16px #16221c30;
+    /* Under the game's frame on a dark page; see the light theme's below. */
     --shadow-shell: 0 18px 55px #0006;
     /* Text laid over the trail, so it stays readable on a bright sky. */
     --shadow-text-scene: 2px 2px 0 #172820aa;
@@ -176,4 +211,23 @@
     --weight-regular: 400;
     --weight-bold: 700;
     --weight-heavy: 900;
+}
+
+:root[data-theme="light"] {
+    color-scheme: light;
+}
+:root[data-theme="dark"] {
+    color-scheme: dark;
+}
+
+/* The game's frame keeps its dark look in either theme, so its shadow can't
+   follow the theme by light-dark(), which would read the frame's own dark:
+   the page's theme picks it here instead. */
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+        --shadow-shell: 0 18px 50px #2a2a1a33;
+    }
+}
+:root[data-theme="light"] {
+    --shadow-shell: 0 18px 50px #2a2a1a33;
 }

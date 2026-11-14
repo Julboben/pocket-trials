@@ -60,11 +60,11 @@ Playing needs a current browser:
 
 | Browser                    | Minimum version |
 | -------------------------- | --------------- |
-| Safari (macOS, iOS/iPadOS) | 16.5            |
-| Chrome, Edge               | 112             |
-| Firefox                    | 117             |
+| Safari (macOS, iOS/iPadOS) | 17.5            |
+| Chrome, Edge               | 123             |
+| Firefox                    | 120             |
 
-The floor is set by native CSS nesting in `css/game.css` (see [Stylesheets](CONTRIBUTING.md#stylesheets)). The game also relies on JavaScript modules, `structuredClone` and `dvh` units, which these versions all support. There is no fallback: an older browser silently drops the nested rules, which breaks the phone layout and button states. The trail editor also uses `:has()`, so it needs Firefox 121 or newer.
+The floor is set by the CSS `light-dark()` colours in `css/tokens.css`, which follow the light or dark theme (see [Design tokens](CONTRIBUTING.md#design-tokens)). The game also relies on native CSS nesting, JavaScript modules, `structuredClone` and `dvh` units, which these versions all support. There is no fallback: an older browser drops the colours, which leaves the game and the editor without their backgrounds. The trail editor also uses `:has()`, so it needs Firefox 121 or newer.
 
 Development needs Node.js 24 (the version CI uses) and npm. The game itself has no build step; npm packages are only used by the scripts and the Netlify functions.
 
@@ -162,6 +162,7 @@ Editor drafts do not overwrite trail files. Official trails live in `trails/offi
 The dashboard's Settings view includes:
 
 - Performance mode, which draws lighter scenery for slower devices
+- Theme: the light or dark page around the game on larger screens and in the trail editor, following the device unless picked (the editor's **⋯** menu has the same choice)
 - Visible or hidden on-screen controls
 - Sound on or off, music on or off, and master volume
 - Screen shake (off by default when the system prefers reduced motion)

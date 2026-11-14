@@ -1,6 +1,7 @@
 // The header's "more" menu, the import/export dialog, and the validation badge.
 import { $ } from "./dom.js";
 import { fillTrailJson } from "./inspector.js";
+import { loadTheme, onThemeChange, setTheme } from "../theme.js";
 
 function items() {
   return [...$("more-menu").querySelectorAll("[role=menuitem]")].filter(
@@ -103,6 +104,12 @@ export function bindMenu() {
     dialog.showModal();
   });
   $("data-errors-show").addEventListener("click", showValidation);
+
+  // The theme is shared with the game, which may change it meanwhile.
+  const theme = /** @type {HTMLSelectElement} */ ($("editor-theme"));
+  theme.value = loadTheme();
+  theme.addEventListener("change", () => setTheme(theme.value));
+  onThemeChange(() => (theme.value = loadTheme()));
   dialog.addEventListener("click", (event) => {
     if (event.target === dialog) dialog.close();
   });

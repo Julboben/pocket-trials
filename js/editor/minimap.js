@@ -10,6 +10,7 @@
 // M hides and shows it, and the choice is remembered.
 import { flattenBoundary } from "../terrain-geometry.js";
 import { store } from "../local-store.js";
+import { onThemeChange } from "../theme.js";
 import { blocks, isBackWall } from "./blocks.js";
 import { $ } from "./dom.js";
 import { finishY, groundY, objectY, terrainBox, terrainPrint } from "./render.js";
@@ -50,7 +51,7 @@ let grab = null;
 // Validation's problems with a place on the trail, and where their dots were drawn.
 let issues = [];
 let dots = [];
-// The editor's colours, read once from its tokens.
+// The map's colours, read from the tokens once per theme.
 let colours = null;
 
 function readShown() {
@@ -78,14 +79,34 @@ export function setMinimapIssues(messages) {
   issues = messages.filter((message) => message.target);
 }
 
-function readColours() {
-  const style = getComputedStyle(document.documentElement);
-  const token = (name, fallback) => style.getPropertyValue(name).trim() || fallback;
-  return {
-    accent: token("--color-accent", "#ff8952"),
-    error: token("--color-error", "#ec7044"),
-    warning: token("--color-warning", "#e8bb66"),
+/**
+ * The map's colours, worked out on the map itself: a token given as
+ * light-dark() only becomes one colour where it is used.
+ */
+function readColours(map) {
+  const style = getComputedStyle(map);
+  const token = (value) => {
+    map.style.color = value;
+    return style.color;
   };
+  const read = {
+    accent: token("var(--color-accent)"),
+    error: token("var(--color-error)"),
+    warning: token("var(--color-warning)"),
+    ground: token("var(--color-map-ground)"),
+    backWall: token("var(--color-map-back-wall)"),
+    edge: token("var(--color-map-edge)"),
+    water: token("var(--color-map-water)"),
+    apple: token("var(--color-map-apple)"),
+    spike: token("var(--color-map-spike)"),
+    start: token("var(--color-map-start)"),
+    finish: token("var(--color-map-finish)"),
+    outline: token("var(--color-map-outline)"),
+    dim: token("var(--color-map-dim)"),
+    frame: token("var(--color-map-frame)"),
+  };
+  map.style.color = "";
+  return read;
 }
 
 /** The map's size in CSS pixels, from the canvas's width. */
@@ -173,16 +194,16 @@ function drawOutline(map, box, size) {
   // a bright line. The line is stroked before the fill, which covers its
   // inner half, so where blocks overlap only the terrain's outer edge shows.
   outlines(true);
-  ctx.fillStyle = "#4d5f59";
+  ctx.fillStyle = colours.backWall;
   ctx.fill("evenodd");
   outlines(false);
-  ctx.strokeStyle = "#eef3e6";
+  ctx.strokeStyle = colours.edge;
   ctx.lineWidth = 3 / layout.scale;
   ctx.lineJoin = "round";
   ctx.stroke();
-  ctx.fillStyle = "#8a9d8f";
+  ctx.fillStyle = colours.ground;
   ctx.fill("evenodd");
-  ctx.fillStyle = "#5fa8d3";
+  ctx.fillStyle = colours.water;
   for (const body of waters()) ctx.fillRect(body.x, body.y, body.width, body.depth);
   drawnFor = shownState(size);
   drawnAt = performance.now();
@@ -207,6 +228,7 @@ export function drawMinimap() {
   map.hidden = !shown || !box;
   if (map.hidden || !box) return;
   const size = mapSize();
+  colours ??= readColours(map);
   if (!outline || drawnFor !== shownState(size)) {
     // A drag changes the terrain every frame; the outline catches up a few
     // times a second, and once more when the drag stops. A new size can't wait.
@@ -218,7 +240,6 @@ export function drawMinimap() {
         drawMinimap();
       }, wait);
   }
-  colours ??= readColours();
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const width = Math.round(layout.width * dpr);
   const height = Math.round(layout.height * dpr);
@@ -241,12 +262,12 @@ export function drawMinimap() {
 
 /** Apples, spikes, and flags at the start and finish. */
 function drawMarks(ctx, at) {
-  ctx.fillStyle = "#e0523a";
+  ctx.fillStyle = colours.apple;
   for (const apple of editor.trail.apples) {
     const [x, y] = at(apple.x, objectY(apple, 60));
     ctx.fillRect(x - 1, y - 1, 2, 2);
   }
-  ctx.strokeStyle = "#e7ecea";
+  ctx.strokeStyle = colours.spike;
   ctx.lineWidth = 1;
   for (const spike of editor.trail.spikes) {
     const [x, y] = at(spike.x, objectY(spike));
@@ -258,14 +279,14 @@ function drawMarks(ctx, at) {
     ctx.stroke();
   }
   const { start, finish } = editor.trail;
-  flag(ctx, ...at(start.x, Number.isFinite(start.y) ? start.y : groundY(start.x)), "#8fd18b");
-  flag(ctx, ...at(finish.x, finishY()), "#f0a3c8");
+  flag(ctx, ...at(start.x, Number.isFinite(start.y) ? start.y : groundY(start.x)), colours.start);
+  flag(ctx, ...at(finish.x, finishY()), colours.finish);
 }
 
 /** A flag on a pole, standing on (x, y), a few pixels high whatever the scale. */
 function flag(ctx, x, y, colour) {
   const px = Math.round(x) + 0.5;
-  ctx.strokeStyle = "#142126";
+  ctx.strokeStyle = colours.outline;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(px, y);
@@ -289,9 +310,9 @@ function drawView(ctx, at) {
   ctx.beginPath();
   ctx.rect(0, 0, layout.width, layout.height);
   ctx.rect(left, top, across, down);
-  ctx.fillStyle = "#0e1a1e8c";
+  ctx.fillStyle = colours.dim;
   ctx.fill("evenodd");
-  ctx.strokeStyle = "#fff3be";
+  ctx.strokeStyle = colours.frame;
   ctx.lineWidth = 1.5;
   ctx.strokeRect(left, top, across, down);
 }
@@ -322,7 +343,7 @@ function drawIssues(ctx, at) {
     ctx.arc(x, y, 3.5, 0, Math.PI * 2);
     ctx.fillStyle = message.type === "error" ? colours.error : colours.warning;
     ctx.fill();
-    ctx.strokeStyle = "#142126";
+    ctx.strokeStyle = colours.outline;
     ctx.lineWidth = 1.5;
     ctx.stroke();
     dots.push({ x, y, message });
@@ -353,6 +374,11 @@ const HINT = "Click or drag to go there. M hides it.";
 export function bindMinimap() {
   const map = $("minimap");
   if (!map) return;
+  onThemeChange(() => {
+    colours = null;
+    drawnFor = null;
+    drawMinimap();
+  });
   map.addEventListener("pointerdown", (event) => {
     if (!layout || event.button !== 0) return;
     event.preventDefault();

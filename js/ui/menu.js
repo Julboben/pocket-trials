@@ -14,6 +14,7 @@ import { ONLINE_LEADERBOARD_EVENT, ONLINE_STANDINGS_EVENT, boardStatus, isOnline
 import { registerRider, loginRider, deleteRider, accountErrorText, passkeysSupported, queueSaveSync, fetchCloudSave, fetchNotifications } from '../account.js';
 import { NOTIFICATIONS_EVENT, lastNoticeId, markRead, notificationsFor, notify, setLastNoticeId, unreadCount } from '../notifications.js';
 import { isSandbox } from '../local-store.js';
+import { loadTheme, onThemeChange, setTheme } from '../theme.js';
 import { NAME_HINT, disallowedNameChars } from '../rider-name.js';
 import { RIDE_VERSION } from '../ride.js';
 import { normalizeAuthor, normalizeTrail, validateTrail, medalFor } from '../trail-schema.js';
@@ -1933,11 +1934,14 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   }
   window.addEventListener('gamepadconnected', syncVibrationSetting);
   window.addEventListener('gamepaddisconnected', syncVibrationSetting);
+  // Picked here, in the editor or, for System, by the device.
+  onThemeChange(syncSettings);
 
   function syncSettings() {
     syncVibrationSetting();
     document.querySelectorAll('.setting-option[data-setting]').forEach(button => {
-      const value = button.dataset.setting === 'ghost' ? ghostMode() : session.preferences[button.dataset.setting];
+      const { setting } = button.dataset;
+      const value = setting === 'ghost' ? ghostMode() : setting === 'theme' ? loadTheme() : session.preferences[setting];
       button.setAttribute('aria-pressed', String(value === button.dataset.value));
     });
     document.querySelectorAll('.setting-switch[data-setting]').forEach(button => showSwitch(button, session.preferences[button.dataset.setting]));
@@ -2113,6 +2117,8 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
   document.querySelectorAll('[data-setting]').forEach(button => {
     button.addEventListener('click', () => {
       const { setting } = button.dataset;
+      // The theme is kept apart from the preferences, as the editor shares it.
+      if (setting === 'theme') { setTheme(button.dataset.value); return; }
       if (setting === 'ghost') setGhostMode(button.dataset.value);
       else if (button.matches('.setting-switch')) {
         session.preferences[setting] = session.preferences[setting] === button.dataset.on ? button.dataset.off : button.dataset.on;
@@ -2142,6 +2148,7 @@ export function createMenu({ sounds, input, onStartTrail, onStartBonus, onStartC
     button.textContent = 'RESET ALL SETTINGS';
     session.preferences = sanitizePreferences({});
     setGhostMode(session.preferences.ghost);
+    setTheme('system');
     persistPreferences();
     drawBackground();
   });

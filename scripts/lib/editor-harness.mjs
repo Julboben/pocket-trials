@@ -215,6 +215,7 @@ export function installGlobals() {
     querySelector: selector => selectAll(selector)[0] || null,
     createElement: tag => new Element(tag),
     createElementNS: (ns, tag) => new Element(tag),
+    documentElement: new Element('html'),
     body: new Element('body'),
     getSelection: () => null,
     // Recorded so clipboard events can be driven.
@@ -231,6 +232,8 @@ export function installGlobals() {
     removeItem(key) { this.store.delete(key); },
   });
   set('navigator', { userAgent: 'node' });
+  // No device here: every media query is unmatched and never changes.
+  set('matchMedia', () => ({ matches: false, addEventListener() {} }));
   set('ResizeObserver', class { observe() {} disconnect() {} unobserve() {} });
   set('WheelEvent', { DOM_DELTA_LINE: 1 });
   set('requestAnimationFrame', callback => {
